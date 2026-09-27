@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { AccessError } from "@/lib/access/guards";
+import type { ZodError } from "zod";
+
+import { actionFailure } from "@/lib/actions/result";
+import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as adjustments from "@/lib/modules/inventory/documents/adjustment.service";
@@ -43,60 +46,47 @@ function revalidateInventory(recordPath?: string) {
   revalidatePath("/dashboard");
 }
 
+/** A refusal the form can place (AUD-09 §3, §6): see `actionFailure`. */
 function toResult(error: unknown): InventoryActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code };
-  }
-
-  console.error("[inventory] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "inventory");
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): InventoryActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/**
+ * Invalid input under canonical paths (AUD-09 §3, §7, FV-16): a line's error
+ * is `lines.<index>.<field>`, the index being the row's submitted position.
+ */
+function invalid(error: ZodError, submitted: number[] | null = null): InventoryActionResult {
+  return invalidInput(error, submitted ? { lines: submitted } : {});
 }
+
+const LINE_FIELDS = [
+  "id",
+  "inventoryItemId",
+  "locationId",
+  "fromLocationId",
+  "toLocationId",
+  "quantity",
+  "quantityDelta",
+  "notes",
+  "goodsReceiptItemId",
+];
 
 /**
  * Reads a form that carries repeated line fields.
  *
- * Lines arrive as `lines[0][inventoryItemId]` and so on, because an HTML form
- * has no nested objects and a JSON blob in a hidden field is a thing nobody can
- * debug from the network tab.
+ * Lines arrive as `lines.0.inventoryItemId` (or the older
+ * `lines[0][inventoryItemId]`), because an HTML form has no nested objects and
+ * a JSON blob in a hidden field is a thing nobody can debug from the network
+ * tab. A row with no item is dropped — but every kept row remembers the index
+ * it was submitted as, so its error lands on it and not on a neighbour.
  */
 function formValues(formData: FormData): {
   values: Record<string, unknown>;
   lines: Record<string, string>[];
+  submitted: number[];
 } {
-  const values: Record<string, unknown> = {};
-  const rows = new Map<number, Record<string, string>>();
-
-  for (const [key, value] of formData.entries()) {
-    if (typeof value !== "string") continue;
-
-    const match = /^lines\[(\d+)\]\[(\w+)\]$/.exec(key);
-    if (match) {
-      const index = Number.parseInt(match[1]!, 10);
-      const row = rows.get(index) ?? {};
-      row[match[2]!] = value;
-      rows.set(index, row);
-      continue;
-    }
-
-    values[key] = value;
-  }
-
-  const lines = [...rows.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, row]) => row)
-    // A line the user cleared is dropped rather than failing validation.
-    .filter((row) => (row.inventoryItemId ?? "").trim() !== "");
-
-  return { values, lines };
+  const rows = readSubmittedLines(formData, "lines", LINE_FIELDS, (row) => (row.inventoryItemId ?? "").trim() !== "");
+  return { values: scalarFormValues(formData), lines: rows.lines, submitted: rows.submitted };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -265,29 +255,29 @@ export async function createDocumentAction(
   formData: FormData,
 ): Promise<InventoryActionResult> {
   const context = await requireCompanyContext();
-  const { values, lines } = formValues(formData);
+  const { values, lines, submitted } = formValues(formData);
 
   let id: string;
   try {
     if (kind === "receipts") {
       const parsed = receiptSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       id = (await receipts.createReceipt(context, parsed.data)).id;
     } else if (kind === "issues") {
       const parsed = issueSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       id = (await issues.createIssue(context, parsed.data)).id;
     } else if (kind === "returns") {
       const parsed = returnSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       id = (await returns.createReturn(context, parsed.data)).id;
     } else if (kind === "transfers") {
       const parsed = transferSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       id = (await transfers.createTransfer(context, parsed.data)).id;
     } else {
       const parsed = adjustmentSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       id = (await adjustments.createAdjustment(context, parsed.data)).id;
     }
   } catch (error) {
@@ -304,28 +294,28 @@ export async function updateDocumentAction(
   formData: FormData,
 ): Promise<InventoryActionResult> {
   const context = await requireCompanyContext();
-  const { values, lines } = formValues(formData);
+  const { values, lines, submitted } = formValues(formData);
 
   try {
     if (kind === "receipts") {
       const parsed = receiptSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       await receipts.updateReceipt(context, documentId, parsed.data);
     } else if (kind === "issues") {
       const parsed = issueSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       await issues.updateIssue(context, documentId, parsed.data);
     } else if (kind === "returns") {
       const parsed = returnSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       await returns.updateReturn(context, documentId, parsed.data);
     } else if (kind === "transfers") {
       const parsed = transferSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       await transfers.updateTransfer(context, documentId, parsed.data);
     } else {
       const parsed = adjustmentSchema.safeParse({ ...values, lines });
-      if (!parsed.success) return invalid(parsed.error);
+      if (!parsed.success) return invalid(parsed.error, submitted);
       await adjustments.updateAdjustment(context, documentId, parsed.data);
     }
   } catch (error) {
@@ -403,15 +393,32 @@ export async function postFromGoodsReceiptAction(
   formData: FormData,
 ): Promise<InventoryActionResult> {
   const context = await requireCompanyContext();
-  const { values, lines } = formValues(formData);
+  const { values, lines, submitted } = formValues(formData);
 
   const warehouseId = typeof values.warehouseId === "string" ? values.warehouseId : "";
   if (!warehouseId) {
-    return { ok: false, error: "Choose the warehouse it is going into." };
+    const message = "Choose the warehouse it is going into.";
+    return { ok: false, code: "VALIDATION_ERROR", error: message, fieldErrors: { warehouseId: [message] } };
+  }
+
+  // A mapped line without a location is refused on that line, not silently
+  // dropped; a delivery line mapped twice is refused rather than booked twice
+  // (AUD-09 §7, FV-16).
+  const fieldErrors: Record<string, string[]> = {};
+  const seen = new Set<string>();
+  lines.forEach((line, position) => {
+    const index = submitted[position];
+    if (!(line.goodsReceiptItemId ?? "").trim()) return;
+    if (!(line.locationId ?? "").trim()) fieldErrors[`lines.${index}.locationId`] = ["Choose a location for this line."];
+    if (seen.has(line.goodsReceiptItemId!)) fieldErrors[`lines.${index}.goodsReceiptItemId`] = ["This delivery line is already mapped."];
+    seen.add(line.goodsReceiptItemId!);
+  });
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, code: "VALIDATION_ERROR", error: "Please review the highlighted lines.", fieldErrors };
   }
 
   const mapped = lines
-    .filter((line) => (line.goodsReceiptItemId ?? "") !== "" && (line.locationId ?? "") !== "")
+    .filter((line) => (line.goodsReceiptItemId ?? "") !== "")
     .map((line) => ({
       goodsReceiptItemId: line.goodsReceiptItemId!,
       inventoryItemId: line.inventoryItemId!,
@@ -419,7 +426,7 @@ export async function postFromGoodsReceiptAction(
     }));
 
   if (mapped.length === 0) {
-    return { ok: false, error: "Map at least one accepted delivery line to an inventory item." };
+    return { ok: false, code: "VALIDATION_ERROR", error: "Map at least one accepted delivery line to an inventory item." };
   }
 
   let id: string;

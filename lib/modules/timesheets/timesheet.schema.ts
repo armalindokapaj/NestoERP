@@ -41,7 +41,25 @@ export const workLogInputSchema = z.object({
 
 export type WorkLogInput = z.infer<typeof workLogInputSchema>;
 
-export const workLogUpdateSchema = workLogInputSchema.extend({ updatedAt: z.string().datetime().optional() });
+/**
+ * An edit of an entry. The day, kind and minutes are the entry and are always
+ * sent; the project, task, description and overtime flag may be absent, and
+ * absent keeps what is stored — a PATCH no longer unlinks the task or clears
+ * the flag it did not mention (AUD-09 §4, FV-05). Null or empty clears.
+ */
+export const workLogUpdateSchema = workLogInputSchema.extend({
+  projectId: z.string().regex(ID).nullable().optional(),
+  taskId: z.string().regex(ID).nullable().optional(),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Keep the description under 2,000 characters.")
+    .nullable()
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value || null)),
+  overtimeFlag: z.boolean().optional(),
+  updatedAt: z.string().datetime().optional(),
+});
 export type WorkLogUpdateInput = z.infer<typeof workLogUpdateSchema>;
 
 /** One grid cell: the row it belongs to, the day, and the new total for that row that day (§47). */

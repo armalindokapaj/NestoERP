@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { isFailure } from "@/components/project-planning/planning-api";
+import { parseOptionalDecimal, type DecimalRule } from "@/lib/forms/decimal";
 import { cn } from "@/lib/utils/cn";
 
 export { failureMessage, isFailure, planningApi as structureApi } from "@/components/project-planning/planning-api";
@@ -85,7 +86,35 @@ export function countText(value: number | null): string {
 
 export const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
-/** A number field that keeps what was typed as text, so "12." is not lost mid-typing. */
+/**
+ * A number field that keeps what was typed as text, so "12." is not lost
+ * mid-typing. It no longer turns a comma into a point: `1,234` is a thousand
+ * to one reader and 1.234 to another, and the shared locale rule
+ * (`lib/forms/decimal`, the same as finance) refuses it rather than guess
+ * (AUD-09 §4, FV-06). Letters are dropped; separators and spaces are kept for
+ * the rule to judge.
+ */
 export function numberText(value: string) {
-  return value.replace(/[^\d.,-]/g, "").replace(",", ".");
+  return value.replace(/[^\d.,\s\u00a0\u202f-]/g, "");
+}
+
+/** An area in m²: two decimals, within DECIMAL(12,2), never negative (E-05B §23). */
+export const areaRule = (label: string): DecimalRule => ({ label, scale: 2, maxIntegerDigits: 10 });
+/** Metres (frontage, ceiling height): two decimals, within DECIMAL(10,2); may be below the datum. */
+export const metresRule = (label: string): DecimalRule => ({ label, scale: 2, maxIntegerDigits: 8, allowNegative: true });
+
+/**
+ * What a typed number sends: the canonical decimal string when the shared
+ * rule reads it, `null` when empty, and the text as typed otherwise — so the
+ * server refuses it on its field instead of the form guessing (FV-06).
+ */
+export function decimalPayload(text: string, rule: DecimalRule): string | null {
+  const parsed = parseOptionalDecimal(text, rule);
+  return parsed.ok ? parsed.value : text.trim();
+}
+
+/** The shared rule's sentence for a typed number, or null when it reads (or is empty). */
+export function decimalProblem(text: string, rule: DecimalRule): string | null {
+  const parsed = parseOptionalDecimal(text, rule);
+  return parsed.ok ? null : parsed.message;
 }

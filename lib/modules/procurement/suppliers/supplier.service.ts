@@ -16,7 +16,7 @@ import {
   narrowToCompany,
   unionWhere,
 } from "../procurement.workspace";
-import type { SupplierInput, SupplierListQuery } from "../procurement.schema";
+import type { SupplierInput, SupplierListQuery, SupplierUpdateInput } from "../procurement.schema";
 import { supplierStatusLabels } from "../procurement.status";
 import { supplierMachine } from "./supplier.machine";
 
@@ -407,7 +407,7 @@ export async function createSupplier(
 export async function updateSupplier(
   context: UserContext,
   supplierId: string,
-  input: SupplierInput,
+  input: SupplierUpdateInput,
 ): Promise<SupplierDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.supplier.update");
@@ -415,7 +415,7 @@ export async function updateSupplier(
   const existing = assertFound(
     await prisma.supplier.findFirst({
       where: { AND: [buildSupplierWhere(context), { id: supplierId }] },
-      select: { id: true, name: true, status: true, archivedAt: true, updatedAt: true },
+      select: { id: true, name: true, status: true, supplierType: true, archivedAt: true, updatedAt: true },
     }),
   );
 
@@ -427,6 +427,11 @@ export async function updateSupplier(
 
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
+  // Type and status have no default on an edit (AUD-09 §4, FV-05): a request
+  // that leaves them out keeps what is saved instead of reactivating.
+  const status = input.status ?? existing.status;
+  const supplierType = input.supplierType ?? existing.supplierType;
+
   await prisma.$transaction(async (tx) => {
     await assertCodeIsFree(tx, context, input.code, supplierId);
 
@@ -434,7 +439,7 @@ export async function updateSupplier(
       code: input.code ?? null,
       name: input.name,
       legalName: input.legalName ?? null,
-      supplierType: input.supplierType,
+      supplierType,
       email: input.email ?? null,
       phone: input.phone ?? null,
       website: input.website ?? null,
@@ -454,10 +459,10 @@ export async function updateSupplier(
     // supplier; one saved with the same status is an edit. Both are bound to
     // the status the form was opened on, so neither lands on a supplier
     // archived meanwhile, nor puts one back to active behind the archive.
-    if (input.status !== existing.status) {
+    if (status !== existing.status) {
       await applyTransition(tx, {
         machine: supplierMachine,
-        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        action: status === "ACTIVE" ? "activate" : "deactivate",
         id: supplierId,
         context,
         from: existing.status,
@@ -482,9 +487,9 @@ export async function updateSupplier(
       action: "PROCUREMENT_SUPPLIER_UPDATED",
       message: `updated supplier ${input.name}`,
       metadata:
-        existing.status === input.status
+        existing.status === status
           ? undefined
-          : changeMetadata({ status: { from: existing.status, to: input.status } }),
+          : changeMetadata({ status: { from: existing.status, to: status } }),
     });
   });
 

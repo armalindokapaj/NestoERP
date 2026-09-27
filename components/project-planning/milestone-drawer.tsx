@@ -6,7 +6,7 @@ import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Pl
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { FavoriteButton } from "@/components/productivity/favorite-button";
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import type { SaveKind, SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 import type { DrawerPanel } from "./milestone-list";
 import { MilestoneFormDialog } from "./milestone-form";
-import { failureMessage, planningApi } from "./planning-api";
+import { failureMessage, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID } from "./use-values-editor";
 import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
 
@@ -341,7 +341,7 @@ function MilestoneDrawerBody({
             expectedVersion: detail.version,
             status: quick.status,
             forecastDate: quick.forecastDate || null,
-            progressPercent: quick.progress === "" ? null : Number(quick.progress),
+            progressPercent: numberOrRaw(quick.progress),
             forecastReason: quick.reason || null,
           },
         }),
@@ -362,7 +362,7 @@ function MilestoneDrawerBody({
       if (detail) void load(detail.id);
     },
   });
-  const uploading = upload.items.some((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
+  const uploading = upload.items.some((item) => UPLOAD_IN_FLIGHT.includes(item.status));
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const quickDirty = Boolean(detail && quick && (quick.status !== detail.status || quick.forecastDate !== (detail.forecastDate ?? "") || quick.progress !== (detail.progressPercent === null ? "" : String(detail.progressPercent))));

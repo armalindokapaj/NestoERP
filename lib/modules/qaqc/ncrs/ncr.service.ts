@@ -446,8 +446,11 @@ export async function updateNcr(
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   const projectId = input.projectId ? (await requireProject(context, input.projectId)).id : null;
-  if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
-  if (input.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  // Stored people are kept even if they have since left: only a new choice must be active (AUD-09 §5, FV-09).
+  if (input.assignedToMemberId && input.assignedToMemberId !== existing.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+  if (input.ownerMemberId && input.ownerMemberId !== existing.ownerMemberId) await requireMember(context, input.ownerMemberId);
+  // Reassigning through the edit form is still an assignment (AUD-09 §4, FV-04; AUD-06).
+  if ((input.assignedToMemberId ?? null) !== existing.assignedToMemberId) assertPermission(context, "qaqc.ncr.assign");
   const links = await resolveLinks(context, input, projectId, existing);
 
   await prisma.$transaction(async (tx) => {
@@ -1009,6 +1012,8 @@ async function requireNcr(context: UserContext, ncrId: string) {
         goodsReceiptId: true,
         goodsReceiptItemId: true,
         sourceDefectId: true,
+        assignedToMemberId: true,
+        ownerMemberId: true,
       },
     }),
   );
@@ -1032,10 +1037,18 @@ type NcrLinks = {
  */
 async function resolveLinks(
   context: UserContext,
-  input: NcrInput,
+  sent: NcrInput,
   projectId: string | null,
   existing: (NcrLinks & { projectId: string | null }) | null,
 ): Promise<NcrLinks> {
+  /*
+   * A delivery the form did not carry is the stored one, and so is its line
+   * while the delivery stays the same (AUD-09 §4, §5, FV-05): the field is not
+   * rendered for a reader who cannot see deliveries, and the line never is.
+   */
+  const goodsReceiptId = sent.goodsReceiptId === undefined ? (existing?.goodsReceiptId ?? null) : sent.goodsReceiptId;
+  const goodsReceiptItemId = sent.goodsReceiptItemId !== undefined ? sent.goodsReceiptItemId : existing && existing.goodsReceiptId === goodsReceiptId ? existing.goodsReceiptItemId : null;
+  const input = { ...sent, goodsReceiptId, goodsReceiptItemId };
   const moved = existing !== null && existing.projectId !== projectId;
   const fresh = (field: keyof NcrLinks) =>
     Boolean(input[field]) && (existing === null || moved || input[field] !== existing[field]);

@@ -19,17 +19,27 @@ import { documentFields, rfiFields, submittalFields, type ProjectOptions } from 
 
 const EMPTY: ProjectOptions = { contractors: [], workPackages: [], members: [], reviewers: [] };
 
+/**
+ * The dialog's options, read when it is first opened. A failed read is said
+ * and not cached: the dialog stays closed and the next click tries again. It
+ * used to open anyway with empty lists, and an edit then sent "no supplier"
+ * for a submittal that had one (AUD-09 §5, FV-09). Resolves whether it loaded.
+ */
 function useProjectOptions(projectId: string, kind: "rfi" | "submittal" | "document") {
+  const toast = useToast();
   const [options, setOptions] = React.useState<ProjectOptions>(EMPTY);
   const [loaded, setLoaded] = React.useState(false);
-  const load = React.useCallback(async () => {
-    if (loaded) return;
+  const load = React.useCallback(async (): Promise<boolean> => {
+    if (loaded) return true;
     try {
       setOptions(await engineeringApi<ProjectOptions>(`/api/projects/${projectId}/engineering/options?for=${kind}`));
-    } finally {
       setLoaded(true);
+      return true;
+    } catch (failure) {
+      toast({ title: `Couldn't load the choices for this form. ${failureMessage(failure)}`, tone: "danger" });
+      return false;
     }
-  }, [kind, loaded, projectId]);
+  }, [kind, loaded, projectId, toast]);
   return { options, load, loaded };
 }
 
@@ -49,7 +59,7 @@ export function NewRfiButton({ projectId, defaults }: { projectId: string; defau
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
   return (
     <>
-      <OpenButton label="New RFI" testId="new-rfi" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label="New RFI" testId="new-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
@@ -79,7 +89,7 @@ export function EditRfiButton({ projectId, rfi }: { projectId: string; rfi: Reco
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-rfi" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
@@ -107,7 +117,7 @@ export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITT
   const { options, load, loaded } = useProjectOptions(projectId, "submittal");
   return (
     <>
-      <OpenButton label={label} testId="new-submittal" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label={label} testId="new-submittal" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
@@ -136,7 +146,7 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
   const { options, load, loaded } = useProjectOptions(projectId, "submittal");
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-submittal" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-submittal" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
@@ -165,7 +175,7 @@ export function NewDocumentButton({ projectId, drawing = false }: { projectId: s
   const label = drawing ? "Register drawing" : "Register document";
   return (
     <>
-      <OpenButton label={label} testId="new-document" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label={label} testId="new-document" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
@@ -194,7 +204,7 @@ export function EditDocumentButton({ projectId, document }: { projectId: string;
   const { options, load, loaded } = useProjectOptions(projectId, "document");
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-document" onOpen={() => void load().then(() => setOpen(true))} />
+      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-document" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"

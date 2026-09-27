@@ -97,3 +97,36 @@ export function dateRange<T extends Record<string, unknown>>(pairs: Array<[keyof
     }
   };
 }
+
+/**
+ * A field of an edit where absent is its own answer (AUD-09 §4, FV-05): absent
+ * stays `undefined`, which the service keeps and Prisma leaves alone; empty or
+ * null still reaches `schema`, which clears it. A dialog that did not render a
+ * field — a supplier list the reader cannot open, a contract Legal keeps, an
+ * address line the dialog never had — no longer erases what is stored.
+ *
+ * AUD-09: candidate for lib/forms.
+ */
+export function keepable<T extends z.ZodType>(schema: T) {
+  return z
+    .unknown()
+    .transform((value, ctx): z.output<T> => {
+      const parsed = schema.safeParse(value);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) ctx.addIssue({ code: "custom", message: issue.message, path: issue.path as PropertyKey[] });
+        return z.NEVER;
+      }
+      return parsed.data;
+    })
+    .optional();
+}
+
+/** Every field of a shape made `keepable`: an edit that names only what it changes. */
+export function keepAll<S extends Record<string, z.ZodType>>(shape: S): { [K in keyof S]: ReturnType<typeof keepable<S[K]>> } {
+  return Object.fromEntries(Object.entries(shape).map(([key, schema]) => [key, keepable(schema)])) as { [K in keyof S]: ReturnType<typeof keepable<S[K]>> };
+}
+
+/** The stored value when the edit did not name the field (AUD-09 §4, FV-05). */
+export function kept<T>(sent: T | undefined, stored: T): T {
+  return sent === undefined ? stored : sent;
+}

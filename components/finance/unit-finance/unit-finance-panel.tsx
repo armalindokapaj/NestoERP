@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { compareDecimal, isZeroDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -454,8 +455,11 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
           { label: "Balance", type: "BALANCE", amount: "", dueDate: "" },
         ];
   const [rows, setRows] = React.useState<Row[]>(initial);
-  const total = rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-  const target = finance.scheduleTarget ? Number(finance.scheduleTarget) : null;
+  // Exact previews (AUD-09 §4, FV-06): a row that is not yet a number counts
+  // as nothing here, and the server refuses it with the row's own error.
+  const total = sumDecimal(rows.map((row) => previewDecimal(row.amount, 2) ?? "0"), 2);
+  const target = finance.scheduleTarget ?? null;
+  const offTarget = target !== null && compareDecimal(total, target) !== 0;
   const update = (index: number, patch: Partial<Row>) => setRows((current) => current.map((row, at) => (at === index ? { ...row, ...patch } : row)));
   // Rows added or removed count as much as a typed amount (AUD-03 §3).
   const changed = useOpenedWith(true, rows);
@@ -514,9 +518,9 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
         <Button type="button" variant="secondary" size="sm" onClick={() => setRows((current) => [...current, { label: `Installment ${current.length + 1}`, type: "INSTALLMENT", amount: "", dueDate: "" }])}>
           <Plus aria-hidden="true" /> Add installment
         </Button>
-        <p className={`text-table tabular-nums ${target !== null && Math.abs(total - target) > 0.004 ? "text-warning-strong" : "text-fg"}`} data-testid="schedule-total">
-          Total {amountLabel(total.toFixed(2), currency)}
-          {target !== null ? ` of ${amountLabel(target.toFixed(2), currency)} needed` : ""}
+        <p className={`text-table tabular-nums ${offTarget ? "text-warning-strong" : "text-fg"}`} data-testid="schedule-total">
+          Total {amountLabel(total, currency)}
+          {target !== null ? ` of ${amountLabel(target, currency)} needed` : ""}
         </p>
       </div>
     </FormDialog>
@@ -594,8 +598,10 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
   const [duplicates, setDuplicates] = React.useState<Array<{ paymentDate: string; amount: string; reference: string | null }> | null>(null);
 
   const changed = useOpenedWith(true, [amount, date, method, reference, notes, allocations]);
-  const allocated = Object.values(allocations).reduce((sum, value) => sum + (Number(value) || 0), 0);
-  const left = (Number(amount) || 0) - allocated;
+  const allocated = sumDecimal(Object.values(allocations).map((value) => previewDecimal(value, 2) ?? "0"), 2);
+  const paid = previewDecimal(amount, 2) ?? "0";
+  const left = sumDecimal([paid, allocated.startsWith("-") ? allocated.slice(1) : `-${allocated}`], 2);
+  const over = left.startsWith("-") && !isZeroDecimal(left);
 
   function send(acceptDuplicate: boolean) {
     const body = {
@@ -669,8 +675,8 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
               setAllocations((current) => ({ ...current, [id]: value }));
             }}
           />
-          <p className={`text-right text-table tabular-nums ${left < -0.004 ? "text-danger-strong" : "text-fg-muted"}`} data-testid="payment-unallocated">
-            {left < -0.004 ? `Allocated ${amountLabel((-left).toFixed(2), currency)} more than the payment` : `Unallocated ${amountLabel(Math.max(0, left).toFixed(2), currency)}`}
+          <p className={`text-right text-table tabular-nums ${over ? "text-danger-strong" : "text-fg-muted"}`} data-testid="payment-unallocated">
+            {over ? `Allocated ${amountLabel(left.slice(1), currency)} more than the payment` : `Unallocated ${amountLabel(left, currency)}`}
           </p>
         </>
       ) : null}

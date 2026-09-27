@@ -42,6 +42,28 @@ export async function taskFormOptions(context: UserContext, selectedProjectId?: 
 }
 
 /**
+ * The assignee picker's options for one project, asked for again when the
+ * form's project changes (AUD-09 §5, FV-08). `null` means no project: any
+ * active member (or only yourself, without `task.assign`). A project the
+ * reader cannot reach — or one archived since the form opened — answers
+ * `unavailable` rather than the company directory, so a guessed id learns
+ * nothing about a team (PRD #47 §62).
+ */
+export async function taskAssigneeOptions(
+  context: UserContext,
+  projectId: string | null,
+): Promise<{ ok: true; options: Array<{ value: string; label: string }> } | { ok: false; code: "PROJECT_UNAVAILABLE" }> {
+  const mayAssignOthers = can(context, "task.assign");
+  if (!projectId) return { ok: true, options: await loadAssignees(context, mayAssignOthers, null) };
+  const project = await prisma.project.findFirst({
+    where: { AND: [buildProjectScopeWhere(context), { id: projectId, archivedAt: null, status: { not: "ARCHIVED" } }] },
+    select: { id: true },
+  });
+  if (!project) return { ok: false, code: "PROJECT_UNAVAILABLE" };
+  return { ok: true, options: await loadAssignees(context, mayAssignOthers, project.id) };
+}
+
+/**
  * The selected project, only when the reader can reach it (PRD #47 §62).
  *
  * The id arrives from a query string. Listing "the team of project X" for an id

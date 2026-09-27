@@ -23,7 +23,7 @@ import {
   verifyContent,
 } from "@/lib/core/storage";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { canAttachToDocumentParent, canChangeDocumentFile, resolveDocumentParent } from "../document.parent-access";
+import { canAttachToDocumentParent, canChangeDocumentFile, resolveDocumentParent, type DocumentParentRef } from "../document.parent-access";
 import * as quota from "./quota.service";
 import { frozenFileReason, lockDocumentForSwap, promoteVersion } from "./version.promote";
 import { runScanForDocument } from "./scan.service";
@@ -100,26 +100,17 @@ export async function createUploadSession(
   const provider = storageProvider();
   const expiresAt = new Date(Date.now() + UPLOAD_SESSION_TTL_MS);
 
-  const { documentId, sessionId, storageKey } = await prisma.$transaction(async (tx) => {
+  const { documentId, sessionId, storageKey } = await withIdempotentSessionRace(options.idempotencyKey, () => prisma.$transaction(async (tx) => {
     // Repeating a create with the same key returns the session already open
     // rather than opening a second one and stranding the first
-    // (PRD #29 §261, §262).
-    if (options.idempotencyKey) {
-      const existing = await tx.documentUploadSession.findFirst({
-        where: {
-          companyId: context.companyId,
-          memberId: context.membershipId,
-          idempotencyKey: options.idempotencyKey,
-        },
-      });
-      if (existing && (existing.status === "CREATED" || existing.status === "UPLOADING")) {
-        return {
-          documentId: existing.documentId,
-          sessionId: existing.id,
-          storageKey: existing.storageKey,
-        };
-      }
-    }
+    // (PRD #29 §261, §262). What an earlier attempt under the key settled as
+    // decides the rest (AUD-09 §8, FV-18): see `replayUploadKey`.
+    const replay = await replayUploadKey(tx, context, options.idempotencyKey, {
+      fileName: input.fileName,
+      sizeBytes: input.sizeBytes,
+      parent: ref,
+    });
+    if (replay) return replay;
 
     await quota.assertQuotaAllows(tx, context.companyId, input.sizeBytes);
 
@@ -201,7 +192,7 @@ export async function createUploadSession(
     });
 
     return { documentId: newDocumentId, sessionId: session.id, storageKey: key };
-  });
+  }));
 
   const upload = await provider.createUploadUrl({
     storageKey,
@@ -717,6 +708,110 @@ async function transition(
   }
 }
 
+type SessionReplay = { documentId: string; sessionId: string; storageKey: string; versionId: string | null };
+
+/**
+ * What an `Idempotency-Key` this member already used means (PRD #29 §261,
+ * §262; AUD-09 §8, FV-18).
+ *
+ * The key names one upload of one file: the browser picks it when the file is
+ * chosen and keeps it for every retry of that file (a new choice of file is a
+ * new key). So the earlier attempt under it decides:
+ *
+ *   open session            the same session again, with a fresh URL
+ *   open but out of time    expired now, its reservation released, and a new
+ *                           session opened under the key
+ *   completed               refused as UPLOAD_ALREADY_COMPLETED, carrying the
+ *                           document id, so a retry after a lost response finds
+ *                           its file instead of making a second document (or a
+ *                           second version number)
+ *   failed / expired /      the key is released from the dead session and a
+ *   aborted                 new one opens — before AUD-09 the unique index
+ *                           turned this retry into an unhandled 500
+ *
+ * The same key on a different file, size or parent is refused rather than
+ * answered with somebody else's session (`UPLOAD_KEY_REUSED`).
+ */
+async function replayUploadKey(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  key: string | undefined,
+  expected: { fileName: string; sizeBytes: number } & ({ parent: DocumentParentRef } | { documentId: string }),
+): Promise<SessionReplay | null> {
+  if (!key) return null;
+  const existing = await tx.documentUploadSession.findFirst({
+    where: { companyId: context.companyId, memberId: context.membershipId, idempotencyKey: key },
+    select: {
+      id: true,
+      documentId: true,
+      documentVersionId: true,
+      storageKey: true,
+      status: true,
+      expiresAt: true,
+      expectedFileName: true,
+      expectedSizeBytes: true,
+      document: { select: { projectId: true, clientId: true, entityType: true, entityId: true } },
+    },
+  });
+  if (!existing) return null;
+
+  // A first upload's session carries version 1; a later version's, a later
+  // one — or none at all once that version was cancelled and removed.
+  const version = existing.documentVersionId
+    ? await tx.documentVersion.findUnique({ where: { id: existing.documentVersionId }, select: { versionNumber: true } })
+    : null;
+  const sameFile = existing.expectedFileName === expected.fileName && existing.expectedSizeBytes === BigInt(expected.sizeBytes);
+  const samePlace =
+    "documentId" in expected
+      ? existing.documentId === expected.documentId && existing.documentVersionId !== null && (version?.versionNumber ?? 2) > 1
+      : (version?.versionNumber ?? 1) === 1 &&
+        existing.document.projectId === expected.parent.projectId &&
+        existing.document.clientId === expected.parent.clientId &&
+        existing.document.entityType === expected.parent.entityType &&
+        existing.document.entityId === expected.parent.entityId;
+  if (!sameFile || !samePlace) {
+    throw new AccessError("CONFLICT", "That upload key belongs to a different file. Choose the file again.", { code: "UPLOAD_KEY_REUSED" });
+  }
+
+  const open = existing.status === "CREATED" || existing.status === "UPLOADING";
+  if (open && existing.expiresAt.getTime() > Date.now()) {
+    return { documentId: existing.documentId, sessionId: existing.id, storageKey: existing.storageKey, versionId: existing.documentVersionId };
+  }
+  if (existing.status === "COMPLETED") {
+    throw new AccessError("CONFLICT", "This file has already been uploaded.", {
+      code: "UPLOAD_ALREADY_COMPLETED",
+      documentId: existing.documentId,
+      uploadSessionId: existing.id,
+    });
+  }
+  // Dead: out of time, failed, aborted. Its placeholder is cleanup's to settle
+  // (PRD #29 §131, §316); the key moves on to the new attempt.
+  await tx.documentUploadSession.updateMany({
+    where: { id: existing.id, idempotencyKey: key, status: existing.status },
+    data: {
+      idempotencyKey: null,
+      ...(open ? { status: "EXPIRED" as const, reservedBytes: BigInt(0) } : {}),
+    },
+  });
+  return null;
+}
+
+/**
+ * Two authorisations under one key at the same moment both find nothing and
+ * both open a session; the unique index on (company, member, key) admits one.
+ * The loser's transaction rolled back whole — its placeholder document and
+ * version with it — so it simply asks again and is answered as a replay of the
+ * winner (AUD-09 §8, FV-18).
+ */
+async function withIdempotentSessionRace<T>(key: string | undefined, open: () => Promise<T>): Promise<T> {
+  try {
+    return await open();
+  } catch (error) {
+    if (key && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return open();
+    throw error;
+  }
+}
+
 /** Ids are generated here so the storage key can contain one (PRD #29 §19, §93). */
 function generateDocumentId(): string {
   return `doc_${randomUUID().replace(/-/g, "")}`;
@@ -781,16 +876,18 @@ export async function createVersionUploadSession(
   const provider = storageProvider();
   const expiresAt = new Date(Date.now() + UPLOAD_SESSION_TTL_MS);
 
-  const opened = await prisma.$transaction(async (tx) => {
-    if (options.idempotencyKey) {
-      const existing = await tx.documentUploadSession.findFirst({
-        where: { companyId: context.companyId, memberId: context.membershipId, idempotencyKey: options.idempotencyKey },
-        include: { document: { select: { id: true } } },
-      });
-      if (existing && existing.documentVersionId && (existing.status === "CREATED" || existing.status === "UPLOADING")) {
-        const version = await tx.documentVersion.findUniqueOrThrow({ where: { id: existing.documentVersionId }, select: { versionNumber: true } });
-        return { sessionId: existing.id, storageKey: existing.storageKey, versionId: existing.documentVersionId, versionNumber: version.versionNumber };
-      }
+  const opened = await withIdempotentSessionRace(options.idempotencyKey, () => prisma.$transaction(async (tx) => {
+    // The same replay rules as a first upload (AUD-09 §8, FV-18): one open
+    // session per key, a finished one answered rather than repeated — a retry
+    // after a lost response never allocates a second version number.
+    const replay = await replayUploadKey(tx, context, options.idempotencyKey, {
+      fileName: input.fileName,
+      sizeBytes: input.sizeBytes,
+      documentId,
+    });
+    if (replay) {
+      const version = await tx.documentVersion.findUniqueOrThrow({ where: { id: replay.versionId! }, select: { versionNumber: true } });
+      return { sessionId: replay.sessionId, storageKey: replay.storageKey, versionId: replay.versionId!, versionNumber: version.versionNumber };
     }
 
     await quota.assertQuotaAllows(tx, context.companyId, input.sizeBytes);
@@ -841,7 +938,7 @@ export async function createVersionUploadSession(
     });
 
     return { sessionId: session.id, storageKey: key, versionId: version.id, versionNumber: version.versionNumber };
-  });
+  }));
 
   const upload = await provider.createUploadUrl({
     storageKey: opened.storageKey,

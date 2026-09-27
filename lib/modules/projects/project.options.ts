@@ -29,11 +29,14 @@ export async function projectFormOptions(
 ) {
   const mayAssignManager = can(context, "project.manager.assign");
 
+  // The saved manager stays in the list even when no longer active, so an
+  // edit that does not touch the manager keeps them rather than the picker
+  // falling back to "Unassigned" (AUD-09 §5, FV-10). Only active members are
+  // offered for a new choice.
   const managerWhere: Prisma.CompanyMemberWhereInput = {
     companyId: context.companyId,
-    status: "ACTIVE",
     OR: [
-      mayAssignManager ? buildTeamScopeWhere(context) : { id: context.membershipId },
+      { AND: [{ status: "ACTIVE" }, mayAssignManager ? buildTeamScopeWhere(context) : { id: context.membershipId }] },
       ...(current.managerMemberId ? [{ id: current.managerMemberId }] : []),
     ],
   };
@@ -56,6 +59,7 @@ export async function projectFormOptions(
       select: {
         id: true,
         jobTitle: true,
+        status: true,
         user: { select: { firstName: true, lastName: true } },
         role: { select: { name: true } },
       },
@@ -70,7 +74,10 @@ export async function projectFormOptions(
     })),
     managers: managers.map((member) => ({
       value: member.id,
-      label: `${member.user.firstName} ${member.user.lastName} — ${member.role.name}`,
+      label:
+        member.status === "ACTIVE"
+          ? `${member.user.firstName} ${member.user.lastName} — ${member.role.name}`
+          : `${member.user.firstName} ${member.user.lastName} — inactive, current manager`,
     })),
   };
 }

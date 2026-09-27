@@ -12,8 +12,11 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { Field, FormSection, selectClass, type SelectOption } from "@/components/forms/record-form";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import { UPLOAD_RETRY_LIMIT } from "@/lib/core/storage";
+import { acceptedTypesText, uploadAccept } from "./upload-client";
 import {
+  uploadStatusLabel,
   useUploadQueue,
+  type LostUpload,
   type UploadContextInput,
   type UploadItem,
 } from "./upload-queue";
@@ -85,7 +88,15 @@ export function DocumentUploader({
     return { context: "company" };
   }, [lockedContext, contextKind, projectId, clientId]);
 
-  const queue = useUploadQueue({ parent, onUploaded: () => router.refresh() });
+  // The queue outlives a remount of this page (AUD-09 FV-19): files still on
+  // their way show their real state on return, and a failed file whose bytes
+  // went with the old page comes back as a name to choose again.
+  const queue = useUploadQueue({
+    parent,
+    onUploaded: () => router.refresh(),
+    persistKey: `documents/new:${lockedContext ? `${lockedContext.kind}:${lockedContext.id}` : "any"}`,
+    maxBytes: maxMegabytes * 1024 * 1024,
+  });
 
   /**
    * One document name for one file; several files each take their own name
@@ -116,6 +127,7 @@ export function DocumentUploader({
   );
 
   const finished = queue.items.filter((item) => item.status === "done").length;
+  const checking = queue.items.filter((item) => ["verifying", "processing", "pending"].includes(item.status)).length;
 
   return (
     <div className="space-y-5">
@@ -239,18 +251,24 @@ export function DocumentUploader({
             <span className="text-body font-medium text-fg">
               Drop files here, or choose files
             </span>
-            <span id="upload-hint" className="text-meta text-fg-muted">
-              Up to {maxMegabytes} MB each. Executables, scripts, archives and macro-enabled
-              Office files are not accepted.
-            </span>
           </button>
+          {/* What is accepted, before anything is chosen, from the registry and
+              ceiling the server enforces — not a second list (AUD-09 §8). */}
+          <p id="upload-hint" className="mt-2 text-meta text-fg-muted" data-testid="upload-accepted-types">
+            Required: at least one file; each becomes its own document. Up to {maxMegabytes} MB
+            each. Accepted: {acceptedTypesText()}. Executables, scripts, archives and
+            macro-enabled Office files are not accepted, and every file is checked by its
+            contents, not its name, before it is ready.
+          </p>
 
           <input
             ref={inputRef}
             type="file"
             multiple
+            accept={uploadAccept()}
             className="sr-only"
             aria-label="Choose files to upload"
+            data-testid="document-upload-input"
             onChange={(event) => {
               start(event.target.files);
               event.target.value = "";
@@ -258,13 +276,16 @@ export function DocumentUploader({
           />
         </div>
 
-        {queue.items.length > 0 ? (
+        {queue.items.length > 0 || queue.lost.length > 0 ? (
           <div className="sm:col-span-2">
             <UploadQueueList
               items={queue.items}
-              onRetry={(item) => queue.retry(item.id, metadataFor(item.file, 0))}
-              onCancel={(item) => queue.cancel(item.id)}
-              onClear={(item) => queue.clear(item.id)}
+              lost={queue.lost}
+              onRetry={(item) => void queue.retry(item.id)}
+              onRecheck={(item) => void queue.recheck(item.id)}
+              onCancel={(item) => void queue.cancel(item.id)}
+              onClear={(id) => queue.clear(id)}
+              onReselect={(lost, file) => queue.reselect(lost.id, file, metadataFor)}
             />
           </div>
         ) : null}
@@ -274,9 +295,10 @@ export function DocumentUploader({
         <p aria-live="polite" className="text-meta text-fg-muted">
           {queue.active
             ? "Uploading. Stay on this page until it finishes."
-            : finished > 0
-              ? `${finished} file${finished === 1 ? "" : "s"} uploaded.`
-              : ""}
+            : [
+                finished > 0 ? `${finished} file${finished === 1 ? "" : "s"} ready.` : "",
+                checking > 0 ? `${checking} still being checked — not ready yet.` : "",
+              ].filter(Boolean).join(" ")}
         </p>
 
         <div className="flex items-center gap-2">
@@ -295,32 +317,41 @@ export function DocumentUploader({
 }
 
 /**
- * The queue (PRD #29 §334).
+ * The queue (PRD #29 §334; AUD-09 §8, FV-18, FV-19).
  *
  * Each row shows the file name, its size, its progress and its state, with
  * retry and cancel where each makes sense. The live region announces state
  * changes rather than leaving a screen-reader user watching a silent bar
- * (PRD #29 §343).
+ * (PRD #29 §343). Selected, uploading, being checked, ready and failed read
+ * differently, in words and not colour alone; only the server's verdict makes
+ * a row "Ready". A file lost with a remount is shown by name with "Select this
+ * file again" — never as attached.
  */
-function UploadQueueList({
+export function UploadQueueList({
   items,
+  lost = [],
   onRetry,
+  onRecheck,
   onCancel,
   onClear,
+  onReselect,
 }: {
   items: UploadItem[];
+  lost?: LostUpload[];
   onRetry: (item: UploadItem) => void;
+  onRecheck?: (item: UploadItem) => void;
   onCancel: (item: UploadItem) => void;
-  onClear: (item: UploadItem) => void;
+  onClear: (id: string) => void;
+  onReselect?: (lost: LostUpload, file: File) => void;
 }) {
   return (
-    <ul className="divide-y divide-line rounded-md border border-line" aria-label="Upload queue">
+    <ul className="divide-y divide-line rounded-md border border-line" aria-label="Upload queue" data-testid="upload-queue">
       {items.map((item) => (
-        <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+        <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="upload-queue-item" data-status={item.status}>
           <div className="min-w-0 flex-1">
             <p className="truncate text-table font-medium text-fg">{item.file.name}</p>
             <p className="mt-0.5 text-meta text-fg-muted" aria-live="polite">
-              {formatFileSize(item.file.size)} · {label(item)}
+              {formatFileSize(item.file.size)} · {uploadStatusLabel(item)}
             </p>
 
             {item.status === "uploading" ? (
@@ -333,14 +364,14 @@ function UploadQueueList({
                 className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-3"
               >
                 <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-200"
+                  className="h-full rounded-full bg-accent transition-[width] duration-200 motion-reduce:transition-none"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
             ) : null}
 
             {item.error ? (
-              <p role="alert" className="mt-1 text-meta text-danger-strong">
+              <p role={item.status === "failed" ? "alert" : undefined} className={`mt-1 text-meta ${item.status === "failed" ? "text-danger-strong" : "text-warning-strong"}`}>
                 {item.error}
               </p>
             ) : null}
@@ -354,16 +385,25 @@ function UploadQueueList({
           ) : null}
 
           {/* Retry only for a transient failure — a rejected file needs a
-              different file, not another attempt (PRD #29 §335). */}
+              different file, not another attempt (PRD #29 §335). It resumes
+              where the failure was: nothing already uploaded goes again. */}
           {item.status === "failed" && !item.terminal && item.attempts < UPLOAD_RETRY_LIMIT ? (
-            <Button variant="ghost" size="sm" onClick={() => onRetry(item)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onRetry(item)} aria-label={`Retry ${item.file.name}`}>
               <RotateCcw aria-hidden="true" />
               Retry
             </Button>
           ) : null}
 
+          {item.status === "pending" && onRecheck ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onRecheck(item)} aria-label={`Check ${item.file.name} again`}>
+              <RotateCcw aria-hidden="true" />
+              Check again
+            </Button>
+          ) : null}
+
           {["queued", "authorising", "uploading"].includes(item.status) ? (
             <Button
+              type="button"
               variant="ghost"
               size="icon-sm"
               aria-label={`Cancel upload of ${item.file.name}`}
@@ -375,37 +415,66 @@ function UploadQueueList({
 
           {["done", "failed", "cancelled"].includes(item.status) ? (
             <Button
+              type="button"
               variant="ghost"
               size="icon-sm"
               aria-label={`Remove ${item.file.name} from the list`}
-              onClick={() => onClear(item)}
+              onClick={() => onClear(item.id)}
             >
               <X />
             </Button>
           ) : null}
         </li>
       ))}
+      {lost.map((entry) => (
+        <LostUploadRow key={entry.id} entry={entry} onClear={onClear} onReselect={onReselect} />
+      ))}
     </ul>
   );
 }
 
-function label(item: UploadItem): string {
-  switch (item.status) {
-    case "queued":
-      return "Waiting";
-    case "authorising":
-      return "Preparing";
-    case "uploading":
-      return `Uploading ${item.progress}%`;
-    case "verifying":
-      return "Verifying";
-    case "processing":
-      return "Processing";
-    case "done":
-      return "Uploaded";
-    case "failed":
-      return "Failed";
-    case "cancelled":
-      return "Cancelled";
-  }
+/** A file whose bytes went with a remount: its name, and a way to choose it again (FV-19). */
+function LostUploadRow({
+  entry,
+  onClear,
+  onReselect,
+}: {
+  entry: LostUpload;
+  onClear: (id: string) => void;
+  onReselect?: (lost: LostUpload, file: File) => void;
+}) {
+  const input = React.useRef<HTMLInputElement>(null);
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="upload-queue-lost" data-status="lost">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-table font-medium text-fg">{entry.fileName}</p>
+        <p className="mt-0.5 text-meta text-warning-strong" aria-live="polite">
+          {formatFileSize(entry.fileSize)} · Not attached. The file was not kept when this page reloaded — select this file again.
+        </p>
+      </div>
+      {onReselect ? (
+        <>
+          <input
+            ref={input}
+            type="file"
+            accept={uploadAccept()}
+            className="sr-only"
+            tabIndex={-1}
+            aria-label={`Select ${entry.fileName} again`}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) onReselect(entry, file);
+            }}
+          />
+          <Button type="button" variant="secondary" size="sm" onClick={() => input.current?.click()}>
+            Select this file again
+          </Button>
+        </>
+      ) : null}
+      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${entry.fileName} from the list`} onClick={() => onClear(entry.id)}>
+        <X />
+      </Button>
+    </li>
+  );
 }

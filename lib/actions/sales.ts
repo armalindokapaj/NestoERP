@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { AccessError } from "@/lib/access/guards";
+import { actionFailure } from "@/lib/actions/result";
+import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -59,29 +60,20 @@ function toResult(error: unknown): SalesActionResult {
   if (error instanceof DuplicateLeadError) {
     return { ok: false, error: error.message, duplicates: error.matches };
   }
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code };
-  }
-
-  console.error("[sales] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "sales");
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): SalesActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/**
+ * Invalid input under canonical paths (AUD-09 §3, §7, FV-16): a proposal
+ * line's error is `lineItems.<index>.<field>`, the index being the row's
+ * submitted position.
+ */
+function invalid(error: z.ZodError, submitted: number[] | null = null): SalesActionResult {
+  return invalidInput(error, submitted ? { lineItems: submitted } : {});
 }
 
 function formValues(formData: FormData): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const [key, value] of formData.entries()) {
-    if (typeof value === "string" && !key.includes("[")) values[key] = value;
-  }
-  return values;
+  return scalarFormValues(formData);
 }
 
 const LINE_FIELDS = ["description", "quantity", "unitPrice", "taxRate"];
@@ -89,28 +81,13 @@ const LINE_FIELDS = ["description", "quantity", "unitPrice", "taxRate"];
 /**
  * Reads the repeating line fields a proposal form posts (PRD #17 §214).
  *
- * Named `lineItems[0].description` and so on — the same convention Finance
- * uses, because it is the same editor. Collected by index rather than by
- * position, so a removed row cannot shift the rest.
+ * Named `lineItems.0.description` (or the older `lineItems[0].description`) —
+ * the same convention Finance uses, because it is the same editor. A row
+ * somebody cleared out is dropped, and every kept row remembers the index it
+ * was submitted as.
  */
-function lineItems(formData: FormData): Record<string, string>[] {
-  const rows = new Map<number, Record<string, string>>();
-
-  for (const [key, value] of formData.entries()) {
-    const match = /^lineItems\[(\d+)]\.(\w+)$/.exec(key);
-    if (!match || typeof value !== "string") continue;
-    if (!LINE_FIELDS.includes(match[2])) continue;
-
-    const row = rows.get(Number.parseInt(match[1], 10)) ?? {};
-    row[match[2]] = value;
-    rows.set(Number.parseInt(match[1], 10), row);
-  }
-
-  return [...rows.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, row]) => row)
-    // A row somebody cleared out is dropped rather than failing validation.
-    .filter((row) => LINE_FIELDS.some((field) => (row[field] ?? "").trim() !== ""));
+function lineItems(formData: FormData): { lines: Record<string, string>[]; submitted: number[] } {
+  return readSubmittedLines(formData, "lineItems", LINE_FIELDS);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -409,11 +386,9 @@ export async function linkProjectAction(
 export async function createProposalAction(formData: FormData): Promise<SalesActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = createProposalSchema.safeParse({
-    ...formValues(formData),
-    lineItems: lineItems(formData),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = lineItems(formData);
+  const parsed = createProposalSchema.safeParse({ ...formValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows.submitted);
 
   let id: string;
   try {
@@ -432,11 +407,9 @@ export async function updateProposalAction(
 ): Promise<SalesActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = updateProposalSchema.safeParse({
-    ...formValues(formData),
-    lineItems: lineItems(formData),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = lineItems(formData);
+  const parsed = updateProposalSchema.safeParse({ ...formValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows.submitted);
 
   try {
     await proposals.updateProposal(context, proposalId, parsed.data);

@@ -153,6 +153,23 @@ function initial(props: MeetingFormProps): State {
   };
 }
 
+/** The control each error key belongs to, in the order the form reads. */
+const ERROR_TARGETS: Array<[string, string]> = [
+  ["title", "meeting-title"],
+  ["projectId", "meeting-project"],
+  ["date", "meeting-date"],
+  ["startTime", "meeting-start"],
+  ["endTime", "meeting-end"],
+  ["onlineUrl", "meeting-url"],
+];
+
+function focusFirstInvalid(found: Record<string, string>) {
+  const target = ERROR_TARGETS.find(([key]) => found[key]);
+  if (!target) return;
+  // After React has rendered the messages the control points at.
+  window.requestAnimationFrame(() => document.getElementById(target[1])?.focus());
+}
+
 export function MeetingForm(props: MeetingFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -252,7 +269,11 @@ export function MeetingForm(props: MeetingFormProps) {
     if (unsaved.frozen) return { kind: "refused" };
     const found = clientErrors();
     setErrors(found);
-    if (Object.keys(found).length > 0) return { kind: "invalid" };
+    if (Object.keys(found).length > 0) {
+      // The first invalid field takes focus; its message is linked to it (AUD-09 §6).
+      focusFirstInvalid(found);
+      return { kind: "invalid" };
+    }
     running.current = true;
     setPending(draft ? "draft" : "save");
     setSaving(true);
@@ -328,6 +349,7 @@ export function MeetingForm(props: MeetingFormProps) {
         form: failureMessage(error, "The meeting could not be saved."),
         ...(outcome.kind === "unknown" ? { outcome: OUTCOME_COPY.unknown } : {}),
       });
+      focusFirstInvalid(failure.fields ?? {});
       return outcome;
     } finally {
       running.current = false;
@@ -341,7 +363,15 @@ export function MeetingForm(props: MeetingFormProps) {
     void run.current(draft, "normal");
   }
 
-  const fieldError = (key: string) => (errors[key] ? <p className="text-meta text-danger-strong">{errors[key]}</p> : null);
+  // Each message has an id its control points at (`aria-describedby`), so a
+  // screen reader reads it with the field (AUD-09 §3, §6).
+  const fieldError = (key: string) =>
+    errors[key] ? (
+      <p id={`meeting-${key}-error`} className="text-meta text-danger-strong">
+        {errors[key]}
+      </p>
+    ) : null;
+  const describedBy = (key: string) => (errors[key] ? `meeting-${key}-error` : undefined);
   const cancelHref = editing ? `/meetings/${props.meeting.id}` : "/meetings";
   const project = options.projects.find((row) => row.id === state.projectId);
 
@@ -352,7 +382,7 @@ export function MeetingForm(props: MeetingFormProps) {
         <section className="nesto-card space-y-5 p-5 sm:p-6">
           <div className="space-y-1.5">
             <Label htmlFor="meeting-title">Title</Label>
-            <Input id="meeting-title" autoFocus value={state.title} maxLength={180} onChange={(change) => set("title", change.target.value)} placeholder="Weekly design coordination" aria-invalid={Boolean(errors.title)} />
+            <Input id="meeting-title" autoFocus value={state.title} maxLength={180} onChange={(change) => set("title", change.target.value)} placeholder="Weekly design coordination" aria-invalid={Boolean(errors.title)} aria-describedby={describedBy("title")} />
             {fieldError("title")}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -368,7 +398,7 @@ export function MeetingForm(props: MeetingFormProps) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-project">Project</Label>
-              <select id="meeting-project" className={selectClass} value={state.projectId} onChange={(change) => changeProject(change.target.value)} aria-invalid={Boolean(errors.projectId)}>
+              <select id="meeting-project" className={selectClass} value={state.projectId} onChange={(change) => changeProject(change.target.value)} aria-invalid={Boolean(errors.projectId)} aria-describedby={describedBy("projectId")}>
                 <option value="">No project</option>
                 {options.projects.map((row) => (
                   <option key={row.id} value={row.id}>
@@ -391,7 +421,9 @@ export function MeetingForm(props: MeetingFormProps) {
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-1.5">
               <Label htmlFor="meeting-date">Date</Label>
-              <Input id="meeting-date" type="date" value={state.date} onChange={(change) => set("date", change.target.value)} />
+              <Input id="meeting-date" type="date" value={state.date} onChange={(change) => set("date", change.target.value)} aria-invalid={Boolean(errors.date)} aria-describedby={describedBy("date")} />
+              {/* A repeating meeting shows its date message with the scope choice below. */}
+              {editing && props.meeting.series ? null : fieldError("date")}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-start">Start</Label>
@@ -408,7 +440,7 @@ export function MeetingForm(props: MeetingFormProps) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-end">End</Label>
-              <Input id="meeting-end" type="time" step={300} value={state.endTime} onChange={(change) => set("endTime", change.target.value)} aria-invalid={Boolean(errors.endTime)} />
+              <Input id="meeting-end" type="time" step={300} value={state.endTime} onChange={(change) => set("endTime", change.target.value)} aria-invalid={Boolean(errors.endTime)} aria-describedby={describedBy("endTime")} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Length">
@@ -548,7 +580,7 @@ export function MeetingForm(props: MeetingFormProps) {
                 <Label htmlFor="meeting-url">Meeting link</Label>
                 <div className="relative">
                   <Video aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-                  <Input id="meeting-url" type="url" inputMode="url" value={state.onlineUrl} maxLength={500} onChange={(change) => set("onlineUrl", change.target.value)} placeholder="https://" className="pl-9" aria-invalid={Boolean(errors.onlineUrl)} />
+                  <Input id="meeting-url" type="url" inputMode="url" value={state.onlineUrl} maxLength={500} onChange={(change) => set("onlineUrl", change.target.value)} placeholder="https://" className="pl-9" aria-invalid={Boolean(errors.onlineUrl)} aria-describedby={describedBy("onlineUrl")} />
                 </div>
                 {fieldError("onlineUrl")}
               </div>

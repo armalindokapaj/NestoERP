@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { dateOnlyToUtc, parseDateOnly } from "@/lib/forms/dates";
+
 import {
   optionalDate,
   optionalEnum,
@@ -17,24 +19,85 @@ import { EDITABLE_STATUSES, REOPEN_STATUSES } from "./task.status";
  */
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+export const TASK_TITLE_MIN = 2;
+export const TASK_TITLE_MAX = 200;
+export const TASK_DESCRIPTION_MAX = 10_000;
 
-const taskFields = {
-  title: z
+/**
+ * A real calendar day, `YYYY-MM-DD`, between 1900 and 2199 (AUD-09 §4, FV-07):
+ * the shared rule, `lib/forms/dates`. `new Date("2026-02-30")` rolls over to
+ * 2 March, and `z.coerce.date()` accepts "1" as 2001: both would store a day
+ * the person never chose.
+ */
+export function isCalendarDay(value: string): boolean {
+  return parseDateOnly(value).ok;
+}
+
+/**
+ * A task date: a calendar day (stored as that day's UTC midnight, as before),
+ * a full ISO timestamp from an API client, or a Date from another module's
+ * service. Anything else is refused rather than guessed at (AUD-09 §4).
+ *
+ * The day itself is read by `lib/forms/dates`; the omit/clear/set zod
+ * fragments below stay here because `lib/forms/normalize` is a spec-driven
+ * normalizer, not a zod schema (AUD-09: candidate for lib/forms).
+ */
+const taskDate = z.union([
+  z.date(),
+  z
     .string()
     .trim()
-    .min(2, "Task title must be at least 2 characters")
-    .max(200, "Task title must be 200 characters or fewer"),
-  description: optionalText(10_000),
+    .refine((value) => isCalendarDay(value) || z.string().datetime({ offset: true }).safeParse(value).success, {
+      message: "Enter a real date as YYYY-MM-DD.",
+    })
+    .transform((value) => isCalendarDay(value) ? dateOnlyToUtc(value) : new Date(value)),
+]);
+
+/** Create: empty or absent is "no date". */
+const createDate = z
+  .union([taskDate, z.literal("")])
+  .optional()
+  .transform((value) => (value === "" || value === undefined ? undefined : (value as Date)));
+
+/**
+ * Update (AUD-09 §4, FV-05): absent keeps the saved value; `""` or `null` is
+ * the person clearing it; a value replaces it. The three are never merged.
+ */
+const patchDate = z
+  .union([taskDate, z.literal(""), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : (value as Date)));
+
+const patchText = (max: number) =>
+  z
+    .union([z.string().trim().max(max, `Keep this under ${max.toLocaleString("en")} characters.`), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
+
+const patchId = z
+  .union([z.string().trim().max(64), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
+
+const title = z
+  .string()
+  .trim()
+  .min(TASK_TITLE_MIN, `Task title must be at least ${TASK_TITLE_MIN} characters`)
+  .max(TASK_TITLE_MAX, `Task title must be ${TASK_TITLE_MAX} characters or fewer`);
+
+const taskFields = {
+  title,
+  description: optionalText(TASK_DESCRIPTION_MAX),
   projectId: optionalId,
   assigneeMemberId: optionalId,
   status: z.enum(EDITABLE_STATUSES as [string, ...string[]]).default("TODO"),
   priority: z.enum(PRIORITIES).default("MEDIUM"),
-  startDate: optionalDate,
-  dueDate: optionalDate,
+  startDate: createDate,
+  dueDate: createDate,
 };
 
 /** A task may not be scheduled to finish before it starts (PRD #11 §50). */
-const scheduleRefinement = <T extends { startDate?: Date; dueDate?: Date }>(
+const scheduleRefinement = <T extends { startDate?: Date | null; dueDate?: Date | null }>(
   schema: z.ZodType<T>,
 ) =>
   schema.refine(
@@ -54,7 +117,30 @@ export const createTaskSchema = scheduleRefinement(z.object(taskFields));
  */
 const expectedVersion = z.unknown().optional();
 
-export const updateTaskSchema = scheduleRefinement(z.object({ ...taskFields, expectedVersion }));
+/**
+ * An edit is a partial update (AUD-09 §4, FV-05, FV-10). Every field may be
+ * left out, and a field left out keeps its saved value: no create default
+ * (To Do, Medium) is applied, so a request that does not mention the status
+ * cannot reset it, and a control that was absent from the form cannot erase
+ * what it would have shown. Clearing is explicit — `""` or `null`. A field
+ * that is sent is validated exactly as on create. The edit form sends every
+ * field, so for it nothing changes; the API's PATCH now means what it says.
+ * Unknown keys (`companyId`, `completedAt`, `version`…) are stripped, never
+ * written (PRD #11 §116).
+ */
+export const updateTaskSchema = scheduleRefinement(
+  z.object({
+    title: title.optional(),
+    description: patchText(TASK_DESCRIPTION_MAX),
+    projectId: patchId,
+    assigneeMemberId: patchId,
+    status: z.enum(EDITABLE_STATUSES as [string, ...string[]], { message: "Choose a status." }).optional(),
+    priority: z.enum(PRIORITIES, { message: "Choose a priority." }).optional(),
+    startDate: patchDate,
+    dueDate: patchDate,
+    expectedVersion,
+  }),
+);
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;

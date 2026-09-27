@@ -3,11 +3,13 @@ import { z } from "zod";
 import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
 import {
   businessDate,
+  clearableBusinessDate,
+  clearableText,
   currencyCode,
   optionalBusinessDate,
-  rateString,
 } from "@/lib/modules/finance/finance.fields";
-import { MAX_TAX_RATE } from "@/lib/modules/finance/invoices/invoice.schema";
+import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
+import { invoiceLineSchema } from "@/lib/modules/finance/invoices/invoice.schema";
 
 /**
  * Proposal validation (PRD #17 §210, §214, §215, §224).
@@ -32,20 +34,12 @@ export const PROPOSAL_STATUSES = [
   "ARCHIVED",
 ] as const;
 
-export const proposalLineSchema = z.object({
-  description: requiredText(1, 500, "Line description"),
-  quantity: rateString("Quantity").refine((value) => Number.parseFloat(value) > 0, {
-    message: "Quantity must be greater than zero",
-  }),
-  unitPrice: rateString("Unit price"),
-  taxRate: rateString("Tax rate").refine(
-    (value) => {
-      const rate = Number.parseFloat(value);
-      return rate >= 0 && rate <= MAX_TAX_RATE;
-    },
-    { message: `Tax rate must be between 0 and ${MAX_TAX_RATE}` },
-  ),
-});
+/**
+ * A proposal line is an invoice line: the same fields, the same decimal rule
+ * and bounds (AUD-09 §4, FV-06) — `invoiceLineSchema` itself, so the two can
+ * never disagree about what a quantity or a tax rate may be.
+ */
+export const proposalLineSchema = invoiceLineSchema;
 
 export type ProposalLineInput = z.infer<typeof proposalLineSchema>;
 
@@ -56,11 +50,14 @@ const proposalFields = {
   issueDate: businessDate,
   validUntil: optionalBusinessDate,
   notes: optionalText(5000),
-  lineItems: z.array(proposalLineSchema).min(1, "Add at least one line item"),
+  lineItems: z
+    .array(proposalLineSchema)
+    .min(1, "Add at least one line item")
+    .max(MAX_LINE_ITEMS, `A proposal can have at most ${MAX_LINE_ITEMS} lines`),
 };
 
 /** A quote cannot expire before it was written (PRD #17 §215). */
-const validityInOrder = <T extends { issueDate: Date; validUntil?: Date }>(
+const validityInOrder = <T extends { issueDate: Date; validUntil?: Date | null }>(
   schema: z.ZodType<T>,
 ) =>
   schema.refine(
@@ -75,8 +72,14 @@ export const createProposalSchema = validityInOrder(
   }),
 );
 
+/** Optional fields on an edit: absent keeps, empty or `null` clears (AUD-09 §4, FV-05). */
 export const updateProposalSchema = validityInOrder(
-  z.object({ ...proposalFields, versionUpdatedAt: optionalDate }),
+  z.object({
+    ...proposalFields,
+    validUntil: clearableBusinessDate,
+    notes: clearableText(5000),
+    versionUpdatedAt: optionalDate,
+  }),
 );
 
 export type CreateProposalInput = z.infer<typeof createProposalSchema>;

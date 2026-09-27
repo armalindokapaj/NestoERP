@@ -12,6 +12,8 @@ import {
   TRANSMITTAL_DIRECTION_LABELS,
   TRANSMITTAL_PURPOSES,
   TRANSMITTAL_PURPOSE_LABELS,
+  isMaterialSubmittal,
+  isMethodSubmittal,
   type Option,
 } from "@/lib/modules/engineering/engineering.types";
 import type { FormField } from "./form-kit";
@@ -48,9 +50,15 @@ export function rfiFields(opts: ProjectOptions, mode: "create" | "edit", status 
   ];
 }
 
+/**
+ * The type-dependent submittal fields follow the server's rule (AUD-09 §5,
+ * FV-10): hidden for a type they do not describe, and cleared by the server
+ * for one — the "clear" policy. The supplier is offered only to readers of
+ * Procurement's suppliers; for anybody else it is not sent, and kept.
+ */
 export function submittalFields(opts: ProjectOptions, mode: "create" | "edit"): FormField[] {
-  const material = (values: Record<string, string | boolean>) => values.submittalType === "MATERIAL_SUBMITTAL" || values.submittalType === "PRODUCT_DATA" || values.submittalType === "SAMPLE";
-  const method = (values: Record<string, string | boolean>) => values.submittalType === "METHOD_STATEMENT";
+  const material = (values: Record<string, string | boolean>) => isMaterialSubmittal(String(values.submittalType ?? ""));
+  const method = (values: Record<string, string | boolean>) => isMethodSubmittal(String(values.submittalType ?? ""));
   return [
     { name: "title", label: "Title", type: "text", required: true, wide: true },
     { name: "submittalType", label: "Type", type: "select", required: true, options: choose(SUBMITTAL_TYPES, SUBMITTAL_TYPE_LABELS) },
@@ -60,12 +68,12 @@ export function submittalFields(opts: ProjectOptions, mode: "create" | "edit"): 
     { name: "assignedReviewerMemberId", label: "Reviewer", type: "select", options: options(opts.reviewers), emptyLabel: "Nobody yet" },
     { name: "dueAt", label: "Review due", type: "date" },
     { name: "specificationReference", label: "Specification reference", type: "text", wide: true },
-    { name: "manufacturer", label: "Manufacturer", type: "text", visible: material },
-    { name: "productName", label: "Product", type: "text", visible: material },
-    { name: "modelNumber", label: "Model", type: "text", visible: material },
-    ...(opts.suppliers?.length ? ([{ name: "supplierId", label: "Supplier", type: "select", options: options(opts.suppliers), visible: material, hint: "Procurement's supplier record; approving a submittal buys nothing." }] satisfies FormField[]) : []),
-    { name: "activity", label: "Activity", type: "text", visible: method },
-    { name: "workArea", label: "Work area", type: "text", visible: method },
+    { name: "manufacturer", label: "Manufacturer", type: "text", visible: material, whenHidden: "clear" },
+    { name: "productName", label: "Product", type: "text", visible: material, whenHidden: "clear" },
+    { name: "modelNumber", label: "Model", type: "text", visible: material, whenHidden: "clear" },
+    ...(opts.suppliers?.length ? ([{ name: "supplierId", label: "Supplier", type: "select", options: options(opts.suppliers), visible: material, whenHidden: "clear", hint: "Procurement's supplier record; approving a submittal buys nothing." }] satisfies FormField[]) : []),
+    { name: "activity", label: "Activity", type: "text", visible: method, whenHidden: "clear" },
+    { name: "workArea", label: "Work area", type: "text", visible: method, whenHidden: "clear" },
     { name: "description", label: "Description", type: "textarea", rows: 3 },
     ...(mode === "create" ? ([{ name: "submittalNumber", label: "Submittal number", type: "text", placeholder: "Next number", hint: "Leave blank to number it automatically." }] satisfies FormField[]) : []),
   ];
@@ -111,7 +119,10 @@ export function contractorFields(suppliers: Option[], mode: "create" | "edit"): 
     { name: "website", label: "Website", type: "text" },
     { name: "countryCode", label: "Country code", type: "text", placeholder: "AL" },
     { name: "addressLine1", label: "Address", type: "text", wide: true },
+    // The schema has always had these; without them every edit erased them (AUD-09 §4, FV-05).
+    { name: "addressLine2", label: "Address line 2", type: "text", wide: true },
     { name: "city", label: "City", type: "text" },
+    { name: "region", label: "Region", type: "text" },
     { name: "postalCode", label: "Postal code", type: "text" },
     { name: "primaryContactName", label: "Primary contact", type: "text" },
     { name: "primaryContactEmail", label: "Contact email", type: "email" },
@@ -139,7 +150,7 @@ export function assignmentFields(opts: { contractors?: Array<Option & { assigned
     { name: "status", label: "Status", type: "select", required: true, options: choose(EDITABLE_ASSIGNMENT_STATUSES, ASSIGNMENT_STATUS_LABELS) },
     { name: "internalManagerMemberId", label: "Internal manager", type: "select", options: options(opts.members) },
     { name: "scopeSummary", label: "Scope", type: "textarea", rows: 2, placeholder: "Structural concrete works" },
-    { name: "primaryContractorContactId", label: "Contractor's contact", type: "select", options: options(contacts) },
+    { name: "primaryContractorContactId", label: "Contractor's contact", type: "select", options: options(contacts), hint: mode === "create" ? "Contacts of the chosen contractor. Changing the contractor clears one chosen before." : undefined },
     ...(opts.contracts.length ? ([{ name: "contractId", label: "Contract", type: "select", options: options(opts.contracts), hint: "The agreement in Legal." }] satisfies FormField[]) : []),
     { name: "startDate", label: "Start", type: "date" },
     { name: "endDate", label: "End", type: "date" },
@@ -170,17 +181,30 @@ export function workPackageFields(opts: { contractors: Option[]; contracts: Opti
   ];
 }
 
-export function complianceFields(documents: Option[]): FormField[] {
+/** The "Held" choice that keeps a waiver: the dialog leaves `status` out, and the server keeps it (AUD-09 §5, FV-10). */
+export const KEEP_WAIVER = "WAIVED";
+
+/**
+ * `waived`: the item is waived today, so "keep the waiver" is a choice and the
+ * default. `evidence`: the reader may open files; without that the evidence
+ * field is not offered and not sent, so the server keeps what is attached
+ * rather than being told "none" by somebody who could not see it (AUD-09 §5,
+ * FV-10).
+ */
+export function complianceFields(documents: Option[], opts: { waived?: boolean; evidence?: boolean } = {}): FormField[] {
+  const held = [...(opts.waived ? [{ value: KEEP_WAIVER, label: "Waived — keep the waiver" }] : []), { value: "VALID", label: "On file" }, { value: "MISSING", label: "Missing" }];
   return [
     { name: "type", label: "Type", type: "select", required: true, options: choose(COMPLIANCE_TYPES, COMPLIANCE_TYPE_LABELS) },
     { name: "title", label: "Title", type: "text", required: true },
-    { name: "status", label: "Held", type: "select", required: true, options: [{ value: "VALID", label: "On file" }, { value: "MISSING", label: "Missing" }], hint: "Expiring and expired follow from the expiry date." },
+    { name: "status", label: "Held", type: "select", required: true, options: held, hint: opts.waived ? "Choosing On file or Missing withdraws the waiver." : "Expiring and expired follow from the expiry date." },
     { name: "referenceNumber", label: "Reference", type: "text" },
     { name: "issuer", label: "Issuer", type: "text" },
     { name: "issuedAt", label: "Issued", type: "date" },
     { name: "expiresAt", label: "Expires", type: "date" },
-    // Always present, so editing an item never silently drops the evidence it already has.
-    { name: "documentId", label: "Evidence", type: "select", options: options(documents), emptyLabel: documents.length ? "No evidence yet" : "Upload a file first", hint: "A document filed on the contractor or this item.", wide: true },
+    // Present whenever the reader may see files, so an edit never silently drops the evidence it already has.
+    ...(opts.evidence === false
+      ? []
+      : ([{ name: "documentId", label: "Evidence", type: "select", options: options(documents), emptyLabel: documents.length ? "No evidence yet" : "Upload a file first", hint: "A document filed on the contractor or this item.", wide: true }] satisfies FormField[])),
     { name: "notes", label: "Notes", type: "textarea", rows: 2 },
   ];
 }

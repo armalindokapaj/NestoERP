@@ -18,6 +18,7 @@ import {
   priorityLabels,
 } from "@/lib/modules/procurement/procurement.status";
 import { LineItemsEditor, type LineValue } from "./line-items";
+import { withSavedOption } from "@/components/finance/saved-option";
 
 export type RequestFormValues = {
   title: string;
@@ -62,6 +63,11 @@ export function RequestForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  // Saved links the pickers no longer offer stay on this request (FV-10).
+  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new requests)");
+  const departmentOptions = withSavedOption(departments, values?.departmentId, "Current department (archived)");
+  const memberOptions = withSavedOption(members, values?.ownerMemberId, "Current buyer (no longer active — choose another to save)");
+
   return (
     <RecordForm
       action={action}
@@ -126,7 +132,7 @@ export function RequestForm({
             defaultValue={values?.projectId ?? ""}
           >
             <option value="">No project</option>
-            {projects.map((project) => (
+            {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
               </option>
@@ -142,7 +148,7 @@ export function RequestForm({
             defaultValue={values?.departmentId ?? ""}
           >
             <option value="">Not set</option>
-            {departments.map((department) => (
+            {departmentOptions.map((department) => (
               <option key={department.value} value={department.value}>
                 {department.label}
               </option>
@@ -158,7 +164,7 @@ export function RequestForm({
             defaultValue={values?.ownerMemberId ?? ""}
           >
             <option value="">Not assigned</option>
-            {members.map((member) => (
+            {memberOptions.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
               </option>

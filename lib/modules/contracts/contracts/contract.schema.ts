@@ -1,10 +1,17 @@
 import { z } from "zod";
 
 import {
-  optionalBusinessDate,
   businessDate,
+  clearableBusinessDate,
+  clearableText,
+  clearableWholeNumber,
   currencyCode,
+  MONEY_RULE,
+  optionalBusinessDate,
+  optionalDecimalString,
+  optionalWholeNumber,
 } from "@/lib/modules/finance/finance.fields";
+import { optionalBoolean } from "@/lib/modules/shared/fields";
 import {
   optionalDate,
   optionalId,
@@ -48,15 +55,12 @@ export const RENEWAL_TYPES = ["NONE", "MANUAL", "AUTO_RENEW", "EVERGREEN"] as co
 export const MAX_RENEWAL_NOTICE_DAYS = 3650;
 export const MAX_AUTO_RENEW_MONTHS = 120;
 
-/** An optional amount that must be a decimal string when present (PRD #18 §63). */
-const optionalContractValue = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value.replace(",", ".")))
-  .refine((value) => value === undefined || /^\d{1,15}(\.\d{1,2})?$/.test(value), {
-    message: "Contract value must be a number with at most 2 decimal places",
-  });
+/**
+ * An optional amount that must be a decimal string when present (PRD #18 §63),
+ * by the shared decimal rule (AUD-09 §4, FV-06): `1,234` is refused as
+ * ambiguous rather than read as 1.234.
+ */
+const optionalContractValue = optionalDecimalString("Contract value", MONEY_RULE);
 
 const contractFields = {
   contractNumber: requiredText(2, 80, "Contract number"),
@@ -82,20 +86,10 @@ const contractFields = {
   signedDate: optionalBusinessDate,
 
   renewalType: z.enum(RENEWAL_TYPES).default("NONE"),
-  renewalNoticeDays: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(MAX_RENEWAL_NOTICE_DAYS)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  autoRenewalPeriodMonths: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_AUTO_RENEW_MONTHS)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  // Whole numbers; empty is "not set" — `z.coerce.number()` stored an empty
+  // "Notice days" as 0, and read "1e3" as 1000 (AUD-09 §4, FV-06).
+  renewalNoticeDays: optionalWholeNumber("Notice days", 0, MAX_RENEWAL_NOTICE_DAYS),
+  autoRenewalPeriodMonths: optionalWholeNumber("Renewal period", 1, MAX_AUTO_RENEW_MONTHS),
 
   governingLaw: optionalText(200),
   jurisdiction: optionalText(200),
@@ -108,11 +102,11 @@ const contractFields = {
 type ContractShape = {
   currency?: string;
   contractValue?: string;
-  effectiveDate?: Date;
-  expiryDate?: Date;
+  effectiveDate?: Date | null;
+  expiryDate?: Date | null;
   renewalType: (typeof RENEWAL_TYPES)[number];
-  renewalNoticeDays?: number;
-  autoRenewalPeriodMonths?: number;
+  renewalNoticeDays?: number | null;
+  autoRenewalPeriodMonths?: number | null;
   opportunityId?: string;
   proposalId?: string;
 };
@@ -140,20 +134,20 @@ function withContractRules<T extends ContractShape>(schema: z.ZodType<T>) {
     .refine(
       (value) =>
         value.renewalType !== "AUTO_RENEW" ||
-        (value.expiryDate !== undefined && value.autoRenewalPeriodMonths !== undefined),
+        (value.expiryDate != null && value.autoRenewalPeriodMonths != null),
       {
         message: "An auto-renewing contract needs an expiry date and a renewal period.",
         path: ["autoRenewalPeriodMonths"],
       },
     )
     .refine(
-      (value) => value.renewalType === "AUTO_RENEW" || value.autoRenewalPeriodMonths === undefined,
+      (value) => value.renewalType === "AUTO_RENEW" || value.autoRenewalPeriodMonths == null,
       {
         message: "A renewal period only applies to an auto-renewing contract.",
         path: ["autoRenewalPeriodMonths"],
       },
     )
-    .refine((value) => value.renewalType !== "NONE" || value.renewalNoticeDays === undefined, {
+    .refine((value) => value.renewalType !== "NONE" || value.renewalNoticeDays == null, {
       message: "Notice days only apply to a contract that renews.",
       path: ["renewalNoticeDays"],
     });
@@ -161,8 +155,27 @@ function withContractRules<T extends ContractShape>(schema: z.ZodType<T>) {
 
 export const createContractSchema = withContractRules(z.object({ ...contractFields }));
 
+/**
+ * An edit of a draft's terms (AUD-09 §4, FV-05). The terms the rules above
+ * compare (renewal type, dates, numbers) and the core fields are sent as on
+ * create; the free-text and note fields keep what is saved when their key is
+ * absent and clear when sent empty — the form always sends them, so this only
+ * stops an API caller that leaves one out from erasing it.
+ */
 export const updateContractSchema = withContractRules(
-  z.object({ ...contractFields, versionUpdatedAt: optionalDate }),
+  z.object({
+    ...contractFields,
+    counterpartyName: clearableText(250),
+    signedDate: clearableBusinessDate,
+    governingLaw: clearableText(200),
+    jurisdiction: clearableText(200),
+    summary: clearableText(5000),
+    commercialNotes: clearableText(5000),
+    legalNotes: clearableText(5000),
+    renewalNoticeDays: clearableWholeNumber("Notice days", 0, MAX_RENEWAL_NOTICE_DAYS),
+    autoRenewalPeriodMonths: clearableWholeNumber("Renewal period", 1, MAX_AUTO_RENEW_MONTHS),
+    versionUpdatedAt: optionalDate,
+  }),
 );
 
 /**
@@ -173,7 +186,8 @@ export const updateContractSchema = withContractRules(
  */
 export const updateContractMetadataSchema = z.object({
   ownerMemberId: z.string().trim().min(1, "Choose a contract owner"),
-  summary: optionalText(5000),
+  // Absent keeps the summary; empty clears it (FV-05).
+  summary: clearableText(5000),
   versionUpdatedAt: optionalDate,
 });
 
@@ -191,7 +205,8 @@ export const contractReasonSchema = z.object({ note: requiredText(3, 2000, "Reas
 /** Signing needs a date; the signed file is a warning, not a gate (PRD #18 §118, §119). */
 export const contractSignedSchema = z.object({
   signedDate: businessDate,
-  acknowledgeMissingDocument: z.coerce.boolean().optional().default(false),
+  // "false" is false (`z.coerce.boolean()` read the string as true).
+  acknowledgeMissingDocument: optionalBoolean.transform((value) => value ?? false),
 });
 
 export const contractActivationSchema = z.object({

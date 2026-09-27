@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { dateOnlyToUtc, parseDateOnly } from "@/lib/forms/dates";
+
 import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import { WORKING_STATUSES } from "./project.machine";
 
@@ -30,10 +32,76 @@ const optionalArea = z
   .optional()
   .transform((value) => (value === "" || value === undefined ? undefined : (value as number)));
 
+/**
+ * A real calendar day, `YYYY-MM-DD`, between 1900 and 2199 (AUD-09 §4, FV-07):
+ * the shared rule, `lib/forms/dates`. `new Date("2026-02-30")` rolls over to
+ * 2 March, and `z.coerce.date()` accepts "1" as 2001: both would store a day
+ * the person never chose.
+ */
+function isCalendarDay(value: string): boolean {
+  return parseDateOnly(value).ok;
+}
+
+/**
+ * A project date: a calendar day (UTC midnight, as `z.coerce.date()` stored
+ * it), a full ISO timestamp, or a Date. Nothing else is guessed at.
+ *
+ * The day itself is read by `lib/forms/dates`; the omit/clear/set zod
+ * fragments below stay here because `lib/forms/normalize` is a spec-driven
+ * normalizer, not a zod schema (AUD-09: candidate for lib/forms).
+ */
+const projectDate = z.union([
+  z.date(),
+  z
+    .string()
+    .trim()
+    .refine((value) => isCalendarDay(value) || z.string().datetime({ offset: true }).safeParse(value).success, {
+      message: "Enter a real date as YYYY-MM-DD.",
+    })
+    .transform((value) => isCalendarDay(value) ? dateOnlyToUtc(value) : new Date(value)),
+]);
+
 const optionalDate = z
+  .union([projectDate, z.literal("")])
+  .optional()
+  .transform((value) => (value === "" || value === undefined ? undefined : (value as Date)));
+
+/** The optimistic-concurrency stamp: any instant, as before. */
+const versionStamp = z
   .union([z.coerce.date(), z.literal("")])
   .optional()
   .transform((value) => (value === "" || value === undefined ? undefined : (value as Date)));
+
+/*
+ * Update-only fields (AUD-09 §4, FV-05): absent keeps the saved value, `""` or
+ * `null` clears it, a value replaces it.
+ *
+ * AUD-09: candidate for lib/forms (the omit / clear / set triple).
+ */
+const patchText = (max: number) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
+
+const patchId = z
+  .union([z.string().trim().max(64), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
+
+const patchDate = z
+  .union([projectDate, z.literal(""), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : (value as Date)));
+
+const patchArea = z
+  .union([
+    z.coerce.number({ message: "Built area must be a number" }).positive("Built area must be above zero").max(10_000_000, "Built area is at most 10,000,000 m²"),
+    z.literal(""),
+    z.null(),
+  ])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : (value as number)));
 
 /**
  * An unset `<select>` submits an empty string, not an absent key. Treating that
@@ -75,7 +143,7 @@ const projectFields = {
 };
 
 /** End date must never precede start date (PRD #10 §38). */
-const scheduleRefinement = <T extends { startDate?: Date; endDate?: Date }>(
+const scheduleRefinement = <T extends { startDate?: Date | null; endDate?: Date | null }>(
   schema: z.ZodType<T>,
 ) =>
   schema.refine(
@@ -106,9 +174,33 @@ export const createProjectSchema = scheduleRefinement(
   }),
 );
 
+/**
+ * A project edit is a partial update (AUD-09 §4, FV-05, FV-10): a field left
+ * out keeps its saved value, `""`/`null` clears an optional one, and a field
+ * that is sent is validated as on create. The edit form sends every field, so
+ * for it nothing changes; a PATCH that names only the city no longer erases
+ * the description, client, manager, dates and location. Unknown keys are
+ * stripped (PRD #10 §116).
+ */
 export const updateProjectSchema = scheduleRefinement(
   z.object({
-    ...projectFields,
+    code: projectFields.code.optional(),
+    name: projectFields.name.optional(),
+    description: patchText(5000),
+    clientId: patchId,
+    projectManagerMemberId: patchId,
+    priority: z
+      .union([z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const), z.literal(""), z.null()])
+      .optional()
+      .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value)),
+    projectTypeId: patchId,
+    startDate: patchDate,
+    endDate: patchDate,
+    address: patchText(300),
+    city: patchText(120),
+    country: patchText(120),
+    builtArea: patchArea,
+    isKeyProject: projectFields.isKeyProject,
     /**
      * Absent leaves the status where it is. A different status is a move on the
      * project machine and needs `project.status.manage` (E-05A §11) — editing
@@ -125,7 +217,7 @@ export const updateProjectSchema = scheduleRefinement(
      * has moved on since, the update is refused rather than silently
      * overwriting somebody else's edit (PRD #10 §178).
      */
-    versionUpdatedAt: optionalDate,
+    versionUpdatedAt: versionStamp,
   }),
 );
 

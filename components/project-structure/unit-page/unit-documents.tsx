@@ -5,7 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ import { fileSize, uploadNewVersion } from "./unit-upload";
  * Plan is one logical document; replacing it uploads a new version (§36).
  */
 
-const PROCESSING = ["queued", "authorising", "uploading", "verifying", "processing"];
+const PROCESSING: readonly string[] = UPLOAD_IN_FLIGHT;
 
 function FileLine({ file, children }: { file: UnitFileDTO; children?: React.ReactNode }) {
   return (

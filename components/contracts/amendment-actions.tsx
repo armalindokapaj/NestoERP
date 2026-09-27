@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { localToday } from "@/components/finance/local-date";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { CheckCircle2, FileSignature, PenLine, Play, Send, XCircle } from "lucide-react";
@@ -209,7 +210,7 @@ function SignedDialog({
   onDone: () => void;
   onError: (message: string) => void;
 }) {
-  const [signedDate, setSignedDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [signedDate, setSignedDate] = React.useState(() => localToday());
   const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   // Recording the signature is the only way forward: leaving offers Stay or Discard (AUD-03 §4).
@@ -218,7 +219,7 @@ function SignedDialog({
   React.useEffect(() => {
     if (!open) {
       // Reset only once the dialog has closed through its guard.
-      setSignedDate(new Date().toISOString().slice(0, 10));
+      setSignedDate(localToday());
       setUnresolved(false);
     }
   }, [open]);

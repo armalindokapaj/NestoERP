@@ -111,7 +111,10 @@ export async function seedRecruitmentRecords(prisma: PrismaClient) {
     startDate: daysFromNow(7),
     managerMemberId: "member_finance__c",
   };
-  await prisma.employeeProfile.upsert({ where: { id: adrian.employment }, update: adrianEmployment, create: { id: adrian.employment, ...adrianEmployment } });
+  // A re-run (tests restore these rows) keeps the start date: the employment's
+  // history was written with the first one, and moving only the cached date
+  // would make it disagree with that history (E-03 §182, verify:employment).
+  await prisma.employeeProfile.upsert({ where: { id: adrian.employment }, update: { ...adrianEmployment, startDate: undefined }, create: { id: adrian.employment, ...adrianEmployment } });
   const adrianRequest = {
     parentGroupId: group,
     personProfileId: adrian.person,

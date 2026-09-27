@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, us
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { REVIEW_STATUS_LABELS } from "@/lib/modules/engineering/engineering.types";
 import type { TransmittalDocumentOption } from "@/lib/modules/engineering/engineering.transmittals";
-import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { engineeringApi, failureMessage, failureOutcome, fieldErrorsOf } from "./engineering-api";
 import { FormFields, payloadFor, valuesFor, type FormValues } from "./form-kit";
@@ -24,7 +24,12 @@ import { transmittalHeaderFields, type ProjectOptions } from "./record-fields";
  * A draft being prepared is unsaved work: closing the dialog asks (AUD-03 §5).
  */
 
-type Selected = { engineeringDocumentId: string; engineeringRevisionId: string; documentId: string; remarks: string };
+/**
+ * One item on the transmittal. A register revision has both ids; a loose file
+ * or a document without a revision has neither or one. `label` names it when
+ * it is not among the revisions this dialog can pick (AUD-09 §4, §7, FV-05).
+ */
+type Selected = { engineeringDocumentId: string | null; engineeringRevisionId: string | null; documentId: string; remarks: string; label?: string };
 
 export function NewTransmittalButton({ projectId }: { projectId: string }) {
   const [open, setOpen] = React.useState(false);
@@ -80,20 +85,38 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [outcomeText, setOutcomeText] = React.useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
   const running = React.useRef(false);
+  // What the dialog opened with. A parent re-render (a refresh while it is
+  // open) hands a new object; the header typed so far is not reset by it.
+  const opened = React.useRef(existing);
 
   React.useEffect(() => {
-    void Promise.all([
-      engineeringApi<ProjectOptions>(`/api/projects/${projectId}/engineering/options?for=document`).catch(() => ({ contractors: [], workPackages: [], members: [], reviewers: [] })),
-      engineeringApi<TransmittalDocumentOption[]>(`/api/projects/${projectId}/transmittals/options`).catch(() => []),
-    ]).then(([projectOptions, documentOptions]) => {
-      setOptions(projectOptions);
-      setDocuments(documentOptions);
-      const loaded = valuesFor(transmittalHeaderFields(projectOptions), existing ?? { direction: "OUTGOING", purpose: "FOR_INFORMATION" });
-      setValues(loaded);
-      setBaseline(loaded);
-    });
-  }, [existing, projectId]);
+    // The options of this dialog's own request only: a slower, older answer is ignored (AUD-09 §5, FV-08).
+    let live = true;
+    setLoadFailed(false);
+    Promise.all([
+      engineeringApi<ProjectOptions>(`/api/projects/${projectId}/engineering/options?for=document`),
+      engineeringApi<TransmittalDocumentOption[]>(`/api/projects/${projectId}/transmittals/options`),
+    ]).then(
+      ([projectOptions, documentOptions]) => {
+        if (!live) return;
+        setOptions(projectOptions);
+        setDocuments(documentOptions);
+        const loaded = valuesFor(transmittalHeaderFields(projectOptions), opened.current ?? { direction: "OUTGOING", purpose: "FOR_INFORMATION" });
+        setValues(loaded);
+        setBaseline(loaded);
+      },
+      () => {
+        // "Couldn't load" is its own state with a retry, never an empty list (AUD-09 §5, FV-09).
+        if (live) setLoadFailed(true);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [projectId, attempt]);
 
   const fields = options ? transmittalHeaderFields(options) : [];
 
@@ -115,13 +138,14 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
 
   run.current = async (mode: "normal" | "continue" = "normal") => {
     if (running.current || !options) return { kind: "unknown" };
+    if (unsaved.frozen) return { kind: "refused" };
     running.current = true;
     setPending(true);
     setSaving(true);
     setError(null);
     setOutcomeText(null);
     setErrors({});
-    const body = { ...payloadFor(fields, values), items: selected.map((item) => ({ ...item, remarks: item.remarks.trim() || null })) };
+    const body = { ...payloadFor(fields, values), items: selected.map((item) => ({ engineeringDocumentId: item.engineeringDocumentId, engineeringRevisionId: item.engineeringRevisionId, documentId: item.documentId, remarks: item.remarks.trim() || null })) };
     let outcome: SaveOutcome;
     let createdId: string | null = null;
     try {
@@ -157,6 +181,20 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     void run.current("normal");
+  }
+
+  // Items this list cannot show — a loose file, a document without a revision, a revision no longer offered.
+  const others = selected.filter((item) => !documents?.some((doc) => doc.engineeringDocumentId === item.engineeringDocumentId && doc.revisions.some((revision) => revision.id === item.engineeringRevisionId)));
+
+  if (loadFailed) {
+    return (
+      <div className="mt-4 space-y-3" role="alert">
+        <p className="text-table text-danger-strong">Couldn&apos;t load the documents and choices for this transmittal.</p>
+        <Button type="button" size="sm" variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return options && documents ? (
@@ -195,6 +233,22 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
               })}
             </ul>
           )}
+          {others.length > 0 ? (
+            <div className="space-y-1.5" data-testid="transmittal-other-items">
+              <p className="text-meta font-medium text-fg-muted">Also on this transmittal</p>
+              <ul className="divide-y divide-line rounded-md border border-line">
+                {others.map((item) => (
+                  <li key={item.documentId} className="flex items-center justify-between gap-3 px-3 py-2 text-table text-fg">
+                    <span className="min-w-0 truncate">{item.label ?? "A file on this transmittal"}</span>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setSelected((current) => current.filter((entry) => entry.documentId !== item.documentId))}>
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-meta text-fg-subtle">Files and revisions this list cannot offer stay on the transmittal unless you remove them.</p>
+            </div>
+          ) : null}
           <p className="text-meta text-fg-subtle">{selected.length} selected</p>
         </fieldset>
       </fieldset>

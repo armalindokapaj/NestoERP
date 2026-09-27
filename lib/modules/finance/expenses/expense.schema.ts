@@ -1,7 +1,17 @@
 import { z } from "zod";
 
 import { optionalDate, optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { businessDate, currencyCode, optionalAmountString } from "../finance.fields";
+import { isPositiveDecimal, sumDecimal } from "../finance.decimal";
+import {
+  amountString,
+  businessDate,
+  clearableDecimalString,
+  clearableId,
+  clearableText,
+  currencyCode,
+  MONEY_RULE,
+  optionalAmountValue,
+} from "../finance.fields";
 
 /** Expense validation (PRD #15 §239). */
 export const EXPENSE_CATEGORIES = [
@@ -23,8 +33,13 @@ const expenseFields = {
   description: requiredText(2, 500, "Description"),
   payeeName: optionalText(250),
   currency: currencyCode,
-  netAmount: optionalAmountString("Net amount"),
-  taxAmount: optionalAmountString("Tax amount"),
+  // The form marks net as required, and so does the server: an empty net
+  // amount is refused, never read as zero (AUD-09 §4, FV-04, FV-06).
+  netAmount: amountString("Net amount"),
+  // Tax is optional, and the domain says what "no tax" is: a tax of zero — the
+  // column is not nullable and an untaxed cost has tax 0. So empty is 0 here,
+  // by rule rather than by a generic empty-becomes-zero parser.
+  taxAmount: optionalAmountValue("Tax amount").transform((value) => value ?? "0"),
   notes: optionalText(2000),
 };
 
@@ -32,17 +47,39 @@ const expenseFields = {
  * Net and tax may each be zero, but the total may not: an expense for nothing
  * is a data-entry accident, not a cost (PRD #15 §92).
  */
-const totalIsPositive = <T extends { netAmount: string; taxAmount: string }>(
+export const EXPENSE_TOTAL_MESSAGE = "The expense total must be greater than zero.";
+
+export function expenseTotalIsPositive(netAmount: string, taxAmount: string): boolean {
+  return isPositiveDecimal(sumDecimal([netAmount, taxAmount], 2));
+}
+
+const totalIsPositive = <T extends { netAmount: string; taxAmount?: string }>(
   schema: z.ZodType<T>,
 ) =>
   schema.refine(
-    (value) => Number.parseFloat(value.netAmount) + Number.parseFloat(value.taxAmount) > 0,
-    { message: "The expense total must be greater than zero.", path: ["netAmount"] },
+    // An update that leaves tax out keeps the saved tax; the service checks
+    // that total once it has read it.
+    (value) => value.taxAmount === undefined || expenseTotalIsPositive(value.netAmount, value.taxAmount),
+    { message: EXPENSE_TOTAL_MESSAGE, path: ["netAmount"] },
   );
 
 export const createExpenseSchema = totalIsPositive(z.object(expenseFields));
+
+/**
+ * An edit sends the expense's core fields as on create; the optional ones
+ * follow the partial-update rule (AUD-09 §4, FV-05): absent keeps what is
+ * saved, empty or `null` clears — and for tax, clearing means "no tax" (0).
+ */
 export const updateExpenseSchema = totalIsPositive(
-  z.object({ ...expenseFields, versionUpdatedAt: optionalDate }),
+  z.object({
+    ...expenseFields,
+    expenseNumber: clearableText(60),
+    projectId: clearableId,
+    payeeName: clearableText(250),
+    notes: clearableText(2000),
+    taxAmount: clearableDecimalString("Tax amount", MONEY_RULE).transform((value) => (value === null ? "0" : value)),
+    versionUpdatedAt: optionalDate,
+  }),
 );
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;

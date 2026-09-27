@@ -140,8 +140,22 @@ export async function createReservation(
     throw new AccessError(
       "VALIDATION_ERROR",
       "That location is not in the warehouse you chose.",
-      { code: "LOCATION_WAREHOUSE_MISMATCH" },
+      { code: "LOCATION_WAREHOUSE_MISMATCH", locationId: ["Choose a location in the warehouse you chose."] },
     );
+  }
+
+  // The item is checked like every other link (AUD-09 §5, FV-09): this
+  // company's, not archived, active. Before, a forged id was stopped only by
+  // accident — its empty balance failed the availability check.
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: input.inventoryItemId, companyId: context.companyId, archivedAt: null, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!item) {
+    throw new AccessError("VALIDATION_ERROR", "Choose an active item.", {
+      code: "INVALID_ITEM",
+      inventoryItemId: ["Choose an active item."],
+    });
   }
 
   const projectId = input.projectId ? (await requireProject(context, input.projectId)).id : null;

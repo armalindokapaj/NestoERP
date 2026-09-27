@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { countWorkingDays } from "@/lib/modules/hr/hr.calendar";
+import { localDay } from "./local-day";
 
 export type LeaveFormValues = {
   employeeId: string | null;
@@ -22,6 +23,12 @@ export type LeaveFormValues = {
   startDate: string;
   endDate: string;
   reason: string | null;
+  /**
+   * The reason is private to the requester and to HR readers of reasons
+   * (PRD #16 §95). A reader who is not shown it gets no reason field, so their
+   * save leaves it as it is rather than erasing it (AUD-09 §5, FV-10).
+   */
+  reasonHidden?: boolean;
 };
 
 /**
@@ -49,7 +56,7 @@ export function LeaveForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
-  const todayValue = new Date().toISOString().slice(0, 10);
+  const todayValue = localDay();
   const [startDate, setStartDate] = React.useState(values?.startDate ?? todayValue);
   const [endDate, setEndDate] = React.useState(values?.endDate ?? todayValue);
 
@@ -72,9 +79,8 @@ export function LeaveForm({
           <Field
             label="Employee"
             name="employeeId"
-            required
             className="sm:col-span-2"
-            hint="Leave empty to request your own leave."
+            hint="Choose Myself to request your own leave."
           >
             <select
               id="employeeId"
@@ -142,20 +148,26 @@ export function LeaveForm({
           />
         </Field>
 
-        <Field
-          label="Reason"
-          name="reason"
-          className="sm:col-span-2"
-          hint="Optional. Only you and readers with the reason permission can see it."
-        >
-          <Textarea
-            id="reason"
+        {values?.reasonHidden ? (
+          <p className="text-meta text-fg-subtle sm:col-span-2" data-testid="leave-reason-private">
+            The reason is private to the requester. It is kept as it is.
+          </p>
+        ) : (
+          <Field
+            label="Reason"
             name="reason"
-            rows={3}
-            maxLength={2000}
-            defaultValue={values?.reason ?? ""}
-          />
-        </Field>
+            className="sm:col-span-2"
+            hint="Optional. Only you and readers with the reason permission can see it."
+          >
+            <Textarea
+              id="reason"
+              name="reason"
+              rows={3}
+              maxLength={2000}
+              defaultValue={values?.reason ?? ""}
+            />
+          </Field>
+        )}
       </FormSection>
     </RecordForm>
   );

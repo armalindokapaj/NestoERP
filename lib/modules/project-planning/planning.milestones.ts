@@ -122,8 +122,26 @@ export async function createMilestone(context: UserContext, projectId: string, i
 
 const NOTABLE_STATUSES: readonly MilestoneStatus[] = ["AT_RISK", "DELAYED", "ON_HOLD", "CANCELLED"];
 
-export async function updateMilestone(context: UserContext, milestoneId: string, input: UpdateMilestoneInput): Promise<{ version: number }> {
+export async function updateMilestone(context: UserContext, milestoneId: string, sent: UpdateMilestoneInput): Promise<{ version: number }> {
   const row = await findReadableMilestone(context, milestoneId);
+  // A partial update (AUD-09 §4, FV-05): what the request left out is the
+  // saved value, so every rule below judges the milestone as it will be.
+  const keep = <T,>(value: T | undefined, saved: T): T => (value === undefined ? saved : value);
+  const input = {
+    ...sent,
+    name: keep(sent.name, row.name),
+    description: keep(sent.description, row.description),
+    phaseId: keep(sent.phaseId, row.phaseId),
+    milestoneType: keep(sent.milestoneType, row.milestoneType),
+    status: keep(sent.status, row.status),
+    ownerMemberId: keep(sent.ownerMemberId, row.ownerMemberId),
+    plannedDate: keep(sent.plannedDate, dateOf(row.plannedDate)),
+    forecastDate: keep(sent.forecastDate, dateOf(row.forecastDate)),
+    progressPercent: keep(sent.progressPercent, row.progressPercent === null ? null : Number(row.progressPercent)),
+    critical: keep(sent.critical, row.critical),
+    externallyCommitted: keep(sent.externallyCommitted, row.externallyCommitted),
+    actualDate: keep(sent.actualDate, dateOf(row.actualDate)),
+  };
   assertPermission(context, "project_planning.milestone.edit");
   assertLive(row);
   if (input.status === "COMPLETED" && row.status !== "COMPLETED") throw fail("MILESTONE_COMPLETE_REQUIRED", "Use Mark complete to complete a milestone.", "VALIDATION_ERROR", { field: "status" });

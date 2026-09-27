@@ -28,7 +28,8 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { BulkFloorsDialog, BulkUnitsDialog, CopyFloorDialog } from "./bulk-dialogs";
 import { BuildingDialog, FloorDialog, MoveFloorDialog, MoveUnitDialog } from "./structure-dialogs";
-import { failureMessage, numberText, plural, structureApi } from "./structure-ui";
+import { areaRule, failureMessage, numberText, plural, structureApi } from "./structure-ui";
+import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { UnitDialog } from "./unit-dialog";
 import { EMPTY_FILTERS, type UnitFilters } from "./unit-filters";
 import { UNIT_PUBLICATION_STATUS_LABELS, UNIT_PUBLICATION_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
@@ -740,7 +741,11 @@ function RangeFilter({ label, min, max, onChange }: { label: string; min: string
     setHigh(max);
   }, [min, max]);
   const apply = () => {
-    const valid = (value: string) => (/^\d{1,10}(\.\d{1,2})?$/.test(value) ? value : "");
+    // Read by the shared locale rule (AUD-09 §4, FV-06): "12,5" is 12.5; an ambiguous "1,234" is not applied.
+    const valid = (value: string) => {
+      const parsed = parseOptionalDecimal(value, areaRule(label));
+      return parsed.ok ? (parsed.value ?? "") : "";
+    };
     if (valid(low) !== min || valid(high) !== max) onChange(valid(low), valid(high));
   };
   return (

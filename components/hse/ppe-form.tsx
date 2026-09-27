@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PPE_ITEMS } from "@/lib/modules/hse/hse.status";
 import type { Option } from "./hse-forms";
+import { localDay } from "@/components/hr/local-day";
+import { CurrentOption } from "./hse-forms";
 
 /**
  * A PPE check (PRD #22 §159, §160, §161).
@@ -96,7 +98,7 @@ export function PpeForm({
             id="checkDate"
             name="checkDate"
             type="date"
-            defaultValue={values?.checkDate ?? new Date().toISOString().slice(0, 10)}
+            defaultValue={values?.checkDate ?? localDay()}
             required
           />
         </Field>
@@ -132,6 +134,8 @@ export function PpeForm({
                 ))}
               </optgroup>
             ) : null}
+            {/* Somebody checked who has since left stays the subject of their check (AUD-09 §5, FV-09). */}
+            <CurrentOption value={values?.subjectMemberId} options={[...members, ...workers]} />
           </select>
         </Field>
 

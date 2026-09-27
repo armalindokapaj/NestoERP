@@ -90,7 +90,8 @@ describe("a task raised from a project record stays on that project (PRD #47 §5
     created.push(task.id);
 
     await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: OTHER_PROJECT, expectedVersion: task.version })));
-    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, expectedVersion: task.version })));
+    // "Off its project" is an explicit clear; leaving the project out keeps it (AUD-09 §4, FV-05).
+    await expectLinkRefused(tasks.updateTask(owner, task.id, updateTaskSchema.parse({ title: task.title, projectId: null, expectedVersion: task.version })));
 
     const row = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
     expect(row.projectId).toBe(PROJECT.a);

@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import { LineItemsEditor, type LineValue } from "./line-items";
+import { withSavedOption } from "@/components/finance/saved-option";
 
 export type RfqFormValues = {
   title: string;
@@ -54,6 +55,11 @@ export function RfqForm({
   pendingLabel: string;
 }) {
   const [selected, setSelected] = React.useState<string[]>(values?.supplierIds ?? []);
+  const offered = selected.filter((id) => suppliers.some((supplier) => supplier.value === id));
+  const dropped = selected.length - offered.length;
+  // Saved links the pickers no longer offer stay on this enquiry (FV-10).
+  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, "Current request (no longer open for sourcing)");
+  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new enquiries)");
 
   return (
     <RecordForm
@@ -105,7 +111,7 @@ export function RfqForm({
             defaultValue={values?.purchaseRequestId ?? ""}
           >
             <option value="">Not from a request</option>
-            {requests.map((request) => (
+            {requestOptions.map((request) => (
               <option key={request.value} value={request.value}>
                 {request.label}
               </option>
@@ -121,7 +127,7 @@ export function RfqForm({
             defaultValue={values?.projectId ?? ""}
           >
             <option value="">No project</option>
-            {projects.map((project) => (
+            {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
               </option>
@@ -170,9 +176,18 @@ export function RfqForm({
               </div>
             )}
             <p className="text-meta text-fg-subtle" aria-live="polite">
-              {selected.length} selected
-              {selected.length < 2 ? " — two are needed to issue this enquiry." : "."}
+              {offered.length} selected
+              {offered.length < 2 ? " — two are needed to issue this enquiry." : "."}
             </p>
+            {/* An invited supplier who has since become inactive cannot stay
+                invited (the server refuses inactive suppliers): said, not done
+                silently (AUD-09 §5, FV-10). */}
+            {dropped > 0 ? (
+              <p className="text-meta text-warning-strong" role="status">
+                {dropped === 1 ? "One invited supplier is" : `${dropped} invited suppliers are`} no longer active and will
+                be removed from this enquiry when you save.
+              </p>
+            ) : null}
           </fieldset>
         </div>
       </FormSection>

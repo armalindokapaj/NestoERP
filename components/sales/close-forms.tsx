@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { localToday } from "@/components/finance/local-date";
 
 import {
   Field,
@@ -66,7 +67,7 @@ export function WonForm({
 }) {
   const [clientMode, setClientMode] = React.useState(hasClient ? "KEEP" : "EXISTING");
   const [projectMode, setProjectMode] = React.useState("NONE");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   return (
     <WorkflowForm
@@ -196,7 +197,7 @@ export function LostForm({
   cancelHref: string;
 }) {
   const [reason, setReason] = React.useState<string>("PRICE");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   return (
     <WorkflowForm

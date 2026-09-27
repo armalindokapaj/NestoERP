@@ -1,14 +1,24 @@
 import { z } from "zod";
 
+import { compareDecimal, integerDigits, multiplyDecimal } from "@/lib/modules/finance/finance.decimal";
+import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import {
   businessDate,
   currencyCode,
+  decimalString,
   optionalBusinessDate,
+  optionalDecimalString,
+  optionalWholeNumber,
+  positive,
+  RATE_RULE,
 } from "@/lib/modules/finance/finance.fields";
 import {
+  optionalBoolean,
   optionalEnum,
   optionalId,
   optionalText,
+  patchId,
+  patchText,
   requiredText,
 } from "@/lib/modules/shared/fields";
 import { paginationSchema } from "@/lib/modules/shared/list-query";
@@ -34,46 +44,44 @@ import {
  * a purchase order before anybody had a chance to check it (PRD #19 §190).
  */
 
+/*
+ * Numbers go through the one decimal rule every module shares (AUD-09 §4,
+ * FV-06): `1,000` used to become 1 here (a first-comma replace), `1e3` and
+ * `12abc` were refused only by luck of the regex, and a comparison was a float
+ * one. Quantity and unit price carry four decimals within `Decimal(18, 4)`;
+ * no value is negative in Procurement.
+ */
+
 /** A quantity: positive, at most four decimals (PRD #19 §191). */
-const quantityString = z
-  .string()
-  .trim()
-  .min(1, "Enter a quantity")
-  .transform((value) => value.replace(",", "."))
-  .refine((value) => /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Quantity must be a number with at most 4 decimal places",
-  })
-  .refine((value) => Number.parseFloat(value) > 0, { message: "Quantity must be more than zero" });
+const quantityString = decimalString("Quantity", RATE_RULE).refine(positive, {
+  message: "Quantity must be more than zero",
+});
 
 /** A unit price: non-negative, at most four decimals (PRD #19 §192). */
-const unitPriceString = z
-  .string()
-  .trim()
-  .min(1, "Enter a unit price")
-  .transform((value) => value.replace(",", "."))
-  .refine((value) => /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Unit price must be a number with at most 4 decimal places",
-  });
+const unitPriceString = decimalString("Unit price", RATE_RULE);
 
-const optionalUnitPriceString = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value.replace(",", ".")))
-  .refine((value) => value === undefined || /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Unit price must be a number with at most 4 decimal places",
-  });
+/** An estimate nobody has made yet is empty, not a price of zero (PRD #19 §48). */
+const optionalUnitPriceString = optionalDecimalString("Estimated unit price", RATE_RULE);
 
-/** A tax rate as a fraction: 0.2 is twenty per cent (PRD #19 §194). */
-const taxRateString = z
-  .string()
-  .trim()
-  .default("0")
-  .transform((value) => (value === "" ? "0" : value.replace(",", ".")))
-  .refine((value) => /^\d(\.\d{1,4})?$/.test(value), {
-    message: "Tax rate must be a fraction such as 0.2",
-  })
-  .refine((value) => Number.parseFloat(value) <= 1, { message: "Tax rate cannot exceed 1" });
+/**
+ * A tax rate as a fraction: 0.2 is twenty per cent (PRD #19 §194). Empty is
+ * "no tax" — a rate of 0 by the domain's rule, not by a generic parser.
+ */
+const taxRateString = optionalDecimalString("Tax rate", { scale: 4, maxIntegerDigits: 1 })
+  .transform((value) => value ?? "0")
+  .refine((value) => compareDecimal(value, "1") <= 0, { message: "Tax rate is a fraction such as 0.2 and cannot exceed 1" });
+
+/** A priced line whose total would not fit its `Decimal(18, 2)` column is refused on the line. */
+function lineFits(line: { quantity: string; unitPrice: string }, ctx: z.RefinementCtx) {
+  if (integerDigits(multiplyDecimal(line.quantity, line.unitPrice, 2)) > 13) {
+    ctx.addIssue({ code: "custom", path: ["unitPrice"], message: "This line's total is too large. Check the quantity and unit price." });
+  }
+}
+
+/** A later date must not fall before an earlier one; the message sits on the later field. */
+function inOrder(first: Date | undefined, second: Date | undefined | null): boolean {
+  return !first || !second || second.getTime() >= first.getTime();
+}
 
 /** Every line carries a unit; "each" is a unit, "" is a missing answer (§195). */
 const unit = requiredText(1, 24, "Unit");
@@ -104,13 +112,8 @@ export const supplierSchema = z.object({
   address: optionalText(400),
   city: optionalText(120),
   country: optionalText(120),
-  paymentTermsDays: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(365)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  // Empty is "not set", never 0 days; "1e2" is not 100 (AUD-09 §4, FV-06).
+  paymentTermsDays: optionalWholeNumber("Payment terms", 0, 365),
   defaultCurrency: z
     .union([currencyCode, z.literal("")])
     .optional()
@@ -120,6 +123,18 @@ export const supplierSchema = z.object({
 });
 
 export type SupplierInput = z.infer<typeof supplierSchema>;
+
+/**
+ * An edit of a supplier (AUD-09 §4, FV-05): type and status have no create
+ * default here, so a request that leaves them out keeps what is saved rather
+ * than reactivating an inactive supplier.
+ */
+export const supplierUpdateSchema = supplierSchema.extend({
+  supplierType: z.enum(SUPPLIER_TYPES).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+});
+
+export type SupplierUpdateInput = z.infer<typeof supplierUpdateSchema>;
 
 /**
  * The Group workspace's `company` filter (Workspace Context §86, §87). A
@@ -153,7 +168,9 @@ export const requestItemSchema = z.object({
   unit,
   estimatedUnitPrice: optionalUnitPriceString,
   category: optionalEnum(CATEGORIES),
-  specification: optionalText(2000),
+  // Absent keeps the saved specification (the editor has no input for it);
+  // empty clears it (AUD-09 §4, FV-05).
+  specification: patchText(2000),
 });
 
 export const requestSchema = z.object({
@@ -168,7 +185,10 @@ export const requestSchema = z.object({
     .union([currencyCode, z.literal("")])
     .optional()
     .transform((v) => (v === "" || v === undefined ? undefined : v)),
-  items: z.array(requestItemSchema).min(1, "A request needs at least one line"),
+  items: z
+    .array(requestItemSchema)
+    .min(1, "A request needs at least one line")
+    .max(MAX_LINE_ITEMS, `A request can have at most ${MAX_LINE_ITEMS} lines`),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -206,13 +226,14 @@ export type RequestListQuery = z.infer<typeof requestListQuerySchema>;
 /* RFQs and quotes                                                             */
 /* -------------------------------------------------------------------------- */
 
+/** As on a request line: what the editor does not send is kept on an edit (FV-05). */
 export const rfqItemSchema = z.object({
   id: optionalId,
-  sourceRequestItemId: optionalId,
+  sourceRequestItemId: patchId,
   description: requiredText(2, 400, "Item description"),
   quantity: quantityString,
   unit,
-  specification: optionalText(2000),
+  specification: patchText(2000),
 });
 
 export const rfqSchema = z.object({
@@ -222,7 +243,10 @@ export const rfqSchema = z.object({
   currency: currencyCode,
   responseDueDate: optionalBusinessDate,
   supplierIds: z.array(z.string().trim().min(1)).default([]),
-  items: z.array(rfqItemSchema).min(1, "An enquiry needs at least one line"),
+  items: z
+    .array(rfqItemSchema)
+    .min(1, "An enquiry needs at least one line")
+    .max(MAX_LINE_ITEMS, `An enquiry can have at most ${MAX_LINE_ITEMS} lines`),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -240,31 +264,46 @@ export const rfqListQuerySchema = paginationSchema.extend({
 
 export type RfqListQuery = z.infer<typeof rfqListQuerySchema>;
 
-export const quoteItemSchema = z.object({
-  rfqItemId: z.string().trim().min(1),
-  quantity: quantityString,
-  unitPrice: unitPriceString,
-  taxRate: taxRateString,
-  notes: optionalText(1000),
-});
+export const quoteItemSchema = z
+  .object({
+    rfqItemId: z.string().trim().min(1),
+    quantity: quantityString,
+    unitPrice: unitPriceString,
+    taxRate: taxRateString,
+    notes: optionalText(1000),
+  })
+  .superRefine(lineFits);
 
-export const quoteSchema = z.object({
-  supplierId: z.string().trim().min(1, "Choose a supplier"),
-  quoteNumber: optionalText(60),
-  quoteDate: businessDate,
-  validUntil: optionalBusinessDate,
-  leadTimeDays: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(3650)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  deliveryDate: optionalBusinessDate,
-  notes: optionalText(2000),
-  items: z.array(quoteItemSchema).min(1, "A quote needs at least one priced line"),
-  versionUpdatedAt: z.coerce.date().optional(),
-});
+/**
+ * A quote's dates are calendar dates in order (AUD-09 §4, FV-07): it cannot be
+ * valid, or deliver, before the day it was given.
+ */
+export const quoteSchema = z
+  .object({
+    supplierId: z.string().trim().min(1, "Choose a supplier"),
+    quoteNumber: optionalText(60),
+    quoteDate: businessDate,
+    validUntil: optionalBusinessDate,
+    leadTimeDays: optionalWholeNumber("Lead time", 0, 3650),
+    deliveryDate: optionalBusinessDate,
+    notes: optionalText(2000),
+    items: z
+      .array(quoteItemSchema)
+      .min(1, "A quote needs at least one priced line")
+      .max(MAX_LINE_ITEMS, `A quote can have at most ${MAX_LINE_ITEMS} lines`)
+      .refine((items) => new Set(items.map((item) => item.rfqItemId)).size === items.length, {
+        message: "Price each enquiry line once.",
+      }),
+    versionUpdatedAt: z.coerce.date().optional(),
+  })
+  .refine((value) => inOrder(value.quoteDate, value.validUntil), {
+    message: "A quote cannot expire before the date it was given.",
+    path: ["validUntil"],
+  })
+  .refine((value) => inOrder(value.quoteDate, value.deliveryDate), {
+    message: "Delivery cannot be before the date of the quote.",
+    path: ["deliveryDate"],
+  });
 
 export type QuoteInput = z.infer<typeof quoteSchema>;
 
@@ -276,31 +315,47 @@ export const quoteDisqualifySchema = z.object({
 /* Purchase orders                                                             */
 /* -------------------------------------------------------------------------- */
 
-export const orderItemSchema = z.object({
-  id: optionalId,
-  sourceRequestItemId: optionalId,
-  sourceQuoteItemId: optionalId,
-  description: requiredText(2, 400, "Item description"),
-  quantity: quantityString,
-  unit,
-  unitPrice: unitPriceString,
-  taxRate: taxRateString,
-});
+export const orderItemSchema = z
+  .object({
+    id: optionalId,
+    sourceRequestItemId: optionalId,
+    sourceQuoteItemId: optionalId,
+    description: requiredText(2, 400, "Item description"),
+    quantity: quantityString,
+    unit,
+    unitPrice: unitPriceString,
+    taxRate: taxRateString,
+  })
+  .superRefine(lineFits);
 
-export const orderSchema = z.object({
-  supplierId: z.string().trim().min(1, "Choose a supplier"),
-  purchaseRequestId: optionalId,
-  rfqId: optionalId,
-  supplierQuoteId: optionalId,
-  projectId: optionalId,
-  contractId: optionalId,
-  orderDate: businessDate,
-  requiredDate: optionalBusinessDate,
-  currency: currencyCode,
-  notes: optionalText(4000),
-  items: z.array(orderItemSchema).min(1, "An order needs at least one line"),
-  versionUpdatedAt: z.coerce.date().optional(),
-});
+/**
+ * `rfqId`, `supplierQuoteId` and `contractId` follow the partial-update rule
+ * (AUD-09 §4, FV-05, FV-10): the order form never sends the quote links, and
+ * sends the contract only to someone who may see contracts — so on an edit an
+ * absent key keeps the saved link, and only an explicit empty value clears it.
+ */
+export const orderSchema = z
+  .object({
+    supplierId: z.string().trim().min(1, "Choose a supplier"),
+    purchaseRequestId: optionalId,
+    rfqId: patchId,
+    supplierQuoteId: patchId,
+    projectId: optionalId,
+    contractId: patchId,
+    orderDate: businessDate,
+    requiredDate: optionalBusinessDate,
+    currency: currencyCode,
+    notes: optionalText(4000),
+    items: z
+      .array(orderItemSchema)
+      .min(1, "An order needs at least one line")
+      .max(MAX_LINE_ITEMS, `An order can have at most ${MAX_LINE_ITEMS} lines`),
+    versionUpdatedAt: z.coerce.date().optional(),
+  })
+  .refine((value) => inOrder(value.orderDate, value.requiredDate), {
+    message: "The required date cannot be before the order date.",
+    path: ["requiredDate"],
+  });
 
 export type OrderInput = z.infer<typeof orderSchema>;
 
@@ -333,19 +388,22 @@ export type OrderListQuery = z.infer<typeof orderListQuerySchema>;
 /* Goods receipts                                                              */
 /* -------------------------------------------------------------------------- */
 
-export const receiptItemSchema = z.object({
-  purchaseOrderItemId: z.string().trim().min(1),
-  receivedQuantity: quantityString,
-  rejectedQuantity: z
-    .string()
-    .trim()
-    .default("0")
-    .transform((value) => (value === "" ? "0" : value.replace(",", ".")))
-    .refine((value) => /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-      message: "Rejected quantity must be a number with at most 4 decimal places",
+export const receiptItemSchema = z
+  .object({
+    purchaseOrderItemId: z.string().trim().min(1),
+    receivedQuantity: decimalString("Received quantity", RATE_RULE).refine(positive, {
+      message: "Received quantity must be more than zero",
     }),
-  notes: optionalText(1000),
-});
+    // Nothing rejected is a rejection of 0, by the domain's rule.
+    rejectedQuantity: optionalDecimalString("Rejected quantity", RATE_RULE).transform((value) => value ?? "0"),
+    notes: optionalText(1000),
+  })
+  // Exact, on the line it concerns (AUD-09 §4, §7): a float comparison let a
+  // rejection slightly above what arrived through.
+  .refine((item) => compareDecimal(item.rejectedQuantity, item.receivedQuantity) <= 0, {
+    message: "You cannot reject more than arrived.",
+    path: ["rejectedQuantity"],
+  });
 
 export const receiptSchema = z
   .object({
@@ -354,20 +412,16 @@ export const receiptSchema = z
     receivedByMemberId: optionalId,
     notes: optionalText(2000),
     /** Set after the server refused an over-receipt (PRD #19 §139). */
-    acknowledgeOverReceipt: z.coerce.boolean().optional().default(false),
-    items: z.array(receiptItemSchema).min(1, "Record what arrived on at least one line"),
-  })
-  .refine(
-    (value) =>
-      value.items.every(
-        (item) =>
-          Number.parseFloat(item.rejectedQuantity) <= Number.parseFloat(item.receivedQuantity),
-      ),
-    {
-      message: "You cannot reject more than arrived.",
-      path: ["items"],
-    },
-  );
+    // "false" is false: `z.coerce.boolean()` read the string as true (AUD-09 §4).
+    acknowledgeOverReceipt: optionalBoolean.transform((value) => value ?? false),
+    items: z
+      .array(receiptItemSchema)
+      .min(1, "Record what arrived on at least one line")
+      .max(MAX_LINE_ITEMS)
+      .refine((items) => new Set(items.map((item) => item.purchaseOrderItemId)).size === items.length, {
+        message: "Record each order line once.",
+      }),
+  });
 
 export type ReceiptInput = z.infer<typeof receiptSchema>;
 

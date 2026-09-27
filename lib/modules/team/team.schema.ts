@@ -34,10 +34,21 @@ export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
  * edited in their own profile — a company manager does not rewrite somebody's
  * identity across every company they belong to (PRD #14 §86, §87).
  */
+/**
+ * Absent, empty and null are distinct on an edit (AUD-09 §4, FV-05): absent
+ * keeps the stored title or department, empty or null clears it. A PATCH that
+ * changes the role alone no longer removes the department.
+ */
+const keptText = (max: number) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value || null));
+
 export const updateMemberSchema = z.object({
-  jobTitle: optionalText(160),
+  jobTitle: keptText(160),
   roleId: z.string().trim().min(1, "Choose a role"),
-  departmentId: optionalId,
+  departmentId: keptText(64),
   versionUpdatedAt: optionalDate,
 });
 

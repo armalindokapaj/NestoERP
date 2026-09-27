@@ -9,6 +9,7 @@ import {
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { requireCompanyInspection } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import {
@@ -283,6 +284,8 @@ export async function createDefect(
 
   const project = await requireProject(context, input.projectId);
   if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+  // The inspection it was found in is this company's (AUD-09 §5, FV-09): a hidden input is no boundary.
+  const inspectionId = input.inspectionId ? (await requireCompanyInspection(context, input.inspectionId)).id : null;
 
   const id = await prisma.$transaction(async (tx) => {
     const defectNumber = await nextQualityNumber(tx, "qualityDefect", context.companyId);
@@ -294,7 +297,7 @@ export async function createDefect(
         title: input.title,
         description: input.description,
         projectId: project.id,
-        inspectionId: input.inspectionId ?? null,
+        inspectionId,
         severity: input.severity,
         status: "OPEN",
         locationText: input.locationText ?? null,
@@ -338,7 +341,11 @@ export async function updateDefect(
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   const project = await requireProject(context, input.projectId);
-  if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+  // The stored assignee is kept even if they have since left: only a new choice must be active (AUD-09 §5, FV-09).
+  if (input.assignedToMemberId && input.assignedToMemberId !== existing.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+  // Reassigning through the edit form is still an assignment (AUD-09 §4, FV-04; AUD-06).
+  if ((input.assignedToMemberId ?? null) !== existing.assignedToMemberId) assertPermission(context, "qaqc.defect.assign");
+  const inspectionId = !input.inspectionId ? null : input.inspectionId === existing.inspectionId ? existing.inspectionId : (await requireCompanyInspection(context, input.inspectionId)).id;
 
   await prisma.$transaction(async (tx) => {
     await tx.qualityDefect.update({
@@ -347,7 +354,7 @@ export async function updateDefect(
         title: input.title,
         description: input.description,
         projectId: project.id,
-        inspectionId: input.inspectionId ?? null,
+        inspectionId,
         severity: input.severity,
         locationText: input.locationText ?? null,
         assignedToMemberId: input.assignedToMemberId ?? null,
@@ -592,7 +599,7 @@ async function requireDefect(context: UserContext, defectId: string) {
   return assertFound(
     await prisma.qualityDefect.findFirst({
       where: { AND: [buildDefectScopeWhere(context), { id: defectId }] },
-      select: { id: true, defectNumber: true, status: true, updatedAt: true },
+      select: { id: true, defectNumber: true, status: true, updatedAt: true, inspectionId: true, assignedToMemberId: true },
     }),
   );
 }

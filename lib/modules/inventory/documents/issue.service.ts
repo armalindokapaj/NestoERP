@@ -31,6 +31,7 @@ import { stockReservationMachine } from "../reservations/reservation.machine";
 import { stockIssueMachine } from "./issue.machine";
 import {
   assertCancellable,
+  assertDocumentMembers,
   assertEditable,
   assertPostable,
   assertReversible,
@@ -220,6 +221,10 @@ export async function createIssue(
   const warehouse = await requireWarehouse(context, input.warehouseId);
   const projectId = await resolveProject(context, input.projectId);
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
+  await assertDocumentMembers(context, {
+    issuedToMemberId: input.issuedToMemberId,
+    requestedByMemberId: input.requestedByMemberId,
+  });
 
   const id = await prisma.$transaction(async (tx) => {
     const issueNumber = await nextDocumentNumber(tx, "stockIssue", context.companyId);
@@ -278,6 +283,11 @@ export async function updateIssue(
   const warehouse = await requireWarehouse(context, input.warehouseId);
   const projectId = await resolveProject(context, input.projectId);
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
+  await assertDocumentMembers(
+    context,
+    { issuedToMemberId: input.issuedToMemberId, requestedByMemberId: input.requestedByMemberId },
+    { issuedToMemberId: existing.issuedToMemberId, requestedByMemberId: existing.requestedByMemberId },
+  );
 
   await prisma.$transaction(async (tx) => {
     // Still a draft, decided by the write rather than by the read above: an
@@ -540,6 +550,8 @@ async function loadForWrite(context: UserContext, issueId: string) {
         warehouseId: true,
         projectId: true,
         issueDate: true,
+        issuedToMemberId: true,
+        requestedByMemberId: true,
         updatedAt: true,
       },
     }),

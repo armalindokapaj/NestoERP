@@ -3,9 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { AccessError } from "@/lib/access/guards";
+import type { ZodError } from "zod";
+
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
+import { actionFailure } from "@/lib/actions/result";
+import {
+  invalidInput,
+  readSubmittedLines,
+  scalarFormValues,
+  type SubmittedLines,
+} from "@/lib/modules/finance/finance.form-data";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
@@ -54,59 +62,30 @@ function revalidateFinance(path?: string) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * A refusal the form can place (AUD-09 §3, §6): a service's field details as
+ * `fieldErrors`, a uniqueness race as a business sentence, anything unexpected
+ * as `INTERNAL_ERROR` — a confirmed failure, never mistaken for a field error.
+ */
 function toResult(error: unknown): FinanceActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code };
-  }
-  console.error("[finance] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
-}
-
-function invalid(error: { flatten(): { fieldErrors: unknown } }): FinanceActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+  return actionFailure(error, "finance");
 }
 
 /**
- * Reads a form that carries repeated line fields.
- *
- * Line inputs are named `lineItems[0].description` and so on, which is how a
- * plain HTML form expresses a list. They are collected by index rather than by
- * position in the FormData, so a removed row cannot shift the rest.
+ * Invalid input, every issue under its canonical path (`lineItems.2.quantity`),
+ * each row's index being the one it was submitted as (AUD-09 §3, §7, FV-16).
  */
-function readLines(formData: FormData, prefix: string, fields: string[]) {
-  const byIndex = new Map<number, Record<string, string>>();
+function invalid(error: ZodError, rows: SubmittedLines | null = null): FinanceActionResult {
+  return invalidInput(error, rows ? { lineItems: rows.submitted } : {});
+}
 
-  for (const [key, value] of formData.entries()) {
-    const match = key.match(new RegExp(`^${prefix}\\[(\\d+)\\]\\.(\\w+)$`));
-    if (!match || typeof value !== "string") continue;
-
-    const index = Number.parseInt(match[1], 10);
-    const field = match[2];
-    if (!fields.includes(field)) continue;
-
-    const line = byIndex.get(index) ?? {};
-    line[field] = value;
-    byIndex.set(index, line);
-  }
-
-  return [...byIndex.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, line]) => line)
-    // A row somebody cleared out is dropped rather than failing validation.
-    .filter((line) => fields.some((field) => (line[field] ?? "").trim() !== ""));
+/** Repeated line fields, by their submitted index (see `readSubmittedLines`). */
+function readLines(formData: FormData, prefix: string, fields: string[]): SubmittedLines {
+  return readSubmittedLines(formData, prefix, fields);
 }
 
 function scalarValues(formData: FormData): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const [key, value] of formData.entries()) {
-    if (typeof value === "string" && !key.includes("[")) values[key] = value;
-  }
-  return values;
+  return scalarFormValues(formData);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -142,11 +121,9 @@ export async function invoiceFromProposalAction(
 export async function createInvoiceAction(formData: FormData): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = createInvoiceSchema.safeParse({
-    ...scalarValues(formData),
-    lineItems: readLines(formData, "lineItems", INVOICE_LINE_FIELDS),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = readLines(formData, "lineItems", INVOICE_LINE_FIELDS);
+  const parsed = createInvoiceSchema.safeParse({ ...scalarValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows);
 
   let id: string;
   try {
@@ -165,11 +142,9 @@ export async function updateInvoiceAction(
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = updateInvoiceSchema.safeParse({
-    ...scalarValues(formData),
-    lineItems: readLines(formData, "lineItems", INVOICE_LINE_FIELDS),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = readLines(formData, "lineItems", INVOICE_LINE_FIELDS);
+  const parsed = updateInvoiceSchema.safeParse({ ...scalarValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows);
 
   try {
     await invoices.updateInvoice(context, invoiceId, parsed.data);
@@ -326,11 +301,9 @@ const BUDGET_LINE_FIELDS = ["category", "description", "plannedAmount"];
 export async function createBudgetAction(formData: FormData): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = createBudgetSchema.safeParse({
-    ...scalarValues(formData),
-    lineItems: readLines(formData, "lineItems", BUDGET_LINE_FIELDS),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = readLines(formData, "lineItems", BUDGET_LINE_FIELDS);
+  const parsed = createBudgetSchema.safeParse({ ...scalarValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows);
 
   let id: string;
   try {
@@ -349,11 +322,9 @@ export async function updateBudgetAction(
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = updateBudgetSchema.safeParse({
-    ...scalarValues(formData),
-    lineItems: readLines(formData, "lineItems", BUDGET_LINE_FIELDS),
-  });
-  if (!parsed.success) return invalid(parsed.error);
+  const rows = readLines(formData, "lineItems", BUDGET_LINE_FIELDS);
+  const parsed = updateBudgetSchema.safeParse({ ...scalarValues(formData), lineItems: rows.lines });
+  if (!parsed.success) return invalid(parsed.error, rows);
 
   try {
     await budgets.updateBudget(context, budgetId, parsed.data);

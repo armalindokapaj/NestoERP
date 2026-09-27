@@ -68,6 +68,7 @@ export default async function ExecuteInspectionPage({ params }: Params) {
           gaps={inspection.gaps}
           allowedResults={inspection.allowedResults}
           versionUpdatedAt={inspection.updatedAt}
+          summary={inspection.summary}
         />
       ) : null}
     </div>

@@ -414,7 +414,8 @@ export async function updateHazard(
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   if (input.projectId) await requireProject(context, input.projectId);
-  if (input.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
+  // The stored assignee is kept even if they have since left: only a new choice must be an active member (AUD-09 §5, FV-09).
+  if (input.assignedToMemberId && input.assignedToMemberId !== existing.assignedToMemberId) await requireMember(context, input.assignedToMemberId);
 
   /*
    * Reassigning and re-scoring are their own grants (PRD #22 §70, PRD #47 §85).

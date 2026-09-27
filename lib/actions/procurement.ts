@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { ZodError } from "zod";
+
 import { AccessError } from "@/lib/access/guards";
+import { actionFailure } from "@/lib/actions/result";
+import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
+import { parseDecimalInput } from "@/lib/modules/finance/finance.decimal";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -23,6 +28,7 @@ import {
   requestSchema,
   rfqSchema,
   supplierSchema,
+  supplierUpdateSchema,
 } from "@/lib/modules/procurement/procurement.schema";
 
 /**
@@ -58,60 +64,60 @@ function revalidateProcurement(recordPath?: string) {
  * re-asks with a confirmation instead of simply failing (PRD #19 §31, §139).
  */
 function toResult(error: unknown): ProcurementActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string; lines?: unknown } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code, details: details?.lines };
-  }
-
-  console.error("[procurement] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  const failure = actionFailure(error, "procurement");
+  // The over-receipt question carries its lines back (PRD #19 §139).
+  const lines = error instanceof AccessError ? (error.details as { lines?: unknown } | undefined)?.lines : undefined;
+  return lines === undefined ? failure : { ...failure, details: lines };
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): ProcurementActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/**
+ * Invalid input under canonical paths (AUD-09 §3, §7, FV-16): a line's error
+ * is `items.<index>.<field>`, the index being the row's submitted position, so
+ * the editor can put it on that row.
+ */
+function invalid(error: ZodError, submitted: number[] | null = null): ProcurementActionResult {
+  return invalidInput(error, submitted ? { items: submitted } : {});
 }
 
 /**
  * Reads a form that carries repeated line fields.
  *
- * Lines arrive as `items[0][description]`, `items[0][quantity]` and so on,
+ * Lines arrive as `items.0.description` (or the older `items[0][description]`),
  * because an HTML form has no nested objects and a JSON blob in a hidden field
- * is a thing nobody can debug from the network tab.
+ * is a thing nobody can debug from the network tab. A row with nothing in it is
+ * dropped — but every kept row remembers the index it was submitted as, so an
+ * error on it names that row and not a neighbour.
  */
-function formValues(formData: FormData): {
+function formValues(
+  formData: FormData,
+  kept?: (row: Record<string, string>) => boolean,
+): {
   values: Record<string, unknown>;
   items: Record<string, string>[];
+  submitted: number[];
 } {
-  const values: Record<string, unknown> = {};
-  const rows = new Map<number, Record<string, string>>();
-
-  for (const [key, value] of formData.entries()) {
-    if (typeof value !== "string") continue;
-
-    const match = /^items\[(\d+)\]\[(\w+)\]$/.exec(key);
-    if (match) {
-      const index = Number.parseInt(match[1]!, 10);
-      const row = rows.get(index) ?? {};
-      row[match[2]!] = value;
-      rows.set(index, row);
-      continue;
-    }
-
-    values[key] = value;
-  }
-
-  const items = [...rows.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, row]) => row)
-    // A line the user cleared is dropped rather than failing validation.
-    .filter((row) => (row.description ?? "").trim() !== "" || (row.purchaseOrderItemId ?? "") !== "");
-
-  return { values, items };
+  const rows = readSubmittedLines(formData, "items", ITEM_FIELDS, kept ?? ((row) => (row.description ?? "").trim() !== ""));
+  return { values: scalarFormValues(formData), items: rows.lines, submitted: rows.submitted };
 }
+
+const ITEM_FIELDS = [
+  "id",
+  "description",
+  "quantity",
+  "unit",
+  "unitPrice",
+  "estimatedUnitPrice",
+  "taxRate",
+  "category",
+  "specification",
+  "sourceRequestItemId",
+  "sourceQuoteItemId",
+  "rfqItemId",
+  "notes",
+  "purchaseOrderItemId",
+  "receivedQuantity",
+  "rejectedQuantity",
+];
 
 /* -------------------------------------------------------------------------- */
 /* Suppliers                                                                   */
@@ -141,7 +147,7 @@ export async function updateSupplierAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = supplierSchema.safeParse(formValues(formData).values);
+  const parsed = supplierUpdateSchema.safeParse(formValues(formData).values);
   if (!parsed.success) return invalid(parsed.error);
 
   try {
@@ -178,9 +184,9 @@ export async function supplierLifecycleAction(
 export async function createRequestAction(formData: FormData): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const parsed = requestSchema.safeParse({ ...values, items });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   let id: string;
   try {
@@ -200,9 +206,9 @@ export async function updateRequestAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const parsed = requestSchema.safeParse({ ...values, items });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   try {
     await requests.updateRequest(context, requestId, parsed.data);
@@ -293,10 +299,10 @@ export async function cancelRequestAction(
 export async function createRfqAction(formData: FormData): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const supplierIds = formData.getAll("supplierIds").filter((v): v is string => typeof v === "string");
   const parsed = rfqSchema.safeParse({ ...values, items, supplierIds });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   let id: string;
   try {
@@ -316,10 +322,10 @@ export async function updateRfqAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const supplierIds = formData.getAll("supplierIds").filter((v): v is string => typeof v === "string");
   const parsed = rfqSchema.safeParse({ ...values, items, supplierIds });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   try {
     await rfqs.updateRfq(context, rfqId, parsed.data);
@@ -374,9 +380,9 @@ export async function recordQuoteAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const parsed = quoteSchema.safeParse({ ...values, items });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   let id: string;
   try {
@@ -449,9 +455,9 @@ export async function orderFromQuoteAction(quoteId: string): Promise<Procurement
 export async function createOrderAction(formData: FormData): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const parsed = orderSchema.safeParse({ ...values, items });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   let id: string;
   try {
@@ -471,9 +477,9 @@ export async function updateOrderAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  const { values, items, submitted } = formValues(formData);
   const parsed = orderSchema.safeParse({ ...values, items });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   try {
     await orders.updateOrder(context, orderId, parsed.data);
@@ -562,14 +568,22 @@ export async function recordReceiptAction(
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
-  const { values, items } = formValues(formData);
+  // A delivery need not bring every line: a row left empty or at 0 did not
+  // arrive this time and is not part of the receipt. It used to be refused as
+  // "Quantity must be more than zero" under a key no row showed, which blocked
+  // every delivery once one line was complete (AUD-09 §7, FV-16).
+  const { values, items, submitted } = formValues(formData, (row) => {
+    if (!(row.purchaseOrderItemId ?? "").trim()) return false;
+    const received = parseDecimalInput(row.receivedQuantity ?? "", { label: "Received quantity", scale: 4, maxIntegerDigits: 14 });
+    return !(received.ok && !/[1-9]/.test(received.value)) && (row.receivedQuantity ?? "").trim() !== "";
+  });
   const parsed = receiptSchema.safeParse({
     ...values,
     acknowledgeOverReceipt:
       values.acknowledgeOverReceipt === "on" || values.acknowledgeOverReceipt === "true",
-    items: items.map((item) => ({ ...item, rejectedQuantity: item.rejectedQuantity ?? "0" })),
+    items,
   });
-  if (!parsed.success) return invalid(parsed.error);
+  if (!parsed.success) return invalid(parsed.error, submitted);
 
   try {
     await receipts.recordReceipt(context, orderId, parsed.data);

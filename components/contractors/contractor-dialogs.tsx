@@ -20,15 +20,28 @@ import type { Option } from "@/lib/modules/engineering/engineering.types";
  * contractor it resembles and why, and confirms before a second record is made.
  */
 
+/**
+ * A dialog's options, read once. A failed read is said, not cached: the
+ * dialog stays closed, the toast says why, and the next click tries again —
+ * an empty list standing in for "could not load" used to open a form whose
+ * missing supplier or contract choices looked like "none" (AUD-09 §5, FV-09).
+ * Resolves `null` on failure.
+ */
 function useLoad<T>(url: string, fallback: T) {
+  const toast = useToast();
   const [data, setData] = React.useState<T>(fallback);
   const [loaded, setLoaded] = React.useState(false);
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (): Promise<T | null> => {
     if (loaded) return data;
-    const next = await engineeringApi<T>(url).catch(() => fallback);
-    setData(next);
-    setLoaded(true);
-    return next;
+    try {
+      const next = await engineeringApi<T>(url);
+      setData(next);
+      setLoaded(true);
+      return next;
+    } catch {
+      toast({ title: "Couldn't load the choices for this form. Try again.", tone: "danger" });
+      return null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, url]);
   return { data, loaded, load };
@@ -44,7 +57,7 @@ export function NewContractorButton() {
 
   return (
     <>
-      <Button type="button" size="sm" data-testid="new-contractor" onClick={() => void options.load().then(() => { setDuplicates([]); setConfirmed(false); setOpen(true); })}>
+      <Button type="button" size="sm" data-testid="new-contractor" onClick={() => void options.load().then((next) => { if (!next) return; setDuplicates([]); setConfirmed(false); setOpen(true); })}>
         <Plus aria-hidden="true" />
         New contractor
       </Button>
@@ -104,7 +117,7 @@ export function EditContractorButton({ contractor }: { contractor: Record<string
   const options = useLoad<{ suppliers: Option[] }>("/api/contractors/options", { suppliers: [] });
   return (
     <>
-      <Button type="button" size="sm" variant="secondary" data-testid="edit-contractor" onClick={() => void options.load().then(() => setOpen(true))}>
+      <Button type="button" size="sm" variant="secondary" data-testid="edit-contractor" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
         Edit
       </Button>
@@ -139,7 +152,7 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
   const options = useLoad<AssignmentOptions>(`/api/projects/${projectId}/contractors/options`, { contractors: [], members: [], contracts: [] });
   return (
     <>
-      <Button type="button" size="sm" data-testid="assign-contractor" onClick={() => void options.load().then(() => setOpen(true))}>
+      <Button type="button" size="sm" data-testid="assign-contractor" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Plus aria-hidden="true" />
         {label}
       </Button>
@@ -156,6 +169,9 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
           wide
           testId="assignment-form"
           onSubmit={async (payload) => {
+            // A contact of the contractor chosen before is not this one's: cleared, as the field's hint says (AUD-09 §5, FV-08).
+            const contacts = options.data.contractors?.find((item) => item.id === payload.contractorId)?.contacts ?? [];
+            if (payload.primaryContractorContactId && !contacts.some((contact) => contact.id === payload.primaryContractorContactId)) payload.primaryContractorContactId = null;
             await engineeringApi(`/api/projects/${projectId}/contractors`, { body: payload });
             toast({ title: "Contractor assigned.", tone: "success" });
             router.refresh();
@@ -172,7 +188,7 @@ export function EditAssignmentButton({ projectId, assignment }: { projectId: str
   const options = useLoad<AssignmentOptions>(`/api/projects/${projectId}/contractors/options`, { contractors: [], members: [], contracts: [] });
   return (
     <>
-      <Button type="button" size="icon-sm" variant="ghost" aria-label="Edit assignment" data-testid="edit-assignment" onClick={() => void options.load().then(() => setOpen(true))}>
+      <Button type="button" size="icon-sm" variant="ghost" aria-label="Edit assignment" data-testid="edit-assignment" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
       </Button>
       {options.loaded ? (
@@ -203,7 +219,7 @@ export function NewWorkPackageButton({ projectId, contractorId }: { projectId: s
   const options = useLoad<WorkPackageOptions>(`/api/projects/${projectId}/work-packages/options`, { contractors: [], contracts: [], members: [], canSetValue: false });
   return (
     <>
-      <Button type="button" size="sm" data-testid="new-work-package" onClick={() => void options.load().then(() => setOpen(true))}>
+      <Button type="button" size="sm" data-testid="new-work-package" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Plus aria-hidden="true" />
         New work package
       </Button>
@@ -234,7 +250,7 @@ export function EditWorkPackageButton({ projectId, workPackage }: { projectId: s
   const options = useLoad<WorkPackageOptions>(`/api/projects/${projectId}/work-packages/options`, { contractors: [], contracts: [], members: [], canSetValue: false });
   return (
     <>
-      <Button type="button" size="sm" variant="secondary" data-testid="edit-work-package" onClick={() => void options.load().then(() => setOpen(true))}>
+      <Button type="button" size="sm" variant="secondary" data-testid="edit-work-package" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
         Edit
       </Button>

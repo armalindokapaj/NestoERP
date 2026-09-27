@@ -8,6 +8,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateIncidentAction } from "@/lib/actions/hse";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
+import { companyZone, instantToWallClock } from "@/lib/modules/hse/hse.time";
 
 export const metadata: Metadata = { title: "Edit incident" };
 
@@ -29,6 +30,7 @@ export default async function EditIncidentPage({ params }: Params) {
   if (!incident.capabilities.canEdit) notFound();
 
   const options = await incidents.incidentFormOptions(context);
+  const zone = await companyZone(context.companyId);
   const update = updateIncidentAction.bind(null, incidentId);
 
   return (
@@ -61,7 +63,8 @@ export default async function EditIncidentPage({ params }: Params) {
           title: incident.title,
           description: incident.description,
           projectId: incident.project?.id ?? "",
-          occurredAt: incident.occurredAt.slice(0, 16),
+          // The company's wall clock, as the form sends it back (AUD-09 §4, FV-07).
+          occurredAt: instantToWallClock(incident.occurredAt, zone),
           locationText: incident.locationText ?? "",
           severity: incident.severity,
           injuryOccurred: incident.injury?.injuryOccurred ?? false,

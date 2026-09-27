@@ -6,7 +6,7 @@ import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
 import type { RecruitmentOptionsDTO } from "@/lib/modules/hr/recruitment/candidate.options";
-import { candidateFields } from "./candidate-fields";
+import { candidateFields, withinCompany } from "./candidate-fields";
 
 /** Adds a person HR is interviewing, before any login exists (E-06 §22, §62). */
 export function NewCandidateButton({ choices, defaultCompanyId }: { choices: RecruitmentOptionsDTO; defaultCompanyId: string }) {
@@ -31,7 +31,7 @@ export function NewCandidateButton({ choices, defaultCompanyId }: { choices: Rec
         wide
         testId="candidate-dialog"
         onSubmit={async (payload) => {
-          const candidate = await engineeringApi<{ id: string }>("/api/hr/candidates", { body: payload });
+          const candidate = await engineeringApi<{ id: string }>("/api/hr/candidates", { body: withinCompany(payload, choices) });
           // Opened by the dialog after an ordinary save (AUD-03 §6).
           return { redirectTo: `/hr/recruitment/${candidate.id}` };
         }}

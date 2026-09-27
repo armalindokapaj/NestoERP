@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { ZodError } from "zod";
+
 import { AccessError } from "@/lib/access/guards";
+import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
@@ -47,22 +50,17 @@ function revalidateHr(employeeId?: string) {
 }
 
 function toResult(error: unknown): HrActionResult {
+  // The people a new employee might already be, for HR to choose from (E-04 §92, §176).
   if (error instanceof AccessError) {
-    // The people a new employee might already be, for HR to choose from (E-04 §92, §176).
     const details = error.details as { code?: string; candidates?: ProbableDuplicate[] } | undefined;
     if (details?.code === "PROBABLE_DUPLICATE") return { ok: false, error: error.message, duplicates: details.candidates ?? [] };
-    return { ok: false, error: error.message, code: details?.code ?? error.code };
   }
-  console.error("[hr] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  // One reading of every other failure for both transports (AUD-09 §3, §6).
+  return actionFailure(error, "hr");
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): HrActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+function invalid(error: ZodError): HrActionResult {
+  return validationFailure(error);
 }
 
 function formValues(formData: FormData): Record<string, unknown> {

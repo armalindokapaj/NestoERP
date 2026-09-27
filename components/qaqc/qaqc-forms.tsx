@@ -21,6 +21,8 @@ import {
   priorityLabels,
   severityLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
+import { localDay } from "@/components/hr/local-day";
+import { CurrentOption } from "@/components/hse/hse-forms";
 
 /**
  * The QA/QC record forms (PRD #21 §43, §66, §116, §128, §144).
@@ -33,7 +35,7 @@ import {
 export type Option = { value: string; label: string };
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDay();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -144,6 +146,7 @@ export function RequestForm({
                 {project.label}
               </option>
             ))}
+            <CurrentOption value={values?.projectId} options={projects} />
           </select>
         </Field>
 
@@ -217,6 +220,7 @@ export function RequestForm({
                   {member.label}
                 </option>
               ))}
+              <CurrentOption value={values?.assignedInspectorMemberId} options={members} />
             </select>
           </Field>
         ) : null}
@@ -349,6 +353,7 @@ export function InspectionForm({
                 {member.label}
               </option>
             ))}
+            <CurrentOption value={values?.assignedInspectorMemberId} options={members} />
           </select>
         </Field>
 
@@ -374,6 +379,7 @@ export function InspectionForm({
                 {project.label}
               </option>
             ))}
+            <CurrentOption value={values?.projectId} options={projects} />
           </select>
         </Field>
 
@@ -538,6 +544,7 @@ export function DefectForm({
                 {project.label}
               </option>
             ))}
+            <CurrentOption value={values?.projectId} options={projects} />
           </select>
         </Field>
 
@@ -583,6 +590,7 @@ export function DefectForm({
                 {member.label}
               </option>
             ))}
+            <CurrentOption value={values?.assignedToMemberId} options={members} />
           </select>
         </Field>
 
@@ -709,6 +717,7 @@ export function NcrForm({
                 {project.label}
               </option>
             ))}
+            <CurrentOption value={values?.projectId} options={projects} />
           </select>
         </Field>
 
@@ -760,6 +769,7 @@ export function NcrForm({
                 {member.label}
               </option>
             ))}
+            <CurrentOption value={values?.assignedToMemberId} options={members} />
           </select>
         </Field>
 
@@ -776,6 +786,7 @@ export function NcrForm({
                 {member.label}
               </option>
             ))}
+            <CurrentOption value={values?.ownerMemberId} options={members} />
           </select>
         </Field>
       </FormSection>
@@ -899,6 +910,7 @@ export function CorrectiveActionForm({
                 {member.label}
               </option>
             ))}
+            <CurrentOption value={values?.assignedToMemberId} options={members} />
           </select>
         </Field>
 
@@ -919,6 +931,7 @@ export function CorrectiveActionForm({
                 {project.label}
               </option>
             ))}
+            <CurrentOption value={values?.projectId} options={projects} />
           </select>
         </Field>
 

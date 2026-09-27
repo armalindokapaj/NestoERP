@@ -333,6 +333,7 @@ export async function createRfq(context: UserContext, input: RfqInput): Promise<
 
   const related = await resolveRelated(context, input);
   const supplierIds = await resolveSuppliers(context, input.supplierIds);
+  await assertSourceLines(input.items, related.purchaseRequestId);
 
   const id = await prisma.$transaction(async (tx) => {
     const rfqNumber = await nextDocumentNumber(tx, "rFQ", context.companyId);
@@ -417,6 +418,27 @@ export async function updateRfq(
   const related = await resolveRelated(context, input);
   const supplierIds = await resolveSuppliers(context, input.supplierIds);
 
+  // What the editor does not send is kept (AUD-09 §4, FV-05, FV-10): a line
+  // that comes back with its id keeps the request line it was sourced from and
+  // its specification unless the key says otherwise.
+  const savedLines = new Map(
+    (
+      await prisma.rFQItem.findMany({
+        where: { rfqId },
+        select: { id: true, sourceRequestItemId: true, specification: true },
+      })
+    ).map((line) => [line.id, line]),
+  );
+  const items = input.items.map((item) => {
+    const saved = item.id ? savedLines.get(item.id) : undefined;
+    return {
+      ...item,
+      sourceRequestItemId: item.sourceRequestItemId !== undefined ? item.sourceRequestItemId : (saved?.sourceRequestItemId ?? null),
+      specification: item.specification !== undefined ? item.specification : (saved?.specification ?? null),
+    };
+  });
+  await assertSourceLines(items, related.purchaseRequestId);
+
   await prisma.$transaction(async (tx) => {
     await tx.rFQItem.deleteMany({ where: { rfqId } });
     await tx.rFQSupplier.deleteMany({ where: { rfqId } });
@@ -431,7 +453,7 @@ export async function updateRfq(
         responseDueDate: input.responseDueDate ?? null,
         updatedByMemberId: context.membershipId,
         items: {
-          create: input.items.map((item, index) => ({
+          create: items.map((item, index) => ({
             sourceRequestItemId: item.sourceRequestItemId ?? null,
             description: item.description,
             quantity: new Prisma.Decimal(item.quantity),
@@ -777,4 +799,26 @@ function capabilitiesFor(
     canViewDocuments: can(context, "procurement.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "procurement.activity.view"),
   };
+}
+
+/**
+ * A line's `sourceRequestItemId` must be a line of the enquiry's own request
+ * (AUD-09 §5, FV-09): request sourcing counts these ids, so a forged or stale
+ * one would mark somebody else's line as covered.
+ */
+async function assertSourceLines(
+  items: { sourceRequestItemId?: string | null }[],
+  purchaseRequestId: string | null,
+): Promise<void> {
+  const ids = [...new Set(items.map((item) => item.sourceRequestItemId).filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return;
+  const found = purchaseRequestId
+    ? await prisma.purchaseRequestItem.count({ where: { id: { in: ids }, purchaseRequestId } })
+    : 0;
+  if (found !== ids.length) {
+    throw new AccessError("VALIDATION_ERROR", "A line refers to a request line that is not part of this enquiry's request.", {
+      code: "INVALID_SOURCE_LINE",
+      items: ["A line refers to a request line that is not part of this enquiry's request."],
+    });
+  }
 }

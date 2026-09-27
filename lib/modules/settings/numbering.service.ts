@@ -14,24 +14,31 @@ import { formatNumber } from "@/lib/core/numbering/numbering.service";
  * exactly as they were (PRD #24 §117, §196).
  */
 
+/**
+ * The format fields apply to automatic numbering only. The form disables them
+ * for a manual scheme, and a disabled control posts nothing — so each may be
+ * absent, and an absent one keeps what is stored: switching a scheme to
+ * manual no longer failed validation or reset its format (AUD-09 §4, §5,
+ * FV-05, FV-10: the "omit/preserve" policy).
+ */
 export const numberingSchemeSchema = z.object({
-  mode: z.enum(["MANUAL", "AUTO"]),
+  mode: z.enum(["MANUAL", "AUTO"], { message: "Choose automatic or manual numbering" }),
   prefix: z
     .string()
     .trim()
-    .max(20)
+    .max(20, "Keep the prefix to 20 characters")
     .regex(/^[A-Z0-9_-]*$/, "Use A-Z, 0-9, hyphen or underscore")
     .optional()
-    .transform((v) => (v === undefined || v === "" ? null : v)),
-  separator: z.string().max(1),
-  yearMode: z.enum(["NONE", "YYYY", "YY"]),
-  padding: z.coerce.number().int().min(3).max(10),
-  resetSequenceYearly: z.boolean(),
+    .transform((v) => (v === undefined ? undefined : v === "" ? null : v)),
+  separator: z.string().max(1, "One character at most").optional(),
+  yearMode: z.enum(["NONE", "YYYY", "YY"]).optional(),
+  padding: z.coerce.number().int().min(3, "At least 3 digits").max(10, "At most 10 digits").optional(),
+  resetSequenceYearly: z.boolean().optional(),
 });
 
 export type NumberingSchemeInput = z.infer<typeof numberingSchemeSchema>;
 
-export type NumberingSchemeDTO = NumberingSchemeInput & {
+export type NumberingSchemeDTO = Required<NumberingSchemeInput> & {
   moduleKey: string;
   entityType: string;
   nextSequence: number;

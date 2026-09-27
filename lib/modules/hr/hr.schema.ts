@@ -7,6 +7,7 @@ import {
   requiredText,
 } from "@/lib/modules/shared/fields";
 import { currencyCode } from "@/lib/modules/finance/finance.fields";
+import { isDay } from "@/lib/modules/hr/employment/employment.dates";
 
 /**
  * HR validation (PRD #16 §183–§199).
@@ -46,22 +47,100 @@ export const PROGRESS_STATUSES = [
   "NOT_REQUIRED",
 ] as const;
 
-/** A business date: a calendar fact, stored at midday UTC (PRD #16 §212). */
-const hrDate = z
-  .union([z.coerce.date(), z.literal("")])
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : (value as Date)));
+/**
+ * A business date: a calendar fact, stored at midday UTC (PRD #16 §212).
+ *
+ * Typed as `YYYY-MM-DD`, or a `Date` handed over in-process. Anything else is
+ * refused where it was typed: `z.coerce.date()` used to roll 2026-02-30 into
+ * 2 March and move an ISO timestamp with an offset onto the previous day, so
+ * the stored day was not the one entered (AUD-09 §4, FV-07).
+ *
+ *   required   empty or absent → "Enter the date."
+ *   optional   empty or absent → undefined (create: no value)
+ *   clearable  absent → undefined (unchanged); empty or null → null (cleared)
+ */
+type DayMode = "required" | "optional" | "clearable";
+const DAY_MESSAGE = "Enter a real date as YYYY-MM-DD.";
+
+function parseDay(value: unknown): Date | undefined {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value;
+  if (typeof value === "string" && isDay(value.trim())) return new Date(`${value.trim()}T12:00:00.000Z`);
+  return undefined;
+}
+
+function dayField(mode: "required", message?: string): z.ZodType<Date, unknown>;
+function dayField(mode: "optional"): z.ZodType<Date | undefined, unknown>;
+function dayField(mode: "clearable"): z.ZodType<Date | null | undefined, unknown>;
+function dayField(mode: DayMode, message = "Enter the date."): z.ZodType<Date | null | undefined, unknown> {
+  const field = z.unknown().transform((value, ctx) => {
+    const blank = value === undefined || value === null || (typeof value === "string" && value.trim() === "");
+    if (blank) {
+      if (mode === "required") {
+        ctx.addIssue({ code: "custom", message });
+        return z.NEVER;
+      }
+      return mode === "clearable" && value !== undefined ? null : undefined;
+    }
+    const day = parseDay(value);
+    if (!day) {
+      ctx.addIssue({ code: "custom", message: DAY_MESSAGE });
+      return z.NEVER;
+    }
+    return day;
+  });
+  // An absent key is optional unless the date is required (zod 4 checks the output).
+  return mode === "required" ? field : field.optional();
+}
+
+const hrDate = dayField("optional");
+
+const WEEKLY_HOURS = /^\d{1,3}(\.\d{1,2})?$/;
 
 const weeklyHours = z
   .string()
   .optional()
   .transform((value) => (value === undefined || value.trim() === "" ? undefined : value.trim()))
-  .refine((value) => value === undefined || /^\d{1,3}(\.\d{1,2})?$/.test(value), {
+  .refine((value) => value === undefined || WEEKLY_HOURS.test(value), {
     message: "Weekly hours must be a number with at most 2 decimal places",
   })
   .refine((value) => value === undefined || Number.parseFloat(value) <= 168, {
     message: "A week has 168 hours",
   });
+
+/**
+ * Any optional field on an edit, with three answers (AUD-09 §4, FV-05):
+ * absent is unchanged, empty or null is cleared, anything else must pass
+ * `schema` and keeps its own message on its own path. An edit that does not
+ * carry a field — a PATCH naming one thing, a control the page did not
+ * render — can no longer erase it.
+ *
+ * AUD-09: candidate for lib/forms.
+ */
+export function clearable<T extends z.ZodType>(schema: T) {
+  return z
+    .unknown()
+    .transform((value, ctx): z.output<T> | null => {
+      if (value === null || (typeof value === "string" && value.trim() === "")) return null;
+      const parsed = schema.safeParse(value);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) ctx.addIssue({ code: "custom", message: issue.message });
+        return z.NEVER;
+      }
+      return (parsed.data ?? null) as z.output<T> | null;
+    })
+    .optional();
+}
+
+const clearableText = (max: number, label: string) =>
+  clearable(z.string({ message: `${label} must be text.` }).trim().max(max, `${label} must be ${max} characters or fewer.`));
+
+const clearableWeeklyHours = clearable(
+  z
+    .union([z.string(), z.number()], { message: "Weekly hours must be a number with at most 2 decimal places" })
+    .transform((value) => String(value).trim())
+    .refine((value) => WEEKLY_HOURS.test(value), { message: "Weekly hours must be a number with at most 2 decimal places" })
+    .refine((value) => Number.parseFloat(value) <= 168, { message: "A week has 168 hours" }),
+);
 
 /** `endDate >= startDate`: employment cannot end before it starts. */
 const datesInOrder = <T extends { startDate?: Date; endDate?: Date }>(schema: z.ZodType<T>) =>
@@ -141,6 +220,10 @@ export const createEmployeeProfileSchema = datesInOrder(
     if (!value.firstName) issue.addIssue({ code: "custom", message: "Enter the first name", path: ["firstName"] });
     if (!value.lastName) issue.addIssue({ code: "custom", message: "Enter the last name", path: ["lastName"] });
   }
+  // Probation is a stretch of the employment: it cannot end before it starts (AUD-09 §4, FV-07).
+  if (value.startDate && value.probationEndDate && value.probationEndDate.getTime() < value.startDate.getTime()) {
+    issue.addIssue({ code: "custom", message: "Probation cannot end before the employment starts.", path: ["probationEndDate"] });
+  }
 });
 
 /**
@@ -151,14 +234,14 @@ export const createEmployeeProfileSchema = datesInOrder(
  * change service and kept as history.
  */
 export const updateEmployeeProfileSchema = z.object({
-  employeeNumber: optionalText(60),
-  /** Absent leaves it as it is; empty clears it. */
+  /** Every field: absent leaves it as it is; empty or null clears it (AUD-09 §4, FV-05). */
+  employeeNumber: clearableText(60, "Employee number"),
   workerCategory: z.union([z.enum(WORKER_CATEGORIES), z.literal(""), z.null()]).optional().transform((value) => (value === "" ? null : value)),
   tradeId: z.union([z.string().trim().max(64), z.null()]).optional().transform((value) => (value === "" ? null : value)),
-  probationEndDate: hrDate,
+  probationEndDate: dayField("clearable"),
   /** A running employment's planned end — a fixed term — not its history. */
-  endDate: hrDate,
-  weeklyHours,
+  endDate: dayField("clearable"),
+  weeklyHours: clearableWeeklyHours,
   versionUpdatedAt: optionalDate,
 });
 
@@ -212,7 +295,7 @@ export const createCompensationSchema = z.object({
     .refine((value) => /^\d{1,15}(\.\d{1,2})?$/.test(value), {
       message: "Amount must be a number with at most 2 decimal places",
     }),
-  effectiveFrom: z.coerce.date(),
+  effectiveFrom: dayField("required", "Enter the date the pay takes effect."),
   notes: optionalText(2000),
 });
 
@@ -233,8 +316,8 @@ export const LEAVE_STATUSES = [
 
 const leaveFields = {
   leaveType: z.enum(LEAVE_TYPES, { message: "Choose a leave type" }),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  startDate: dayField("required", "Enter the first day."),
+  endDate: dayField("required", "Enter the last day."),
   reason: optionalText(2000),
 };
 
@@ -257,8 +340,15 @@ export const createLeaveSchema = leaveDatesInOrder(
   }),
 );
 
+/**
+ * The reason may be medical and is shown only to the requester and to readers
+ * holding `hr.leave.reason.view` (PRD #16 §95). So on an edit an absent reason
+ * is left as it is — the form of a reader who cannot see it does not send one —
+ * and empty or null clears it (AUD-09 §4, §5, FV-05, FV-10). The service
+ * refuses a reason from a reader who cannot see it.
+ */
 export const updateLeaveSchema = leaveDatesInOrder(
-  z.object({ ...leaveFields, versionUpdatedAt: optionalDate }),
+  z.object({ ...leaveFields, reason: clearableText(2000, "Reason"), versionUpdatedAt: optionalDate }),
 );
 
 export type CreateLeaveInput = z.infer<typeof createLeaveSchema>;
@@ -335,18 +425,26 @@ const timeOfDay = z
 export const createAttendanceSchema = z.object({
   /** Whose day: an employment, with or without a login; empty is your own (E-04 §51). */
   employeeId: optionalId,
-  date: z.coerce.date(),
+  date: dayField("required"),
   status: z.enum(ATTENDANCE_STATUSES, { message: "Choose a status" }),
   checkIn: timeOfDay,
   checkOut: timeOfDay,
   notes: optionalText(1000),
 });
 
+/** On an edit: absent leaves the time as it was; empty or null clears it (AUD-09 §4, FV-05). */
+const clearableTimeOfDay = clearable(z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a 24-hour time such as 09:00"));
+
+/**
+ * Times belong to statuses that carry them: the form hides them for an absent
+ * day and the service drops them for one, whatever is sent — the "clear"
+ * policy for a hidden conditional field (AUD-09 §5, FV-10).
+ */
 export const updateAttendanceSchema = z.object({
   status: z.enum(ATTENDANCE_STATUSES),
-  checkIn: timeOfDay,
-  checkOut: timeOfDay,
-  notes: optionalText(1000),
+  checkIn: clearableTimeOfDay,
+  checkOut: clearableTimeOfDay,
+  notes: clearableText(1000, "Notes"),
   versionUpdatedAt: optionalDate,
 });
 

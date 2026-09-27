@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { AccessError } from "@/lib/access/guards";
+import type { ZodError } from "zod";
+
+import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -57,21 +59,15 @@ function revalidateContracts(recordPath?: string) {
  * instead of simply failing (PRD #18 §119, §168).
  */
 function toResult(error: unknown): ContractActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code };
-  }
-
-  console.error("[contracts] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  // The business code (`SIGNED_DOCUMENT_MISSING`, `AMENDMENT_REDUCES_TERMS`)
+  // travels as `code`; a service's field details become `fieldErrors`, a
+  // uniqueness race a sentence naming the field (AUD-09 §3, §6).
+  return actionFailure(error, "contracts");
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): ContractActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/** Invalid input under canonical paths (AUD-09 §3): every issue under its full path. */
+function invalid(error: ZodError): ContractActionResult {
+  return validationFailure(error);
 }
 
 function formValues(formData: FormData): Record<string, unknown> {

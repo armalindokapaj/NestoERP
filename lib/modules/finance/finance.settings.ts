@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-import { assertModule, assertPermission } from "@/lib/access/guards";
+import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { optionalText } from "@/lib/modules/shared/fields";
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
-import { currencyCode } from "./finance.fields";
+import { compareDecimal } from "./finance.decimal";
+import { clearableDecimalString, clearableText, currencyCode, TAX_RATE_RULE, wholeNumber } from "./finance.fields";
 import { DEFAULT_CURRENCY } from "./finance.currency";
+import { todayInTimeZone } from "@/lib/forms/dates";
 import { writeCompanySettings } from "@/lib/modules/settings/company-settings.service";
 
 /**
@@ -17,21 +18,21 @@ import { writeCompanySettings } from "@/lib/modules/settings/company-settings.se
  * missing record.
  */
 
+/**
+ * The settings form always sends every field; the PATCH route may not
+ * (AUD-09 §4, FV-05). Terms and fiscal month are whole numbers — an empty field
+ * is refused rather than read as 0 — and the two optional finance-only fields
+ * keep what is saved when absent and clear when sent empty.
+ */
 export const financeSettingsSchema = z.object({
   baseCurrency: currencyCode,
-  defaultPaymentTermsDays: z.coerce.number().int().min(0).max(365),
-  fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
-  invoicePrefix: optionalText(20),
-  defaultTaxRate: z
-    .string()
-    .optional()
-    .transform((value) => (value === undefined || value.trim() === "" ? undefined : value.trim()))
-    .refine((value) => value === undefined || /^\d{1,3}(\.\d{1,4})?$/.test(value), {
-      message: "Tax rate must be a number with at most 4 decimal places",
-    })
-    .refine((value) => value === undefined || Number.parseFloat(value) <= 100, {
-      message: "Tax rate must be 100 or less",
-    }),
+  defaultPaymentTermsDays: wholeNumber("Payment terms", 0, 365),
+  fiscalYearStartMonth: wholeNumber("Fiscal year start month", 1, 12),
+  invoicePrefix: clearableText(20),
+  defaultTaxRate: clearableDecimalString("Default tax rate", TAX_RATE_RULE).refine(
+    (value) => value === undefined || value === null || compareDecimal(value, "100") <= 0,
+    { message: "Tax rate must be 100 or less" },
+  ),
 });
 
 export type FinanceSettingsInput = z.infer<typeof financeSettingsSchema>;
@@ -93,7 +94,12 @@ export async function updateFinanceSettings(
   const company = await ensureCompanySettings(context.companyId);
   if (input.baseCurrency !== company.baseCurrency) {
     const { baseCurrencyLocked } = await import("@/lib/modules/settings/company-settings.service");
-    if (await baseCurrencyLocked(context.companyId)) throw new Error("BASE_CURRENCY_LOCKED");
+    // A refusal the person can act on, beside the field — not a bare Error
+    // answered as "couldn't save" (AUD-09 §3).
+    if (await baseCurrencyLocked(context.companyId)) {
+      const message = "Base currency cannot be changed after financial records have been created.";
+      throw new AccessError("CONFLICT", message, { code: "BASE_CURRENCY_LOCKED", baseCurrency: [message] });
+    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -106,9 +112,10 @@ export async function updateFinanceSettings(
     });
     await tx.financeSettings.upsert({
       where: { companyId: context.companyId },
+      // Absent keeps what is saved; empty clears (FV-05).
       update: {
-        invoicePrefix: input.invoicePrefix ?? null,
-        defaultTaxRate: input.defaultTaxRate ?? null,
+        invoicePrefix: input.invoicePrefix,
+        defaultTaxRate: input.defaultTaxRate,
       },
       create: {
         companyId: context.companyId,
@@ -128,4 +135,14 @@ export async function baseCurrency(companyId: string): Promise<string> {
     select: { baseCurrency: true },
   });
   return settings?.baseCurrency ?? DEFAULT_CURRENCY;
+}
+
+/**
+ * Today's calendar date for the company (AUD-09 §4, FV-07): the default a date
+ * field opens on. `new Date().toISOString()` is the UTC day, which is
+ * yesterday for a company in Tirane just after midnight.
+ */
+export async function companyToday(companyId: string, now: Date = new Date()): Promise<string> {
+  const company = await ensureCompanySettings(companyId);
+  return todayInTimeZone(company.timezone || "UTC", now);
 }

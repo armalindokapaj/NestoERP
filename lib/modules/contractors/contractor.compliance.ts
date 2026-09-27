@@ -19,10 +19,11 @@ import { prisma } from "@/lib/database/prisma";
 import { addLocalDays, daysBetween, localDate } from "@/lib/modules/calendar/calendar.time";
 import { filesOpen } from "@/lib/modules/engineering/engineering.permissions";
 import { resolveEngineeringSettings } from "@/lib/modules/engineering/engineering.settings";
+import { kept } from "@/lib/modules/engineering/engineering.fields";
 import { at, dateLabel, dateOf, fail, holders, people, personOf } from "@/lib/modules/engineering/engineering.shared";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { ACTIVITY_ENTITY, COMPLIANCE_RECORD, contractorsOpen, MODULE, readableComplianceWhere } from "./contractor.permissions";
-import type { ComplianceInput, ComplianceListQuery } from "./contractor.schema";
+import type { ComplianceInput, ComplianceListQuery, UpdateComplianceInput } from "./contractor.schema";
 import { findReadableContractor } from "./contractor.service";
 import { COMPLIANCE_ALERT_STATUSES, COMPLIANCE_TYPE_LABELS, type ComplianceItemDTO, type ComplianceStatus, type ComplianceType } from "./contractor.types";
 
@@ -201,23 +202,44 @@ export async function createComplianceItem(context: UserContext, contractorId: s
  * status that belongs to the other's dates: a renewal overwritten to EXPIRED
  * with next year's expiry, which the job never looks at again (PRD #51 §80).
  */
-export async function updateComplianceItem(context: UserContext, id: string, input: ComplianceInput): Promise<{ id: string; status: ComplianceStatus }> {
+export async function updateComplianceItem(context: UserContext, id: string, input: UpdateComplianceInput): Promise<{ id: string; status: ComplianceStatus }> {
   const row = await findManageableItem(context, id, "contractor_compliance.manage");
-  await assertEvidence(context, row.contractorId, row.id, input.documentId, row.documentId);
+  /*
+   * What the edit names, over what is stored (AUD-09 §4, §5, FV-05, FV-10).
+   * Absent evidence is kept; a reader who cannot open files is never shown it,
+   * so they may not unlink it either. An absent status keeps a waiver: a typo
+   * fixed in the title does not quietly withdraw it.
+   */
+  if (input.documentId !== undefined && input.documentId !== row.documentId && !filesOpen(context)) {
+    throw fail("COMPLIANCE_DOCUMENT_FORBIDDEN", "You cannot change the evidence.", "FORBIDDEN", { field: "documentId" });
+  }
+  const next = {
+    documentId: kept(input.documentId, row.documentId),
+    issuedAt: kept(input.issuedAt, dateOf(row.issuedAt)),
+    expiresAt: kept(input.expiresAt, dateOf(row.expiresAt)),
+    issuer: kept(input.issuer, row.issuer),
+    referenceNumber: kept(input.referenceNumber, row.referenceNumber),
+    notes: kept(input.notes, row.notes),
+  };
+  if (next.issuedAt && next.expiresAt && next.expiresAt < next.issuedAt) {
+    throw fail("COMPLIANCE_DATES", "The end is before the start.", "VALIDATION_ERROR", { field: input.expiresAt !== undefined ? "expiresAt" : "issuedAt" });
+  }
+  await assertEvidence(context, row.contractorId, row.id, next.documentId, row.documentId);
   const clock = await today(context.companyId);
-  const status = deriveComplianceStatus({ status: input.status, expiresAt: input.expiresAt }, clock.today, clock.settings.contractorComplianceReminderDays);
+  const held: ComplianceStatus = input.status ?? (row.status === "WAIVED" || row.status === "MISSING" ? row.status : "VALID");
+  const status = deriveComplianceStatus({ status: held, expiresAt: next.expiresAt }, clock.today, clock.settings.contractorComplianceReminderDays);
   await prisma.$transaction(async (tx) => {
     const moved = await tx.contractorComplianceItem.updateMany({
       where: { id: row.id, companyId: context.companyId, status: row.status, expiresAt: row.expiresAt },
       data: {
-        type: input.type, title: input.title, status, documentId: input.documentId, issuedAt: at(input.issuedAt), expiresAt: at(input.expiresAt), issuer: input.issuer, referenceNumber: input.referenceNumber, notes: input.notes,
+        type: input.type, title: input.title, status, documentId: next.documentId, issuedAt: at(next.issuedAt), expiresAt: at(next.expiresAt), issuer: next.issuer, referenceNumber: next.referenceNumber, notes: next.notes,
         ...(status !== row.status ? { statusChangedAt: new Date(), waivedReason: null, waivedAt: null, waivedByMemberId: null } : {}),
       },
     });
     if (!moved.count) throw fail("COMPLIANCE_STALE", "This compliance item changed while you were saving it. Reload to see the latest.", "CONFLICT");
     await recordUserAction(
       context,
-      { actionKey: AuditAction.CONTRACTOR_COMPLIANCE_UPDATED, entity: { type: COMPLIANCE_RECORD, id: row.id, label: `${input.title} · ${row.contractor.legalName}` }, before: auditShape({ ...row, issuedAt: dateOf(row.issuedAt), expiresAt: dateOf(row.expiresAt) }), after: auditShape({ ...input, status }) },
+      { actionKey: AuditAction.CONTRACTOR_COMPLIANCE_UPDATED, entity: { type: COMPLIANCE_RECORD, id: row.id, label: `${input.title} · ${row.contractor.legalName}` }, before: auditShape({ ...row, issuedAt: dateOf(row.issuedAt), expiresAt: dateOf(row.expiresAt) }), after: auditShape({ type: input.type, title: input.title, ...next, status }) },
       { tx },
     );
     if (status === "VALID" && row.status !== "VALID") {

@@ -47,7 +47,7 @@ export function NumberingSchemeForm({
     formRef,
     action: async (formData: FormData) => {
       const result = await updateNumberingSchemeAction(formData);
-      return result.ok ? result : { ok: false as const, error: result.message };
+      return result.ok ? result : { ok: false as const, error: result.message, fieldErrors: result.fieldErrors };
     },
     module: "settings",
     saveKind: "save",

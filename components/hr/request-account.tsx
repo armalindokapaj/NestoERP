@@ -39,8 +39,10 @@ export function RequestAccountButton({
         title={`Request a NESTO account for ${name}`}
         description="Group IT creates it from this employee's HR record once the Head of Group HR or the Owner approves. Their employment, pay, documents and assignments stay exactly as they are."
         fields={[
-          { name: "companyDepartmentId", label: "Department", type: "select", required: true, options: departments.map((department) => ({ value: department.id, label: department.name })) },
-          { name: "functionalRoleKey", label: "NESTO role", type: "select", required: true, options: roles.map((role) => ({ value: role.key, label: role.label })) },
+          // An empty first choice, so nothing looks chosen that is not: a required select without one showed its first
+          // option while sending nothing, and the request fell back to another department or role (AUD-09 §5).
+          { name: "companyDepartmentId", label: "Department", type: "select", required: true, emptyLabel: "Choose a department", options: departments.map((department) => ({ value: department.id, label: department.name })) },
+          { name: "functionalRoleKey", label: "NESTO role", type: "select", required: true, emptyLabel: "Choose a role", options: roles.map((role) => ({ value: role.key, label: role.label })) },
           { name: "requestedUsername", label: "Preferred username", type: "text", hint: "Optional. Group IT follows firstname.lastname otherwise." },
           { name: "requestedActivationDate", label: "Needed from", type: "date" },
           { name: "notes", label: "Notes for Group IT", type: "textarea", rows: 3 },

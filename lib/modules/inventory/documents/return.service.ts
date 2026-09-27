@@ -19,6 +19,7 @@ import type {
 } from "../inventory.types";
 import {
   assertCancellable,
+  assertDocumentMembers,
   assertEditable,
   assertPostable,
   postLines,
@@ -156,6 +157,7 @@ export async function createReturn(
   const warehouse = await requireWarehouse(context, input.warehouseId);
   const project = await requireProject(context, input.projectId);
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
+  await assertDocumentMembers(context, { returnedByMemberId: input.returnedByMemberId });
 
   const id = await prisma.$transaction(async (tx) => {
     const returnNumber = await nextDocumentNumber(tx, "stockReturn", context.companyId);
@@ -213,6 +215,7 @@ export async function updateReturn(
   const warehouse = await requireWarehouse(context, input.warehouseId);
   const project = await requireProject(context, input.projectId);
   const targets = await resolveLineTargets(context, input.lines, [warehouse.id]);
+  await assertDocumentMembers(context, { returnedByMemberId: input.returnedByMemberId }, { returnedByMemberId: existing.returnedByMemberId });
 
   await prisma.$transaction(async (tx) => {
     // Still a draft, decided by the write rather than by the read above: a
@@ -358,6 +361,7 @@ async function loadForWrite(context: UserContext, returnId: string) {
         warehouseId: true,
         projectId: true,
         returnDate: true,
+        returnedByMemberId: true,
         updatedAt: true,
       },
     }),

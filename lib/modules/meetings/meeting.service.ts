@@ -473,12 +473,26 @@ export async function updateMeeting(context: UserContext, meetingId: string, inp
   const existing = await requireReadableMeeting(context, meetingId);
   if (!canEditMeeting(context, existing)) throw new AccessError("FORBIDDEN", "You cannot change this meeting.");
   if (existing.version !== input.version) throw staleVersion();
-  assertVisibility(context, input);
+  // What the request left out keeps its saved value; `null` clears it
+  // (AUD-09 §4, FV-05). Every rule below judges the merged meeting.
+  const requestedProject = input.projectId === undefined ? existing.projectId : input.projectId;
+  const requestedDepartment = input.departmentId === undefined ? existing.departmentId : input.departmentId;
+  assertVisibility(context, { visibility: input.visibility, departmentId: requestedDepartment });
+  if (input.visibility === "PROJECT" && !requestedProject) {
+    throw new AccessError("VALIDATION_ERROR", "Choose the project this meeting belongs to.", { projectId: ["Choose the project this meeting belongs to."] });
+  }
+  if (input.visibility === "DEPARTMENT" && !requestedDepartment) {
+    throw new AccessError("VALIDATION_ERROR", "Choose the department this meeting belongs to.", { departmentId: ["Choose the department this meeting belongs to."] });
+  }
 
   const zone = existing.timezone;
   const { startsAt, endsAt } = toInstants(input.date, input.startTime, input.endTime, zone);
-  const projectId = input.projectId === existing.projectId ? existing.projectId : await requireProject(context, input.projectId);
-  const departmentId = input.departmentId === existing.departmentId ? existing.departmentId : await requireDepartment(context, input.departmentId);
+  const projectId = requestedProject === existing.projectId ? existing.projectId : await requireProject(context, requestedProject);
+  const departmentId = requestedDepartment === existing.departmentId ? existing.departmentId : await requireDepartment(context, requestedDepartment);
+  const description = input.description === undefined ? existing.description : input.description;
+  const locationType = input.locationType ?? existing.locationType;
+  const locationText = input.locationText === undefined ? existing.locationText : input.locationText;
+  const onlineUrl = input.onlineUrl === undefined ? existing.onlineUrl : input.onlineUrl;
   const future = input.scope === "FUTURE" && existing.seriesId !== null && existing.status !== "COMPLETED";
   if (future && input.date !== localDate(existing.startsAt, zone)) {
     throw new AccessError(
@@ -493,29 +507,29 @@ export async function updateMeeting(context: UserContext, meetingId: string, inp
     if ((before ?? null) !== (after ?? null)) changed.push(field);
   };
   compare("title", existing.title, input.title);
-  compare("description", existing.description, input.description);
+  compare("description", existing.description, description);
   compare("meetingType", existing.meetingType, input.meetingType);
   compare("visibility", existing.visibility, input.visibility);
   compare("startsAt", existing.startsAt.getTime(), startsAt.getTime());
   compare("endsAt", existing.endsAt.getTime(), endsAt.getTime());
   compare("projectId", existing.projectId, projectId);
   compare("departmentId", existing.departmentId, departmentId);
-  compare("locationType", existing.locationType, input.locationType);
-  compare("locationText", existing.locationText, input.locationText);
-  compare("onlineUrl", existing.onlineUrl, input.onlineUrl);
+  compare("locationType", existing.locationType, locationType);
+  compare("locationText", existing.locationText, locationText);
+  compare("onlineUrl", existing.onlineUrl, onlineUrl);
   // The fields people must act on (PRD #40 §252); a description typo is not one.
   const material = changed.some((field) => ["startsAt", "endsAt", "projectId", "locationType", "locationText", "onlineUrl"].includes(field));
 
   const fields = {
     title: input.title,
-    description: input.description,
+    description,
     meetingType: input.meetingType,
     visibility: input.visibility,
     projectId,
     departmentId,
-    locationType: input.locationType,
-    locationText: input.locationText,
-    onlineUrl: input.onlineUrl,
+    locationType,
+    locationText,
+    onlineUrl,
   };
 
   const occurrences = await prisma.$transaction(async (tx) => {

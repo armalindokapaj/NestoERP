@@ -140,6 +140,12 @@ export const RFI_REFERENCE_LABELS: Record<RfiReferenceType, string> = {
 
 export const SUBMITTAL_TYPES = ["SHOP_DRAWING", "MATERIAL_SUBMITTAL", "METHOD_STATEMENT", "TECHNICAL_SUBMITTAL", "SAMPLE", "PRODUCT_DATA", "CALCULATION", "OTHER"] as const;
 export type SubmittalType = (typeof SUBMITTAL_TYPES)[number];
+/** Submittals of a product: its make, model and supplier describe them (PRD #46 §116). */
+export const MATERIAL_SUBMITTAL_TYPES: readonly string[] = ["MATERIAL_SUBMITTAL", "PRODUCT_DATA", "SAMPLE"];
+/** A method statement: its activity and work area describe it. */
+export const METHOD_SUBMITTAL_TYPES: readonly string[] = ["METHOD_STATEMENT"];
+export const isMaterialSubmittal = (type: string) => MATERIAL_SUBMITTAL_TYPES.includes(type);
+export const isMethodSubmittal = (type: string) => METHOD_SUBMITTAL_TYPES.includes(type);
 export const SUBMITTAL_TYPE_LABELS: Record<SubmittalType, string> = {
   SHOP_DRAWING: "Shop drawing",
   MATERIAL_SUBMITTAL: "Material submittal",

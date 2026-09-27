@@ -203,12 +203,13 @@ export async function updateMember(
   }
 
   const roleChanged = input.roleId !== existing.role.id;
-  const departmentChanged = (input.departmentId ?? null) !== (existing.department?.id ?? null);
-  const titleChanged = (input.jobTitle ?? null) !== (existing.jobTitle ?? null);
+  // Absent is unchanged (AUD-09 §4, FV-05).
+  const departmentChanged = input.departmentId !== undefined && (input.departmentId ?? null) !== (existing.department?.id ?? null);
+  const titleChanged = input.jobTitle !== undefined && (input.jobTitle ?? null) !== (existing.jobTitle ?? null);
 
   const nextRole = roleChanged ? await validateRole(context, input.roleId) : existing.role;
   const nextDepartment = departmentChanged
-    ? await validateDepartment(context, input.departmentId)
+    ? await validateDepartment(context, input.departmentId ?? undefined)
     : existing.department;
 
   if (roleChanged) {
@@ -230,7 +231,7 @@ export async function updateMember(
     await tx.companyMember.update({
       where: { id: memberId },
       data: {
-        jobTitle: input.jobTitle ?? null,
+        jobTitle: input.jobTitle === undefined ? existing.jobTitle : input.jobTitle,
         roleId: nextRole.id,
         departmentId: nextDepartment?.id ?? null,
       },

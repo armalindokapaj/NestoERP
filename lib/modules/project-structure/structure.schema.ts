@@ -144,7 +144,18 @@ const technicalFields = {
 };
 
 export const createUnitSchema = z.object({ unitCode, name: unitName, ...technicalFields });
-export const updateUnitSchema = z.object({ unitCode, name: unitName, ...technicalFields, isActive: z.boolean(), expectedVersion });
+/**
+ * A unit edit (AUD-09 §4, FV-05): the code, the type, whether it is active and
+ * the version are always sent; every other technical field may be left out
+ * and then keeps its saved value — an absent area used to become `null` and
+ * erase it. `null` (or `""`) clears. The dialog sends every field, so for it
+ * nothing changes.
+ */
+const keptTechnical = Object.fromEntries(
+  Object.entries(technicalFields).map(([key, schema]) => [key, key === "unitTypeId" ? schema : (schema as z.ZodTypeAny).optional()]),
+) as { [K in keyof typeof technicalFields]: K extends "unitTypeId" ? (typeof technicalFields)[K] : z.ZodOptional<(typeof technicalFields)[K]> };
+
+export const updateUnitSchema = z.object({ unitCode, name: unitName.optional(), ...keptTechnical, isActive: z.boolean(), expectedVersion });
 export const bulkUnitsSchema = z.object({
   units: z.array(z.object({ unitCode, name: unitName })).min(1, "Add at least one unit.").max(MAX_BULK_UNITS, `Create at most ${MAX_BULK_UNITS} units at once.`),
   defaults: z.object(technicalFields),

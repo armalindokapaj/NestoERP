@@ -57,7 +57,58 @@ function phaseRanges(value: PhaseDates, ctx: z.RefinementCtx) {
 }
 
 export const createPhaseSchema = z.object(phaseFields).superRefine(phaseRanges);
-export const updatePhaseSchema = z.object({ ...phaseFields, expectedVersion }).superRefine(phaseRanges);
+
+/*
+ * Update-only fields (AUD-09 §4, FV-05): absent keeps the saved value,
+ * `null` (or `""` for text) clears it, a value replaces it.
+ */
+const keptText = (max = TEXT_MAX) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max.toLocaleString("en")} characters.`)
+    .nullable()
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value ? value : null));
+const keptDate = localDate.nullable().optional();
+const keptId = idSchema.nullable().optional();
+const keptProgress = z.number().min(0, "Progress is between 0 and 100%.").max(100, "Progress is between 0 and 100%.").nullable().optional();
+
+/**
+ * A phase edit is a partial update (AUD-09 §4, FV-05). The status used to
+ * fall back to the create default (Not started) whenever a request left it
+ * out, and every date, the owner and the progress were erased the same way.
+ * Now only what is named changes; the date ranges are judged here for the
+ * pairs sent and by the service against the saved values for the rest.
+ */
+export const updatePhaseSchema = z
+  .object({
+    expectedVersion,
+    name: name.optional(),
+    description: keptText(),
+    status: z.enum(PHASE_STATUSES).optional(),
+    progressPercent: keptProgress,
+    ownerMemberId: keptId,
+    plannedStartDate: keptDate,
+    plannedEndDate: keptDate,
+    forecastStartDate: keptDate,
+    forecastEndDate: keptDate,
+    actualStartDate: keptDate,
+    actualEndDate: keptDate,
+  })
+  .superRefine((value, ctx) =>
+    phaseRanges(
+      {
+        plannedStartDate: value.plannedStartDate ?? null,
+        plannedEndDate: value.plannedEndDate ?? null,
+        forecastStartDate: value.forecastStartDate ?? null,
+        forecastEndDate: value.forecastEndDate ?? null,
+        actualStartDate: value.actualStartDate ?? null,
+        actualEndDate: value.actualEndDate ?? null,
+      },
+      ctx,
+    ),
+  );
 export const reorderSchema = z.object({ ids: z.array(idSchema).min(1).max(1_000) });
 export const reorderMilestonesSchema = z.object({ phaseId: optionalId, ids: z.array(idSchema).min(1).max(2_000) });
 
@@ -83,20 +134,26 @@ export const createMilestoneSchema = z.object({
  */
 export const updateMilestoneSchema = z.object({
   expectedVersion,
-  name,
-  description: optionalText(),
-  phaseId: optionalId,
-  milestoneType: z.enum(MILESTONE_TYPES),
+  /*
+   * A partial update (AUD-09 §4, FV-05): every field may be left out and then
+   * keeps its saved value; `null` clears an optional one. The drawer sends
+   * them all; a request that names only the forecast no longer erases the
+   * description, owner, planned date and progress.
+   */
+  name: name.optional(),
+  description: keptText(),
+  phaseId: keptId,
+  milestoneType: z.enum(MILESTONE_TYPES).optional(),
   /** Completing and reopening are their own commands; the service refuses either through an edit. */
-  status: z.enum(MILESTONE_STATUSES),
-  ownerMemberId: optionalId,
-  plannedDate: optionalDate,
-  forecastDate: optionalDate,
-  progressPercent: progress,
-  critical: z.boolean(),
-  externallyCommitted: z.boolean(),
+  status: z.enum(MILESTONE_STATUSES).optional(),
+  ownerMemberId: keptId,
+  plannedDate: keptDate,
+  forecastDate: keptDate,
+  progressPercent: keptProgress,
+  critical: z.boolean().optional(),
+  externallyCommitted: z.boolean().optional(),
   /** A historical correction of a completed milestone's actual date (§200). */
-  actualDate: optionalDate,
+  actualDate: keptDate,
   /** Why the forecast moved, kept with the change (§247). */
   forecastReason: optionalReason,
 });

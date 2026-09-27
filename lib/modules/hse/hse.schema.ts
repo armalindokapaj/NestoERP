@@ -251,12 +251,13 @@ export const incidentSchema = z
      * The whole of what V0.1 records about somebody being hurt (PRD #22 §22,
      * §87). Flags, not descriptions: no diagnosis field exists to fill in.
      */
-    injuryOccurred: optionalBoolean.default(false),
-    firstAidRequired: optionalBoolean.default(false),
-    medicalTreatmentRequired: optionalBoolean.default(false),
-    lostTime: optionalBoolean.default(false),
-    propertyDamage: optionalBoolean.default(false),
-    environmentalImpact: optionalBoolean.default(false),
+    // Absent is not false: a form that could not show them leaves them out, and an edit keeps them (AUD-09 §5, FV-10).
+    injuryOccurred: optionalBoolean,
+    firstAidRequired: optionalBoolean,
+    medicalTreatmentRequired: optionalBoolean,
+    lostTime: optionalBoolean,
+    propertyDamage: optionalBoolean,
+    environmentalImpact: optionalBoolean,
     immediateAction: optionalText(2000),
     dueDate: optionalBusinessDate,
     versionUpdatedAt: z.coerce.date().optional(),

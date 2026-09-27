@@ -8,22 +8,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { selectClass } from "@/components/forms/record-form";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
+import {
+  isPositiveDecimal,
+  pricedLinePreview,
+  previewDecimal,
+  sumDecimal,
+  compareDecimal,
+} from "@/lib/modules/finance/finance.decimal";
+import { MONEY_RULE, RATE_RULE, TAX_RATE_RULE } from "@/lib/modules/finance/finance.fields";
+import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
+import { CellError, DecimalCell, useLineRows, useRowErrors } from "./line-rows";
 
 /**
- * The priced line-item editor (PRD #15 §322, PRD #17 §409).
+ * The priced line-item editor (PRD #15 §322, PRD #17 §409; AUD-09 §7, FV-16).
  *
  * Shared by invoices and proposals, because they are the same editor: the same
  * four fields, the same arithmetic, the same field names. Two copies would be
  * two chances for a proposal's preview and an invoice's preview to disagree
  * about the same numbers (PRD #17 §111).
  *
- * Rows are named `lineItems[0].description` and so on, which is how a plain
- * HTML form expresses a list — so the form still submits without JavaScript,
- * and the server reads it by index.
+ * Rows keep a local id (`useLineRows`); inputs are named by their position at
+ * submit in the canonical path (`lineItems.0.description`), which a plain HTML
+ * form still submits and the server reads by index. The server's per-line
+ * errors come back under those paths and are put on the row that was
+ * submitted there, whatever happens to the rows afterwards.
  *
- * The running total is a *preview*. The server recalculates every figure from
- * quantity, unit price and tax rate before anything is stored, so what is shown
- * here can be convenient without being authoritative (PRD #15 §52).
+ * The running total is a *preview*, in exact decimal arithmetic and in the
+ * server's own order (line subtotal rounded, tax on the rounded subtotal): what
+ * is shown agrees with what will be stored, but the server recalculates every
+ * figure before anything is stored (PRD #15 §52, AUD-01).
  */
 
 export type PricedLineValue = {
@@ -40,6 +53,9 @@ const EMPTY_LINE: PricedLineValue = {
   taxRate: "20",
 };
 
+const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be greater than zero");
+const taxRateInRange = (value: string) => (compareDecimal(value, "100") <= 0 ? null : "Tax rate must be between 0 and 100");
+
 export function PricedLineItems({
   currency,
   defaultLines,
@@ -49,150 +65,139 @@ export function PricedLineItems({
   defaultLines?: PricedLineValue[];
   defaultTaxRate?: string | null;
 }) {
-  const [lines, setLines] = React.useState<PricedLineValue[]>(
-    defaultLines && defaultLines.length > 0
-      ? defaultLines
-      : [{ ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate }],
+  const instance = React.useId();
+  const empty = React.useCallback(
+    () => ({ ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate }),
+    [defaultTaxRate],
+  );
+  const { rows, add, remove, update, atLimit } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
+  const errors = useRowErrors(
+    "lineItems",
+    rows.map((row) => row.rowId),
   );
 
-  function update(index: number, field: keyof PricedLineValue, value: string) {
-    setLines((current) =>
-      current.map((line, position) =>
-        position === index ? { ...line, [field]: value } : line,
-      ),
-    );
+  function change(rowId: string, field: keyof PricedLineValue, value: string) {
+    update(rowId, { [field]: value } as Partial<PricedLineValue>);
+    errors.clear(rowId, field);
   }
 
-  const preview = lines.reduce(
-    (totals, line) => {
-      const subtotal = round2(toNumber(line.quantity) * toNumber(line.unitPrice));
-      const tax = round2((subtotal * toNumber(line.taxRate)) / 100);
-      return {
-        subtotal: round2(totals.subtotal + subtotal),
-        tax: round2(totals.tax + tax),
-        total: round2(totals.total + subtotal + tax),
-      };
-    },
-    { subtotal: 0, tax: 0, total: 0 },
-  );
+  const previews = rows.map((row) => pricedLinePreview(row));
+  const complete = previews.every((preview) => preview !== null);
+  const totals = complete
+    ? {
+        subtotal: sumDecimal(previews.map((preview) => preview!.subtotal), 2),
+        tax: sumDecimal(previews.map((preview) => preview!.taxAmount), 2),
+        total: sumDecimal(previews.map((preview) => preview!.totalAmount), 2),
+      }
+    : null;
+  const listErrorId = `${instance}-lines-error`;
 
   return (
-    <section className="nesto-card p-5">
+    <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-card font-semibold text-fg">Line items</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            Totals are recalculated by the server when you save.
+            Quantity and unit price up to 4 decimals, e.g. 12.5 or 12,5. Totals are a preview; the server recalculates them when you save.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            setLines((current) => [
-              ...current,
-              { ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate },
-            ])
-          }
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
           <Plus aria-hidden="true" />
           Add line
         </Button>
       </div>
+      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      <CellError id={listErrorId} message={errors.list} />
 
       <ul className="mt-4 space-y-3">
-        {lines.map((line, index) => (
-          <li key={index} className="rounded-md border border-line p-3">
-            <div className="grid gap-3 sm:grid-cols-12">
-              <div className="space-y-1.5 sm:col-span-5">
-                <Label htmlFor={`line-${index}-description`}>Description</Label>
-                <Input
-                  id={`line-${index}-description`}
-                  name={`lineItems[${index}].description`}
-                  value={line.description}
-                  maxLength={500}
-                  onChange={(event) => update(index, "description", event.target.value)}
-                  required
+        {rows.map((row, index) => {
+          const rowErrors = errors.forRow(row.rowId);
+          const base = `${instance}-${row.rowId}`;
+          const preview = previews[index];
+          return (
+            <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
+              <div className="grid gap-3 sm:grid-cols-12">
+                <div className="space-y-1.5 sm:col-span-5">
+                  <Label htmlFor={`${base}-description`}>Description</Label>
+                  <Input
+                    id={`${base}-description`}
+                    name={`lineItems.${index}.description`}
+                    value={row.description}
+                    maxLength={500}
+                    required
+                    aria-invalid={rowErrors.description ? true : undefined}
+                    aria-describedby={rowErrors.description ? `${base}-description-error` : undefined}
+                    onChange={(event) => change(row.rowId, "description", event.target.value)}
+                  />
+                  <CellError id={`${base}-description-error`} message={rowErrors.description} />
+                </div>
+
+                <DecimalCell
+                  className="sm:col-span-2"
+                  id={`${base}-quantity`}
+                  name={`lineItems.${index}.quantity`}
+                  label="Quantity"
+                  value={row.quantity}
+                  rule={{ label: "Quantity", ...RATE_RULE }}
+                  refine={positiveQuantity}
+                  serverError={rowErrors.quantity}
+                  onChange={(value) => change(row.rowId, "quantity", value)}
                 />
-              </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor={`line-${index}-quantity`}>Quantity</Label>
-                <Input
-                  id={`line-${index}-quantity`}
-                  name={`lineItems[${index}].quantity`}
-                  inputMode="decimal"
-                  value={line.quantity}
-                  onChange={(event) => update(index, "quantity", event.target.value)}
-                  required
+                <DecimalCell
+                  className="sm:col-span-2"
+                  id={`${base}-unitPrice`}
+                  name={`lineItems.${index}.unitPrice`}
+                  label="Unit price"
+                  unit={currency}
+                  value={row.unitPrice}
+                  rule={{ label: "Unit price", ...RATE_RULE }}
+                  serverError={rowErrors.unitPrice}
+                  onChange={(value) => change(row.rowId, "unitPrice", value)}
                 />
-              </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor={`line-${index}-unitPrice`}>Unit price</Label>
-                <Input
-                  id={`line-${index}-unitPrice`}
-                  name={`lineItems[${index}].unitPrice`}
-                  inputMode="decimal"
-                  value={line.unitPrice}
-                  onChange={(event) => update(index, "unitPrice", event.target.value)}
-                  required
+                <DecimalCell
+                  className="sm:col-span-2"
+                  id={`${base}-taxRate`}
+                  name={`lineItems.${index}.taxRate`}
+                  label="Tax"
+                  unit="%"
+                  value={row.taxRate}
+                  rule={{ label: "Tax rate", ...TAX_RATE_RULE }}
+                  refine={taxRateInRange}
+                  serverError={rowErrors.taxRate}
+                  onChange={(value) => change(row.rowId, "taxRate", value)}
                 />
+
+                <div className="flex items-end sm:col-span-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Remove line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+                    // The last line is never removable: a priced document with
+                    // no lines has no total, and the server refuses it anyway.
+                    disabled={rows.length === 1}
+                    onClick={() => remove(row.rowId)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor={`line-${index}-taxRate`}>Tax %</Label>
-                <Input
-                  id={`line-${index}-taxRate`}
-                  name={`lineItems[${index}].taxRate`}
-                  inputMode="decimal"
-                  value={line.taxRate}
-                  onChange={(event) => update(index, "taxRate", event.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex items-end sm:col-span-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove line ${index + 1}`}
-                  // The last line is never removable: a priced document with
-                  // no lines has no total, and the server refuses it anyway.
-                  disabled={lines.length === 1}
-                  onClick={() =>
-                    setLines((current) => current.filter((_, position) => position !== index))
-                  }
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </div>
-
-            <p className="mt-2 text-right text-meta text-fg-subtle">
-              Line total{" "}
-              {formatAmount(
-                round2(
-                  round2(toNumber(line.quantity) * toNumber(line.unitPrice)) *
-                    (1 + toNumber(line.taxRate) / 100),
-                ).toFixed(2),
-                currency,
-              )}
-            </p>
-          </li>
-        ))}
+              <p className="mt-2 text-right text-meta text-fg-subtle">
+                Line total (preview){" "}
+                {preview ? formatAmount(preview.totalAmount, currency) : "—"}
+              </p>
+            </li>
+          );
+        })}
       </ul>
 
-      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
-        <Row label="Subtotal" value={formatAmount(preview.subtotal.toFixed(2), currency)} />
-        <Row label="Tax" value={formatAmount(preview.tax.toFixed(2), currency)} />
-        <Row
-          label="Total"
-          value={formatAmount(preview.total.toFixed(2), currency)}
-          emphasis
-        />
+      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label="Totals preview">
+        <Row label="Subtotal" value={totals ? formatAmount(totals.subtotal, currency) : "—"} />
+        <Row label="Tax" value={totals ? formatAmount(totals.tax, currency) : "—"} />
+        <Row label="Total (preview)" value={totals ? formatAmount(totals.total, currency) : "—"} emphasis />
       </dl>
     </section>
   );
@@ -233,113 +238,117 @@ export function BudgetLineItems({
   currency: string;
   defaultLines?: BudgetLineValue[];
 }) {
-  const [lines, setLines] = React.useState<BudgetLineValue[]>(
-    defaultLines && defaultLines.length > 0
-      ? defaultLines
-      : [{ category: "SUBCONTRACTOR", description: "", plannedAmount: "0" }],
+  const instance = React.useId();
+  const empty = React.useCallback(
+    (): BudgetLineValue => ({ category: "SUBCONTRACTOR", description: "", plannedAmount: "0" }),
+    [],
+  );
+  const { rows, add, remove, update, atLimit } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
+  const errors = useRowErrors(
+    "lineItems",
+    rows.map((row) => row.rowId),
   );
 
-  function update(index: number, field: keyof BudgetLineValue, value: string) {
-    setLines((current) =>
-      current.map((line, position) =>
-        position === index ? { ...line, [field]: value } : line,
-      ),
-    );
+  function change(rowId: string, field: keyof BudgetLineValue, value: string) {
+    update(rowId, { [field]: value } as Partial<BudgetLineValue>);
+    errors.clear(rowId, field);
   }
 
-  const total = lines.reduce((sum, line) => round2(sum + toNumber(line.plannedAmount)), 0);
+  const amounts = rows.map((row) => previewDecimal(row.plannedAmount, 2));
+  const total = amounts.every((amount) => amount !== null) ? sumDecimal(amounts as string[], 2) : null;
+  const listErrorId = `${instance}-lines-error`;
 
   return (
-    <section className="nesto-card p-5">
+    <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-card font-semibold text-fg">Budget lines</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            The budget total is the sum of these lines, calculated by the server.
+            The budget total is the sum of these lines, calculated by the server. At least one line needs an amount above zero.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() =>
-            setLines((current) => [
-              ...current,
-              { category: "SUBCONTRACTOR", description: "", plannedAmount: "0" },
-            ])
-          }
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
           <Plus aria-hidden="true" />
           Add line
         </Button>
       </div>
+      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A budget can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      <CellError id={listErrorId} message={errors.list} />
 
       <ul className="mt-4 space-y-3">
-        {lines.map((line, index) => (
-          <li key={index} className="rounded-md border border-line p-3">
-            <div className="grid gap-3 sm:grid-cols-12">
-              <div className="space-y-1.5 sm:col-span-3">
-                <Label htmlFor={`budget-${index}-category`}>Category</Label>
-                <select
-                  id={`budget-${index}-category`}
-                  name={`lineItems[${index}].category`}
-                  className={selectClass}
-                  value={line.category}
-                  onChange={(event) => update(index, "category", event.target.value)}
-                >
-                  {BUDGET_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {CATEGORY_LABELS[category]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        {rows.map((row, index) => {
+          const rowErrors = errors.forRow(row.rowId);
+          const base = `${instance}-${row.rowId}`;
+          return (
+            <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
+              <div className="grid gap-3 sm:grid-cols-12">
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label htmlFor={`${base}-category`}>Category</Label>
+                  <select
+                    id={`${base}-category`}
+                    name={`lineItems.${index}.category`}
+                    className={selectClass}
+                    value={row.category}
+                    aria-invalid={rowErrors.category ? true : undefined}
+                    aria-describedby={rowErrors.category ? `${base}-category-error` : undefined}
+                    onChange={(event) => change(row.rowId, "category", event.target.value)}
+                  >
+                    {BUDGET_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {CATEGORY_LABELS[category]}
+                      </option>
+                    ))}
+                  </select>
+                  <CellError id={`${base}-category-error`} message={rowErrors.category} />
+                </div>
 
-              <div className="space-y-1.5 sm:col-span-5">
-                <Label htmlFor={`budget-${index}-description`}>Description</Label>
-                <Input
-                  id={`budget-${index}-description`}
-                  name={`lineItems[${index}].description`}
-                  value={line.description}
-                  maxLength={500}
-                  onChange={(event) => update(index, "description", event.target.value)}
-                  required
+                <div className="space-y-1.5 sm:col-span-5">
+                  <Label htmlFor={`${base}-description`}>Description</Label>
+                  <Input
+                    id={`${base}-description`}
+                    name={`lineItems.${index}.description`}
+                    value={row.description}
+                    maxLength={500}
+                    required
+                    aria-invalid={rowErrors.description ? true : undefined}
+                    aria-describedby={rowErrors.description ? `${base}-description-error` : undefined}
+                    onChange={(event) => change(row.rowId, "description", event.target.value)}
+                  />
+                  <CellError id={`${base}-description-error`} message={rowErrors.description} />
+                </div>
+
+                <DecimalCell
+                  className="sm:col-span-3"
+                  id={`${base}-plannedAmount`}
+                  name={`lineItems.${index}.plannedAmount`}
+                  label="Planned amount"
+                  unit={currency}
+                  value={row.plannedAmount}
+                  rule={{ label: "Planned amount", ...MONEY_RULE }}
+                  serverError={rowErrors.plannedAmount}
+                  onChange={(value) => change(row.rowId, "plannedAmount", value)}
                 />
-              </div>
 
-              <div className="space-y-1.5 sm:col-span-3">
-                <Label htmlFor={`budget-${index}-plannedAmount`}>Planned amount</Label>
-                <Input
-                  id={`budget-${index}-plannedAmount`}
-                  name={`lineItems[${index}].plannedAmount`}
-                  inputMode="decimal"
-                  value={line.plannedAmount}
-                  onChange={(event) => update(index, "plannedAmount", event.target.value)}
-                  required
-                />
+                <div className="flex items-end sm:col-span-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Remove budget line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+                    disabled={rows.length === 1}
+                    onClick={() => remove(row.rowId)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
               </div>
-
-              <div className="flex items-end sm:col-span-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove budget line ${index + 1}`}
-                  disabled={lines.length === 1}
-                  onClick={() =>
-                    setLines((current) => current.filter((_, position) => position !== index))
-                  }
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
 
-      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
-        <Row label="Budget total" value={formatAmount(total.toFixed(2), currency)} emphasis />
+      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label="Total preview">
+        <Row label="Budget total (preview)" value={total ? formatAmount(total, currency) : "—"} emphasis />
       </dl>
     </section>
   );
@@ -362,14 +371,4 @@ function Row({
       </dd>
     </div>
   );
-}
-
-/** Preview arithmetic only — never the stored figure (PRD #15 §52). */
-function toNumber(value: string): number {
-  const parsed = Number.parseFloat(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }

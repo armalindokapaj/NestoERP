@@ -100,6 +100,9 @@ export default async function NewTaskPage({
         projects={options.projects}
         assignees={options.assignees}
         mayAssignOthers={options.mayAssignOthers}
+        // The assignees were read for the requested project, which the picker
+        // may not offer; the form reads them again for its own (AUD-09 §5).
+        assigneesFor={requestedProjectId}
         action={createTaskAction}
         initial={{
           title: "",

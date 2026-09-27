@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "lucide-react";
 
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -106,7 +106,7 @@ export function EvidenceGallery({
     },
   });
   itemsRef.current = queue.items;
-  const uploading = queue.items.filter((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
+  const uploading = queue.items.filter((item) => UPLOAD_IN_FLIGHT.includes(item.status));
 
   // A file still on its way is lost by leaving (AUD-03 §3). Nothing to save:
   // a finished upload is already stored, and discarding never deletes it.

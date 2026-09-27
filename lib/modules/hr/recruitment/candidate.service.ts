@@ -284,7 +284,10 @@ type Targets = {
  * company recruits into that company only; a department is that company's
  * branch of a group department; a hiring manager works in that company.
  */
-async function resolveTargets(context: UserContext, input: CreateCandidateInput | UpdateCandidateInput): Promise<Targets> {
+/** Where a candidate is recruited to, resolved from what is sent; on an edit, what is not sent is what they have (AUD-09 §4, FV-05). */
+type TargetInput = { targetCompanyId?: string | null; targetDepartmentId?: string | null; targetRoleKey?: string | null; targetJobTitle?: string | null; hiringManagerUserId?: string | null };
+
+async function resolveTargets(context: UserContext, input: TargetInput): Promise<Targets> {
   const targetCompanyId = input.targetCompanyId ?? context.companyId;
   if (targetCompanyId !== context.companyId && !recruitsAcrossGroup(context)) {
     throw new AccessError("VALIDATION_ERROR", "You recruit into your own company only.", { field: "targetCompanyId" });
@@ -347,7 +350,7 @@ async function assertNoDuplicatePerson(
   }
 }
 
-function personData(input: CreateCandidateInput | UpdateCandidateInput) {
+function personData(input: CreateCandidateInput) {
   return {
     firstName: input.firstName,
     lastName: input.lastName,
@@ -443,28 +446,38 @@ export async function updateCandidate(context: UserContext, candidateId: string,
   assertPermission(context, "person_profile.update");
   const candidate = await openCandidate(context, candidateId);
   if (!OPEN.includes(candidate.status)) throw stateDenied("A decided candidate can no longer be changed.");
-  const targets = await resolveTargets(context, input);
+  // Absent keeps what the candidate has; null clears; a new company is
+  // checked with the department and manager that go with it (AUD-09 §4, §5).
+  const keep = <T>(sent: T | null | undefined, stored: T | null): T | null => (sent === undefined ? stored : sent);
+  const targets = await resolveTargets(context, {
+    targetCompanyId: input.targetCompanyId ?? candidate.targetCompanyId,
+    targetDepartmentId: keep(input.targetDepartmentId, candidate.targetDepartmentId),
+    targetRoleKey: keep<string>(input.targetRoleKey, candidate.targetRoleKey),
+    targetJobTitle: keep(input.targetJobTitle, candidate.targetJobTitle),
+    hiringManagerUserId: keep(input.hiringManagerUserId, candidate.hiringManagerUserId),
+  });
+  const defined = <T extends Record<string, unknown>>(data: T) => Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)) as Partial<T>;
 
   await prisma.$transaction(async (tx) => {
-    await assertNoDuplicatePerson(tx, context, [input.workEmail, input.personalEmail], candidate.personProfileId);
-    const person = personData(input);
+    await assertNoDuplicatePerson(tx, context, [input.workEmail ?? undefined, input.personalEmail ?? undefined], candidate.personProfileId);
     await tx.personProfile.updateMany({
       where: { id: candidate.personProfileId, parentGroupId: context.parentGroupId },
+      // An absent field is undefined, which Prisma leaves alone; null clears (AUD-09 §4).
       data: {
-        firstName: person.firstName,
-        lastName: person.lastName,
-        preferredName: person.preferredName,
-        workEmail: person.workEmail,
-        workPhone: person.workPhone,
-        personalEmail: person.personalEmail,
-        personalPhone: person.personalPhone,
-        city: person.city,
-        country: person.country,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        preferredName: input.preferredName,
+        workEmail: input.workEmail,
+        workPhone: input.workPhone,
+        personalEmail: input.personalEmail,
+        personalPhone: input.personalPhone,
+        city: input.city,
+        country: input.country,
       },
     });
     const moved = await tx.candidateProfile.updateMany({
       where: { id: candidate.id, status: candidate.status },
-      data: { ...targets, interviewStage: input.interviewStage ?? null, notes: input.notes ?? null },
+      data: { ...targets, ...defined({ interviewStage: input.interviewStage, notes: input.notes }) },
     });
     if (moved.count === 0) throw new AccessError("CONFLICT", "Somebody else changed this candidate. Reload and try again.");
     await recordActivity(tx, context, {

@@ -10,6 +10,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { engineeringOpen, filesOpen, filesWritable, readableRfiWhere, readableSubmittalWhere } from "@/lib/modules/engineering/engineering.permissions";
+import { kept } from "@/lib/modules/engineering/engineering.fields";
 import { fail } from "@/lib/modules/engineering/engineering.shared";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { RFI_OPEN_STATUSES } from "@/lib/modules/engineering/engineering.types";
@@ -372,8 +373,9 @@ export async function updateContractor(context: UserContext, id: string, input: 
   const row = await findReadableContractor(context, id);
   assertPermission(context, "contractor.edit");
   assertEditable(row);
-  await assertSupplier(context, input.supplierId, row.supplierId);
-  const status = input.status as ContractorStatus;
+  // Absent fields are kept (AUD-09 §4, FV-05): Prisma leaves an undefined field alone.
+  await assertSupplier(context, input.supplierId === undefined ? row.supplierId : input.supplierId, row.supplierId);
+  const status = (input.status ?? row.status) as ContractorStatus;
   const statusChanged = status !== row.status;
   await prisma.$transaction(async (tx) => {
     const moved = await tx.contractorProfile.updateMany({
@@ -387,7 +389,17 @@ export async function updateContractor(context: UserContext, id: string, input: 
         actionKey: AuditAction.CONTRACTOR_UPDATED,
         entity: { type: RECORD, id: row.id, label: input.legalName },
         before: { legalName: row.legalName, tradingName: row.tradingName, status: row.status, supplierId: row.supplierId, countryCode: row.countryCode, registrationNumber: row.registrationNumber, vatNumber: row.vatNumber, email: row.email, phone: row.phone },
-        after: { legalName: input.legalName, tradingName: input.tradingName, status, supplierId: input.supplierId, countryCode: input.countryCode, registrationNumber: input.registrationNumber, vatNumber: input.vatNumber, email: input.email, phone: input.phone },
+        after: {
+          legalName: input.legalName,
+          tradingName: kept(input.tradingName, row.tradingName),
+          status,
+          supplierId: kept(input.supplierId, row.supplierId),
+          countryCode: kept(input.countryCode, row.countryCode),
+          registrationNumber: kept(input.registrationNumber, row.registrationNumber),
+          vatNumber: kept(input.vatNumber, row.vatNumber),
+          email: kept(input.email, row.email),
+          phone: kept(input.phone, row.phone),
+        },
         reason: statusChanged ? input.statusReason : null,
       },
       { tx },

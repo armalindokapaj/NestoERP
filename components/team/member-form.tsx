@@ -108,10 +108,12 @@ export function MemberForm({
                 {department.label}
               </option>
             ))}
+            {/* An archived department the member is still in stays chosen, so saving the title does not remove it (AUD-09 §5, FV-09). */}
+            {values.departmentId && !departments.some((department) => department.value === values.departmentId) ? (
+              <option value={values.departmentId}>Current department — no longer offered</option>
+            ) : null}
           </select>
-          {canAssignDepartment ? null : (
-            <input type="hidden" name="departmentId" value={values.departmentId ?? ""} />
-          )}
+          {/* Not the reader's to change: nothing is sent, and the server keeps it (AUD-09 §5, FV-10). */}
         </Field>
 
         <Field label="Job title" name="jobTitle" className="sm:col-span-2">

@@ -15,6 +15,7 @@ import { checklistGapLabel } from "./gap-labels";
 import { inspectionResultLabels } from "@/lib/modules/hse/hse.status";
 import type { ChecklistGap } from "@/lib/modules/hse/hse.status";
 import type { HseInspectionResult } from "@prisma/client";
+import { localDay } from "@/components/hr/local-day";
 
 /**
  * Handing an inspection in (PRD #22 §51, §49).
@@ -34,11 +35,14 @@ export function SubmitInspection({
   gaps,
   allowedResults,
   versionUpdatedAt,
+  summary,
 }: {
   inspectionId: string;
   gaps: ChecklistGap[];
   allowedResults: HseInspectionResult[];
   versionUpdatedAt?: string;
+  /** The notes the inspection already has: submitting starts from them rather than erasing them (AUD-09 §4, FV-05). */
+  summary?: string | null;
 }) {
   const ready = gaps.length === 0;
 
@@ -60,6 +64,7 @@ export function SubmitInspection({
       inspectionId={inspectionId}
       allowedResults={allowedResults}
       versionUpdatedAt={versionUpdatedAt}
+      summary={summary}
     />
   );
 }
@@ -72,10 +77,12 @@ function SubmitInspectionForm({
   inspectionId,
   allowedResults,
   versionUpdatedAt,
+  summary,
 }: {
   inspectionId: string;
   allowedResults: HseInspectionResult[];
   versionUpdatedAt?: string;
+  summary?: string | null;
 }) {
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -135,13 +142,13 @@ function SubmitInspectionForm({
             id="inspectionDate"
             name="inspectionDate"
             type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={localDay()}
           />
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="summary">Summary</Label>
-          <Textarea id="summary" name="summary" rows={3} maxLength={4000} />
+          <Textarea id="summary" name="summary" rows={3} maxLength={4000} defaultValue={summary ?? ""} />
         </div>
       </fieldset>
 

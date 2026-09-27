@@ -76,7 +76,8 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
     title: value.title.trim(),
     description: value.description.trim() || null,
     presenterMemberId: value.presenterMemberId || null,
-    plannedMinutes: value.plannedMinutes ? Number(value.plannedMinutes) : null,
+    // Empty is "no length"; text that is not a number goes as typed, for the server to refuse (AUD-09 §4).
+    plannedMinutes: value.plannedMinutes.trim() === "" ? null : Number.isFinite(Number(value.plannedMinutes)) ? Number(value.plannedMinutes) : value.plannedMinutes.trim(),
   });
 
   // The topic being added and the one being edited are unsaved work (AUD-03 §3).

@@ -321,9 +321,21 @@ export async function updateProject(
     assertTransitionAllowed(projectMachine, { currentState: existing.status, action: statusAction, context });
   }
 
-  const clientId = await validateClient(context, input.clientId, existing.clientId);
-  const managerMemberId = await validateManager(context, input.projectManagerMemberId);
-  const projectTypeId = await requireProjectTypeChoice(context, input.projectTypeId, existing.projectTypeId);
+  // A partial update (AUD-09 §4, FV-05): a field the request left out keeps
+  // its saved value; `null` is a deliberate clear. Unchanged links are waved
+  // through by their validators, so an untouched archived client or inactive
+  // manager is kept rather than refused or silently dropped (FV-10).
+  const keep = <T,>(value: T | undefined, saved: T): T => (value === undefined ? saved : value);
+  const clientId = await validateClient(context, keep(input.clientId, existing.clientId) ?? undefined, existing.clientId);
+  const managerMemberId = await validateManager(context, keep(input.projectManagerMemberId, existing.projectManagerMemberId) ?? undefined, existing.projectManagerMemberId);
+  const projectTypeId = await requireProjectTypeChoice(context, keep(input.projectTypeId, existing.projectTypeId), existing.projectTypeId);
+  const startDate = keep(input.startDate, existing.startDate);
+  const endDate = keep(input.endDate, existing.endDate);
+  if ((input.startDate !== undefined || input.endDate !== undefined) && startDate && endDate && startDate.getTime() > endDate.getTime()) {
+    throw new AccessError("VALIDATION_ERROR", "End date must be on or after the start date.", {
+      endDate: ["End date must be on or after the start date."],
+    });
+  }
   const coverImageDocumentId =
     input.coverImageDocumentId === undefined
       ? existing.coverImageDocumentId
@@ -338,18 +350,18 @@ export async function updateProject(
 
   const before = detailsOf(existing);
   const after = {
-    code: input.code.trim(),
-    name: input.name,
-    description: input.description ?? null,
+    code: keep(input.code, existing.code).trim(),
+    name: keep(input.name, existing.name),
+    description: keep(input.description, existing.description),
     clientId,
-    priority: input.priority ?? null,
+    priority: keep(input.priority, existing.priority),
     projectTypeId,
-    startDate: input.startDate ?? null,
-    endDate: input.endDate ?? null,
-    address: input.address ?? null,
-    city: input.city ?? null,
-    country: input.country ?? null,
-    builtArea: input.builtArea ?? null,
+    startDate,
+    endDate,
+    address: keep(input.address, existing.address),
+    city: keep(input.city, existing.city),
+    country: keep(input.country, existing.country),
+    builtArea: keep(input.builtArea, existing.builtArea === null ? null : Number(existing.builtArea)),
     isKeyProject: input.isKeyProject === undefined ? existing.isKeyProject : input.isKeyProject === "YES",
     coverImageDocumentId,
   };
@@ -377,7 +389,7 @@ export async function updateProject(
           name: after.name,
           description: after.description,
           clientId: after.clientId,
-          priority: input.priority ?? null,
+          priority: after.priority,
           projectTypeId: after.projectTypeId,
           startDate: after.startDate,
           endDate: after.endDate,
@@ -936,8 +948,12 @@ async function validateClient(
 async function validateManager(
   context: UserContext,
   memberId: string | undefined,
+  currentMemberId: string | null = null,
 ): Promise<string | null> {
   if (!memberId) return null;
+  // The saved manager is kept even when no longer active: saving the details
+  // must not need a new manager (AUD-09 §5, FV-10). A new one must be active.
+  if (memberId === currentMemberId) return memberId;
 
   const member = await prisma.companyMember.findFirst({
     where: { id: memberId, companyId: context.companyId, status: "ACTIVE" },
@@ -945,7 +961,9 @@ async function validateManager(
   });
 
   if (!member) {
-    throw new AccessError("VALIDATION_ERROR", "That project manager is not available.");
+    throw new AccessError("VALIDATION_ERROR", "That project manager is not available.", {
+      projectManagerMemberId: ["That project manager is not available. Choose an active member."],
+    });
   }
   return member.id;
 }
@@ -989,7 +1007,9 @@ async function validateCover(
   const candidates = await coverCandidates(context, projectId);
   if (!candidates.some((candidate) => candidate.id === documentId)) {
     // One answer for "not an image", "another project" and "not yours to open".
-    throw new AccessError("VALIDATION_ERROR", "That image cannot be used as the project cover.", { field: "coverImageDocumentId" });
+    throw new AccessError("VALIDATION_ERROR", "That image cannot be used as the project cover.", {
+      coverImageDocumentId: ["That image cannot be used as the project cover."],
+    });
   }
   return documentId;
 }
@@ -1028,7 +1048,10 @@ async function ensureProjectMember(
  */
 function translateWriteError(error: unknown): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-    throw new AccessError("CONFLICT", "A project with this code already exists.");
+    // On the field, with a stable code, so the form shows it beside the code
+    // input (AUD-09 §3, FV-11). A field called `code` cannot share the details
+    // map with the business code, so it is named by `field` (lib/forms/errors).
+    throw new AccessError("CONFLICT", "A project with this code already exists. Choose another code.", { code: "PROJECT_CODE_TAKEN", field: "code" });
   }
   throw error;
 }

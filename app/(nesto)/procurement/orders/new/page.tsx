@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createOrderAction } from "@/lib/actions/procurement";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
+import { companyToday } from "@/lib/modules/finance/finance.settings";
 
 export const metadata: Metadata = { title: "New purchase order" };
 
@@ -19,10 +20,14 @@ export default async function NewOrderPage({
   const context = await requireModule("procurement");
   if (!can(context, "procurement.order.create")) notFound();
 
-  const [options, params] = await Promise.all([orders.orderFormOptions(context), searchParams]);
+  const [options, params, today] = await Promise.all([
+    orders.orderFormOptions(context),
+    searchParams,
+    // The company's calendar day, not the UTC one (AUD-09 §4, FV-07).
+    companyToday(context.companyId),
+  ]);
 
   const one = (key: string) => (typeof params[key] === "string" ? (params[key] as string) : "");
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-5">

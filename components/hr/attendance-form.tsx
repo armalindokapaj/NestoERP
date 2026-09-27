@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
 import { acceptsTimes, attendanceStatusLabels } from "@/lib/modules/hr/hr.status";
 import type { AttendanceStatus } from "@prisma/client";
+import { localDay } from "./local-day";
 
 export type AttendanceFormValues = {
   employeeId: string | null;
@@ -102,7 +103,7 @@ export function AttendanceForm({
               name="date"
               type="date"
               required
-              defaultValue={values?.date ?? new Date().toISOString().slice(0, 10)}
+              defaultValue={values?.date ?? localDay()}
             />
           </Field>
         ) : null}

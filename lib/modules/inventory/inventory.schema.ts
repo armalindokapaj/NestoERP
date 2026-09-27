@@ -1,7 +1,17 @@
 import { z } from "zod";
 
-import { businessDate, optionalBusinessDate } from "@/lib/modules/finance/finance.fields";
+import { compareDecimal, isZeroDecimal } from "@/lib/modules/finance/finance.decimal";
+import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import {
+  businessDate,
+  decimalString,
+  optionalBusinessDate,
+  optionalDecimalString,
+  positive,
+  RATE_RULE,
+} from "@/lib/modules/finance/finance.fields";
+import {
+  optionalBoolean,
   optionalEnum,
   optionalId,
   optionalText,
@@ -30,38 +40,25 @@ import {
  * post, cancel, reverse — so there is nothing for a generic update to set.
  */
 
+/*
+ * Quantities go through the one decimal rule every module shares (AUD-09 §4,
+ * FV-06). The old first-comma replace read `1,000` as 1 — a thousand bags of
+ * cement booked as one — and a float decided "more than zero".
+ */
+
 /** A quantity: positive, at most four decimals (PRD #20 §72). */
-const quantityString = z
-  .string()
-  .trim()
-  .min(1, "Enter a quantity")
-  .transform((value) => value.replace(",", "."))
-  .refine((value) => /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Quantity must be a number with at most 4 decimal places",
-  })
-  .refine((value) => Number.parseFloat(value) > 0, { message: "Quantity must be more than zero" });
+const quantityString = decimalString("Quantity", RATE_RULE).refine(positive, {
+  message: "Quantity must be more than zero",
+});
 
 /** A signed quantity, for adjustments, where negative writes stock off (§147). */
-const deltaString = z
-  .string()
-  .trim()
-  .min(1, "Enter an adjustment")
-  .transform((value) => value.replace(",", "."))
-  .refine((value) => /^-?\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Enter a number with at most 4 decimal places",
-  })
-  .refine((value) => Number.parseFloat(value) !== 0, {
-    message: "An adjustment of zero changes nothing",
-  });
+const deltaString = decimalString("Adjustment", { ...RATE_RULE, allowNegative: true }).refine(
+  (value) => !isZeroDecimal(value),
+  { message: "An adjustment of zero changes nothing" },
+);
 
-const optionalQuantityString = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value.replace(",", ".")))
-  .refine((value) => value === undefined || /^\d{1,14}(\.\d{1,4})?$/.test(value), {
-    message: "Enter a number with at most 4 decimal places",
-  });
+/** A stock level that may be left unset (no minimum): empty is "none", not 0. */
+const optionalQuantityString = optionalDecimalString("Stock level", RATE_RULE);
 
 /** Every item is measured in something; "each" is a unit, "" is a gap (§31). */
 const unit = requiredText(1, 24, "Unit");
@@ -77,7 +74,9 @@ export const itemSchema = z
     description: optionalText(2000),
     category: z.enum(ITEM_CATEGORIES),
     baseUnit: unit,
-    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+    // No create default on the shared schema: an edit that leaves status out
+    // keeps it (AUD-09 §4, FV-05); a create without one is active (service).
+    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
     minimumStock: optionalQuantityString,
     reorderPoint: optionalQuantityString,
     defaultWarehouseId: optionalId,
@@ -88,7 +87,7 @@ export const itemSchema = z
     (value) =>
       value.minimumStock === undefined ||
       value.reorderPoint === undefined ||
-      Number.parseFloat(value.reorderPoint) >= Number.parseFloat(value.minimumStock),
+      compareDecimal(value.reorderPoint, value.minimumStock) >= 0,
     {
       // The reorder point is when to buy; the minimum is the floor you must not
       // cross. A reorder point below the minimum would order too late by
@@ -127,7 +126,8 @@ export const warehouseSchema = z
     address: optionalText(400),
     city: optionalText(120),
     country: optionalText(120),
-    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+    // As for items: absent keeps the saved status on an edit (FV-05).
+    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
     versionUpdatedAt: z.coerce.date().optional(),
   })
   .refine((value) => value.warehouseType !== "PROJECT_SITE" || value.projectId !== undefined, {
@@ -152,7 +152,8 @@ export const locationSchema = z.object({
   code: requiredText(1, 40, "Location code"),
   name: optionalText(200),
   description: optionalText(1000),
-  isDefault: z.coerce.boolean().optional().default(false),
+  // "false" is false (`z.coerce.boolean()` read the string as true).
+  isDefault: optionalBoolean.transform((value) => value ?? false),
 });
 
 export type LocationInput = z.infer<typeof locationSchema>;
@@ -173,7 +174,7 @@ export const receiptSchema = z.object({
   warehouseId: z.string().trim().min(1, "Choose a warehouse"),
   receiptDate: businessDate,
   notes: optionalText(2000),
-  lines: z.array(documentLine).min(1, "A receipt needs at least one line"),
+  lines: z.array(documentLine).min(1, "A receipt needs at least one line").max(MAX_LINE_ITEMS),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -186,7 +187,7 @@ export const issueSchema = z.object({
   issuedToMemberId: optionalId,
   requestedByMemberId: optionalId,
   notes: optionalText(2000),
-  lines: z.array(documentLine).min(1, "An issue needs at least one line"),
+  lines: z.array(documentLine).min(1, "An issue needs at least one line").max(MAX_LINE_ITEMS),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -198,7 +199,7 @@ export const returnSchema = z.object({
   returnDate: businessDate,
   returnedByMemberId: optionalId,
   notes: optionalText(2000),
-  lines: z.array(documentLine).min(1, "A return needs at least one line"),
+  lines: z.array(documentLine).min(1, "A return needs at least one line").max(MAX_LINE_ITEMS),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -221,18 +222,24 @@ export const transferSchema = z
           notes: optionalText(500),
         }),
       )
-      .min(1, "A transfer needs at least one line"),
+      .min(1, "A transfer needs at least one line")
+      .max(MAX_LINE_ITEMS),
     versionUpdatedAt: z.coerce.date().optional(),
   })
-  .refine(
-    (value) => value.lines.every((line) => line.fromLocationId !== line.toLocationId),
-    {
-      // Moving stock to where it already is writes two movements that cancel
-      // out and tells nobody anything (PRD #20 §135).
-      message: "A line cannot move stock to the location it is already in.",
-      path: ["lines"],
-    },
-  );
+  .superRefine((value, ctx) => {
+    // Moving stock to where it already is writes two movements that cancel
+    // out and tells nobody anything (PRD #20 §135). Said on the line it is
+    // about (AUD-09 §7, FV-16), not on the list.
+    value.lines.forEach((line, index) => {
+      if (line.fromLocationId === line.toLocationId) {
+        ctx.addIssue({
+          code: "custom",
+          message: "A line cannot move stock to the location it is already in.",
+          path: ["lines", index, "toLocationId"],
+        });
+      }
+    });
+  });
 
 export type TransferInput = z.infer<typeof transferSchema>;
 
@@ -251,7 +258,8 @@ export const adjustmentSchema = z.object({
         notes: optionalText(500),
       }),
     )
-    .min(1, "An adjustment needs at least one line"),
+    .min(1, "An adjustment needs at least one line")
+    .max(MAX_LINE_ITEMS),
   versionUpdatedAt: z.coerce.date().optional(),
 });
 
@@ -261,15 +269,24 @@ export type AdjustmentInput = z.infer<typeof adjustmentSchema>;
 /* Reservations                                                                */
 /* -------------------------------------------------------------------------- */
 
-export const reservationSchema = z.object({
-  inventoryItemId: z.string().trim().min(1, "Choose an item"),
-  warehouseId: z.string().trim().min(1, "Choose a warehouse"),
-  locationId: z.string().trim().min(1, "Choose a location"),
-  projectId: optionalId,
-  quantity: quantityString,
-  requiredDate: optionalBusinessDate,
-  expiresAt: optionalBusinessDate,
-});
+/**
+ * A reservation's dates are calendar dates in order (AUD-09 §4, FV-07): a hold
+ * that expires before the day it is needed holds nothing.
+ */
+export const reservationSchema = z
+  .object({
+    inventoryItemId: z.string().trim().min(1, "Choose an item"),
+    warehouseId: z.string().trim().min(1, "Choose a warehouse"),
+    locationId: z.string().trim().min(1, "Choose a location"),
+    projectId: optionalId,
+    quantity: quantityString,
+    requiredDate: optionalBusinessDate,
+    expiresAt: optionalBusinessDate,
+  })
+  .refine((value) => !value.requiredDate || !value.expiresAt || value.expiresAt.getTime() >= value.requiredDate.getTime(), {
+    message: "The reservation cannot expire before the date it is needed.",
+    path: ["expiresAt"],
+  });
 
 export type ReservationInput = z.infer<typeof reservationSchema>;
 

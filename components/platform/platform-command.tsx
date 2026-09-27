@@ -24,6 +24,7 @@ type Props = {
   destructive?: boolean;
 };
 
+/** Blank fields are left out; the ids and action this button was built for come last, so no form field overrides them (AUD-09 §4). */
 function clean(payload: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== null && value !== ""));
 }
@@ -34,7 +35,7 @@ export function PlatformCommandButton({ label, title, description, action, fixed
   const toast = useToast();
 
   async function submit(payload: Record<string, unknown>) {
-    const result = await engineeringApi<{ pageRefresh?: "complete" | "pending" } | undefined>("/api/platform-admin/command", { body: { action, ...fixed, ...clean(payload) } });
+    const result = await engineeringApi<{ pageRefresh?: "complete" | "pending" } | undefined>("/api/platform-admin/command", { body: { ...clean(payload), action, ...fixed } });
     // A maintenance change is saved even when pages have not caught up yet (NAV-02 CACHE-02).
     toast(result?.pageRefresh === "pending" ? { title: "Setting saved. Page updates may take up to five seconds.", tone: "success" } : { title: success, tone: "success" });
     router.refresh();

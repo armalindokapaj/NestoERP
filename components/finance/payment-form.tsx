@@ -10,6 +10,7 @@ import {
   type FormActionResult,
 } from "@/components/forms/record-form";
 import { Input } from "@/components/ui/input";
+import { localToday } from "./local-date";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 
@@ -113,7 +114,7 @@ export function PaymentForm({
             name="paymentDate"
             type="date"
             required
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={localToday()}
           />
         </Field>
 

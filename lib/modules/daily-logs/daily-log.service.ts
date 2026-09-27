@@ -156,11 +156,13 @@ export async function updateDailyLog(context: UserContext, dailyLogId: string, i
   const log = await findReadableLog(context, dailyLogId);
   assertPermission(context, "daily_log.edit");
   if (!isEditable(log.status)) throw lockedError(log.status);
-  const data = Object.fromEntries(TOP_FIELDS.map((field) => [field, input[field]]));
+  // Only the fields the request named (AUD-09 §4, FV-05); `null` clears one.
+  const named = TOP_FIELDS.filter((field) => input[field] !== undefined);
+  const data = Object.fromEntries(named.map((field) => [field, input[field]]));
   const version = await prisma.$transaction(async (tx) => {
     const next = await touchLog(tx, log.id, input.expectedVersion);
     await tx.dailyLog.update({ where: { id: log.id }, data });
-    await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_UPDATED, entity: { type: RECORD, id: log.id }, after: { fields: TOP_FIELDS.filter((field) => input[field] !== null).join(","), siteCondition: input.siteCondition } }, { tx });
+    await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_UPDATED, entity: { type: RECORD, id: log.id }, after: { fields: named.filter((field) => input[field] !== null).join(","), siteCondition: input.siteCondition } }, { tx });
     return next;
   });
   return { version };

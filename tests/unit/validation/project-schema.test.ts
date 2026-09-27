@@ -86,7 +86,9 @@ describe("createProjectSchema (PRD #10 §33–§38)", () => {
     // Whether the id is one of the company's types in use is the service's question.
     expect(createProjectSchema.safeParse({ ...valid, projectTypeId: undefined }).success).toBe(false);
     expect(createProjectSchema.safeParse({ ...valid, projectTypeId: "" }).success).toBe(false);
-    expect(updateProjectSchema.parse({ ...valid, projectTypeId: "" }).projectTypeId).toBeUndefined();
+    // On an edit an empty choice is an explicit clear (`null`) and an absent one keeps the saved type (AUD-09 §4, FV-05).
+    expect(updateProjectSchema.parse({ ...valid, projectTypeId: "" }).projectTypeId).toBeNull();
+    expect(updateProjectSchema.parse({ ...valid, projectTypeId: undefined }).projectTypeId).toBeUndefined();
   });
 });
 

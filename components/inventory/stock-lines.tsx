@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 
-import { selectClass, useFieldErrors } from "@/components/forms/record-form";
+import { selectClass } from "@/components/forms/record-form";
+import { CellError, DecimalCell, useLineRows, useRowErrors } from "@/components/finance/line-rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,14 +12,19 @@ import type {
   ItemOption,
   LocationOption,
 } from "@/lib/modules/inventory/inventory.options";
+import { isPositiveDecimal, isZeroDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
+import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
+import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import { formatQuantity } from "./inventory-format";
 
 /**
  * The line editor every stock document shares (PRD #20 §313, §315, §317).
  *
- * Lines post as `lines[0][inventoryItemId]` and so on, because an HTML form has
- * no nested objects and a JSON blob in a hidden field is a thing nobody can
- * debug from the network tab.
+ * Lines post as `lines.0.inventoryItemId` and so on — named by their position at
+ * submit, the canonical path the server's errors come back under — and keep a
+ * stable local id, so an error is put on the row it was about even after rows
+ * are removed (AUD-09 §3, §7, FV-16). A line's location depends on the chosen
+ * warehouse (FV-08). Numbers use the shared decimal rule.
  *
  * What is already in a location is shown as the person picks it — on hand,
  * available, and for an adjustment the figure it would become. That is a
@@ -57,13 +63,16 @@ const EMPTY: StockLineValue = {
   notes: "",
 };
 
+/** On hand after a signed change, exactly (AUD-09 §7): a preview, never a decision. */
 function resultingOnHand(onHand: string | undefined, delta: string): string | null {
   if (onHand === undefined) return null;
-  const current = Number.parseFloat(onHand);
-  const change = Number.parseFloat(delta.replace(",", "."));
-  if (!Number.isFinite(current) || !Number.isFinite(change)) return null;
-  return (current + change).toFixed(4);
+  const change = previewDecimal(delta, 4);
+  if (change === null) return null;
+  return sumDecimal([onHand, change], 4);
 }
+
+const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero");
+const nonZeroDelta = (value: string) => (isZeroDecimal(value) ? "An adjustment of zero changes nothing" : null);
 
 export function StockLinesEditor({
   variant = "simple",
@@ -85,11 +94,14 @@ export function StockLinesEditor({
   fromWarehouseId?: string;
   toWarehouseId?: string;
 }) {
-  const [lines, setLines] = React.useState<StockLineValue[]>(
-    initial && initial.length > 0 ? initial : [{ ...EMPTY }],
+  const instance = React.useId();
+  const empty = React.useCallback((): StockLineValue => ({ ...EMPTY }), []);
+  const { rows, add, remove, update, atLimit } = useLineRows(initial ?? [], empty, { max: MAX_LINE_ITEMS });
+  const errors = useRowErrors(
+    "lines",
+    rows.map((row) => row.rowId),
   );
-  const errors = useFieldErrors();
-  const lineError = errors.lines?.[0];
+  const [cleared, setCleared] = React.useState<string | null>(null);
 
   const balanceKey = React.useMemo(() => {
     const map = new Map<string, HeldBalance>();
@@ -97,171 +109,191 @@ export function StockLinesEditor({
     return map;
   }, [balances]);
 
-  function update(index: number, patch: Partial<StockLineValue>) {
-    setLines((current) =>
-      current.map((line, position) => (position === index ? { ...line, ...patch } : line)),
-    );
+  function change(rowId: string, patch: Partial<StockLineValue>) {
+    update(rowId, patch);
+    for (const field of Object.keys(patch)) errors.clear(rowId, field);
   }
 
-  function locationsFor(scope: string | undefined) {
-    return scope ? locations.filter((location) => location.warehouseId === scope) : locations;
-  }
+  const sourceScope = variant === "transfer" ? fromWarehouseId : warehouseId;
+  const sourceLocations = React.useMemo(
+    () => (sourceScope ? locations.filter((location) => location.warehouseId === sourceScope) : []),
+    [locations, sourceScope],
+  );
+  const destinationLocations = React.useMemo(
+    () => (toWarehouseId ? locations.filter((location) => location.warehouseId === toWarehouseId) : []),
+    [locations, toWarehouseId],
+  );
 
-  const sourceLocations = locationsFor(variant === "transfer" ? fromWarehouseId : warehouseId);
-  const destinationLocations = locationsFor(toWarehouseId);
+  /*
+   * A warehouse change (AUD-09 §5, FV-08): a line's location that is still in
+   * the chosen warehouse is kept; one that is not is cleared, and the form says
+   * so — never silently, and never by picking the first location instead.
+   */
+  const scopes = `${sourceScope ?? ""}|${toWarehouseId ?? ""}`;
+  const previousScopes = React.useRef(scopes);
+  React.useEffect(() => {
+    if (previousScopes.current === scopes) return;
+    previousScopes.current = scopes;
+    const inSource = new Set(sourceLocations.map((location) => location.value));
+    const inDestination = new Set(destinationLocations.map((location) => location.value));
+    let count = 0;
+    for (const row of rows) {
+      const patch: Partial<StockLineValue> = {};
+      if (variant === "transfer") {
+        if (row.fromLocationId && !inSource.has(row.fromLocationId)) patch.fromLocationId = "";
+        if (row.toLocationId && !inDestination.has(row.toLocationId)) patch.toLocationId = "";
+      } else if (row.locationId && !inSource.has(row.locationId)) {
+        patch.locationId = "";
+      }
+      if (Object.keys(patch).length > 0) {
+        count += 1;
+        update(row.rowId, patch);
+      }
+    }
+    setCleared(count > 0 ? `Location cleared on ${count === 1 ? "one line" : `${count} lines`}: it is not in the warehouse now chosen.` : null);
+    // Only a change of warehouse runs this; typing in a line does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopes]);
+
+  const listErrorId = `${instance}-lines-error`;
 
   return (
-    <div className="space-y-3">
-      {lineError ? <p className="text-meta text-danger-strong">{lineError}</p> : null}
+    <div className="space-y-3" aria-describedby={errors.list ? listErrorId : undefined}>
+      <p className="text-meta text-fg-subtle">Quantities take up to 4 decimals, e.g. 2.5 or 2,5.</p>
+      <CellError id={listErrorId} message={errors.list} />
+      {cleared ? (
+        <p role="status" className="text-meta text-warning-strong">
+          {cleared}
+        </p>
+      ) : null}
 
       <div className="space-y-3">
-        {lines.map((line, index) => {
+        {rows.map((line, index) => {
           const item = items.find((option) => option.value === line.inventoryItemId);
           const held = balanceKey.get(
             `${line.inventoryItemId}:${variant === "transfer" ? line.fromLocationId : line.locationId}`,
           );
+          const rowErrors = errors.forRow(line.rowId);
+          const base = `${instance}-${line.rowId}`;
+          const described = (field: string) => (rowErrors[field] ? `${base}-${field}-error` : undefined);
 
           return (
-            <div key={index} className="nesto-card space-y-3 p-4">
+            <div key={line.rowId} className="nesto-card space-y-3 p-4" data-line-row={line.rowId}>
               <div className="flex items-start justify-between gap-3">
                 <p className="nesto-eyebrow text-fg-subtle">Line {index + 1}</p>
-                {lines.length > 1 ? (
+                {rows.length > 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove line ${index + 1}`}
-                    onClick={() => setLines((current) => current.filter((_, i) => i !== index))}
+                    aria-label={`Remove line ${index + 1}${item ? `: ${item.label}` : ""}`}
+                    onClick={() => remove(line.rowId)}
                   >
                     <Trash2 aria-hidden="true" />
                   </Button>
                 ) : null}
               </div>
 
-              {line.id ? (
-                <input type="hidden" name={`lines[${index}][id]`} value={line.id} />
-              ) : null}
+              {line.id ? <input type="hidden" name={`lines.${index}.id`} value={line.id} /> : null}
 
               <div className="space-y-1.5">
-                <Label htmlFor={`lines-${index}-item`}>Item</Label>
+                <Label htmlFor={`${base}-item`}>Item</Label>
                 <select
-                  id={`lines-${index}-item`}
-                  name={`lines[${index}][inventoryItemId]`}
+                  id={`${base}-item`}
+                  name={`lines.${index}.inventoryItemId`}
                   className={selectClass}
                   value={line.inventoryItemId}
-                  onChange={(event) => update(index, { inventoryItemId: event.target.value })}
+                  onChange={(event) => change(line.rowId, { inventoryItemId: event.target.value })}
                   required
+                  aria-invalid={rowErrors.inventoryItemId ? true : undefined}
+                  aria-describedby={described("inventoryItemId")}
                 >
-                  <option value="">Choose an item</option>
+                  <option value="">{items.length === 0 ? "No items available" : "Choose an item"}</option>
                   {items.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
+                <CellError id={`${base}-inventoryItemId-error`} message={rowErrors.inventoryItemId} />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {variant === "transfer" ? (
                   <>
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`lines-${index}-from`}>From location</Label>
-                      <select
-                        id={`lines-${index}-from`}
-                        name={`lines[${index}][fromLocationId]`}
-                        className={selectClass}
-                        value={line.fromLocationId ?? ""}
-                        onChange={(event) => update(index, { fromLocationId: event.target.value })}
-                        required
-                      >
-                        <option value="">Choose a location</option>
-                        {sourceLocations.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`lines-${index}-to`}>To location</Label>
-                      <select
-                        id={`lines-${index}-to`}
-                        name={`lines[${index}][toLocationId]`}
-                        className={selectClass}
-                        value={line.toLocationId ?? ""}
-                        onChange={(event) => update(index, { toLocationId: event.target.value })}
-                        required
-                      >
-                        <option value="">Choose a location</option>
-                        {destinationLocations.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <LocationSelect
+                      id={`${base}-fromLocationId`}
+                      name={`lines.${index}.fromLocationId`}
+                      label="From location"
+                      value={line.fromLocationId ?? ""}
+                      options={sourceLocations}
+                      scopeChosen={Boolean(fromWarehouseId)}
+                      error={rowErrors.fromLocationId}
+                      onChange={(value) => change(line.rowId, { fromLocationId: value })}
+                    />
+                    <LocationSelect
+                      id={`${base}-toLocationId`}
+                      name={`lines.${index}.toLocationId`}
+                      label="To location"
+                      value={line.toLocationId ?? ""}
+                      options={destinationLocations}
+                      scopeChosen={Boolean(toWarehouseId)}
+                      error={rowErrors.toLocationId}
+                      onChange={(value) => change(line.rowId, { toLocationId: value })}
+                    />
                   </>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`lines-${index}-location`}>Location</Label>
-                    <select
-                      id={`lines-${index}-location`}
-                      name={`lines[${index}][locationId]`}
-                      className={selectClass}
-                      value={line.locationId ?? ""}
-                      onChange={(event) => update(index, { locationId: event.target.value })}
-                      required
-                    >
-                      <option value="">Choose a location</option>
-                      {sourceLocations.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <LocationSelect
+                    id={`${base}-locationId`}
+                    name={`lines.${index}.locationId`}
+                    label="Location"
+                    value={line.locationId ?? ""}
+                    options={sourceLocations}
+                    scopeChosen={Boolean(warehouseId)}
+                    error={rowErrors.locationId}
+                    onChange={(value) => change(line.rowId, { locationId: value })}
+                  />
                 )}
 
                 {variant === "adjustment" ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`lines-${index}-delta`}>Change</Label>
-                    <Input
-                      id={`lines-${index}-delta`}
-                      name={`lines[${index}][quantityDelta]`}
-                      value={line.quantityDelta ?? ""}
-                      onChange={(event) => update(index, { quantityDelta: event.target.value })}
-                      inputMode="decimal"
-                      required
-                      placeholder="-2.5 writes stock off"
-                    />
-                  </div>
+                  <DecimalCell
+                    id={`${base}-quantityDelta`}
+                    name={`lines.${index}.quantityDelta`}
+                    label="Change"
+                    unit={item?.unit}
+                    value={line.quantityDelta ?? ""}
+                    rule={{ label: "Adjustment", ...RATE_RULE, allowNegative: true }}
+                    refine={nonZeroDelta}
+                    serverError={rowErrors.quantityDelta}
+                    onChange={(value) => change(line.rowId, { quantityDelta: value })}
+                  />
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`lines-${index}-quantity`}>
-                      Quantity{item ? ` (${item.unit})` : ""}
-                    </Label>
-                    <Input
-                      id={`lines-${index}-quantity`}
-                      name={`lines[${index}][quantity]`}
-                      value={line.quantity ?? ""}
-                      onChange={(event) => update(index, { quantity: event.target.value })}
-                      inputMode="decimal"
-                      required
-                    />
-                  </div>
+                  <DecimalCell
+                    id={`${base}-quantity`}
+                    name={`lines.${index}.quantity`}
+                    label="Quantity"
+                    unit={item?.unit}
+                    value={line.quantity ?? ""}
+                    rule={{ label: "Quantity", ...RATE_RULE }}
+                    refine={positiveQuantity}
+                    serverError={rowErrors.quantity}
+                    onChange={(value) => change(line.rowId, { quantity: value })}
+                  />
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor={`lines-${index}-notes`}>Note</Label>
+                <Label htmlFor={`${base}-notes`}>Note</Label>
                 <Input
-                  id={`lines-${index}-notes`}
-                  name={`lines[${index}][notes]`}
+                  id={`${base}-notes`}
+                  name={`lines.${index}.notes`}
                   value={line.notes ?? ""}
-                  onChange={(event) => update(index, { notes: event.target.value })}
+                  onChange={(event) => change(line.rowId, { notes: event.target.value })}
                   maxLength={500}
+                  aria-invalid={rowErrors.notes ? true : undefined}
+                  aria-describedby={described("notes")}
                 />
+                <CellError id={`${base}-notes-error`} message={rowErrors.notes} />
               </div>
 
               {held ? (
@@ -295,15 +327,62 @@ export function StockLinesEditor({
         })}
       </div>
 
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={() => setLines((current) => [...current, { ...EMPTY }])}
-      >
+      <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
         <Plus aria-hidden="true" />
         Add line
       </Button>
+      {atLimit ? <p className="text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+    </div>
+  );
+}
+
+/**
+ * A location picker that depends on a warehouse (AUD-09 §5, FV-08): "Choose a
+ * warehouse first" while none is chosen, "No locations" when the warehouse has
+ * none — distinct states, and never an automatic first choice.
+ */
+function LocationSelect({
+  id,
+  name,
+  label,
+  value,
+  options,
+  scopeChosen,
+  error,
+  onChange,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  options: LocationOption[];
+  scopeChosen: boolean;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  const placeholder = !scopeChosen ? "Choose a warehouse first" : options.length === 0 ? "No locations in this warehouse" : "Choose a location";
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        name={name}
+        className={selectClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        disabled={!scopeChosen}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <CellError id={`${id}-error`} message={error} />
     </div>
   );
 }

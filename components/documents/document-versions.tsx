@@ -14,6 +14,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
+import {
+  acceptedTypesText,
+  authoriseUpload,
+  completeUploadSession,
+  DEFAULT_UPLOAD_MAX_BYTES,
+  isAlreadyUploaded,
+  megabytes,
+  newUploadKey,
+  precheckFile,
+  putUploadObject,
+  uploadAccept,
+  UploadFailure,
+} from "./upload-client";
 import type {
   DocumentReviewDTO,
   DocumentVersionDTO,
@@ -331,30 +344,6 @@ function VersionDownload({ documentId, versionId, versionNumber }: { documentId:
   );
 }
 
-type UploadIntent = {
-  uploadSessionId: string;
-  upload: { method: "PUT"; url: string; headers: Record<string, string> };
-};
-
-function putObject(grant: UploadIntent["upload"], file: File, onProgress: (value: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open(grant.method, grant.url, true);
-    for (const [header, value] of Object.entries(grant.headers)) request.setRequestHeader(header, value);
-    request.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
-    });
-    request.addEventListener("load", () => {
-      if (request.status >= 200 && request.status < 300) return resolve();
-      if (request.status === 413) return reject({ status: 413, message: "That file is larger than the upload limit." });
-      if (request.status === 403) return reject({ status: 403, message: "This upload took too long. Start it again." });
-      reject({ status: request.status, message: "The upload did not complete. Try again." });
-    });
-    request.addEventListener("error", () => reject({ status: 0, message: "The upload was interrupted. Try again." }));
-    request.send(file);
-  });
-}
-
 function UploadVersionDialog({
   documentId,
   open,
@@ -397,8 +386,13 @@ function UploadVersionForm({
   const [changeNote, setChangeNote] = React.useState("");
   const [progress, setProgress] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const idempotencyKey = React.useRef<string>("");
-  if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
+  /*
+   * One chosen file, one upload key (AUD-09 §8, FV-18). The key changes when a
+   * different file is chosen, never because an attempt failed: a retry after
+   * a lost answer must find the version that already arrived, not allocate
+   * the next version number for the same bytes.
+   */
+  const upload = React.useRef<{ key: string; sessionId: string | null }>({ key: "", sessionId: null });
 
   const busy = progress !== null;
   const editor = useDialogInput(file !== null || changeNote !== "", "Upload", "New version");
@@ -414,26 +408,45 @@ function UploadVersionForm({
       setError("Choose a file first.");
       return;
     }
+    const check = precheckFile(file);
+    if (!check.ok) {
+      setError(check.message);
+      return;
+    }
     setError(null);
     setProgress(0);
+    if (!upload.current.key) upload.current = { key: newUploadKey(), sessionId: null };
+    const attempt = upload.current;
     try {
-      const intent = await api<UploadIntent>(`/api/documents/${documentId}/versions/upload-intent`, {
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey.current },
-        body: JSON.stringify({
-          fileName: file.name,
-          mimeType: file.type || undefined,
-          sizeBytes: file.size,
-          changeNote: changeNote.trim() || undefined,
-        }),
-      });
-      await putObject(intent.upload, file, setProgress);
-      const result = await api<{ status: string }>(`/api/documents/${documentId}/versions/complete`, {
-        method: "POST",
-        body: JSON.stringify({ uploadSessionId: intent.uploadSessionId }),
-      });
+      let status: string | null = null;
+      if (attempt.sessionId) {
+        // The completion's answer was lost last time: ask before resending.
+        status = await completeUploadSession({ kind: "version", documentId, sessionId: attempt.sessionId })
+          .then((result) => result.status)
+          .catch((failure: unknown) => {
+            if (failure instanceof UploadFailure && failure.code === "STORAGE_OBJECT_MISSING") return null;
+            throw failure;
+          });
+      }
+      if (status === null) {
+        const intent = await authoriseUpload(
+          {
+            kind: "version",
+            documentId,
+            body: { fileName: file.name, mimeType: file.type || undefined, sizeBytes: file.size, changeNote: changeNote.trim() || undefined },
+          },
+          attempt.key,
+        );
+        if (isAlreadyUploaded(intent)) {
+          status = "RECEIVED";
+        } else {
+          attempt.sessionId = intent.uploadSessionId;
+          await putUploadObject(intent.upload, file, { onProgress: setProgress });
+          status = (await completeUploadSession({ kind: "version", documentId, sessionId: intent.uploadSessionId })).status;
+        }
+      }
       toast({
-        title: result.status === "AVAILABLE" ? "New version uploaded" : "Upload received — the file is being checked",
+        title: status === "AVAILABLE" ? "New version uploaded" : "Upload received — the file is being checked",
         tone: "success",
       });
       editor.setUnresolved(false);
@@ -444,8 +457,6 @@ function UploadVersionForm({
     } catch (failure) {
       editor.setUnresolved(unconfirmed(failure));
       setError(failureText(failure));
-      // A failed attempt gets a fresh key so a retry is a new upload, not a replay.
-      idempotencyKey.current = crypto.randomUUID();
     } finally {
       setProgress(null);
     }
@@ -454,13 +465,27 @@ function UploadVersionForm({
   return (
     <form className="mt-4 space-y-4" onSubmit={submit}>
       <div className="space-y-1.5">
-        <Label htmlFor="version-file">File</Label>
+        <Label htmlFor="version-file">
+          File<span className="text-danger-strong"> *</span>
+        </Label>
         <Input
           id="version-file"
           type="file"
+          required
+          accept={uploadAccept()}
+          aria-describedby="version-file-hint"
           disabled={busy}
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            setFile(event.target.files?.[0] ?? null);
+            // A different file is a different upload.
+            upload.current = { key: newUploadKey(), sessionId: null };
+          }}
         />
+        {/* Before choosing: what is accepted and how large, from the registry
+            the server enforces (AUD-09 §8). */}
+        <p id="version-file-hint" className="text-meta text-fg-subtle">
+          Required. {acceptedTypesText()}; up to {megabytes(DEFAULT_UPLOAD_MAX_BYTES)} MB. Checked by its contents before it becomes current.
+        </p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="version-note">What changed</Label>
@@ -478,7 +503,7 @@ function UploadVersionForm({
         <div aria-live="polite" className="text-table text-fg-muted">
           Uploading… {progress}%
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover">
-            <div className="h-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />
+            <div className="h-full bg-accent transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} />
           </div>
         </div>
       ) : null}

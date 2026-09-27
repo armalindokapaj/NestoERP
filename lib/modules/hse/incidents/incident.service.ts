@@ -335,12 +335,12 @@ export async function createIncident(
         severity: input.severity,
         status: "OPEN",
         reportedByMemberId: context.membershipId,
-        injuryOccurred: input.injuryOccurred,
-        firstAidRequired: input.firstAidRequired,
-        medicalTreatmentRequired: input.medicalTreatmentRequired,
-        lostTime: input.lostTime,
-        propertyDamage: input.propertyDamage,
-        environmentalImpact: input.environmentalImpact,
+        injuryOccurred: input.injuryOccurred ?? false,
+        firstAidRequired: input.firstAidRequired ?? false,
+        medicalTreatmentRequired: input.medicalTreatmentRequired ?? false,
+        lostTime: input.lostTime ?? false,
+        propertyDamage: input.propertyDamage ?? false,
+        environmentalImpact: input.environmentalImpact ?? false,
         immediateAction: input.immediateAction ?? null,
         dueDate: input.dueDate ?? null,
         createdByMemberId: context.membershipId,
@@ -375,6 +375,9 @@ export async function updateIncident(
 ): Promise<IncidentDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "hse.incident.update");
+  // The edit answers with the record, which needs the read grant: without it
+  // the change used to commit and then be reported as refused (AUD-09 §6, FV-14).
+  assertPermission(context, "hse.incident.view");
 
   const existing = await requireIncident(context, incidentId);
 
@@ -408,6 +411,7 @@ export async function updateIncident(
         occurredAt: input.occurredAt,
         locationText: input.locationText ?? null,
         severity: input.severity,
+        // Absent flags are kept (AUD-09 §4, FV-05): Prisma leaves an undefined field alone.
         injuryOccurred: input.injuryOccurred,
         firstAidRequired: input.firstAidRequired,
         medicalTreatmentRequired: input.medicalTreatmentRequired,

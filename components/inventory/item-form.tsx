@@ -1,5 +1,8 @@
 "use client";
 
+import * as React from "react";
+
+import { withSavedOption } from "@/components/finance/saved-option";
 import {
   Field,
   FormSection,
@@ -58,6 +61,32 @@ export function ItemForm({
   locations: { value: string; label: string; warehouseId: string }[];
   baseUnitLocked?: boolean;
 }) {
+  // The default location follows the default warehouse (AUD-09 §5, FV-08): only
+  // that warehouse's locations are offered, and choosing another warehouse
+  // clears a location it does not hold, saying so. A saved default the pickers
+  // no longer offer (an inactive warehouse or location) stays on this item
+  // until it is changed deliberately (FV-10).
+  const [warehouseId, setWarehouseId] = React.useState(values?.defaultWarehouseId ?? "");
+  const [locationId, setLocationId] = React.useState(values?.defaultLocationId ?? "");
+  const [locationNote, setLocationNote] = React.useState<string | null>(null);
+  const warehouseOptions = withSavedOption(warehouses, values?.defaultWarehouseId, "Current default warehouse (inactive)");
+  const locationOptions = withSavedOption(
+    locations.filter((location) => location.warehouseId === warehouseId),
+    values?.defaultWarehouseId === warehouseId ? values?.defaultLocationId : undefined,
+    "Current default location (inactive)",
+    { warehouseId },
+  );
+
+  function chooseWarehouse(next: string) {
+    setWarehouseId(next);
+    if (locationId && !locations.some((location) => location.value === locationId && location.warehouseId === next) && !(next === values?.defaultWarehouseId && locationId === values?.defaultLocationId)) {
+      setLocationId("");
+      setLocationNote("Default location cleared: it is not in the warehouse now chosen.");
+    } else {
+      setLocationNote(null);
+    }
+  }
+
   return (
     <RecordForm
       action={action}
@@ -179,10 +208,11 @@ export function ItemForm({
             id="defaultWarehouseId"
             name="defaultWarehouseId"
             className={selectClass}
-            defaultValue={values?.defaultWarehouseId ?? ""}
+            value={warehouseId}
+            onChange={(event) => chooseWarehouse(event.target.value)}
           >
             <option value="">Not set</option>
-            {warehouses.map((warehouse) => (
+            {warehouseOptions.map((warehouse) => (
               <option key={warehouse.value} value={warehouse.value}>
                 {warehouse.label}
               </option>
@@ -190,15 +220,20 @@ export function ItemForm({
           </select>
         </Field>
 
-        <Field label="Default location" name="defaultLocationId">
+        <Field label="Default location" name="defaultLocationId" hint={locationNote ?? (warehouseId ? undefined : "Choose a default warehouse first.")}>
           <select
             id="defaultLocationId"
             name="defaultLocationId"
             className={selectClass}
-            defaultValue={values?.defaultLocationId ?? ""}
+            value={locationId}
+            onChange={(event) => {
+              setLocationId(event.target.value);
+              setLocationNote(null);
+            }}
+            disabled={!warehouseId}
           >
-            <option value="">Not set</option>
-            {locations.map((location) => (
+            <option value="">{warehouseId && locationOptions.length === 0 ? "No locations in this warehouse" : "Not set"}</option>
+            {locationOptions.map((location) => (
               <option key={location.value} value={location.value}>
                 {location.label}
               </option>

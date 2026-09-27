@@ -17,6 +17,7 @@ import {
   adjustmentReasonLabels,
 } from "@/lib/modules/inventory/inventory.status";
 import { StockLinesEditor, type HeldBalance, type StockLineValue } from "./stock-lines";
+import { localToday } from "@/components/finance/local-date";
 
 /**
  * The five stock-document forms (PRD #20 §309–§318).
@@ -88,8 +89,9 @@ const HEADER: Record<DocumentKind, { title: string; description: string }> = {
   },
 };
 
+/** The browser's calendar day, not the UTC one (AUD-09 §4, FV-07). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localToday();
 }
 
 export function DocumentForm({

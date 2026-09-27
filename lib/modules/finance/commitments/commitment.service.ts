@@ -12,7 +12,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
-import { businessDateString } from "../finance.fields";
+import { businessDateString, keepOrSet } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import {
   buildCommitmentScopeWhere,
@@ -300,7 +300,9 @@ export async function updateCommitment(
     );
   }
 
-  const project = await validateProject(context, input.projectId, input.currency);
+  // Absent keeps the saved link; empty or null unlinks (AUD-09 §4, FV-05).
+  const projectId = keepOrSet(input.projectId, existing.project?.id ?? null);
+  const project = await validateProject(context, projectId ?? undefined, input.currency);
 
   await prisma.$transaction(async (tx) => {
     // Conditional on the status the edit was checked against, so a commitment
@@ -309,14 +311,14 @@ export async function updateCommitment(
       where: { id: commitmentId, companyId: context.companyId, status: existing.status },
       data: {
         projectId: project?.id ?? null,
-        reference: input.reference ?? null,
+        reference: input.reference,
         description: input.description,
-        counterpartyName: input.counterpartyName ?? null,
+        counterpartyName: input.counterpartyName,
         category: input.category,
         currency: input.currency,
         amount: input.amount,
-        expectedDate: input.expectedDate ?? null,
-        notes: input.notes ?? null,
+        expectedDate: input.expectedDate,
+        notes: input.notes,
         updatedByMemberId: context.membershipId,
       },
     });
@@ -329,7 +331,7 @@ export async function updateCommitment(
       entityType: ENTITY,
       entityId: commitmentId,
       action: "FINANCE_COMMITMENT_UPDATED",
-      message: `updated commitment ${input.reference ?? input.description}`,
+      message: `updated commitment ${keepOrSet(input.reference, existing.reference) ?? input.description}`,
     });
   });
 
@@ -669,7 +671,7 @@ async function validateProject(
     where: { AND: [buildFinanceProjectWhere(context), { id: projectId }] },
     select: { id: true, name: true },
   });
-  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
+  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.", { projectId: ["Choose a project you have access to."] });
 
   // Same rule as expenses: forecast adds commitments to actual cost, so both
   // have to be in the budget's currency (PRD #15 §34, §130).
@@ -679,10 +681,8 @@ async function validateProject(
   });
 
   if (budget && budget.currency !== currency) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `${project.name} is budgeted in ${budget.currency}. V0.1 does not convert currencies, so its commitments must be in ${budget.currency} too.`,
-    );
+    const message = `${project.name} is budgeted in ${budget.currency}. V0.1 does not convert currencies, so its commitments must be in ${budget.currency} too.`;
+    throw new AccessError("VALIDATION_ERROR", message, { currency: [message] });
   }
 
   return project;

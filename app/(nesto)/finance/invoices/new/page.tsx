@@ -7,7 +7,7 @@ import { can } from "@/lib/access/can";
 import { createInvoiceAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { isAutoNumbered } from "@/lib/core/numbering/numbering.service";
-import { resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
+import { companyToday, resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
 import { invoiceFormOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 
 export const metadata: Metadata = { title: "New invoice" };
@@ -21,10 +21,11 @@ export default async function NewInvoicePage({
 
   if (!can(context, "finance.invoice.create")) redirect("/access-denied");
 
-  const [options, settings, autoNumbered] = await Promise.all([
+  const [options, settings, autoNumbered, today] = await Promise.all([
     invoiceFormOptions(context),
     resolveFinanceSettings(context.companyId),
     isAutoNumbered({ companyId: context.companyId, moduleKey: "finance", entityType: "invoice" }),
+    companyToday(context.companyId),
   ]);
   const params = await searchParams;
 
@@ -60,7 +61,7 @@ export default async function NewInvoicePage({
                 invoiceNumber: "",
                 clientId: params.clientId ?? "",
                 projectId: params.projectId ?? null,
-                issueDate: new Date().toISOString().slice(0, 10),
+                issueDate: today,
                 dueDate: "",
                 currency: settings.baseCurrency,
                 notes: null,
@@ -70,6 +71,8 @@ export default async function NewInvoicePage({
         }
         defaultTaxRate={settings.defaultTaxRate}
         defaultPaymentTermsDays={settings.defaultPaymentTermsDays}
+        defaultCurrency={settings.baseCurrency}
+        today={today}
         cancelHref="/finance/invoices"
         submitLabel="Create invoice"
         pendingLabel="Creating…"

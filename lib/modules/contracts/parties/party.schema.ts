@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
+import { optionalBoolean, optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
 
 /**
  * Contract party validation (PRD #18 §277, §278).
@@ -50,7 +50,8 @@ export const contractPartySchema = z.object({
   country: optionalText(120),
   signatoryName: optionalText(200),
   signatoryTitle: optionalText(200),
-  isPrimaryCounterparty: z.coerce.boolean().optional().default(false),
+  // "false" is false (`z.coerce.boolean()` read the string as true, AUD-09 §4).
+  isPrimaryCounterparty: optionalBoolean.transform((value) => value ?? false),
 });
 
 export type ContractPartyInput = z.infer<typeof contractPartySchema>;

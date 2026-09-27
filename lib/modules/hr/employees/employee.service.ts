@@ -287,6 +287,14 @@ export async function updateEmployeeProfile(
   if (input.endDate && existing.startDate && input.endDate.getTime() < existing.startDate.getTime()) {
     throw new AccessError("VALIDATION_ERROR", "The end date cannot be before the start date.", { field: "endDate" });
   }
+  // The same rule as on create, against the start that is stored (AUD-09 §4, FV-07).
+  if (input.probationEndDate && existing.startDate && input.probationEndDate.getTime() < existing.startDate.getTime()) {
+    throw new AccessError("VALIDATION_ERROR", "Probation cannot end before the employment starts.", { field: "probationEndDate", code: "PROBATION_BEFORE_START" });
+  }
+
+  // Absent is unchanged; null is cleared (AUD-09 §4, FV-05): a PATCH naming
+  // one field, or a form that did not render another, erases nothing else.
+  const employeeNumber = input.employeeNumber === undefined ? existing.employeeNumber : input.employeeNumber;
 
   await prisma.$transaction(async (tx) => {
     if (input.employeeNumber) {
@@ -300,10 +308,10 @@ export async function updateEmployeeProfile(
     const written = await tx.employeeProfile.updateMany({
       where: { id: existing.id, companyId: context.companyId, employmentStatus: existing.employmentStatus },
       data: {
-        employeeNumber: input.employeeNumber ?? null,
-        probationEndDate: input.probationEndDate ? toBusinessDate(input.probationEndDate) : null,
-        endDate: input.endDate ? toBusinessDate(input.endDate) : null,
-        weeklyHours: input.weeklyHours ?? null,
+        ...(input.employeeNumber !== undefined ? { employeeNumber: input.employeeNumber } : {}),
+        ...(input.probationEndDate !== undefined ? { probationEndDate: input.probationEndDate ? toBusinessDate(input.probationEndDate) : null } : {}),
+        ...(input.endDate !== undefined ? { endDate: input.endDate ? toBusinessDate(input.endDate) : null } : {}),
+        ...(input.weeklyHours !== undefined ? { weeklyHours: input.weeklyHours } : {}),
         ...(workerCategory !== undefined ? { workerCategory } : {}),
         ...(tradeId !== undefined ? { tradeId } : {}),
         updatedByMemberId: context.membershipId,
@@ -323,7 +331,7 @@ export async function updateEmployeeProfile(
     });
     const categoryChanged = workerCategory !== undefined && workerCategory !== existing.workerCategory;
     const tradeChanged = tradeId !== undefined && tradeId !== (existing.trade?.id ?? null);
-    if (categoryChanged || tradeChanged || (input.employeeNumber ?? null) !== existing.employeeNumber) {
+    if (categoryChanged || tradeChanged || employeeNumber !== existing.employeeNumber) {
       await recordUserAction(
         context,
         {
@@ -331,7 +339,7 @@ export async function updateEmployeeProfile(
           entity: { type: ENTITY, id: existing.id, label: personLabel(existing) },
           before: { employeeNumber: existing.employeeNumber, workerCategory: existing.workerCategory, tradeId: existing.trade?.id ?? null },
           after: {
-            employeeNumber: input.employeeNumber ?? null,
+            employeeNumber,
             workerCategory: workerCategory === undefined ? existing.workerCategory : workerCategory,
             tradeId: tradeId === undefined ? (existing.trade?.id ?? null) : tradeId,
           },

@@ -37,6 +37,7 @@ import {
   priorityLabels,
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
+import { localDay, localMinute } from "@/components/hr/local-day";
 
 /**
  * The HSE record forms (PRD #22 §311–§324).
@@ -55,14 +56,13 @@ import {
 
 export type Option = { value: string; label: string };
 
+/** The local calendar day, not the UTC one (AUD-09 §4, FV-07). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDay();
 }
 
 function nowLocal(): string {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
+  return localMinute();
 }
 
 const AXIS = [1, 2, 3, 4, 5];
@@ -204,6 +204,7 @@ function ProjectField({
             {project.label}
           </option>
         ))}
+        <CurrentOption value={value} options={projects} />
       </select>
     </Field>
   );
@@ -239,9 +240,23 @@ function MemberField({
             {member.label}
           </option>
         ))}
+        <CurrentOption value={value} options={members} />
       </select>
     </Field>
   );
+}
+
+/**
+ * The record's own value when the choices no longer hold it — a person who
+ * has left, an archived project. Without it the select showed its first
+ * option and the save silently emptied the field. It stays chosen, labelled
+ * for what it is, and is not offered for anything new (AUD-09 §5, FV-09).
+ *
+ * AUD-09: candidate for lib/forms.
+ */
+export function CurrentOption({ value, options }: { value?: string | null; options: Option[] }) {
+  if (!value || options.some((option) => option.value === value)) return null;
+  return <option value={value}>Current choice — no longer available for new records</option>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -415,7 +430,12 @@ export function HazardForm({
             value={values?.assignedToMemberId}
             emptyLabel="Unassigned"
           />
-        ) : null}
+        ) : (
+          // Not the reader's to change, so the edit carries the assignee it opened with — the
+          // server refuses a different one — rather than "nobody", which read as a reassignment
+          // and refused every edit of an assigned hazard (AUD-09 §5, FV-10).
+          <input type="hidden" name="assignedToMemberId" value={values?.assignedToMemberId ?? ""} />
+        )}
 
         <Field label="Due" name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
@@ -842,6 +862,8 @@ export function PermitForm({
                 {assessment.label}
               </option>
             ))}
+            {/* A superseded or unseen assessment the permit already cites is kept, not unlinked (AUD-09 §5, FV-09). */}
+            <CurrentOption value={values?.riskAssessmentId} options={assessments} />
           </select>
         </Field>
       </FormSection>
@@ -1148,7 +1170,12 @@ export function ObservationForm({
             value={values?.assignedToMemberId}
             emptyLabel="Unassigned"
           />
-        ) : null}
+        ) : (
+          // Not the reader's to change, so the edit carries the assignee it opened with — the
+          // server refuses a different one — rather than "nobody", which read as a reassignment
+          // and refused every edit of an assigned hazard (AUD-09 §5, FV-10).
+          <input type="hidden" name="assignedToMemberId" value={values?.assignedToMemberId ?? ""} />
+        )}
 
         <Field label="Immediate action" name="immediateAction" className="sm:col-span-2">
           <Textarea

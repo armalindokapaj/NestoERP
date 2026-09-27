@@ -30,6 +30,19 @@ export default async function EditTaskPage({ params }: Params) {
     ? options.projects.filter((option) => option.value === task.project?.id)
     : options.projects;
 
+  // The saved project and assignee when the pickers no longer offer them — an
+  // archived project, an inactive member, or (without task.assign) somebody
+  // else. Shown, not offered, so saving an untouched form cannot clear them
+  // (AUD-09 §5, FV-10).
+  const legacyProject =
+    task.project && !projects.some((option) => option.value === task.project?.id)
+      ? { value: task.project.id, label: `${task.project.name} (${task.project.code}) — not available for new tasks` }
+      : undefined;
+  const legacyAssignee =
+    task.assignee && !options.assignees.some((option) => option.value === task.assignee?.memberId)
+      ? { value: task.assignee.memberId, label: `${task.assignee.fullName} — current assignee` }
+      : undefined;
+
   async function action(formData: FormData) {
     "use server";
     return updateTaskAction(taskId, formData);
@@ -50,6 +63,8 @@ export default async function EditTaskPage({ params }: Params) {
         projects={projects}
         assignees={options.assignees}
         mayAssignOthers={options.mayAssignOthers}
+        legacyProject={legacyProject}
+        legacyAssignee={legacyAssignee}
         // The version this page shows; every save names it (AUD-02 §3).
         version={task.version}
         action={action}

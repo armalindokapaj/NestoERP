@@ -244,14 +244,18 @@ export async function updateTransmittal(context: UserContext, id: string, input:
   const row = await findDraft(context, id, "transmittal.create");
   const [scope, items] = await Promise.all([
     resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
-    resolveItems(context, row.projectId, input.items),
+    // Absent items are kept (AUD-09 §4, FV-05); a list replaces them, an empty one removes them.
+    input.items === undefined ? null : resolveItems(context, row.projectId, input.items),
   ]);
   await prisma.$transaction(async (tx) => {
     const moved = await tx.documentTransmittal.updateMany({ where: { id: row.id, status: "DRAFT" }, data: { direction: input.direction, purpose: input.purpose, subject: input.subject, contractorId: scope.contractorId, workPackageId: scope.workPackageId, senderText: input.senderText, recipientText: input.recipientText, notes: input.notes } });
     if (!moved.count) throw fail("TRANSMITTAL_ISSUED_LOCKED", "An issued transmittal cannot be changed. Void it and issue a new one.", "CONFLICT");
-    await tx.documentTransmittalItem.deleteMany({ where: { transmittalId: row.id } });
-    if (items.length) await tx.documentTransmittalItem.createMany({ data: items.map((item) => ({ companyId: context.companyId, transmittalId: row.id, documentId: item.documentId, engineeringDocumentId: item.engineeringDocumentId, engineeringRevisionId: item.engineeringRevisionId, remarks: item.remarks, sortOrder: item.sortOrder })) });
-    await recordUserAction(context, { actionKey: AuditAction.TRANSMITTAL_UPDATED, entity: { type: TRANSMITTAL_RECORD, id: row.id, label: row.transmittalNumber }, projectId: row.projectId, after: { direction: input.direction, purpose: input.purpose, contractorId: scope.contractorId, workPackageId: scope.workPackageId, items: items.length } }, { tx });
+    if (items) {
+      await tx.documentTransmittalItem.deleteMany({ where: { transmittalId: row.id } });
+      if (items.length) await tx.documentTransmittalItem.createMany({ data: items.map((item) => ({ companyId: context.companyId, transmittalId: row.id, documentId: item.documentId, engineeringDocumentId: item.engineeringDocumentId, engineeringRevisionId: item.engineeringRevisionId, remarks: item.remarks, sortOrder: item.sortOrder })) });
+    }
+    const itemCount = items ? items.length : await tx.documentTransmittalItem.count({ where: { transmittalId: row.id } });
+    await recordUserAction(context, { actionKey: AuditAction.TRANSMITTAL_UPDATED, entity: { type: TRANSMITTAL_RECORD, id: row.id, label: row.transmittalNumber }, projectId: row.projectId, after: { direction: input.direction, purpose: input.purpose, contractorId: scope.contractorId, workPackageId: scope.workPackageId, items: itemCount } }, { tx });
   });
   return { id: row.id };
 }

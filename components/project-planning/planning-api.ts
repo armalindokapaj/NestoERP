@@ -41,3 +41,19 @@ export function isFailure(error: unknown): error is PlanningApiFailure {
 export function failureMessage(error: unknown, fallback = "Something went wrong."): string {
   return isFailure(error) ? error.message : fallback;
 }
+
+/**
+ * A number field's payload (AUD-09 §4, FV-06): empty is "none", not zero; a
+ * number is sent as one; anything else goes as typed so the server refuses it
+ * on the field — `Number("abc")` is NaN, which JSON sends as `null` and would
+ * quietly clear the value.
+ *
+ * AUD-09: candidate for lib/forms.
+ */
+export function numberOrRaw(raw: unknown): unknown {
+  if (raw === "" || raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (text === "") return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : text;
+}

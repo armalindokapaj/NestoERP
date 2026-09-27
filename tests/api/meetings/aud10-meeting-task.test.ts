@@ -296,14 +296,15 @@ describe("task → action mapping through every Task writer (CW-08)", () => {
 
     // Nobody assigned: the action has no owner either.
     const again = await taskRow(taskId);
-    await tasks.updateTask(pm, taskId, { ...edit(again, { status: "TODO", assigneeMemberId: undefined }), ...(await version(taskId)) });
+    // Unassigning is an explicit clear (`null`); leaving the assignee out keeps it (AUD-09 §4, FV-05).
+    await tasks.updateTask(pm, taskId, { ...edit(again, { status: "TODO", assigneeMemberId: null }), ...(await version(taskId)) });
     expect((await taskRow(taskId)).assigneeMemberId).toBeNull();
     expect((await actionRow(actionId)).ownerMemberId).toBeNull();
 
     // An edit touching none of the mapped fields leaves the action as it was.
     const before = await actionRow(actionId);
     const untouched = await taskRow(taskId);
-    await tasks.updateTask(pm, taskId, { ...edit(untouched, { status: "TODO", priority: "HIGH", assigneeMemberId: undefined }), ...(await version(taskId)) });
+    await tasks.updateTask(pm, taskId, { ...edit(untouched, { status: "TODO", priority: "HIGH", assigneeMemberId: null }), ...(await version(taskId)) });
     expect(await actionRow(actionId)).toMatchObject({ status: before.status, ownerMemberId: before.ownerMemberId, dueAt: before.dueAt, updatedAt: before.updatedAt });
   });
 });

@@ -12,9 +12,14 @@ import {
 } from "@/components/forms/record-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { localToday } from "./local-date";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
+import { previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
+import { useFieldErrors } from "@/components/forms/record-form";
+import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
+import { DecimalCell } from "./line-rows";
 
 export type ExpenseFormValues = {
   expenseNumber: string | null;
@@ -34,13 +39,21 @@ export type ExpenseFormValues = {
  *
  * Net and tax are entered separately and the total is shown as a preview; the
  * server adds them again before storing, so the figure on screen is a courtesy
- * rather than the record (PRD #15 §92).
+ * rather than the record (PRD #15 §92). The preview is exact decimal
+ * arithmetic, and shows nothing rather than a guess while a figure is not a
+ * number (AUD-09 §4, §7, FV-06).
+ *
+ * Net is required on both sides; tax may be left empty, which the domain reads
+ * as "no tax" (0). A saved project the picker no longer offers stays
+ * selectable on this expense so an edit does not erase it (FV-10).
  */
 export function ExpenseForm({
   action,
   projects,
   values,
   canCreateCompanyWide,
+  defaultCurrency = "EUR",
+  today,
   versionUpdatedAt,
   cancelHref,
   submitLabel,
@@ -51,16 +64,28 @@ export function ExpenseForm({
   values?: ExpenseFormValues;
   /** Company-level finance scope; below it, an expense needs a project. */
   canCreateCompanyWide: boolean;
+  /** The company's base currency: the default for a new expense. */
+  defaultCurrency?: string;
+  /** The company's calendar today (`companyToday`). */
+  today?: string;
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
   pendingLabel: string;
 }) {
-  const [currency, setCurrency] = React.useState(values?.currency ?? "EUR");
-  const [net, setNet] = React.useState(values?.netAmount ?? "0");
-  const [tax, setTax] = React.useState(values?.taxAmount ?? "0");
+  const [currency, setCurrency] = React.useState(values?.currency || defaultCurrency);
+  const [net, setNet] = React.useState(values?.netAmount ?? "");
+  const [tax, setTax] = React.useState(values?.taxAmount ?? "");
 
-  const total = round2(toNumber(net) + toNumber(tax));
+  const netValue = previewDecimal(net, 2);
+  const taxValue = tax.trim() === "" ? "0" : previewDecimal(tax, 2);
+  const total = netValue !== null && taxValue !== null ? sumDecimal([netValue, taxValue], 2) : null;
+
+  const projectOptions = React.useMemo(() => {
+    const saved = values?.projectId;
+    if (!saved || projects.some((project) => project.value === saved)) return projects;
+    return [...projects, { value: saved, label: "Current project (no longer available for new expenses)" }];
+  }, [projects, values?.projectId]);
 
   return (
     <RecordForm
@@ -105,7 +130,7 @@ export function ExpenseForm({
             name="expenseDate"
             type="date"
             required
-            defaultValue={values?.expenseDate ?? new Date().toISOString().slice(0, 10)}
+            defaultValue={values?.expenseDate ?? today ?? localToday()}
           />
         </Field>
 
@@ -132,7 +157,7 @@ export function ExpenseForm({
                 Choose a project
               </option>
             ) : null}
-            {projects.map((project) => (
+            {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
               </option>
@@ -178,32 +203,29 @@ export function ExpenseForm({
           </select>
         </Field>
 
-        <Field label="Net amount" name="netAmount" required>
-          <Input
-            id="netAmount"
-            name="netAmount"
-            inputMode="decimal"
-            required
-            value={net}
-            onChange={(event) => setNet(event.target.value)}
-          />
-        </Field>
+        <AmountField
+          name="netAmount"
+          label="Net amount"
+          currency={currency}
+          value={net}
+          onChange={setNet}
+          required
+        />
 
-        <Field label="Tax amount" name="taxAmount">
-          <Input
-            id="taxAmount"
-            name="taxAmount"
-            inputMode="decimal"
-            value={tax}
-            onChange={(event) => setTax(event.target.value)}
-          />
-        </Field>
+        <AmountField
+          name="taxAmount"
+          label="Tax amount"
+          currency={currency}
+          value={tax}
+          onChange={setTax}
+          hint="Optional. Leave empty if there is no tax."
+        />
 
         <div className="flex items-end justify-end sm:col-span-1">
           <p className="text-table text-fg-muted">
-            Total{" "}
+            Total (preview){" "}
             <span className="font-semibold tabular-nums text-fg">
-              {formatAmount(total.toFixed(2), currency)}
+              {total !== null ? formatAmount(total, currency) : "—"}
             </span>
           </p>
         </div>
@@ -222,11 +244,53 @@ export function ExpenseForm({
   );
 }
 
-function toNumber(value: string): number {
-  const parsed = Number.parseFloat(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+/**
+ * A money field with the shared decimal rule (AUD-09 §4, FV-06): checked on
+ * blur with the server's own sentence, the server's error beside it after a
+ * refused save.
+ */
+function AmountField({
+  name,
+  label,
+  currency,
+  value,
+  onChange,
+  required,
+  hint,
+}: {
+  name: string;
+  label: string;
+  currency: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  hint?: string;
+}) {
+  const errors = useFieldErrors();
+  const [sent, setSent] = React.useState<Record<string, string[]>>(errors);
+  const [edited, setEdited] = React.useState(false);
+  if (sent !== errors) {
+    setSent(errors);
+    setEdited(false);
+  }
+  return (
+    <div className="space-y-1.5">
+      <DecimalCell
+        id={name}
+        name={name}
+        label={label}
+        markRequired
+        unit={currency}
+        value={value}
+        required={required}
+        rule={{ label, ...MONEY_RULE }}
+        serverError={edited ? undefined : errors[name]?.[0]}
+        onChange={(next) => {
+          setEdited(true);
+          onChange(next);
+        }}
+      />
+      {hint ? <p className="text-meta text-fg-subtle">{hint}</p> : null}
+    </div>
+  );
 }

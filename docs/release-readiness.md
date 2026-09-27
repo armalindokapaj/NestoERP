@@ -3549,3 +3549,84 @@ Lanes `nesto_a6a`, `nesto_a6b`, `nesto_a6c`, `nesto_a10d`, migrated with
   - A timesheet approver with Return but not Approve cannot decide at all.
   - Delegation lookups cost one query per chain row.
   - HSE risk rejection is logged as an update.
+
+## 45. AUD-09 — Forms: one contract from field to database
+
+AUD-09 makes every business form mean the same thing by the same input:
+- a field it leaves out is kept, and an empty field clears;
+- a refusal lands on the field it is about;
+- an amount or a date is read one way everywhere;
+- a hidden or withheld field can neither send a value nor wipe one.
+
+Every editor is inventoried in [form-manifest.md](forms/form-manifest.md) (FV-01, 312 rows). A test keeps that list in step with the code.
+
+### 45.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Edits replaced the whole record: a field the form did not send was erased. Affected were task, client, project, unit, meeting, daily-log header, planning, invoice, expense, commitment, proposal, lead, contract, purchase order, HR employment, attendance, contractor, compliance, assignment, contact, submittal, transmittal, worklog, team member and platform person | Omitted keeps, `""`/`null` clears, cross-field rules are checked against the saved values (FV-05). A purchase-order edit no longer drops its quote, enquiry and source lines, which had let one quote raise a second order |
+| Route errors and server-action errors had different shapes; a database uniqueness error surfaced as a generic failure or leaked internals | One reading of any failure (`lib/api/failure.ts` `describeFailure`), used by the route envelope and by `actionFailure`/`validationFailure`. A uniqueness violation is a 409 naming the field. An unexpected error gets a generic sentence and a quotable reference (FV-04) |
+| Line-item errors pointed at the list, or at the wrong row after a delete | `lineItems.N.field` with the submitted index and stable row ids; a document has at most 200 lines |
+| Each module parsed numbers and dates its own way; `2026-02-30` rolled into March; `1,234` could mean either reading | `lib/forms/{decimal,dates,normalize}`: impossible dates refused on the field; an ambiguous separator refused with both readings offered; exact decimals for previews; a blank tax means 0, and every other blank number means "not set" |
+| Hidden fields sent their stale values; a person who cannot read a leave reason could overwrite or clear it | Each conditional field declares `whenHidden` (omit/clear/reject) or `restricted`, and the server enforces the same rule: `LEAVE_REASON_NOT_VISIBLE`; submittal type fields cleared server-side; a group grant naming a company refused |
+| Picker options that failed to load looked like "none"; a stored value outside the current list vanished | Load failures show an error and a retry; stale responses are ignored; out-of-list current values stay selected (FV-08) |
+| Foreign ids from forms were written unchecked in QA/QC; an HSE time was read in the server's zone | Another company's request, inspection, delivery line or a wrong-type template refused on its field; HSE times read in the company zone, and a skipped DST hour refused |
+| Uploads retried as new files; a remount lost the queue | Idempotent upload keys (`UPLOAD_KEY_REUSED`, `UPLOAD_ALREADY_COMPLETED`), an open session resumed, one client pipeline (`components/documents/upload-client.ts`); every consumer reads `UPLOAD_IN_FLIGHT`, which several missed `linking` |
+| Form markup varied: duplicate ids, errors not announced | `components/forms/form-contract.tsx`: unique ids, `aria-invalid`/`aria-describedby`, an error summary, one submit path, `data-save-outcome` |
+
+No migrations.
+
+### 45.2 The evidence
+
+- **New tests:**
+  - `tests/unit/forms/*`: 52 tests of the parsers and the contract, and 4 for the manifest.
+  - `tests/api/forms/aud09-envelope`: 17.
+  - Operations forms (`aud09-{task,client,project,unit,meeting,daily-log,planning}-forms`): 34.
+  - Money forms (`aud09-{finance,procurement,inventory,sales-contracts}-forms`): 54.
+  - People and field-ops forms (`aud09-{hr,hse,quality,contractor-engineering,settings-team-timesheet,platform,organization}-forms`): 39.
+  - `aud09-uploads`: 17.
+  - Each checks the stored row, with a positive control.
+- **Full vitest on two lanes:**
+  - `nesto_a6c` (half of `tests/api`, `tests/unit`, `tests/architecture`): 3,331 of 3,333. The two failures also fail on 324a3ca9: the 3D viewer shell (another workstream) and the navigation-telemetry series budget (AUD-07).
+  - `nesto_a10e` (the other half of `tests/api`, `tests/security`, `tests/integration`): 1,925 passed, 2 skipped.
+- **Tests changed on purpose, because omission no longer clears:**
+  - `task-authorization:93`
+  - `task-reliability:668,673`
+  - `aud10-meeting-task:299,306`
+  - `unit/validation/project-schema:89`
+- **Gates (all pass):**
+  - `tsc` and eslint.
+  - `verify:authorization`: the order edit's saved-state read is company-scoped.
+  - `verify:ownership`: two new import circles were broken. `describeFailure` moved from `lib/actions` to `lib/api`, and the calendar's zone helpers moved to `lib/core/time/zoned-time.ts`, re-exported by `calendar.time`.
+  - `verify:state`: four writes now name their state or spell out their columns.
+  - `workers`, `production-guards`, `company-integrity`, `organization`, `employee-integrity`, `workflows` (107 checks), `security:matrix --check`, `security:access-manifest:check`.
+- **`verify:employment`: the lane drift is found and fixed.**
+  - The drift reported in §44 on `employee_c_adrian_kola` was not an old sweep. `seedRecruitmentRecords`, which the provisioning test calls to restore its rows, reset the cached start date to "seven days from now" on every run, while the history kept the first date.
+  - The seed's update path now keeps the start date.
+  - The four lanes were repaired with `repair:employment --apply`, and the gate stays clean after the provisioning, people and recruitment tests run again.
+- **E2E, written for the single final pass:** `tests/e2e/forms/aud09-{shared,operations,money,people,uploads,a11y}.spec.ts`.
+
+### 45.3 Behaviour changes and limits
+
+- **Behaviour changes that now require more:**
+  - An HSE incident edit requires `hse.incident.view`.
+  - A QA/QC edit that changes the assignee requires the assign grant.
+  - Leave must fall inside the employment.
+- **Still full replace:**
+  - daily-log entry and blocker edits;
+  - a meeting edit requires its core fields;
+  - a contract draft PATCH still requires the renewal type and dates;
+  - unit-finance schedule rows are matched by position.
+- **Version checks** can still be skipped by omitting the timestamp.
+- **Inventory:** stock posting checks on-hand, not available, quantity, and transfer locations are not checked against their warehouse.
+- **Helpers not yet merged into `lib/forms`:** `finance.form-data`, `line-rows`, `components/finance/local-date`, `saved-option`, `components/hr/local-day`, `clearable`, `keepable`, `CurrentOption`.
+- **Form manifest:** its Status column is the survey's finding, not re-checked row by row.
+- **Open product questions:**
+  - Is 200 lines per document the right cap?
+  - Changing the timesheet week start after weeks exist corrupts them.
+  - The team role-assign grant can hand out ADMIN or GROUP_IT.
+  - Credential dialogs close on Escape and lose the one-time password.
+  - Localization selects fall back silently when the stored value isn't in their list.
+  - The QA/QC request edit shows an inspector field that is never saved.
+  - HSE lifecycle notes have no length limit.
+  - Project animations cannot be uploaded, because there is no video type in the file registry.

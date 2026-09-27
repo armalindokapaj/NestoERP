@@ -1,11 +1,14 @@
 import { z } from "zod";
 
 import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
+import { compareDecimal } from "@/lib/forms/decimal";
 import {
   amountString,
   currencyCode,
   optionalBusinessDate,
+  optionalDecimalString,
   businessDate,
+  positive,
 } from "@/lib/modules/finance/finance.fields";
 
 /**
@@ -46,30 +49,23 @@ export const LOST_REASONS = [
   "OTHER",
 ] as const;
 
-/** 0–100 as a string, so a percentage never becomes a float on the way in. */
-const probability = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value))
-  .refine(
-    (value) => {
-      if (value === undefined) return true;
-      if (!/^\d{1,3}(\.\d{1,2})?$/.test(value)) return false;
-      const parsed = Number.parseFloat(value);
-      return parsed >= 0 && parsed <= 100;
-    },
-    { message: "Probability must be between 0 and 100" },
-  );
+/**
+ * 0–100 as a string, so a percentage never becomes a float on the way in: the
+ * shared decimal rule with two decimals, compared exactly (AUD-09 §4, FV-06).
+ * Empty is "no override".
+ */
+const probability = optionalDecimalString("Probability", { scale: 2, maxIntegerDigits: 3 }).refine(
+  (value) => value === undefined || compareDecimal(value, "100") <= 0,
+  { message: "Probability must be between 0 and 100" },
+);
 
 const opportunityFields = {
   name: requiredText(2, 200, "Name"),
   ownerMemberId: z.string().trim().min(1, "Choose an owner"),
   stage: z.enum(OPEN_STAGE_VALUES),
-  estimatedValue: amountString("Estimated value").refine(
-    (value) => Number.parseFloat(value) > 0,
-    { message: "Estimated value must be greater than zero" },
-  ),
+  estimatedValue: amountString("Estimated value").refine(positive, {
+    message: "Estimated value must be greater than zero",
+  }),
   currency: currencyCode,
   clientId: z
     .string()
@@ -120,10 +116,9 @@ export const WON_CLIENT_MODES = ["KEEP", "EXISTING", "NEW"] as const;
 export const opportunityWonSchema = z
   .object({
     actualCloseDate: businessDate,
-    finalValue: amountString("Final value").refine(
-      (value) => Number.parseFloat(value) > 0,
-      { message: "Final value must be greater than zero" },
-    ),
+    finalValue: amountString("Final value").refine(positive, {
+      message: "Final value must be greater than zero",
+    }),
     wonReason: optionalText(1000),
     clientMode: z.enum(WON_CLIENT_MODES).default("KEEP"),
     clientId: z

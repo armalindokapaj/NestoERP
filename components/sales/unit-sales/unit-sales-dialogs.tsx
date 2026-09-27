@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, UserPlus } from "lucide-react";
 
+import { guardComposingEnter, reveal, useSubmitOnlyButton } from "@/components/forms/form-contract";
 import { selectClass } from "@/components/forms/record-form";
 import { Field, fieldErrors, FormError, failureMessage, isFailure, numberText, structureApi } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_PRICE_BASIS_LABELS, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { outcomeOf } from "@/lib/unsaved/outcome";
+import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -89,6 +90,45 @@ export function FormDialog({
   workflow?: string;
   module?: string;
 }) {
+  const formRef = React.useRef<HTMLFormElement>(null);
+  // One request per submit: a double click or a second Enter before the
+  // pending state has rendered finds the latch closed (AUD-09 §6, FV-12).
+  const latch = React.useRef(false);
+  const wasPending = React.useRef(pending);
+  useSubmitOnlyButton(formRef);
+
+  // The same field contract as RecordForm and the kit (AUD-09 §3, FV-02): each
+  // labelled control points at the error the dialog shows beside it.
+  React.useLayoutEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    for (const label of form.querySelectorAll<HTMLLabelElement>("label[for]")) {
+      const control = label.htmlFor ? form.querySelector<HTMLElement>(`#${CSS.escape(label.htmlFor)}`) : null;
+      if (!control) continue;
+      const errorId = `${label.htmlFor}-error`;
+      const shows = Boolean(form.querySelector(`#${CSS.escape(errorId)}`));
+      const tokens = (control.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((token) => token && token !== errorId);
+      if (shows) tokens.push(errorId);
+      if (tokens.length) control.setAttribute("aria-describedby", tokens.join(" "));
+      else control.removeAttribute("aria-describedby");
+      if (shows) control.setAttribute("aria-invalid", "true");
+      else control.removeAttribute("aria-invalid");
+    }
+  });
+
+  // An answer arrived: the first field the server refused takes focus; the
+  // form-level message is announced by its own alert role.
+  React.useEffect(() => {
+    if (wasPending.current && !pending) {
+      const invalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      if (invalid) {
+        reveal(invalid);
+        invalid.focus();
+      }
+    }
+    wasPending.current = pending;
+  }, [pending]);
+
   return (
     // Every close — X, Escape, the backdrop, Cancel — goes through the guarded
     // root, which asks while there is unsaved or in-flight input (AUD-03 §5).
@@ -98,14 +138,28 @@ export function FormDialog({
         <DialogTitle>{title}</DialogTitle>
         {description ? <DialogDescription>{description}</DialogDescription> : null}
         <form
+          ref={formRef}
           className="mt-4 space-y-4"
           noValidate
+          aria-busy={pending || undefined}
+          data-unresolved={unresolved || undefined}
+          onKeyDown={guardComposingEnter}
           onSubmit={(event) => {
             event.preventDefault();
+            if (pending || latch.current) return;
+            latch.current = true;
+            // Reopened once this event's render has disabled the button.
+            window.setTimeout(() => (latch.current = false), 0);
             onSubmit();
           }}
         >
           <FormError message={error} />
+          {/* No answer came: it may have saved. Nothing is retried by itself (AUD-03 §6, AUD-09 §6). */}
+          {unresolved && !pending ? (
+            <p role="status" className="text-table text-danger-strong" data-testid="dialog-unconfirmed">
+              {OUTCOME_COPY.unknown}
+            </p>
+          ) : null}
           {children}
           <DialogFooter>
             <DialogClose asChild>

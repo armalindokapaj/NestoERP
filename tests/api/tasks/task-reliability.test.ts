@@ -665,12 +665,13 @@ describe("moving between projects (TR-13)", () => {
       parentId: milestone.id,
     });
     created.add(parented.id);
-    const refused = await settle(tasks.updateTask(owner, parented.id, edit({ title: `${PREFIX}parented`, expectedVersion: 1 })));
+    // Clearing the project is explicit (`null`): an edit that leaves it out keeps it (AUD-09 §4, FV-05).
+    const refused = await settle(tasks.updateTask(owner, parented.id, edit({ title: `${PREFIX}parented`, projectId: null, expectedVersion: 1 })));
     expect((refused as { error: AccessError }).error.code).toBe("VALIDATION_ERROR");
     expect((await row(parented.id)).projectId).toBe(PROJECT.a);
 
     const independent = await personalTask(owner, { projectId: PROJECT.a });
-    const moved = await tasks.updateTask(owner, independent.id, edit({ projectId: undefined, expectedVersion: 1 }));
+    const moved = await tasks.updateTask(owner, independent.id, edit({ projectId: null, expectedVersion: 1 }));
     expect(moved.effects.projectIds).toEqual([PROJECT.a]);
     const back = await tasks.updateTask(owner, independent.id, edit({ projectId: PROJECT.a, expectedVersion: 2 }));
     expect(back.effects.projectIds).toEqual([PROJECT.a]);

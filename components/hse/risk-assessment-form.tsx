@@ -22,6 +22,7 @@ import {
   severityLabels as axisLabels,
 } from "@/lib/modules/hse/hse.risk";
 import type { Option } from "./hse-forms";
+import { localDay } from "@/components/hr/local-day";
 
 /**
  * A risk assessment, line by line (PRD #22 §101, §104, §318).
@@ -202,7 +203,7 @@ export function RiskAssessmentForm({
             id="assessmentDate"
             name="assessmentDate"
             type="date"
-            defaultValue={values?.assessmentDate ?? new Date().toISOString().slice(0, 10)}
+            defaultValue={values?.assessmentDate ?? localDay()}
             required
           />
         </Field>
