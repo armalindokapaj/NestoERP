@@ -18,6 +18,9 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
+import { useTimesheetsTranslations } from "./timesheets-text";
+import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
+
 
 /**
  * The detailed entry (PRD #42 §48, §184, §185): one piece of work on one day,
@@ -107,6 +110,7 @@ function EntryForm({
   onSaved: (message: string) => Promise<void> | void;
 }) {
   const toast = useToast();
+  const t = useTimesheetsTranslations();
   const close = useDialogClose();
   const formRef = React.useRef<HTMLFormElement>(null);
   const running = React.useRef(false);
@@ -141,7 +145,7 @@ function EntryForm({
   const editor = useUnsavedEditor({
     module: "timesheets",
     saveKind: editing ? "save" : "create",
-    label: editing ? "Time entry" : "New time entry",
+    label: editing ? t("entry.editorEdit") : t("entry.editorNew"),
     save: () => save("continue"),
     focus: () => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
   });
@@ -163,11 +167,11 @@ function EntryForm({
   async function save(mode: "normal" | "continue"): Promise<SaveOutcome> {
     if (running.current) return { kind: "unknown" };
     const found: Record<string, string> = {};
-    if (!workDate) found.workDate = "Choose the day.";
-    if (minutes === null) found.duration = "Enter a duration such as 2, 2.5, 2:30 or 1h 30m.";
-    else if (minutes < 5 || minutes > 1440) found.duration = "An entry is between 5 minutes and 24 hours.";
-    if (workType === "PROJECT_WORK" && !projectId) found.projectId = "Project work needs a project.";
-    if (week.settings.descriptionsRequired && !description.trim()) found.description = "Describe the work.";
+    if (!workDate) found.workDate = t("entry.chooseDay");
+    if (minutes === null) found.duration = t("entry.durationFormat");
+    else if (minutes < 5 || minutes > 1440) found.duration = t("entry.durationRange");
+    if (workType === "PROJECT_WORK" && !projectId) found.projectId = t("entry.projectRequired");
+    if (week.settings.descriptionsRequired && !description.trim()) found.description = t("entry.describe");
     setErrors(found);
     if (Object.keys(found).length) return { kind: "invalid" };
 
@@ -200,7 +204,7 @@ function EntryForm({
       if (error.detailCode === "TIMESHEET_PROJECT_REQUIRED") setErrors({ projectId: error.message });
       else if (error.detailCode?.startsWith("TIMESHEET_TASK")) setErrors({ taskId: error.message });
       else if (error.detailCode === "TIMESHEET_DAILY_LIMIT" || error.detailCode === "TIMESHEET_INCREMENT") setErrors({ duration: error.message });
-      else toast({ title: failureMessage(error), tone: "danger" });
+      else toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
       return { kind: error.detailCode === "STALE_VERSION" || error.code === "CONFLICT" ? "conflict" : error.status === 403 || error.status === 404 ? "refused" : "invalid" };
     }
     running.current = false;
@@ -209,7 +213,7 @@ function EntryForm({
     setUnresolved(false);
     setDirty(false);
     if (mode === "normal") onDone();
-    await onSaved(editing ? "Entry updated" : `${formatMinutes(minutes!)} logged`);
+    await onSaved(editing ? t("entry.updated") : t("entry.logged", { time: formatMinutes(minutes!) }));
     return { kind: "committed" };
   }
 
@@ -227,9 +231,9 @@ function EntryForm({
       await timesheetApi(`/api/worklogs/${editing.id}`, { method: "DELETE" });
       setDirty(false);
       onDone();
-      await onSaved("Entry removed");
+      await onSaved(t("entry.removed"));
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
     } finally {
       running.current = false;
       setPending(false);
@@ -247,16 +251,16 @@ function EntryForm({
   return (
     <form ref={formRef} onSubmit={submit} className="flex min-h-full flex-col" noValidate>
       <div className="border-b border-line px-5 py-4">
-        <DrawerTitle className="text-card font-semibold text-fg">{editing ? "Edit entry" : "Log time"}</DrawerTitle>
+        <DrawerTitle className="text-card font-semibold text-fg">{editing ? t("entry.editTitle") : t("week.logTime")}</DrawerTitle>
         <DrawerDescription id="entry-drawer-description" className="mt-0.5 text-meta text-fg-muted">
-          {editing ? "Change what was logged, while the week is still yours to edit." : "What you worked on, on which day, and for how long."}
+          {editing ? t("entry.editDescription") : t("entry.newDescription")}
         </DrawerDescription>
       </div>
 
       <div className="flex-1 space-y-4 px-5 py-4">
         <div>
           <label htmlFor="entry-date" className="text-table font-medium text-fg">
-            Day
+            {t("entry.day")}
           </label>
           <select id="entry-date" className={cn(selectClass, "mt-1.5")} value={workDate} onChange={(change) => setWorkDate(change.target.value)} aria-invalid={Boolean(errors.workDate)}>
             {selectable.map((day) => {
@@ -264,7 +268,7 @@ function EntryForm({
               return (
                 <option key={day.date} value={day.date}>
                   {label.weekday} {label.day}
-                  {day.date === week.today ? " (today)" : ""}
+                  {day.date === week.today ? t("entry.today") : ""}
                 </option>
               );
             })}
@@ -274,7 +278,7 @@ function EntryForm({
 
         <div>
           <label htmlFor="entry-type" className="text-table font-medium text-fg">
-            Work type
+            {t("grid.workType")}
           </label>
           <select
             id="entry-type"
@@ -287,7 +291,7 @@ function EntryForm({
           >
             {WORK_LOG_TYPES.map((type) => (
               <option key={type} value={type}>
-                {WORK_LOG_TYPE_LABELS[type]}
+                {timesheetsLabel(t, "workType", type, WORK_LOG_TYPE_LABELS[type])}
               </option>
             ))}
           </select>
@@ -296,7 +300,7 @@ function EntryForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="entry-project" className="text-table font-medium text-fg">
-              Project{workType === "PROJECT_WORK" ? "" : " (optional)"}
+              {t("common.project")}{workType === "PROJECT_WORK" ? "" : t("entry.optional")}
             </label>
             <select
               id="entry-project"
@@ -309,7 +313,7 @@ function EntryForm({
               aria-invalid={Boolean(errors.projectId)}
               aria-describedby={errors.projectId ? "entry-projectId-error" : undefined}
             >
-              <option value="">{workType === "PROJECT_WORK" ? "Choose a project" : "No project"}</option>
+              <option value="">{workType === "PROJECT_WORK" ? t("grid.choosePlaceholder") : t("grid.noProject")}</option>
               {options.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.code ? `${project.code} · ` : ""}
@@ -321,10 +325,10 @@ function EntryForm({
           </div>
           <div>
             <label htmlFor="entry-task" className="text-table font-medium text-fg">
-              Task (optional)
+              {t("entry.taskOptional")}
             </label>
             <select id="entry-task" className={cn(selectClass, "mt-1.5")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-invalid={Boolean(errors.taskId)}>
-              <option value="">{projectId ? "No task" : "Choose a project first"}</option>
+              <option value="">{projectId ? t("grid.noTask") : t("entry.chooseProjectFirst")}</option>
               {tasks.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title}
@@ -337,20 +341,20 @@ function EntryForm({
 
         <div>
           <label htmlFor="entry-duration" className="text-table font-medium text-fg">
-            Duration
+            {t("entry.duration")}
           </label>
           <Input
             id="entry-duration"
             className="mt-1.5 tabular-nums"
             inputMode="decimal"
             autoComplete="off"
-            placeholder="2.5, 2:30 or 1h 30m"
+            placeholder={t("entry.durationPlaceholder")}
             value={duration}
             onChange={(change) => setDuration(change.target.value)}
             aria-invalid={Boolean(errors.duration)}
             aria-describedby={errors.duration ? "entry-duration-error" : "entry-duration-hint"}
           />
-          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Quick durations">
+          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("entry.quickDurations")}>
             {QUICK_DURATIONS.map((value) => (
               <button
                 key={value}
@@ -364,31 +368,31 @@ function EntryForm({
           </div>
           {errors.duration ? fieldError("duration") : (
             <p id="entry-duration-hint" className="mt-1 text-meta text-fg-subtle">
-              {minutes !== null && minutes > 0 ? `${formatMinutes(minutes)}` : "Hours, hours and minutes, or minutes."}
+              {minutes !== null && minutes > 0 ? `${formatMinutes(minutes)}` : t("entry.durationHint")}
             </p>
           )}
         </div>
 
         <div>
           <label htmlFor="entry-description" className="text-table font-medium text-fg">
-            Description{week.settings.descriptionsRequired ? "" : " (optional)"}
+            {t("entry.description")}{week.settings.descriptionsRequired ? "" : t("entry.optional")}
           </label>
-          <Textarea id="entry-description" className="mt-1.5" rows={3} maxLength={2000} value={description} onChange={(change) => setDescription(change.target.value)} placeholder="What was done" aria-invalid={Boolean(errors.description)} />
+          <Textarea id="entry-description" className="mt-1.5" rows={3} maxLength={2000} value={description} onChange={(change) => setDescription(change.target.value)} placeholder={t("entry.descriptionPlaceholder")} aria-invalid={Boolean(errors.description)} />
           {fieldError("description")}
         </div>
 
         <div className="space-y-2.5">
           {week.capabilities.canSetBillable ? (
             <label className="flex items-center gap-2.5 text-table text-fg">
-              <Checkbox checked={effectiveBillable} onCheckedChange={(checked) => setBillable(checked === true)} aria-label="Billable" />
-              Billable
+              <Checkbox checked={effectiveBillable} onCheckedChange={(checked) => setBillable(checked === true)} aria-label={t("common.billable")} />
+              {t("common.billable")}
             </label>
           ) : (
-            <p className="text-meta text-fg-muted">{effectiveBillable ? "Billable" : "Not billable"} — set by the work type.</p>
+            <p className="text-meta text-fg-muted">{effectiveBillable ? t("common.billable") : t("common.notBillable")} {t("entry.setByType")}</p>
           )}
           <label className="flex items-center gap-2.5 text-table text-fg">
-            <Checkbox checked={overtime} onCheckedChange={(checked) => setOvertime(checked === true)} aria-label="Overtime" />
-            Overtime
+            <Checkbox checked={overtime} onCheckedChange={(checked) => setOvertime(checked === true)} aria-label={t("common.overtime")} />
+            {t("common.overtime")}
           </label>
         </div>
       </div>
@@ -398,15 +402,15 @@ function EntryForm({
         {editing ? (
           <Button type="button" variant="ghost" size="sm" onClick={remove} disabled={pending} className="text-danger-strong hover:text-danger-strong">
             <Trash2 aria-hidden="true" />
-            Remove
+            {t("common.remove")}
           </Button>
         ) : null}
         <span className="flex-1" />
         <Button type="button" variant="secondary" size="sm" onClick={close} disabled={pending}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : editing ? "Save" : "Log time"}
+          {pending ? t("common.saving") : editing ? t("common.save") : t("week.logTime")}
         </Button>
       </div>
     </form>

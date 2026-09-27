@@ -4,6 +4,7 @@ import { Camera, NotebookPen } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { shortDayLabel } from "@/lib/modules/daily-logs/daily-log.time";
 import type { DailyLogListItemDTO } from "@/lib/modules/daily-logs/daily-log.types";
+import { DailyLogsText } from "./daily-logs-text";
 import { CorrectedBadge, DailyLogStatusBadge, LateEntryBadge } from "./daily-log-ui";
 
 /**
@@ -29,12 +30,12 @@ export function DailyLogList({ items, showProject, emptyTitle, emptyDescription,
                 {item.lateEntry ? <LateEntryBadge /> : null}
                 {item.corrected ? <CorrectedBadge /> : null}
               </span>
-              <span className="mt-0.5 line-clamp-2 block text-table text-fg-muted">{item.summary ?? "No summary yet."}</span>
+              <span className="mt-0.5 line-clamp-2 block text-table text-fg-muted">{item.summary ?? <DailyLogsText k="list.noSummary" />}</span>
             </span>
             <span className="flex shrink-0 gap-4 text-meta text-fg-muted">
-              <span><span className="font-semibold tabular-nums text-fg">{item.workforceTotal}</span> on site</span>
-              <span><span className="font-semibold tabular-nums text-fg">{item.activities}</span> activities</span>
-              {item.delays ? <span className="text-warning-strong"><span className="font-semibold tabular-nums">{item.delays}</span> {item.delays === 1 ? "delay" : "delays"}</span> : null}
+              <span><DailyLogsText k="list.onSite" values={{ count: item.workforceTotal }} /></span>
+              <span><DailyLogsText k="list.activities" values={{ count: item.activities }} /></span>
+              {item.delays ? <span className="text-warning-strong"><DailyLogsText k="list.delays" values={{ count: item.delays }} /></span> : null}
               {item.photos ? (
                 <span className="inline-flex items-center gap-1">
                   <Camera className="size-3.5" aria-hidden="true" />

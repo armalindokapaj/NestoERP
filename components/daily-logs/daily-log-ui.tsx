@@ -1,5 +1,8 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { DAILY_LOG_STATUS_LABELS, type DailyLogStatus } from "@/lib/modules/daily-logs/daily-log.types";
+import { DailyLogsLabel, useDailyLogsTranslations } from "./daily-logs-text";
 
 /**
  * Daily log presentation pieces (PRD #43 §145, §196-§200, §219-§221): quiet
@@ -19,21 +22,22 @@ const TONE: Record<DailyLogStatus, "default" | "neutral" | "info" | "success" | 
 export function DailyLogStatusBadge({ status }: { status: DailyLogStatus }) {
   return (
     <Badge tone={TONE[status]} className={status === "VOID" ? "line-through decoration-fg-subtle/60" : undefined} data-testid="daily-log-status">
-      {DAILY_LOG_STATUS_LABELS[status]}
+      <DailyLogsLabel group="status" value={status} fallback={DAILY_LOG_STATUS_LABELS[status]} />
     </Badge>
   );
 }
 
 export function LateEntryBadge() {
+  const t = useDailyLogsTranslations();
   return (
-    <Badge tone="warning" title="Started after its work date">
-      Late entry
+    <Badge tone="warning" title={t("list.lateEntryTitle")}>
+      {t("list.lateEntry")}
     </Badge>
   );
 }
 
 export function CorrectedBadge() {
-  return <Badge tone="info">Corrected</Badge>;
+  return <Badge tone="info">{useDailyLogsTranslations()("list.corrected")}</Badge>;
 }
 
 export function Stat({ label, value, testId }: { label: string; value: string | number; testId?: string }) {

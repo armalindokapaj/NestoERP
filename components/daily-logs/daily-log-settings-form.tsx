@@ -14,18 +14,20 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { DailyLogSettingsDTO } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
 import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
+import { useDailyLogsTranslations } from "./daily-logs-text";
 
 /** The company's daily log rules (PRD #43 §18, §248-§250). A project can require logs, name a reviewer and keep its own days. */
 export function DailyLogSettingsForm({ initial }: { initial: DailyLogSettingsDTO }) {
   const toast = useToast();
   const router = useRouter();
+  const t = useDailyLogsTranslations();
   const [state, setState] = React.useState({ logsRequired: initial.logsRequired, backdateDays: initial.backdateDays, reviewerRequired: initial.reviewerRequired });
   const [baseline, setBaseline] = React.useState(state);
   const [pending, setPending] = React.useState(false);
 
   // AUD-03 §3: the settings as saved are the baseline; Save and continue runs this same PUT.
   const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
-  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "save", label: "Daily log settings", save: () => run.current() });
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "save", label: t("settings.form"), save: () => run.current() });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = state.logsRequired !== baseline.logsRequired || state.backdateDays !== baseline.backdateDays || state.reviewerRequired !== baseline.reviewerRequired;
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -40,13 +42,13 @@ export function DailyLogSettingsForm({ initial }: { initial: DailyLogSettingsDTO
       setBaseline(state);
       setDirty(false);
       setUnresolved(false);
-      toast({ title: "Daily log settings saved", tone: "success" });
+      toast({ title: t("settings.saved"), tone: "success" });
       router.refresh();
       return { kind: "committed" };
     } catch (error) {
       const outcome = dailyLogFailureOutcome(error);
       setUnresolved(outcome.kind === "unknown");
-      toast({ title: failureMessage(error), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : OUTCOME_COPY.notSaved, tone: "danger" });
+      toast({ title: failureMessage(error, t("common.somethingWrong")), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : OUTCOME_COPY.notSaved, tone: "danger" });
       return outcome;
     } finally {
       setPending(false);
@@ -60,37 +62,37 @@ export function DailyLogSettingsForm({ initial }: { initial: DailyLogSettingsDTO
   }
 
   return (
-    <form onSubmit={save} className="nesto-card max-w-2xl divide-y divide-line px-5" aria-label="Daily log settings">
+    <form onSubmit={save} className="nesto-card max-w-2xl divide-y divide-line px-5" aria-label={t("settings.form")}>
       <div className="flex items-start justify-between gap-4 py-3">
         <label htmlFor="logs-required">
-          <span className="block text-table font-medium text-fg">Logs required on every active project</span>
-          <span className="block text-meta text-fg-muted">Missing logs on working days are flagged to the project manager. A project can also require logs on its own.</span>
+          <span className="block text-table font-medium text-fg">{t("settings.logsRequired")}</span>
+          <span className="block text-meta text-fg-muted">{t("settings.logsRequiredHint")}</span>
         </label>
         <Switch id="logs-required" checked={state.logsRequired} onCheckedChange={(value) => setState({ ...state, logsRequired: value })} />
       </div>
       <div className="flex items-start justify-between gap-4 py-3">
         <label htmlFor="reviewer-required">
-          <span className="block text-table font-medium text-fg">A reviewer is required</span>
-          <span className="block text-meta text-fg-muted">A log cannot be submitted until somebody other than its author can review it.</span>
+          <span className="block text-table font-medium text-fg">{t("settings.reviewerRequired")}</span>
+          <span className="block text-meta text-fg-muted">{t("settings.reviewerRequiredHint")}</span>
         </label>
         <Switch id="reviewer-required" checked={state.reviewerRequired} onCheckedChange={(value) => setState({ ...state, reviewerRequired: value })} />
       </div>
       <label className="flex flex-col py-3">
-        <span className="text-table font-medium text-fg">How far back a log can be started</span>
+        <span className="text-table font-medium text-fg">{t("settings.backdate")}</span>
         <select className={cn(selectClass, "mt-1.5 w-56")} value={state.backdateDays} onChange={(event) => setState({ ...state, backdateDays: Number(event.target.value) })}>
           {[0, 1, 3, 7, 14, 31].map((days) => (
             <option key={days} value={days}>
-              {days === 0 ? "Today only" : `${days} ${days === 1 ? "day" : "days"} back`}
+              {days === 0 ? t("settings.todayOnly") : t("settings.daysBack", { count: days })}
             </option>
           ))}
         </select>
       </label>
       <div className="flex items-center justify-between py-3">
-        <p className="text-meta text-fg-muted">Dates are read in {initial.timezone}. Working days follow the company: {initial.workingDays.join(", ")}.</p>
+        <p className="text-meta text-fg-muted">{t("settings.zone", { zone: initial.timezone, days: initial.workingDays.join(", ") })}</p>
         <span className="flex items-center gap-3">
           <UnsavedIndicator save={{ editor, pending, saved: null }} />
           <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save settings"}
+            {pending ? t("common.saving") : t("settings.save")}
           </Button>
         </span>
       </div>

@@ -18,6 +18,30 @@ import { parseDecimalInput, type DecimalRule } from "@/lib/forms/decimal";
 import { cn } from "@/lib/utils/cn";
 import { dailyLogFailureOutcome, failureMessage, isFailure } from "./daily-log-api";
 import { SECTION_FIELDS, SECTION_NOUNS, type FieldDef, type OptionSource } from "./entry-fields";
+import { dailyLogsLabel, type DailyLogsLabelGroup } from "@/lib/i18n/modules/dailyLogs/labels";
+import type { Translate } from "@/lib/i18n/translator";
+import { useDailyLogsTranslations, type DailyLogsKey } from "./daily-logs-text";
+
+/** The dictionary's group for a section's select field, keyed `section.field`. */
+const OPTION_GROUPS: Record<string, DailyLogsLabelGroup> = { "weather.condition": "weather", "equipment.status": "equipment", "delays.category": "delayCategory", "delays.impact": "delayImpact" };
+
+/** A section field's words in the reader's language: label, placeholder, hint and options. */
+function localField(t: Translate<"dailyLogs">, section: SectionKey, field: FieldDef): FieldDef {
+  const text = (branch: string, fallback: string | undefined) => {
+    if (fallback === undefined) return undefined;
+    const key = `entry.${branch}.${section}.${field.name}` as DailyLogsKey;
+    const value = t(key);
+    return value === key ? fallback : value;
+  };
+  const group = OPTION_GROUPS[`${section}.${field.name}`];
+  return {
+    ...field,
+    label: text("fields", field.label) ?? field.label,
+    placeholder: text("placeholders", field.placeholder),
+    hint: text("hints", field.hint),
+    options: group ? field.options?.map((option) => ({ ...option, label: dailyLogsLabel(t, group, option.value, option.label) })) : field.options,
+  };
+}
 
 /**
  * One form for every section's entries (PRD #43 §149, §151, §156, §160, §216):
@@ -52,6 +76,7 @@ export function EntryDialog({
   onSave: (values: Record<string, unknown>) => Promise<void>;
   onRemove?: () => Promise<void>;
 }) {
+  const t = useDailyLogsTranslations();
   const [values, setValues] = React.useState<Record<string, unknown>>(initial);
   // What the dialog opened with: the entry's values are compared with it (AUD-03 §3).
   const [baseline, setBaseline] = React.useState<Record<string, unknown>>(initial);
@@ -76,8 +101,9 @@ export function EntryDialog({
   }, [open, section]);
 
   if (!section) return null;
-  const fields = SECTION_FIELDS[section];
-  const title = `${editing ? "Edit" : "Add"} ${SECTION_NOUNS[section]}`;
+  const fields = SECTION_FIELDS[section].map((field) => localField(t, section, field));
+  const title = t(editing ? "entry.edit" : "entry.add", { noun: t(`entry.nouns.${section}` as DailyLogsKey) || SECTION_NOUNS[section] });
+  const sectionLabel = dailyLogsLabel(t, "section", section, SECTION_LABELS[section]);
   const dirty = JSON.stringify(values) !== JSON.stringify(baseline);
 
   /** The entry's save, for its button and for the prompt's Save and continue alike. */
@@ -89,7 +115,7 @@ export function EntryDialog({
     for (const field of fields) {
       const value = values[field.name];
       const blank = value === undefined || value === null || String(value).trim() === "";
-      if (field.required && blank) found[field.name] = "Required.";
+      if (field.required && blank) found[field.name] = t("entry.required");
       // A decimal is read by the shared parser (AUD-09 §4): "12,5" is 12.5, and
       // an ambiguous or malformed figure is refused here with its reason
       // rather than sent as something else (AUD-04 §6, MW-09).
@@ -115,9 +141,9 @@ export function EntryDialog({
       setUnresolved(outcome.kind === "unknown");
       const field = isFailure(error) ? (error.details.field as string | undefined) : undefined;
       const fieldErrors = isFailure(error) ? Object.entries(error.details).filter(([, value]) => Array.isArray(value)) : [];
-      if (field) setErrors({ [field]: failureMessage(error) });
+      if (field) setErrors({ [field]: failureMessage(error, t("common.somethingWrong")) });
       else if (fieldErrors.length) setErrors(Object.fromEntries(fieldErrors.map(([key, value]) => [key, String((value as string[])[0])])));
-      else setFormError(outcome.kind === "unknown" ? `${failureMessage(error)} ${OUTCOME_COPY.unknown}` : failureMessage(error));
+      else setFormError(outcome.kind === "unknown" ? `${failureMessage(error, t("common.somethingWrong"))} ${OUTCOME_COPY.unknown}` : failureMessage(error, t("common.somethingWrong")));
       return outcome;
     } finally {
       setPending(false);
@@ -141,7 +167,7 @@ export function EntryDialog({
       onOpenChange(false);
     } catch (error) {
       const outcome = dailyLogFailureOutcome(error);
-      setFormError(outcome.kind === "unknown" ? `${failureMessage(error)} ${OUTCOME_COPY.unknown}` : failureMessage(error));
+      setFormError(outcome.kind === "unknown" ? `${failureMessage(error, t("common.somethingWrong"))} ${OUTCOME_COPY.unknown}` : failureMessage(error, t("common.somethingWrong")));
     } finally {
       setPending(false);
       setConfirmRemove(false);
@@ -154,7 +180,7 @@ export function EntryDialog({
       <EntryEditor label={title} saveKind={editing ? "save" : "create"} dirty={dirty} saving={pending} unresolved={unresolved} save={run} />
       <div className={cn("grid flex-1 gap-4 overflow-y-auto", mobile ? "px-5 py-4" : "mt-4 sm:grid-cols-2")}>
         {fields.map((field) => (
-          <Field key={field.name} field={field} value={values[field.name]} error={errors[field.name]} options={options} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
+          <Field key={field.name} field={field} t={t} value={values[field.name]} error={errors[field.name]} options={options} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
         ))}
       </div>
       {formError ? (
@@ -167,17 +193,17 @@ export function EntryDialog({
         {editing && onRemove ? (
           <Button type="button" variant={confirmRemove ? "danger" : "ghost"} size="sm" onClick={() => void remove()} disabled={pending} className={confirmRemove ? undefined : "text-danger-strong hover:text-danger-strong"} aria-live="polite">
             <Trash2 aria-hidden="true" />
-            {confirmRemove ? "Confirm remove" : "Remove"}
+            {confirmRemove ? t("entry.confirmRemove") : t("common.remove")}
           </Button>
         ) : null}
         <span className="flex-1" />
         <DialogClose asChild>
           <Button type="button" variant="secondary" size="sm" disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : editing ? "Save" : "Add"}
+          {pending ? t("common.saving") : editing ? t("common.save") : t("common.add")}
         </Button>
       </div>
     </form>
@@ -190,7 +216,7 @@ export function EntryDialog({
           <div className="border-b border-line px-5 py-4">
             <DrawerTitle className="text-card font-semibold text-fg">{title}</DrawerTitle>
             <DrawerDescription id="entry-sheet-description" className="text-meta text-fg-muted">
-              {SECTION_LABELS[section]}
+              {sectionLabel}
             </DrawerDescription>
           </div>
           {form}
@@ -202,7 +228,7 @@ export function EntryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{SECTION_LABELS[section]}</DialogDescription>
+        <DialogDescription>{sectionLabel}</DialogDescription>
         {form}
       </DialogContent>
     </Dialog>
@@ -238,7 +264,7 @@ function EntryEditor({ label, saveKind, dirty, saving, unresolved, save }: { lab
   return null;
 }
 
-function Field({ field, value, error, options, onChange }: { field: FieldDef; value: unknown; error?: string; options: EntryOptions | null; onChange: (value: unknown) => void }) {
+function Field({ field, t, value, error, options, onChange }: { field: FieldDef; t: Translate<"dailyLogs">; value: unknown; error?: string; options: EntryOptions | null; onChange: (value: unknown) => void }) {
   const id = `entry-${field.name}`;
   const described = error ? `${id}-error` : field.hint ? `${id}-hint` : undefined;
   const label = (
@@ -256,7 +282,7 @@ function Field({ field, value, error, options, onChange }: { field: FieldDef; va
     case "select":
       control = (
         <select id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
-          <option value="">{field.required ? "Choose…" : "—"}</option>
+          <option value="">{field.required ? t("common.choose") : "—"}</option>
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -269,7 +295,7 @@ function Field({ field, value, error, options, onChange }: { field: FieldDef; va
       const list = (field.source && options?.[field.source]) || [];
       control = (
         <select id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
-          <option value="">None</option>
+          <option value="">{t("common.none")}</option>
           {list.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}

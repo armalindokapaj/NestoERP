@@ -11,6 +11,9 @@ import { WORK_LOG_TYPE_LABELS, WORK_LOG_TYPES, type TimesheetFormOptions, type T
 import { cn } from "@/lib/utils/cn";
 import { useTaskOptions } from "./timesheet-entry-drawer";
 import { hoursValue } from "./timesheet-ui";
+import { useTimesheetsTranslations } from "./timesheets-text";
+import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * The weekly grid (PRD #42 §43, §45, §47, §190-§195, §204-§207).
@@ -27,10 +30,11 @@ export type RowTemplate = { key: string; workType: WorkLogType; project: Timeshe
 
 export type CellCommit = { row: RowTemplate; date: string; minutes: number };
 
-function rowLabel(row: RowTemplate) {
+function rowLabel(t: Translate<"timesheets">, row: RowTemplate) {
+  const type = timesheetsLabel(t, "workType", row.workType, WORK_LOG_TYPE_LABELS[row.workType]);
   return {
-    primary: row.project ? row.project.name : WORK_LOG_TYPE_LABELS[row.workType],
-    secondary: row.project ? [row.task?.title, row.workType === "PROJECT_WORK" ? null : WORK_LOG_TYPE_LABELS[row.workType]].filter(Boolean).join(" · ") || row.project.code || "Project work" : row.task?.title ?? null,
+    primary: row.project ? row.project.name : type,
+    secondary: row.project ? [row.task?.title, row.workType === "PROJECT_WORK" ? null : type].filter(Boolean).join(" · ") || row.project.code || t("grid.projectWork") : row.task?.title ?? null,
   };
 }
 
@@ -55,10 +59,11 @@ function Cell({
   onOpenEntries: (logIds: string[], date: string) => void;
   onDraft?: (cell: string, typed: boolean) => void;
 }) {
+  const t = useTimesheetsTranslations();
   const [value, setValue] = React.useState(hoursValue(minutes));
   const [invalid, setInvalid] = React.useState(false);
   const label = dayLabel(date);
-  const name = `${rowLabel(row).primary}${row.task ? `, ${row.task.title}` : ""}, ${label.weekday} ${label.day}`;
+  const name = `${rowLabel(t, row).primary}${row.task ? `, ${row.task.title}` : ""}, ${label.weekday} ${label.day}`;
 
   React.useEffect(() => {
     setValue(hoursValue(minutes));
@@ -80,8 +85,8 @@ function Cell({
         type="button"
         onClick={() => onOpenEntries(logIds, date)}
         className="h-9 w-full rounded-md border border-dashed border-line-strong px-2 text-right text-table tabular-nums text-fg hover:bg-hover"
-        aria-label={`${name}: ${formatMinutes(minutes)} in ${logIds.length} entries`}
-        title={`${logIds.length} entries — open to edit them`}
+        aria-label={t("grid.inEntries", { name, time: formatMinutes(minutes), count: logIds.length })}
+        title={t("grid.entriesTitle", { count: logIds.length })}
       >
         {hoursValue(minutes)}
         <span className="ml-1 text-micro text-fg-subtle">×{logIds.length}</span>
@@ -112,7 +117,7 @@ function Cell({
       autoComplete="off"
       aria-label={name}
       aria-invalid={invalid || state === "error"}
-      title={invalid ? "Enter hours like 2.5, 2:30 or 1h 30m" : undefined}
+      title={invalid ? t("grid.invalid") : undefined}
       disabled={disabled}
       value={value}
       data-cell={`${row.key}@${date}`}
@@ -161,6 +166,7 @@ export function TimesheetGrid({
   onRemoveTemplate: (key: string) => void;
   onDraft?: (cell: string, typed: boolean) => void;
 }) {
+  const t = useTimesheetsTranslations();
   return (
     <div className="nesto-card overflow-hidden" data-testid="timesheet-grid">
       {/*
@@ -169,13 +175,13 @@ export function TimesheetGrid({
         * stays pinned so each day's figure keeps its row label
         * (AUD-04 §5, D-07-02, D-07-15, MW-05).
         */}
-      <ScrollRegion label="Time by project and day">
+      <ScrollRegion label={t("grid.region")}>
         <table className="w-full min-w-[860px] border-collapse text-table">
-          <caption className="sr-only">Time logged for {week.member.name}, by project and day</caption>
+          <caption className="sr-only">{t("grid.caption", { name: week.member.name })}</caption>
           <thead>
             <tr className="border-b border-line bg-surface-muted/60">
               <th scope="col" className="sticky left-0 z-[1] w-36 bg-surface-muted px-4 py-2.5 text-left text-meta font-medium text-fg-muted lg:w-[28%]">
-                Project / task
+                {t("grid.projectTask")}
               </th>
               {week.days.map((day) => {
                 const label = dayLabel(day.date);
@@ -193,7 +199,7 @@ export function TimesheetGrid({
                 );
               })}
               <th scope="col" className="px-4 py-2.5 text-right text-meta font-medium text-fg-muted">
-                Total
+                {t("common.total")}
               </th>
             </tr>
           </thead>
@@ -201,25 +207,25 @@ export function TimesheetGrid({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-10 text-center text-body text-fg-muted">
-                  {editable ? "No time logged this week. Add a row, or log time for a day." : "No time was logged this week."}
+                  {editable ? t("grid.empty") : t("grid.emptyReadOnly")}
                 </td>
               </tr>
             ) : (
               rows.map((row) => {
-                const label = rowLabel(row);
+                const label = rowLabel(t, row);
                 return (
                   <tr key={row.key} className="group hover:bg-row-hover" data-testid="timesheet-row">
                     <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-2 text-left font-normal group-hover:bg-row-hover">
                       <span className="flex items-center gap-2">
-                        <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", row.billableMinutes > 0 ? "bg-accent" : "bg-line-strong")} title={row.billableMinutes > 0 ? "Billable" : "Not billable"} />
+                        <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", row.billableMinutes > 0 ? "bg-accent" : "bg-line-strong")} title={row.billableMinutes > 0 ? t("common.billable") : t("common.notBillable")} />
                         {/* The dot's colour is the only visual cue; give the state in text (AUD-11 §5, AV-06). */}
-                        <span className="sr-only">{row.billableMinutes > 0 ? "Billable" : "Not billable"}</span>
+                        <span className="sr-only">{row.billableMinutes > 0 ? t("common.billable") : t("common.notBillable")}</span>
                         <span className="min-w-0">
                           <span className="block truncate text-table font-medium text-fg">{label.primary}</span>
                           {label.secondary ? <span className="block truncate text-meta text-fg-muted">{label.secondary}</span> : null}
                         </span>
                         {row.template && editable ? (
-                          <button type="button" onClick={() => onRemoveTemplate(row.key)} className="ml-auto rounded p-1 text-fg-subtle opacity-0 hover:bg-hover hover:text-fg group-hover:opacity-100 focus:opacity-100 touch:grid touch:size-11 touch:shrink-0 touch:place-items-center touch:p-0 touch:opacity-100" aria-label={`Remove the empty row ${label.primary}`}>
+                          <button type="button" onClick={() => onRemoveTemplate(row.key)} className="ml-auto rounded p-1 text-fg-subtle opacity-0 hover:bg-hover hover:text-fg group-hover:opacity-100 focus:opacity-100 touch:grid touch:size-11 touch:shrink-0 touch:place-items-center touch:p-0 touch:opacity-100" aria-label={t("grid.removeRow", { label: label.primary })}>
                             <X className="size-3.5" />
                           </button>
                         ) : null}
@@ -259,7 +265,7 @@ export function TimesheetGrid({
           <tfoot>
             <tr className="border-t border-line-strong bg-surface-muted/40">
               <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-2.5 text-left text-meta font-medium text-fg-muted">
-                Daily total
+                {t("grid.dailyTotal")}
               </th>
               {week.days.map((day) => (
                 <td key={day.date} className={cn("whitespace-nowrap px-2.5 py-2.5 text-right text-table font-medium tabular-nums", day.totalMinutes > 720 ? "text-warning-strong" : "text-fg")} data-testid={`day-total-${day.date}`}>
@@ -274,7 +280,7 @@ export function TimesheetGrid({
               // Attendance beside the time, for comparison only — it never becomes an entry (§98, §99).
               <tr className="bg-surface-muted/40">
                 <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 pb-2.5 text-left text-meta font-normal text-fg-subtle">
-                  Attendance
+                  {t("grid.attendance")}
                 </th>
                 {week.days.map((day) => (
                   <td key={day.date} className="whitespace-nowrap px-2.5 pb-2.5 text-right text-meta tabular-nums text-fg-subtle">
@@ -293,6 +299,7 @@ export function TimesheetGrid({
 }
 
 function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOptions; recent: TimesheetFormOptions["recent"]; existing: Set<string>; onAdd: (row: RowTemplate) => void }) {
+  const t = useTimesheetsTranslations();
   const [open, setOpen] = React.useState(false);
   const [workType, setWorkType] = React.useState<WorkLogType>(options.projects.length ? "PROJECT_WORK" : "INTERNAL");
   const [projectId, setProjectId] = React.useState("");
@@ -305,7 +312,7 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
 
   function add() {
     if (workType === "PROJECT_WORK" && !projectId) {
-      setError("Choose the project.");
+      setError(t("grid.chooseProject"));
       return;
     }
     const project = options.projects.find((row) => row.id === projectId) ?? null;
@@ -322,17 +329,17 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
       {open ? (
         <div className="flex flex-wrap items-end gap-2" data-testid="add-row-form">
           <label className="flex min-w-[9rem] flex-1 flex-col">
-            <span className="text-meta text-fg-muted">Work type</span>
-            <select className={cn(selectClass, "mt-1 h-9")} value={workType} onChange={(change) => setWorkType(change.target.value as WorkLogType)} aria-label="Row work type">
+            <span className="text-meta text-fg-muted">{t("grid.workType")}</span>
+            <select className={cn(selectClass, "mt-1 h-9")} value={workType} onChange={(change) => setWorkType(change.target.value as WorkLogType)} aria-label={t("grid.rowWorkType")}>
               {WORK_LOG_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {WORK_LOG_TYPE_LABELS[type]}
+                  {timesheetsLabel(t, "workType", type, WORK_LOG_TYPE_LABELS[type])}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex min-w-[12rem] flex-[2] flex-col">
-            <span className="text-meta text-fg-muted">Project</span>
+            <span className="text-meta text-fg-muted">{t("common.project")}</span>
             <select
               className={cn(selectClass, "mt-1 h-9")}
               value={projectId}
@@ -341,10 +348,10 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
                 setTaskId("");
                 setError(null);
               }}
-              aria-label="Row project"
+              aria-label={t("grid.rowProject")}
               aria-invalid={Boolean(error)}
             >
-              <option value="">{workType === "PROJECT_WORK" ? "Choose a project" : "No project"}</option>
+              <option value="">{workType === "PROJECT_WORK" ? t("grid.choosePlaceholder") : t("grid.noProject")}</option>
               {options.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.code ? `${project.code} · ` : ""}
@@ -354,9 +361,9 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
             </select>
           </label>
           <label className="flex min-w-[12rem] flex-[2] flex-col">
-            <span className="text-meta text-fg-muted">Task</span>
-            <select className={cn(selectClass, "mt-1 h-9")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-label="Row task">
-              <option value="">No task</option>
+            <span className="text-meta text-fg-muted">{t("common.task")}</span>
+            <select className={cn(selectClass, "mt-1 h-9")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-label={t("grid.rowTask")}>
+              <option value="">{t("grid.noTask")}</option>
               {tasks.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title}
@@ -366,10 +373,10 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
           </label>
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={add}>
-              Add row
+              {t("grid.addRow")}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </div>
           {error ? <p className="w-full text-meta text-danger-strong">{error}</p> : null}
@@ -378,9 +385,9 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(true)}>
             <Plus aria-hidden="true" />
-            Add row
+            {t("grid.addRow")}
           </Button>
-          {suggestions.length ? <span className="text-meta text-fg-subtle">Recent:</span> : null}
+          {suggestions.length ? <span className="text-meta text-fg-subtle">{t("grid.recent")}</span> : null}
           {suggestions.slice(0, 5).map((row) => (
             <button
               key={keyOf(row.workType, row.project?.id, row.task?.id)}
@@ -388,7 +395,7 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
               onClick={() => onAdd({ key: keyOf(row.workType, row.project?.id, row.task?.id), workType: row.workType, project: row.project, task: row.task })}
               className="max-w-[16rem] truncate rounded-full border border-line px-2.5 py-1 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
             >
-              {row.project?.name ?? WORK_LOG_TYPE_LABELS[row.workType]}
+              {row.project?.name ?? timesheetsLabel(t, "workType", row.workType, WORK_LOG_TYPE_LABELS[row.workType])}
               {row.task ? ` · ${row.task.title}` : ""}
             </button>
           ))}
