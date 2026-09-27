@@ -16,6 +16,9 @@ import {
   isMethodSubmittal,
   type Option,
 } from "@/lib/modules/engineering/engineering.types";
+import { engineeringEn } from "@/lib/i18n/modules/engineering/en";
+import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
+import { createTranslator, type Translate } from "@/lib/i18n/translator";
 import type { FormField } from "./form-kit";
 
 /**
@@ -25,26 +28,32 @@ import type { FormField } from "./form-kit";
  */
 
 const choose = <T extends string>(values: readonly T[], labels: Record<T, string>) => values.map((value) => ({ value, label: labels[value] }));
+
+/** English when the caller has no reader (tests, pure helpers). */
+const english: Translate<"engineering"> = createTranslator("en", engineeringEn);
+
+/** An engineering choice list in the reader's language, the config's English as the fallback. */
+const chooseIn = <T extends string>(t: Translate<"engineering">, group: EngineeringLabelGroup, values: readonly T[], labels: Record<T, string>) => values.map((value) => ({ value, label: engineeringLabel(t, group, value, labels[value]) }));
 const options = (items: Option[] | undefined) => (items ?? []).map((item) => ({ value: item.id, label: item.label }));
 
 export type ProjectOptions = { contractors: Option[]; workPackages: Array<Option & { contractorId?: string | null }>; members: Option[]; reviewers: Option[]; suppliers?: Option[] };
 
-export function rfiFields(opts: ProjectOptions, mode: "create" | "edit", status = "DRAFT"): FormField[] {
+export function rfiFields(opts: ProjectOptions, mode: "create" | "edit", status = "DRAFT", t: Translate<"engineering"> = english): FormField[] {
   const locked = mode === "edit" && status !== "DRAFT";
   return [
-    { name: "subject", label: "Subject", type: "text", required: true, wide: true, disabled: locked, hint: locked ? "Fixed once the RFI is open." : undefined },
-    { name: "question", label: "Question", type: "textarea", required: true, rows: 5, disabled: locked, placeholder: "What needs answering, with the drawing, grid and level it refers to." },
-    { name: "priority", label: "Priority", type: "select", required: true, options: choose(RFI_PRIORITIES, RFI_PRIORITY_LABELS) },
-    { name: "discipline", label: "Discipline", type: "select", options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { name: "assignedToMemberId", label: "Assign to", type: "select", options: options(opts.reviewers), emptyLabel: "Nobody yet" },
-    { name: "dueAt", label: "Response due", type: "date", hint: mode === "create" ? "Left blank, it follows the company's default when opened." : undefined },
-    { name: "contractorId", label: "Contractor", type: "select", options: options(opts.contractors) },
-    { name: "workPackageId", label: "Work package", type: "select", options: options(opts.workPackages) },
-    { name: "raisedByText", label: "Raised by (outside the company)", type: "text", placeholder: "e.g. Arben Hoxha, Apex Structural", wide: true },
+    { name: "subject", label: t("fields.subject"), type: "text", required: true, wide: true, disabled: locked, hint: locked ? t("fields.subjectLocked") : undefined },
+    { name: "question", label: t("fields.question"), type: "textarea", required: true, rows: 5, disabled: locked, placeholder: t("fields.questionPlaceholder") },
+    { name: "priority", label: t("fields.priority"), type: "select", required: true, options: chooseIn(t, "priority", RFI_PRIORITIES, RFI_PRIORITY_LABELS) },
+    { name: "discipline", label: t("fields.discipline"), type: "select", options: chooseIn(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { name: "assignedToMemberId", label: t("fields.assignTo"), type: "select", options: options(opts.reviewers), emptyLabel: t("fields.nobodyYet") },
+    { name: "dueAt", label: t("fields.responseDue"), type: "date", hint: mode === "create" ? t("fields.responseDueHint") : undefined },
+    { name: "contractorId", label: t("fields.contractor"), type: "select", options: options(opts.contractors) },
+    { name: "workPackageId", label: t("fields.workPackage"), type: "select", options: options(opts.workPackages) },
+    { name: "raisedByText", label: t("fields.raisedByOutside"), type: "text", placeholder: t("fields.raisedByPlaceholder"), wide: true },
     ...(mode === "create"
       ? ([
-          { name: "rfiNumber", label: "RFI number", type: "text", placeholder: "Next number", hint: "Leave blank to number it automatically." },
-          { name: "open", label: "Open it now", type: "checkbox", hint: "Opening sends it to the assignee. A draft can be opened later.", wide: true },
+          { name: "rfiNumber", label: t("fields.rfiNumber"), type: "text", placeholder: t("fields.nextNumber"), hint: t("fields.autoNumber") },
+          { name: "open", label: t("fields.openNow"), type: "checkbox", hint: t("fields.openNowHint"), wide: true },
         ] satisfies FormField[])
       : []),
   ];
@@ -56,54 +65,54 @@ export function rfiFields(opts: ProjectOptions, mode: "create" | "edit", status 
  * for one — the "clear" policy. The supplier is offered only to readers of
  * Procurement's suppliers; for anybody else it is not sent, and kept.
  */
-export function submittalFields(opts: ProjectOptions, mode: "create" | "edit"): FormField[] {
+export function submittalFields(opts: ProjectOptions, mode: "create" | "edit", t: Translate<"engineering"> = english): FormField[] {
   const material = (values: Record<string, string | boolean>) => isMaterialSubmittal(String(values.submittalType ?? ""));
   const method = (values: Record<string, string | boolean>) => isMethodSubmittal(String(values.submittalType ?? ""));
   return [
-    { name: "title", label: "Title", type: "text", required: true, wide: true },
-    { name: "submittalType", label: "Type", type: "select", required: true, options: choose(SUBMITTAL_TYPES, SUBMITTAL_TYPE_LABELS) },
-    { name: "discipline", label: "Discipline", type: "select", options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { name: "contractorId", label: "Contractor", type: "select", options: options(opts.contractors) },
-    { name: "workPackageId", label: "Work package", type: "select", options: options(opts.workPackages) },
-    { name: "assignedReviewerMemberId", label: "Reviewer", type: "select", options: options(opts.reviewers), emptyLabel: "Nobody yet" },
-    { name: "dueAt", label: "Review due", type: "date" },
-    { name: "specificationReference", label: "Specification reference", type: "text", wide: true },
-    { name: "manufacturer", label: "Manufacturer", type: "text", visible: material, whenHidden: "clear" },
-    { name: "productName", label: "Product", type: "text", visible: material, whenHidden: "clear" },
-    { name: "modelNumber", label: "Model", type: "text", visible: material, whenHidden: "clear" },
-    ...(opts.suppliers?.length ? ([{ name: "supplierId", label: "Supplier", type: "select", options: options(opts.suppliers), visible: material, whenHidden: "clear", hint: "Procurement's supplier record; approving a submittal buys nothing." }] satisfies FormField[]) : []),
-    { name: "activity", label: "Activity", type: "text", visible: method, whenHidden: "clear" },
-    { name: "workArea", label: "Work area", type: "text", visible: method, whenHidden: "clear" },
-    { name: "description", label: "Description", type: "textarea", rows: 3 },
-    ...(mode === "create" ? ([{ name: "submittalNumber", label: "Submittal number", type: "text", placeholder: "Next number", hint: "Leave blank to number it automatically." }] satisfies FormField[]) : []),
+    { name: "title", label: t("fields.title"), type: "text", required: true, wide: true },
+    { name: "submittalType", label: t("fields.type"), type: "select", required: true, options: chooseIn(t, "submittalType", SUBMITTAL_TYPES, SUBMITTAL_TYPE_LABELS) },
+    { name: "discipline", label: t("fields.discipline"), type: "select", options: chooseIn(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { name: "contractorId", label: t("fields.contractor"), type: "select", options: options(opts.contractors) },
+    { name: "workPackageId", label: t("fields.workPackage"), type: "select", options: options(opts.workPackages) },
+    { name: "assignedReviewerMemberId", label: t("fields.reviewer"), type: "select", options: options(opts.reviewers), emptyLabel: t("fields.nobodyYet") },
+    { name: "dueAt", label: t("fields.reviewDue"), type: "date" },
+    { name: "specificationReference", label: t("fields.specificationReference"), type: "text", wide: true },
+    { name: "manufacturer", label: t("fields.manufacturer"), type: "text", visible: material, whenHidden: "clear" },
+    { name: "productName", label: t("fields.product"), type: "text", visible: material, whenHidden: "clear" },
+    { name: "modelNumber", label: t("fields.model"), type: "text", visible: material, whenHidden: "clear" },
+    ...(opts.suppliers?.length ? ([{ name: "supplierId", label: t("fields.supplier"), type: "select", options: options(opts.suppliers), visible: material, whenHidden: "clear", hint: t("fields.supplierHint") }] satisfies FormField[]) : []),
+    { name: "activity", label: t("fields.activity"), type: "text", visible: method, whenHidden: "clear" },
+    { name: "workArea", label: t("fields.workArea"), type: "text", visible: method, whenHidden: "clear" },
+    { name: "description", label: t("fields.description"), type: "textarea", rows: 3 },
+    ...(mode === "create" ? ([{ name: "submittalNumber", label: t("fields.submittalNumber"), type: "text", placeholder: t("fields.nextNumber"), hint: t("fields.autoNumber") }] satisfies FormField[]) : []),
   ];
 }
 
-export function documentFields(opts: ProjectOptions, drawing = false): FormField[] {
+export function documentFields(opts: ProjectOptions, drawing = false, t: Translate<"engineering"> = english): FormField[] {
   return [
-    { name: "documentNumber", label: drawing ? "Drawing number" : "Document number", type: "text", required: true, placeholder: drawing ? "ARC-SD-023" : "STR-CALC-011" },
-    { name: "documentType", label: "Type", type: "select", required: true, options: choose(DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS) },
-    { name: "title", label: "Title", type: "text", required: true, wide: true },
-    { name: "discipline", label: "Discipline", type: "select", required: true, options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { name: "authorText", label: "Author", type: "text", placeholder: "Design office or consultant" },
-    { name: "contractorId", label: "Contractor", type: "select", options: options(opts.contractors) },
-    { name: "workPackageId", label: "Work package", type: "select", options: options(opts.workPackages) },
-    { name: "responsibleMemberId", label: "Responsible", type: "select", options: options(opts.members) },
-    { name: "reviewerMemberId", label: "Reviewer", type: "select", options: options(opts.reviewers), emptyLabel: "Nobody yet" },
-    { name: "reviewDueAt", label: "Review due", type: "date" },
+    { name: "documentNumber", label: drawing ? t("fields.drawingNumber") : t("fields.documentNumber"), type: "text", required: true, placeholder: drawing ? "ARC-SD-023" : "STR-CALC-011" },
+    { name: "documentType", label: t("fields.type"), type: "select", required: true, options: chooseIn(t, "documentType", DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS) },
+    { name: "title", label: t("fields.title"), type: "text", required: true, wide: true },
+    { name: "discipline", label: t("fields.discipline"), type: "select", required: true, options: chooseIn(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { name: "authorText", label: t("fields.author"), type: "text", placeholder: t("fields.authorPlaceholder") },
+    { name: "contractorId", label: t("fields.contractor"), type: "select", options: options(opts.contractors) },
+    { name: "workPackageId", label: t("fields.workPackage"), type: "select", options: options(opts.workPackages) },
+    { name: "responsibleMemberId", label: t("fields.responsible"), type: "select", options: options(opts.members) },
+    { name: "reviewerMemberId", label: t("fields.reviewer"), type: "select", options: options(opts.reviewers), emptyLabel: t("fields.nobodyYet") },
+    { name: "reviewDueAt", label: t("fields.reviewDue"), type: "date" },
   ];
 }
 
-export function transmittalHeaderFields(opts: Pick<ProjectOptions, "contractors" | "workPackages">): FormField[] {
+export function transmittalHeaderFields(opts: Pick<ProjectOptions, "contractors" | "workPackages">, t: Translate<"engineering"> = english): FormField[] {
   return [
-    { name: "direction", label: "Direction", type: "select", required: true, options: choose(TRANSMITTAL_DIRECTIONS, TRANSMITTAL_DIRECTION_LABELS) },
-    { name: "purpose", label: "Purpose", type: "select", required: true, options: choose(TRANSMITTAL_PURPOSES, TRANSMITTAL_PURPOSE_LABELS) },
-    { name: "subject", label: "Subject", type: "text", wide: true },
-    { name: "contractorId", label: "Contractor", type: "select", options: options(opts.contractors) },
-    { name: "workPackageId", label: "Work package", type: "select", options: options(opts.workPackages) },
-    { name: "senderText", label: "From", type: "text" },
-    { name: "recipientText", label: "To", type: "text" },
-    { name: "notes", label: "Notes", type: "textarea", rows: 2 },
+    { name: "direction", label: t("fields.direction"), type: "select", required: true, options: chooseIn(t, "direction", TRANSMITTAL_DIRECTIONS, TRANSMITTAL_DIRECTION_LABELS) },
+    { name: "purpose", label: t("fields.purpose"), type: "select", required: true, options: chooseIn(t, "purpose", TRANSMITTAL_PURPOSES, TRANSMITTAL_PURPOSE_LABELS) },
+    { name: "subject", label: t("fields.subject"), type: "text", wide: true },
+    { name: "contractorId", label: t("fields.contractor"), type: "select", options: options(opts.contractors) },
+    { name: "workPackageId", label: t("fields.workPackage"), type: "select", options: options(opts.workPackages) },
+    { name: "senderText", label: t("fields.from"), type: "text" },
+    { name: "recipientText", label: t("fields.to"), type: "text" },
+    { name: "notes", label: t("fields.notes"), type: "textarea", rows: 2 },
   ];
 }
 

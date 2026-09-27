@@ -2,6 +2,9 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
+import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translator";
 import type { UserContext } from "@/lib/context/types";
 import { listEngineeringDocuments, projectEngineeringOptions } from "@/lib/modules/engineering/engineering.documents";
 import { listRfis } from "@/lib/modules/engineering/engineering.rfis";
@@ -40,7 +43,7 @@ import { NewTransmittalButton } from "./transmittal-editor";
 
 type Params = Record<string, string | string[] | undefined>;
 
-const choose = <T extends string>(values: readonly T[], labels: Record<string, string>) => values.map((value) => ({ value, label: labels[value] }));
+const choose = <T extends string>(t: Translate<"engineering">, group: EngineeringLabelGroup, values: readonly T[], labels: Record<string, string>) => values.map((value) => ({ value, label: engineeringLabel(t, group, value, labels[value]) }));
 
 function Heading({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
   return (
@@ -66,101 +69,105 @@ function Pager({ base, params, result }: { base: string; params: Params; result:
 /** Search or a filter narrows the register: nothing found is "no matches", not an empty register (AUD-05 §6, UX-11). */
 const narrowed = (params: Params, filters: FilterConfig[]) => hasActiveFilters(params, ["q", ...filters.map((filter) => filter.param)]);
 
-async function contractorFilter(context: UserContext, projectId: string): Promise<FilterConfig[]> {
+async function contractorFilter(context: UserContext, projectId: string, t: Translate<"engineering">): Promise<FilterConfig[]> {
   const options = await projectEngineeringOptions(context, projectId, "rfi.respond").catch(() => null);
-  return options?.contractors.length ? [{ param: "contractorId", label: "Contractor", options: options.contractors.map((item) => ({ value: item.id, label: item.label })) }] : [];
+  return options?.contractors.length ? [{ param: "contractorId", label: t("filters.contractor"), options: options.contractors.map((item) => ({ value: item.id, label: item.label })) }] : [];
 }
 
 export async function ProjectDocumentRegister({ context, projectId, params, drawings }: { context: UserContext; projectId: string; params: Params; drawings: boolean }) {
+  const t = await getTranslations("engineering");
   const query = engineeringDocumentListSchema.parse({ ...flat(params), projectId, drawings: drawings ? "1" : undefined });
-  const [result, contractors] = await Promise.all([orNotFound(listEngineeringDocuments(context, query)), contractorFilter(context, projectId)]);
+  const [result, contractors] = await Promise.all([orNotFound(listEngineeringDocuments(context, query)), contractorFilter(context, projectId, t)]);
   const base = `/projects/${projectId}/engineering/${drawings ? "drawings" : "documents"}`;
   keepPageInRange(base, params, query.page, result);
   const filters: FilterConfig[] = [
-    { param: "discipline", label: "Discipline", options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { param: "status", label: "Status", options: choose(DOCUMENT_STATUSES, REVIEW_STATUS_LABELS) },
-    ...(drawings ? [] : [{ param: "type", label: "Type", options: choose(DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS) }]),
+    { param: "discipline", label: t("filters.discipline"), options: choose(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { param: "status", label: t("filters.status"), options: choose(t, "reviewStatus", DOCUMENT_STATUSES, REVIEW_STATUS_LABELS) },
+    ...(drawings ? [] : [{ param: "type", label: t("filters.type"), options: choose(t, "documentType", DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS) }]),
     ...contractors,
   ];
   return (
     <div className="space-y-4">
       <Heading
-        title={drawings ? "Drawing register" : "Engineering documents"}
-        description={drawings ? "Drawings and shop drawings with their current revision and review." : "Specifications, calculations, reports and every other controlled technical document."}
+        title={drawings ? t("project.drawingRegister") : t("project.engineeringDocuments")}
+        description={drawings ? t("project.drawingRegisterBody") : t("project.engineeringDocumentsBody")}
         action={can(context, "engineering_document.create") ? <NewDocumentButton projectId={projectId} drawing={drawings} /> : null}
       />
-      <ListToolbar searchPlaceholder={drawings ? "Search drawing number or title…" : "Search number or title…"} searchParam="q" filters={filters} />
-      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={drawings ? "drawings" : "documents"} clearHref={base} /> : <DocumentRegister items={result.items} drawings={drawings} />}
+      <ListToolbar searchPlaceholder={drawings ? t("filters.searchDrawing") : t("filters.searchNumberTitle")} searchParam="q" filters={filters} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={drawings ? t("nouns.drawings") : t("nouns.documents")} clearHref={base} /> : <DocumentRegister items={result.items} drawings={drawings} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
 }
 
 export async function ProjectRfiRegister({ context, projectId, params }: { context: UserContext; projectId: string; params: Params }) {
+  const t = await getTranslations("engineering");
   const query = rfiListSchema.parse({ ...flat(params), projectId });
-  const [result, contractors] = await Promise.all([orNotFound(listRfis(context, query)), contractorFilter(context, projectId)]);
+  const [result, contractors] = await Promise.all([orNotFound(listRfis(context, query)), contractorFilter(context, projectId, t)]);
   const base = `/projects/${projectId}/engineering/rfis`;
   keepPageInRange(base, params, query.page, result);
   const filters: FilterConfig[] = [
-    { param: "status", label: "Status", options: choose(RFI_STATUSES, RFI_STATUS_LABELS) },
-    { param: "priority", label: "Priority", options: choose(RFI_PRIORITIES, RFI_PRIORITY_LABELS) },
-    { param: "discipline", label: "Discipline", options: choose(DISCIPLINES, DISCIPLINE_LABELS) },
-    { param: "assignee", label: "Assignee", options: [{ value: "me", label: "Assigned to me" }] },
+    { param: "status", label: t("filters.status"), options: choose(t, "rfiStatus", RFI_STATUSES, RFI_STATUS_LABELS) },
+    { param: "priority", label: t("filters.priority"), options: choose(t, "priority", RFI_PRIORITIES, RFI_PRIORITY_LABELS) },
+    { param: "discipline", label: t("filters.discipline"), options: choose(t, "discipline", DISCIPLINES, DISCIPLINE_LABELS) },
+    { param: "assignee", label: t("filters.assignee"), options: [{ value: "me", label: t("filters.assignedToMe") }] },
     ...contractors,
   ];
   return (
     <div className="space-y-4">
-      <Heading title="RFIs" description="Questions to the design team, their answers and how long they took." action={can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null} />
-      <ListToolbar searchPlaceholder="Search RFI number or subject…" searchParam="q" filters={filters} />
-      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun="RFIs" clearHref={base} /> : <RfiRegister items={result.items} />}
+      <Heading title={t("project.rfis")} description={t("project.rfisBody")} action={can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null} />
+      <ListToolbar searchPlaceholder={t("filters.searchRfi")} searchParam="q" filters={filters} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={t("nouns.rfis")} clearHref={base} /> : <RfiRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
 }
 
 const VIEWS = {
-  all: { title: "Submittals", description: "Technical review packages from contractors and the design team.", types: undefined, defaultType: "TECHNICAL_SUBMITTAL", path: "submittals", create: "New submittal" },
-  method: { title: "Method statements", description: "How the work will be done — reviewed before it starts; HSE and QA/QC records link here.", types: "METHOD_STATEMENT", defaultType: "METHOD_STATEMENT", path: "method-statements", create: "New method statement" },
-  material: { title: "Material submittals", description: "Products, samples and data for approval. Approval here buys and receives nothing.", types: "MATERIAL_SUBMITTAL,PRODUCT_DATA,SAMPLE", defaultType: "MATERIAL_SUBMITTAL", path: "material-submittals", create: "New material submittal" },
+  all: { title: "project.submittals", description: "project.submittalsBody", noun: "nouns.submittals", types: undefined, defaultType: "TECHNICAL_SUBMITTAL", path: "submittals", create: "project.newSubmittal" },
+  method: { title: "project.methodStatements", description: "project.methodStatementsBody", noun: "nouns.methodStatements", types: "METHOD_STATEMENT", defaultType: "METHOD_STATEMENT", path: "method-statements", create: "project.newMethodStatement" },
+  material: { title: "project.materialSubmittals", description: "project.materialSubmittalsBody", noun: "nouns.materialSubmittals", types: "MATERIAL_SUBMITTAL,PRODUCT_DATA,SAMPLE", defaultType: "MATERIAL_SUBMITTAL", path: "material-submittals", create: "project.newMaterialSubmittal" },
 } as const;
 
 export async function ProjectSubmittalRegister({ context, projectId, params, view }: { context: UserContext; projectId: string; params: Params; view: keyof typeof VIEWS }) {
+  const t = await getTranslations("engineering");
   const spec = VIEWS[view];
   const query = submittalListSchema.parse({ ...flat(params), projectId, types: spec.types });
-  const [result, contractors] = await Promise.all([orNotFound(listSubmittals(context, query)), contractorFilter(context, projectId)]);
+  const [result, contractors] = await Promise.all([orNotFound(listSubmittals(context, query)), contractorFilter(context, projectId, t)]);
   const base = `/projects/${projectId}/engineering/${spec.path}`;
   keepPageInRange(base, params, query.page, result);
   const filters: FilterConfig[] = [
-    { param: "status", label: "Status", options: choose(SUBMITTAL_STATUSES, REVIEW_STATUS_LABELS) },
-    ...(view === "all" ? [{ param: "type", label: "Type", options: choose(SUBMITTAL_TYPES, SUBMITTAL_TYPE_LABELS) }] : []),
-    { param: "reviewer", label: "Reviewer", options: [{ value: "me", label: "Assigned to me" }] },
+    { param: "status", label: t("filters.status"), options: choose(t, "reviewStatus", SUBMITTAL_STATUSES, REVIEW_STATUS_LABELS) },
+    ...(view === "all" ? [{ param: "type", label: t("filters.type"), options: choose(t, "submittalType", SUBMITTAL_TYPES, SUBMITTAL_TYPE_LABELS) }] : []),
+    { param: "reviewer", label: t("filters.reviewer"), options: [{ value: "me", label: t("filters.assignedToMe") }] },
     ...contractors,
   ];
   return (
     <div className="space-y-4">
-      <Heading title={spec.title} description={spec.description} action={can(context, "submittal.create") ? <NewSubmittalButton projectId={projectId} defaultType={spec.defaultType} label={spec.create} /> : null} />
-      <ListToolbar searchPlaceholder="Search number, title or product…" searchParam="q" filters={filters} />
-      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={spec.title.toLowerCase()} clearHref={base} /> : <SubmittalRegister items={result.items} />}
+      <Heading title={t(spec.title)} description={t(spec.description)} action={can(context, "submittal.create") ? <NewSubmittalButton projectId={projectId} defaultType={spec.defaultType} label={t(spec.create)} /> : null} />
+      <ListToolbar searchPlaceholder={t("filters.searchSubmittal")} searchParam="q" filters={filters} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={t(spec.noun)} clearHref={base} /> : <SubmittalRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
 }
 
 export async function ProjectTransmittalRegister({ context, projectId, params }: { context: UserContext; projectId: string; params: Params }) {
+  const t = await getTranslations("engineering");
   const query = transmittalListSchema.parse({ ...flat(params), projectId });
-  const [result, contractors] = await Promise.all([orNotFound(listTransmittals(context, query)), contractorFilter(context, projectId)]);
+  const [result, contractors] = await Promise.all([orNotFound(listTransmittals(context, query)), contractorFilter(context, projectId, t)]);
   const base = `/projects/${projectId}/engineering/transmittals`;
   keepPageInRange(base, params, query.page, result);
   const filters: FilterConfig[] = [
-    { param: "status", label: "Status", options: choose(TRANSMITTAL_STATUSES, TRANSMITTAL_STATUS_LABELS) },
-    { param: "direction", label: "Direction", options: choose(TRANSMITTAL_DIRECTIONS, TRANSMITTAL_DIRECTION_LABELS) },
+    { param: "status", label: t("filters.status"), options: choose(t, "transmittalStatus", TRANSMITTAL_STATUSES, TRANSMITTAL_STATUS_LABELS) },
+    { param: "direction", label: t("filters.direction"), options: choose(t, "direction", TRANSMITTAL_DIRECTIONS, TRANSMITTAL_DIRECTION_LABELS) },
     ...contractors,
   ];
   return (
     <div className="space-y-4">
-      <Heading title="Transmittals" description="Formal issues of documents, with the exact versions each one carried." action={can(context, "transmittal.create") ? <NewTransmittalButton projectId={projectId} /> : null} />
-      <ListToolbar searchPlaceholder="Search number, recipient or document number…" searchParam="q" filters={filters} />
-      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun="transmittals" clearHref={base} /> : <TransmittalRegister items={result.items} />}
+      <Heading title={t("project.transmittals")} description={t("project.transmittalsBody")} action={can(context, "transmittal.create") ? <NewTransmittalButton projectId={projectId} /> : null} />
+      <ListToolbar searchPlaceholder={t("filters.searchProjectTransmittal")} searchParam="q" filters={filters} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={t("nouns.transmittals")} clearHref={base} /> : <TransmittalRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );

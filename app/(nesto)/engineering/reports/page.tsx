@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
+import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 
 import { EmptyNote, Metric, MetricStrip, Panel } from "@/components/engineering/engineering-ui";
-import { counted, one, orNotFound, type SearchParams } from "@/components/engineering/page-helpers";
+import { one, orNotFound, type SearchParams } from "@/components/engineering/page-helpers";
 import { ProjectFilter } from "@/components/engineering/project-filter";
 import { ModulePage } from "@/components/modules/module-page";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -11,7 +13,9 @@ import { prisma } from "@/lib/database/prisma";
 import { engineeringProjectDoor } from "@/lib/modules/engineering/engineering.permissions";
 import { engineeringReport, type Breakdown } from "@/lib/modules/engineering/engineering.overview";
 
-export const metadata: Metadata = { title: "Engineering reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("engineering"))("reports.title") };
+}
 
 function Bars({ rows, empty }: { rows: Breakdown; empty: string }) {
   if (!rows.length) return <EmptyNote>{empty}</EmptyNote>;
@@ -41,54 +45,57 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
   const context = await requireModule("engineering");
   const experience = resolveModuleExperience(context, "engineering");
   const projectId = one((await searchParams).projectId) ?? null;
+  const t = await getTranslations("engineering");
   const door = engineeringProjectDoor(context, "rfi.view");
+  // A stored value's bar reads in the reader's language; a contractor's name stays as it is.
+  const translated = (rows: Breakdown, group: EngineeringLabelGroup): Breakdown => rows.map((row) => ({ ...row, label: engineeringLabel(t, group, row.key, row.label) }));
   const [report, projects] = await Promise.all([orNotFound(engineeringReport(context, { projectId })), door ? prisma.project.findMany({ where: { AND: [door, { archivedAt: null }] }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true } }) : []]);
   return (
-    <ModulePage experience={experience} activeSection="reports" title="Engineering reports" description="What is open, what is late and how long answers and reviews take — counted, never scored.">
+    <ModulePage experience={experience} activeSection="reports" title={t("reports.title")} description={t("reports.description")}>
       <div className="space-y-6">
-        <ProjectFilter projects={projects} />
+        <ProjectFilter projects={projects} label={t("reports.project")} allLabel={t("reports.allProjects")} />
         <MetricStrip>
-          <Metric label="Open RFIs" value={report.rfis.open} testId="report-open-rfis" />
-          <Metric label="Overdue RFIs" value={report.rfis.overdue} tone="danger" />
-          <Metric label="Average response" value={report.rfis.averageResponseDays === null ? "—" : `${report.rfis.averageResponseDays}d`} />
-          <Metric label="Reviews overdue" value={report.submittals.overdueReviews} tone="danger" />
-          <Metric label="Avg. revisions per submittal" value={report.submittals.averageRevisions ?? "—"} />
-          <Metric label="Documents pending review" value={report.documents.pendingReview} />
-          <Metric label="Superseded documents" value={report.documents.superseded} />
-          {report.compliance ? <Metric label="Compliance alerts" value={report.compliance.alerts} tone="warning" /> : null}
+          <Metric label={t("reports.openRfis")} value={report.rfis.open} testId="report-open-rfis" />
+          <Metric label={t("reports.overdueRfis")} value={report.rfis.overdue} tone="danger" />
+          <Metric label={t("reports.averageResponse")} value={report.rfis.averageResponseDays === null ? "—" : t("ui.days", { count: report.rfis.averageResponseDays })} />
+          <Metric label={t("reports.reviewsOverdue")} value={report.submittals.overdueReviews} tone="danger" />
+          <Metric label={t("reports.avgRevisions")} value={report.submittals.averageRevisions ?? "—"} />
+          <Metric label={t("reports.documentsPending")} value={report.documents.pendingReview} />
+          <Metric label={t("reports.supersededDocuments")} value={report.documents.superseded} />
+          {report.compliance ? <Metric label={t("reports.complianceAlerts")} value={report.compliance.alerts} tone="warning" /> : null}
         </MetricStrip>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
-          <Panel title="RFIs by contractor">
-            <Bars rows={report.rfis.byContractor} empty="No RFIs yet." />
+          <Panel title={t("reports.rfisByContractor")}>
+            <Bars rows={report.rfis.byContractor} empty={t("reports.noRfis")} />
           </Panel>
-          <Panel title="RFIs by discipline">
-            <Bars rows={report.rfis.byDiscipline} empty="No RFIs yet." />
+          <Panel title={t("reports.rfisByDiscipline")}>
+            <Bars rows={translated(report.rfis.byDiscipline, "discipline")} empty={t("reports.noRfis")} />
           </Panel>
-          <Panel title="Submittals by status">
-            <Bars rows={report.submittals.byStatus} empty="No submittals yet." />
+          <Panel title={t("reports.submittalsByStatus")}>
+            <Bars rows={translated(report.submittals.byStatus, "reviewStatus")} empty={t("reports.noSubmittals")} />
           </Panel>
-          <Panel title="Submittals by type">
-            <Bars rows={report.submittals.byType} empty="No submittals yet." />
+          <Panel title={t("reports.submittalsByType")}>
+            <Bars rows={translated(report.submittals.byType, "submittalType")} empty={t("reports.noSubmittals")} />
           </Panel>
-          <Panel title="Submittals by contractor">
-            <Bars rows={report.submittals.byContractor} empty="No submittals yet." />
+          <Panel title={t("reports.submittalsByContractor")}>
+            <Bars rows={report.submittals.byContractor} empty={t("reports.noSubmittals")} />
           </Panel>
-          <Panel title="Documents by discipline">
-            <Bars rows={report.documents.byDiscipline} empty="No engineering documents yet." />
+          <Panel title={t("reports.documentsByDiscipline")}>
+            <Bars rows={translated(report.documents.byDiscipline, "discipline")} empty={t("reports.noDocuments")} />
           </Panel>
-          <Panel title="Documents by status">
-            <Bars rows={report.documents.byStatus} empty="No engineering documents yet." />
+          <Panel title={t("reports.documentsByStatus")}>
+            <Bars rows={translated(report.documents.byStatus, "reviewStatus")} empty={t("reports.noDocuments")} />
           </Panel>
           {report.compliance ? (
-            <Panel title="Contractor compliance">
-              <Bars rows={report.compliance.byStatus} empty="No compliance items recorded." />
+            <Panel title={t("reports.contractorCompliance")}>
+              <Bars rows={report.compliance.byStatus} empty={t("reports.noCompliance")} />
             </Panel>
           ) : null}
         </div>
         {report.contractors ? (
-          <Panel title="Contractors by project">
+          <Panel title={t("reports.contractorsByProject")}>
             {report.contractors.byProject.length === 0 ? (
-              <EmptyNote>No contractors assigned yet.</EmptyNote>
+              <EmptyNote>{t("reports.noContractors")}</EmptyNote>
             ) : (
               <ul className="divide-y divide-line">
                 {report.contractors.byProject.map((row) => (
@@ -97,7 +104,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
                       {row.projectName}
                     </Link>
                     <span className="tabular-nums text-fg-muted">
-                      {row.contractors} {counted(row.contractors, "contractor")} · {row.activeWorkPackages} open {counted(row.activeWorkPackages, "work package")}
+                      {t("reports.contractors", { count: row.contractors })} · {t("reports.openPackages", { count: row.activeWorkPackages })}
                     </span>
                   </li>
                 ))}
