@@ -19,6 +19,8 @@ import { REVIEW_DECISION_LABELS, SHARING_CLASSIFICATIONS, SHARING_LABELS, type O
 import { cn } from "@/lib/utils/cn";
 import { engineeringApi, failureMessage, fieldErrorsOf } from "./engineering-api";
 import { DecisionBadge, formatDateTime, ReviewBadge } from "./engineering-ui";
+import { useEngineeringTranslations } from "./engineering-text";
+import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import { RequestMessages, useRequestEditor } from "./form-kit";
 
 /**
@@ -71,6 +73,7 @@ export function RevisionPanel({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useEngineeringTranslations();
   const api = paths(kind, recordId);
   const [adding, setAdding] = React.useState(false);
   const [deciding, setDeciding] = React.useState<{ revision: RevisionDTO; decision: ReviewDecision } | null>(null);
@@ -84,7 +87,7 @@ export function RevisionPanel({
       toast({ title: success, tone: "success" });
       router.refresh();
     } catch (failure) {
-      toast({ title: failureMessage(failure), tone: "danger" });
+      toast({ title: failureMessage(failure, t("ui.somethingWrong")), tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -96,20 +99,20 @@ export function RevisionPanel({
         <div>
           <h2 id="revisions-title" className="flex items-center gap-2 text-card font-semibold text-fg">
             <History aria-hidden="true" className="size-4 text-fg-subtle" />
-            Revisions
+            {t("revisions.title")}
           </h2>
-          <p className="mt-0.5 text-table text-fg-muted">A submitted revision is never overwritten — a correction is the next revision.</p>
+          <p className="mt-0.5 text-table text-fg-muted">{t("revisions.body")}</p>
         </div>
         {canAddRevision ? (
-          <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={inProgress} title={inProgress ? "Finish the revision in progress first." : undefined} data-testid="add-revision">
+          <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={inProgress} title={inProgress ? t("revisions.finishFirst") : undefined} data-testid="add-revision">
             <Upload aria-hidden="true" />
-            Add revision
+            {t("revisions.add")}
           </Button>
         ) : null}
       </div>
 
       {revisions.length === 0 ? (
-        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">No revisions yet. Upload the first file as revision A, 01 or P01 — whatever the project uses.</p>
+        <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">{t("revisions.empty")}</p>
       ) : (
         <ol className="relative space-y-0">
           {revisions.map((revision, index) => {
@@ -123,20 +126,20 @@ export function RevisionPanel({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-body font-medium text-fg">Rev {revision.revisionCode}</span>
+                    <span className="text-body font-medium text-fg">{t("ui.rev", { code: revision.revisionCode })}</span>
                     {/* A finalized revision is described by its decision alone. */}
                     {revision.status === "FINALIZED" && revision.decision ? null : <ReviewBadge status={revision.status} testId="revision-status" />}
                     <DecisionBadge decision={revision.decision} />
                     {revision.current ? (
                       <Badge tone="info" data-testid="revision-current">
-                        Current
+                        {t("revisions.current")}
                       </Badge>
                     ) : null}
                   </div>
-                  {superseded ? <p className="mt-1 text-meta font-medium text-warning-strong">Superseded — do not build from this revision.</p> : null}
+                  {superseded ? <p className="mt-1 text-meta font-medium text-warning-strong">{t("revisions.supersededNote")}</p> : null}
                   <dl className="mt-2 grid gap-x-6 gap-y-1 text-table sm:grid-cols-2">
                     <div className="flex gap-1.5">
-                      <dt className="text-fg-subtle">Submitted</dt>
+                      <dt className="text-fg-subtle">{t("revisions.submitted")}</dt>
                       <dd className="text-fg">
                         {revision.submittedAt ? (
                           <>
@@ -149,13 +152,13 @@ export function RevisionPanel({
                             ) : null}
                           </>
                         ) : (
-                          "Not yet"
+                          t("revisions.notYet")
                         )}
                       </dd>
                     </div>
                     {revision.reviewedAt ? (
                       <div className="flex gap-1.5">
-                        <dt className="text-fg-subtle">Reviewed</dt>
+                        <dt className="text-fg-subtle">{t("revisions.reviewed")}</dt>
                         <dd className="text-fg">
                           {formatDateTime(revision.reviewedAt, zone)}
                           {revision.reviewedBy ? (
@@ -168,7 +171,7 @@ export function RevisionPanel({
                       </div>
                     ) : revision.reviewStartedAt ? (
                       <div className="flex gap-1.5">
-                        <dt className="text-fg-subtle">Review started</dt>
+                        <dt className="text-fg-subtle">{t("revisions.reviewStarted")}</dt>
                         <dd className="text-fg">{formatDateTime(revision.reviewStartedAt, zone)}</dd>
                       </div>
                     ) : null}
@@ -182,19 +185,19 @@ export function RevisionPanel({
                       {revision.file.versionNumber ? <span className="text-fg-subtle">v{revision.file.versionNumber}</span> : null}
                       {canAddRevision ? (
                         <select
-                          aria-label={`Sharing classification of ${revision.file.name}`}
+                          aria-label={t("revisions.sharingOf", { name: revision.file.name })}
                           className={cn(selectClass, "h-7 w-auto px-2 text-meta")}
                           value={revision.file.sharing}
-                          onChange={(event) => void command(`share:${revision.id}`, `${api.record}/sharing`, "Sharing classification saved.", { documentId: revision.file!.documentId, classification: event.target.value as SharingClassification })}
+                          onChange={(event) => void command(`share:${revision.id}`, `${api.record}/sharing`, t("revisions.sharingSaved"), { documentId: revision.file!.documentId, classification: event.target.value as SharingClassification })}
                         >
                           {SHARING_CLASSIFICATIONS.map((value) => (
                             <option key={value} value={value}>
-                              {SHARING_LABELS[value]}
+                              {engineeringLabel(t, "sharing", value, SHARING_LABELS[value])}
                             </option>
                           ))}
                         </select>
                       ) : revision.file.sharing !== "INTERNAL_ONLY" ? (
-                        <Badge tone="default">{SHARING_LABELS[revision.file.sharing]}</Badge>
+                        <Badge tone="default">{engineeringLabel(t, "sharing", revision.file.sharing, SHARING_LABELS[revision.file.sharing])}</Badge>
                       ) : null}
                     </div>
                   ) : null}
@@ -210,23 +213,23 @@ export function RevisionPanel({
                       {caps.reviewBlockedReason ? <p className="text-meta text-fg-muted">{caps.reviewBlockedReason}</p> : null}
                       <div className="flex flex-wrap gap-2" data-testid="review-decision-bar">
                         {caps.canSubmit ? (
-                          <Button type="button" size="sm" disabled={pending !== null} onClick={() => void command(`submit:${revision.id}`, `${api.revisions}/${revision.id}/submit`, `Rev ${revision.revisionCode} submitted for review.`)}>
-                            Submit for review
+                          <Button type="button" size="sm" disabled={pending !== null} onClick={() => void command(`submit:${revision.id}`, `${api.revisions}/${revision.id}/submit`, t("revisions.submittedToast", { code: revision.revisionCode }))}>
+                            {t("revisions.submitForReview")}
                           </Button>
                         ) : null}
                         {caps.canVoid ? (
-                          <Button type="button" size="sm" variant="ghost" disabled={pending !== null} onClick={() => void command(`void:${revision.id}`, `${api.revisions}/${revision.id}/void`, "Draft revision discarded.")}>
-                            Discard draft
+                          <Button type="button" size="sm" variant="ghost" disabled={pending !== null} onClick={() => void command(`void:${revision.id}`, `${api.revisions}/${revision.id}/void`, t("revisions.discarded"))}>
+                            {t("revisions.discardDraft")}
                           </Button>
                         ) : null}
                         {caps.canStartReview ? (
-                          <Button type="button" size="sm" variant="secondary" disabled={pending !== null} onClick={() => void command(`start:${revision.id}`, `${api.revisions}/${revision.id}/start-review`, "Review started.")}>
-                            Start review
+                          <Button type="button" size="sm" variant="secondary" disabled={pending !== null} onClick={() => void command(`start:${revision.id}`, `${api.revisions}/${revision.id}/start-review`, t("revisions.reviewStartedToast"))}>
+                            {t("revisions.startReview")}
                           </Button>
                         ) : null}
                         {DECISION_ORDER.filter((decision) => caps.decisions.includes(decision)).map((decision) => (
                           <Button key={decision} type="button" size="sm" variant={decision === "APPROVED" ? "primary" : decision === "REJECTED" ? "ghost" : "secondary"} disabled={pending !== null} onClick={() => setDeciding({ revision, decision })}>
-                            {decision === "APPROVED" ? "Approve" : decision === "APPROVED_WITH_COMMENTS" ? "Approve with comments" : decision === "REVISION_REQUIRED" ? "Revision required" : "Reject"}
+                            {decision === "APPROVED" ? t("revisions.approve") : decision === "APPROVED_WITH_COMMENTS" ? t("revisions.approveWithComments") : decision === "REVISION_REQUIRED" ? t("revisions.revisionRequired") : t("revisions.reject")}
                           </Button>
                         ))}
                       </div>
@@ -248,13 +251,15 @@ export function RevisionPanel({
 function DecisionDialog({ kind, target, onClose }: { kind: Kind; target: { revision: RevisionDTO; decision: ReviewDecision }; onClose: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const needsComment = target.decision !== "APPROVED";
+  const t = useEngineeringTranslations();
+  const decision = engineeringLabel(t, "decision", target.decision, REVIEW_DECISION_LABELS[target.decision]);
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
       <DialogContent className="max-w-lg" data-testid="decision-dialog">
         <DialogTitle>
-          {REVIEW_DECISION_LABELS[target.decision]} — Rev {target.revision.revisionCode}
+          {t("revisions.decisionTitle", { decision, code: target.revision.revisionCode })}
         </DialogTitle>
-        <DialogDescription>{needsComment ? "Say what the reviewer found. It stays on the revision's history." : "Add a comment if there is anything to note."}</DialogDescription>
+        <DialogDescription>{needsComment ? t("revisions.decisionNeedsComment") : t("revisions.decisionOptional")}</DialogDescription>
         {/* Inside the dialog, so the comment belongs to its guarded close (AUD-03 §5). */}
         <DecisionForm kind={kind} target={target} onClose={onClose} onBusy={setBusy} />
       </DialogContent>
@@ -269,18 +274,20 @@ function DecisionForm({ kind, target, onClose, onBusy }: { kind: Kind; target: {
   const [comment, setComment] = React.useState("");
   const needsComment = target.decision !== "APPROVED";
   const base = kind === "document" ? "/api/engineering-document-revisions" : "/api/submittal-revisions";
-  const verb = `Record: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}`;
+  const t = useEngineeringTranslations();
+  const decision = engineeringLabel(t, "decision", target.decision, REVIEW_DECISION_LABELS[target.decision]).toLowerCase();
+  const verb = t("revisions.recordVerb", { decision });
 
   // A review decision is a workflow step: the prompt never records it (AUD-03 §3).
   const save = useRequestEditor({
     module: "engineering",
     saveKind: "none",
     workflow: verb,
-    label: `Review of Rev ${target.revision.revisionCode}`,
+    label: t("revisions.reviewOf", { code: target.revision.revisionCode }),
     dirty: comment !== "",
     request: () => engineeringApi(`${base}/${target.revision.id}/review`, { body: { decision: target.decision, comment: comment.trim() || null } }),
     onCommitted: () => {
-      toast({ title: `Rev ${target.revision.revisionCode}: ${REVIEW_DECISION_LABELS[target.decision].toLowerCase()}.`, tone: "success" });
+      toast({ title: t("revisions.decisionToast", { code: target.revision.revisionCode, decision }), tone: "success" });
       onClose();
       router.refresh();
     },
@@ -292,17 +299,17 @@ function DecisionForm({ kind, target, onClose, onBusy }: { kind: Kind; target: {
     <form onSubmit={save.onSubmit} className="mt-4 space-y-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="review-comment" className="text-meta font-medium text-fg-muted">
-          Review comment{needsComment ? <span className="text-danger-strong"> *</span> : null}
+          {t("revisions.reviewComment")}{needsComment ? <span className="text-danger-strong"> *</span> : null}
         </label>
         <Textarea id="review-comment" rows={5} value={comment} readOnly={pending} onChange={(event) => setComment(event.target.value)} required={needsComment} />
       </div>
       <RequestMessages error={save.error} outcomeText={save.outcomeText} />
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-          Cancel
+          {t("ui.cancel")}
         </Button>
         <Button type="submit" disabled={pending || (needsComment && !comment.trim())}>
-          {pending ? "Saving…" : verb}
+          {pending ? t("ui.saving") : verb}
         </Button>
       </DialogFooter>
     </form>
@@ -313,11 +320,12 @@ type AddRevisionProps = { kind: Kind; recordId: string; recordType: "engineering
 
 function AddRevisionDialog(props: AddRevisionProps) {
   const [busy, setBusy] = React.useState(false);
+  const t = useEngineeringTranslations();
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && props.onClose()}>
       <DialogContent className="max-w-lg" data-testid="revision-dialog">
-        <DialogTitle>Add revision</DialogTitle>
-        <DialogDescription>Upload the revision&apos;s file, give it the project&apos;s revision code, and submit it for review.</DialogDescription>
+        <DialogTitle>{t("revisions.add")}</DialogTitle>
+        <DialogDescription>{t("revisions.addBody")}</DialogDescription>
         {/* Inside the dialog, so the revision belongs to its guarded close (AUD-03 §5). */}
         <AddRevisionForm {...props} onBusy={setBusy} />
       </DialogContent>
@@ -329,6 +337,7 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
   const router = useRouter();
   const toast = useToast();
   const close = useDialogClose();
+  const t = useEngineeringTranslations();
   const api = paths(kind, recordId);
   const [code, setCode] = React.useState(suggested);
   const [files, setFiles] = React.useState<Option[]>([]);
@@ -367,12 +376,12 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
   const save = useRequestEditor({
     module: "engineering",
     saveKind: submitNow ? "none" : "create",
-    workflow: "Submit revision",
-    label: "Add revision",
+    workflow: t("revisions.submitRevision"),
+    label: t("revisions.add"),
     dirty: code !== suggested || notes !== "" || !submitNow || documentId !== initialDocumentId,
     request: () => engineeringApi(`${api.record}/revisions`, { body: { revisionCode: code, documentId, notes: notes.trim() || null, submit: submitNow } }),
     onCommitted: () => {
-      toast({ title: submitNow ? `Rev ${code} submitted for review.` : `Rev ${code} saved as a draft.`, tone: "success" });
+      toast({ title: submitNow ? t("revisions.submittedToast", { code }) : t("revisions.savedDraft", { code }), tone: "success" });
       onClose();
       router.refresh();
     },
@@ -389,17 +398,17 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
         <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
           <div className="flex flex-col gap-1">
             <label htmlFor="revision-code" className="text-meta font-medium text-fg-muted">
-              Revision
+              {t("revisions.revision")}
             </label>
             <Input id="revision-code" value={code} onChange={(event) => setCode(event.target.value)} className="font-mono" required aria-invalid={Boolean(errors.revisionCode) || undefined} />
             {errors.revisionCode ? <p className="text-meta text-danger-strong">{errors.revisionCode}</p> : null}
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="revision-file" className="text-meta font-medium text-fg-muted">
-              File
+              {t("revisions.file")}
             </label>
             <select id="revision-file" className={selectClass} value={documentId} onChange={(event) => setDocumentId(event.target.value)} required>
-              <option value="">{files.length ? "Choose an uploaded file" : "Upload a file first"}</option>
+              <option value="">{files.length ? t("revisions.chooseFile") : t("revisions.uploadFirst")}</option>
               {files.map((file) => (
                 <option key={file.id} value={file.id}>
                   {file.label}
@@ -411,37 +420,37 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
         </div>
         {canUpload ? (
           <div className="rounded-md border border-dashed border-line-strong px-4 py-3">
-            <input ref={fileInput} type="file" className="sr-only" aria-label="Upload the revision file" data-testid="revision-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
+            <input ref={fileInput} type="file" className="sr-only" aria-label={t("revisions.uploadLabel")} data-testid="revision-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-table text-fg-muted">{uploading ? "Uploading and checking the file…" : failed ? (failed.error ?? "The upload failed.") : "PDF, drawing or document file."}</p>
+              <p className="text-table text-fg-muted">{uploading ? t("revisions.uploading") : failed ? (failed.error ?? t("revisions.uploadFailed")) : t("revisions.fileHint")}</p>
               <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
                 <Upload aria-hidden="true" />
-                Upload file
+                {t("revisions.uploadFile")}
               </Button>
             </div>
           </div>
         ) : null}
         <div className="flex flex-col gap-1">
           <label htmlFor="revision-notes" className="text-meta font-medium text-fg-muted">
-            What changed
+            {t("revisions.whatChanged")}
           </label>
           <Textarea id="revision-notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </div>
         <label htmlFor="revision-submit" className="flex items-start gap-2.5 text-body text-fg">
           <Checkbox id="revision-submit" checked={submitNow} onCheckedChange={(checked) => setSubmitNow(checked === true)} />
           <span>
-            Submit for review now
-            <span className="block text-meta text-fg-subtle">Its file is frozen from the moment it is submitted.</span>
+            {t("revisions.submitNow")}
+            <span className="block text-meta text-fg-subtle">{t("revisions.submitNowHint")}</span>
           </span>
         </label>
       </fieldset>
       <RequestMessages error={save.error} outcomeText={save.outcomeText} />
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={close} disabled={pending || uploading}>
-          Cancel
+          {t("ui.cancel")}
         </Button>
         <Button type="submit" disabled={pending || uploading || !documentId || !code.trim()}>
-          {pending ? "Saving…" : submitNow ? "Submit revision" : "Save draft"}
+          {pending ? t("ui.saving") : submitNow ? t("revisions.submitRevision") : t("revisions.saveDraft")}
         </Button>
       </DialogFooter>
     </form>

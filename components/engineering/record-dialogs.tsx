@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { engineeringApi, failureMessage } from "./engineering-api";
+import { useEngineeringTranslations } from "./engineering-text";
 import { FormDialog, ReasonDialog, type FormField } from "./form-kit";
 import { documentFields, rfiFields, submittalFields, type ProjectOptions } from "./record-fields";
 
@@ -27,6 +28,7 @@ const EMPTY: ProjectOptions = { contractors: [], workPackages: [], members: [], 
  */
 function useProjectOptions(projectId: string, kind: "rfi" | "submittal" | "document") {
   const toast = useToast();
+  const t = useEngineeringTranslations();
   const [options, setOptions] = React.useState<ProjectOptions>(EMPTY);
   const [loaded, setLoaded] = React.useState(false);
   const load = React.useCallback(async (): Promise<boolean> => {
@@ -36,10 +38,10 @@ function useProjectOptions(projectId: string, kind: "rfi" | "submittal" | "docum
       setLoaded(true);
       return true;
     } catch (failure) {
-      toast({ title: `Couldn't load the choices for this form. ${failureMessage(failure)}`, tone: "danger" });
+      toast({ title: t("dialogs.loadChoicesFailed", { message: failureMessage(failure, t("ui.somethingWrong")) }), tone: "danger" });
       return false;
     }
-  }, [kind, loaded, projectId, toast]);
+  }, [kind, loaded, projectId, t, toast]);
   return { options, load, loaded };
 }
 
@@ -57,19 +59,20 @@ function OpenButton({ label, onOpen, variant = "primary", icon = "plus", testId 
 export function NewRfiButton({ projectId, defaults }: { projectId: string; defaults?: Record<string, unknown> }) {
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
+  const t = useEngineeringTranslations();
   return (
     <>
-      <OpenButton label="New RFI" testId="new-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
+      <OpenButton label={t("dialogs.newRfi")} testId="new-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
           open={open}
           onOpenChange={setOpen}
-          title="New RFI"
-          description="A formal question to the design team, answered on the record."
-          fields={rfiFields(options, "create")}
+          title={t("dialogs.newRfi")}
+          description={t("dialogs.newRfiBody")}
+          fields={rfiFields(options, "create", "DRAFT", t)}
           initial={{ priority: "NORMAL", open: true, ...defaults }}
-          submitLabel="Save RFI"
+          submitLabel={t("dialogs.saveRfi")}
           saveKind="create"
           wide
           testId="rfi-form"
@@ -87,18 +90,20 @@ export function EditRfiButton({ projectId, rfi }: { projectId: string; rfi: Reco
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
+  const t = useEngineeringTranslations();
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
+      <OpenButton label={t("dialogs.edit")} variant="secondary" icon="edit" testId="edit-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
           open={open}
           onOpenChange={setOpen}
-          title="Edit RFI"
-          fields={rfiFields(options, "edit", rfi.status)}
+          title={t("dialogs.editRfi")}
+          fields={rfiFields(options, "edit", rfi.status, t)}
           initial={rfi}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/rfis/${rfi.id}`, { method: "PATCH", body: { ...payload, subject: rfi.status === "DRAFT" ? payload.subject : rfi.subject, question: rfi.status === "DRAFT" ? payload.question : rfi.question, expectedVersion: rfi.version } });
@@ -112,9 +117,11 @@ export function EditRfiButton({ projectId, rfi }: { projectId: string; rfi: Reco
 
 /* Submittals --------------------------------------------------------------- */
 
-export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITTAL", label = "New submittal" }: { projectId: string; defaultType?: string; label?: string }) {
+export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITTAL", label: labelProp }: { projectId: string; defaultType?: string; label?: string }) {
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "submittal");
+  const t = useEngineeringTranslations();
+  const label = labelProp ?? t("dialogs.newSubmittal");
   return (
     <>
       <OpenButton label={label} testId="new-submittal" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
@@ -124,10 +131,11 @@ export function NewSubmittalButton({ projectId, defaultType = "TECHNICAL_SUBMITT
           open={open}
           onOpenChange={setOpen}
           title={label}
-          description="Register the package first; its revisions and review follow on the record."
-          fields={submittalFields(options, "create")}
+          description={t("dialogs.newSubmittalBody")}
+          fields={submittalFields(options, "create", t)}
           initial={{ submittalType: defaultType }}
-          submitLabel="Register submittal"
+          submitLabel={t("dialogs.registerSubmittal")}
+          saveKind="create"
           wide
           testId="submittal-form"
           onSubmit={async (payload) => {
@@ -144,18 +152,20 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "submittal");
+  const t = useEngineeringTranslations();
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-submittal" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
+      <OpenButton label={t("dialogs.edit")} variant="secondary" icon="edit" testId="edit-submittal" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
           open={open}
           onOpenChange={setOpen}
-          title="Edit submittal"
-          fields={submittalFields(options, "edit")}
+          title={t("dialogs.editSubmittal")}
+          fields={submittalFields(options, "edit", t)}
           initial={submittal}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/submittals/${submittal.id}`, { method: "PATCH", body: { ...payload, expectedVersion: submittal.version } });
@@ -172,7 +182,8 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
 export function NewDocumentButton({ projectId, drawing = false }: { projectId: string; drawing?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "document");
-  const label = drawing ? "Register drawing" : "Register document";
+  const t = useEngineeringTranslations();
+  const label = drawing ? t("dialogs.registerDrawing") : t("dialogs.registerDocument");
   return (
     <>
       <OpenButton label={label} testId="new-document" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
@@ -182,10 +193,11 @@ export function NewDocumentButton({ projectId, drawing = false }: { projectId: s
           open={open}
           onOpenChange={setOpen}
           title={label}
-          description="The register entry comes first; each revision's file is added on the record."
-          fields={documentFields(options, drawing)}
+          description={t("dialogs.registerBody")}
+          fields={documentFields(options, drawing, t)}
           initial={{ documentType: drawing ? "DRAWING" : "SPECIFICATION", discipline: "GENERAL" }}
-          submitLabel="Register"
+          submitLabel={t("dialogs.register")}
+          saveKind="create"
           wide
           testId="document-form"
           onSubmit={async (payload) => {
@@ -202,18 +214,20 @@ export function EditDocumentButton({ projectId, document }: { projectId: string;
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "document");
+  const t = useEngineeringTranslations();
   return (
     <>
-      <OpenButton label="Edit" variant="secondary" icon="edit" testId="edit-document" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
+      <OpenButton label={t("dialogs.edit")} variant="secondary" icon="edit" testId="edit-document" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
       {loaded ? (
         <FormDialog
           module="engineering"
           open={open}
           onOpenChange={setOpen}
-          title="Edit register entry"
-          fields={documentFields(options, document.documentType === "DRAWING" || document.documentType === "SHOP_DRAWING")}
+          title={t("dialogs.editEntry")}
+          fields={documentFields(options, document.documentType === "DRAWING" || document.documentType === "SHOP_DRAWING", t)}
           initial={document}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/engineering-documents/${document.id}`, { method: "PATCH", body: { ...payload, expectedVersion: document.version } });

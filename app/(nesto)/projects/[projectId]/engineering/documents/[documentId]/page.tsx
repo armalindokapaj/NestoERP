@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
+import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -19,7 +21,9 @@ import { DISCIPLINE_LABELS, DOCUMENT_TYPE_LABELS, DRAWING_TYPES, LINKABLE_TYPES 
 
 type Params = { params: Promise<{ projectId: string; documentId: string }> };
 
-export const metadata: Metadata = { title: "Engineering document" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("engineering"))("documentPage.metaTitle") };
+}
 
 /**
  * One register entry (PRD #46 §79, §171, §172): its revisions and reviews, the
@@ -34,25 +38,26 @@ export default async function EngineeringDocumentPage({ params }: Params) {
   const drawing = DRAWING_TYPES.includes(doc.documentType);
   const register = `/projects/${projectId}/engineering/${drawing ? "drawings" : "documents"}`;
   const closed = doc.status === "SUPERSEDED" || doc.status === "VOID";
+  const t = await getTranslations("engineering");
 
   return (
     <div className="space-y-5" data-testid="engineering-document">
       <div className="space-y-3">
         <Link href={register} className="inline-flex items-center gap-1.5 text-table text-fg-muted hover:text-fg">
           <ArrowLeft aria-hidden="true" className="size-4" />
-          {drawing ? "Drawing register" : "Engineering documents"}
+          {drawing ? t("documentPage.drawingRegister") : t("documentPage.engineeringDocuments")}
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="font-mono text-table text-fg-muted" data-testid="document-number">
               {doc.documentNumber}
-              {doc.currentRevision ? <span className="ml-2 text-fg">Rev {doc.currentRevision.code}</span> : null}
+              {doc.currentRevision ? <span className="ml-2 text-fg">{t("ui.rev", { code: doc.currentRevision.code })}</span> : null}
             </p>
             <h2 className="mt-1 text-page font-semibold tracking-tight text-fg">{doc.title}</h2>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <ReviewBadge status={doc.overdue ? "OVERDUE" : doc.status} label={doc.overdue ? "Review overdue" : undefined} />
-              <Badge tone="default">{DOCUMENT_TYPE_LABELS[doc.documentType]}</Badge>
-              <Badge tone="default">{DISCIPLINE_LABELS[doc.discipline]}</Badge>
+              <ReviewBadge status={doc.overdue ? "OVERDUE" : doc.status} label={doc.overdue ? t("ui.reviewOverdue") : undefined} />
+              <Badge tone="default">{engineeringLabel(t, "documentType", doc.documentType, DOCUMENT_TYPE_LABELS[doc.documentType])}</Badge>
+              <Badge tone="default">{engineeringLabel(t, "discipline", doc.discipline, DISCIPLINE_LABELS[doc.discipline])}</Badge>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -62,11 +67,11 @@ export default async function EngineeringDocumentPage({ params }: Params) {
                 commands={[
                   {
                     url: `/api/engineering-documents/${doc.id}/void`,
-                    label: "Retire",
-                    success: "Document retired.",
+                    label: t("documentPage.retire"),
+                    success: t("documentPage.retired"),
                     variant: "ghost",
                     testId: "retire-document",
-                    reason: { title: "Retire this document", description: "Mark it superseded by another number, or void a mistaken entry. Its revisions stay on the record.", confirmLabel: "Retire", extraFields: [{ name: "status", label: "Mark as", type: "select", required: true, options: [{ value: "SUPERSEDED", label: "Superseded" }, { value: "VOID", label: "Void" }] }] },
+                    reason: { title: t("documentPage.retireTitle"), description: t("documentPage.retireBody"), confirmLabel: t("documentPage.retire"), extraFields: [{ name: "status", label: t("documentPage.markAs"), type: "select", required: true, options: [{ value: "SUPERSEDED", label: t("documentPage.superseded") }, { value: "VOID", label: t("documentPage.void") }] }] },
                   },
                 ]}
               />
@@ -75,7 +80,7 @@ export default async function EngineeringDocumentPage({ params }: Params) {
         </div>
         {closed ? (
           <p className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3 text-table text-warning-strong" data-testid="document-closed-banner">
-            {doc.status === "SUPERSEDED" ? "Superseded — this document is kept for the record. Do not build from it." : "Void"}
+            {doc.status === "SUPERSEDED" ? t("documentPage.supersededBanner") : t("documentPage.void")}
             {doc.voidReason ? ` · ${doc.voidReason}` : ""}
           </p>
         ) : null}
@@ -86,35 +91,35 @@ export default async function EngineeringDocumentPage({ params }: Params) {
           <RevisionPanel kind="document" recordId={doc.id} recordType="engineering_document" revisions={doc.revisions} capabilities={doc.revisionCapabilities} canAddRevision={doc.capabilities.canAddRevision} canUploadFiles={doc.capabilities.canUploadFiles} zone={settings.timezone} />
           <LinksPanel apiBase={`/api/engineering-documents/${doc.id}`} links={doc.links} types={linkableTypesFor(context, LINKABLE_TYPES)} canLink={doc.capabilities.canLink} canCreateTask={doc.capabilities.canCreateTask} assignees={options?.members ?? []} />
           {doc.capabilities.canViewFiles ? (
-            <Panel title="Files" description="Every file uploaded to this document. A file carried by a submitted revision is frozen.">
-              <RecordDocuments context={context} entityType="engineering_document" entityId={doc.id} canAttach={doc.capabilities.canUploadFiles} emptyTitle="No files yet." emptyDescription="Upload a revision's file from the revisions panel." />
+            <Panel title={t("details.files")} description={t("documentPage.filesBody")}>
+              <RecordDocuments context={context} entityType="engineering_document" entityId={doc.id} canAttach={doc.capabilities.canUploadFiles} emptyTitle={t("details.noFilesYet")} emptyDescription={t("details.uploadFromRevisions")} />
             </Panel>
           ) : null}
           <CollaborationPanel parentType="engineering_document" parentId={doc.id} />
         </div>
         <aside className="min-w-0 space-y-5">
-          <Panel title="Details">
+          <Panel title={t("details.details")}>
             <Facts
               columns={2}
               items={[
-                { label: "Contractor", value: <Ref value={doc.contractor} /> },
-                { label: "Work package", value: <Ref value={doc.workPackage} /> },
-                { label: "Author", value: doc.authorText },
-                { label: "Responsible", value: <Person value={doc.responsible} fallback="—" /> },
-                { label: "Reviewer", value: <Person value={doc.reviewer} /> },
-                { label: "Review due", value: <Due date={doc.reviewDueAt} overdue={doc.overdue} /> },
+                { label: t("details.contractor"), value: <Ref value={doc.contractor} /> },
+                { label: t("details.workPackage"), value: <Ref value={doc.workPackage} /> },
+                { label: t("details.author"), value: doc.authorText },
+                { label: t("details.responsible"), value: <Person value={doc.responsible} fallback="—" /> },
+                { label: t("details.reviewer"), value: <Person value={doc.reviewer} /> },
+                { label: t("details.reviewDue"), value: <Due date={doc.reviewDueAt} overdue={doc.overdue} /> },
               ]}
             />
           </Panel>
-          <Panel title="Referenced by" testId="document-references">
+          <Panel title={t("documentPage.referencedBy")} testId="document-references">
             {doc.linkedRfis.length + doc.linkedSubmittals.length + doc.linkedTransmittals.length === 0 ? (
-              <p className="text-table text-fg-muted">No RFI, submittal or transmittal mentions this document yet.</p>
+              <p className="text-table text-fg-muted">{t("documentPage.noReferences")}</p>
             ) : (
               <div className="space-y-3 text-table">
                 {[
-                  { label: "RFIs", rows: doc.linkedRfis },
-                  { label: "Submittals", rows: doc.linkedSubmittals },
-                  { label: "Transmittals", rows: doc.linkedTransmittals },
+                  { label: t("documentPage.rfis"), rows: doc.linkedRfis },
+                  { label: t("documentPage.submittals"), rows: doc.linkedSubmittals },
+                  { label: t("documentPage.transmittals"), rows: doc.linkedTransmittals },
                 ]
                   .filter((group) => group.rows.length)
                   .map((group) => (

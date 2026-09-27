@@ -16,6 +16,8 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { engineeringApi, failureMessage, failureOutcome, fieldErrorsOf } from "./engineering-api";
 import { FormFields, payloadFor, valuesFor, type FormValues } from "./form-kit";
 import { transmittalHeaderFields, type ProjectOptions } from "./record-fields";
+import { useEngineeringTranslations } from "./engineering-text";
+import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 
 /**
  * Preparing a transmittal (PRD #46 §118-§123): who it goes to and why, and
@@ -33,11 +35,12 @@ type Selected = { engineeringDocumentId: string | null; engineeringRevisionId: s
 
 export function NewTransmittalButton({ projectId }: { projectId: string }) {
   const [open, setOpen] = React.useState(false);
+  const t = useEngineeringTranslations();
   return (
     <>
       <Button type="button" size="sm" onClick={() => setOpen(true)} data-testid="new-transmittal">
         <Plus aria-hidden="true" />
-        New transmittal
+        {t("transmittal.newTransmittal")}
       </Button>
       {open ? <TransmittalDialog projectId={projectId} onClose={() => setOpen(false)} /> : null}
     </>
@@ -46,11 +49,12 @@ export function NewTransmittalButton({ projectId }: { projectId: string }) {
 
 export function EditTransmittalButton({ projectId, transmittal }: { projectId: string; transmittal: { id: string; direction: string; purpose: string; subject: string | null; contractorId: string | null; workPackageId: string | null; senderText: string | null; recipientText: string | null; notes: string | null; items: Selected[] } }) {
   const [open, setOpen] = React.useState(false);
+  const t = useEngineeringTranslations();
   return (
     <>
       <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)} data-testid="edit-transmittal">
         <Pencil aria-hidden="true" />
-        Edit draft
+        {t("transmittal.editDraft")}
       </Button>
       {open ? <TransmittalDialog projectId={projectId} existing={transmittal} onClose={() => setOpen(false)} /> : null}
     </>
@@ -61,11 +65,12 @@ type TransmittalDialogProps = { projectId: string; existing?: Parameters<typeof 
 
 function TransmittalDialog(props: TransmittalDialogProps) {
   const [pending, setPending] = React.useState(false);
+  const t = useEngineeringTranslations();
   return (
     <Dialog open onOpenChange={(open) => !open && !pending && props.onClose()}>
       <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto" data-testid="transmittal-form">
-        <DialogTitle>{props.existing ? "Edit transmittal" : "New transmittal"}</DialogTitle>
-        <DialogDescription>Saved as a draft. Issuing it fixes its contents and the file versions it carries.</DialogDescription>
+        <DialogTitle>{props.existing ? t("transmittal.editTransmittal") : t("transmittal.newTransmittal")}</DialogTitle>
+        <DialogDescription>{t("transmittal.dialogBody")}</DialogDescription>
         {/* Inside the dialog, so the editor belongs to its guarded close (AUD-03 §5). */}
         <TransmittalBody {...props} pending={pending} setPending={setPending} />
       </DialogContent>
@@ -76,6 +81,7 @@ function TransmittalDialog(props: TransmittalDialogProps) {
 function TransmittalBody({ projectId, existing, onClose, pending, setPending }: TransmittalDialogProps & { pending: boolean; setPending: (pending: boolean) => void }) {
   const router = useRouter();
   const close = useDialogClose();
+  const t = useEngineeringTranslations();
   const [options, setOptions] = React.useState<ProjectOptions | null>(null);
   const [documents, setDocuments] = React.useState<TransmittalDocumentOption[] | null>(null);
   const [values, setValues] = React.useState<FormValues>({});
@@ -104,7 +110,7 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
         if (!live) return;
         setOptions(projectOptions);
         setDocuments(documentOptions);
-        const loaded = valuesFor(transmittalHeaderFields(projectOptions), opened.current ?? { direction: "OUTGOING", purpose: "FOR_INFORMATION" });
+        const loaded = valuesFor(transmittalHeaderFields(projectOptions, t), opened.current ?? { direction: "OUTGOING", purpose: "FOR_INFORMATION" });
         setValues(loaded);
         setBaseline(loaded);
       },
@@ -116,13 +122,15 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
     return () => {
       live = false;
     };
+    // `t` only names the fields; a change of language does not reload the choices.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, attempt]);
 
-  const fields = options ? transmittalHeaderFields(options) : [];
+  const fields = options ? transmittalHeaderFields(options, t) : [];
 
   // The header and the picked revisions against what the dialog opened with (AUD-03 §3).
   const run = React.useRef<(mode?: "normal" | "continue") => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
-  const editor = useUnsavedEditor({ module: "engineering", saveKind: existing ? "save" : "create", label: existing ? "Edit transmittal" : "New transmittal", save: () => run.current("continue") });
+  const editor = useUnsavedEditor({ module: "engineering", saveKind: existing ? "save" : "create", label: existing ? t("transmittal.editTransmittal") : t("transmittal.newTransmittal"), save: () => run.current("continue") });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = JSON.stringify(values) !== JSON.stringify(baseline) || JSON.stringify(selected) !== JSON.stringify(selectedBaseline);
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -161,7 +169,7 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
       outcome = failureOutcome(failure);
       setUnresolved(outcome.kind === "unknown");
       setErrors(fieldErrorsOf(failure));
-      setError(failureMessage(failure));
+      setError(failureMessage(failure, t("ui.somethingWrong")));
       setOutcomeText(outcome.kind === "unknown" ? OUTCOME_COPY.unknown : null);
     } finally {
       running.current = false;
@@ -189,9 +197,9 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
   if (loadFailed) {
     return (
       <div className="mt-4 space-y-3" role="alert">
-        <p className="text-table text-danger-strong">Couldn&apos;t load the documents and choices for this transmittal.</p>
+        <p className="text-table text-danger-strong">{t("transmittal.loadFailed")}</p>
         <Button type="button" size="sm" variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
-          Retry
+          {t("transmittal.retry")}
         </Button>
       </div>
     );
@@ -202,9 +210,9 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
       <fieldset disabled={pending} className="m-0 min-w-0 space-y-5 border-0 p-0">
         <FormFields fields={fields} values={values} onChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))} errors={errors} idPrefix="transmittal" />
         <fieldset className="space-y-2">
-          <legend className="text-meta font-medium text-fg-muted">Documents</legend>
+          <legend className="text-meta font-medium text-fg-muted">{t("transmittal.documents")}</legend>
           {documents.length === 0 ? (
-            <p className="rounded-md border border-dashed border-line px-3 py-4 text-table text-fg-muted">No submitted revisions on this project yet.</p>
+            <p className="rounded-md border border-dashed border-line px-3 py-4 text-table text-fg-muted">{t("transmittal.noRevisions")}</p>
           ) : (
             // On a phone the list is not a second scroller inside the dialog, and each
             // revision select sits under its full document label (AUD-04 §6, D-09-09, MW-08).
@@ -214,11 +222,11 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
                 return (
                   <li key={doc.engineeringDocumentId} className="flex flex-wrap items-center gap-3 px-3 py-2" data-testid="transmittal-document-option">
                     <label className="flex min-w-0 flex-1 items-center gap-2.5 text-table text-fg">
-                      <Checkbox checked={Boolean(chosen)} onCheckedChange={() => toggle(doc, chosen?.engineeringRevisionId ?? doc.revisions[0].id)} aria-label={`Include ${doc.label}`} />
+                      <Checkbox checked={Boolean(chosen)} onCheckedChange={() => toggle(doc, chosen?.engineeringRevisionId ?? doc.revisions[0].id)} aria-label={t("transmittal.include", { label: doc.label })} />
                       <span className="min-w-0 [overflow-wrap:anywhere]">{doc.label}</span>
                     </label>
                     <select
-                      aria-label={`Revision of ${doc.label}`}
+                      aria-label={t("transmittal.revisionOf", { label: doc.label })}
                       className={`${selectClass} h-8 w-full text-table sm:w-auto`}
                       value={chosen?.engineeringRevisionId ?? doc.revisions[0].id}
                       onChange={(event) => chosen && toggle(doc, event.target.value)}
@@ -226,7 +234,7 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
                     >
                       {doc.revisions.map((revision) => (
                         <option key={revision.id} value={revision.id}>
-                          Rev {revision.code} · {REVIEW_STATUS_LABELS[revision.status]}
+                          {t("ui.rev", { code: revision.code })} · {engineeringLabel(t, "reviewStatus", revision.status, REVIEW_STATUS_LABELS[revision.status])}
                         </option>
                       ))}
                     </select>
@@ -237,21 +245,21 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
           )}
           {others.length > 0 ? (
             <div className="space-y-1.5" data-testid="transmittal-other-items">
-              <p className="text-meta font-medium text-fg-muted">Also on this transmittal</p>
+              <p className="text-meta font-medium text-fg-muted">{t("transmittal.alsoOn")}</p>
               <ul className="divide-y divide-line rounded-md border border-line">
                 {others.map((item) => (
                   <li key={item.documentId} className="flex items-center justify-between gap-3 px-3 py-2 text-table text-fg">
-                    <span className="min-w-0 truncate">{item.label ?? "A file on this transmittal"}</span>
+                    <span className="min-w-0 truncate">{item.label ?? t("transmittal.aFile")}</span>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setSelected((current) => current.filter((entry) => entry.documentId !== item.documentId))}>
-                      Remove
+                      {t("transmittal.remove")}
                     </Button>
                   </li>
                 ))}
               </ul>
-              <p className="text-meta text-fg-subtle">Files and revisions this list cannot offer stay on the transmittal unless you remove them.</p>
+              <p className="text-meta text-fg-subtle">{t("transmittal.othersNote")}</p>
             </div>
           ) : null}
-          <p className="text-meta text-fg-subtle">{selected.length} selected</p>
+          <p className="text-meta text-fg-subtle">{t("transmittal.selected", { count: selected.length })}</p>
         </fieldset>
       </fieldset>
       {error || outcomeText ? (
@@ -262,14 +270,14 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
       ) : null}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-          Cancel
+          {t("ui.cancel")}
         </Button>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : existing ? "Save draft" : "Create draft"}
+          {pending ? t("ui.saving") : existing ? t("transmittal.saveDraft") : t("transmittal.createDraft")}
         </Button>
       </DialogFooter>
     </form>
   ) : (
-    <p className="mt-4 text-table text-fg-muted">Loading…</p>
+    <p className="mt-4 text-table text-fg-muted">{t("ui.loading")}</p>
   );
 }

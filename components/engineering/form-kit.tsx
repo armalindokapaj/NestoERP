@@ -16,6 +16,7 @@ import { unsaved, type SaveKind, type SaveOutcome } from "@/lib/unsaved/coordina
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, failureOutcome, fieldErrorsOf, isFailure } from "./engineering-api";
+import { useEngineeringTranslations } from "./engineering-text";
 
 /**
  * One form grammar for contractor and engineering records (PRD #46 §166,
@@ -258,6 +259,7 @@ function FormDialogBody({
   onDone: () => void;
 }) {
   const close = useDialogClose();
+  const t = useEngineeringTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const summaryRef = React.useRef<HTMLDivElement>(null);
   // Mounted when the dialog opens: the values start from `initial` each time.
@@ -460,10 +462,10 @@ function FormDialogBody({
       ) : null}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-          Cancel
+          {t("ui.cancel")}
         </Button>
         <Button type="submit" disabled={pending || frozen}>
-          {pending ? "Saving…" : submitLabel}
+          {pending ? t("ui.saving") : submitLabel}
         </Button>
       </DialogFooter>
     </form>
@@ -480,7 +482,7 @@ export function ReasonDialog({
   title,
   description,
   confirmLabel,
-  label = "Reason",
+  label,
   name = "reason",
   required = true,
   destructive = false,
@@ -499,10 +501,11 @@ export function ReasonDialog({
   extraFields?: FormField[];
   onConfirm: (payload: Record<string, unknown>) => Promise<void>;
 }) {
-  const fields: FormField[] = [...extraFields, { name, label, type: "textarea", required, rows: 3 }];
+  const t = useEngineeringTranslations();
+  const fields: FormField[] = [...extraFields, { name, label: label ?? t("ui.reason"), type: "textarea", required, rows: 3 }];
   return (
     <FormDialog open={open} onOpenChange={onOpenChange} title={title} description={description} fields={fields} submitLabel={confirmLabel} saveKind="none" onSubmit={(payload) => onConfirm(payload)}>
-      {destructive ? <p className="text-table text-fg-muted">This is recorded in the audit trail and cannot be undone here.</p> : null}
+      {destructive ? <p className="text-table text-fg-muted">{t("ui.auditNote")}</p> : null}
     </FormDialog>
   );
 }

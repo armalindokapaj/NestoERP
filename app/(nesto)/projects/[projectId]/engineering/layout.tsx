@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "@/lib/i18n/server";
 
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { SectionNav } from "@/components/engineering/section-nav";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
@@ -36,42 +37,44 @@ export default async function ProjectEngineeringLayout({ children, params }: Pro
   ];
 
   return (
-    <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Engineering")} title={project.name} subtitle={project.code} status={project.status} />
-      <ProjectTabs
-        projectId={project.id}
-        active="engineering"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
-      <p className="text-table text-fg-muted" data-testid="engineering-headline">
-        <span className="tabular-nums text-fg">{headline.openRfis}</span> {t("engineering.openRfis")} <span aria-hidden="true">•</span> <span className="tabular-nums text-fg">{headline.inReview}</span> {t("engineering.underReview")} <span aria-hidden="true">•</span> <span className={headline.revisionRequired ? "tabular-nums font-medium text-warning-strong" : "tabular-nums text-fg"}>{headline.revisionRequired}</span> {t("engineering.revisionRequiredInline")}
-      </p>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[12.5rem_minmax(0,1fr)] lg:gap-8">
-        <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-          <SectionNav items={items} label={t("engineering.sections")} testId="engineering-nav" />
-        </aside>
-        <div className="min-w-0">{children}</div>
+    <ModuleMessages namespaces={["engineering"]}>
+      <div className="space-y-5">
+        <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Engineering")} title={project.name} subtitle={project.code} status={project.status} />
+        <ProjectTabs
+          projectId={project.id}
+          active="engineering"
+          show={{
+            planning: actions.canViewPlanning,
+            units: actions.canViewUnits,
+            sales: actions.canViewUnitSales,
+            contractors: actions.canViewContractors,
+            engineering: actions.canViewEngineering,
+            tasks: actions.canViewTasks,
+            calendar: actions.canViewCalendar,
+            meetings: actions.canViewMeetings,
+            dailyLogs: actions.canViewDailyLogs,
+            workforce: actions.canViewWorkforce,
+            team: actions.canViewMembers,
+            finance: actions.canViewFinance,
+            unitFinance: actions.canViewUnitFinance,
+            contracts: actions.canViewContracts,
+            inventory: actions.canViewInventory,
+            qaqc: actions.canViewQaqc,
+            hse: actions.canViewHse,
+            documents: actions.canViewDocuments,
+            activity: actions.canViewActivity,
+          }}
+        />
+        <p className="text-table text-fg-muted" data-testid="engineering-headline">
+          <span className="tabular-nums text-fg">{headline.openRfis}</span> {t("engineering.openRfis")} <span aria-hidden="true">•</span> <span className="tabular-nums text-fg">{headline.inReview}</span> {t("engineering.underReview")} <span aria-hidden="true">•</span> <span className={headline.revisionRequired ? "tabular-nums font-medium text-warning-strong" : "tabular-nums text-fg"}>{headline.revisionRequired}</span> {t("engineering.revisionRequiredInline")}
+        </p>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[12.5rem_minmax(0,1fr)] lg:gap-8">
+          <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+            <SectionNav items={items} label={t("engineering.sections")} testId="engineering-nav" />
+          </aside>
+          <div className="min-w-0">{children}</div>
+        </div>
       </div>
-    </div>
+    </ModuleMessages>
   );
 }
