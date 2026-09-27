@@ -25,7 +25,7 @@ export function ContractorTable({ items }: { items: ContractorListItemDTO[] }) {
   return (
     <>
       <div className="hidden md:block">
-        <Table>
+        <Table label="Contractors">
           <TableHead>
             <TableRow>
               <TableHeaderCell scope="col">Contractor</TableHeaderCell>
@@ -83,12 +83,14 @@ export function ContractorTable({ items }: { items: ContractorListItemDTO[] }) {
         {items.map((row) => (
           <li key={row.id}>
             <Link href={row.href} className="block rounded-lg border border-line bg-surface p-4" data-testid="contractor-card">
+              {/* Everything the table row says, not a subset (AUD-04 §5, D-09-11, MW-05). */}
               <div className="flex items-start justify-between gap-3">
-                <p className="text-body font-medium text-fg">{row.legalName}</p>
+                <p className="min-w-0 text-body font-medium text-fg [overflow-wrap:anywhere]">{row.legalName}</p>
                 <ReviewBadge status={row.status} label={CONTRACTOR_STATUS_LABELS[row.status]} />
               </div>
+              <p className="mt-0.5 text-meta text-fg-muted [overflow-wrap:anywhere]">{[row.tradingName, row.city, row.countryCode, row.supplier ? `Supplier: ${row.supplier.label}` : null].filter(Boolean).join(" · ") || "—"}</p>
               <p className="mt-1 text-table text-fg-muted">
-                {row.activeProjects} projects · {row.openRfis} open RFIs · {row.complianceAlerts} compliance alerts
+                {row.activeProjects} projects · {row.workPackages} work packages · {row.openRfis} open RFIs · {row.openSubmittals} submittals · {row.complianceAlerts} compliance alerts
               </p>
             </Link>
           </li>
@@ -100,8 +102,49 @@ export function ContractorTable({ items }: { items: ContractorListItemDTO[] }) {
 
 export function AssignmentTable({ items, view }: { items: AssignmentDTO[]; view: "project" | "contractor" }) {
   if (!items.length) return <EmptyState icon={<HardHat />} title={view === "project" ? "No contractors on this project." : "Not assigned to any project you can open."} description={view === "project" ? "Assign a contractor to give it scope, a contract and an internal manager here." : "Project assignments appear here."} />;
+  /*
+   * Phones get a card per assignment with its actions on the card; the
+   * ten-column table (from md) had Edit and Terminate ~800px to the right
+   * (AUD-04 §5, D-09-12, MW-05).
+   */
+  const manage = (row: AssignmentDTO) =>
+    row.canManage ? (
+      <div className="flex flex-wrap justify-end gap-1">
+        <EditAssignmentButton projectId={row.project.id} assignment={{ id: row.id, contractorId: row.contractor.id, version: row.version, status: row.status, scopeSummary: row.scopeSummary, contractId: row.contract?.id ?? null, internalManagerMemberId: row.internalManager?.id ?? null, primaryContractorContactId: row.primaryContact?.id ?? null, startDate: row.startDate, endDate: row.endDate }} />
+        <CommandBar
+          className="flex"
+          commands={[{ url: `/api/project-contractor-assignments/${row.id}/terminate`, label: "Terminate", variant: "ghost", success: "Assignment terminated.", testId: "terminate-assignment", body: { expectedVersion: row.version }, reason: { title: `Terminate ${row.contractor.label} on ${row.project.label}`, description: "Its history stays; no new work packages, RFIs or submittals can name it on this project.", confirmLabel: "Terminate", extraFields: [{ name: "endDate", label: "End date", type: "date" }] } }]}
+        />
+      </div>
+    ) : null;
   return (
-    <Table>
+    <>
+    <ul className="space-y-2 md:hidden" aria-label="Assignments">
+      {items.map((row) => (
+        <li key={row.id} className={cn("space-y-1.5 rounded-lg border border-line bg-surface p-4", row.status === "TERMINATED" && "opacity-70")} data-testid="assignment-card">
+          <div className="flex items-start justify-between gap-3">
+            <Link href={view === "project" ? row.contractor.href : `/projects/${row.project.id}/contractors`} className="inline-flex min-w-0 items-center font-medium text-fg [overflow-wrap:anywhere] hover:underline touch:min-h-11">
+              {view === "project" ? row.contractor.label : row.project.label}
+            </Link>
+            <ReviewBadge status={row.status} label={ASSIGNMENT_STATUS_LABELS[row.status]} />
+          </div>
+          {row.primaryContact ? <p className="text-meta text-fg-muted">{row.primaryContact.name}</p> : null}
+          {row.terminationReason ? <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">{row.terminationReason}</p> : null}
+          {row.scopeSummary ? <p className="line-clamp-3 text-table text-fg-muted [overflow-wrap:anywhere]">{row.scopeSummary}</p> : null}
+          <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
+            {row.contract ? <Link href={row.contract.href} className="font-mono underline-offset-4 hover:underline">{row.contract.label.split(" · ")[0]}</Link> : "No contract"}
+            {" · Manager: "}
+            {row.internalManager ? row.internalManager.name : "—"}
+          </p>
+          <p className="text-table text-fg-muted">
+            {row.workPackages} work packages · {row.openRfis} open RFIs · {row.openSubmittals} submittals · {row.complianceAlerts} compliance alerts
+          </p>
+          {manage(row)}
+        </li>
+      ))}
+    </ul>
+    <div className="hidden md:block">
+    <Table label="Assignments">
       <TableHead>
         <TableRow>
           <TableHeaderCell scope="col">{view === "project" ? "Contractor" : "Project"}</TableHeaderCell>
@@ -178,28 +221,44 @@ export function AssignmentTable({ items, view }: { items: AssignmentDTO[]; view:
             <TableCell className="text-right">
               <Count value={row.complianceAlerts} tone="warning" />
             </TableCell>
-            <TableCell className="text-right">
-              {row.canManage ? (
-                <div className="flex justify-end gap-1">
-                  <EditAssignmentButton projectId={row.project.id} assignment={{ id: row.id, contractorId: row.contractor.id, version: row.version, status: row.status, scopeSummary: row.scopeSummary, contractId: row.contract?.id ?? null, internalManagerMemberId: row.internalManager?.id ?? null, primaryContractorContactId: row.primaryContact?.id ?? null, startDate: row.startDate, endDate: row.endDate }} />
-                  <CommandBar
-                    className="flex"
-                    commands={[{ url: `/api/project-contractor-assignments/${row.id}/terminate`, label: "Terminate", variant: "ghost", success: "Assignment terminated.", testId: "terminate-assignment", body: { expectedVersion: row.version }, reason: { title: `Terminate ${row.contractor.label} on ${row.project.label}`, description: "Its history stays; no new work packages, RFIs or submittals can name it on this project.", confirmLabel: "Terminate", extraFields: [{ name: "endDate", label: "End date", type: "date" }] } }]}
-                  />
-                </div>
-              ) : null}
-            </TableCell>
+            <TableCell className="text-right">{manage(row)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
+    </div>
+    </>
   );
 }
 
 export function WorkPackageTable({ items, showProject = false, emptyText = "No work packages yet." }: { items: WorkPackageRowDTO[]; showProject?: boolean; emptyText?: string }) {
   if (!items.length) return <EmptyState icon={<Package />} title={emptyText} description="A work package ties scope on a project to its contractor, contract, dates and records." />;
   return (
-    <Table>
+    <>
+    {/* A card per work package on a phone, every column's value on it (AUD-04 §5, D-09-12, MW-05). */}
+    <ul className="space-y-2 md:hidden" aria-label="Work packages">
+      {items.map((row) => (
+        <li key={row.id}>
+          <Link href={row.href} className="block space-y-1 rounded-lg border border-line bg-surface p-4" data-testid="work-package-card">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-meta text-fg-muted [overflow-wrap:anywhere]">{row.code}</p>
+                <p className="text-body font-medium text-fg [overflow-wrap:anywhere]">{row.name}</p>
+              </div>
+              <ReviewBadge status={row.status} label={WORK_PACKAGE_STATUS_LABELS[row.status]} />
+            </div>
+            <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
+              {[showProject ? row.project.label : null, row.discipline ? DISCIPLINE_LABELS[row.discipline] : null, row.contractor?.label ?? null, row.responsible ? `Responsible: ${row.responsible.name}` : null].filter(Boolean).join(" · ") || "—"}
+            </p>
+            <p className="text-table text-fg-muted">
+              Finish <Due date={row.actualFinishDate ?? row.forecastFinishDate ?? row.plannedFinishDate} /> · {row.counts.openTasks} tasks · {row.counts.openRfis} RFIs · {row.counts.submittals} submittals
+            </p>
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="hidden md:block">
+    <Table label="Work packages">
       <TableHead>
         <TableRow>
           <TableHeaderCell scope="col">Code</TableHeaderCell>
@@ -260,5 +319,7 @@ export function WorkPackageTable({ items, showProject = false, emptyText = "No w
         ))}
       </TableBody>
     </Table>
+    </div>
+    </>
   );
 }

@@ -36,7 +36,7 @@ export type HiddenPolicy = "omit" | "clear" | "reject";
 export type FormField = {
   name: string;
   label: string;
-  type: "text" | "email" | "textarea" | "date" | "number" | "select" | "checkbox";
+  type: "text" | "email" | "tel" | "textarea" | "date" | "number" | "select" | "checkbox";
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
   /** The empty choice of a select; omit to make a choice required. */

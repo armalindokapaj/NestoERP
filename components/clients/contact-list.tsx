@@ -119,7 +119,7 @@ export function ContactList({
                 ) : null}
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-meta text-fg-muted">
                   {contact.email ? (
-                    <a href={`mailto:${contact.email}`} className="hover:text-accent">
+                    <a href={`mailto:${contact.email}`} className="min-w-0 hover:text-accent [overflow-wrap:anywhere]">
                       {contact.email}
                     </a>
                   ) : null}

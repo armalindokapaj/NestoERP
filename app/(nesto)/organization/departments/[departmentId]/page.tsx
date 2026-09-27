@@ -20,6 +20,7 @@ import { POSITION_LABEL } from "@/components/organization/department-labels";
 import { DepartmentMemberProjects } from "@/components/organization/department-member-actions";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -102,7 +103,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
                 href={href(key)}
                 aria-current={key === tab ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
                   key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
@@ -370,7 +371,7 @@ async function Access({ context, department }: { context: UserContext; departmen
         grants.length === 0 ? (
           <EmptyState title="Nothing delegated" description={`Nobody holds delegated access in ${department.name}'s modules.`} />
         ) : (
-          <div className="nesto-card overflow-x-auto">
+          <ScrollRegion label="Delegated access" className="nesto-card">
             <table className="w-full text-left text-table" aria-label="Delegated access">
               <thead className="text-meta text-fg-subtle">
                 <tr>
@@ -395,7 +396,7 @@ async function Access({ context, department }: { context: UserContext; departmen
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         )
       ) : null}
       <Link href="/organization/access" className="text-table text-accent-strong hover:underline">

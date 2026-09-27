@@ -206,18 +206,20 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
           {documents.length === 0 ? (
             <p className="rounded-md border border-dashed border-line px-3 py-4 text-table text-fg-muted">No submitted revisions on this project yet.</p>
           ) : (
-            <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-md border border-line">
+            // On a phone the list is not a second scroller inside the dialog, and each
+            // revision select sits under its full document label (AUD-04 §6, D-09-09, MW-08).
+            <ul className="divide-y divide-line rounded-md border border-line sm:max-h-72 sm:overflow-y-auto">
               {documents.map((doc) => {
                 const chosen = selected.find((item) => item.engineeringDocumentId === doc.engineeringDocumentId);
                 return (
                   <li key={doc.engineeringDocumentId} className="flex flex-wrap items-center gap-3 px-3 py-2" data-testid="transmittal-document-option">
                     <label className="flex min-w-0 flex-1 items-center gap-2.5 text-table text-fg">
                       <Checkbox checked={Boolean(chosen)} onCheckedChange={() => toggle(doc, chosen?.engineeringRevisionId ?? doc.revisions[0].id)} aria-label={`Include ${doc.label}`} />
-                      <span className="truncate">{doc.label}</span>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{doc.label}</span>
                     </label>
                     <select
                       aria-label={`Revision of ${doc.label}`}
-                      className={`${selectClass} h-8 w-auto text-table`}
+                      className={`${selectClass} h-8 w-full text-table sm:w-auto`}
                       value={chosen?.engineeringRevisionId ?? doc.revisions[0].id}
                       onChange={(event) => chosen && toggle(doc, event.target.value)}
                       disabled={!chosen}

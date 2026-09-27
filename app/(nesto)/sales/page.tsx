@@ -56,7 +56,7 @@ export default async function SalesOverviewPage({
       experience={experience}
       activeSection="overview"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {!grouped && can(context, "sales.lead.create") ? (
             <Button asChild variant="secondary" size="sm">
               <Link href="/sales/leads/new">New lead</Link>

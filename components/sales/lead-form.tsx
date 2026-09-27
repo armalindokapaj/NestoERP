@@ -210,7 +210,7 @@ export function LeadForm({
         </Field>
 
         <Field label="Phone" name="phone">
-          <Input id="phone" name="phone" defaultValue={values?.phone ?? ""} maxLength={40} />
+          <Input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={values?.phone ?? ""} maxLength={40} />
         </Field>
 
         <Field
@@ -219,7 +219,7 @@ export function LeadForm({
           className="sm:col-span-2"
           hint="A full address, beginning http:// or https://"
         >
-          <Input id="website" name="website" defaultValue={values?.website ?? ""} />
+          <Input id="website" name="website" inputMode="url" autoComplete="url" defaultValue={values?.website ?? ""} />
         </Field>
       </FormSection>
 

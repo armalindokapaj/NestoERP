@@ -32,7 +32,7 @@ export default async function ProposalsPage({
       experience={experience}
       activeSection="proposals"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {!inGroupWorkspace(context) && can(context, "sales.export") ? <SalesExportLink type="proposals" /> : null}
           {can(context, "sales.proposal.create") ? (
             <Button asChild size="sm">

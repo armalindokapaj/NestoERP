@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Switch } from "@/components/ui/switch";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { useToast } from "@/components/ui/toast";
 import type { CategoryPreference } from "@/lib/core/notifications/notification.preferences";
 
@@ -43,13 +44,15 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] text-left">
+    // Fits a 320px phone: narrow switch columns below sm instead of a 512px
+    // minimum, so the Email switch is never off-screen (AUD-04 §3, D-07-08, D-07-15, MW-01).
+    <ScrollRegion label={t("sections.notifications.label")}>
+      <table className="w-full text-left sm:min-w-[32rem]">
         <thead>
           <tr className="border-b border-line text-micro font-semibold uppercase tracking-wide text-fg-subtle">
             <th scope="col" className="py-2 pr-4">{t("notifications.category")}</th>
-            <th scope="col" className="w-28 px-2 py-2 text-center">{t("notifications.inApp")}</th>
-            <th scope="col" className="w-28 px-2 py-2 text-center">{t("notifications.email")}</th>
+            <th scope="col" className="w-16 px-1 py-2 text-center sm:w-28 sm:px-2">{t("notifications.inApp")}</th>
+            <th scope="col" className="w-16 px-1 py-2 text-center sm:w-28 sm:px-2">{t("notifications.email")}</th>
           </tr>
         </thead>
         <tbody>
@@ -57,7 +60,7 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
             const label = t(`notifications.categories.${row.category}.label`);
             return (
               <tr key={row.category} className="border-b border-line last:border-0" data-testid={`preference-${row.category}`}>
-                <td className="py-3 pr-4 align-top">
+                <td className="py-3 pr-2 align-top [overflow-wrap:anywhere] sm:pr-4">
                   <p className="text-body font-medium text-fg">{label}</p>
                   <p className="text-table text-fg-muted">{t(`notifications.categories.${row.category}.description`)}</p>
                   {row.inAppLocked ? (
@@ -67,7 +70,7 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
                     </p>
                   ) : null}
                 </td>
-                <td className="px-2 py-3 text-center align-top">
+                <td className="px-1 py-3 text-center align-top sm:px-2">
                   <Switch
                     checked={row.inAppEnabled}
                     disabled={row.inAppLocked || saving === row.category}
@@ -75,7 +78,7 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
                     onCheckedChange={(checked) => void change(row, { inAppEnabled: checked })}
                   />
                 </td>
-                <td className="px-2 py-3 text-center align-top">
+                <td className="px-1 py-3 text-center align-top sm:px-2">
                   {row.emailAvailable ? (
                     <Switch
                       checked={row.emailEnabled}
@@ -92,6 +95,6 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }

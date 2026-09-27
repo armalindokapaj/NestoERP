@@ -283,8 +283,9 @@ export function DataTable<T>({
               ))}
             </dl>
             {actions ? (
-              // Above the stretched title link: acting on a row never opens it.
-              <div data-card-actions className="relative z-10 mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
+              // Above the stretched title link: acting on a row never opens it. A row with
+              // no action (a voided payment) draws no empty strip.
+              <div data-card-actions className="relative z-10 mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3 empty:hidden">
                 {actions(record)}
               </div>
             ) : null}

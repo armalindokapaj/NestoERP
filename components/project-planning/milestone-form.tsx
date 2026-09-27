@@ -93,7 +93,7 @@ export function MilestoneFormDialog({
   const editing = Boolean(milestoneId);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogTitle>{editing ? "Edit milestone" : "New milestone"}</DialogTitle>
         <DialogDescription>{editing ? "Dates, owner and status. The baseline and completion have their own actions." : "A key achievement or date on this project."}</DialogDescription>
         {/* Mounted per opening: it opens on `initial` as it was then. */}
@@ -342,7 +342,7 @@ export function PhaseFormDialog({
   const editing = Boolean(phaseId);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogTitle>{editing ? initial.name || "Phase" : "New phase"}</DialogTitle>
         <DialogDescription>{editing ? "Dates, status, owner and progress for this part of the plan." : "A planning segment that groups milestones."}</DialogDescription>
         {/* Mounted per opening: it opens on `initial` as it was then. */}

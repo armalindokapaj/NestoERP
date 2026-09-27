@@ -115,7 +115,8 @@ export function MonthView({
 
       {/* Phone: compact matrix, then the chosen day */}
       <div className="flex flex-col gap-4 md:hidden">
-        <div className="grid grid-cols-7 gap-y-1 rounded-xl border border-line bg-surface p-2" role="grid" aria-label="Month">
+        {/* Seven shrinkable columns: 7 × 40px no longer overflows a 320px phone (AUD-04 §8, D-08-13, MW-17). */}
+        <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-y-1 rounded-xl border border-line bg-surface p-1 min-[360px]:p-2" role="grid" aria-label="Month">
           {WEEKDAYS.map((weekday) => (
             <div key={weekday} className="py-1 text-center text-[11px] font-medium text-fg-subtle">
               {weekday.slice(0, 1)}
@@ -132,7 +133,7 @@ export function MonthView({
                 aria-pressed={day === selectedDate}
                 aria-label={`${dayHeading(day, zone, today)}, ${list.length} ${list.length === 1 ? "event" : "events"}`}
                 className={cn(
-                  "mx-auto flex h-11 w-10 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "mx-auto flex h-11 w-full max-w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   day.slice(0, 7) !== month ? "text-fg-subtle" : "text-fg",
                   day === selectedDate ? "bg-primary text-primary-fg" : day === today ? "bg-accent-soft font-semibold text-accent-strong" : "",
                 )}

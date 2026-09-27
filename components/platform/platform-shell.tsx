@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { PlatformSearch } from "@/components/platform/platform-search";
 import { cn } from "@/lib/utils/cn";
 
@@ -55,14 +56,14 @@ function Navigation({ close }: { close?: () => void }) {
     {groups.map((group) => {
       const open = group.items.some((item) => activePath(pathname, item.href));
       return <details key={group.label} open={open || group.label === "Overview"} className="group/nav">
-        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-table font-semibold uppercase tracking-[0.08em] text-fg-subtle hover:bg-hover hover:text-fg">
+        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 touch:min-h-11 text-table font-semibold uppercase tracking-[0.08em] text-fg-subtle hover:bg-hover hover:text-fg">
           <group.icon className="size-4" /><span className="flex-1">{group.label}</span>{group.items.length > 1 ? <ChevronDown className="size-3.5 transition group-open/nav:rotate-180" /> : null}
         </summary>
         <div className="mt-1 space-y-0.5">
           {group.items.map((item) => {
             const active = activePath(pathname, item.href);
             const Icon = item.icon;
-            return <Link key={item.href} href={item.href} onClick={close} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-table transition", active ? "bg-accent-soft font-semibold text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg", group.items.length > 1 && "pl-9")}>
+            return <Link key={item.href} href={item.href} onClick={close} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-table transition touch:min-h-11", active ? "bg-accent-soft font-semibold text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg", group.items.length > 1 && "pl-9")}>
               {Icon ? <Icon className="size-4" /> : null}<span>{item.label}</span>
             </Link>;
           })}
@@ -72,18 +73,41 @@ function Navigation({ close }: { close?: () => void }) {
   </nav>;
 }
 
+/*
+ * AUD-04 §4 (D-09-16, D-09-17, MW-02, MW-19): the phone navigation is the
+ * shared Drawer (a Radix dialog) instead of a hand-rolled overlay, so it is a
+ * modal with focus moved in and trapped, Escape and backdrop close, the page
+ * behind locked and the safe areas padded. It also closes on any route change
+ * (a search result, not only a nav link). Menu, close and nav rows are 44px
+ * under touch.
+ */
 export function PlatformShell({ user, actions, children }: { user: string; actions: React.ReactNode; children: React.ReactNode }) {
   const [mobile, setMobile] = React.useState(false);
+  const pathname = usePathname();
+  React.useEffect(() => setMobile(false), [pathname]);
   return <div className="min-h-dvh bg-canvas">
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-line bg-surface lg:block">
       <div className="flex h-16 items-center gap-3 border-b border-line px-5"><NestoLogo /><span className="rounded-md bg-fg px-2 py-1 text-micro font-semibold uppercase tracking-wider text-canvas">Admin</span></div>
       <div className="h-[calc(100dvh-4rem)] overflow-y-auto"><Navigation /></div>
     </aside>
-    {mobile ? <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-black/35" aria-label="Close navigation" onClick={() => setMobile(false)} /><aside className="relative h-full w-[min(90vw,320px)] bg-surface shadow-2xl"><div className="flex h-16 items-center justify-between border-b border-line px-4"><NestoLogo /><button onClick={() => setMobile(false)} aria-label="Close navigation" className="rounded p-2 hover:bg-hover"><X className="size-5" /></button></div><div className="h-[calc(100dvh-4rem)] overflow-y-auto"><Navigation close={() => setMobile(false)} /></div></aside></div> : null}
+    <Drawer open={mobile} onOpenChange={setMobile}>
+      <DrawerContent side="left" className="bg-surface lg:hidden" aria-describedby={undefined}>
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
+          <NestoLogo />
+          <DrawerTitle className="sr-only">Platform administration</DrawerTitle>
+          <DrawerClose asChild>
+            <button type="button" aria-label="Close navigation" className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-hover">
+              <X className="size-5" />
+            </button>
+          </DrawerClose>
+        </div>
+        <Navigation close={() => setMobile(false)} />
+      </DrawerContent>
+    </Drawer>
     <div className="lg:pl-72">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6">
-          <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" className="rounded-lg p-2 text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
+          <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
           <PlatformSearch />
           <div className="ml-auto flex items-center gap-3"><span className="hidden text-table text-fg-muted xl:inline">{user}</span>{actions}</div>
         </div>

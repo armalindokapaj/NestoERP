@@ -6,6 +6,7 @@ import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
 import { Money, Variance } from "@/components/finance/money";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import type { UserContext } from "@/lib/context/types";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import * as reports from "@/lib/modules/finance/reports/reports.service";
@@ -35,7 +36,7 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
   return (
     <div className="space-y-3">
       <p className="text-meta text-fg-subtle">Outstanding on sent invoices, by how far past the due date they are, company by company. {CURRENCY_NOTE}</p>
-      <div className="nesto-card overflow-x-auto">
+      <ScrollRegion label="Receivables aging by company" className="nesto-card">
         <table className="w-full text-table">
           <caption className="sr-only">Receivables aging by company</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -93,7 +94,7 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
             ))}
           </tfoot>
         </table>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }
@@ -140,7 +141,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
   return (
     <div className="space-y-3">
       <DataTable caption="Budget vs actual by company" columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.projectId}`} />
-      <div className="nesto-card overflow-x-auto">
+      <ScrollRegion label="Budget vs actual totals by currency" className="nesto-card">
         <table className="w-full text-table">
           <caption className="sr-only">Budget vs actual totals by currency</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -180,7 +181,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       <p className="text-meta text-fg-subtle">{CURRENCY_NOTE}</p>
     </div>
   );
@@ -257,7 +258,7 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
           description="Try a wider period, or record a payment against an invoice or expense."
         />
       ) : (
-        <div className="nesto-card overflow-x-auto">
+        <ScrollRegion label="Cashflow summary by company" className="nesto-card">
           <table className="w-full text-table">
             <caption className="sr-only">Cashflow summary by company</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -318,7 +319,7 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
               ))}
             </tfoot>
           </table>
-        </div>
+        </ScrollRegion>
       )}
     </div>
   );

@@ -373,10 +373,12 @@ export function ProjectForm({
 
       </fieldset>
 
+      {/* Phone action bar: clear of the home indicator, and marked so focus scrolling keeps fields out from under it (AUD-04 §6, MW-08). */}
       <div
+        data-sticky-action-bar
         className={cn(
           "flex flex-wrap items-center justify-end gap-2",
-          "sticky bottom-0 -mx-4 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none",
+          "sticky bottom-0 z-30 -mx-4 border-t border-line bg-surface/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-3 md:backdrop-blur-none",
         )}
       >
         <UnsavedIndicator save={save} className="mr-auto" />

@@ -9,6 +9,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { voidReceiptAction } from "@/lib/actions/procurement";
 import type {
   ItemOption,
@@ -102,7 +103,9 @@ export function ReceiptList({
               </p>
             ) : null}
 
-            <table className="mt-4 w-full text-table">
+            {/* Bounded: a long line or "1250.5000 tonne" pans here instead of widening the page (AUD-04 §5, MW-05). */}
+            <ScrollRegion label={`Lines on delivery ${receipt.receiptNumber}`} className="mt-4">
+            <table className="w-full text-table">
               <caption className="sr-only">Lines on delivery {receipt.receiptNumber}</caption>
               <thead>
                 <tr className="text-left text-meta text-fg-subtle">
@@ -115,8 +118,8 @@ export function ReceiptList({
               <tbody className="divide-y divide-line">
                 {receipt.items.map((item) => (
                   <tr key={item.id}>
-                    <td className="py-2 text-fg">{item.description}</td>
-                    <td className="py-2 text-right tabular-nums text-fg">
+                    <td className="min-w-[8rem] py-2 pr-3 text-fg [overflow-wrap:anywhere]">{item.description}</td>
+                    <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums text-fg">
                       {item.receivedQuantity} {item.unit}
                     </td>
                     <td className="py-2 text-right tabular-nums text-fg">{item.acceptedQuantity}</td>
@@ -133,6 +136,7 @@ export function ReceiptList({
                 ))}
               </tbody>
             </table>
+            </ScrollRegion>
 
             {qualityGate?.[receipt.id] ? (
               <div className="mt-4">{qualityGate[receipt.id]}</div>

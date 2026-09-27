@@ -472,7 +472,8 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
               <StateBadge row={row} />
               <VerificationBadge status={row.verificationStatus} verifiable={row.verifiable} />
             </div>
-            <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 text-table">
+            {/* Both columns may shrink and long numbers break, so the drawer never widens at 320px (AUD-04 §3, D-07-10, MW-01). */}
+            <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-2 text-table [overflow-wrap:anywhere]">
               <dt className="text-fg-muted">Issuer</dt>
               <dd>{row.issuer ?? "—"}</dd>
               <dt className="text-fg-muted">Number</dt>

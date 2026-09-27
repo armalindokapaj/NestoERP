@@ -164,7 +164,7 @@ export function ParticipantsPanel({
             {caps.canManageParticipants && person.role !== "ORGANIZER" && variant === "rail" ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" aria-label={`Manage ${person.fullName}`} className="rounded-md p-1 text-fg-subtle opacity-70 outline-none hover:bg-hover hover:text-fg focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100">
+                  <button type="button" aria-label={`Manage ${person.fullName}`} className="grid place-items-center rounded-md p-1 text-fg-subtle opacity-70 outline-none hover:bg-hover hover:text-fg focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 touch:size-11 touch:p-0 touch:opacity-100">
                     <MoreHorizontal aria-hidden="true" className="size-4" />
                   </button>
                 </DropdownMenuTrigger>

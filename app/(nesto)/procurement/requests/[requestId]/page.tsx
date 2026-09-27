@@ -10,6 +10,7 @@ import { ProcurementApprovalHistory } from "@/components/procurement/approval-hi
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/procurement/approvals/approval.service";
@@ -123,7 +124,7 @@ export default async function RequestDetailPage({ params }: Params) {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <ScrollRegion label="Request lines" className="hidden md:block">
               <table className="w-full text-table">
                 <caption className="sr-only">Request lines</caption>
                 <thead>
@@ -168,6 +169,29 @@ export default async function RequestDetailPage({ params }: Params) {
                   </tr>
                 </tfoot>
               </table>
+            </ScrollRegion>
+            {/* Phones read each line as a card and the estimate under the list, not a sideways-scrolling table (AUD-04 §5, MW-05). */}
+            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label="Request lines" data-testid="request-line-cards">
+              {request.items.map((item) => (
+                <li key={item.id} className="space-y-1 px-5 py-3 text-table">
+                  <p className="break-words text-fg">{item.description}</p>
+                  {item.specification ? <p className="break-words text-meta text-fg-subtle">{item.specification}</p> : null}
+                  <p className="tabular-nums text-fg-muted">
+                    {item.quantity} {item.unit}
+                    {item.category ? ` · ${categoryLabels[item.category]}` : ""}
+                    {item.estimatedUnitPrice === null ? null : (
+                      <>
+                        {" "}
+                        · <span className="text-fg">{money(item.estimatedAmount)}</span>
+                      </>
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-between gap-3 border-t border-line px-5 py-3 text-table md:hidden">
+              <span className="font-medium text-fg">Estimated total</span>
+              <span className="font-semibold tabular-nums text-fg">{currency ? money(request.estimatedTotal) : "Not priced"}</span>
             </div>
           </section>
 

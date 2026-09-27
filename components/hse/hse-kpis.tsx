@@ -96,9 +96,11 @@ export function StopWorkBanner({
   if (records.length === 0) return null;
 
   return (
+    // Pinned under the top bar while its page scrolls, so a phone cannot flick
+    // past it; capped so a long list never covers the page (AUD-04 §3, D-03-08, MW-02).
     <div
       role="alert"
-      className="rounded-lg border border-danger-border bg-danger-subtle p-4"
+      className="sticky top-[calc(3.5rem+0.5rem)] z-20 max-h-[40dvh] overflow-y-auto rounded-lg border border-danger-border bg-danger-subtle p-4 md:top-[calc(4rem+0.5rem)]"
     >
       <p className="flex items-center gap-2 text-body font-semibold text-danger-strong">
         <AlertTriangle aria-hidden="true" className="size-4" />

@@ -96,7 +96,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
       <div className="hidden md:block">
-        <Table data-testid="unit-table">
+        <Table label="Units" data-testid="unit-table">
           <TableHead>
             <tr>
               <TableHeaderCell>Unit</TableHeaderCell>
@@ -175,6 +175,14 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 {areaText(unit.areas.saleableArea)} saleable
                 {unit.bedrooms !== null ? ` · ${unit.bedrooms} bed` : ""}
               </span>
+              {/* The table's remaining columns, which the list can still be filtered and sorted by (AUD-04 §5, MW-05). */}
+              {unit.orientation || unit.position || unit.areas.internalArea !== null || unit.rooms !== null ? (
+                <span className="block text-meta text-fg-subtle" data-testid="unit-card-more">
+                  {[unit.orientation ? ORIENTATION_LABELS[unit.orientation] : null, unit.position ? POSITION_LABELS[unit.position] : null, unit.areas.internalArea !== null ? `${areaText(unit.areas.internalArea)} internal` : null, unit.rooms !== null ? `${countText(unit.rooms)} rooms` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              ) : null}
             </Link>
             <RowMenu unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />
           </li>

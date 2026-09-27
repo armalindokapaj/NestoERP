@@ -35,7 +35,7 @@ export default async function ExpensesPage({
       experience={experience}
       activeSection="expenses"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={archived ? "/finance/expenses" : "/finance/expenses?archived=1"}>
               {archived ? "Active expenses" : "Archived"}

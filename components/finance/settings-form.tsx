@@ -96,6 +96,7 @@ export function FinanceSettingsForm({
                 id="defaultPaymentTermsDays"
                 name="defaultPaymentTermsDays"
                 type="number"
+                inputMode="numeric"
                 min={0}
                 max={365}
                 required

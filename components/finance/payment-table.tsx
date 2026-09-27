@@ -109,23 +109,6 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
         </Badge>
       ),
     },
-    {
-      key: "actions",
-      id: "actions",
-      label: "",
-      // The row action stays reachable whatever columns are chosen (AUD-08 §5).
-      mandatory: true,
-      align: "right",
-      render: (payment) =>
-        // The capability is a hint; voidPayment re-checks the permission and
-        // refuses a payment that is already voided (PRD #15 §86).
-        payment.capabilities.canVoid && payment.status !== "VOIDED" ? (
-          <VoidPaymentButton
-            paymentId={payment.id}
-            reference={payment.relatedRecord?.reference ?? "this payment"}
-          />
-        ) : null,
-    },
   ];
 
   return (
@@ -136,6 +119,19 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
       columns={columns}
       records={payments}
       rowKey={(payment) => payment.id}
+      // Void is the row's action, not a data column: a phone card shows it in
+      // its own action row instead of an unlabelled value line, and it stays
+      // reachable whatever columns are chosen (AUD-08 §5; AUD-04 §5, MW-05).
+      // The capability is a hint; voidPayment re-checks the permission and
+      // refuses a payment that is already voided (PRD #15 §86).
+      actions={(payment) =>
+        payment.capabilities.canVoid && payment.status !== "VOIDED" ? (
+          <VoidPaymentButton
+            paymentId={payment.id}
+            reference={payment.relatedRecord?.reference ?? "this payment"}
+          />
+        ) : null
+      }
     />
   );
 }

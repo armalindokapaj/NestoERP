@@ -119,7 +119,7 @@ export async function ProjectTabs({
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
+                "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors touch:inline-flex touch:min-h-11 touch:items-center",
                 isActive ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
               )}
             >

@@ -35,7 +35,7 @@ export function CriticalAnnouncementBanner({ banner }: { banner: { id: string; t
           <button
             type="button"
             aria-label="Dismiss"
-            className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger/10"
+            className="grid shrink-0 place-items-center rounded p-1 text-danger-strong hover:bg-danger/10 touch:-my-2 touch:size-11 touch:p-0"
             onClick={() => {
               setDismissed(banner.id);
               // Dismissing an announcement that asks nothing more is having seen it.

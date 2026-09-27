@@ -85,6 +85,7 @@ export default async function HseReportsPage({
       description="Safety performance, aggregated under your own access."
     >
       <div className="space-y-5">
+        {/* 44px report chips under touch (AUD-04 §3, D-03-06, MW-19). */}
         <nav aria-label="Reports" className="flex flex-wrap gap-2">
           {available.map((report) => (
             <Link
@@ -93,8 +94,8 @@ export default async function HseReportsPage({
               aria-current={report.key === active?.key ? "page" : undefined}
               className={
                 report.key === active?.key
-                  ? "rounded-full border border-line-strong bg-surface-muted px-3 py-1.5 text-meta font-medium text-fg"
-                  : "rounded-full border border-line px-3 py-1.5 text-meta text-fg-muted hover:border-line-strong"
+                  ? "inline-flex items-center rounded-full border border-line-strong bg-surface-muted px-3 py-1.5 text-meta font-medium text-fg touch:min-h-11"
+                  : "inline-flex items-center rounded-full border border-line px-3 py-1.5 text-meta text-fg-muted hover:border-line-strong touch:min-h-11"
               }
             >
               {report.label}

@@ -76,7 +76,7 @@ export default async function TransmittalPage({ params }: Params) {
             {item.items.length === 0 ? (
               <p className="text-table text-fg-muted">No documents yet. Edit the draft to add them.</p>
             ) : (
-              <Table flush>
+              <Table flush label="Transmittal documents">
                 <TableHead>
                   <TableRow>
                     <TableHeaderCell scope="col">Document</TableHeaderCell>

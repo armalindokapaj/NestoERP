@@ -83,7 +83,7 @@ export function TimesheetEntryDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent side={side} className={cn("bg-surface", side === "right" ? "sm:max-w-[440px]" : "")} aria-describedby="entry-drawer-description">
+      <DrawerContent side={side} className={cn("bg-surface pb-0", side === "right" ? "sm:max-w-[440px]" : "")} aria-describedby="entry-drawer-description">
         {shown.current ? <EntryForm key={shown.current.key} draft={shown.current.draft} week={week} options={options} onDone={() => onOpenChange(false)} onSaved={onSaved} /> : null}
       </DrawerContent>
     </Drawer>
@@ -356,7 +356,7 @@ function EntryForm({
                 key={value}
                 type="button"
                 onClick={() => setDuration(formatMinutes(value))}
-                className={cn("rounded-full border px-2.5 py-1 text-meta tabular-nums transition-colors", minutes === value ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-meta tabular-nums transition-colors touch:min-h-11 touch:px-3.5", minutes === value ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {formatMinutes(value)}
               </button>
@@ -393,7 +393,8 @@ function EntryForm({
         </div>
       </div>
 
-      <div className="sticky bottom-0 flex items-center gap-2 border-t border-line bg-surface px-5 py-3">
+      {/* The footer carries the home-indicator inset itself: it is what sits on it (AUD-04 §6, D-07-04, MW-10). */}
+      <div className="sticky bottom-0 flex items-center gap-2 border-t border-line bg-surface px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         {editing ? (
           <Button type="button" variant="ghost" size="sm" onClick={remove} disabled={pending} className="text-danger-strong hover:text-danger-strong">
             <Trash2 aria-hidden="true" />

@@ -51,8 +51,9 @@ export function DocumentTable({
         const title = (
           <>
             <span className="block truncate">{document.name}</span>
+            {/* An unspaced file name breaks instead of widening the phone card (AUD-04 §3, D-09-02, MW-01). */}
             {document.originalFileName && document.originalFileName !== document.name ? (
-              <span className="block text-meta font-normal text-fg-subtle">
+              <span className="block text-meta font-normal text-fg-subtle [overflow-wrap:anywhere]">
                 {document.originalFileName}
               </span>
             ) : null}

@@ -265,7 +265,8 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
         <section className="nesto-card overflow-hidden" aria-label={t("title")}>
           <ul className="divide-y divide-line" data-testid="activity-stream">
             {items.map((item) => (
-              <li key={item.key} className={cn("flex items-start gap-3 px-4 py-3", item.pinned && "bg-danger-soft/40")} data-testid="activity-row" data-source={item.sourceType} data-read={item.readState}>
+              // Below sm the actions take their own line under the text instead of squeezing the title out (AUD-04 §3, D-08-23, MW-01).
+              <li key={item.key} className={cn("flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap", item.pinned && "bg-danger-soft/40")} data-testid="activity-row" data-source={item.sourceType} data-read={item.readState}>
                 <span aria-hidden="true" className={cn("mt-2 size-2 shrink-0 rounded-full", item.readState === "UNREAD" ? (item.priority === "CRITICAL" ? "bg-danger" : "bg-accent") : "bg-transparent")} />
                 <button type="button" onClick={() => void follow(item)} className="min-w-0 flex-1 text-left">
                   <span className="flex items-center gap-1.5">
@@ -285,7 +286,7 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
                     <span className="sr-only">{item.readState === "UNREAD" ? t("unread") : t("read")}</span>
                   </span>
                 </button>
-                <span className="flex shrink-0 items-center gap-1">
+                <span className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap">
                   {item.requiresAcknowledgement && !item.acknowledgedAt ? (
                     <Button type="button" variant="secondary" size="sm" onClick={() => void acknowledge(item)} disabled={acknowledging === item.key}>
                       {acknowledging === item.key ? <Loader2 className="animate-spin" /> : null}

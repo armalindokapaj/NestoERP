@@ -275,7 +275,7 @@ export function UnitDialog({
   // the X, Escape, the backdrop and Cancel all arrive here as a guarded close.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
         <DialogDescription>
           {floor.buildingName} · {floor.name}

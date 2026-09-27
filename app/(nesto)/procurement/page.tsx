@@ -177,14 +177,14 @@ function AttentionPanel({
                   companyId={row.company.id}
                   companyName={row.company.name}
                   href={row.href}
-                  className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                  className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
                 >
                   {row.title}
                 </CompanyRecordLink>
               ) : (
                 <Link
                   href={row.href}
-                  className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                  className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
                 >
                   {row.title}
                 </Link>

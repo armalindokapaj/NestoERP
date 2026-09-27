@@ -237,9 +237,10 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
         <DialogContent className="max-w-3xl">
           <DialogTitle>{viewing?.caption ?? viewing?.document.name}</DialogTitle>
           <DialogDescription>{viewing ? UNIT_MEDIA_CATEGORY_LABELS[viewing.category] : ""}</DialogDescription>
+          {/* Room is left for the title and footer, so Open in Documents and Close stay on screen in landscape (AUD-04 §6, MW-10). */}
           {viewing ? (
-            <div className="mt-4 max-h-[70dvh] overflow-hidden rounded-md bg-surface-muted">
-              <UnitImage documentId={viewing.document.documentId} thumbnailHref={viewing.thumbnailHref} alt={viewing.caption ?? viewing.document.name} fit="contain" lazy={false} className="max-h-[70dvh]" />
+            <div className="mt-4 max-h-[min(70dvh,calc(100dvh-12rem))] overflow-hidden rounded-md bg-surface-muted">
+              <UnitImage documentId={viewing.document.documentId} thumbnailHref={viewing.thumbnailHref} alt={viewing.caption ?? viewing.document.name} fit="contain" lazy={false} className="max-h-[min(70dvh,calc(100dvh-12rem))]" />
             </div>
           ) : null}
           <DialogFooter>

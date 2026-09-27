@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Bell, BellOff, MessageSquare, Pencil, RotateCw, Trash2 } from "lucide-react";
 
+import { useApprovalDraft } from "@/components/approvals/approval-drafts";
 import { PersonLink } from "@/components/people/person-link";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -251,6 +252,7 @@ export function CollaborationPanel({
           {thread.capabilities.canComment ? (
             <CommentComposer
               mentionSource={`${base}/mentionable`}
+              draftKey={`comment:${base}`}
               onSubmit={async (body) => {
                 const created = await api<CommentDTO>(`${base}/comments`, {
                   method: "POST",
@@ -422,23 +424,41 @@ function toMarkup(text: string, mentions: MentionToken[]): string {
   return output;
 }
 
+/**
+ * A new comment's text, remembered across a remount of the discussion
+ * (AUD-04 §3, MW-16). In the Approvals Center the review moves between the
+ * side panel (from 1024px) and the full-screen sheet below it, which mounts the
+ * discussion again: typed text was lost to a tablet rotation. Inside that
+ * centre the value lives in its in-memory, per-approval draft store (never in
+ * browser storage or the URL, AUD-02 §7), which forgets it when another
+ * approval is opened; everywhere else, and without a key, it is plain state.
+ */
+function useKeptDraft<T>(key: string | undefined | "", initial: T): [T, (next: T) => void] {
+  const kept = useApprovalDraft<T>(key || "", initial);
+  const [local, setLocal] = React.useState<T>(initial);
+  return key ? kept : [local, setLocal];
+}
+
 function CommentComposer({
   mentionSource,
   onSubmit,
   onCancel,
   initial,
   submitLabel = "Comment",
+  draftKey,
 }: {
   mentionSource: string;
   onSubmit: (body: string) => Promise<void>;
   onCancel?: () => void;
   initial?: { text: string; mentions: MentionToken[] };
   submitLabel?: string;
+  /** Keeps the new comment's text across a remount of the discussion (see useKeptDraft). */
+  draftKey?: string;
 }) {
   const id = React.useId();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = React.useState(initial?.text ?? "");
-  const [mentions, setMentions] = React.useState<MentionToken[]>(initial?.mentions ?? []);
+  const [text, setText] = useKeptDraft(draftKey && `${draftKey}:text`, initial?.text ?? "");
+  const [mentions, setMentions] = useKeptDraft<MentionToken[]>(draftKey && `${draftKey}:mentions`, initial?.mentions ?? []);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
@@ -481,7 +501,7 @@ function CommentComposer({
     const insert = `@${member.fullName} `;
     const next = `${text.slice(0, query.start)}${insert}${text.slice(caret)}`;
     setText(next);
-    setMentions((current) => (current.some((m) => m.memberId === member.memberId) ? current : [...current, { name: member.fullName, memberId: member.memberId }]));
+    setMentions(mentions.some((m) => m.memberId === member.memberId) ? mentions : [...mentions, { name: member.fullName, memberId: member.memberId }]);
     setQuery(null);
     requestAnimationFrame(() => {
       const position = query.start + insert.length;

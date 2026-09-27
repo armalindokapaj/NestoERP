@@ -156,6 +156,7 @@ export function LocalizationForm({
             id="defaultPaymentTermsDays"
             name="defaultPaymentTermsDays"
             type="number"
+            inputMode="numeric"
             min={0}
             max={3650}
             defaultValue={settings.defaultPaymentTermsDays}

@@ -28,7 +28,7 @@ export default async function CrewsPage({ searchParams }: { searchParams: Promis
   const canCreate = can(context, "workforce.crew.manage");
   const projects = canCreate ? await projectChoices(context) : [];
   const [sites, trades, supervisors] = canCreate ? await Promise.all([siteChoices(context, projects.map((project) => project.id)), tradeChoices(context.companyId), workerChoices(context)]) : [[], [], []];
-  const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+  const chip = (active: boolean) => cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <ModulePage

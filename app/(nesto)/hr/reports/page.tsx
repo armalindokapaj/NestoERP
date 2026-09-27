@@ -92,7 +92,7 @@ export default async function HrReportsPage({
                   href={`/hr/reports?report=${entry.key}`}
                   aria-current={entry.key === active ? "page" : undefined}
                   className={cn(
-                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
                     entry.key === active
                       ? "border-accent text-fg"
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
@@ -497,21 +497,22 @@ async function OrganizationReport({ context, query }: { context: UserContext; qu
   const moves = report.movements;
   return (
     <ReportShell title="Organization" description={`Headcount on ${formatDate(report.asOf)} — employed that day, active or on leave, where they sat that day — and what changed from ${formatDate(report.period.from)} to ${formatDate(report.period.to)}.`}>
+      {/* 44px controls under touch; the 16px phone font comes from globals.css (AUD-04 §3, D-07-13, MW-09). */}
       <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Report dates">
         <input type="hidden" name="report" value="organization" />
         <label className="space-y-1 text-meta text-fg-muted">
           <span className="block">As of</span>
-          <input type="date" name="asOf" defaultValue={report.asOf} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+          <input type="date" name="asOf" defaultValue={report.asOf} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
         <label className="space-y-1 text-meta text-fg-muted">
           <span className="block">Changes from</span>
-          <input type="date" name="from" defaultValue={report.period.from} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+          <input type="date" name="from" defaultValue={report.period.from} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
         <label className="space-y-1 text-meta text-fg-muted">
           <span className="block">to</span>
-          <input type="date" name="to" defaultValue={report.period.to} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg" />
+          <input type="date" name="to" defaultValue={report.period.to} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
-        <button type="submit" className="h-9 rounded-md border border-line-strong px-3 text-table font-medium text-fg hover:bg-hover">
+        <button type="submit" className="h-9 rounded-md border border-line-strong px-3 text-table font-medium text-fg hover:bg-hover touch:h-11 touch:min-w-11">
           Show
         </button>
       </form>

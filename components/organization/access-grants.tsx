@@ -68,7 +68,7 @@ export function RevokeGrantButton({ grantId, holder, module }: { grantId: string
   const [open, setOpen] = React.useState(false);
   return (
     <>
-      <button type="button" className="text-meta text-accent-strong hover:underline" onClick={() => setOpen(true)} aria-label={`Revoke ${holder}'s ${module} access`}>
+      <button type="button" className="inline-flex items-center text-meta text-accent-strong hover:underline touch:min-h-11 touch:px-2" onClick={() => setOpen(true)} aria-label={`Revoke ${holder}'s ${module} access`}>
         Revoke
       </button>
       <ConfirmDialog

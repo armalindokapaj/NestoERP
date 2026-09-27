@@ -3747,3 +3747,57 @@ A shared hook, `components/ui/use-breakpoint.ts`, replaces the local media-query
 - Header actions wrap rather than collapsing into a generic "More" menu.
 - Tasks: Reopen takes no reason (existing behaviour).
 - A comment typed in the approval discussion is still lost across the 1024px breakpoint (`components/collaboration`).
+
+### 47.2 Part 2: remaining module surfaces
+
+Two agents closed the module-specific defects the survey recorded, after re-reading the code to confirm each one. Of the 150 in their slices, 101 were closed in code, 42 had already been closed by part 1's shared primitives, and 7 are open (listed below). Before and after for each defect is in the [coverage manifest](mobile/coverage-manifest.md): 112 rows were updated and 45 added.
+
+The common fixes were these:
+- hand-built scroll wrappers replaced by the labelled, keyboard-reachable `ScrollRegion`, and tables that had no wrapper now wrapped;
+- fixed widths made responsive, and long values that were cut off or widened the page now wrap;
+- icon-only actions given names and the shared touch sizes;
+- `inputMode` and a new `tel` field type (`lib/forms/field-config.ts`), so phone, URL and decimal fields open the right keyboard;
+- sticky bars marked `data-sticky-action-bar` with safe areas;
+- local media-query copies (calendar, timesheets, planning) moved onto the shared hook, so first paint no longer flashes the wrong layout.
+
+Module-specific fixes:
+- **Projects and planning:**
+  - the milestone report folds its filters behind a toggle and shows cards on phones;
+  - the timeline has a focusable, named region with 44px zoom;
+  - the structure tree's menu is visible on touch.
+- **Finance:**
+  - approval rows wrap;
+  - Void on a payment moved from an unlabelled column to the row action, and the phone card no longer draws an empty action strip.
+- **Procurement:**
+  - quote comparison is one card per supplier on phones, with a pinned supplier column on tablets;
+  - order and request lines are cards;
+  - removing a line offers Undo.
+- **Sales:** empty pipeline stages say so on phones.
+- **Calendar:** Agenda on phones without the week grid flashing first; tapping an empty time slot creates an event on touch.
+- **Collaboration:** the comment composer keeps typed text across the approvals 1024px remount, in memory only.
+- **Timesheets:** "Copy last week" offers only what phone day cards can show.
+- **Documents:** inline PDF only where an inline viewer exists, otherwise an explicit "Open in a new tab".
+- **Platform Admin:** the phone menu uses the shared Drawer, so focus is trapped and it closes on Escape or route change.
+- **HSE:** the stop-work banner is pinned on `/hse` and the project HSE page.
+
+**Found during the full test run:** `workforce-stage3.test.ts` deleted its HSE permits and incidents but left their pending approval cycles. `verify:workflows` reported this as APPROVAL_CYCLE_WITHOUT_SOURCE on three lanes: the "orphan HSE approval" noted in §44 came from this test. The cleanup now removes the cycles first. The orphans on the lanes were deleted (test lanes only), and the gate is clean.
+
+**Evidence (part 2):**
+- tsc is clean. eslint is clean on 146 changed files.
+- Gates:
+  - `verify:authorization`, `ownership`, `state`, `workers` and `production-guards` pass.
+  - `company-integrity`, `organization`, `employment`, `employee-integrity` and `workflows` pass on `nesto_a6c` after the full run.
+  - The security matrix was regenerated; the access manifest is current.
+- A production `next build` passes.
+- Full vitest:
+  - `nesto_a6b`: 3,627 of 3,629. The two failures also fail on 324a3ca9 (3D viewer shell, telemetry budget).
+  - `nesto_a6c`: 1,926 passed and 2 skipped.
+- E2E specs added for the final pass: `aud04-modules-a.spec.ts` (12 module sweeps plus targeted checks) and `aud04-modules-b.spec.ts` (21 surfaces, read-only identity, Platform Admin, collaboration draft). Some locators assume seeded data and may need fixing on the first run.
+
+**Open (part 2):**
+- **Product decisions:**
+  - The invoice and expense lists accept a date range only through the URL (D-02-07). A control would be new, desktop included.
+  - The stop-work banner is not yet on every HSE page (D-03-08). It needs a query in the HSE layout.
+  - The document sharing-classification select still saves as soon as it changes (D-09-08). A confirm step would be new behaviour.
+- **Calendar:** switching to Agenda makes a second range fetch. At 320px, month cells are about 40px wide.
+- **Not yet done** (MW-18, MW-22): real-device checks and the throttled performance comparison, which belongs with AUD-07.

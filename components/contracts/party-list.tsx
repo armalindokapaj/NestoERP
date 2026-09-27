@@ -172,7 +172,7 @@ function Row({ label, value }: { label: string; value: string | null | undefined
   return (
     <div className="flex gap-2">
       <dt className="text-fg-subtle">{label}</dt>
-      <dd className="min-w-0 truncate text-fg">{value}</dd>
+      <dd className="min-w-0 text-fg [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }

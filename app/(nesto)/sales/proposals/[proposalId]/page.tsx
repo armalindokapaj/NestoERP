@@ -96,8 +96,9 @@ export default async function ProposalPage({ params }: Params) {
           </p>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <Table>
+        {/* The Table primitive is the labelled scroll region itself (AUD-04 §5, SP-02). */}
+        <div className="mt-4">
+          <Table label="Proposal lines">
             <TableHead>
               <tr>
                 <TableHeaderCell scope="col">Description</TableHeaderCell>

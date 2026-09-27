@@ -6,6 +6,7 @@ import { FolderKanban } from "lucide-react";
 import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { PersonLink } from "@/components/people/person-link";
@@ -194,12 +195,14 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
               </section>
             </div>
 
-            <section className="nesto-card overflow-x-auto" aria-labelledby="entries-title">
+            <section className="nesto-card" aria-labelledby="entries-title">
               <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
                 <h2 id="entries-title" className="text-card font-semibold text-fg">Entries</h2>
                 {!summary.showsDescriptions ? <p className="text-meta text-fg-muted">Descriptions are shown to people who oversee the team.</p> : null}
               </div>
-              <table className="mt-2 w-full min-w-[720px] border-collapse text-table" data-testid="project-entries">
+              {/* The entries pan in a labelled region, the heading stays put (AUD-04 §5, D-07-15, MW-19). */}
+              <ScrollRegion label="Entries" className="mt-2">
+              <table className="w-full min-w-[720px] border-collapse text-table" data-testid="project-entries">
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-muted">
                     <th scope="col" className="px-5 py-2 font-medium">Date</th>
@@ -233,6 +236,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                   ))}
                 </tbody>
               </table>
+              </ScrollRegion>
               {summary.entriesTruncated ? <p className="px-5 py-3 text-meta text-fg-muted">Showing the latest 200 entries. Narrow the range to see the rest.</p> : <div className="h-2" />}
             </section>
           </>

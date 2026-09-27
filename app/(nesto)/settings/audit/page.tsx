@@ -7,6 +7,7 @@ import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { PersonLink } from "@/components/people/person-link";
 import { AuditExportLink } from "@/components/settings/audit-export-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { EmptyState } from "@/components/ui/empty-state";
 import { auditQuerySchema, listAuditEvents } from "@/lib/core/audit/audit-query.service";
 import { can } from "@/lib/access/can";
@@ -82,7 +83,8 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
         />
       ) : (
         <>
-          <div className="nesto-card overflow-x-auto">
+          {/* A labelled, keyboard-reachable scroll region (AUD-04 §5, D-07-15, MW-19). */}
+          <ScrollRegion label={t("sections.audit.label")} className="nesto-card">
             <table className="w-full min-w-[52rem]">
               <thead>
                 <tr className="border-b border-line text-meta text-fg-subtle">
@@ -126,7 +128,7 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
           {/* Page links keep the severity and the search: paging used to drop them (AUD-08 §3). */}
           <Pagination meta={pagination} buildHref={(next) => pageHref("/settings/audit", params, next)} />
         </>

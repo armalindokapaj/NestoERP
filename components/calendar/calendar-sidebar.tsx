@@ -39,10 +39,10 @@ export function MiniCalendar({
       <div className="mb-2 flex items-center justify-between">
         <span className="text-table font-semibold text-fg">{label}</span>
         <div className="flex gap-0.5">
-          <button type="button" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
             <ChevronLeft aria-hidden="true" className="size-4" />
           </button>
-          <button type="button" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
             <ChevronRight aria-hidden="true" className="size-4" />
           </button>
         </div>

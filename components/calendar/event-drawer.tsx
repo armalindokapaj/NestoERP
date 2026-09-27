@@ -103,7 +103,7 @@ export function EventDrawer({
 
   return (
     <Drawer open onOpenChange={onOpenChange}>
-      <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", !phone && "sm:max-w-[460px]")} aria-describedby="event-drawer-when" data-testid="event-drawer">
+      <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", phone === false && "sm:max-w-[460px]")} aria-describedby="event-drawer-when" data-testid="event-drawer">
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5" style={categoryStyle(event)}>
           <div className="min-w-0">
             {busy ? null : (
@@ -124,7 +124,7 @@ export function EventDrawer({
               {detail?.archived ? <Badge tone="neutral">Archived</Badge> : null}
             </div>
           </div>
-          <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg">
+          <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
             <X aria-hidden="true" className="size-4" />
           </button>
         </div>

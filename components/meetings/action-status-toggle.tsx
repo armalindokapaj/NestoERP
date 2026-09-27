@@ -58,7 +58,8 @@ export function ActionStatusToggle({
       disabled={disabled || pending}
       onClick={() => void toggle()}
       className={cn(
-        "flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
+        // A 44px hit area under touch around the 20px box (AUD-04 §3, D-08-21, MW-19).
+        "relative flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed touch:after:absolute touch:after:-inset-3 touch:after:content-['']",
         checked ? "border-success-strong bg-success-strong text-white" : "border-line-strong bg-surface hover:border-accent",
         disabled && !checked && "opacity-50",
       )}

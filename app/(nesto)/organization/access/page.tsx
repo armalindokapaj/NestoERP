@@ -56,7 +56,7 @@ export default async function AccessPage({ searchParams }: Props) {
   const requested = one(params.view);
   const view = keeps && (requested === "roles" || requested === "check") ? requested : "grants";
   const tab = (active: boolean) =>
-    cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <ModulePage
@@ -96,7 +96,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
   const query = grantListQuerySchema.parse({ status: status === "all" ? "all" : "live" });
   const [grants, options] = await Promise.all([listAccessGrants(context, query), grantOptions(context)]);
   const chip = (active: boolean) =>
-    cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   return (
     <section className="space-y-3" aria-label="Delegated access">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -113,8 +113,36 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
       {grants.length === 0 ? (
         <EmptyState title="Nothing delegated" description="Everybody works with what their role and position give them." />
       ) : (
-        <div className="nesto-card p-0">
-          <Table flush aria-label="Delegated access">
+        <>
+        {/*
+          * Phones get one card per grant with every column's value and Revoke
+          * on the card, not ~900px to the right (AUD-04 §5, D-07-19, MW-05).
+          */}
+        <ul className="space-y-3 md:hidden" aria-label="Delegated access">
+          {grants.map((grant) => (
+            <li key={grant.id} className="nesto-card space-y-1.5 px-4 py-3" data-testid="grant-card">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
+                  <PersonLink userId={grant.holder.userId} name={grant.holder.name} />
+                </span>
+                <Badge tone={STATUS_TONES[grant.status]}>{grant.status === "LIVE" ? "In force" : grant.status.charAt(0) + grant.status.slice(1).toLowerCase()}</Badge>
+              </div>
+              <p className="text-table text-fg">
+                {grant.module.label} · {LEVEL_LABELS[grant.accessLevel]} · {grant.scope.type === "GROUP" ? "Every company" : (grant.scope.company?.name ?? "—")}
+              </p>
+              <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
+                Delegated by <PersonLink userId={grant.grantedBy.userId} name={grant.grantedBy.name} />
+                {grant.reason ? ` — ${grant.reason}` : ""}
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-meta text-fg-muted">{grant.revokedAt ? `Revoked ${formatDate(grant.revokedAt)}` : grant.expiresAt ? `Until ${formatDate(grant.expiresAt)}` : "Until revoked"}</p>
+                {grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={grant.module.label} /> : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="nesto-card hidden p-0 md:block">
+          <Table flush label="Delegated access" aria-label="Delegated access">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Person</TableHeaderCell>
@@ -154,6 +182,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </section>
   );
@@ -162,7 +191,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
 function RolesView({ role: requested }: { role: string | undefined }) {
   const role: RoleKey = requested && isMembershipRoleKey(requested) ? requested : "OWNER";
   const chip = (active: boolean) =>
-    cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   const rows = MODULE_KEYS.filter((key) => key !== "dashboard")
     .map((key) => ({ key, label: moduleRegistry[key].label, member: defaultAccessFor(role, key, "MEMBER"), manager: defaultAccessFor(role, key, "COMPANY_MANAGER"), head: defaultAccessFor(role, key, "GROUP_HEAD") }))
     .filter((row) => row.member.accessLevel !== "NONE" || row.manager.accessLevel !== "NONE" || row.head.accessLevel !== "NONE");

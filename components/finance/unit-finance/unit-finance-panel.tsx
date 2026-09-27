@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { PAYMENT_METHODS } from "@/lib/modules/finance/payments/payment.schema";
 import { INSTALLMENT_TYPE_LABELS, INSTALLMENT_TYPES, type ContractPaymentDTO, type InstallmentDTO, type ScheduleDTO, type UnitFinanceDTO } from "@/lib/modules/finance/units/unit-finance.types";
 import { formatDate } from "@/lib/utils/format";
@@ -240,7 +241,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                           </span>
                           {allocation.reversed ? <span>reversed{allocation.reversalReason ? `: ${allocation.reversalReason}` : ""}</span> : null}
                           {!allocation.reversed && payment.status === "RECORDED" && caps.canCorrect ? (
-                            <button type="button" className="text-accent hover:underline" onClick={() => setOpen({ kind: "reverse", allocationId: allocation.id, label: allocation.label })}>
+                            <button type="button" className="text-accent hover:underline touch:inline-flex touch:min-h-11 touch:items-center touch:px-2" aria-label={`Reverse allocation to ${allocation.label}`} onClick={() => setOpen({ kind: "reverse", allocationId: allocation.id, label: allocation.label })}>
                               Reverse
                             </button>
                           ) : null}
@@ -387,7 +388,7 @@ function InstallmentTable({ schedule, currency, canInvoice, onInvoice }: { sched
     ) : null;
   return (
     <>
-      <div className="mt-3 hidden overflow-x-auto sm:block">
+      <ScrollRegion label="Installments" className="mt-3 hidden sm:block">
         <table className="w-full min-w-[40rem] text-table" data-testid="installments">
           <thead>
             <tr className="border-b border-line text-left text-meta text-fg-subtle">
@@ -419,7 +420,7 @@ function InstallmentTable({ schedule, currency, canInvoice, onInvoice }: { sched
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       {/* On a phone each installment reads as one block: nothing scrolls out of sight. */}
       <ul className="mt-3 divide-y divide-line sm:hidden" data-testid="installment-cards">
         {schedule.installments.map((row) => (

@@ -6,6 +6,7 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { ModulePage } from "@/components/modules/module-page";
 import { TimesheetStatusBadge } from "@/components/timesheets/timesheet-ui";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
@@ -92,7 +93,50 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
         {list.rows.length === 0 ? (
           <EmptyState icon={<Users />} title="Nobody here for this week." description="People whose timesheets you oversee or approve appear here." />
         ) : (
-          <div className="nesto-card overflow-x-auto">
+          <>
+          {/*
+            * Phones get one card per person with every column's value; the
+            * table (from md) pans in a labelled region (AUD-04 §5, D-07-15,
+            * D-07-18, MW-05).
+            */}
+          <ul className="space-y-3 md:hidden" aria-label="Team weeks" data-testid="team-cards">
+            {list.rows.map((row) => (
+              <li key={row.member.memberId} className="nesto-card space-y-2 px-4 py-3" data-testid="team-card">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {row.href ? (
+                      <Link href={row.href} className="inline-flex items-center font-medium text-fg [overflow-wrap:anywhere] hover:text-accent-strong touch:min-h-11">
+                        {row.member.name}
+                      </Link>
+                    ) : (
+                      <PersonLink memberId={row.member.memberId} name={row.member.name} />
+                    )}
+                    <span className="block text-meta text-fg-muted">{[row.member.jobTitle, row.member.department].filter(Boolean).join(" · ") || "—"}</span>
+                  </div>
+                  <TimesheetStatusBadge status={row.status} />
+                </div>
+                <dl className="grid grid-cols-3 gap-2 text-table">
+                  <div>
+                    <dt className="text-meta text-fg-subtle">Total</dt>
+                    <dd className="font-medium tabular-nums">{row.totalMinutes ? formatMinutes(row.totalMinutes) : "–"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-meta text-fg-subtle">Billable</dt>
+                    <dd className="tabular-nums text-fg-muted">{row.billableMinutes ? formatMinutes(row.billableMinutes) : "–"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-meta text-fg-subtle">Overtime</dt>
+                    <dd className={cn("tabular-nums", row.overtimeMinutes ? "text-warning-strong" : "text-fg-muted")}>{row.overtimeMinutes ? formatMinutes(row.overtimeMinutes) : "–"}</dd>
+                  </div>
+                </dl>
+                <p className="text-meta text-fg-muted">
+                  {row.status === "SUBMITTED" ? `Waiting ${age(row.submittedAt)} · ` : ""}
+                  Approver: {row.approver ? <PersonLink memberId={row.approver.memberId} name={row.approver.name} /> : "Not set"}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <ScrollRegion label="Team weeks" className="nesto-card hidden md:block">
             <table className="w-full min-w-[760px] border-collapse text-table" data-testid="team-timesheets">
               <thead>
                 <tr className="border-b border-line text-left text-meta text-fg-muted">
@@ -130,7 +174,8 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
+          </>
         )}
         {list.truncated ? (
           <p role="status" className="text-meta text-fg-muted" data-testid="team-truncated">

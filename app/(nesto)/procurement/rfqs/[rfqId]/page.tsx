@@ -9,6 +9,7 @@ import { InviteSupplierControl } from "@/components/procurement/invite-supplier-
 import { RfqActions } from "@/components/procurement/rfq-actions";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
@@ -85,7 +86,7 @@ export default async function RfqDetailPage({ params }: Params) {
                 Every supplier priced these lines, so the answers compare.
               </p>
             </div>
-            <div className="overflow-x-auto">
+            <ScrollRegion label="Enquiry lines">
               <table className="w-full text-table">
                 <caption className="sr-only">Enquiry lines</caption>
                 <thead>
@@ -110,7 +111,7 @@ export default async function RfqDetailPage({ params }: Params) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
           </section>
 
           <section className="nesto-card p-5">

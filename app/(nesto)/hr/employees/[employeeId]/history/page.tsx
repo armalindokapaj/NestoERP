@@ -8,6 +8,7 @@ import { EmployeeTabs } from "@/components/hr/employee-tabs";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
 import { assignmentReasonLabels, changeStatusLabels, changeTypeLabels, historySourceLabels, statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
@@ -91,11 +92,13 @@ export default async function EmploymentHistoryPage({ params }: Params) {
         </div>
       </section>
 
-      <section className="nesto-card overflow-x-auto p-5" aria-labelledby="assignments">
+      <section className="nesto-card p-5" aria-labelledby="assignments">
         <h2 id="assignments" className="text-card font-semibold text-fg">
           Positions and placements
         </h2>
-        <table className="mt-3 w-full min-w-[720px] text-table">
+        {/* The tables pan in labelled regions; headings stay put (AUD-04 §5, D-07-15, MW-19). */}
+        <ScrollRegion label="Positions and placements" className="mt-3">
+        <table className="w-full min-w-[720px] text-table">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
               <th className="py-2 pr-3 font-medium">Period</th>
@@ -148,13 +151,15 @@ export default async function EmploymentHistoryPage({ params }: Params) {
             ))}
           </tbody>
         </table>
+        </ScrollRegion>
       </section>
 
-      <section className="nesto-card overflow-x-auto p-5" aria-labelledby="statuses">
+      <section className="nesto-card p-5" aria-labelledby="statuses">
         <h2 id="statuses" className="text-card font-semibold text-fg">
           Status
         </h2>
-        <table className="mt-3 w-full min-w-[560px] text-table">
+        <ScrollRegion label="Status history" className="mt-3">
+        <table className="w-full min-w-[560px] text-table">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
               <th className="py-2 pr-3 font-medium">Period</th>
@@ -189,6 +194,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
             ))}
           </tbody>
         </table>
+        </ScrollRegion>
       </section>
 
       {hr && history.scheduled.some((row) => row.status === "APPLIED" || row.status === "CANCELLED") ? (

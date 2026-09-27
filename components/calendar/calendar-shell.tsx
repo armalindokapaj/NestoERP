@@ -20,6 +20,7 @@ import { EventFormDrawer, type EventFormMode } from "./event-form";
 import { MonthView } from "./month-view";
 import { TimeGridView } from "./time-grid-view";
 import { EMPTY_FILTERS, readPreferences, useCalendarData, writePreferences, type CalendarFilterState } from "./use-calendar-data";
+import { belowQuery } from "@/components/ui/use-breakpoint";
 import { useIsPhone } from "./use-is-phone";
 
 /**
@@ -53,7 +54,8 @@ export function CalendarShell({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const phone = useIsPhone();
+  // `undefined` until the browser answers (AUD-04 §3, SP-15); treated as "not a phone" for behaviour.
+  const phone = useIsPhone() === true;
   const toast = useToast();
   const zone = initial.timezone;
   const today = todayIn(zone);
@@ -66,6 +68,10 @@ export function CalendarShell({
   const [openEvent, setOpenEvent] = React.useState<CalendarEventDTO | null>(null);
   const [form, setForm] = React.useState<EventFormMode | null>(null);
   const hydrated = React.useRef(false);
+  // Until the mount effect has chosen the phone's Agenda, the server's view is
+  // kept out of sight on a phone, so the week grid never flashes there first
+  // (AUD-04 §8, D-08-14, MW-17). A shared link (explicit view) is final at once.
+  const [settled, setSettled] = React.useState(explicitView);
 
   // Remembered choices apply after hydration, and never override a shared link.
   React.useEffect(() => {
@@ -73,9 +79,10 @@ export function CalendarShell({
     if (stored.filters) setFilters({ ...EMPTY_FILTERS, ...stored.filters });
     if (stored.sidebarCollapsed) setCollapsed(true);
     if (!explicitView) {
-      if (window.matchMedia("(max-width: 767px)").matches) setView("agenda");
+      if (window.matchMedia(belowQuery("md")).matches) setView("agenda");
       else if (isView(stored.view)) setView(stored.view);
     }
+    setSettled(true);
     hydrated.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -235,7 +242,8 @@ export function CalendarShell({
       className={cn(
         "flex flex-col gap-4",
         // Week and Day scroll inside their card, so the grid can open at the working day.
-        view === "week" || view === "day" ? "h-[calc(100dvh-var(--nesto-topbar-height)-3rem)] min-h-[620px]" : "min-h-[calc(100dvh-var(--nesto-topbar-height)-3rem)]",
+        // The 620px floor only from lg: on a landscape phone it made the page and the grid both scroll (AUD-04 §8, D-08-17).
+        view === "week" || view === "day" ? "h-[calc(100dvh-var(--nesto-topbar-height)-3rem)] min-h-[min(620px,calc(100dvh-var(--nesto-topbar-height)-3rem))] lg:min-h-[620px]" : "min-h-[calc(100dvh-var(--nesto-topbar-height)-3rem)]",
       )}
       data-testid="calendar"
     >
@@ -267,7 +275,8 @@ export function CalendarShell({
                 aria-selected={view === option.key}
                 onClick={() => setView(option.key)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-table font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:px-3",
+                  // 44px under touch (AUD-04 §3, D-08-18, MW-19).
+                  "rounded-md px-2.5 py-1 text-table font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:px-3 touch:min-h-11",
                   view === option.key ? "bg-surface text-fg shadow-card" : "text-fg-muted hover:text-fg",
                 )}
               >
@@ -313,7 +322,7 @@ export function CalendarShell({
             onClick={() => setCollapsed((value) => !value)}
             aria-label={collapsed ? "Show calendar sidebar" : "Hide calendar sidebar"}
             aria-expanded={!collapsed}
-            className="grid size-8 place-items-center self-start rounded-md text-fg-subtle outline-none hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-ring"
+            className="grid size-8 place-items-center self-start rounded-md text-fg-subtle outline-none hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
           >
             {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
           </button>
@@ -335,8 +344,9 @@ export function CalendarShell({
             view === "month" && "min-h-[560px]",
             view === "agenda" || (view === "month" && phone) ? "" : "nesto-card",
             view === "agenda" && "nesto-card px-3 md:px-4",
+            !settled && "max-md:invisible",
           )}
-          aria-busy={loading}
+          aria-busy={loading || !settled}
         >
           {loading ? <div className="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-accent/60" aria-hidden="true" /> : null}
           {view === "month" ? (

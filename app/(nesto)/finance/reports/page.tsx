@@ -9,6 +9,7 @@ import { NoAccessibleData } from "@/components/finance/group-rows";
 import { Money, Variance } from "@/components/finance/money";
 import { ModulePage } from "@/components/modules/module-page";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
@@ -103,7 +104,7 @@ export default async function FinanceReportsPage({
                   href={`/finance/reports?report=${entry.key}`}
                   aria-current={entry.key === active ? "page" : undefined}
                   className={cn(
-                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
                     entry.key === active
                       ? "border-accent text-fg"
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
@@ -161,7 +162,7 @@ async function AgingReport({ context }: { context: UserContext }) {
         Outstanding on sent invoices, by how far past the due date they are. Currencies are
         reported separately.
       </p>
-      <div className="nesto-card overflow-x-auto">
+      <ScrollRegion label="Receivables aging" className="nesto-card">
         <table className="w-full text-table">
           <caption className="sr-only">Receivables aging</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -197,7 +198,7 @@ async function AgingReport({ context }: { context: UserContext }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }
@@ -358,7 +359,7 @@ async function CashflowReport({
             href={`/finance/reports?report=cashflow&period=${entry}`}
             aria-current={entry === selected ? "page" : undefined}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-table font-medium transition-colors",
+              "inline-flex items-center rounded-md border px-3 py-1.5 text-table font-medium transition-colors touch:min-h-11",
               entry === selected
                 ? "border-accent bg-accent-soft text-accent-strong"
                 : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
@@ -380,7 +381,7 @@ async function CashflowReport({
           description="Try a wider period, or record a payment against an invoice or expense."
         />
       ) : (
-        <div className="nesto-card overflow-x-auto">
+        <ScrollRegion label="Cashflow summary" className="nesto-card">
           <table className="w-full text-table">
             <caption className="sr-only">Cashflow summary</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -418,7 +419,7 @@ async function CashflowReport({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       )}
     </div>
   );

@@ -164,7 +164,7 @@ export function SalesInventory({
                 data-testid="sales-quick-filter"
                 data-status={status || "ALL"}
                 onClick={() => setFilter({ commercialStatus: status })}
-                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {status ? UNIT_COMMERCIAL_STATUS_LABELS[status] : "All"}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>
@@ -231,7 +231,7 @@ export function SalesInventory({
         <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
           {active ? <p className="mb-2 text-table text-fg-muted">{plural(list.total, "unit")}</p> : null}
           <div className="hidden md:block">
-            <Table data-testid="sales-table">
+            <Table label="Sales inventory" data-testid="sales-table">
               <TableHead>
                 <tr>
                   <TableHeaderCell>Unit</TableHeaderCell>
@@ -288,6 +288,7 @@ export function SalesInventory({
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
                     {row.building} · {row.floor} · {areaText(row.saleableArea)}
+                    {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency)}` : null}
                   </span>
                   {row.client || row.reservationExpiresAt ? (
                     <span className="mt-1 block text-meta text-fg-muted">
@@ -301,6 +302,14 @@ export function SalesInventory({
                   <Button asChild variant="secondary" size="sm">
                     <Link href={href(row)}>Open</Link>
                   </Button>
+                  {/* The table's Deal column, so a phone reaches the unit's deal too (AUD-04 §5, MW-05). */}
+                  {list.canSeeDeals && row.deal ? (
+                    <Button asChild variant="secondary" size="sm" className="max-w-full">
+                      <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={`Deal: ${row.deal.name}`}>
+                        <span className="truncate">Deal: {row.deal.name}</span>
+                      </Link>
+                    </Button>
+                  ) : null}
                   {actions.canReserve && (row.status === "FOR_SALE" || row.status === "ON_HOLD") && row.publicationStatus === "PUBLISHED" ? (
                     <Button asChild size="sm">
                       <Link href={`${href(row)}/sales?action=reserve`}>Reserve</Link>

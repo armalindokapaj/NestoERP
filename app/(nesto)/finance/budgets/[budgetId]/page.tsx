@@ -9,6 +9,7 @@ import { Money, Variance } from "@/components/finance/money";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate } from "@/lib/utils/format";
@@ -93,7 +94,7 @@ export default async function BudgetDetailPage({ params }: Params) {
         <section className="nesto-card p-5 lg:col-span-2">
           <h2 className="text-card font-semibold text-fg">Budget lines</h2>
 
-          <div className="mt-4 overflow-x-auto">
+          <ScrollRegion label="Budget lines" className="mt-4">
             <table className="w-full text-table">
               <caption className="sr-only">Budget lines</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
@@ -123,7 +124,7 @@ export default async function BudgetDetailPage({ params }: Params) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
             <Row label="Budget">

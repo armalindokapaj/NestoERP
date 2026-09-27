@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -81,10 +82,11 @@ export default async function QaqcReportsPage() {
         {reports.passRateByProject.length > 0 ? (
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">Quality by project</h2>
+            {/* Long project names wrap instead of being cut (AUD-04 §8, D-04-05, MW-17). */}
             <dl className="mt-4 space-y-2.5">
               {reports.passRateByProject.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3">
-                  <dt className="min-w-0 truncate text-table text-fg-muted">{row.label}</dt>
+                  <dt className="min-w-0 text-table text-fg-muted [overflow-wrap:anywhere]">{row.label}</dt>
                   <dd className="shrink-0 text-table tabular-nums text-fg">
                     {row.percent === null ? "—" : `${row.percent}%`}{" "}
                     <span className="text-fg-subtle">({row.total})</span>
@@ -167,7 +169,7 @@ export default async function QaqcReportsPage() {
               — it counts inspections, not performance.
             </p>
 
-            <div className="mt-4 overflow-x-auto">
+            <ScrollRegion label="Quality by supplier" className="mt-4">
               <table className="w-full text-table">
                 <caption className="sr-only">Quality outcomes by supplier</caption>
                 <thead>
@@ -197,7 +199,7 @@ export default async function QaqcReportsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
           </section>
         ) : null}
 

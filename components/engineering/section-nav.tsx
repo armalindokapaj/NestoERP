@@ -24,7 +24,7 @@ export function SectionNav({ items, label, testId, layout = "column" }: { items:
           {items.map((item) => {
             const current = item.href === active;
             return (
-              <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined} className={cn("-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors", current ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}>
+              <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined} className={cn("-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 touch:min-h-11 text-table font-medium transition-colors", current ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}>
                 {item.label}
                 {item.count ? <span className="rounded-full bg-surface-muted px-1.5 text-meta tabular-nums text-fg-muted">{item.count}</span> : null}
               </Link>
@@ -48,7 +48,7 @@ export function SectionNav({ items, label, testId, layout = "column" }: { items:
                 className={cn(
                   "flex items-center justify-between gap-3 whitespace-nowrap rounded-md px-3 py-2 text-table transition-colors",
                   current ? "bg-hover font-medium text-fg" : "text-fg-muted hover:bg-hover/60 hover:text-fg",
-                  "max-lg:min-h-10 max-lg:rounded-full max-lg:border max-lg:border-line max-lg:py-1.5",
+                  "max-lg:min-h-11 max-lg:rounded-full max-lg:border max-lg:border-line max-lg:py-1.5",
                   current && "max-lg:border-line-strong",
                 )}
               >

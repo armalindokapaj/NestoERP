@@ -34,7 +34,7 @@ export default async function Page({
       experience={experience}
       activeSection="drafts"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {can(context, "legal.export") ? <ContractExportLink search={search} /> : null}
           {can(context, "legal.contract.create") ? (
             <Button asChild size="sm">
