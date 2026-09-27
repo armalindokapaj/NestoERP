@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { parseDecimalInput } from "@/lib/forms/decimal";
+import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
+
 import { parseLeniently } from "@/lib/modules/finance/units/unit-finance.schema";
 import { idSchema } from "@/lib/modules/project-structure/structure.schema";
 import { LEGAL_REASON_MAX } from "./unit-contract.types";
@@ -20,10 +23,20 @@ const optionalText = (max: number) =>
     .nullable()
     .transform((value) => (value ? value : null));
 
-const money = z.preprocess(
-  (value) => (typeof value === "number" ? String(value) : typeof value === "string" ? value.trim().replace(/\s/g, "").replace(",", ".") : value),
-  z.string({ error: "Enter the unit's value." }).regex(/^\d{1,16}(\.\d{1,2})?$/, "Enter the value as a number with at most two decimals."),
-);
+/** A unit's value by the shared decimal rule (AUD-09 §4, FV-06): `1,234` is refused as ambiguous. */
+const money = z.unknown().transform((value, ctx): string => {
+  const text = typeof value === "number" && Number.isFinite(value) ? String(value) : value;
+  if (typeof text !== "string" || text.trim() === "") {
+    ctx.addIssue({ code: "custom", message: "Enter the unit's value." });
+    return z.NEVER;
+  }
+  const parsed = parseDecimalInput(text, { label: "The unit's value", ...MONEY_RULE });
+  if (!parsed.ok) {
+    ctx.addIssue({ code: "custom", message: parsed.message });
+    return z.NEVER;
+  }
+  return parsed.value;
+});
 
 export const requestContractSchema = z.object({ notes: optionalText(2_000) });
 

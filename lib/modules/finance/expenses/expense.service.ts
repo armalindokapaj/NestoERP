@@ -15,7 +15,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
-import { businessDateString } from "../finance.fields";
+import { businessDateString, keepOrSet } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import { hasCompanyFinanceScope } from "../finance.scope";
 import { assertSettlementIntegrity, EXPORT_ROW_LIMIT, exportLimitExceeded, measuredRegister } from "../finance.register";
@@ -26,7 +26,7 @@ import type { CompanyRef, ExpenseDetailDTO, ExpenseSummaryDTO, FinanceListSummar
 import { calculateExpenseTotal } from "../invoices/invoice.calculation";
 import { expenseSettlement } from "../invoices/invoice.status";
 import * as repository from "./expense.repository";
-import type { CreateExpenseInput, ExpenseListQuery, UpdateExpenseInput } from "./expense.schema";
+import { EXPENSE_TOTAL_MESSAGE, expenseTotalIsPositive, type CreateExpenseInput, type ExpenseListQuery, type UpdateExpenseInput } from "./expense.schema";
 import { expenseMachine, type ExpenseTransitionAction } from "./expense.machine";
 import {
   CANCELLABLE_EXPENSE_STATUSES,
@@ -267,12 +267,22 @@ export async function updateExpense(
     );
   }
 
-  const project = await validateProject(context, input.projectId, input.currency);
-  const totals = calculateExpenseTotal(input.netAmount, input.taxAmount);
+  // Absent keeps what is saved; empty or null clears (AUD-09 §4, FV-05). The
+  // edit form always sends every field, so this only changes what an API
+  // caller that leaves a key out gets: its saved value, not an erasure.
+  const projectId = keepOrSet(input.projectId, existing.project?.id ?? null);
+  const expenseNumber = keepOrSet(input.expenseNumber, existing.expenseNumber);
+  const taxAmount = input.taxAmount ?? existing.taxAmount.toString();
+  if (!expenseTotalIsPositive(input.netAmount, toAmountString(taxAmount))) {
+    throw new AccessError("VALIDATION_ERROR", EXPENSE_TOTAL_MESSAGE, { netAmount: [EXPENSE_TOTAL_MESSAGE] });
+  }
+
+  const project = await validateProject(context, projectId ?? undefined, input.currency);
+  const totals = calculateExpenseTotal(input.netAmount, taxAmount);
 
   await prisma.$transaction(async (tx) => {
-    if (input.expenseNumber) {
-      await assertNumberIsFree(tx, context, input.expenseNumber, expenseId);
+    if (expenseNumber) {
+      await assertNumberIsFree(tx, context, expenseNumber, expenseId);
     }
 
     // Conditional on the status the edit was checked against, so an expense
@@ -280,17 +290,17 @@ export async function updateExpense(
     const written = await tx.expense.updateMany({
       where: { id: expenseId, companyId: context.companyId, status: existing.status },
       data: {
-        expenseNumber: input.expenseNumber ?? null,
+        expenseNumber,
         projectId: project?.id ?? null,
         expenseDate: input.expenseDate,
         category: input.category,
         description: input.description,
-        payeeName: input.payeeName ?? null,
+        payeeName: input.payeeName,
         currency: input.currency,
         netAmount: totals.netAmount,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
-        notes: input.notes ?? null,
+        notes: input.notes,
         updatedByMemberId: context.membershipId,
       },
     });
@@ -635,7 +645,9 @@ async function validateProject(
     },
     select: { id: true, name: true },
   });
-  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
+  // Beside the picker, whatever the reason: a forged, foreign or archived id
+  // answers exactly like a missing one (AUD-09 §5, FV-09; PRD #47 §20).
+  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.", { projectId: ["Choose a project you have access to."] });
 
   const budget = await prisma.projectBudget.findFirst({
     where: { projectId, isCurrent: true, status: "APPROVED" },
@@ -643,10 +655,8 @@ async function validateProject(
   });
 
   if (budget && budget.currency !== currency) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      `${project.name} is budgeted in ${budget.currency}. V0.1 does not convert currencies, so its costs must be in ${budget.currency} too.`,
-    );
+    const message = `${project.name} is budgeted in ${budget.currency}. V0.1 does not convert currencies, so its costs must be in ${budget.currency} too.`;
+    throw new AccessError("VALIDATION_ERROR", message, { currency: [message] });
   }
 
   return project;

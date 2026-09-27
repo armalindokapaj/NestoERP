@@ -6,7 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, History, Upload } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -360,7 +360,7 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
       setDocumentId(uploaded);
     },
   });
-  const uploading = upload.items.some((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
+  const uploading = upload.items.some((item) => UPLOAD_IN_FLIGHT.includes(item.status));
   const failed = upload.items.find((item) => item.status === "failed");
 
   // Submitting now is a workflow step; keeping it a draft is an ordinary create (AUD-03 §3).

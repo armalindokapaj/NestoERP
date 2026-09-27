@@ -2,10 +2,13 @@
 
 import type { TaskStatus } from "@prisma/client";
 
-import { AccessError } from "@/lib/access/guards";
+import { can } from "@/lib/access/can";
+import { AccessError, assertModule } from "@/lib/access/guards";
+import { actionFailure, validationFailure, type ActionFailure } from "@/lib/actions/result";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { revalidateTaskViews } from "@/lib/modules/tasks/task.invalidate";
 import type { TaskMutationMeta } from "@/lib/modules/tasks/task.mutation";
+import { taskAssigneeOptions } from "@/lib/modules/tasks/task.options";
 import { createTaskSchema, updateTaskSchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
@@ -23,12 +26,7 @@ import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
  * the right recovery instead of one message for everything.
  */
 
-export type TaskActionFailure = {
-  ok: false;
-  code: string;
-  error: string;
-  fieldErrors?: Record<string, string[]>;
-};
+export type TaskActionFailure = ActionFailure;
 
 /**
  * `redirectTo` is where the page goes after a normal save (AUD-03 §6);
@@ -36,23 +34,14 @@ export type TaskActionFailure = {
  */
 export type ActionResult = { ok: true; meta?: TaskMutationMeta; redirectTo?: string; lostAccess?: boolean } | TaskActionFailure;
 
+/**
+ * The shared failure reading (AUD-09 §3, `lib/actions/result.ts`): the
+ * business code when there is one (TASK_VERSION_CONFLICT goes on to the
+ * conflict review, AUD-02 §7), field errors under their paths, and never a
+ * raw database error (PRD #11 §249).
+ */
 function toResult(error: unknown): TaskActionFailure {
-  if (error instanceof AccessError) {
-    const details = error.details as Record<string, unknown> | undefined;
-    const code = typeof details?.code === "string" ? details.code : error.code;
-    return { ok: false, code, error: error.message, ...(fieldErrorsOf(details) ? { fieldErrors: fieldErrorsOf(details) } : {}) };
-  }
-  // Never surface a raw database error to a person (PRD #11 §249).
-  console.error("[tasks] action failed", error);
-  return { ok: false, code: "INTERNAL_ERROR", error: "We couldn't save your changes. Please try again." };
-}
-
-/** A refusal's details are field errors when every value is a list of messages. */
-function fieldErrorsOf(details: Record<string, unknown> | undefined): Record<string, string[]> | undefined {
-  if (!details) return undefined;
-  const entries = Object.entries(details).filter(([key]) => key !== "code");
-  if (entries.length === 0 || !entries.every(([, value]) => Array.isArray(value) && value.every((item) => typeof item === "string"))) return undefined;
-  return Object.fromEntries(entries) as Record<string, string[]>;
+  return actionFailure(error, "tasks");
 }
 
 function formValues(formData: FormData): Record<string, unknown> {
@@ -67,14 +56,7 @@ export async function createTaskAction(formData: FormData): Promise<ActionResult
   const context = await requireCompanyContext();
 
   const parsed = createTaskSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      code: "VALIDATION_ERROR",
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   // The record the task is raised from, as `type:id`. Not trusted: the service
   // reads it through the record registry in this person's scope (PRD #38 §47).
@@ -108,14 +90,7 @@ export async function updateTaskAction(taskId: string, formData: FormData): Prom
   const context = await requireCompanyContext();
 
   const parsed = updateTaskSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      code: "VALIDATION_ERROR",
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   let result: tasks.TaskMutationResponse;
   try {
@@ -151,7 +126,7 @@ export async function taskCommandAction(
     else if (command === "reopen") result = await tasks.reopenTask(context, taskId, { ...version, status: input.reopenTo });
     else if (command === "archive") result = await tasks.archiveTask(context, taskId, version);
     else if (command === "restore") result = await tasks.restoreTask(context, taskId, version);
-    else return { ok: false, code: "VALIDATION_ERROR", error: "That is not a task action." };
+    else return { ok: false, code: "VALIDATION_ERROR", category: "validation", error: "That is not a task action." };
   } catch (error) {
     return toResult(error);
   }
@@ -222,4 +197,30 @@ export async function taskReviewSnapshotAction(taskId: string): Promise<TaskRevi
       },
     },
   };
+}
+
+/**
+ * The assignee picker's options after the form's project changed (AUD-09 §5,
+ * FV-08). Read in this person's scope: an unreachable or archived project
+ * answers a refusal, never a team. Only for somebody who can create or edit
+ * tasks — it is the form's helper, not a directory.
+ */
+export type TaskAssigneeOptionsResult =
+  | { ok: true; options: Array<{ value: string; label: string }> }
+  | ActionFailure;
+
+export async function taskAssigneeOptionsAction(projectId: string | null): Promise<TaskAssigneeOptionsResult> {
+  const context = await requireCompanyContext();
+  try {
+    assertModule(context, "tasks");
+  } catch (error) {
+    return toResult(error);
+  }
+  if (!can(context, "task.create") && !can(context, "task.update")) {
+    return { ok: false, code: "FORBIDDEN", category: "permission", error: "You cannot assign tasks." };
+  }
+  const requested = typeof projectId === "string" && projectId.trim() !== "" ? projectId.trim().slice(0, 64) : null;
+  const result = await taskAssigneeOptions(context, requested);
+  if (!result.ok) return { ok: false, code: result.code, category: "validation", error: "That project is not available. Choose another project." };
+  return result;
 }

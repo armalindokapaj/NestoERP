@@ -146,15 +146,54 @@ export const createMeetingSchema = z
   .superRefine(refineMeeting);
 export type CreateMeetingInput = z.infer<typeof createMeetingSchema>;
 
+/**
+ * An optional text an edit may leave out (AUD-09 §4, FV-05): absent keeps
+ * the saved value, `""`/`null` clears it. The create form's `optionalText`
+ * turns absence into `null`, which on an edit would erase.
+ */
+const keptText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max.toLocaleString("en")} characters.`)
+    .nullable()
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value ? value : null));
+
+/**
+ * A meeting edit (PRD #40 §178, AUD-09 §4, FV-05, FV-10). The title, type,
+ * visibility and the schedule are always sent whole — the times only mean
+ * something with their date. Everything optional may be left out and then
+ * keeps its saved value: the location type no longer falls back to
+ * "Unspecified", and an absent description, place, link, project or
+ * department is no longer erased. `null` clears. The form sends every field,
+ * and clears the location it hides only because the person changed the
+ * location type — an intentional change (AUD-09 §5).
+ */
 export const updateMeetingSchema = z
   .object({
     ...meetingFields,
+    description: keptText(DESCRIPTION_MAX),
+    locationType: z.nativeEnum(MeetingLocationType).optional(),
+    locationText: keptText(LOCATION_MAX),
+    onlineUrl: keptText(ONLINE_URL_MAX).refine((value) => !value || isSafeMeetingUrl(value), { message: "Use an https:// meeting link." }),
     /** The version the form was loaded with (PRD #40 §178, §179). */
     version: z.coerce.number().int().min(1),
     /** For an occurrence of a series: this meeting, or this one and every later one (PRD #40 §227). */
     scope: z.enum(["THIS", "FUTURE"]).default("THIS"),
   })
-  .superRefine(refineMeeting);
+  .superRefine((value, ctx) => {
+    const problem = timeProblem(value);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ["endTime"] });
+    // An explicit clear is judged here; an absent link is judged by the
+    // service against the saved one.
+    if (value.visibility === "PROJECT" && value.projectId === null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Choose the project this meeting belongs to.", path: ["projectId"] });
+    }
+    if (value.visibility === "DEPARTMENT" && value.departmentId === null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Choose the department this meeting belongs to.", path: ["departmentId"] });
+    }
+  });
 export type UpdateMeetingInput = z.infer<typeof updateMeetingSchema>;
 
 export const cancelMeetingSchema = z.object({

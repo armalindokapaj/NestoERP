@@ -10,7 +10,7 @@ import type { RecruitmentOptionsDTO } from "@/lib/modules/hr/recruitment/candida
 import type { CandidateDetailDTO } from "@/lib/modules/hr/recruitment/candidate.service";
 import { EMPLOYMENT_TYPES } from "@/lib/modules/hr/hr.schema";
 import { statusLabel } from "@/lib/utils/status";
-import { candidateFields } from "./candidate-fields";
+import { candidateFields, withinCompany } from "./candidate-fields";
 
 type Open = "edit" | "select" | "hire" | "access" | "reject" | "withdraw" | null;
 
@@ -83,7 +83,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
           module="hr"
           wide
           onSubmit={async (payload) => {
-            await engineeringApi(base, { method: "PATCH", body: payload });
+            await engineeringApi(base, { method: "PATCH", body: withinCompany(payload, choices) });
             await run("edit", async () => null, "Candidate updated.");
           }}
         />

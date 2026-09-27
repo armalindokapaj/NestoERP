@@ -158,7 +158,7 @@ export function CommitmentForm({
             name="amount"
             inputMode="decimal"
             required
-            defaultValue={values?.amount ?? "0"}
+            defaultValue={values?.amount ?? ""}
           />
         </Field>
 

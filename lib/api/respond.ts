@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
 
 import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards";
 import { recordAuthorizationDenial } from "@/lib/access/security-log";
@@ -22,6 +21,8 @@ import {
   runWithRequestContext,
 } from "@/lib/core/observability/request-context";
 import { verifiedRequestMethod } from "@/lib/core/security/request-method";
+import { describeFailure } from "@/lib/api/failure";
+import { detailsFieldErrors, errorCategory, type FieldErrors } from "@/lib/forms/errors";
 
 /**
  * API response helpers (PRD #7 §150, §152).
@@ -30,21 +31,33 @@ import { verifiedRequestMethod } from "@/lib/core/security/request-method";
  * a failure carries. Nothing internal reaches the client: no SQL, no stack
  * traces, no permission implementation details (PRD #7 §149).
  */
-export function apiError(code: ApiErrorCode, message?: string, details?: unknown) {
+export function apiError(code: ApiErrorCode, message?: string, details?: unknown, fieldErrors?: FieldErrors) {
   const requestId = currentRequestContext()?.requestId;
+  const text = message ?? new AccessError(code).message;
+  const status = errorStatus(code);
+  // AUD-09 §3: a refusal a form acts on also says which kind it is and which
+  // fields it is about, keyed by canonical path. A permission, session or
+  // not-found refusal keeps the bare envelope (PRD #47 §116, §224): its
+  // category follows from its code alone (`errorCategory`), and a field list
+  // there would only describe a record the caller may not see.
+  const accessRefusal = status === 401 || status === 403 || status === 404;
+  const businessCode = (details as { code?: unknown } | undefined)?.code;
+  const fields = accessRefusal ? undefined : (fieldErrors ?? detailsFieldErrors(details, text));
   return withRequestHeaders(
     NextResponse.json(
       {
         error: {
           code,
-          message: message ?? new AccessError(code).message,
+          message: text,
           // A user reporting a problem can quote this, and it leads straight to
           // the logs (PRD #32 §29, §207).
           ...(requestId ? { requestId } : {}),
           ...(details === undefined ? {} : { details }),
+          ...(accessRefusal ? {} : { category: errorCategory(code, typeof businessCode === "string" ? businessCode : undefined) }),
+          ...(fields && Object.keys(fields).length ? { fieldErrors: fields } : {}),
         },
       },
-      { status: errorStatus(code) },
+      { status },
     ),
   );
 }
@@ -188,31 +201,35 @@ async function handleRequest(
   }
 }
 
+/**
+ * A thrown failure as the envelope (AUD-09 §3): read once by
+ * `describeFailure`, which the server actions answer from too, so both
+ * transports carry the same code, category and field errors. A database
+ * uniqueness violation is a safe business conflict naming the field; an
+ * unexpected error reaches the logs and the caller gets a code and a reference.
+ */
 function translateError(error: unknown): Response {
   if (error instanceof AccessError) {
     recordAuthorizationDenial({ code: error.code, reason: error.reason });
-    // A stale edit, a record already decided, a transition that no longer
-    // applies: the rate of these says whether two people are routinely
-    // working on the same thing (PRD #48 §181).
-    if (error.code === "CONFLICT") {
-      incrementCounter(Metric.CONFLICT, { kind: (error.details as { code?: string } | undefined)?.code ?? "unspecified" });
-    }
-    return apiError(error.code, error.message, error.details);
   }
-
   if (error instanceof StaleWorkspaceError) {
     recordAuthorizationDenial({ code: "CONFLICT", reason: "STALE_WORKSPACE" });
-    return apiError("CONFLICT", error.message, { code: "WORKSPACE_CHANGED" });
   }
 
-  if (error instanceof ZodError) {
-    return apiError("VALIDATION_ERROR", undefined, error.flatten().fieldErrors);
+  const failure = describeFailure(error);
+  if (!failure.expected) {
+    // The full error reaches the logs; the caller gets a code and a reference
+    // (PRD #32 §53, PRD #30 §150).
+    logger.error("api.unhandled_error", serialiseError(error));
+    return apiError("INTERNAL_ERROR");
   }
-
-  // The full error reaches the logs; the caller gets a code and a reference
-  // (PRD #32 §53, PRD #30 §150).
-  logger.error("api.unhandled_error", serialiseError(error));
-  return apiError("INTERNAL_ERROR");
+  // A stale edit, a record already decided, a transition that no longer
+  // applies, a value already taken: the rate of these says whether two people
+  // are routinely working on the same thing (PRD #48 §181).
+  if (failure.code === "CONFLICT" && !(error instanceof StaleWorkspaceError)) {
+    incrementCounter(Metric.CONFLICT, { kind: failure.businessCode ?? "unspecified" });
+  }
+  return apiError(failure.code, failure.message, failure.details, failure.fieldErrors);
 }
 
 /**

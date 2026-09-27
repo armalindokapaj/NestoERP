@@ -1,4 +1,5 @@
 import { Prisma, type LeadStatus } from "@prisma/client";
+import { isPositiveDecimal } from "@/lib/modules/finance/finance.decimal";
 import { IntegrationType } from "@/lib/core/integrations/integration.registry";
 import { linkIntegration } from "@/lib/core/integrations/integration.service";
 
@@ -254,15 +255,17 @@ export async function updateLead(
   }
 
   // Reassigning through the edit form needs the assignment grant, not only the
-  // edit one: who works a deal is a management decision (PRD #17 §47).
-  const ownerChanged = (input.ownerMemberId ?? null) !== existing.ownerMemberId;
+  // edit one: who works a deal is a management decision (PRD #17 §47). An
+  // absent owner key keeps the owner (AUD-09 §4, FV-05); an unchanged owner is
+  // not re-checked, so a lead whose owner has since left stays editable (FV-10).
+  const ownerChanged = input.ownerMemberId !== undefined && (input.ownerMemberId ?? null) !== existing.ownerMemberId;
   if (ownerChanged) assertCanAssign(context, "sales.lead.assign");
-  const ownerMemberId = await resolveOwner(context, input.ownerMemberId);
+  const ownerMemberId = ownerChanged ? await resolveOwner(context, input.ownerMemberId ?? undefined) : existing.ownerMemberId;
 
   await prisma.$transaction(async (tx) => {
     await tx.lead.update({
       where: { id: leadId },
-      data: { ...leadData(input), ownerMemberId, updatedByMemberId: context.membershipId },
+      data: { ...leadPatch(input, existing), ownerMemberId, updatedByMemberId: context.membershipId },
     });
 
     await recordActivity(tx, context, {
@@ -710,8 +713,33 @@ function clientFromLead(
   };
 }
 
-function leadData(input: CreateLeadInput | UpdateLeadInput) {
-  const amount = Number.parseFloat(input.estimatedValue ?? "0");
+/**
+ * What an edit writes (AUD-09 §4, FV-05): the required fields, and each
+ * optional one only when its key was sent — `null` clears it. The estimate and
+ * its currency move together: a zero estimate is "no estimate" (PRD #17 §31).
+ */
+function leadPatch(
+  input: UpdateLeadInput,
+  existing: { estimatedValue: Prisma.Decimal | null; currency: string | null },
+): Prisma.LeadUncheckedUpdateInput {
+  const data: Prisma.LeadUncheckedUpdateInput = { name: input.name, source: input.source };
+  if (input.companyName !== undefined) data.companyName = input.companyName;
+  if (input.email !== undefined) data.email = input.email ?? null;
+  if (input.phone !== undefined) data.phone = input.phone;
+  if (input.website !== undefined) data.website = input.website ?? null;
+  if (input.notes !== undefined) data.notes = input.notes;
+  if (input.estimatedValue !== undefined || input.currency !== undefined) {
+    const value = input.estimatedValue !== undefined ? input.estimatedValue : (existing.estimatedValue?.toString() ?? null);
+    const currency = input.currency !== undefined ? input.currency : existing.currency;
+    const priced = Boolean(value && isPositiveDecimal(value));
+    data.estimatedValue = priced ? new Prisma.Decimal(value!) : null;
+    data.currency = priced ? (currency ?? null) : null;
+  }
+  return data;
+}
+
+function leadData(input: CreateLeadInput) {
+  const priced = Boolean(input.estimatedValue && isPositiveDecimal(input.estimatedValue));
   return {
     name: input.name,
     companyName: input.companyName ?? null,
@@ -722,8 +750,8 @@ function leadData(input: CreateLeadInput | UpdateLeadInput) {
     notes: input.notes ?? null,
     // A zero estimate is "no estimate", not "a deal worth nothing": storing it
     // as null keeps it out of every pipeline total (PRD #17 §31).
-    estimatedValue: amount > 0 ? new Prisma.Decimal(input.estimatedValue!) : null,
-    currency: amount > 0 ? (input.currency ?? null) : null,
+    estimatedValue: priced ? new Prisma.Decimal(input.estimatedValue!) : null,
+    currency: priced ? (input.currency ?? null) : null,
   };
 }
 

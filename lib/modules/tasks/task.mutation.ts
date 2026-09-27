@@ -61,15 +61,20 @@ const RECORD = "task";
 /** Postgres `integer`: a version is refused at its limit rather than wrapped (AUD-02 §3). */
 export const TASK_VERSION_MAX = 2_147_483_647;
 
+/**
+ * An edit's fields (AUD-09 §4, FV-05): `undefined` keeps the saved value,
+ * `null` clears it, a value replaces it. Only the fields the request named
+ * can change.
+ */
 export type TaskEditFields = {
-  title: string;
-  description?: string;
-  projectId?: string;
-  assigneeMemberId?: string;
-  status: string;
-  priority: string;
-  startDate?: Date;
-  dueDate?: Date;
+  title?: string;
+  description?: string | null;
+  projectId?: string | null;
+  assigneeMemberId?: string | null;
+  status?: string;
+  priority?: string;
+  startDate?: Date | null;
+  dueDate?: Date | null;
 };
 
 export type TaskCommand =
@@ -538,7 +543,8 @@ async function planEdit(tx: Tx, context: UserContext, locked: LockedTask, fields
   // An archived task is read-only: it must be restored first (PRD #11 §72).
   if (isTaskArchived(locked)) throw stateConflict("Restore this task before editing it.", { status: "ARCHIVED" });
 
-  const nextStatus = fields.status as TaskStatus;
+  // A field the request did not name keeps what is saved (AUD-09 §4, FV-05).
+  const nextStatus = (fields.status ?? locked.status) as TaskStatus;
   if (!canTransitionTaskStatus(locked.status, nextStatus)) {
     throw new AccessError("VALIDATION_ERROR", `A task cannot move from ${locked.status} to ${nextStatus}.`, {
       status: [`A task cannot move from ${humanStatus(locked.status)} to ${humanStatus(nextStatus)}.`],
@@ -556,7 +562,8 @@ async function planEdit(tx: Tx, context: UserContext, locked: LockedTask, fields
   if (nextStatus === "COMPLETED" && locked.status !== "COMPLETED") assertPermission(context, "task.complete");
   if (locked.status === "COMPLETED" && nextStatus !== "COMPLETED") assertPermission(context, "task.reopen");
 
-  const projectId = await validateProjectIn(tx, context, fields.projectId);
+  const requestedProject = fields.projectId === undefined ? locked.projectId : fields.projectId;
+  const projectId = await validateProjectIn(tx, context, requestedProject ?? undefined);
   const projectChanged = projectId !== locked.projectId;
   // A task raised from another record belongs where that record is; moving it
   // would detach the work from its source's project (PRD #47 §51).
@@ -568,21 +575,32 @@ async function planEdit(tx: Tx, context: UserContext, locked: LockedTask, fields
       "CROSS_PROJECT_REFERENCE",
     );
   }
-  const assigneeMemberId = await resolveAssigneeIn(tx, context, fields.assigneeMemberId, projectId, locked.assigneeMemberId, { projectChanged });
+  const requestedAssignee = fields.assigneeMemberId === undefined ? locked.assigneeMemberId : fields.assigneeMemberId;
+  const assigneeMemberId = await resolveAssigneeIn(tx, context, requestedAssignee ?? undefined, projectId, locked.assigneeMemberId, { projectChanged });
 
   const statusChanged = nextStatus !== locked.status;
   const at = now();
+  const startDate = fields.startDate === undefined ? locked.startDate : keepSameDay(fields.startDate, locked.startDate);
+  const dueDate = fields.dueDate === undefined ? locked.dueDate : keepSameDay(fields.dueDate, locked.dueDate);
+  // The schedule rule holds across the saved and the sent values: a request
+  // that moves only the due date is checked against the saved start (PRD #11
+  // §50, AUD-09 §4). A saved pair nobody is touching is not re-judged.
+  if ((fields.startDate !== undefined || fields.dueDate !== undefined) && startDate && dueDate && dayOf(dueDate) < dayOf(startDate)) {
+    throw new AccessError("VALIDATION_ERROR", "Due date must be on or after the start date.", {
+      dueDate: ["Due date must be on or after the start date."],
+    });
+  }
   const next = {
-    title: fields.title,
-    description: fields.description ?? null,
+    title: fields.title ?? locked.title,
+    description: fields.description === undefined ? locked.description : fields.description,
     projectId,
     assigneeMemberId,
     status: nextStatus,
-    priority: fields.priority as TaskPriority,
+    priority: (fields.priority ?? locked.priority) as TaskPriority,
     // A date the form can only express as a day keeps its stored time while
     // the day is unchanged, so saving a form nobody touched changes nothing.
-    startDate: keepSameDay(fields.startDate ?? null, locked.startDate),
-    dueDate: keepSameDay(fields.dueDate ?? null, locked.dueDate),
+    startDate,
+    dueDate,
     // Owned by the server and follows the status; an edit that keeps a task
     // completed keeps its original completion time (PRD #11 §68, AUD-02 §5).
     completedAt: nextStatus === "COMPLETED" ? (locked.status === "COMPLETED" ? locked.completedAt : at) : null,
@@ -667,6 +685,11 @@ function sameValue(a: unknown, b: unknown): boolean {
     return a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
   }
   return (a ?? null) === (b ?? null);
+}
+
+/** The UTC calendar day of a stored task date: the day the form shows. */
+function dayOf(value: Date): string {
+  return value.toISOString().slice(0, 10);
 }
 
 /** A day-only input (midnight UTC) on the stored date's own day is the stored date. */

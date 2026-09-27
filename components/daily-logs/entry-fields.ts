@@ -158,13 +158,29 @@ export function valuesFromEntry(section: SectionKey, entry: Entry): Record<strin
   }
 }
 
+/**
+ * A number field's payload (AUD-09 §4, FV-06): empty is "none", not zero; a
+ * number is sent as one; anything else is sent as typed so the server refuses
+ * it on the field — `Number("abc")` is NaN, which JSON sends as `null` and
+ * would quietly clear the value.
+ *
+ * AUD-09: candidate for lib/forms.
+ */
+export function numberOrRaw(raw: unknown): unknown {
+  if (raw === "" || raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (text === "") return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : text;
+}
+
 /** Form values as the API takes them: empty strings become null, numbers become numbers. */
 export function payloadFromValues(section: SectionKey, values: Record<string, unknown>): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   for (const field of SECTION_FIELDS[section]) {
     const raw = values[field.name];
     if (field.type === "checkbox") payload[field.name] = Boolean(raw);
-    else if (field.type === "number" || field.type === "integer") payload[field.name] = raw === "" || raw === null || raw === undefined ? null : Number(raw);
+    else if (field.type === "number" || field.type === "integer") payload[field.name] = numberOrRaw(raw);
     else payload[field.name] = raw === "" || raw === undefined ? null : raw;
   }
   return payload;

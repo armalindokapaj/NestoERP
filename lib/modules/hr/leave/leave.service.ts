@@ -74,6 +74,8 @@ const SELECT = {
       id: true,
       // The employment's login now, which is whose request it is for self-service (E-04 §7).
       companyMemberId: true,
+      startDate: true,
+      endDate: true,
       personProfile: { select: { firstName: true, lastName: true, workEmail: true } },
       companyMember: { select: { user: { select: { email: true, avatarUrl: true } } } },
     },
@@ -206,6 +208,7 @@ export async function createLeave(
 
   const startDate = toBusinessDate(input.startDate);
   const endDate = toBusinessDate(input.endDate);
+  assertWithinEmployment(profile, startDate, endDate);
   const days = calculateLeaveDays(startDate, endDate);
 
   if (days.lessThanOrEqualTo(0)) {
@@ -283,8 +286,19 @@ export async function updateLeave(
     );
   }
 
+  /*
+   * The reason may be medical (PRD #16 §95). A reader who cannot see it is
+   * shown no reason field, so their edit sends none and it stays as it was; a
+   * reason they send anyway — a forged request — is refused, not written over
+   * a reason they were never shown (AUD-09 §5, FV-10, FV-20).
+   */
+  if (input.reason !== undefined && !mayReadReason(context, existing)) {
+    throw new AccessError("FORBIDDEN", "Only the requester and HR readers of leave reasons can change the reason.", { field: "reason", code: "LEAVE_REASON_NOT_VISIBLE" });
+  }
+
   const startDate = toBusinessDate(input.startDate);
   const endDate = toBusinessDate(input.endDate);
+  assertWithinEmployment(existing.employeeProfile, startDate, endDate);
   const days = calculateLeaveDays(startDate, endDate);
 
   if (days.lessThanOrEqualTo(0)) {
@@ -304,7 +318,8 @@ export async function updateLeave(
         startDate,
         endDate,
         days,
-        reason: input.reason ?? null,
+        // Absent (undefined): unchanged; null: cleared (AUD-09 §4, FV-05).
+        reason: input.reason,
       },
     });
 
@@ -685,7 +700,7 @@ async function requireProfile(context: UserContext, employmentId: string) {
   return assertFound(
     await prisma.employeeProfile.findFirst({
       where: { AND: [buildEmployeeScopeWhere(context), { id: employmentId }] },
-      select: { id: true, companyMemberId: true, employmentStatus: true },
+      select: { id: true, companyMemberId: true, employmentStatus: true, startDate: true, endDate: true },
     }),
   );
 }
@@ -695,9 +710,29 @@ async function requireOwnProfile(context: UserContext) {
   return assertFound(
     await prisma.employeeProfile.findFirst({
       where: { companyId: context.companyId, companyMemberId: context.membershipId },
-      select: { id: true, companyMemberId: true, employmentStatus: true },
+      select: { id: true, companyMemberId: true, employmentStatus: true, startDate: true, endDate: true },
     }),
   );
+}
+
+/** Whether this reader is shown the request's reason (PRD #16 §95): the same rule as the DTO. */
+function mayReadReason(context: UserContext, row: LeaveRow): boolean {
+  return isSelf(context, row.employeeProfile.companyMemberId) || can(context, "hr.leave.reason.view");
+}
+
+/**
+ * Leave is time off an employment, so it lies inside it (AUD-09 §4, FV-07):
+ * not before the day it starts, not after a planned or actual last day. Said
+ * on the field that is out of range. An employment without dates bounds
+ * nothing.
+ */
+function assertWithinEmployment(employment: { startDate: Date | null; endDate: Date | null }, startDate: Date, endDate: Date): void {
+  if (employment.startDate && startDate.getTime() < toBusinessDate(employment.startDate).getTime()) {
+    throw new AccessError("VALIDATION_ERROR", `The employment starts on ${businessDateString(employment.startDate)}. Leave cannot begin before that.`, { field: "startDate", code: "LEAVE_OUTSIDE_EMPLOYMENT" });
+  }
+  if (employment.endDate && endDate.getTime() > toBusinessDate(employment.endDate).getTime()) {
+    throw new AccessError("VALIDATION_ERROR", `The employment ends on ${businessDateString(employment.endDate)}. Leave cannot run past that.`, { field: "endDate", code: "LEAVE_OUTSIDE_EMPLOYMENT" });
+  }
 }
 
 /** Editing somebody else's request needs the module grant (PRD #16 §192). */

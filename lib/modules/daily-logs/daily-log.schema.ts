@@ -49,15 +49,34 @@ export const createDailyLogSchema = z.object({
   workDate: localDate,
 });
 
+/**
+ * A header field an edit may leave out (AUD-09 §4, FV-05): absent keeps the
+ * saved value, `""`/`null` clears it. `optionalText` above turns absence into
+ * `null`, which on the header's PATCH erased every note the request did not
+ * repeat.
+ */
+const keptText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max.toLocaleString("en")} characters.`)
+    .nullable()
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value ? value : null));
+
+/**
+ * The log's own notes (PRD #43 §184): a partial update. The workspace sends
+ * them all; a request that names only the summary changes only the summary.
+ */
 export const updateDailyLogSchema = z.object({
   expectedVersion: z.number().int().min(1),
-  summary: optionalText(NOTE_MAX),
-  generalNotes: optionalText(NOTE_MAX),
-  delaySummary: optionalText(NOTE_MAX),
-  instructionSummary: optionalText(NOTE_MAX),
-  weatherSummary: optionalText(1_000),
-  siteCondition: z.enum(SITE_CONDITIONS).optional().nullable().transform((value) => value ?? null),
-  siteConditionNotes: optionalText(1_000),
+  summary: keptText(NOTE_MAX),
+  generalNotes: keptText(NOTE_MAX),
+  delaySummary: keptText(NOTE_MAX),
+  instructionSummary: keptText(NOTE_MAX),
+  weatherSummary: keptText(1_000),
+  siteCondition: z.enum(SITE_CONDITIONS).nullable().optional(),
+  siteConditionNotes: keptText(1_000),
 });
 export type UpdateDailyLogInput = z.infer<typeof updateDailyLogSchema>;
 

@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 import { optionalDate, optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { businessDate, currencyCode, rateString } from "../finance.fields";
+import { compareDecimal, integerDigits, multiplyDecimal } from "../finance.decimal";
+import { MAX_LINE_ITEMS } from "../finance.form-data";
+import { businessDate, clearableId, clearableText, currencyCode, positive, rateString, taxRateString } from "../finance.fields";
 
 /**
  * Invoice validation (PRD #15 §236–§238).
@@ -16,20 +18,30 @@ import { businessDate, currencyCode, rateString } from "../finance.fields";
 /** 100% is the ceiling until a jurisdiction needs otherwise (PRD #15 §238). */
 export const MAX_TAX_RATE = 100;
 
-export const invoiceLineSchema = z.object({
-  description: requiredText(1, 500, "Line description"),
-  quantity: rateString("Quantity").refine((value) => Number.parseFloat(value) > 0, {
-    message: "Quantity must be greater than zero",
-  }),
-  unitPrice: rateString("Unit price"),
-  taxRate: rateString("Tax rate").refine(
-    (value) => {
-      const rate = Number.parseFloat(value);
-      return rate >= 0 && rate <= MAX_TAX_RATE;
-    },
-    { message: `Tax rate must be between 0 and ${MAX_TAX_RATE}` },
-  ),
-});
+/**
+ * One priced line (AUD-09 §4, FV-06): quantity and unit price at four
+ * decimals, the tax rate in percent within `Decimal(7, 4)`. Every comparison is
+ * on the canonical decimal string — no float ever decides a bound — and a line
+ * whose total would not fit a `Decimal(18, 2)` column is refused on the line,
+ * not by the database. Unit price may be zero (a free line) but not negative:
+ * V0.1 invoices have no credit notes or negative discount lines.
+ */
+export const invoiceLineSchema = z
+  .object({
+    description: requiredText(1, 500, "Line description"),
+    quantity: rateString("Quantity").refine(positive, {
+      message: "Quantity must be greater than zero",
+    }),
+    unitPrice: rateString("Unit price"),
+    taxRate: taxRateString("Tax rate").refine((value) => compareDecimal(value, String(MAX_TAX_RATE)) <= 0, {
+      message: `Tax rate must be between 0 and ${MAX_TAX_RATE}`,
+    }),
+  })
+  .superRefine((line, ctx) => {
+    if (integerDigits(multiplyDecimal(line.quantity, line.unitPrice, 2)) > 13) {
+      ctx.addIssue({ code: "custom", path: ["unitPrice"], message: "This line's total is too large. Split it or check the quantity and unit price." });
+    }
+  });
 
 export type InvoiceLineInput = z.infer<typeof invoiceLineSchema>;
 
@@ -43,7 +55,10 @@ const invoiceFields = {
   dueDate: businessDate,
   currency: currencyCode,
   notes: optionalText(2000),
-  lineItems: z.array(invoiceLineSchema).min(1, "Add at least one line item"),
+  lineItems: z
+    .array(invoiceLineSchema)
+    .min(1, "Add at least one line item")
+    .max(MAX_LINE_ITEMS, `An invoice can have at most ${MAX_LINE_ITEMS} lines`),
 };
 
 /** `dueDate >= issueDate`: an invoice cannot fall due before it exists (PRD #15 §51). */
@@ -55,8 +70,19 @@ const datesInOrder = <T extends { issueDate: Date; dueDate: Date }>(schema: z.Zo
 
 export const createInvoiceSchema = datesInOrder(z.object(invoiceFields));
 
+/**
+ * An edit replaces the document — its lines are one document, and a partial
+ * set of lines is how a total stops matching its parts — so the core fields
+ * are required as on create. The optional ones follow the partial-update rule
+ * (AUD-09 §4, FV-05): absent keeps what is saved, empty or `null` clears.
+ */
 export const updateInvoiceSchema = datesInOrder(
-  z.object({ ...invoiceFields, versionUpdatedAt: optionalDate }),
+  z.object({
+    ...invoiceFields,
+    projectId: clearableId,
+    notes: clearableText(2000),
+    versionUpdatedAt: optionalDate,
+  }),
 );
 
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;

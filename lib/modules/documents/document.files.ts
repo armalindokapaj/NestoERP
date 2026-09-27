@@ -10,6 +10,7 @@
  */
 
 import {
+  DEFAULT_MAX_FILE_BYTES,
   extensionsForGroups as registryExtensionsForGroups,
   FILE_TYPES,
   fileTypeLabel,
@@ -52,6 +53,7 @@ export function formatFileSize(bytes: number | bigint | null | string): string {
 /** The per-file ceiling shown in the upload form (PRD #29 §25). */
 export { DEFAULT_MAX_FILE_BYTES as MAX_UPLOAD_BYTES } from "@/lib/core/storage";
 
+/** The same ceiling the server enforces, in MB — never a second copy of the number (AUD-09 §8). */
 export function maxUploadMegabytes(): number {
-  return 100;
+  return DEFAULT_MAX_FILE_BYTES / (1024 * 1024);
 }

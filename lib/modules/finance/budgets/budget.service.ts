@@ -419,10 +419,10 @@ export async function updateBudget(
     await tx.projectBudget.update({
       where: { id: budgetId },
       data: {
-        name: input.name ?? null,
+        name: input.name,
         currency: input.currency,
         totalAmount: total,
-        notes: input.notes ?? null,
+        notes: input.notes,
         updatedByMemberId: context.membershipId,
         lineItems: {
           create: input.lineItems.map((line, index) => ({

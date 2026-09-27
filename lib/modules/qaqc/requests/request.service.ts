@@ -9,6 +9,7 @@ import {
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { resolveReceiptItem } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import {
@@ -283,6 +284,8 @@ export async function createRequest(
   const receipt = input.goodsReceiptId
     ? await requireGoodsReceipt(context, input.goodsReceiptId)
     : null;
+  // A delivery line of this company's delivery, never another's (AUD-09 §5, FV-09).
+  const goodsReceiptItemId = await resolveReceiptItem(context, { sent: input.goodsReceiptItemId ?? null, receiptId: receipt?.id ?? null });
 
   if (input.assignedInspectorMemberId) {
     await requireMember(context, input.assignedInspectorMemberId);
@@ -300,7 +303,7 @@ export async function createRequest(
         inspectionType: input.inspectionType,
         projectId,
         goodsReceiptId: receipt?.id ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
+        goodsReceiptItemId,
         requestedByMemberId: context.membershipId,
         assignedInspectorMemberId: input.assignedInspectorMemberId ?? null,
         requestedDate: input.requestedDate,
@@ -352,6 +355,12 @@ export async function updateRequest(
   const receipt = input.goodsReceiptId
     ? await requireGoodsReceipt(context, input.goodsReceiptId)
     : null;
+  // The form never carries the delivery line: absent keeps it while the delivery is the same (AUD-09 §4, FV-05).
+  const goodsReceiptItemId = await resolveReceiptItem(context, {
+    sent: input.goodsReceiptItemId,
+    receiptId: receipt?.id ?? null,
+    stored: { receiptId: existing.goodsReceiptId, itemId: existing.goodsReceiptItemId },
+  });
 
   await prisma.$transaction(async (tx) => {
     await tx.inspectionRequest.update({
@@ -361,7 +370,7 @@ export async function updateRequest(
         inspectionType: input.inspectionType,
         projectId,
         goodsReceiptId: receipt?.id ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
+        goodsReceiptItemId,
         requestedDate: input.requestedDate,
         requiredByDate: input.requiredByDate ?? null,
         priority: input.priority,
@@ -504,7 +513,7 @@ async function requireRequest(context: UserContext, requestId: string) {
   return assertFound(
     await prisma.inspectionRequest.findFirst({
       where: { AND: [buildRequestScopeWhere(context), { id: requestId }] },
-      select: { id: true, requestNumber: true, status: true, updatedAt: true },
+      select: { id: true, requestNumber: true, status: true, updatedAt: true, goodsReceiptId: true, goodsReceiptItemId: true },
     }),
   );
 }

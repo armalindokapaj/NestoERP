@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createHazardAction } from "@/lib/actions/hse";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
+import { companyDays } from "@/lib/core/notifications/company-day";
 
 export const metadata: Metadata = { title: "Report a hazard" };
 
@@ -68,7 +69,8 @@ export default async function NewHazardPage({
                 hazardCategory: "OTHER",
                 likelihood: "3",
                 severity: "3",
-                observedAt: new Date().toISOString().slice(0, 10),
+                // Today where the company lives, not the UTC day (AUD-09 §4, FV-07).
+                observedAt: (await companyDays(context.companyId))(new Date()).day,
                 locationText: "",
                 assignedToMemberId: "",
                 immediateControl: "",

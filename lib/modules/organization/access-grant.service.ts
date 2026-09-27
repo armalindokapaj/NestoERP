@@ -57,6 +57,14 @@ export const grantAccessSchema = z.object({
   /** The grant stops working at this moment. */
   expiresAt: optionalDate,
   reason: z.string().trim().min(3, "Say why this access is needed.").max(500),
+}).superRefine((value, ctx) => {
+  /*
+   * The company belongs to a company grant only (AUD-09 §5, FV-10): the form
+   * hides it for a group grant and omits it, and a group grant that carries
+   * one anyway is an incompatible state, refused rather than ignored.
+   */
+  if (value.scope === "COMPANY" && !value.scopeCompanyId) ctx.addIssue({ code: "custom", path: ["scopeCompanyId"], message: "Choose a company of your group." });
+  if (value.scope === "GROUP" && value.scopeCompanyId) ctx.addIssue({ code: "custom", path: ["scopeCompanyId"], message: "A group grant covers every company; it names none." });
 });
 export type GrantAccessInput = z.infer<typeof grantAccessSchema>;
 

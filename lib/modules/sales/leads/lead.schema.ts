@@ -1,7 +1,16 @@
 import { z } from "zod";
 
-import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { currencyCode, optionalAmountString } from "@/lib/modules/finance/finance.fields";
+import { optionalBoolean, optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
+import { isPositiveDecimal } from "@/lib/modules/finance/finance.decimal";
+import {
+  amountString,
+  clearableDecimalString,
+  currencyCode,
+  MONEY_RULE,
+  optionalAmountValue,
+  patchOf,
+  positive,
+} from "@/lib/modules/finance/finance.fields";
 
 /**
  * Lead validation (PRD #17 §43, §210, §223).
@@ -76,7 +85,8 @@ const leadFields = {
     .trim()
     .optional()
     .transform((value) => (value === "" ? undefined : value)),
-  estimatedValue: optionalAmountString("Estimated value"),
+  // Empty is "no estimate yet" (null), never an estimate of 0 (AUD-09 §4, FV-06).
+  estimatedValue: optionalAmountValue("Estimated value"),
   currency: currencyCode.optional(),
   notes: optionalText(5000),
 };
@@ -87,21 +97,35 @@ const leadFields = {
  * "120,000" means nothing to a pipeline that has to group by currency before it
  * may add anything up (PRD #17 §31).
  */
-const valueNeedsCurrency = <T extends { estimatedValue?: string; currency?: string }>(
+const valueNeedsCurrency = <T extends { estimatedValue?: string | null; currency?: string | null }>(
   schema: z.ZodType<T>,
 ) =>
   schema.refine(
-    (value) => {
-      const amount = Number.parseFloat(value.estimatedValue ?? "0");
-      return !(amount > 0) || Boolean(value.currency);
-    },
+    (value) => !value.estimatedValue || !isPositiveDecimal(value.estimatedValue) || Boolean(value.currency),
     { message: "Choose a currency for the estimated value.", path: ["currency"] },
   );
 
 export const createLeadSchema = valueNeedsCurrency(z.object(leadFields));
 
+/**
+ * An edit of a lead (AUD-09 §4, FV-05): name and source are required as on
+ * create; every optional field keeps what is saved when its key is absent and
+ * clears when it is sent empty or `null`. An API caller that sends only the
+ * fields it means to change does not erase the rest.
+ */
 export const updateLeadSchema = valueNeedsCurrency(
-  z.object({ ...leadFields, versionUpdatedAt: optionalDate }),
+  z.object({
+    ...leadFields,
+    companyName: patchOf(z.string().trim().max(200)),
+    email: patchOf(optionalEmail),
+    phone: patchOf(z.string().trim().max(40)),
+    website: patchOf(websiteUrl),
+    ownerMemberId: patchOf(z.string().trim()),
+    estimatedValue: clearableDecimalString("Estimated value", MONEY_RULE),
+    currency: patchOf(currencyCode),
+    notes: patchOf(z.string().trim().max(5000)),
+    versionUpdatedAt: optionalDate,
+  }),
 );
 
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;
@@ -128,12 +152,11 @@ export const convertLeadSchema = z
   .object({
     opportunityName: requiredText(2, 200, "Opportunity name"),
     ownerMemberId: z.string().trim().min(1, "Choose an owner"),
-    estimatedValue: z
-      .string()
-      .trim()
-      .refine((value) => Number.parseFloat(value) > 0, {
-        message: "Estimated value must be greater than zero",
-      }),
+    // Through the one decimal rule (AUD-09 §4, FV-06): "1e5", "12abc" and
+    // "Infinity" used to pass a parseFloat test here and reach the database.
+    estimatedValue: amountString("Estimated value").refine(positive, {
+      message: "Estimated value must be greater than zero",
+    }),
     currency: currencyCode,
     expectedCloseDate: optionalDate,
     clientMode: z.enum(CLIENT_MODES).default("NONE"),
@@ -144,7 +167,8 @@ export const convertLeadSchema = z
       .transform((value) => (value === "" ? undefined : value)),
     newClientName: optionalText(200),
     /** Past the duplicate warning, which is a warning and not a block (§44). */
-    acceptDuplicate: z.coerce.boolean().default(false),
+    // "false" is false (`z.coerce.boolean()` read the string as true, AUD-09 §4).
+    acceptDuplicate: optionalBoolean.transform((value) => value ?? false),
   })
   .refine((value) => value.clientMode !== "EXISTING" || Boolean(value.clientId), {
     message: "Choose the client to link.",

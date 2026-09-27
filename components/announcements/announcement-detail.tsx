@@ -5,7 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "lucide-react";
 
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -68,7 +68,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
   }, [base, item.capabilities.canViewMetrics, item.version]);
 
   const upload = useUploadQueue({ parent: { context: "record", entityType: "announcement", entityId: item.id }, onUploaded: () => void refresh() });
-  const uploading = upload.items.some((entry) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(entry.status));
+  const uploading = upload.items.some((entry) => UPLOAD_IN_FLIGHT.includes(entry.status));
 
   // AUD-03 §3: a chosen publish time is input whose only way forward is the
   // Schedule step (never run from the prompt), and an attachment on its way is

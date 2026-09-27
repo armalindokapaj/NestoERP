@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { percentOfDecimal, previewDecimal } from "@/lib/modules/finance/finance.decimal";
 
 import {
   Field,
@@ -69,16 +70,15 @@ export function OpportunityForm({
   const [override, setOverride] = React.useState(values?.probabilityOverride ?? "");
   const [clientId, setClientId] = React.useState(values?.clientId ?? "");
 
+  // Exact preview by the shared decimal rule (AUD-09 §4, FV-06): nothing is
+  // shown for a figure the server would refuse ("12abc" used to preview as 12).
   const probability =
     override.trim() === ""
-      ? getDefaultStageProbability(stage as (typeof OPEN_STAGE_VALUES)[number])
-      : Number.parseFloat(override);
+      ? String(getDefaultStageProbability(stage as (typeof OPEN_STAGE_VALUES)[number]))
+      : previewDecimal(override, 2);
 
-  const amount = Number.parseFloat(value);
-  const weighted =
-    Number.isFinite(amount) && Number.isFinite(probability)
-      ? ((amount * probability) / 100).toFixed(2)
-      : null;
+  const amount = previewDecimal(value, 2);
+  const weighted = amount !== null && probability !== null ? percentOfDecimal(amount, probability) : null;
 
   const contacts = clients.find((client) => client.value === clientId)?.contacts ?? [];
 

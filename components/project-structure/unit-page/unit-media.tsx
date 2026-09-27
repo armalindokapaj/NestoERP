@@ -5,7 +5,9 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowDown, ArrowUp, ImageIcon, Link2, Loader2, MoreHorizontal, Pencil, Star, Trash2, Upload } from "lucide-react";
 
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UploadQueueList } from "@/components/documents/document-uploader";
+import { acceptedTypesText, DEFAULT_UPLOAD_MAX_BYTES, megabytes, uploadAccept } from "@/components/documents/upload-client";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +18,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { COMMITTED, failureOutcome, useValuesEditor } from "@/components/project-planning/use-values-editor";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { CAPTION_MAX, UNIT_MEDIA_CATEGORIES, UNIT_MEDIA_CATEGORY_LABELS, type UnitFilesDTO, type UnitMediaCategory, type UnitMediaDTO } from "@/lib/modules/project-structure/unit-publishing.types";
-import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
+import { CAPTION_MAX, MAX_UNIT_MEDIA, UNIT_MEDIA_CATEGORIES, UNIT_MEDIA_CATEGORY_LABELS, type UnitFilesDTO, type UnitMediaCategory, type UnitMediaDTO } from "@/lib/modules/project-structure/unit-publishing.types";
+import { Field, FormError, failureMessage, isFailure, structureApi } from "../structure-ui";
 import { AttachDialog } from "./unit-documents";
 import { UnitImage } from "./unit-image";
 
@@ -31,7 +33,9 @@ import { UnitImage } from "./unit-image";
  * hover (§115).
  */
 
-const PROCESSING = ["queued", "authorising", "uploading", "verifying", "processing"];
+const PROCESSING: readonly string[] = UPLOAD_IN_FLIGHT;
+/** Unit media is images only — the registry's image group, as the server's check (AUD-09 §8). */
+const UNIT_IMAGE_GROUPS = ["image"] as const;
 
 export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; unitCode: string; files: UnitFilesDTO }) {
   const router = useRouter();
@@ -45,14 +49,26 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
   const media = files.media;
   const can = files.capabilities;
 
+  /*
+   * Upload, then attach (AUD-09 §8, FV-18). The attachment is the queue's own
+   * last step: when it fails, Retry repeats only the attachment — the image is
+   * not uploaded again — and "already on this unit" is the answer to a retry
+   * whose first attempt landed, not a second link.
+   */
   const queue = useUploadQueue({
     parent: { context: "record", entityType: "project_unit", entityId: unitId },
-    onUploaded: (documentId) => {
-      void structureApi(`/api/project-units/${unitId}/media`, { body: { documentId, category: "OTHER", caption: null } })
-        .catch((error) => toast({ title: failureMessage(error, "The image could not be added."), tone: "danger" }))
-        .finally(() => router.refresh());
+    groups: UNIT_IMAGE_GROUPS,
+    link: async (documentId) => {
+      try {
+        await structureApi(`/api/project-units/${unitId}/media`, { body: { documentId, category: "OTHER", caption: null } });
+      } catch (error) {
+        if (isFailure(error) && (error as { detailCode?: string }).detailCode === "UNIT_MEDIA_ALREADY_ADDED") return;
+        throw new Error(failureMessage(error, "The image arrived but could not be added. Retry adds it."));
+      }
     },
+    onUploaded: () => router.refresh(),
   });
+  const queueVisible = queue.items.some((item) => item.status !== "done");
   const uploading = queue.items.filter((item) => PROCESSING.includes(item.status)).length;
 
   React.useEffect(() => {
@@ -94,7 +110,9 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
           <h2 id="unit-media-heading" className="text-card font-semibold text-fg">
             Media
           </h2>
-          <p className="mt-1 text-meta text-fg-muted">JPEG, PNG or WebP. The primary image is the one shown first everywhere this unit appears.</p>
+          <p className="mt-1 text-meta text-fg-muted" id="unit-media-rules" data-testid="unit-media-rules">
+            {acceptedTypesText(UNIT_IMAGE_GROUPS)}, up to {megabytes(DEFAULT_UPLOAD_MAX_BYTES)} MB each; a unit holds at most {MAX_UNIT_MEDIA} images ({media.length} now). The primary image is the one shown first everywhere this unit appears.
+          </p>
         </div>
         {can.canManageMedia ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +127,7 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
             </Button>
             {can.canUpload ? (
               <>
-                <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Upload images" data-testid="unit-media-input" onChange={(event) => {
+                <input ref={input} type="file" multiple accept={uploadAccept(UNIT_IMAGE_GROUPS)} className="sr-only" aria-label="Upload images" aria-describedby="unit-media-rules" data-testid="unit-media-input" onChange={(event) => {
                   const chosen = [...(event.target.files ?? [])];
                   if (chosen.length) queue.enqueue(chosen, (file) => ({ name: file.name.replace(/\.[^.]+$/, "") }));
                   event.target.value = "";
@@ -123,6 +141,20 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
           </div>
         ) : null}
       </div>
+
+      {/* Each file's own state — selected, uploading, being checked, being
+          added, failed — until it is on the unit (AUD-09 §8, FV-18). */}
+      {queueVisible ? (
+        <div className="mt-4">
+          <UploadQueueList
+            items={queue.items.filter((item) => item.status !== "done")}
+            onRetry={(item) => void queue.retry(item.id)}
+            onRecheck={(item) => void queue.recheck(item.id)}
+            onCancel={(item) => void queue.cancel(item.id)}
+            onClear={(id) => queue.clear(id)}
+          />
+        </div>
+      ) : null}
 
       {media.length === 0 ? (
         <div className="mt-6 flex flex-col items-center gap-2 py-8 text-center">

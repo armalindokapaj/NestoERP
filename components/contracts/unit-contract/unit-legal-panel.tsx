@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { compareDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -328,7 +329,9 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
 
   const changed = useOpenedWith(open, [number, title, chosen, values]);
   const rows = [{ unitId: legal.unitId, unitCode: legal.unitCode, agreedPrice: legal.defaults.agreedPrice, primary: true }, ...legal.candidates.filter((row) => chosen[row.unitId]).map((row) => ({ unitId: row.unitId, unitCode: row.unitCode, agreedPrice: row.agreedPrice, primary: false }))];
-  const total = rows.reduce((sum, row) => sum + Number(values[row.unitId]?.value || 0), 0);
+  // Exact (AUD-09 §4, FV-06), and a row left empty counts at its agreed price —
+  // as the server does — rather than as 0. "1 000,50" is read, not NaN.
+  const total = sumDecimal(rows.map((row) => previewDecimal(values[row.unitId]?.value ?? "", 2) ?? row.agreedPrice ?? "0"), 2);
 
   /** A draft is an ordinary create: its button and "Save and continue" draft it the same way (AUD-03 §3). */
   function draft(): Promise<unknown> {
@@ -383,7 +386,8 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
       <div className="space-y-3">
         {rows.map((row) => {
           const value = values[row.unitId] ?? { value: "", note: "" };
-          const differs = value.value !== "" && row.agreedPrice !== null && Number(value.value) !== Number(row.agreedPrice);
+          const typed = previewDecimal(value.value, 2);
+          const differs = typed !== null && row.agreedPrice !== null && compareDecimal(typed, row.agreedPrice) !== 0;
           return (
             <div key={row.unitId} className="rounded-md border border-line p-3">
               <Field label={`${row.unitCode} value`} htmlFor={`value-${row.unitId}`} hint={`Agreed price ${amountLabel(row.agreedPrice, legal.defaults.currency)}`} error={request.fields.values}>
@@ -398,7 +402,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
           );
         })}
         <p className="text-right text-table font-medium text-fg" data-testid="contract-total">
-          Contract value {amountLabel(total.toFixed(2), legal.defaults.currency)}
+          Contract value (preview) {amountLabel(total, legal.defaults.currency)}
         </p>
       </div>
     </FormDialog>

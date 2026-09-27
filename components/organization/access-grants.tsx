@@ -47,7 +47,7 @@ export function GrantAccessButton({ options }: { options: GrantOptionsDTO }) {
               { value: "GROUP", label: "Every company of the group" },
             ],
           },
-          { name: "scopeCompanyId", label: "Company", type: "select", required: true, options: options.companies.map((company) => ({ value: company.id, label: company.name })), visible: (values) => values.scope === "COMPANY" },
+          { name: "scopeCompanyId", label: "Company", type: "select", required: true, options: options.companies.map((company) => ({ value: company.id, label: company.name })), visible: (values) => values.scope === "COMPANY", whenHidden: "omit" },
           { name: "expiresAt", label: "Expires on", type: "date", hint: "The access stops at the start of this day. Leave empty to keep it until revoked." },
           { name: "reason", label: "Reason", type: "textarea", required: true, placeholder: "Why this access is needed" },
         ]}

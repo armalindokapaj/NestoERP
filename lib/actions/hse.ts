@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { ZodError } from "zod";
+
 import { AccessError } from "@/lib/access/guards";
+import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { companyZone, wallClockToInstant } from "@/lib/modules/hse/hse.time";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
@@ -70,22 +74,16 @@ function revalidateHse(recordPath?: string) {
   revalidatePath("/dashboard");
 }
 
+/** One reading of a failure for both transports (AUD-09 §3, §6). */
 function toResult(error: unknown): HseActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string; gaps?: unknown } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code, gaps: details?.gaps };
-  }
-
-  console.error("[hse] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  const failure = actionFailure(error, "hse");
+  const gaps = error instanceof AccessError ? (error.details as { gaps?: unknown } | undefined)?.gaps : undefined;
+  return gaps === undefined ? failure : { ...failure, gaps };
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): HseActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/** Every issue under its full path (AUD-09 §3, FV-04). */
+function invalid(error: ZodError): HseActionResult {
+  return validationFailure(error);
 }
 
 /**
@@ -120,6 +118,27 @@ function formValues(
 
   const rows = [...collected.entries()].sort(([a], [b]) => a - b).map(([, row]) => row);
   return { values, rows };
+}
+
+/**
+ * The form's wall-clock times as instants in the company's zone (AUD-09 §4,
+ * FV-07; see `hse.time.ts`). A time the clocks skipped is refused on its field.
+ */
+async function inCompanyTime(
+  context: { companyId: string },
+  values: Record<string, unknown>,
+  fields: string[],
+): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; result: HseActionResult }> {
+  const zone = await companyZone(context.companyId);
+  const next = { ...values };
+  const fieldErrors: Record<string, string[]> = {};
+  for (const field of fields) {
+    const converted = wallClockToInstant(values[field], zone);
+    if (converted.ok) next[field] = converted.value;
+    else fieldErrors[field] = [converted.message];
+  }
+  if (Object.keys(fieldErrors).length > 0) return { ok: false, result: { ok: false, error: "Please review the highlighted fields.", fieldErrors } };
+  return { ok: true, values: next };
 }
 
 /** A checkbox posts "on" when ticked and nothing at all when not. */
@@ -562,23 +581,24 @@ export async function cancelHazardAction(
 /* Incidents                                                                   */
 /* -------------------------------------------------------------------------- */
 
+const INJURY_FLAGS = ["injuryOccurred", "firstAidRequired", "medicalTreatmentRequired", "lostTime", "propertyDamage", "environmentalImpact"] as const;
+
+/**
+ * An unticked checkbox posts nothing, so every flag the form showed is false
+ * unless ticked. The incident form always shows them to its readers (only
+ * holders of `hse.incident.view` may edit an incident).
+ */
 function incidentValues(formData: FormData) {
   const { values } = formValues(formData);
-  return {
-    ...values,
-    injuryOccurred: checked(values.injuryOccurred),
-    firstAidRequired: checked(values.firstAidRequired),
-    medicalTreatmentRequired: checked(values.medicalTreatmentRequired),
-    lostTime: checked(values.lostTime),
-    propertyDamage: checked(values.propertyDamage),
-    environmentalImpact: checked(values.environmentalImpact),
-  };
+  return { ...values, ...Object.fromEntries(INJURY_FLAGS.map((flag) => [flag, checked(values[flag])])) };
 }
 
 export async function createIncidentAction(formData: FormData): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = incidentSchema.safeParse(incidentValues(formData));
+  const timed = await inCompanyTime(context, incidentValues(formData), ["occurredAt"]);
+  if (!timed.ok) return timed.result;
+  const parsed = incidentSchema.safeParse(timed.values);
   if (!parsed.success) return invalid(parsed.error);
 
   let id: string;
@@ -598,7 +618,9 @@ export async function updateIncidentAction(
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = incidentSchema.safeParse(incidentValues(formData));
+  const timed = await inCompanyTime(context, incidentValues(formData), ["occurredAt"]);
+  if (!timed.ok) return timed.result;
+  const parsed = incidentSchema.safeParse(timed.values);
   if (!parsed.success) return invalid(parsed.error);
 
   try {
@@ -1088,7 +1110,9 @@ export async function cancelToolboxTalkAction(
 export async function createPermitAction(formData: FormData): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = permitSchema.safeParse(formValues(formData).values);
+  const timed = await inCompanyTime(context, formValues(formData).values, ["validFrom", "validUntil"]);
+  if (!timed.ok) return timed.result;
+  const parsed = permitSchema.safeParse(timed.values);
   if (!parsed.success) return invalid(parsed.error);
 
   let id: string;
@@ -1108,7 +1132,9 @@ export async function updatePermitAction(
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
-  const parsed = permitSchema.safeParse(formValues(formData).values);
+  const timed = await inCompanyTime(context, formValues(formData).values, ["validFrom", "validUntil"]);
+  if (!timed.ok) return timed.result;
+  const parsed = permitSchema.safeParse(timed.values);
   if (!parsed.success) return invalid(parsed.error);
 
   try {

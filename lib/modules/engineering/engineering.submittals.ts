@@ -37,6 +37,8 @@ import {
 import { submittalRevisionMachine } from "./engineering.submittal-revision.machine";
 import { technicalSubmittalMachine } from "./engineering.submittal.machine";
 import {
+  isMaterialSubmittal,
+  isMethodSubmittal,
   LINKABLE_TYPES,
   SUBMITTAL_IN_REVIEW,
   type Discipline,
@@ -210,7 +212,25 @@ async function assertSupplier(context: UserContext, supplierId: string | null, c
   if (!found) throw fail("SUBMITTAL_SUPPLIER_INVALID", "That supplier could not be found.", "VALIDATION_ERROR", { field: "supplierId" });
 }
 
-function detailData(input: CreateSubmittalInput | UpdateSubmittalInput) {
+/**
+ * The product fields describe a product submittal and the method fields a
+ * method statement; for any other type they are cleared, whatever was sent —
+ * the server's half of the dialog's conditional fields (AUD-09 §5, FV-10).
+ */
+function typedDetails(input: { submittalType: string; manufacturer: string | null; productName: string | null; modelNumber: string | null; supplierId: string | null; activity: string | null; workArea: string | null }) {
+  const material = isMaterialSubmittal(input.submittalType);
+  const method = isMethodSubmittal(input.submittalType);
+  return {
+    manufacturer: material ? input.manufacturer : null,
+    productName: material ? input.productName : null,
+    modelNumber: material ? input.modelNumber : null,
+    supplierId: material ? input.supplierId : null,
+    activity: method ? input.activity : null,
+    workArea: method ? input.workArea : null,
+  };
+}
+
+function detailData(input: CreateSubmittalInput | (Omit<UpdateSubmittalInput, "supplierId"> & { supplierId: string | null })) {
   return {
     title: input.title,
     description: input.description,
@@ -219,12 +239,7 @@ function detailData(input: CreateSubmittalInput | UpdateSubmittalInput) {
     assignedReviewerMemberId: input.assignedReviewerMemberId,
     dueAt: at(input.dueAt),
     specificationReference: input.specificationReference,
-    manufacturer: input.manufacturer,
-    productName: input.productName,
-    modelNumber: input.modelNumber,
-    supplierId: input.supplierId,
-    activity: input.activity,
-    workArea: input.workArea,
+    ...typedDetails(input),
   };
 }
 
@@ -237,7 +252,7 @@ export async function createSubmittal(context: UserContext, projectId: string, i
   const [scope] = await Promise.all([
     resolveProjectContext(context, project.id, input, { newWork: true }),
     assertResponsible(context.companyId, project.id, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId"),
-    assertSupplier(context, input.supplierId),
+    assertSupplier(context, typedDetails(input).supplierId),
   ]);
   const created = await withNumber("submittalNumber", input.submittalNumber, { code: "SUBMITTAL_NUMBER_TAKEN", message: "That submittal number is already used on this project." }, () =>
     prisma.$transaction(async (tx) => {
@@ -286,7 +301,7 @@ const FROZEN_DETAIL_FIELDS = ["submittalType", "specificationReference", "manufa
  * a changed product is a new revision after "revision required", or a new
  * submittal.
  */
-function assertDetailsUnfrozen(row: SubmittalRow, input: UpdateSubmittalInput) {
+function assertDetailsUnfrozen(row: SubmittalRow, input: Record<(typeof FROZEN_DETAIL_FIELDS)[number], string | null>) {
   if (!FROZEN_DETAIL_STATUSES.includes(row.status)) return;
   const changed = FROZEN_DETAIL_FIELDS.filter((field) => (input[field] ?? null) !== (row[field] ?? null));
   if (!changed.length) return;
@@ -294,14 +309,19 @@ function assertDetailsUnfrozen(row: SubmittalRow, input: UpdateSubmittalInput) {
   throw stateDenied(`The submitted product details cannot change ${when}.`, { code: "SUBMITTAL_DETAILS_FROZEN", fields: changed });
 }
 
-export async function updateSubmittal(context: UserContext, id: string, input: UpdateSubmittalInput): Promise<{ id: string; version: number }> {
+export async function updateSubmittal(context: UserContext, id: string, sent: UpdateSubmittalInput): Promise<{ id: string; version: number }> {
   const row = await findWritableSubmittal(context, id);
-  assertDetailsUnfrozen(row, input);
+  // An absent supplier is the one stored (AUD-09 §4, FV-05); the type rule then decides whether it stays.
+  const input = { ...sent, supplierId: sent.supplierId === undefined ? row.supplierId : sent.supplierId };
+  const details = typedDetails(input);
+  assertDetailsUnfrozen(row, { submittalType: input.submittalType, specificationReference: input.specificationReference, ...details });
+  // The company's rule holds on an edit as on a create: a required due date cannot be cleared (AUD-09 §4, FV-04).
+  if (!input.dueAt && row.dueAt && (await resolveEngineeringSettings(context.companyId)).requireSubmittalDueDate) throw fail("SUBMITTAL_DUE_REQUIRED", "Give the review a due date.", "VALIDATION_ERROR", { field: "dueAt" });
   const reassigned = input.assignedReviewerMemberId !== row.assignedReviewerMemberId;
   const [scope] = await Promise.all([
     resolveProjectContext(context, row.projectId, input, { newWork: input.contractorId !== row.contractorId || input.workPackageId !== row.workPackageId }),
     reassigned ? assertResponsible(context.companyId, row.projectId, input.assignedReviewerMemberId, "submittal.review", "assignedReviewerMemberId") : undefined,
-    assertSupplier(context, input.supplierId, row.supplierId),
+    assertSupplier(context, details.supplierId, row.supplierId),
   ]);
   await prisma.$transaction(async (tx) => {
     // The version guard also keeps the freeze honest: a decision in between moves the version on.
@@ -314,7 +334,7 @@ export async function updateSubmittal(context: UserContext, id: string, input: U
         entity: { type: SUBMITTAL_RECORD, id: row.id, label: row.submittalNumber },
         projectId: row.projectId,
         before: { title: row.title, submittalType: row.submittalType, discipline: row.discipline, contractorId: row.contractorId, workPackageId: row.workPackageId, assignedReviewerMemberId: row.assignedReviewerMemberId, dueAt: dateOf(row.dueAt), supplierId: row.supplierId, manufacturer: row.manufacturer, productName: row.productName, modelNumber: row.modelNumber },
-        after: { title: input.title, submittalType: input.submittalType, discipline: input.discipline, contractorId: scope.contractorId, workPackageId: scope.workPackageId, assignedReviewerMemberId: input.assignedReviewerMemberId, dueAt: input.dueAt, supplierId: input.supplierId, manufacturer: input.manufacturer, productName: input.productName, modelNumber: input.modelNumber },
+        after: { title: input.title, submittalType: input.submittalType, discipline: input.discipline, contractorId: scope.contractorId, workPackageId: scope.workPackageId, assignedReviewerMemberId: input.assignedReviewerMemberId, dueAt: input.dueAt, supplierId: details.supplierId, manufacturer: details.manufacturer, productName: details.productName, modelNumber: details.modelNumber },
       },
       { tx },
     );

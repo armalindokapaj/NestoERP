@@ -4,6 +4,7 @@ import {
   bool,
   expectedVersion,
   idSchema,
+  keepable,
   LONG_TEXT_MAX,
   name,
   optionalDate,
@@ -160,7 +161,12 @@ const submittalFields = {
 };
 export const createSubmittalSchema = z.object({ ...submittalFields, submittalNumber: optionalRecordNumber });
 export type CreateSubmittalInput = z.infer<typeof createSubmittalSchema>;
-export const updateSubmittalSchema = z.object({ ...submittalFields, expectedVersion });
+/**
+ * An edit of a submittal. The supplier is offered only to readers of
+ * Procurement's suppliers, so an absent one is kept rather than unlinked
+ * (AUD-09 §4, §5, FV-05, FV-10); every other field is sent by the dialog.
+ */
+export const updateSubmittalSchema = z.object({ ...submittalFields, supplierId: keepable(optionalId), expectedVersion });
 export type UpdateSubmittalInput = z.infer<typeof updateSubmittalSchema>;
 
 export const submittalListSchema = z.object({
@@ -203,7 +209,8 @@ const transmittalFields = {
 };
 export const createTransmittalSchema = z.object({ ...transmittalFields, transmittalNumber: optionalRecordNumber });
 export type CreateTransmittalInput = z.infer<typeof createTransmittalSchema>;
-export const updateTransmittalSchema = z.object(transmittalFields);
+/** An edit: absent items are kept as they are, an empty list removes them all (AUD-09 §4, FV-05). */
+export const updateTransmittalSchema = z.object({ ...transmittalFields, items: keepable(z.array(transmittalItem).max(200, "A transmittal carries at most 200 documents.")) });
 export type UpdateTransmittalInput = z.infer<typeof updateTransmittalSchema>;
 export const issueTransmittalSchema = z.object({ issuedAt: optionalDate });
 

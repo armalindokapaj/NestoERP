@@ -12,6 +12,7 @@ import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { keepOrSet } from "@/lib/modules/finance/finance.fields";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
@@ -718,8 +719,38 @@ export async function updateOrder(
 
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
-  const related = await resolveRelated(context, input);
-  const lines = input.items.map((item) => ({ ...item, totals: lineTotals(item) }));
+  // What the form does not send is kept, not erased (AUD-09 §4, FV-05, FV-10):
+  // the quote an order was raised from, its enquiry, a contract the editor may
+  // not see, and each line's source lines. Before this an ordinary edit wiped
+  // them, which reset "modified from quote", let the quote raise a second
+  // order and stopped request sourcing from counting the order's lines.
+  const saved = await prisma.purchaseOrder.findFirstOrThrow({
+    where: { id: orderId, companyId: context.companyId },
+    select: {
+      rfqId: true,
+      supplierQuoteId: true,
+      contractId: true,
+      items: { select: { id: true, sourceRequestItemId: true, sourceQuoteItemId: true } },
+    },
+  });
+  const savedLines = new Map(saved.items.map((line) => [line.id, line]));
+  const merged: OrderInput = {
+    ...input,
+    rfqId: keepOrSet(input.rfqId, saved.rfqId),
+    supplierQuoteId: keepOrSet(input.supplierQuoteId, saved.supplierQuoteId),
+    contractId: keepOrSet(input.contractId, saved.contractId),
+    items: input.items.map((item) => {
+      const line = item.id ? savedLines.get(item.id) : undefined;
+      return {
+        ...item,
+        sourceRequestItemId: item.sourceRequestItemId ?? line?.sourceRequestItemId ?? undefined,
+        sourceQuoteItemId: item.sourceQuoteItemId ?? line?.sourceQuoteItemId ?? undefined,
+      };
+    }),
+  };
+
+  const related = await resolveRelated(context, merged);
+  const lines = merged.items.map((item) => ({ ...item, totals: lineTotals(item) }));
   const totals = sumLineTotals(lines.map((line) => line.totals));
 
   await prisma.$transaction(async (tx) => {
@@ -1523,11 +1554,62 @@ async function resolveRelated(context: UserContext, input: OrderInput) {
     contractId = contract.id;
   }
 
+  // Every link the order stores is checked, not just the visible ones (AUD-09
+  // §5, FV-09): an enquiry and a quote of this company — the quote from this
+  // supplier — and source lines that belong to the request and the quote named.
+  let rfqId: string | null = null;
+  if (input.rfqId) {
+    const rfq = await prisma.rFQ.findFirst({ where: { id: input.rfqId, companyId: context.companyId }, select: { id: true } });
+    if (!rfq) throw new AccessError("VALIDATION_ERROR", "That enquiry does not exist.", { code: "INVALID_RFQ" });
+    rfqId = rfq.id;
+  }
+
+  let supplierQuoteId: string | null = null;
+  if (input.supplierQuoteId) {
+    const quote = await prisma.supplierQuote.findFirst({
+      where: { id: input.supplierQuoteId, companyId: context.companyId },
+      select: { id: true, supplierId: true, rfqId: true },
+    });
+    if (!quote || quote.supplierId !== supplier.id || (rfqId && quote.rfqId !== rfqId)) {
+      throw new AccessError("VALIDATION_ERROR", "That quote is not one of this supplier's.", {
+        code: "INVALID_QUOTE",
+        supplierId: ["The order's supplier must be the supplier who gave the quote."],
+      });
+    }
+    supplierQuoteId = quote.id;
+  }
+
+  const requestLineIds = [...new Set(input.items.map((line) => line.sourceRequestItemId).filter((id): id is string => Boolean(id)))];
+  if (requestLineIds.length > 0) {
+    const found = purchaseRequestId
+      ? await prisma.purchaseRequestItem.count({ where: { id: { in: requestLineIds }, purchaseRequestId } })
+      : 0;
+    if (found !== requestLineIds.length) {
+      throw new AccessError("VALIDATION_ERROR", "A line refers to a request line that is not part of this order's request.", {
+        code: "INVALID_SOURCE_LINE",
+        items: ["A line refers to a request line that is not part of this order's request."],
+      });
+    }
+  }
+
+  const quoteLineIds = [...new Set(input.items.map((line) => line.sourceQuoteItemId).filter((id): id is string => Boolean(id)))];
+  if (quoteLineIds.length > 0) {
+    const found = supplierQuoteId
+      ? await prisma.supplierQuoteItem.count({ where: { id: { in: quoteLineIds }, supplierQuoteId } })
+      : 0;
+    if (found !== quoteLineIds.length) {
+      throw new AccessError("VALIDATION_ERROR", "A line refers to a quote line that is not part of this order's quote.", {
+        code: "INVALID_SOURCE_LINE",
+        items: ["A line refers to a quote line that is not part of this order's quote."],
+      });
+    }
+  }
+
   // The order no longer matches the quote the moment a priced line differs.
   let modifiedFromQuote = false;
-  if (input.supplierQuoteId) {
+  if (supplierQuoteId) {
     const quoteItems = await prisma.supplierQuoteItem.findMany({
-      where: { supplierQuoteId: input.supplierQuoteId },
+      where: { supplierQuoteId },
       select: { id: true, quantity: true, unitPrice: true },
     });
     const byId = new Map(quoteItems.map((item) => [item.id, item]));
@@ -1546,8 +1628,8 @@ async function resolveRelated(context: UserContext, input: OrderInput) {
   return {
     supplierId: supplier.id,
     purchaseRequestId,
-    rfqId: input.rfqId ?? null,
-    supplierQuoteId: input.supplierQuoteId ?? null,
+    rfqId,
+    supplierQuoteId,
     projectId,
     contractId,
     modifiedFromQuote,

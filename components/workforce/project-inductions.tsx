@@ -8,6 +8,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { HseWorkerRef, InductionDTO } from "@/lib/modules/hse/hse.workforce";
+import { localDay } from "@/components/hr/local-day";
 
 /**
  * A project's site inductions (E-04 §71, §183, §270): who is working here
@@ -18,7 +19,7 @@ import type { HseWorkerRef, InductionDTO } from "@/lib/modules/hse/hse.workforce
 
 type Option = { value: string; label: string };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDay();
 
 export function ProjectInductions({
   projectId,

@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ATTENDANCE_STATUSES, attendanceLabels } from "@/lib/modules/hse/hse.status";
 import type { Option } from "./hse-forms";
+import { localDay } from "@/components/hr/local-day";
+import { CurrentOption } from "./hse-forms";
 
 /**
  * A toolbox talk and who was there (PRD #22 §130, §132, §320).
@@ -154,7 +156,7 @@ export function ToolboxForm({
             id="talkDate"
             name="talkDate"
             type="date"
-            defaultValue={values?.talkDate ?? new Date().toISOString().slice(0, 10)}
+            defaultValue={values?.talkDate ?? localDay()}
             required
           />
         </Field>
@@ -234,6 +236,8 @@ export function ToolboxForm({
                         ))}
                       </optgroup>
                     ) : null}
+                    {/* Somebody who attended and has since left stays on the sheet (AUD-09 §5, FV-09). */}
+                    <CurrentOption value={row.companyMemberId} options={[...members, ...workers]} />
                   </select>
                 </div>
 

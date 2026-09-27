@@ -328,13 +328,23 @@ export const resolveDefectSchema = z.object({
 /* NCRs                                                                        */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A link the form may not carry: absent is `undefined` (kept on an edit),
+ * empty or null is `null` (cleared) (AUD-09 §4, FV-05). The delivery field is
+ * rendered only for readers of deliveries, and the delivery line never is.
+ */
+const keptId = z
+  .union([z.string().trim().max(64), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === "" ? null : value));
+
 export const ncrSchema = z.object({
   title: requiredText(3, 200, "Title"),
   description: requiredText(3, 4000, "Description"),
   projectId: optionalId,
   inspectionId: optionalId,
-  goodsReceiptId: optionalId,
-  goodsReceiptItemId: optionalId,
+  goodsReceiptId: keptId,
+  goodsReceiptItemId: keptId,
   sourceDefectId: optionalId,
   category: z.enum(NCR_CATEGORIES),
   severity: z.enum(SEVERITIES),

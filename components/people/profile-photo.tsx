@@ -13,10 +13,18 @@ import { UnsavedValue } from "@/components/unsaved/unsaved-value";
  * and which images it takes (JPEG, PNG or WebP, up to 2 MB); this only appears
  * for a reader who may.
  */
+/**
+ * The photo rules as the server enforces them (`lib/modules/people/person.photo.ts`).
+ * AUD-09: candidate for an isomorphic `MAX_PHOTO_BYTES` export — the ceiling
+ * lives in a server module today, so the sentence repeats its number.
+ */
+const PHOTO_RULES = "A JPEG, PNG or WebP image, up to 2 MB. It is checked by its contents, not its name.";
+
 export function ProfilePhotoButton({ personId, self, hasPhoto }: { personId: string; self: boolean; hasPhoto: boolean }) {
   const { pending, run } = useCommand();
   const input = React.useRef<HTMLInputElement>(null);
   const url = self ? "/api/people/me/photo" : `/api/people/${personId}/photo`;
+  const hintId = React.useId();
 
   async function upload(file: File) {
     await run(
@@ -45,6 +53,7 @@ export function ProfilePhotoButton({ personId, self, hasPhoto }: { personId: str
         accept="image/jpeg,image/png,image/webp"
         className="sr-only"
         aria-label={self ? "Choose your photo" : "Choose a photo"}
+        aria-describedby={hintId}
         data-testid="profile-photo-input"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
@@ -52,9 +61,14 @@ export function ProfilePhotoButton({ personId, self, hasPhoto }: { personId: str
           if (file) void upload(file);
         }}
       />
-      <Button size="sm" variant="secondary" disabled={pending === "photo"} onClick={() => input.current?.click()}>
+      <Button type="button" size="sm" variant="secondary" disabled={pending === "photo"} onClick={() => input.current?.click()} title={PHOTO_RULES}>
         {hasPhoto ? "Change photo" : "Add photo"}
       </Button>
+      {/* What is accepted, before choosing (AUD-09 §8). The server reads the
+          image's bytes, not its name, and refuses anything else. */}
+      <span id={hintId} className="text-meta text-fg-subtle" data-testid="profile-photo-rules">
+        {PHOTO_RULES}
+      </span>
       {hasPhoto ? (
         <Button size="sm" variant="ghost" disabled={pending === "photo"} onClick={() => void run("photo", () => engineeringApi(url, { method: "DELETE" }), "Photo removed.")}>
           Remove photo

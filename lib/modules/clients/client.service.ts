@@ -275,26 +275,32 @@ export async function updateClient(
     );
   }
 
-  const nextStatus = input.status as ClientStatus;
+  // A partial update (AUD-09 §4, FV-05): what the request left out keeps its
+  // saved value; `null` is a deliberate clear.
+  const next = mergeClientUpdate(existing, input);
+  const nextStatus = next.status;
   if (!canTransitionClientStatus(existing.status, nextStatus)) {
     throw new AccessError(
       "VALIDATION_ERROR",
       `A client cannot move from ${existing.status} to ${nextStatus}.`,
+      { status: [`A client cannot move from ${existing.status} to ${nextStatus}.`] },
     );
   }
 
   const identityChanged =
-    input.name !== existing.name ||
-    (input.legalName ?? null) !== existing.legalName ||
-    (input.email ?? null) !== existing.email ||
-    (input.phone ?? null) !== existing.phone;
+    next.name !== existing.name ||
+    next.legalName !== existing.legalName ||
+    next.email !== existing.email ||
+    next.phone !== existing.phone;
 
+  // "Save anyway" answers the soft warning only; the code's uniqueness is
+  // still the database's to refuse (AUD-09 §5, FV-11).
   if (identityChanged && !input.acceptDuplicate) {
     const matches = await findPossibleDuplicates(context, {
-      name: input.name,
-      legalName: input.legalName,
-      email: input.email,
-      phone: input.phone,
+      name: next.name,
+      legalName: next.legalName ?? undefined,
+      email: next.email ?? undefined,
+      phone: next.phone ?? undefined,
       excludeClientId: clientId,
     });
     if (matches.length > 0) throw new DuplicateClientError(matches);
@@ -305,8 +311,8 @@ export async function updateClient(
       await tx.client.update({
         where: { id: clientId },
         data: {
-          ...clientData(input),
-          normalizedName: normalizeName(input.name),
+          ...next,
+          normalizedName: normalizeName(next.name),
           updatedBy: context.userId,
         },
       });
@@ -514,15 +520,18 @@ export async function updateContact(
     );
   }
 
-  const nextStatus = input.status as ContactStatus;
+  // A field the request left out keeps its saved value (AUD-09 §4, FV-05).
+  const nextStatus = (input.status ?? existing.status) as ContactStatus;
   if (!canTransitionContactStatus(existing.status, nextStatus)) {
     throw new AccessError(
       "VALIDATION_ERROR",
       `A contact cannot move from ${existing.status} to ${nextStatus}.`,
+      { status: [`A contact cannot move from ${existing.status} to ${nextStatus}.`] },
     );
   }
 
-  const becomingPrimary = Boolean(input.isPrimary) && !existing.isPrimary;
+  const nextPrimary = input.isPrimary === undefined ? existing.isPrimary : input.isPrimary;
+  const becomingPrimary = nextPrimary && !existing.isPrimary;
 
   const contact = await prisma.$transaction(async (tx) => {
     if (becomingPrimary) await clearPrimary(tx, context, clientId, contactId);
@@ -530,12 +539,12 @@ export async function updateContact(
     const updated = await tx.contact.update({
       where: { id: contactId },
       data: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        jobTitle: input.jobTitle ?? null,
-        email: input.email ?? null,
-        phone: input.phone ?? null,
-        isPrimary: Boolean(input.isPrimary),
+        firstName: input.firstName ?? existing.firstName,
+        lastName: input.lastName ?? existing.lastName,
+        jobTitle: input.jobTitle === undefined ? existing.jobTitle : input.jobTitle,
+        email: input.email === undefined ? existing.email : input.email,
+        phone: input.phone === undefined ? existing.phone : input.phone,
+        isPrimary: nextPrimary,
         status: nextStatus,
         updatedBy: context.userId,
       },
@@ -737,7 +746,31 @@ async function assertClientWritable(context: UserContext, clientId: string): Pro
   }
 }
 
-function clientData(input: CreateClientInput | UpdateClientInput) {
+/**
+ * The client as it will be after an edit: each field the request named, and
+ * the saved value for each it did not (AUD-09 §4, FV-05).
+ */
+function mergeClientUpdate(
+  existing: { code: string | null; name: string; legalName: string | null; type: ClientType; email: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; country: string | null; status: ClientStatus },
+  input: UpdateClientInput,
+) {
+  const pick = <T,>(value: T | undefined, saved: T): T => (value === undefined ? saved : value);
+  return {
+    code: pick(input.code, existing.code),
+    name: pick(input.name, existing.name),
+    legalName: pick(input.legalName, existing.legalName),
+    type: pick(input.type as ClientType | undefined, existing.type),
+    email: pick(input.email, existing.email),
+    phone: pick(input.phone, existing.phone),
+    website: pick(input.website, existing.website),
+    address: pick(input.address, existing.address),
+    city: pick(input.city, existing.city),
+    country: pick(input.country, existing.country),
+    status: pick(input.status as ClientStatus | undefined, existing.status),
+  };
+}
+
+function clientData(input: CreateClientInput) {
   return {
     code: input.code ?? null,
     name: input.name,
@@ -757,8 +790,17 @@ function translateWriteError(error: unknown): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     // The database is the final authority on client-code uniqueness; a
     // front-end check is a courtesy, not a guarantee (PRD #12 §163).
+    // Mapped to the field, with a stable code, so the form can put it beside
+    // the code input — including when two people create the same code at the
+    // same moment and only the database sees both (AUD-09 §3, FV-11). A field
+    // called `code` cannot share the details map with the business code, so it
+    // is named by `field` (the shared contract, lib/forms/errors).
     if (error.code === "P2002") {
-      throw new AccessError("CONFLICT", "That client code is already used in your company.");
+      throw new AccessError(
+        "CONFLICT",
+        "That client code is already used in your company. Choose another code.",
+        { code: "CLIENT_CODE_TAKEN", field: "code" },
+      );
     }
     if (error.code === "P2003") {
       throw new AccessError("VALIDATION_ERROR", "A related record could not be found.");

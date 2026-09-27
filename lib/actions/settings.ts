@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
+import { validationFailure } from "@/lib/actions/result";
 import { MODULE_KEYS } from "@/config/modules";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import {
@@ -28,7 +29,13 @@ import {
  * endpoint (PRD #24 §149).
  */
 
-type ActionResult = { ok: true } | { ok: false; message: string };
+type ActionResult = { ok: true } | { ok: false; message: string; fieldErrors?: Record<string, string[]> };
+
+/** A refused parse, said beside its fields rather than thrown as "may have saved" (AUD-09 §3, §6). */
+function invalid(error: z.ZodError): ActionResult {
+  const failure = validationFailure(error);
+  return { ok: false, message: failure.error, fieldErrors: failure.fieldErrors };
+}
 
 const MESSAGES: Record<string, string> = {
   BASE_CURRENCY_LOCKED:
@@ -121,14 +128,20 @@ export async function updateNumberingSchemeAction(formData: FormData): Promise<A
   const context = await requireCompanyContext();
   const moduleKey = String(formData.get("moduleKey"));
   const entityType = String(formData.get("entityType"));
-  const input = numberingSchemeSchema.parse({
-    mode: formData.get("mode"),
-    prefix: formData.get("prefix") ?? undefined,
-    separator: formData.get("separator") ?? "-",
-    yearMode: formData.get("yearMode"),
-    padding: formData.get("padding"),
-    resetSequenceYearly: formData.get("resetSequenceYearly") === "on",
+  const mode = formData.get("mode");
+  // Disabled controls post nothing: absent is "unchanged", not a value. A
+  // checkbox the form showed posts nothing when unticked, so it is false only
+  // when its scheme is automatic and the box was there to tick (AUD-09 §4, §5).
+  const parsed = numberingSchemeSchema.safeParse({
+    mode,
+    prefix: field(formData, "prefix"),
+    separator: field(formData, "separator"),
+    yearMode: field(formData, "yearMode"),
+    padding: field(formData, "padding"),
+    resetSequenceYearly: mode === "AUTO" ? formData.get("resetSequenceYearly") === "on" : undefined,
   });
+  if (!parsed.success) return invalid(parsed.error);
+  const input = parsed.data;
   return run(() => updateNumberingScheme(context, moduleKey, entityType, input), [
     "/settings/numbering",
   ]);

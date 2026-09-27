@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { AccessError } from "@/lib/access/guards";
+import { actionFailure, validationFailure, type ActionFailure } from "@/lib/actions/result";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import {
   addProjectMemberSchema,
@@ -32,17 +32,15 @@ function revalidateProjects(projectId?: string) {
   revalidatePath("/dashboard");
 }
 
-export type ActionResult =
-  | { ok: true; redirectTo?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+export type ActionResult = { ok: true; redirectTo?: string } | ActionFailure;
 
+/**
+ * The shared failure reading (AUD-09 §3, `lib/actions/result.ts`): a stable
+ * code and the field it is about — a client or manager that is not available,
+ * a taken code, an end before the start lands beside its input.
+ */
 function toResult(error: unknown): ActionResult {
-  if (error instanceof AccessError) {
-    return { ok: false, error: error.message };
-  }
-  // Never surface a raw database error to a person (PRD #7 §149).
-  console.error("[projects] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "projects");
 }
 
 function formValues(formData: FormData): Record<string, unknown> {
@@ -57,13 +55,7 @@ export async function createProjectAction(formData: FormData): Promise<ActionRes
   const context = await requireCompanyContext();
 
   const parsed = createProjectSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   let projectId: string;
   try {
@@ -84,13 +76,7 @@ export async function updateProjectAction(
   const context = await requireCompanyContext();
 
   const parsed = updateProjectSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   try {
     await projects.updateProject(context, projectId, parsed.data);
@@ -136,7 +122,7 @@ export async function addProjectMemberAction(
 
   const parsed = addProjectMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { ok: false, error: "Select a team member to add." };
+    return validationFailure(parsed.error, "Select a team member to add.");
   }
 
   try {
@@ -158,7 +144,7 @@ export async function updateProjectMemberAction(
 
   const parsed = updateProjectMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { ok: false, error: "That project role is not valid." };
+    return validationFailure(parsed.error, "That project role is not valid.");
   }
 
   try {

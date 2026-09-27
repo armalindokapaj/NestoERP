@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { parseDecimalInput } from "@/lib/forms/decimal";
+import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
+
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { idSchema } from "@/lib/modules/project-structure/structure.schema";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_COMMERCIAL_STATUSES, UNIT_PRICE_BASES } from "./unit-sales.types";
@@ -11,13 +14,28 @@ import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_COMMERCIAL_STATUSES, UNIT_PRICE
  */
 
 const currency = z.enum(SUPPORTED_CURRENCIES as unknown as [string, ...string[]]);
-const blank = (value: unknown) => (value === "" || value === undefined ? null : value);
 
-/** A non-negative amount, two decimals at most, within DECIMAL(18,2); kept as a string. */
-const money = z.preprocess(
-  (value) => (typeof value === "number" ? String(value) : blank(typeof value === "string" ? value.trim().replace(",", ".") : value)),
-  z.string().regex(/^\d{1,16}(\.\d{1,2})?$/, "Enter an amount of 0 or more, with at most two decimals.").nullable(),
-);
+/**
+ * A non-negative amount, two decimals at most, within DECIMAL(18,2); kept as a
+ * string. Empty is "no amount" (null). Read by the shared decimal rule (AUD-09
+ * §4, FV-06): `1,234` is refused as ambiguous, not read as 1.234.
+ */
+const money = z
+  .unknown()
+  .transform((value, ctx): string | null => {
+    const text = typeof value === "number" && Number.isFinite(value) ? String(value) : value;
+    if (text === undefined || text === null || (typeof text === "string" && text.trim() === "")) return null;
+    if (typeof text !== "string") {
+      ctx.addIssue({ code: "custom", message: "Enter an amount of 0 or more, with at most two decimals." });
+      return z.NEVER;
+    }
+    const parsed = parseDecimalInput(text, { label: "Amount", ...MONEY_RULE });
+    if (!parsed.ok) {
+      ctx.addIssue({ code: "custom", message: parsed.message });
+      return z.NEVER;
+    }
+    return parsed.value;
+  });
 
 const reason = z.string().trim().min(1, "Give a reason.").max(SALES_REASON_MAX, `Keep the reason under ${SALES_REASON_MAX.toLocaleString("en")} characters.`);
 const optionalText = (max: number) =>

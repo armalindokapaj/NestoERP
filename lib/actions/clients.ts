@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { AccessError } from "@/lib/access/guards";
+import { actionFailure, validationFailure, type ActionFailure } from "@/lib/actions/result";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import type { DuplicateMatch } from "@/lib/modules/clients/client.duplicate";
@@ -35,22 +35,22 @@ function revalidateClients(clientId?: string) {
 
 export type ClientActionResult =
   | { ok: true; redirectTo?: string }
-  | {
-      ok: false;
-      error: string;
-      fieldErrors?: Record<string, string[]>;
+  | (ActionFailure & {
       /** Present when the refusal was a soft duplicate (PRD #12 §53). */
       duplicates?: DuplicateMatch[];
-    };
+    });
 
+/**
+ * The shared failure reading (AUD-09 §3, `lib/actions/result.ts`): a stable
+ * code, the category, field errors under their paths, and a reference for the
+ * unexpected. The soft duplicate is read first: it is a question for the
+ * person ("Create anyway"), not a refusal to explain.
+ */
 function toResult(error: unknown): ClientActionResult {
   if (error instanceof clients.DuplicateClientError) {
-    return { ok: false, error: error.message, duplicates: error.matches };
+    return { ok: false, code: "DUPLICATE_SUSPECTED", category: "conflict", error: error.message, duplicates: error.matches };
   }
-  if (error instanceof AccessError) return { ok: false, error: error.message };
-  // Never surface a raw database error to a person.
-  console.error("[clients] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "clients");
 }
 
 function formValues(formData: FormData): Record<string, unknown> {
@@ -65,13 +65,7 @@ export async function createClientAction(formData: FormData): Promise<ClientActi
   const context = await requireCompanyContext();
 
   const parsed = createClientSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   let clientId: string;
   try {
@@ -92,13 +86,7 @@ export async function updateClientAction(
   const context = await requireCompanyContext();
 
   const parsed = updateClientSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   try {
     await clients.updateClient(context, clientId, parsed.data);
@@ -143,13 +131,7 @@ export async function createContactAction(
   const context = await requireCompanyContext();
 
   const parsed = createContactSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   try {
     await clients.createContact(context, clientId, parsed.data);
@@ -169,13 +151,7 @@ export async function updateContactAction(
   const context = await requireCompanyContext();
 
   const parsed = updateContactSchema.safeParse(formValues(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
-  }
+  if (!parsed.success) return validationFailure(parsed.error);
 
   try {
     await clients.updateContact(context, clientId, contactId, parsed.data);

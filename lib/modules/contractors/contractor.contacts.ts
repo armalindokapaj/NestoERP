@@ -5,7 +5,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { fail } from "@/lib/modules/engineering/engineering.shared";
 import { contractorDirectoryWhere, contractorsOpen, RECORD } from "./contractor.permissions";
-import type { ContactInput } from "./contractor.schema";
+import type { ContactInput, UpdateContactInput } from "./contractor.schema";
 import { findReadableContractor } from "./contractor.service";
 import type { ContactDTO, ContactRole } from "./contractor.types";
 
@@ -53,7 +53,8 @@ export async function createContact(context: UserContext, contractorId: string, 
   });
 }
 
-export async function updateContact(context: UserContext, contactId: string, input: ContactInput): Promise<ContactDTO> {
+/** Absent fields are kept (AUD-09 §4, FV-05): Prisma leaves an undefined field alone. */
+export async function updateContact(context: UserContext, contactId: string, input: UpdateContactInput): Promise<ContactDTO> {
   const contact = await findManageableContact(context, contactId);
   return prisma.$transaction(async (tx) => {
     const row = await tx.contractorContact.update({ where: { id: contact.id }, data: input, select: CONTACT_SELECT });

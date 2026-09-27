@@ -85,7 +85,11 @@ export function TaskEditForm({
   mayAssignOthers,
   cancelHref,
   action,
+  legacyProject,
+  legacyAssignee,
 }: {
+  legacyProject?: SelectOption;
+  legacyAssignee?: SelectOption;
   taskId: string;
   initial: TaskFormValues;
   version: number;
@@ -328,6 +332,10 @@ export function TaskEditForm({
       projects={projects}
       assignees={assignees}
       mayAssignOthers={mayAssignOthers}
+      legacyProject={legacyProject}
+      legacyAssignee={legacyAssignee}
+      // The assignee options were read for the task's project as loaded.
+      assigneesFor={initial.projectId}
       expectedVersion={base.version}
       baselineValues={base.saved}
       action={action}

@@ -32,7 +32,7 @@ import {
   type UnitTypeOption,
 } from "@/lib/modules/project-structure/structure.types";
 import { cn } from "@/lib/utils/cn";
-import { Field, fieldErrors, FormError, failureMessage, numberText, structureApi, Warnings } from "./structure-ui";
+import { areaRule, decimalPayload, decimalProblem, Field, fieldErrors, FormError, failureMessage, metresRule, numberText, structureApi, Warnings } from "./structure-ui";
 
 /**
  * Adding and editing a unit (E-05B §17-§26, §40, §55, §74, §95).
@@ -69,18 +69,50 @@ export function emptyTechnical(unitTypeId = ""): TechnicalValues {
 }
 
 export function technicalBody(values: TechnicalValues) {
-  const count = (value: string) => (value.trim() === "" ? null : Number(value));
+  // Empty is "none", not zero; text that is not a number goes as typed, so the
+  // server refuses it on its field — `Number("abc")` is NaN, which JSON sends
+  // as `null` and would quietly clear the count (AUD-09 §4, FV-06).
+  const count = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : trimmed;
+  };
   return {
     unitTypeId: values.unitTypeId,
     position: values.position || null,
     orientation: values.orientation || null,
-    ...Object.fromEntries(AREA_FIELDS.map((field) => [field, values.areas[field].trim() || null])),
+    // Canonical decimals by the shared locale rule; unreadable text goes as typed for the server to refuse (FV-06).
+    ...Object.fromEntries(AREA_FIELDS.map((field) => [field, decimalPayload(values.areas[field], areaRule(AREA_LABELS[field]))])),
     rooms: count(values.counts.rooms),
     bedrooms: count(values.counts.bedrooms),
     bathrooms: count(values.counts.bathrooms),
-    attributes: Object.keys(values.attributes).length ? values.attributes : null,
+    attributes: Object.keys(values.attributes).length ? attributesPayload(values.attributes) : null,
     description: values.description.trim() || null,
   };
+}
+
+function attributesPayload(attributes: UnitAttributes): UnitAttributes {
+  const out: Record<string, unknown> = { ...attributes };
+  for (const key of ["frontage", "ceilingHeight"] as const) {
+    const value = out[key];
+    if (typeof value === "string") out[key] = decimalPayload(value, metresRule(key));
+  }
+  return out as UnitAttributes;
+}
+
+/**
+ * The shared decimal rule's sentences for the typed areas, before anything is
+ * sent (AUD-09 §3, FV-04): `1,234` is refused with both readings offered, the
+ * same sentence finance gives.
+ */
+export function technicalProblems(values: TechnicalValues): Record<string, string> {
+  const found: Record<string, string> = {};
+  for (const field of AREA_FIELDS) {
+    const problem = decimalProblem(values.areas[field], areaRule(AREA_LABELS[field]));
+    if (problem) found[field] = problem;
+  }
+  return found;
 }
 
 export function warningsFor(values: TechnicalValues, types: UnitTypeOption[]): string[] {
@@ -289,6 +321,7 @@ function UnitForm({
     const local: Record<string, string> = {};
     if (!code.trim()) local.unitCode = "Give the unit a code.";
     if (!technical.unitTypeId) local.unitTypeId = "Choose the unit's type.";
+    Object.assign(local, technicalProblems(technical));
     if (Object.keys(local).length) {
       setErrors(local);
       return INVALID;

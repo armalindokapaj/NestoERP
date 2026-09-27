@@ -5,9 +5,11 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { companyDays } from "@/lib/core/notifications/company-day";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { engineeringOpen, readableRfiWhere, readableSubmittalWhere } from "@/lib/modules/engineering/engineering.permissions";
+import { kept } from "@/lib/modules/engineering/engineering.fields";
 import { assertProjectWritable, assertResponsible, at, dateOf, fail, loadProjectThrough, memberOptions, people, personOf, projectArchived, type ProjectRef } from "@/lib/modules/engineering/engineering.shared";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { RFI_OPEN_STATUSES } from "@/lib/modules/engineering/engineering.types";
@@ -190,24 +192,40 @@ export async function createAssignment(context: UserContext, projectId: string, 
 
 export async function updateAssignment(context: UserContext, id: string, input: UpdateAssignmentInput): Promise<{ id: string; version: number }> {
   const row = await findManageableAssignment(context, id);
-  // A manager who cannot see contacts was never shown this one, so their edit keeps it as it is.
-  if (!contactsVisible(context)) input = { ...input, primaryContractorContactId: row.primaryContractorContactId };
+  /*
+   * What the edit names, over what is stored (AUD-09 §4, FV-05). A manager who
+   * cannot see contacts was never shown this one, so their edit keeps it as it
+   * is; a contract the dialog did not offer — Legal's, unseen — is kept too.
+   */
+  const next = {
+    status: kept(input.status, row.status) as AssignmentStatus,
+    scopeSummary: kept(input.scopeSummary, row.scopeSummary),
+    contractId: kept(input.contractId, row.contractId),
+    internalManagerMemberId: kept(input.internalManagerMemberId, row.internalManagerMemberId),
+    primaryContractorContactId: contactsVisible(context) ? kept(input.primaryContractorContactId, row.primaryContractorContactId) : row.primaryContractorContactId,
+    startDate: kept(input.startDate, dateOf(row.startDate)),
+    endDate: kept(input.endDate, dateOf(row.endDate)),
+  };
+  // The order of the dates as they will be stored, not only as they were sent (AUD-09 §4, FV-07).
+  if (next.startDate && next.endDate && next.endDate < next.startDate) {
+    throw fail("ASSIGNMENT_DATES", "The end is before the start.", "VALIDATION_ERROR", { field: input.endDate !== undefined ? "endDate" : "startDate" });
+  }
   await Promise.all([
-    assertLinkableContract(context, input.contractId, row.projectId, row.contractId),
-    input.internalManagerMemberId !== row.internalManagerMemberId ? assertResponsible(context.companyId, row.projectId, input.internalManagerMemberId, "project_contractor.view", "internalManagerMemberId") : undefined,
-    input.primaryContractorContactId !== row.primaryContractorContactId ? assertContact(context.companyId, row.contractorId, input.primaryContractorContactId) : undefined,
+    assertLinkableContract(context, next.contractId, row.projectId, row.contractId),
+    next.internalManagerMemberId !== row.internalManagerMemberId ? assertResponsible(context.companyId, row.projectId, next.internalManagerMemberId, "project_contractor.view", "internalManagerMemberId") : undefined,
+    next.primaryContractorContactId !== row.primaryContractorContactId ? assertContact(context.companyId, row.contractorId, next.primaryContractorContactId) : undefined,
   ]);
   await prisma.$transaction(async (tx) => {
     const moved = await tx.projectContractorAssignment.updateMany({
       where: { id: row.id, version: input.expectedVersion, status: { not: "TERMINATED" } },
       data: {
-        status: input.status as AssignmentStatus,
-        scopeSummary: input.scopeSummary,
-        contractId: input.contractId,
-        internalManagerMemberId: input.internalManagerMemberId,
-        primaryContractorContactId: input.primaryContractorContactId,
-        startDate: at(input.startDate),
-        endDate: at(input.endDate),
+        status: next.status,
+        scopeSummary: next.scopeSummary,
+        contractId: next.contractId,
+        internalManagerMemberId: next.internalManagerMemberId,
+        primaryContractorContactId: next.primaryContractorContactId,
+        startDate: at(next.startDate),
+        endDate: at(next.endDate),
         version: { increment: 1 },
       },
     });
@@ -219,12 +237,12 @@ export async function updateAssignment(context: UserContext, id: string, input: 
         entity: { type: RECORD, id: row.contractorId, label: row.contractor.legalName },
         projectId: row.projectId,
         before: { status: row.status, contractId: row.contractId, internalManagerMemberId: row.internalManagerMemberId, primaryContractorContactId: row.primaryContractorContactId, startDate: dateOf(row.startDate), endDate: dateOf(row.endDate) },
-        after: { status: input.status, contractId: input.contractId, internalManagerMemberId: input.internalManagerMemberId, primaryContractorContactId: input.primaryContractorContactId, startDate: input.startDate, endDate: input.endDate },
+        after: { status: next.status, contractId: next.contractId, internalManagerMemberId: next.internalManagerMemberId, primaryContractorContactId: next.primaryContractorContactId, startDate: next.startDate, endDate: next.endDate },
       },
       { tx },
     );
-    if (input.status !== row.status) {
-      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.contractorId, action: "CONTRACTOR_PROJECT_UPDATED", message: `changed ${row.contractor.legalName} on ${row.project.name} to ${input.status.toLowerCase().replace("_", " ")}` });
+    if (next.status !== row.status) {
+      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.contractorId, action: "CONTRACTOR_PROJECT_UPDATED", message: `changed ${row.contractor.legalName} on ${row.project.name} to ${next.status.toLowerCase().replace("_", " ")}` });
     }
   });
   return { id: row.id, version: input.expectedVersion + 1 };
@@ -233,7 +251,10 @@ export async function updateAssignment(context: UserContext, id: string, input: 
 /** Ends the assignment and keeps everything it produced (§31). */
 export async function terminateAssignment(context: UserContext, id: string, input: { reason: string; endDate: string | null; expectedVersion: number }): Promise<{ id: string }> {
   const row = await findManageableAssignment(context, id);
-  const endDate = input.endDate ?? dateOf(new Date());
+  // Today where the company lives, not the UTC day (AUD-09 §4, FV-07); never before the start.
+  const endDate = input.endDate ?? (await companyDays(context.companyId))(new Date()).day;
+  const startDate = dateOf(row.startDate);
+  if (startDate && endDate < startDate) throw fail("ASSIGNMENT_DATES", "The end is before the start.", "VALIDATION_ERROR", { field: "endDate" });
   await prisma.$transaction(async (tx) => {
     const moved = await tx.projectContractorAssignment.updateMany({
       where: { id: row.id, version: input.expectedVersion, status: { not: "TERMINATED" } },

@@ -349,7 +349,10 @@ export async function updateAction(
 
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
-  const assignee = await requireMember(context, input.assignedToMemberId);
+  // The stored assignee is kept even if they have since left: only a new choice must be active (AUD-09 §5, FV-09).
+  const assignee = input.assignedToMemberId === existing.assignedToMemberId ? { id: existing.assignedToMemberId } : await requireMember(context, input.assignedToMemberId);
+  // Reassigning through the edit form is still an assignment (AUD-09 §4, FV-04; AUD-06).
+  if (assignee.id !== existing.assignedToMemberId) assertPermission(context, "qaqc.corrective_action.assign");
   const parent = await requireParent(context, input);
 
   await prisma.$transaction(async (tx) => {
@@ -771,48 +774,61 @@ async function requireAction(context: UserContext, actionId: string) {
  */
 async function requireParent(
   context: UserContext,
-  input: { ncrId?: string; defectId?: string; inspectionId?: string },
+  input: { ncrId?: string; defectId?: string; inspectionId?: string; projectId?: string },
 ): Promise<{ projectId: string | null }> {
+  /*
+   * Every parent the form names is resolved, not only the first: all three
+   * ids are stored, so an unchecked second one was a foreign id written as-is
+   * (AUD-09 §5, FV-09). They must agree on a project, and a project the form
+   * names must be the reader's and the parents' (AUD-09 §3, FV-04).
+   */
+  const { buildNcrScopeWhere, buildDefectScopeWhere, buildInspectionScopeWhere } = await import("../qaqc.scope");
+  const found: Array<{ projectId: string | null }> = [];
   if (input.ncrId) {
-    const { buildNcrScopeWhere } = await import("../qaqc.scope");
-    const ncr = await prisma.nonConformanceReport.findFirst({
-      where: { AND: [buildNcrScopeWhere(context), { id: input.ncrId }] },
-      select: { projectId: true },
-    });
-    if (!ncr) throw invalidParent();
-    return { projectId: ncr.projectId };
+    const ncr = await prisma.nonConformanceReport.findFirst({ where: { AND: [buildNcrScopeWhere(context), { id: input.ncrId }] }, select: { projectId: true } });
+    if (!ncr) throw invalidParent("ncrId");
+    found.push(ncr);
   }
-
   if (input.defectId) {
-    const { buildDefectScopeWhere } = await import("../qaqc.scope");
-    const defect = await prisma.qualityDefect.findFirst({
-      where: { AND: [buildDefectScopeWhere(context), { id: input.defectId }] },
-      select: { projectId: true },
-    });
-    if (!defect) throw invalidParent();
-    return { projectId: defect.projectId };
+    const defect = await prisma.qualityDefect.findFirst({ where: { AND: [buildDefectScopeWhere(context), { id: input.defectId }] }, select: { projectId: true } });
+    if (!defect) throw invalidParent("defectId");
+    found.push(defect);
   }
-
   if (input.inspectionId) {
-    const { buildInspectionScopeWhere } = await import("../qaqc.scope");
-    const inspection = await prisma.qualityInspection.findFirst({
-      where: { AND: [buildInspectionScopeWhere(context), { id: input.inspectionId }] },
-      select: { projectId: true },
-    });
-    if (!inspection) throw invalidParent();
-    return { projectId: inspection.projectId };
+    const inspection = await prisma.qualityInspection.findFirst({ where: { AND: [buildInspectionScopeWhere(context), { id: input.inspectionId }] }, select: { projectId: true } });
+    if (!inspection) throw invalidParent("inspectionId");
+    found.push(inspection);
   }
 
-  throw new AccessError(
-    "VALIDATION_ERROR",
-    "A corrective action has to hang off an NCR, a defect or an inspection.",
-    { code: "PARENT_REQUIRED" },
-  );
+  if (found.length === 0) {
+    throw new AccessError(
+      "VALIDATION_ERROR",
+      "A corrective action has to hang off an NCR, a defect or an inspection.",
+      { code: "PARENT_REQUIRED" },
+    );
+  }
+
+  const projects = new Set(found.map((parent) => parent.projectId).filter((id): id is string => id !== null));
+  if (projects.size > 1) {
+    throw new AccessError("VALIDATION_ERROR", "Those records belong to different projects.", { code: "PARENT_PROJECT_MISMATCH" });
+  }
+  const parentProject = [...projects][0] ?? null;
+
+  if (input.projectId) {
+    const project = await prisma.project.findFirst({ where: { AND: [buildQaqcProjectWhere(context), { id: input.projectId }] }, select: { id: true } });
+    if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.", { field: "projectId", code: "INVALID_PROJECT" });
+    if (parentProject && parentProject !== project.id) {
+      throw new AccessError("VALIDATION_ERROR", "The action belongs to the project of the record it hangs off.", { field: "projectId", code: "PARENT_PROJECT_MISMATCH" });
+    }
+  }
+
+  return { projectId: parentProject };
 }
 
-function invalidParent(): AccessError {
+function invalidParent(field?: "ncrId" | "defectId" | "inspectionId"): AccessError {
   return new AccessError("VALIDATION_ERROR", "That record does not exist.", {
     code: "INVALID_PARENT",
+    ...(field ? { field } : {}),
   });
 }
 

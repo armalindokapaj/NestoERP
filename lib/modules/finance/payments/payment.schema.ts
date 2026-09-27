@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { amountString, businessDate } from "../finance.fields";
+import { amountString, businessDate, positive } from "../finance.fields";
 
 /**
  * Payment validation (PRD #15 §240).
@@ -27,10 +27,9 @@ export const createPaymentSchema = z
       .trim()
       .optional()
       .transform((value) => (value === "" ? undefined : value)),
-    amount: amountString("Payment amount").refine(
-      (value) => Number.parseFloat(value) > 0,
-      { message: "The payment amount must be greater than zero" },
-    ),
+    amount: amountString("Payment amount").refine(positive, {
+      message: "The payment amount must be greater than zero",
+    }),
     paymentDate: businessDate,
     method: z.enum(PAYMENT_METHODS, { message: "Choose a payment method" }),
     reference: optionalText(200),

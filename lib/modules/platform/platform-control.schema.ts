@@ -49,14 +49,29 @@ export const companyUpdateSchema = z.object({
   reason,
 });
 
+/**
+ * Optional person text: absent, empty or null (AUD-09 §4, FV-05). The dialog
+ * sends null for a blank field, which the schema used to refuse, so every
+ * person with a blank preferred name could not be saved. On an edit absent
+ * keeps the stored value; empty or null clears it.
+ */
+const personText = (max: number) =>
+  z
+    .union([z.string().trim().max(max), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value || null));
+
 export const personCreateSchema = z.object({
   parentGroupId: id,
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
-  preferredName: optionalText(120),
-  jobTitle: optionalText(120),
-  workEmail: z.union([z.string().trim().email(), z.literal("")]).optional(),
-  workPhone: optionalText(40),
+  preferredName: personText(120),
+  jobTitle: personText(120),
+  workEmail: z
+    .union([z.string().trim().email("Enter a valid email address."), z.literal(""), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value || null)),
+  workPhone: personText(40),
   lifecycleStatus: z.enum(["CANDIDATE", "SELECTED", "EMPLOYEE", "FORMER_EMPLOYEE"]).default("EMPLOYEE"),
   reason,
 });

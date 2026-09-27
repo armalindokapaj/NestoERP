@@ -8,6 +8,7 @@ import { createExpenseAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
 import { buildFinanceProjectWhere, hasCompanyFinanceScope } from "@/lib/modules/finance/finance.scope";
+import { baseCurrency, companyToday } from "@/lib/modules/finance/finance.settings";
 
 export const metadata: Metadata = { title: "New expense" };
 
@@ -21,11 +22,15 @@ export default async function NewExpensePage({
   if (!can(context, "finance.expense.create")) redirect("/access-denied");
 
   const params = await searchParams;
-  const projects = await prisma.project.findMany({
-    where: buildFinanceProjectWhere(context),
-    select: { id: true, code: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const [projects, currency, today] = await Promise.all([
+    prisma.project.findMany({
+      where: buildFinanceProjectWhere(context),
+      select: { id: true, code: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    baseCurrency(context.companyId),
+    companyToday(context.companyId),
+  ]);
 
   async function action(formData: FormData) {
     "use server";
@@ -51,18 +56,20 @@ export default async function NewExpensePage({
           label: `${project.name} (${project.code})`,
         }))}
         canCreateCompanyWide={hasCompanyFinanceScope(context)}
+        defaultCurrency={currency}
+        today={today}
         values={
           params.projectId
             ? {
                 expenseNumber: null,
                 projectId: params.projectId,
-                expenseDate: new Date().toISOString().slice(0, 10),
+                expenseDate: today,
                 category: "MATERIALS",
                 description: "",
                 payeeName: null,
-                currency: "EUR",
-                netAmount: "0",
-                taxAmount: "0",
+                currency,
+                netAmount: "",
+                taxAmount: "",
                 notes: null,
               }
             : undefined

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { MEMBERSHIP_ROLE_KEYS } from "@/config/roles";
 import { optionalDate, optionalEnum, optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { EMPLOYMENT_TYPES } from "../hr.schema";
+import { clearable, EMPLOYMENT_TYPES } from "../hr.schema";
 
 /**
  * A form sends an empty optional field as null; for these inputs null and
@@ -58,7 +58,38 @@ const targetFields = {
 export const createCandidateSchema = z.object({ ...personFields, ...targetFields });
 export type CreateCandidateInput = z.infer<typeof createCandidateSchema>;
 
-export const updateCandidateSchema = z.object({ ...personFields, ...targetFields });
+const plainEmail = z
+  .string()
+  .trim()
+  .max(254)
+  .transform((value) => value.toLowerCase())
+  .pipe(z.email("Enter a valid email address"));
+
+/**
+ * An edit: every optional field is absent (unchanged), empty or null
+ * (cleared), or a value (AUD-09 §4, FV-05). The dialog does not carry every
+ * field of the person — a preferred name set elsewhere — and a PATCH may name
+ * one field; neither erases the rest, and neither moves the candidate to the
+ * editor's own company.
+ */
+export const updateCandidateSchema = z.object({
+  firstName: personFields.firstName,
+  lastName: personFields.lastName,
+  preferredName: clearable(z.string().trim().max(80)),
+  workEmail: clearable(plainEmail),
+  workPhone: clearable(z.string().trim().max(40)),
+  personalEmail: clearable(plainEmail),
+  personalPhone: clearable(z.string().trim().max(40)),
+  city: clearable(z.string().trim().max(120)),
+  country: clearable(z.string().trim().max(120)),
+  targetCompanyId: clearable(z.string().trim().max(64)),
+  targetDepartmentId: clearable(z.string().trim().max(64)),
+  targetRoleKey: clearable(z.enum(RECRUITABLE_ROLE_KEYS)),
+  targetJobTitle: clearable(z.string().trim().max(120)),
+  hiringManagerUserId: clearable(z.string().trim().max(64)),
+  interviewStage: clearable(z.string().trim().max(120)),
+  notes: clearable(z.string().trim().max(4000)),
+});
 export type UpdateCandidateInput = z.infer<typeof updateCandidateSchema>;
 
 export const hireCandidateSchema = z.object({

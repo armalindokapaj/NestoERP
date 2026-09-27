@@ -5,6 +5,7 @@ import * as React from "react";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField, type FormValues } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
+import { localDay } from "@/components/hr/local-day";
 
 /**
  * The workforce's commands (E-04 §114, §115, §138): put somebody in a crew or
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/button";
 type Option = { value: string; label: string };
 export type SiteOption = { id: string; projectId: string; name: string };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDay();
 
 /* Crews ---------------------------------------------------------------------- */
 

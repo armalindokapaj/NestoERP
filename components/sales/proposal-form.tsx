@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { localToday } from "@/components/finance/local-date";
 
 import {
   Field,
@@ -56,7 +57,7 @@ export function ProposalForm({
   pendingLabel: string;
 }) {
   const [currency, setCurrency] = React.useState(values?.currency ?? "EUR");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   return (
     <RecordForm

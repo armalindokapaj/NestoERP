@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { AccessError } from "@/lib/access/guards";
+import type { ZodError } from "zod";
+
+import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
@@ -49,22 +51,14 @@ function revalidateQaqc(recordPath?: string) {
   revalidatePath("/dashboard");
 }
 
+/** One reading of a failure for both transports (AUD-09 §3, §6). */
 function toResult(error: unknown): QaqcActionResult {
-  if (error instanceof AccessError) {
-    const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code ?? error.code };
-  }
-
-  console.error("[qaqc] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "qaqc");
 }
 
-function invalid(error: { flatten(): { fieldErrors: unknown } }): QaqcActionResult {
-  return {
-    ok: false,
-    error: "Please review the highlighted fields.",
-    fieldErrors: error.flatten().fieldErrors as Record<string, string[]>,
-  };
+/** Every issue under its full path (AUD-09 §3, FV-04). */
+function invalid(error: ZodError): QaqcActionResult {
+  return validationFailure(error);
 }
 
 /**

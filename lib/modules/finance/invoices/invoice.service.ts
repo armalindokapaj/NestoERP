@@ -23,7 +23,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
-import { businessDateString } from "../finance.fields";
+import { businessDateString, keepOrSet } from "../finance.fields";
 import { toAmountString, toRateString } from "../finance.money";
 import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { buildInvoiceScopeWhere, hasCompanyFinanceScope } from "../finance.scope";
@@ -249,10 +249,8 @@ export async function createInvoice(
     const invoiceNumber = allocated ?? input.invoiceNumber;
 
     if (!invoiceNumber) {
-      throw new AccessError(
-        "VALIDATION_ERROR",
-        "This company numbers invoices manually, so an invoice number is required.",
-      );
+      const message = "This company numbers invoices manually, so an invoice number is required.";
+      throw new AccessError("VALIDATION_ERROR", message, { invoiceNumber: [message] });
     }
 
     await assertNumberIsFree(tx, context, invoiceNumber, null);
@@ -590,7 +588,12 @@ export async function updateInvoice(
     throw new AccessError("CONFLICT", "This invoice bills an installment of a sale contract, so its lines follow the payment schedule. Change the schedule instead.", { code: "INSTALLMENT_INVOICE_FIXED" });
   }
 
-  const { client, project } = await validateRelationships(context, input);
+  // Absent keeps the saved link; empty or null unlinks (AUD-09 §4, FV-05).
+  const projectId = keepOrSet(input.projectId, existing.project?.id ?? null);
+  const { client, project } = await validateRelationships(context, {
+    clientId: input.clientId,
+    projectId: projectId ?? undefined,
+  });
   const totals = calculateInvoice(input.lineItems);
 
   // An auto-numbered invoice keeps the number it was allocated: the form does
@@ -622,7 +625,7 @@ export async function updateInvoice(
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
-        notes: input.notes ?? null,
+        notes: input.notes,
         updatedByMemberId: context.membershipId,
         lineItems: {
           create: totals.lines.map((line) => ({
@@ -644,7 +647,7 @@ export async function updateInvoice(
       entityType: ENTITY,
       entityId: invoiceId,
       action: "FINANCE_INVOICE_UPDATED",
-      message: `updated invoice ${input.invoiceNumber}`,
+      message: `updated invoice ${invoiceNumber}`,
       metadata: changeMetadata({
         totalAmount: {
           from: toAmountString(existing.totalAmount),
@@ -1035,7 +1038,8 @@ async function validateRelationships(
     },
     select: { id: true, name: true },
   });
-  if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.");
+  // Beside the picker: a forged or foreign id answers like a missing one (AUD-09 §5, FV-09).
+  if (!client) throw new AccessError("VALIDATION_ERROR", "That client does not exist.", { clientId: ["Choose a client you have access to."] });
 
   if (!input.projectId) {
     // A company-level invoice needs company-level finance scope, as for
@@ -1062,13 +1066,11 @@ async function validateRelationships(
     },
     select: { id: true, clientId: true, name: true },
   });
-  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.");
+  if (!project) throw new AccessError("VALIDATION_ERROR", "That project does not exist.", { projectId: ["Choose a project you have access to."] });
 
   if (project.clientId && project.clientId !== client.id) {
-    throw new AccessError(
-      "VALIDATION_ERROR",
-      "That project belongs to a different client. An invoice must bill the project's own client.",
-    );
+    const message = "That project belongs to a different client. An invoice must bill the project's own client.";
+    throw new AccessError("VALIDATION_ERROR", message, { clientId: [message] });
   }
 
   return { client, project };
@@ -1090,10 +1092,8 @@ async function assertNumberIsFree(
   });
 
   if (clash) {
-    throw new AccessError(
-      "CONFLICT",
-      `Invoice number ${invoiceNumber} is already used in this company.`,
-    );
+    const message = `Invoice number ${invoiceNumber} is already used in this company.`;
+    throw new AccessError("CONFLICT", message, { code: "NUMBER_TAKEN", invoiceNumber: [message] });
   }
 }
 

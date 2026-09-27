@@ -27,15 +27,17 @@ function assertPlatform(context: PlatformContext, permission: PlatformPermission
 type PersonInput = {
   firstName: string;
   lastName: string;
-  preferredName?: string;
-  jobTitle?: string;
-  workEmail?: string;
-  workPhone?: string;
+  preferredName?: string | null;
+  jobTitle?: string | null;
+  workEmail?: string | null;
+  workPhone?: string | null;
   lifecycleStatus: "CANDIDATE" | "SELECTED" | "EMPLOYEE" | "FORMER_EMPLOYEE";
   reason: string;
 };
 
-const nullable = (value: string | undefined) => value?.trim() || null;
+const nullable = (value: string | null | undefined) => value?.trim() || null;
+/** Absent keeps the stored value; empty or null clears it (AUD-09 §4, FV-05). */
+const keptOr = (value: string | null | undefined, stored: string | null) => (value === undefined ? stored : nullable(value));
 
 function assertUpdated(result: { count: number }, message = "The record changed while you were editing it. Refresh and try again.") {
   if (result.count !== 1) throw new AccessError("CONFLICT", message);
@@ -84,7 +86,7 @@ export async function updatePlatformPerson(context: PlatformContext, personId: s
   assertPlatform(context, "platform.user.manage");
   const person = assertFound(await prisma.personProfile.findFirst({ where: { id: personId, parentGroup: { isTestFixture: false } }, select: { id: true, parentGroupId: true, firstName: true, lastName: true, preferredName: true, jobTitle: true, workEmail: true, workPhone: true, lifecycleStatus: true, user: { select: { id: true } } } }));
   if (input.workEmail && await prisma.personProfile.count({ where: { parentGroupId: person.parentGroupId, workEmail: { equals: input.workEmail, mode: "insensitive" }, id: { not: person.id } } })) throw new AccessError("CONFLICT", "That work email is already used by a person in this group.", { field: "workEmail" });
-  const after = { firstName: input.firstName, lastName: input.lastName, preferredName: nullable(input.preferredName), jobTitle: nullable(input.jobTitle), workEmail: nullable(input.workEmail), workPhone: nullable(input.workPhone), lifecycleStatus: input.lifecycleStatus };
+  const after = { firstName: input.firstName, lastName: input.lastName, preferredName: keptOr(input.preferredName, person.preferredName), jobTitle: keptOr(input.jobTitle, person.jobTitle), workEmail: keptOr(input.workEmail, person.workEmail), workPhone: keptOr(input.workPhone, person.workPhone), lifecycleStatus: input.lifecycleStatus };
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.personProfile.updateMany({
       where: { id: person.id, lifecycleStatus: person.lifecycleStatus },
@@ -98,7 +100,8 @@ export async function updatePlatformPerson(context: PlatformContext, personId: s
         lifecycleStatus: after.lifecycleStatus,
       },
     }));
-    if (person.user) await tx.user.update({ where: { id: person.user.id }, data: { firstName: after.firstName, lastName: after.lastName, email: after.workEmail, phone: after.workPhone } });
+    // Only what the edit named reaches the account: an omitted email or phone leaves the login's alone (AUD-09 §4, FV-05).
+    if (person.user) await tx.user.update({ where: { id: person.user.id }, data: { firstName: after.firstName, lastName: after.lastName, email: input.workEmail === undefined ? undefined : after.workEmail, phone: input.workPhone === undefined ? undefined : after.workPhone } });
     await recordPlatformAction(context, person.parentGroupId, { actionKey: AuditAction.PLATFORM_PERSON_UPDATED, entity: { type: "PersonProfile", id: person.id, label: `${after.firstName} ${after.lastName}` }, before: person, after, reason: input.reason }, { tx });
   });
 }

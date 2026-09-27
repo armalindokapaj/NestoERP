@@ -4,7 +4,10 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Film, Image as ImageIcon, Star, Trash2, Upload } from "lucide-react";
 import { useRouter } from "@/components/navigation/guarded-router";
 
+import { UploadQueueList } from "@/components/documents/document-uploader";
+import { acceptedTypesText, DEFAULT_UPLOAD_MAX_BYTES, megabytes, uploadAccept } from "@/components/documents/upload-client";
 import { useUploadQueue } from "@/components/documents/upload-queue";
+import { FILE_TYPES } from "@/lib/core/storage";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +17,16 @@ import { COMMITTED, useValuesEditor } from "@/components/project-planning/use-va
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { outcomeOf } from "@/lib/unsaved/outcome";
 import type { ProjectMediaCollection, ProjectMediaDTO } from "@/lib/modules/project-media/project-media.types";
+
+/**
+ * Registry groups each media type takes (AUD-09 §8): renders are images; an
+ * animation is video, which only a registry type declaring a video MIME type
+ * could carry — none does today, so the list is empty and the control says so.
+ */
+const MEDIA_GROUPS: Record<"RENDER" | "ANIMATION", string[]> = {
+  RENDER: ["image"],
+  ANIMATION: FILE_TYPES.filter((type) => type.declaredMimeTypes.some((mime) => mime.startsWith("video/"))).map((type) => type.key),
+};
 
 type ApiEnvelope = { error?: { code?: string; message?: string; details?: { code?: string } } };
 
@@ -40,19 +53,30 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
   const [removing, setRemoving] = React.useState<ProjectMediaDTO | null>(null);
   const [pending, setPending] = React.useState(false);
 
+  /*
+   * Upload, then add to project media (AUD-09 §8, FV-18). Adding is the
+   * queue's last step: when it fails, Retry repeats only that step — the file
+   * is not uploaded again — and the project's unique (project, document) link
+   * answering CONFLICT is a retry finding its first attempt, not a failure.
+   */
   const queue = useUploadQueue({
     parent: { context: "project", projectId },
-    onUploaded: (documentId, file) => {
+    groups: MEDIA_GROUPS[uploadType],
+    link: async (documentId, file) => {
       const type = uploadTypes.current.get(file) ?? "RENDER";
-      void request(`/api/projects/${projectId}/media`, {
-        method: "POST",
-        body: JSON.stringify({ documentId, type }),
-      }).then(() => {
-        toast({ title: `${type === "RENDER" ? "Render" : "Animation"} added.` });
-        router.refresh();
-      }).catch((error) => toast({ title: error instanceof Error ? error.message : "Media could not be linked.", tone: "danger" }));
+      try {
+        await request(`/api/projects/${projectId}/media`, { method: "POST", body: JSON.stringify({ documentId, type }) });
+      } catch (error) {
+        if (error instanceof Refusal && error.code === "CONFLICT") return;
+        throw error instanceof Error ? error : new Error("The file arrived but could not be added. Retry adds it.");
+      }
+    },
+    onUploaded: (_documentId, file) => {
+      toast({ title: `${uploadTypes.current.get(file) === "ANIMATION" ? "Animation" : "Render"} added.` });
+      router.refresh();
     },
   });
+  const accepts = MEDIA_GROUPS[uploadType].length > 0;
 
   const items = [...initial.renders, ...initial.animations].sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt));
 
@@ -95,8 +119,9 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
               ref={inputRef}
               type="file"
               multiple
-              accept={uploadType === "RENDER" ? "image/jpeg,image/png,image/webp" : "video/mp4,video/webm,video/quicktime"}
+              accept={uploadAccept(MEDIA_GROUPS[uploadType])}
               className="sr-only"
+              aria-describedby="project-media-rules"
               aria-label={`Upload project ${uploadType === "RENDER" ? "renders" : "animations"}`}
               onChange={(event) => {
                 const files = [...(event.target.files ?? [])];
@@ -105,14 +130,29 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
                 event.target.value = "";
               }}
             />
-            <Button type="button" onClick={() => inputRef.current?.click()} disabled={queue.active}>
+            <Button type="button" onClick={() => inputRef.current?.click()} disabled={queue.active || !accepts}>
               <Upload aria-hidden="true" /> {queue.active ? "Uploading…" : `Upload ${uploadType === "RENDER" ? "renders" : "animations"}`}
             </Button>
           </div>
+          {/* What is accepted, before choosing, from the registry the server
+              enforces (AUD-09 §8). Animations are video, and the file registry
+              does not accept video today — said plainly rather than letting
+              every file fail after it is chosen. */}
+          <p id="project-media-rules" className="mt-2 text-meta text-fg-muted" data-testid="project-media-rules">
+            {accepts
+              ? `${acceptedTypesText(MEDIA_GROUPS[uploadType])}, up to ${megabytes(DEFAULT_UPLOAD_MAX_BYTES)} MB each. Each file is checked before it is added.`
+              : "Animation files cannot be uploaded yet: video is not on the accepted file list. Add renders, or ask an administrator."}
+          </p>
           {queue.items.length ? (
-            <ul className="mt-4 divide-y divide-line rounded-lg border border-line">
-              {queue.items.map((item) => <li key={item.id} className="flex justify-between gap-3 px-3 py-2 text-table"><span className="truncate text-fg">{item.file.name}</span><span className="shrink-0 text-fg-muted">{item.status === "uploading" ? `${item.progress}%` : item.status}</span></li>)}
-            </ul>
+            <div className="mt-4">
+              <UploadQueueList
+                items={queue.items}
+                onRetry={(item) => void queue.retry(item.id)}
+                onRecheck={(item) => void queue.recheck(item.id)}
+                onCancel={(item) => void queue.cancel(item.id)}
+                onClear={(id) => queue.clear(id)}
+              />
+            </div>
           ) : null}
         </section>
       ) : null}

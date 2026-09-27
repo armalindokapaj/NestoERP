@@ -220,7 +220,7 @@ export function ContactList({
         action={(formData) =>
           editing
             ? updateContactAction(clientId, editing.id, formData)
-            : Promise.resolve({ ok: false as const, error: "Choose a contact to edit." })
+            : Promise.resolve({ ok: false as const, code: "VALIDATION_ERROR", category: "validation" as const, error: "Choose a contact to edit." })
         }
         onSaved={() => saved("Contact updated.")}
       />
@@ -300,7 +300,17 @@ function ContactForm({
       return true;
     },
   });
-  const { pending } = save;
+  const { pending, fieldErrors } = save;
+  // The service's message beside the field it is about (AUD-09 §3, §6), linked
+  // to the input; the banner above keeps the form-level message.
+  const invalid = (name: string, id: string) =>
+    fieldErrors[name] ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {};
+  const errorOf = (name: string, id: string) =>
+    fieldErrors[name] ? (
+      <p id={`${id}-error`} className="text-meta text-danger-strong">
+        {fieldErrors[name][0]}
+      </p>
+    ) : null;
 
   return (
     <form ref={formRef} className="mt-4 space-y-4" onSubmit={save.onSubmit}>
@@ -317,11 +327,13 @@ function ContactForm({
             </Label>
             <Input
               id="firstName"
+              {...invalid("firstName", "firstName")}
               name="firstName"
               required
               maxLength={120}
               defaultValue={contact?.firstName ?? ""}
             />
+            {errorOf("firstName", "firstName")}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lastName">
@@ -329,11 +341,13 @@ function ContactForm({
             </Label>
             <Input
               id="lastName"
+              {...invalid("lastName", "lastName")}
               name="lastName"
               required
               maxLength={120}
               defaultValue={contact?.lastName ?? ""}
             />
+            {errorOf("lastName", "lastName")}
           </div>
         </div>
 
@@ -341,10 +355,12 @@ function ContactForm({
           <Label htmlFor="jobTitle">Job title</Label>
           <Input
             id="jobTitle"
+            {...invalid("jobTitle", "jobTitle")}
             name="jobTitle"
             maxLength={160}
             defaultValue={contact?.jobTitle ?? ""}
           />
+          {errorOf("jobTitle", "jobTitle")}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -352,21 +368,25 @@ function ContactForm({
             <Label htmlFor="contact-email">Email</Label>
             <Input
               id="contact-email"
+              {...invalid("email", "contact-email")}
               name="email"
               type="email"
               maxLength={254}
               defaultValue={contact?.email ?? ""}
             />
+            {errorOf("email", "contact-email")}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contact-phone">Phone</Label>
             <Input
               id="contact-phone"
+              {...invalid("phone", "contact-phone")}
               name="phone"
               type="tel"
               maxLength={40}
               defaultValue={contact?.phone ?? ""}
             />
+            {errorOf("phone", "contact-phone")}
           </div>
         </div>
 
@@ -385,8 +405,12 @@ function ContactForm({
           </div>
 
           <label className="flex items-center gap-2 self-end pb-2.5 text-table text-fg">
+            {/* An unticked box submits nothing; this says "not primary" out loud,
+                and the ticked box, later in the form, overrides it (AUD-09 §4). */}
+            <input type="hidden" name="isPrimary" value="false" />
             <input
               type="checkbox"
+              value="true"
               name="isPrimary"
               defaultChecked={contact?.isPrimary ?? false}
               className="size-4 rounded border-line text-accent focus:ring-ring/20"
@@ -398,7 +422,7 @@ function ContactForm({
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || Boolean(save.saved)}>
           {pending ? "Saving…" : "Save contact"}
         </Button>
         {/* Through the dialog's guard, like the X and Escape (AUD-03 §5). */}

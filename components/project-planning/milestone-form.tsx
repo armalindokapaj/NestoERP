@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { MILESTONE_STATUSES, MILESTONE_TYPES, STATUS_LABELS, TYPE_LABELS, type MilestoneStatus, type MilestoneType, type Option, type PhaseStatus } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
-import { failureMessage, isFailure, planningApi } from "./planning-api";
+import { failureMessage, isFailure, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "./use-values-editor";
 
 /**
@@ -157,7 +157,7 @@ function MilestoneForm({
       ownerMemberId: values.ownerMemberId || null,
       plannedDate: values.plannedDate || null,
       forecastDate: values.forecastDate || null,
-      progressPercent: values.progressPercent === "" ? null : Number(values.progressPercent),
+      progressPercent: numberOrRaw(values.progressPercent),
       critical: values.critical,
       externallyCommitted: values.externallyCommitted,
     };
@@ -411,7 +411,7 @@ function PhaseForm({
       description: values.description || null,
       status: values.status,
       ownerMemberId: values.ownerMemberId || null,
-      progressPercent: values.progressPercent === "" ? null : Number(values.progressPercent),
+      progressPercent: numberOrRaw(values.progressPercent),
       plannedStartDate: values.plannedStartDate || null,
       plannedEndDate: values.plannedEndDate || null,
       forecastStartDate: values.forecastStartDate || null,

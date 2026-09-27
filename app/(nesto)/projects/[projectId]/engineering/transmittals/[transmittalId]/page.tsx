@@ -58,7 +58,11 @@ export default async function TransmittalPage({ params }: Params) {
             {caps.canEditDraft ? (
               <EditTransmittalButton
                 projectId={projectId}
-                transmittal={{ id: item.id, direction: item.direction, purpose: item.purpose, subject: item.subject, contractorId: item.contractor?.id ?? null, workPackageId: item.workPackage?.id ?? null, senderText: item.senderText, recipientText: item.recipientText, notes: item.notes, items: draftItems.filter((row) => row.engineeringDocumentId && row.engineeringRevisionId).map((row) => ({ engineeringDocumentId: row.engineeringDocumentId!, engineeringRevisionId: row.engineeringRevisionId!, documentId: row.documentId, remarks: row.remarks ?? "" })) }}
+                transmittal={{ id: item.id, direction: item.direction, purpose: item.purpose, subject: item.subject, contractorId: item.contractor?.id ?? null, workPackageId: item.workPackage?.id ?? null, senderText: item.senderText, recipientText: item.recipientText, notes: item.notes, items: draftItems.map((row) => {
+                    // Every item, a loose file or one without a revision included: the editor keeps what it cannot pick, and a save never drops it (AUD-09 §4, FV-05).
+                    const shown = item.items.find((entry) => entry.document?.id === row.documentId);
+                    return { engineeringDocumentId: row.engineeringDocumentId, engineeringRevisionId: row.engineeringRevisionId, documentId: row.documentId, remarks: row.remarks ?? "", label: shown?.document?.name ?? shown?.engineeringDocument?.label ?? "A file on this transmittal" };
+                  }) }}
               />
             ) : null}
             <CommandBar commands={commands} />

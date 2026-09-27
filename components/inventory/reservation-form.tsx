@@ -18,6 +18,9 @@ import { createReservationAction } from "@/lib/actions/inventory";
 import type { DocumentFormOptions } from "@/lib/modules/inventory/inventory.options";
 import { formatQuantity } from "./inventory-format";
 import type { HeldBalance } from "./stock-lines";
+import { DecimalCell } from "@/components/finance/line-rows";
+import { isPositiveDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
+import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
 
 /**
  * Reserve stock for a project (PRD #20 §158, §319).
@@ -62,23 +65,29 @@ export function ReservationForm({
   const [warehouseId, setWarehouseId] = React.useState(defaults?.warehouseId ?? "");
   const [locationId, setLocationId] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
+  const [quantityEdited, setQuantityEdited] = React.useState(false);
+  const [errorSource, setErrorSource] = React.useState(errors);
+  if (errorSource !== errors) {
+    setErrorSource(errors);
+    setQuantityEdited(false);
+  }
 
   const item = options.items.find((option) => option.value === inventoryItemId);
   const held = balances.find(
     (row) => row.inventoryItemId === inventoryItemId && row.locationId === locationId,
   );
 
+  // Exact, and only for a number the server would accept (AUD-09 §4, §7).
   const availableAfter = React.useMemo(() => {
     if (!held) return null;
-    const before = Number.parseFloat(held.available);
-    const asked = Number.parseFloat(quantity.replace(",", "."));
-    if (!Number.isFinite(before) || !Number.isFinite(asked)) return null;
-    return (before - asked).toFixed(4);
+    const asked = previewDecimal(quantity, 4);
+    if (asked === null) return null;
+    return sumDecimal([held.available, asked.startsWith("-") ? asked.slice(1) : `-${asked}`], 4);
   }, [held, quantity]);
 
-  const locations = warehouseId
-    ? options.locations.filter((location) => location.warehouseId === warehouseId)
-    : options.locations;
+  // A location belongs to the warehouse chosen; none is offered before one is
+  // (AUD-09 §5, FV-08).
+  const locations = warehouseId ? options.locations.filter((location) => location.warehouseId === warehouseId) : [];
 
   return (
     <FieldErrorProvider value={errors}>
@@ -99,7 +108,7 @@ export function ReservationForm({
                 onChange={(event) => setItemId(event.target.value)}
                 required
               >
-                <option value="">Choose an item</option>
+                <option value="">{options.items.length === 0 ? "No items available" : "Choose an item"}</option>
                 {options.items.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -153,8 +162,11 @@ export function ReservationForm({
                 value={locationId}
                 onChange={(event) => setLocationId(event.target.value)}
                 required
+                disabled={!warehouseId}
               >
-                <option value="">Choose a location</option>
+                <option value="">
+                  {!warehouseId ? "Choose a warehouse first" : locations.length === 0 ? "No locations in this warehouse" : "Choose a location"}
+                </option>
                 {locations.map((location) => (
                   <option key={location.value} value={location.value}>
                     {location.label}
@@ -163,21 +175,23 @@ export function ReservationForm({
               </select>
             </Field>
 
-            <Field
-              label={`Quantity${item ? ` (${item.unit})` : ""}`}
-              name="quantity"
-              required
-              className="sm:col-span-2"
-            >
-              <Input
+            <div className="sm:col-span-2">
+              <DecimalCell
                 id="quantity"
                 name="quantity"
+                label="Quantity"
+                markRequired
+                unit={item?.unit}
                 value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-                inputMode="decimal"
-                required
+                rule={{ label: "Quantity", ...RATE_RULE }}
+                refine={(value) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero")}
+                serverError={quantityEdited ? undefined : errors.quantity?.[0]}
+                onChange={(value) => {
+                  setQuantity(value);
+                  setQuantityEdited(true);
+                }}
               />
-            </Field>
+            </div>
 
             <Field label="Required by" name="requiredDate">
               <Input id="requiredDate" name="requiredDate" type="date" />
@@ -186,7 +200,7 @@ export function ReservationForm({
             <Field
               label="Expires"
               name="expiresAt"
-              hint="After this date the reservation can be released in bulk."
+              hint="Optional. On or after the required date. After this date the reservation can be released in bulk."
             >
               <Input id="expiresAt" name="expiresAt" type="date" />
             </Field>
@@ -201,7 +215,7 @@ export function ReservationForm({
                   {", "}
                   <span
                     className={
-                      Number.parseFloat(availableAfter) < 0
+                      availableAfter.startsWith("-")
                         ? "tabular-nums text-danger-strong"
                         : "tabular-nums text-fg"
                     }

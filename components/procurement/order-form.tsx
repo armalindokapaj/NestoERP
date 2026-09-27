@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
+import { withSavedOption } from "@/components/finance/saved-option";
 import { LineItemsEditor, type LineValue } from "./line-items";
 
 export type OrderFormValues = {
@@ -56,6 +57,12 @@ export function OrderForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  // Saved links the pickers no longer offer stay on this order (FV-10).
+  const supplierOptions = withSavedOption(suppliers, values?.supplierId, "Current supplier (inactive — choose an active one to save)");
+  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, "Current request (no longer open for new orders)");
+  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new orders)");
+  const contractOptions = withSavedOption(contracts, values?.contractId, "Current contract (no longer available for new orders)");
+
   return (
     <RecordForm
       action={action}
@@ -78,7 +85,7 @@ export function OrderForm({
             required
           >
             <option value="">Choose a supplier</option>
-            {suppliers.map((supplier) => (
+            {supplierOptions.map((supplier) => (
               <option key={supplier.value} value={supplier.value}>
                 {supplier.label}
               </option>
@@ -112,7 +119,7 @@ export function OrderForm({
           />
         </Field>
 
-        <Field label="Required by" name="requiredDate">
+        <Field label="Required by" name="requiredDate" hint="Optional. On or after the order date.">
           <Input
             id="requiredDate"
             name="requiredDate"
@@ -131,7 +138,7 @@ export function OrderForm({
             defaultValue={values?.purchaseRequestId ?? ""}
           >
             <option value="">Direct order</option>
-            {requests.map((request) => (
+            {requestOptions.map((request) => (
               <option key={request.value} value={request.value}>
                 {request.label}
               </option>
@@ -147,7 +154,7 @@ export function OrderForm({
             defaultValue={values?.projectId ?? ""}
           >
             <option value="">No project</option>
-            {projects.map((project) => (
+            {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
               </option>
@@ -155,7 +162,9 @@ export function OrderForm({
           </select>
         </Field>
 
-        {contracts.length > 0 ? (
+        {/* Not rendered for someone who may not see contracts: the key is then
+            absent and the server keeps the saved contract (AUD-09 §5, FV-10). */}
+        {contractOptions.length > 0 ? (
           <Field label="Contract" name="contractId" hint="If this order sits under an agreement">
             <select
               id="contractId"
@@ -164,7 +173,7 @@ export function OrderForm({
               defaultValue={values?.contractId ?? ""}
             >
               <option value="">None</option>
-              {contracts.map((contract) => (
+              {contractOptions.map((contract) => (
                 <option key={contract.value} value={contract.value}>
                   {contract.label}
                 </option>
@@ -188,6 +197,7 @@ export function OrderForm({
             columns={["quantity", "unit", "unitPrice", "taxRate"]}
             priceLabel="Unit price"
             priceField="unitPrice"
+            currency={values?.currency}
           />
         </div>
       </FormSection>

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { PAY_TYPES } from "@/lib/modules/hr/hr.schema";
+import { localDay } from "./local-day";
 
 const PAY_TYPE_LABELS: Record<(typeof PAY_TYPES)[number], string> = {
   SALARY: "Salary",
@@ -98,7 +99,7 @@ export function CompensationForm({
             name="effectiveFrom"
             type="date"
             required
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={localDay()}
           />
         </Field>
 

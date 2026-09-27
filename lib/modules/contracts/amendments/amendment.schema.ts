@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { businessDate, optionalBusinessDate } from "@/lib/modules/finance/finance.fields";
-import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
+import { businessDate, MONEY_RULE, optionalBusinessDate, optionalDecimalString } from "@/lib/modules/finance/finance.fields";
+import { optionalBoolean, optionalDate, optionalText, requiredText } from "@/lib/modules/shared/fields";
 
 /**
  * Amendment validation (PRD #18 §280, §281).
@@ -15,14 +15,8 @@ import { optionalDate, optionalText, requiredText } from "@/lib/modules/shared/f
  * (PRD #18 §332).
  */
 
-const optionalAmendmentValue = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value === "" || value === undefined ? undefined : value.replace(",", ".")))
-  .refine((value) => value === undefined || /^\d{1,15}(\.\d{1,2})?$/.test(value), {
-    message: "The new contract value must be a number with at most 2 decimal places",
-  });
+/** By the shared decimal rule (AUD-09 §4, FV-06); empty is "value unchanged". */
+const optionalAmendmentValue = optionalDecimalString("New contract value", MONEY_RULE);
 
 export const amendmentSchema = z.object({
   amendmentNumber: requiredText(2, 60, "Amendment number"),
@@ -35,9 +29,14 @@ export const amendmentSchema = z.object({
    * Shortening a term or cutting a value is legitimate, and the confirmation is
    * how the person doing it says they meant to (PRD #18 §168).
    */
-  acknowledgeReduction: z.coerce.boolean().optional().default(false),
+  acknowledgeReduction: optionalBoolean.transform((value) => value ?? false),
   versionUpdatedAt: optionalDate,
-});
+})
+  // An amendment's new expiry cannot come before it takes effect (AUD-09 §4, FV-07).
+  .refine((value) => !value.effectiveDate || !value.newExpiryDate || value.newExpiryDate.getTime() >= value.effectiveDate.getTime(), {
+    message: "The new expiry date cannot be before the amendment takes effect.",
+    path: ["newExpiryDate"],
+  });
 
 export type AmendmentInput = z.infer<typeof amendmentSchema>;
 

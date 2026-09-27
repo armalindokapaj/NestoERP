@@ -288,7 +288,8 @@ export async function createWarehouse(
         address: input.address ?? null,
         city: input.city ?? null,
         country: input.country ?? null,
-        status: input.status,
+        // The create default lives here, not in the shared schema (AUD-09 §4).
+        status: input.status ?? "ACTIVE",
         createdByMemberId: context.membershipId,
         // Every warehouse gets somewhere to put things (PRD #20 §64).
         locations: {
@@ -361,10 +362,12 @@ export async function updateWarehouse(
     // off, which is a transition; leaving it alone is an edit, still
     // conditional on the status the form was opened on, so a warehouse
     // archived meanwhile is not quietly edited back to life.
-    if (input.status !== existing.status) {
+    // Absent keeps the saved status (AUD-09 §4, FV-05).
+    const status = input.status ?? existing.status;
+    if (status !== existing.status) {
       await applyTransition(tx, {
         machine: warehouseMachine,
-        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        action: status === "ACTIVE" ? "activate" : "deactivate",
         id: warehouseId,
         context,
         from: existing.status,

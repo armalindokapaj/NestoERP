@@ -17,6 +17,8 @@ import type {
   Option,
 } from "@/lib/modules/inventory/inventory.options";
 import { formatQuantity } from "./inventory-format";
+import { CellError } from "@/components/finance/line-rows";
+import { isPositiveDecimal } from "@/lib/modules/finance/finance.decimal";
 
 /**
  * Book an accepted Procurement delivery into stock (PRD #20 §11, §309, §310).
@@ -71,9 +73,7 @@ export function ProcurementHandoff({
     );
   }
 
-  const acceptedLines = lines.filter(
-    (line) => Number.parseFloat(line.acceptedQuantity) > 0,
-  );
+  const acceptedLines = lines.filter((line) => isPositiveDecimal(line.acceptedQuantity));
 
   if (acceptedLines.length === 0) {
     return (
@@ -139,11 +139,26 @@ function HandoffForm({
     saveKind: "create",
     label: `Stock booking for ${receiptNumber}`,
   });
-  const { pending } = save;
+  const { pending, fieldErrors } = save;
+  const [cleared, setCleared] = React.useState(false);
 
-  const available = warehouseId
-    ? locations.filter((location) => location.warehouseId === warehouseId)
-    : locations;
+  // Locations follow the warehouse (AUD-09 §5, FV-08): none before one is
+  // chosen, and a warehouse change clears the ones it no longer holds, saying so.
+  const available = warehouseId ? locations.filter((location) => location.warehouseId === warehouseId) : [];
+
+  function chooseWarehouse(next: string) {
+    setWarehouseId(next);
+    const inside = new Set(locations.filter((location) => location.warehouseId === next).map((location) => location.value));
+    const outside = Object.values(mapping).some((value) => value.locationId && !inside.has(value.locationId));
+    if (outside) {
+      setMapping(
+        Object.fromEntries(
+          Object.entries(mapping).map(([key, value]) => [key, value.locationId && !inside.has(value.locationId) ? { ...value, locationId: "" } : value]),
+        ),
+      );
+    }
+    setCleared(outside);
+  }
 
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
@@ -167,8 +182,10 @@ function HandoffForm({
             name="warehouseId"
             className={selectClass}
             value={warehouseId}
-            onChange={(event) => setWarehouseId(event.target.value)}
+            onChange={(event) => chooseWarehouse(event.target.value)}
             required
+            aria-invalid={fieldErrors.warehouseId ? true : undefined}
+            aria-describedby={fieldErrors.warehouseId ? "handoff-warehouse-error" : undefined}
           >
             <option value="">Choose a warehouse</option>
             {warehouses.map((warehouse) => (
@@ -177,6 +194,12 @@ function HandoffForm({
               </option>
             ))}
           </select>
+          <CellError id="handoff-warehouse-error" message={fieldErrors.warehouseId?.[0]} />
+          {cleared ? (
+            <p role="status" className="text-meta text-warning-strong">
+              Locations from the previous warehouse were cleared. Choose them again.
+            </p>
+          ) : null}
         </div>
 
         <ul className="space-y-3">
@@ -198,7 +221,7 @@ function HandoffForm({
 
                 <input
                   type="hidden"
-                  name={`lines[${index}][goodsReceiptItemId]`}
+                  name={`lines.${index}.goodsReceiptItemId`}
                   value={line.goodsReceiptItemId}
                 />
 
@@ -207,7 +230,7 @@ function HandoffForm({
                     <Label htmlFor={`handoff-${index}-item`}>Inventory item</Label>
                     <select
                       id={`handoff-${index}-item`}
-                      name={`lines[${index}][inventoryItemId]`}
+                      name={`lines.${index}.inventoryItemId`}
                       className={selectClass}
                       value={current.inventoryItemId}
                       onChange={(event) =>
@@ -233,7 +256,7 @@ function HandoffForm({
                     <Label htmlFor={`handoff-${index}-location`}>Location</Label>
                     <select
                       id={`handoff-${index}-location`}
-                      name={`lines[${index}][locationId]`}
+                      name={`lines.${index}.locationId`}
                       className={selectClass}
                       value={current.locationId}
                       onChange={(event) =>
@@ -246,16 +269,20 @@ function HandoffForm({
                         }))
                       }
                       disabled={!warehouseId}
+                      aria-invalid={fieldErrors[`lines.${index}.locationId`] ? true : undefined}
+                      aria-describedby={fieldErrors[`lines.${index}.locationId`] ? `handoff-${index}-location-error` : undefined}
                     >
-                      <option value="">Choose a location</option>
+                      <option value="">{warehouseId ? "Choose a location" : "Choose a warehouse first"}</option>
                       {available.map((location) => (
                         <option key={location.value} value={location.value}>
                           {location.label}
                         </option>
                       ))}
                     </select>
+                    <CellError id={`handoff-${index}-location-error`} message={fieldErrors[`lines.${index}.locationId`]?.[0]} />
                   </div>
                 </div>
+                <CellError id={`handoff-${index}-error`} message={fieldErrors[`lines.${index}.goodsReceiptItemId`]?.[0]} />
               </li>
             );
           })}

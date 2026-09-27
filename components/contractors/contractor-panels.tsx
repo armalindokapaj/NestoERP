@@ -5,11 +5,11 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Mail, Pencil, Phone, Plus, Trash2, Upload } from "lucide-react";
 
-import { useUploadQueue } from "@/components/documents/upload-queue";
+import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { dateLabel, ReviewBadge } from "@/components/engineering/engineering-ui";
 import { FormDialog, ReasonDialog } from "@/components/engineering/form-kit";
-import { complianceFields, contactFields } from "@/components/engineering/record-fields";
+import { complianceFields, KEEP_WAIVER, contactFields } from "@/components/engineering/record-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
@@ -129,13 +129,21 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
   const [waiving, setWaiving] = React.useState<ComplianceItemDTO | null>(null);
   const [documents, setDocuments] = React.useState<Option[]>([]);
   const [loaded, setLoaded] = React.useState(false);
+  /** Whether the evidence choices could be read: when not, the field is left out and the evidence kept (AUD-09 §5, FV-09, FV-10). */
+  const [evidenceReadable, setEvidenceReadable] = React.useState(true);
   const fileInput = React.useRef<HTMLInputElement>(null);
   const target = editing && editing !== "new" ? editing : null;
   const ownerId = target?.contractor.id ?? contractorId;
 
   const loadDocuments = React.useCallback(async (itemId: string | null, owner: string | null) => {
     if (!owner) return [];
-    const rows = await engineeringApi<Option[]>(`/api/contractors/${owner}/compliance/documents${itemId ? `?itemId=${itemId}` : ""}`).catch(() => []);
+    let rows: Option[] = [];
+    try {
+      rows = await engineeringApi<Option[]>(`/api/contractors/${owner}/compliance/documents${itemId ? `?itemId=${itemId}` : ""}`);
+      setEvidenceReadable(true);
+    } catch {
+      setEvidenceReadable(false);
+    }
     setDocuments(rows);
     setLoaded(true);
     return rows;
@@ -145,7 +153,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
     parent: { context: "record", entityType: target ? "contractor_compliance" : "contractor", entityId: target?.id ?? ownerId ?? "" },
     onUploaded: () => void loadDocuments(target?.id ?? null, ownerId).then(() => toast({ title: "File uploaded. Choose it as the evidence.", tone: "success" })),
   });
-  const uploading = upload.items.some((item) => ["queued", "authorising", "uploading", "verifying", "processing"].includes(item.status));
+  const uploading = upload.items.some((item) => UPLOAD_IN_FLIGHT.includes(item.status));
 
   async function open(item: ComplianceItemDTO | "new") {
     setLoaded(false);
@@ -256,18 +264,25 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
           onOpenChange={(next) => !next && setEditing(null)}
           title={editing === "new" ? "Add compliance requirement" : `Renew or edit — ${editing.title}`}
           description="Upload the certificate, set its dates, and the status follows."
-          fields={complianceFields(documents)}
-          initial={editing === "new" ? { status: "VALID", type: "INSURANCE" } : { ...editing, status: editing.status === "MISSING" ? "MISSING" : "VALID", documentId: editing.document?.id ?? null }}
+          fields={complianceFields(documents, { waived: target?.status === "WAIVED", evidence: evidenceReadable })}
+          initial={editing === "new" ? { status: "VALID", type: "INSURANCE" } : { ...editing, status: editing.status === "WAIVED" ? KEEP_WAIVER : editing.status === "MISSING" ? "MISSING" : "VALID", documentId: editing.document?.id ?? null }}
           submitLabel={editing === "new" ? "Add requirement" : "Save"}
           wide
           testId="compliance-form"
           onSubmit={async (payload) => {
+            // "Keep the waiver" is no status at all: the server keeps the one stored (AUD-09 §5, FV-10).
+            if (payload.status === KEEP_WAIVER) delete payload.status;
             if (editing === "new") await engineeringApi(`/api/contractors/${contractorId}/compliance`, { body: payload });
             else await engineeringApi(`/api/contractor-compliance/${editing.id}`, { method: "PATCH", body: payload });
             toast({ title: "Compliance saved.", tone: "success" });
             router.refresh();
           }}
         >
+          {!evidenceReadable ? (
+            <p className="text-table text-fg-muted" data-testid="compliance-evidence-kept">
+              The evidence files could not be listed, so the evidence is kept as it is.
+            </p>
+          ) : null}
           {canUpload && ownerId ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-line-strong px-4 py-3">
               <input ref={fileInput} type="file" className="sr-only" aria-label="Upload evidence" data-testid="compliance-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />

@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
+import { previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 
 export type AmendmentFormValues = {
   amendmentNumber: string;
@@ -61,14 +62,18 @@ export function AmendmentForm({
   const [newValue, setNewValue] = React.useState(values?.newContractValue ?? "");
   const [newExpiry, setNewExpiry] = React.useState(values?.newExpiryDate ?? "");
 
-  const current = contract.contractValue ? Number.parseFloat(contract.contractValue) : null;
-  const next = newValue.trim() === "" ? null : Number.parseFloat(newValue);
+  // Exact, and only for a value the server would accept: "12abc" and "1e5" used
+  // to preview as 12 and 100000 (AUD-09 §4, FV-06). A preview; the server
+  // derives the delta itself.
+  const next = newValue.trim() === "" ? null : previewDecimal(newValue, 2);
   const delta =
-    current !== null && next !== null && Number.isFinite(next) ? next - current : null;
+    contract.contractValue && next !== null
+      ? sumDecimal([next, contract.contractValue.startsWith("-") ? contract.contractValue.slice(1) : `-${contract.contractValue}`], 2)
+      : null;
 
   const shortens =
     Boolean(newExpiry) && Boolean(contract.expiryDate) && newExpiry < contract.expiryDate!;
-  const reduces = delta !== null && delta < 0;
+  const reduces = delta !== null && delta.startsWith("-");
 
   return (
     <RecordForm
@@ -164,10 +169,10 @@ export function AmendmentForm({
           />
         </Field>
 
-        {delta !== null && Number.isFinite(delta) && contract.currency ? (
+        {delta !== null && contract.currency ? (
           <p className="text-meta text-fg-subtle sm:col-span-2">
-            Change: {delta >= 0 ? "+" : "−"}
-            {formatAmount(Math.abs(delta).toFixed(2), contract.currency)}. The server recalculates
+            Change (preview): {reduces ? "−" : "+"}
+            {formatAmount(delta.replace(/^-/, ""), contract.currency)}. The server recalculates
             this from the contract&apos;s value at the moment the amendment is activated.
           </p>
         ) : null}

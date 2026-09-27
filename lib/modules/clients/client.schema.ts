@@ -86,8 +86,55 @@ export const createClientSchema = z
     { message: "Enter both a first and last name for the contact.", path: ["contactLastName"] },
   );
 
+/**
+ * Update-only fields (AUD-09 §4, FV-05): absent keeps the saved value, `""` or
+ * `null` clears it, a value replaces it.
+ *
+ * AUD-09: candidate for lib/forms (the omit / clear / set triple).
+ */
+const patchText = (max: number) =>
+  z
+    .union([z.string().trim().max(max, `Keep this under ${max.toLocaleString("en")} characters.`), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
+
+const patchEmail = patchText(254).refine((value) => !value || z.string().email().safeParse(value).success, {
+  message: "Enter a valid email address",
+});
+
+const patchWebsite = patchText(300).refine(
+  (value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  },
+  { message: "Enter a full web address starting with http:// or https://" },
+);
+
+/**
+ * A client edit is a partial update (AUD-09 §4, FV-05, FV-10). A field left
+ * out keeps its saved value — in particular the status, which used to fall
+ * back to the create default (Active) and so reactivate an inactive client
+ * whenever a request did not mention it. The edit form sends every field, so
+ * for it nothing changes. A field that is sent is validated as on create;
+ * unknown keys are stripped (PRD #12 §123).
+ */
 export const updateClientSchema = z.object({
-  ...clientFields,
+  code: patchText(50),
+  name: clientFields.name.optional(),
+  legalName: patchText(250),
+  type: z.enum(CLIENT_TYPES, { message: "Choose a client type." }).optional(),
+  email: patchEmail,
+  phone: patchText(40),
+  website: patchWebsite,
+  address: patchText(300),
+  city: patchText(120),
+  country: patchText(120),
+  status: z.enum(EDITABLE_CLIENT_STATUSES as [string, ...string[]], { message: "Choose a status." }).optional(),
   acceptDuplicate: optionalBoolean,
   versionUpdatedAt: optionalDate,
 });
@@ -136,8 +183,21 @@ const contactFields = {
 };
 
 export const createContactSchema = z.object(contactFields);
+
+/**
+ * A contact edit is a partial update too (AUD-09 §4, FV-05): absent keeps,
+ * `""`/`null` clears, a value replaces. `isPrimary` is explicit: the edit form
+ * sends `false` for an unticked box (a hidden input before the checkbox), so
+ * "not ticked" and "not mentioned" are no longer the same request.
+ */
 export const updateContactSchema = z.object({
-  ...contactFields,
+  firstName: contactFields.firstName.optional(),
+  lastName: contactFields.lastName.optional(),
+  jobTitle: patchText(160),
+  email: patchEmail,
+  phone: patchText(40),
+  isPrimary: optionalBoolean,
+  status: z.enum(EDITABLE_CONTACT_STATUSES as [string, ...string[]], { message: "Choose a status." }).optional(),
   versionUpdatedAt: optionalDate,
 });
 

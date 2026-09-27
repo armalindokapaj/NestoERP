@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { signIn } from "@/lib/auth";
-import { AccessError } from "@/lib/access/guards";
+import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
@@ -29,7 +29,7 @@ function revalidateTeam(memberId?: string) {
 
 export type TeamActionResult =
   | { ok: true; message?: string; redirectTo?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+  | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 /**
  * Invitation acceptance is throttled per token and per address (PRD #38 §17):
@@ -46,10 +46,9 @@ async function acceptAllowed(token: string): Promise<TeamActionResult | null> {
     : { ok: false, error: "Too many attempts. Wait a few minutes and try again." };
 }
 
+/** One reading of a failure for both transports (AUD-09 §3, §6). */
 function toResult(error: unknown): TeamActionResult {
-  if (error instanceof AccessError) return { ok: false, error: error.message };
-  console.error("[team] action failed", error);
-  return { ok: false, error: "We couldn't save your changes. Please try again." };
+  return actionFailure(error, "team");
 }
 
 function formValues(formData: FormData): Record<string, unknown> {
@@ -72,11 +71,7 @@ export async function updateMemberAction(
 
   const parsed = updateMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
+    return validationFailure(parsed.error);
   }
 
   try {
@@ -121,11 +116,7 @@ export async function inviteMemberAction(formData: FormData): Promise<InviteActi
 
   const parsed = inviteMemberSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
+    return validationFailure(parsed.error);
   }
 
   try {
@@ -180,11 +171,7 @@ export async function cancelInvitationAction(inviteId: string): Promise<TeamActi
 export async function acceptInviteAction(formData: FormData): Promise<TeamActionResult> {
   const parsed = acceptInviteSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please review the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
+    return validationFailure(parsed.error);
   }
 
   const refused = await acceptAllowed(parsed.data.token);

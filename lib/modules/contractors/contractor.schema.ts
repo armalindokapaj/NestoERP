@@ -7,6 +7,7 @@ import {
   dateRange,
   expectedVersion,
   idSchema,
+  keepAll,
   name,
   optionalAmount,
   optionalDate,
@@ -65,7 +66,14 @@ export const createContractorSchema = z.object({
 });
 export type CreateContractorInput = z.infer<typeof createContractorSchema>;
 
-export const updateContractorSchema = z.object({ ...contractorFields, statusReason: optionalText(2_000), expectedVersion });
+/**
+ * An edit names what it changes (AUD-09 §4, FV-05): every field but the legal
+ * name may be absent and is then kept. The supplier link is offered only to
+ * readers of Procurement's suppliers, so their colleagues' edits used to
+ * unlink it; the address line 2 and region were never in the dialog at all.
+ */
+const { legalName: contractorLegalName, ...contractorOptional } = contractorFields;
+export const updateContractorSchema = z.object({ legalName: contractorLegalName, ...keepAll(contractorOptional), statusReason: optionalText(2_000), expectedVersion });
 export type UpdateContractorInput = z.infer<typeof updateContractorSchema>;
 
 export const archiveContractorSchema = z.object({ status: z.enum(["OFFBOARDED", "ARCHIVED"]), reason: optionalText(2_000), expectedVersion });
@@ -93,7 +101,7 @@ export const duplicateCheckSchema = z.object({
 
 /* Contacts ----------------------------------------------------------------- */
 
-export const contactSchema = z.object({
+const contactFields = {
   name: name("Give the contact's name."),
   roleTitle: optionalText(120),
   contactRole: z.enum(CONTACT_ROLES).optional().nullable().transform((value) => value ?? null),
@@ -101,8 +109,13 @@ export const contactSchema = z.object({
   phone: optionalText(40),
   active: z.boolean().default(true),
   notes: optionalText(2_000),
-});
+};
+export const contactSchema = z.object(contactFields);
 export type ContactInput = z.infer<typeof contactSchema>;
+/** An edit of a contact: an absent `active` no longer reactivates a retired contact (AUD-09 §4, FV-05). */
+const { name: contactName, ...contactOptional } = contactFields;
+export const updateContactSchema = z.object({ name: contactName, ...keepAll(contactOptional) });
+export type UpdateContactInput = z.infer<typeof updateContactSchema>;
 
 /* Project assignments ------------------------------------------------------ */
 
@@ -119,7 +132,15 @@ const assignmentRange = dateRange<{ startDate: string | null; endDate: string | 
 
 export const createAssignmentSchema = z.object({ contractorId: idSchema, ...assignmentFields }).superRefine(assignmentRange);
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
-export const updateAssignmentSchema = z.object({ ...assignmentFields, expectedVersion }).superRefine(assignmentRange);
+/**
+ * An edit names what it changes (AUD-09 §4, FV-05): the contract is offered
+ * only to readers of Legal's agreements, so an absent one is kept, as is
+ * anything else not sent. The start/end order against what is stored is the
+ * service's check.
+ */
+export const updateAssignmentSchema = z
+  .object({ ...keepAll(assignmentFields), expectedVersion })
+  .superRefine((value, ctx) => assignmentRange({ startDate: value.startDate ?? null, endDate: value.endDate ?? null }, ctx));
 export type UpdateAssignmentInput = z.infer<typeof updateAssignmentSchema>;
 export const terminateAssignmentSchema = z.object({ reason, endDate: optionalDate, expectedVersion });
 
@@ -186,7 +207,15 @@ const complianceRange = dateRange<{ issuedAt: string | null; expiresAt: string |
 
 export const createComplianceSchema = z.object(complianceFields).superRefine(complianceRange);
 export type ComplianceInput = z.infer<typeof createComplianceSchema>;
-export const updateComplianceSchema = z.object(complianceFields).superRefine(complianceRange);
+/**
+ * An edit names what it changes (AUD-09 §4, FV-05). Absent evidence is kept —
+ * a reader who cannot open files is never shown it — and an absent status
+ * keeps a waiver rather than resetting it to "on file".
+ */
+export const updateComplianceSchema = z
+  .object({ type: complianceFields.type, title: complianceFields.title, ...keepAll({ status: complianceFields.status, documentId: complianceFields.documentId, issuedAt: complianceFields.issuedAt, expiresAt: complianceFields.expiresAt, issuer: complianceFields.issuer, referenceNumber: complianceFields.referenceNumber, notes: complianceFields.notes }) })
+  .superRefine((value, ctx) => complianceRange({ issuedAt: value.issuedAt ?? null, expiresAt: value.expiresAt ?? null }, ctx));
+export type UpdateComplianceInput = z.infer<typeof updateComplianceSchema>;
 export const waiveComplianceSchema = z.object({ reason });
 
 export const complianceListSchema = z.object({

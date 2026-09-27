@@ -312,6 +312,8 @@ export async function createItem(context: UserContext, input: ItemInput): Promis
   assertModule(context, MODULE);
   assertPermission(context, "inventory.item.create");
 
+  await assertDefaults(context, input.defaultWarehouseId ?? null, input.defaultLocationId ?? null);
+
   const id = await prisma.$transaction(async (tx) => {
     await assertSkuIsFree(tx, context, input.sku, null);
 
@@ -323,7 +325,8 @@ export async function createItem(context: UserContext, input: ItemInput): Promis
         description: input.description ?? null,
         category: input.category,
         baseUnit: input.baseUnit,
-        status: input.status,
+        // The create default lives here, not in the shared schema (AUD-09 §4).
+        status: input.status ?? "ACTIVE",
         minimumStock: input.minimumStock === undefined ? null : new Prisma.Decimal(input.minimumStock),
         reorderPoint: input.reorderPoint === undefined ? null : new Prisma.Decimal(input.reorderPoint),
         defaultWarehouseId: input.defaultWarehouseId ?? null,
@@ -386,6 +389,11 @@ export async function updateItem(
     }
   }
 
+  // Absent keeps the saved status: an edit that does not carry it never
+  // reactivates an inactive item (AUD-09 §4, FV-05).
+  const status = input.status ?? existing.status;
+  await assertDefaults(context, input.defaultWarehouseId ?? null, input.defaultLocationId ?? null);
+
   await prisma.$transaction(async (tx) => {
     await assertSkuIsFree(tx, context, input.sku, itemId);
 
@@ -406,10 +414,10 @@ export async function updateItem(
     // which is a transition; leaving it alone is an edit, still conditional on
     // the status the form was opened on, so an item archived meanwhile is not
     // quietly edited back to life.
-    if (input.status !== existing.status) {
+    if (status !== existing.status) {
       await applyTransition(tx, {
         machine: inventoryItemMachine,
-        action: input.status === "ACTIVE" ? "activate" : "deactivate",
+        action: status === "ACTIVE" ? "activate" : "deactivate",
         id: itemId,
         context,
         from: existing.status,
@@ -613,4 +621,36 @@ function capabilitiesFor(context: UserContext, row: ItemRow) {
     canViewDocuments: can(context, "inventory.document.view") && can(context, "document.view"),
     canViewActivity: can(context, "inventory.activity.view"),
   };
+}
+
+/**
+ * An item's default warehouse and location must be this company's, and the
+ * location must sit in that warehouse (AUD-09 §5, FV-09). The columns have no
+ * foreign key, so before this a forged id — another company's warehouse, a
+ * location of a different warehouse — was stored as given.
+ */
+async function assertDefaults(context: UserContext, warehouseId: string | null, locationId: string | null): Promise<void> {
+  if (warehouseId) {
+    const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId: context.companyId }, select: { id: true } });
+    if (!warehouse) {
+      throw new AccessError("VALIDATION_ERROR", "Choose a warehouse of this company.", {
+        code: "INVALID_WAREHOUSE",
+        defaultWarehouseId: ["Choose a warehouse of this company."],
+      });
+    }
+  }
+  if (locationId && !warehouseId) {
+    const message = "Choose a default warehouse for this location first.";
+    throw new AccessError("VALIDATION_ERROR", message, { code: "INVALID_LOCATION", defaultLocationId: [message] });
+  }
+  if (locationId && warehouseId) {
+    const location = await prisma.inventoryLocation.findFirst({
+      where: { id: locationId, companyId: context.companyId, warehouseId },
+      select: { id: true },
+    });
+    if (!location) {
+      const message = "Choose a location in the default warehouse.";
+      throw new AccessError("VALIDATION_ERROR", message, { code: "INVALID_LOCATION", defaultLocationId: [message] });
+    }
+  }
 }

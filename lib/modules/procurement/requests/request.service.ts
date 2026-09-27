@@ -25,7 +25,7 @@ import {
   buildProcurementProjectWhere,
   buildRequestScopeWhere,
 } from "../procurement.scope";
-import type { RequestInput, RequestListQuery } from "../procurement.schema";
+import type { RequestInput, RequestItemInput, RequestListQuery } from "../procurement.schema";
 import {
   companyFilterOptions,
   groupProcurementContexts,
@@ -611,6 +611,20 @@ export async function updateRequest(
 
   const related = await resolveRelated(context, input);
 
+  // What the editor does not show is kept, not erased (AUD-09 §4, FV-05,
+  // FV-10): a line that comes back with its id and no `specification` key keeps
+  // the specification it was saved with; an explicit empty value clears it.
+  const savedLines = new Map(
+    (
+      await prisma.purchaseRequestItem.findMany({
+        where: { purchaseRequestId: requestId },
+        select: { id: true, specification: true },
+      })
+    ).map((line) => [line.id, line]),
+  );
+  const specificationOf = (item: RequestItemInput) =>
+    item.specification !== undefined ? item.specification : ((item.id && savedLines.get(item.id)?.specification) ?? null);
+
   await prisma.$transaction(async (tx) => {
     // Lines are replaced wholesale: reconciling an edited set against the
     // stored one is a diff nobody can read, and the request is still a draft.
@@ -647,7 +661,7 @@ export async function updateRequest(
               { quantity: item.quantity, estimatedUnitPrice: item.estimatedUnitPrice ?? null },
             ]),
             category: item.category ?? null,
-            specification: item.specification ?? null,
+            specification: specificationOf(item),
             sortOrder: index + 1,
           })),
         },

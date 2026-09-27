@@ -3,6 +3,7 @@ import { Prisma, type AttendanceStatus } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { companyDays } from "@/lib/core/notifications/company-day";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -169,7 +170,7 @@ export async function createAttendance(
   if (!forSelf) assertPermission(context, "hr.attendance.create");
 
   const date = toBusinessDate(input.date);
-  assertDateAllowed(date, input.status);
+  assertDateAllowed(date, input.status, await companyToday(context.companyId));
 
   const times = resolveTimes(date, input);
 
@@ -253,7 +254,13 @@ export async function updateAttendance(
     );
   }
 
-  const times = resolveTimes(existing.date, input);
+  // Absent is unchanged, null is cleared (AUD-09 §4, FV-05): a PATCH that
+  // changes the status alone keeps the times it still carries.
+  const times = resolveTimes(existing.date, {
+    status: input.status,
+    checkIn: (input.checkIn === undefined ? timeString(existing.checkIn) : input.checkIn) ?? undefined,
+    checkOut: (input.checkOut === undefined ? timeString(existing.checkOut) : input.checkOut) ?? undefined,
+  });
 
   await prisma.$transaction(async (tx) => {
     await tx.attendanceRecord.update({
@@ -263,7 +270,7 @@ export async function updateAttendance(
         checkIn: times.checkIn,
         checkOut: times.checkOut,
         workedMinutes: times.workedMinutes,
-        notes: input.notes ?? null,
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
         // An overridden leave day stops claiming the leave wrote it.
         ...(isSystemGenerated(existing)
           ? { source: "MANUAL" as const, sourceEntityType: null, sourceEntityId: null }
@@ -356,8 +363,17 @@ async function requireOwnProfile(context: UserContext) {
  * not something anybody knows. Holidays and days off are the exception, because
  * those are decisions made in advance.
  */
-function assertDateAllowed(date: Date, status: AttendanceStatus): void {
-  if (date.getTime() <= today().getTime()) return;
+/**
+ * "Future" is judged by the company's own calendar day, not the UTC one: in
+ * Tirana just after midnight the UTC date is still yesterday, and today's
+ * attendance was refused as a future day (AUD-09 §4, FV-07).
+ */
+async function companyToday(companyId: string, now: Date = new Date()): Promise<Date> {
+  return toBusinessDate(new Date(`${(await companyDays(companyId))(now).day}T12:00:00.000Z`));
+}
+
+function assertDateAllowed(date: Date, status: AttendanceStatus, todayDate: Date = today()): void {
+  if (date.getTime() <= todayDate.getTime()) return;
   if (isPlannable(status)) return;
 
   throw new AccessError(

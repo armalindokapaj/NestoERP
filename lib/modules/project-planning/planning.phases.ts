@@ -67,12 +67,38 @@ export async function updatePhase(context: UserContext, phaseId: string, input: 
   assertPermission(context, "project_planning.phase.edit");
   assertWritable(phase.project);
   if (phase.archivedAt) throw fail("PHASE_ARCHIVED", "That phase is archived.", "CONFLICT");
-  if (input.ownerMemberId !== phase.ownerMemberId) await assertAssignable(context.companyId, phase.projectId, input.ownerMemberId);
+  if (input.ownerMemberId !== undefined && input.ownerMemberId !== phase.ownerMemberId) await assertAssignable(context.companyId, phase.projectId, input.ownerMemberId);
   const { expectedVersion, ...rest } = input;
+  // A partial update (AUD-09 §4, FV-05): a field the request left out keeps
+  // its saved value (Prisma leaves `undefined` alone); `null` clears it.
+  const date = (value: string | null | undefined) => (value === undefined ? undefined : at(value));
+  const data = {
+    name: rest.name,
+    description: rest.description,
+    status: rest.status,
+    progressPercent: rest.progressPercent === undefined ? undefined : rest.progressPercent === null ? null : new Prisma.Decimal(rest.progressPercent),
+    ownerMemberId: rest.ownerMemberId,
+    plannedStartDate: date(rest.plannedStartDate),
+    plannedEndDate: date(rest.plannedEndDate),
+    forecastStartDate: date(rest.forecastStartDate),
+    forecastEndDate: date(rest.forecastEndDate),
+    actualStartDate: date(rest.actualStartDate),
+    actualEndDate: date(rest.actualEndDate),
+  };
+  // Each range across the saved and the sent dates: moving only the end
+  // before the saved start is refused like sending both (PRD #44 §199).
+  for (const [start, end] of [["plannedStartDate", "plannedEndDate"], ["forecastStartDate", "forecastEndDate"], ["actualStartDate", "actualEndDate"]] as const) {
+    if (data[start] === undefined && data[end] === undefined) continue;
+    const from = data[start] === undefined ? phase[start] : data[start];
+    const to = data[end] === undefined ? phase[end] : data[end];
+    if (from && to && to.getTime() < from.getTime()) {
+      throw new AccessError("VALIDATION_ERROR", "The end is before the start.", { [end]: ["The end is before the start."] });
+    }
+  }
   return prisma.$transaction(async (tx) => {
-    const moved = await tx.projectPhase.updateMany({ where: { id: phase.id, version: expectedVersion, archivedAt: null }, data: { ...phaseData(rest), version: { increment: 1 } } });
+    const moved = await tx.projectPhase.updateMany({ where: { id: phase.id, version: expectedVersion, archivedAt: null }, data: { ...data, version: { increment: 1 } } });
     if (!moved.count) throw fail("PLANNING_STALE", "This phase changed since you opened it. Reload to see the latest.", "CONFLICT");
-    const progress = rest.progressPercent;
+    const progress = rest.progressPercent === undefined ? (phase.progressPercent === null ? null : Number(phase.progressPercent)) : rest.progressPercent;
     await recordUserAction(
       context,
       {
@@ -80,7 +106,7 @@ export async function updatePhase(context: UserContext, phaseId: string, input: 
         entity: { type: "project", id: phase.projectId, label: phase.project.name },
         projectId: phase.projectId,
         before: { phaseId: phase.id, name: phase.name, status: phase.status, progressPercent: phase.progressPercent?.toString() ?? null },
-        after: { phaseId: phase.id, name: rest.name, status: rest.status, progressPercent: progress === null ? null : String(progress) },
+        after: { phaseId: phase.id, name: rest.name ?? phase.name, status: rest.status ?? phase.status, progressPercent: progress === null ? null : String(progress) },
       },
       { tx },
     );

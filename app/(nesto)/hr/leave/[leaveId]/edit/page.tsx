@@ -43,6 +43,8 @@ export default async function EditLeavePage({ params }: Params) {
           startDate: request.startDate,
           endDate: request.endDate,
           reason: request.reason ?? null,
+          // The DTO leaves the reason out for a reader who may not see it (PRD #16 §95).
+          reasonHidden: !("reason" in request),
         }}
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/hr/leave/${leaveId}`}

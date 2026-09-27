@@ -1,7 +1,15 @@
 import { z } from "zod";
 
 import { optionalDate, optionalId, optionalText, requiredText } from "@/lib/modules/shared/fields";
-import { amountString, currencyCode, optionalBusinessDate } from "../finance.fields";
+import {
+  amountString,
+  clearableBusinessDate,
+  clearableId,
+  clearableText,
+  currencyCode,
+  optionalBusinessDate,
+  positive,
+} from "../finance.fields";
 import { EXPENSE_CATEGORIES } from "../expenses/expense.schema";
 
 /**
@@ -19,7 +27,7 @@ const commitmentFields = {
   counterpartyName: optionalText(250),
   category: z.enum(EXPENSE_CATEGORIES, { message: "Choose a category" }),
   currency: currencyCode,
-  amount: amountString("Amount").refine((value) => Number.parseFloat(value) > 0, {
+  amount: amountString("Amount").refine(positive, {
     message: "The commitment amount must be greater than zero",
   }),
   expectedDate: optionalBusinessDate,
@@ -27,8 +35,14 @@ const commitmentFields = {
 };
 
 export const createCommitmentSchema = z.object(commitmentFields);
+/** Optional fields on an edit: absent keeps, empty or `null` clears (AUD-09 §4, FV-05). */
 export const updateCommitmentSchema = z.object({
   ...commitmentFields,
+  projectId: clearableId,
+  reference: clearableText(60),
+  counterpartyName: clearableText(250),
+  expectedDate: clearableBusinessDate,
+  notes: clearableText(2000),
   versionUpdatedAt: optionalDate,
 });
 

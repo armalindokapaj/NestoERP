@@ -201,16 +201,25 @@ export async function createWorkLog(context: UserContext, input: WorkLogInput): 
 async function requireOwnLog(context: UserContext, workLogId: string) {
   const log = await prisma.workLog.findFirst({
     where: { id: workLogId, companyId: context.companyId, memberId: context.membershipId },
-    select: { id: true, timesheetId: true, workDate: true, minutes: true, workType: true, projectId: true, taskId: true, billable: true, overtimeFlag: true, updatedAt: true, timesheet: { select: { status: true } } },
+    select: { id: true, timesheetId: true, workDate: true, minutes: true, workType: true, projectId: true, taskId: true, description: true, billable: true, overtimeFlag: true, updatedAt: true, timesheet: { select: { status: true } } },
   });
   if (!log) throw fail("WORKLOG_NOT_FOUND", "That entry could not be found.", "NOT_FOUND");
   if (!isEditableStatus(log.timesheet.status)) throw lockedError(log.timesheet.status);
   return log;
 }
 
-export async function updateWorkLog(context: UserContext, workLogId: string, input: WorkLogUpdateInput): Promise<{ timesheetId: string; workLogId: string }> {
+export async function updateWorkLog(context: UserContext, workLogId: string, sent: WorkLogUpdateInput): Promise<{ timesheetId: string; workLogId: string }> {
   assertOwnTime(context);
   const log = await requireOwnLog(context, workLogId);
+  // Absent keeps what the entry has (AUD-09 §4, FV-05); a task goes with its project, so a new project without a task drops the old task.
+  const projectId = sent.projectId === undefined ? log.projectId : sent.projectId;
+  const input = {
+    ...sent,
+    projectId,
+    taskId: sent.taskId !== undefined ? sent.taskId : projectId === log.projectId ? log.taskId : null,
+    description: sent.description === undefined ? log.description : sent.description,
+    overtimeFlag: sent.overtimeFlag ?? log.overtimeFlag,
+  };
   if (input.updatedAt && new Date(input.updatedAt).getTime() !== log.updatedAt.getTime()) {
     throw fail("WORKLOG_CHANGED", "This entry changed in another window. Reload to see it.", "CONFLICT");
   }

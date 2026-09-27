@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { localToday } from "@/components/finance/local-date";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import {
@@ -325,7 +326,7 @@ function MarkSignedDialog({
   onDone: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const [signedDate, setSignedDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [signedDate, setSignedDate] = React.useState(() => localToday());
   const [missingDocument, setMissingDocument] = React.useState(false);
   const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -337,7 +338,7 @@ function MarkSignedDialog({
     if (!open) {
       // Reset only once the dialog has closed through its guard.
       setMissingDocument(false);
-      setSignedDate(new Date().toISOString().slice(0, 10));
+      setSignedDate(localToday());
       setUnresolved(false);
     }
   }, [open]);
@@ -439,7 +440,7 @@ function TerminateDialog({
   onError: (message: string) => void;
 }) {
   const [terminationDate, setTerminationDate] = React.useState(() =>
-    new Date().toISOString().slice(0, 10),
+    localToday(),
   );
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -452,7 +453,7 @@ function TerminateDialog({
     if (!open) {
       // Reset only once the dialog has closed through its guard.
       setReason("");
-      setTerminationDate(new Date().toISOString().slice(0, 10));
+      setTerminationDate(localToday());
       setError(null);
       setUnresolved(false);
     }

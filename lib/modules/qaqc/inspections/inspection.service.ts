@@ -13,6 +13,7 @@ import type { UserContext } from "@/lib/context/types";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
+import { requireCompanyRequest, resolveReceiptItem } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
@@ -444,8 +445,15 @@ export async function createInspection(
   const receipt = input.goodsReceiptId
     ? await requireGoodsReceipt(context, input.goodsReceiptId)
     : null;
+  // Every id the form names is this company's, under the parent it is named with (AUD-09 §5, FV-09).
+  const goodsReceiptItemId = await resolveReceiptItem(context, { sent: input.goodsReceiptItemId ?? null, receiptId: receipt?.id ?? null });
+  const requestId = input.requestId ? (await requireCompanyRequest(context, input.requestId)).id : null;
 
   const template = input.templateId ? await requireTemplate(context, input.templateId) : null;
+  // The page offers only templates of the chosen type; the server holds the same rule (AUD-09 §3, FV-04).
+  if (template && template.inspectionType !== input.inspectionType) {
+    throw new AccessError("VALIDATION_ERROR", "That template is for another kind of inspection.", { field: "templateId", code: "TEMPLATE_TYPE_MISMATCH" });
+  }
 
   const id = await prisma.$transaction(async (tx) => {
     const inspectionNumber = await nextQualityNumber(
@@ -459,12 +467,12 @@ export async function createInspection(
         companyId: context.companyId,
         inspectionNumber,
         inspectionType: input.inspectionType,
-        requestId: input.requestId ?? null,
+        requestId,
         templateId: template?.id ?? null,
         templateVersion: template?.version ?? null,
         projectId,
         goodsReceiptId: receipt?.id ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
+        goodsReceiptItemId,
         assignedInspectorMemberId: inspector.id,
         status: "DRAFT",
         result: "NOT_SET",
@@ -498,7 +506,7 @@ export async function createInspection(
       select: { id: true, inspectionNumber: true },
     });
 
-    if (input.requestId) await syncRequestStatus(tx, context, input.requestId);
+    if (requestId) await syncRequestStatus(tx, context, requestId);
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -551,10 +559,19 @@ export async function updateInspection(
   assertNotStale(input.versionUpdatedAt, existing.updatedAt);
 
   const projectId = input.projectId ? (await requireProject(context, input.projectId)).id : null;
-  const inspector = await requireMember(context, input.assignedInspectorMemberId);
+  // The stored inspector is kept even if they have since left: only a new choice must be active (AUD-09 §5, FV-09).
+  const inspector = input.assignedInspectorMemberId === existing.assignedInspectorMemberId ? { id: existing.assignedInspectorMemberId } : await requireMember(context, input.assignedInspectorMemberId);
+  // Reassigning through the edit form is still an assignment (AUD-09 §4, FV-04; AUD-06).
+  if (inspector.id !== existing.assignedInspectorMemberId) assertPermission(context, "qaqc.inspection.assign");
   const receipt = input.goodsReceiptId
     ? await requireGoodsReceipt(context, input.goodsReceiptId)
     : null;
+  // The form never carries the delivery line: absent keeps it while the delivery is the same (AUD-09 §4, FV-05).
+  const goodsReceiptItemId = await resolveReceiptItem(context, {
+    sent: input.goodsReceiptItemId,
+    receiptId: receipt?.id ?? null,
+    stored: { receiptId: existing.goodsReceiptId, itemId: existing.goodsReceiptItemId },
+  });
 
   await prisma.$transaction(async (tx) => {
     await tx.qualityInspection.update({
@@ -563,7 +580,7 @@ export async function updateInspection(
         inspectionType: input.inspectionType,
         projectId,
         goodsReceiptId: receipt?.id ?? null,
-        goodsReceiptItemId: input.goodsReceiptItemId ?? null,
+        goodsReceiptItemId,
         assignedInspectorMemberId: inspector.id,
         inspectionDate: input.inspectionDate ?? null,
         locationText: input.locationText ?? null,
@@ -1325,6 +1342,8 @@ async function requireInspection(context: UserContext, inspectionId: string) {
         result: true,
         requestId: true,
         assignedInspectorMemberId: true,
+        goodsReceiptId: true,
+        goodsReceiptItemId: true,
         updatedAt: true,
       },
     }),
@@ -1388,6 +1407,7 @@ async function requireTemplate(context: UserContext, templateId: string) {
     select: {
       id: true,
       version: true,
+      inspectionType: true,
       items: {
         orderBy: { sortOrder: "asc" },
         select: {

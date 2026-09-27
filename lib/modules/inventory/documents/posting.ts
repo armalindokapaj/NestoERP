@@ -240,3 +240,32 @@ export async function resolveLineTargets(
     warehouseByLocation: new Map(locations.map((location) => [location.id, location.warehouseId])),
   };
 }
+
+/**
+ * The people a stock document names — issued to, requested by, returned by —
+ * must be members of this company (AUD-09 §5, FV-09). Nothing checked them
+ * before, and the document page looked them up by id without a company filter,
+ * so a forged id showed another company's person on this company's document.
+ *
+ * A new choice must be an active member. The person a draft already names may
+ * have left since; keeping them is not a new assignment, so the saved value
+ * passes as long as it is still this company's (FV-10).
+ */
+export async function assertDocumentMembers(
+  context: UserContext,
+  fields: Record<string, string | null | undefined>,
+  saved: Record<string, string | null | undefined> = {},
+): Promise<void> {
+  for (const [field, memberId] of Object.entries(fields)) {
+    if (!memberId) continue;
+    const keeping = saved[field] === memberId;
+    const member = await prisma.companyMember.findFirst({
+      where: { id: memberId, companyId: context.companyId, ...(keeping ? {} : { status: "ACTIVE" }) },
+      select: { id: true },
+    });
+    if (!member) {
+      const message = "Choose an active member of this company.";
+      throw new AccessError("VALIDATION_ERROR", message, { code: "INVALID_MEMBER", [field]: [message] });
+    }
+  }
+}

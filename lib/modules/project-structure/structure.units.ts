@@ -259,7 +259,22 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
   const unit = await findReadableUnit(context, unitId);
   assertPermission(context, "project.unit.update");
   const type = await requireUnitType(context, input.unitTypeId, unit.unitType.id);
-  const { expectedVersion, ...values } = input;
+  const { expectedVersion, ...sent } = input;
+  // A partial update (AUD-09 §4, FV-05): what the request left out keeps the
+  // saved value; `null` clears it.
+  const keep = <T,>(value: T | undefined, saved: T): T => (value === undefined ? saved : value);
+  const values = {
+    ...sent,
+    name: keep(sent.name, unit.name),
+    position: keep(sent.position, unit.position),
+    orientation: keep(sent.orientation, unit.orientation),
+    ...(Object.fromEntries(AREA_FIELDS.map((field) => [field, keep(sent[field], unit[field] === null ? null : unit[field]!.toFixed(2))])) as Record<AreaField, string | null>),
+    rooms: keep(sent.rooms, unit.rooms),
+    bedrooms: keep(sent.bedrooms, unit.bedrooms),
+    bathrooms: keep(sent.bathrooms, unit.bathrooms),
+    attributes: keep(sent.attributes, (unit.attributes ?? null) as TechnicalInput["attributes"]),
+    description: keep(sent.description, unit.description),
+  };
   const unitCodeKey = structureKey(values.unitCode);
   const codeChanged = values.unitCode !== unit.unitCode;
 

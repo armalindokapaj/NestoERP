@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { idSchema } from "@/lib/modules/project-structure/structure.schema";
-import { toBusinessDate } from "../finance.fields";
+import { isPositiveDecimal, parseDecimalInput } from "../finance.decimal";
+import { DATE_FORMAT_MESSAGE, parseCalendarDate } from "../finance.fields";
 import { PAYMENT_METHODS } from "../payments/payment.schema";
 import { FINANCE_REASON_MAX, INSTALLMENT_TYPES, MAX_INSTALLMENTS, UNIT_FINANCIAL_STATUSES } from "./unit-finance.types";
 
@@ -13,18 +14,44 @@ import { FINANCE_REASON_MAX, INSTALLMENT_TYPES, MAX_INSTALLMENTS, UNIT_FINANCIAL
 
 const blank = (value: unknown) => (value === "" || value === undefined ? undefined : value);
 
-/** An amount of zero or more with at most two decimals, kept a string (§73). */
+/**
+ * An amount of zero or more with at most two decimals, kept a string (§73).
+ * Read by the one decimal rule (AUD-09 §4, FV-06): `1,234` is refused as
+ * ambiguous rather than read as 1.234, and a JSON number is taken only when
+ * it is an exact decimal (`String(1e21)` is not).
+ */
 const amount = (label: string, positive = false) =>
-  z.preprocess(
-    (value) => (typeof value === "number" ? String(value) : typeof value === "string" ? value.trim().replace(/\s/g, "").replace(",", ".") : value),
-    z
-      .string({ error: `Enter the ${label}.` })
-      .regex(/^\d{1,16}(\.\d{1,2})?$/, `Enter the ${label} as a number with at most two decimals.`)
-      .refine((value) => !positive || Number(value) > 0, `The ${label} must be greater than zero.`),
-  );
+  z.unknown().transform((value, ctx): string => {
+    const text = typeof value === "number" && Number.isFinite(value) ? String(value) : value;
+    if (typeof text !== "string" || text.trim() === "") {
+      ctx.addIssue({ code: "custom", message: `Enter the ${label}.` });
+      return z.NEVER;
+    }
+    const parsed = parseDecimalInput(text, { label: `The ${label}`, scale: 2, maxIntegerDigits: 15 });
+    if (!parsed.ok) {
+      ctx.addIssue({ code: "custom", message: parsed.message });
+      return z.NEVER;
+    }
+    if (positive && !isPositiveDecimal(parsed.value)) {
+      ctx.addIssue({ code: "custom", message: `The ${label} must be greater than zero.` });
+      return z.NEVER;
+    }
+    return parsed.value;
+  });
 
-/** A calendar date, stored at midday UTC like every finance date (PRD #15 §257). */
-const businessDay = (label: string) => z.coerce.date({ error: `Choose the ${label}.` }).transform(toBusinessDate);
+/**
+ * A calendar date, stored at midday UTC like every finance date (PRD #15 §257).
+ * Strict (AUD-09 §4, FV-07): `2026-02-31` is refused, not rolled into March.
+ */
+const businessDay = (label: string) =>
+  z.unknown().transform((value, ctx): Date => {
+    const date = parseCalendarDate(value);
+    if (!date) {
+      ctx.addIssue({ code: "custom", message: value === undefined || value === null || value === "" ? `Choose the ${label}.` : DATE_FORMAT_MESSAGE });
+      return z.NEVER;
+    }
+    return date;
+  });
 
 const reason = z.string().trim().min(3, "Give a reason.").max(FINANCE_REASON_MAX, `Keep the reason under ${FINANCE_REASON_MAX.toLocaleString("en")} characters.`);
 const optionalText = (max: number) =>
