@@ -10,11 +10,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { itemLifecycleAction } from "@/lib/actions/inventory";
 import type { ItemDetailDTO } from "@/lib/modules/inventory/inventory.types";
+import { useInventoryTranslations } from "./inventory-text";
 
 /** What a reader may do to an item (PRD #20 §45, §47, §48). */
 export function ItemActions({ item }: { item: ItemDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
   const [archiving, setArchiving] = React.useState(false);
 
@@ -39,14 +41,14 @@ export function ItemActions({ item }: { item: ItemDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/inventory/items/${item.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("actions.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArchiving(true)}>
-          Archive
+          {t("actions.archive")}
         </Button>
       ) : null}
 
@@ -55,20 +57,20 @@ export function ItemActions({ item }: { item: ItemDetailDTO }) {
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => run("restore", "Item restored as inactive.")}
+          onClick={() => run("restore", t("itemActions.restored"))}
         >
-          Restore
+          {t("actions.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title={`Archive ${item.name}?`}
-        description="It leaves the item master and cannot be named on new stock documents. Its ledger history stays exactly where it is. An item still holding stock cannot be archived."
-        confirmLabel="Archive item"
+        title={t("actions.archiveTitle", { name: item.name })}
+        description={t("itemActions.archiveDescription")}
+        confirmLabel={t("itemActions.archiveConfirm")}
         pending={pending}
-        onConfirm={() => run("archive", "Item archived.")}
+        onConfirm={() => run("archive", t("itemActions.archived"))}
       />
     </>
   );

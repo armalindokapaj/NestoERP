@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Transfers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.transfers") };
+}
 
 /** Transfers: Material moving between locations. The company holds the same total either way. */
 export default async function TransfersPage({
@@ -22,6 +26,7 @@ export default async function TransfersPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.transfer.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -32,7 +37,7 @@ export default async function TransfersPage({
       actions={
         can(context, "inventory.transfer.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/transfers/new">New transfer</Link>
+            <Link href="/inventory/transfers/new">{t("meta.newTransfer")}</Link>
           </Button>
         ) : null
       }

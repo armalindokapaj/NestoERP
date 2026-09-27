@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { InventoryActivityFeed } from "@/components/inventory/record-activity";
 import { ItemPageShell, loadItemPage } from "../item-shell";
 
-export const metadata: Metadata = { title: "Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.activity") };
+}
 
 type Params = { params: Promise<{ itemId: string }> };
 

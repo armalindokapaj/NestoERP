@@ -11,10 +11,8 @@ import {
 } from "@/components/forms/record-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  WAREHOUSE_TYPES,
-  warehouseTypeLabels,
-} from "@/lib/modules/inventory/inventory.status";
+import { WAREHOUSE_TYPES, warehouseTypeLabels } from "@/lib/modules/inventory/inventory.status";
+import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
 
 export type WarehouseFormValues = {
   code: string;
@@ -52,6 +50,7 @@ export function WarehouseForm({
   pendingLabel: string;
   projects: { value: string; label: string }[];
 }) {
+  const t = useInventoryTranslations();
   const [warehouseType, setWarehouseType] = React.useState(
     values?.warehouseType ?? "CENTRAL",
   );
@@ -66,14 +65,14 @@ export function WarehouseForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Warehouse"
-        description="Somewhere stock is physically kept. A new warehouse gets a GENERAL location automatically, so it can take stock immediately."
+        title={t("warehouseForm.section")}
+        description={t("warehouseForm.sectionDescription")}
       >
-        <Field label="Code" name="code" required hint="Unique across the company">
+        <Field label={t("fields.code")} name="code" required hint={t("fields.uniqueHint")}>
           <Input id="code" name="code" defaultValue={values?.code ?? ""} required maxLength={40} />
         </Field>
 
-        <Field label="Type" name="warehouseType" required>
+        <Field label={t("fields.type")} name="warehouseType" required>
           <select
             id="warehouseType"
             name="warehouseType"
@@ -83,23 +82,23 @@ export function WarehouseForm({
           >
             {WAREHOUSE_TYPES.map((type) => (
               <option key={type} value={type}>
-                {warehouseTypeLabels[type]}
+                {inventoryLabel(t, "warehouseType", type, warehouseTypeLabels[type])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Name" name="name" required className="sm:col-span-2">
+        <Field label={t("fields.name")} name="name" required className="sm:col-span-2">
           <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
         </Field>
 
         <Field
-          label="Project"
+          label={t("fields.project")}
           name="projectId"
           required={warehouseType === "PROJECT_SITE"}
           hint={
             warehouseType === "PROJECT_SITE"
-              ? "A site store belongs to one project, and that is what decides who can see its stock."
+              ? t("warehouseForm.projectHint")
               : undefined
           }
         >
@@ -109,7 +108,7 @@ export function WarehouseForm({
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">Not set</option>
+            <option value="">{t("fields.notSet")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -118,19 +117,19 @@ export function WarehouseForm({
           </select>
         </Field>
 
-        <Field label="Status" name="status" required>
+        <Field label={t("fields.status")} name="status" required>
           <select
             id="status"
             name="status"
             className={selectClass}
             defaultValue={values?.status === "ARCHIVED" ? "INACTIVE" : (values?.status ?? "ACTIVE")}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ACTIVE">{t("labels.warehouseStatus.ACTIVE")}</option>
+            <option value="INACTIVE">{t("labels.warehouseStatus.INACTIVE")}</option>
           </select>
         </Field>
 
-        <Field label="Description" name="description" className="sm:col-span-2">
+        <Field label={t("fields.description")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -141,16 +140,16 @@ export function WarehouseForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Where it is">
-        <Field label="Address" name="address" className="sm:col-span-2">
+      <FormSection title={t("warehouseForm.whereItIs")}>
+        <Field label={t("fields.address")} name="address" className="sm:col-span-2">
           <Input id="address" name="address" defaultValue={values?.address ?? ""} maxLength={400} />
         </Field>
 
-        <Field label="City" name="city">
+        <Field label={t("fields.city")} name="city">
           <Input id="city" name="city" defaultValue={values?.city ?? ""} maxLength={120} />
         </Field>
 
-        <Field label="Country" name="country">
+        <Field label={t("fields.country")} name="country">
           <Input id="country" name="country" defaultValue={values?.country ?? ""} maxLength={120} />
         </Field>
       </FormSection>

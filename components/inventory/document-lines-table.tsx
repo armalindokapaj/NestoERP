@@ -6,6 +6,7 @@ import type {
   DocumentLineDTO,
   TransferLineDTO,
 } from "@/lib/modules/inventory/inventory.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatQuantity, formatSigned } from "./inventory-format";
 
 /**
@@ -14,17 +15,18 @@ import { formatQuantity, formatSigned } from "./inventory-format";
  * A posted line carries the movement it wrote, which is what makes the document
  * traceable to the ledger rather than merely consistent with it (PRD #20 §432).
  */
-export function DocumentLinesTable({
+export async function DocumentLinesTable({
   lines,
-  caption = "Document lines",
+  caption,
 }: {
   lines: DocumentLineDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<DocumentLineDTO>[] = [
     {
       key: "item",
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -40,14 +42,14 @@ export function DocumentLinesTable({
     },
     {
       key: "location",
-      label: "Location",
+      label: t("columns.location"),
       hideBelow: "md",
       render: (row) =>
         row.location ? row.location.code : <span className="text-fg-subtle">—</span>,
     },
     {
       key: "quantity",
-      label: "Quantity",
+      label: t("columns.quantity"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -57,28 +59,29 @@ export function DocumentLinesTable({
     },
     {
       key: "notes",
-      label: "Note",
+      label: t("columns.note"),
       hideBelow: "xl",
       render: (row) => row.notes ?? <span className="text-fg-subtle">—</span>,
     },
   ];
 
   return (
-    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption} />
+    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption ?? t("captions.documentLines")} />
   );
 }
 
-export function TransferLinesTable({
+export async function TransferLinesTable({
   lines,
-  caption = "Transfer lines",
+  caption,
 }: {
   lines: TransferLineDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<TransferLineDTO>[] = [
     {
       key: "item",
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -94,7 +97,7 @@ export function TransferLinesTable({
     },
     {
       key: "route",
-      label: "From → to",
+      label: t("columns.fromTo"),
       render: (row) => (
         <span>
           {row.fromLocation.code}
@@ -105,7 +108,7 @@ export function TransferLinesTable({
     },
     {
       key: "quantity",
-      label: "Quantity",
+      label: t("columns.quantity"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -115,28 +118,29 @@ export function TransferLinesTable({
     },
     {
       key: "notes",
-      label: "Note",
+      label: t("columns.note"),
       hideBelow: "xl",
       render: (row) => row.notes ?? <span className="text-fg-subtle">—</span>,
     },
   ];
 
   return (
-    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption} />
+    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption ?? t("captions.transferLines")} />
   );
 }
 
-export function AdjustmentLinesTable({
+export async function AdjustmentLinesTable({
   lines,
-  caption = "Adjustment lines",
+  caption,
 }: {
   lines: AdjustmentLineDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<AdjustmentLineDTO>[] = [
     {
       key: "item",
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -152,13 +156,13 @@ export function AdjustmentLinesTable({
     },
     {
       key: "location",
-      label: "Location",
+      label: t("columns.location"),
       hideBelow: "md",
       render: (row) => row.location.code,
     },
     {
       key: "quantityDelta",
-      label: "Change",
+      label: t("columns.change"),
       align: "right",
       render: (row) => (
         <span
@@ -174,13 +178,13 @@ export function AdjustmentLinesTable({
     },
     {
       key: "notes",
-      label: "Note",
+      label: t("columns.note"),
       hideBelow: "xl",
       render: (row) => row.notes ?? <span className="text-fg-subtle">—</span>,
     },
   ];
 
   return (
-    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption} />
+    <DataTable columns={columns} records={lines} rowKey={(row) => row.id} caption={caption ?? t("captions.adjustmentLines")} />
   );
 }

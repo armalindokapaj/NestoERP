@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { History } from "lucide-react";
 
@@ -21,9 +22,13 @@ import {
   MOVEMENT_TYPES,
   movementTypeLabels,
 } from "@/lib/modules/inventory/inventory.status";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Stock movements" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.stockMovements") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -42,6 +47,7 @@ export default async function MovementsPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.movement.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
   const query = new URLSearchParams(
@@ -54,7 +60,7 @@ export default async function MovementsPage({
     <ModulePage
       experience={experience}
       activeSection="movements"
-      description="Every change to stock, in order. Nothing here is ever edited — a correction is a new row."
+      description={t("movements.description")}
       actions={
         can(context, "inventory.export") ? (
           <InventoryExportLink type="movements" search={query} />
@@ -75,6 +81,7 @@ async function MovementList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("inventory");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -111,11 +118,11 @@ async function MovementList({
   const filters: FilterConfig[] = [
     {
       param: "movementType",
-      label: "Type",
-      options: MOVEMENT_TYPES.map((value) => ({ value, label: movementTypeLabels[value] })),
+      label: t("columns.type"),
+      options: MOVEMENT_TYPES.map((value) => ({ value, label: inventoryLabel(t, "movementType", value, movementTypeLabels[value]) })),
     },
     ...(warehouseOptions.length > 1
-      ? [{ param: "warehouseId", label: "Warehouse", options: warehouseOptions }]
+      ? [{ param: "warehouseId", label: t("columns.warehouse"), options: warehouseOptions }]
       : []),
   ];
 
@@ -126,11 +133,11 @@ async function MovementList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search item, SKU or note…"
+        searchPlaceholder={t("movements.search")}
         filters={filters}
         sortOptions={[
-          { value: "occurred-desc", label: "Newest first" },
-          { value: "occurred-asc", label: "Oldest first" },
+          { value: "occurred-desc", label: t("sort.newest") },
+          { value: "occurred-asc", label: t("sort.oldest") },
         ]}
       />
 
@@ -138,15 +145,15 @@ async function MovementList({
         hasFilters ? (
           <EmptyState
             icon={<History />}
-            title="No movements match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/inventory/movements" }}
+            title={t("movements.noMatch")}
+            description={t("empty.noMatchDescription")}
+            action={{ label: t("empty.clearFilters"), href: "/inventory/movements" }}
           />
         ) : (
           <EmptyState
             icon={<History />}
-            title="Nothing has moved yet."
-            description="Every posted receipt, issue, transfer and adjustment writes a row here, and none of them is ever removed."
+            title={t("movements.emptyTitle")}
+            description={t("movements.emptyDescription")}
           />
         )
       ) : (

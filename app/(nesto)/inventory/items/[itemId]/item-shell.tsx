@@ -9,6 +9,8 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as items from "@/lib/modules/inventory/items/item.service";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import type { ItemDetailDTO } from "@/lib/modules/inventory/inventory.types";
 import { formatQuantity } from "@/components/inventory/inventory-format";
 import { ItemTabs, type ItemTabKey } from "./item-tabs";
@@ -46,7 +48,7 @@ export async function loadItemPage(
   return { context, item };
 }
 
-export function ItemPageShell({
+export async function ItemPageShell({
   item,
   tab,
   children,
@@ -55,6 +57,7 @@ export function ItemPageShell({
   tab: ItemTabKey;
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("inventory");
   const totals = item.byLocation.reduce(
     (running, row) => ({
       onHand: running.onHand + Number.parseFloat(row.onHand),
@@ -68,8 +71,8 @@ export function ItemPageShell({
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Items", href: "/inventory/items" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("breadcrumbs.items"), href: "/inventory/items" },
           { label: item.name },
         ]}
         title={item.name}
@@ -77,7 +80,7 @@ export function ItemPageShell({
         status={item.status}
         badges={
           <>
-            <Badge tone="neutral">{itemCategoryLabels[item.category]}</Badge>
+            <Badge tone="neutral">{inventoryLabel(t, "itemCategory", item.category, itemCategoryLabels[item.category])}</Badge>
             {item.capabilities.canViewStock ? <StockLevelBadge level={item.level} /> : null}
           </>
         }
@@ -85,19 +88,19 @@ export function ItemPageShell({
           item.capabilities.canViewStock
             ? [
                 {
-                  label: "On hand",
+                  label: t("columns.onHand"),
                   value: `${formatQuantity(totals.onHand.toFixed(4))} ${item.baseUnit}`,
                 },
                 {
-                  label: "Reserved",
+                  label: t("columns.reserved"),
                   value: `${formatQuantity(totals.reserved.toFixed(4))} ${item.baseUnit}`,
                 },
                 {
-                  label: "Available",
+                  label: t("columns.available"),
                   value: `${formatQuantity(totals.available.toFixed(4))} ${item.baseUnit}`,
                 },
               ]
-            : [{ label: "Unit", value: item.baseUnit }]
+            : [{ label: t("columns.unit"), value: item.baseUnit }]
         }
         actions={<ItemActions item={item} />}
       />
@@ -106,8 +109,7 @@ export function ItemPageShell({
 
       {item.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This item is archived. Its ledger history is intact, but it cannot be named on new
-          stock documents until it is restored.
+          {t("detail.itemArchived")}
         </p>
       ) : null}
 

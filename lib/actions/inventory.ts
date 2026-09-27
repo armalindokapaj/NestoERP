@@ -37,7 +37,7 @@ import {
  */
 
 export type InventoryActionResult =
-  | { ok: true; id?: string; message?: string; redirectTo?: string }
+  | { ok: true; id?: string; message?: string; redirectTo?: string; count?: number }
   | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateInventory(recordPath?: string) {
@@ -496,6 +496,7 @@ export async function expireReservationsAction(): Promise<InventoryActionResult>
   revalidateInventory("/inventory/reservations");
   return {
     ok: true,
+    count: released,
     message:
       released === 0
         ? "Nothing had expired."

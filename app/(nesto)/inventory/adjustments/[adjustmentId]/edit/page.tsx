@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentForm } from "@/components/inventory/document-form";
@@ -14,7 +15,10 @@ import {
 
 type Params = { params: Promise<{ adjustmentId: string }> };
 
-export const metadata: Metadata = { title: "Edit adjustment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.editAdjustment") };
+}
 
 /**
  * Edit a drafted adjustment (PRD #20 §295).
@@ -26,6 +30,7 @@ export const metadata: Metadata = { title: "Edit adjustment" };
 export default async function EditAdjustmentPage({ params }: Params) {
   const { adjustmentId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let record;
   try {
@@ -51,15 +56,15 @@ export default async function EditAdjustmentPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Adjustments", href: "/inventory/adjustments" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.adjustments"), href: "/inventory/adjustments" },
           { label: record.adjustmentNumber, href: `/inventory/adjustments/${record.id}` },
-          { label: "Edit" },
+          { label: t("actions.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit adjustment</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editAdjustment")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{record.adjustmentNumber}</p>
       </div>
 
@@ -68,8 +73,8 @@ export default async function EditAdjustmentPage({ params }: Params) {
         action={action}
         versionUpdatedAt={record.updatedAt}
         cancelHref={`/inventory/adjustments/${record.id}`}
-        submitLabel="Save draft"
-        pendingLabel="Saving…"
+        submitLabel={t("form.saveDraft")}
+        pendingLabel={t("form.saving")}
         options={options}
         balances={balances}
         values={{

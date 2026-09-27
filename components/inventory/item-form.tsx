@@ -12,10 +12,8 @@ import {
 } from "@/components/forms/record-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ITEM_CATEGORIES,
-  itemCategoryLabels,
-} from "@/lib/modules/inventory/inventory.status";
+import { ITEM_CATEGORIES, itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
+import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
 
 export type ItemFormValues = {
   sku: string;
@@ -66,14 +64,15 @@ export function ItemForm({
   // clears a location it does not hold, saying so. A saved default the pickers
   // no longer offer (an inactive warehouse or location) stays on this item
   // until it is changed deliberately (FV-10).
+  const t = useInventoryTranslations();
   const [warehouseId, setWarehouseId] = React.useState(values?.defaultWarehouseId ?? "");
   const [locationId, setLocationId] = React.useState(values?.defaultLocationId ?? "");
   const [locationNote, setLocationNote] = React.useState<string | null>(null);
-  const warehouseOptions = withSavedOption(warehouses, values?.defaultWarehouseId, "Current default warehouse (inactive)");
+  const warehouseOptions = withSavedOption(warehouses, values?.defaultWarehouseId, t("itemForm.savedWarehouse"));
   const locationOptions = withSavedOption(
     locations.filter((location) => location.warehouseId === warehouseId),
     values?.defaultWarehouseId === warehouseId ? values?.defaultLocationId : undefined,
-    "Current default location (inactive)",
+    t("itemForm.savedLocation"),
     { warehouseId },
   );
 
@@ -81,7 +80,7 @@ export function ItemForm({
     setWarehouseId(next);
     if (locationId && !locations.some((location) => location.value === locationId && location.warehouseId === next) && !(next === values?.defaultWarehouseId && locationId === values?.defaultLocationId)) {
       setLocationId("");
-      setLocationNote("Default location cleared: it is not in the warehouse now chosen.");
+      setLocationNote(t("itemForm.locationCleared"));
     } else {
       setLocationNote(null);
     }
@@ -97,14 +96,14 @@ export function ItemForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Item"
-        description="What the company stocks. One row here, however many warehouses hold it."
+        title={t("itemForm.section")}
+        description={t("itemForm.sectionDescription")}
       >
-        <Field label="SKU" name="sku" required hint="Unique across the company">
+        <Field label={t("fields.sku")} name="sku" required hint={t("fields.uniqueHint")}>
           <Input id="sku" name="sku" defaultValue={values?.sku ?? ""} required maxLength={60} />
         </Field>
 
-        <Field label="Category" name="category" required>
+        <Field label={t("fields.category")} name="category" required>
           <select
             id="category"
             name="category"
@@ -113,24 +112,24 @@ export function ItemForm({
           >
             {ITEM_CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {itemCategoryLabels[category]}
+                {inventoryLabel(t, "itemCategory", category, itemCategoryLabels[category])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Name" name="name" required className="sm:col-span-2">
+        <Field label={t("fields.name")} name="name" required className="sm:col-span-2">
           <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
         </Field>
 
         <Field
-          label="Base unit"
+          label={t("fields.baseUnit")}
           name="baseUnit"
           required
           hint={
             baseUnitLocked
-              ? "Locked: this item has already moved, and the ledger is recorded in this unit."
-              : "How it is counted — bags, m3, tonne, each. It cannot change once stock has moved."
+              ? t("itemForm.baseUnitLocked")
+              : t("itemForm.baseUnitHint")
           }
         >
           <Input
@@ -145,19 +144,19 @@ export function ItemForm({
           />
         </Field>
 
-        <Field label="Status" name="status" required>
+        <Field label={t("fields.status")} name="status" required>
           <select
             id="status"
             name="status"
             className={selectClass}
             defaultValue={values?.status === "ARCHIVED" ? "INACTIVE" : (values?.status ?? "ACTIVE")}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ACTIVE">{t("labels.itemStatus.ACTIVE")}</option>
+            <option value="INACTIVE">{t("labels.itemStatus.INACTIVE")}</option>
           </select>
         </Field>
 
-        <Field label="Description" name="description" className="sm:col-span-2">
+        <Field label={t("fields.description")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -169,13 +168,13 @@ export function ItemForm({
       </FormSection>
 
       <FormSection
-        title="Stock thresholds"
-        description="Leave both blank and the item is never reported as low. NESTO does not invent a number the company never chose."
+        title={t("itemForm.thresholds")}
+        description={t("itemForm.thresholdsDescription")}
       >
         <Field
-          label="Minimum stock"
+          label={t("fields.minimumStock")}
           name="minimumStock"
-          hint="The floor. Below this, the item reads as below minimum."
+          hint={t("itemForm.minimumHint")}
         >
           <Input
             id="minimumStock"
@@ -186,9 +185,9 @@ export function ItemForm({
         </Field>
 
         <Field
-          label="Reorder point"
+          label={t("fields.reorderPoint")}
           name="reorderPoint"
-          hint="When to buy more. At or above the minimum."
+          hint={t("itemForm.reorderHint")}
         >
           <Input
             id="reorderPoint"
@@ -200,10 +199,10 @@ export function ItemForm({
       </FormSection>
 
       <FormSection
-        title="Defaults"
-        description="Where this item usually goes, so stock documents open on the right row."
+        title={t("itemForm.defaults")}
+        description={t("itemForm.defaultsDescription")}
       >
-        <Field label="Default warehouse" name="defaultWarehouseId">
+        <Field label={t("fields.defaultWarehouse")} name="defaultWarehouseId">
           <select
             id="defaultWarehouseId"
             name="defaultWarehouseId"
@@ -211,7 +210,7 @@ export function ItemForm({
             value={warehouseId}
             onChange={(event) => chooseWarehouse(event.target.value)}
           >
-            <option value="">Not set</option>
+            <option value="">{t("fields.notSet")}</option>
             {warehouseOptions.map((warehouse) => (
               <option key={warehouse.value} value={warehouse.value}>
                 {warehouse.label}
@@ -220,7 +219,7 @@ export function ItemForm({
           </select>
         </Field>
 
-        <Field label="Default location" name="defaultLocationId" hint={locationNote ?? (warehouseId ? undefined : "Choose a default warehouse first.")}>
+        <Field label={t("fields.defaultLocation")} name="defaultLocationId" hint={locationNote ?? (warehouseId ? undefined : t("itemForm.chooseWarehouseFirst"))}>
           <select
             id="defaultLocationId"
             name="defaultLocationId"
@@ -232,7 +231,7 @@ export function ItemForm({
             }}
             disabled={!warehouseId}
           >
-            <option value="">{warehouseId && locationOptions.length === 0 ? "No locations in this warehouse" : "Not set"}</option>
+            <option value="">{warehouseId && locationOptions.length === 0 ? t("lines.noLocations") : t("fields.notSet")}</option>
             {locationOptions.map((location) => (
               <option key={location.value} value={location.value}>
                 {location.label}

@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { LocationList } from "@/components/inventory/location-list";
 import { WarehousePageShell, loadWarehousePage } from "../warehouse-shell";
 
-export const metadata: Metadata = { title: "Locations" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.locations") };
+}
 
 type Params = { params: Promise<{ warehouseId: string }> };
 

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid } from "@/components/modules/record-header";
@@ -20,7 +22,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const item = await itemService.getItem(context, itemId);
     return { title: item.name };
   } catch {
-    return { title: "Inventory item" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.inventoryItem") };
   }
 }
 
@@ -28,49 +31,50 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ItemPage({ params }: Params) {
   const { itemId } = await params;
   const { item } = await loadItemPage(itemId, "overview");
+  const t = await getTranslations("inventory");
 
   return (
     <ItemPageShell item={item} tab="overview">
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "SKU", value: item.sku },
-                { label: "Category", value: itemCategoryLabels[item.category] },
-                { label: "Base unit", value: item.baseUnit },
+                { label: t("fields.sku"), value: item.sku },
+                { label: t("fields.category"), value: inventoryLabel(t, "itemCategory", item.category, itemCategoryLabels[item.category]) },
+                { label: t("fields.baseUnit"), value: item.baseUnit },
                 {
-                  label: "Minimum stock",
+                  label: t("fields.minimumStock"),
                   value:
                     item.minimumStock === null
-                      ? "Not set"
+                      ? t("fields.notSet")
                       : `${formatQuantity(item.minimumStock)} ${item.baseUnit}`,
                 },
                 {
-                  label: "Reorder point",
+                  label: t("fields.reorderPoint"),
                   value:
                     item.reorderPoint === null
-                      ? "Not set"
+                      ? t("fields.notSet")
                       : `${formatQuantity(item.reorderPoint)} ${item.baseUnit}`,
                 },
                 {
-                  label: "Default warehouse",
+                  label: t("fields.defaultWarehouse"),
                   value: item.defaultWarehouse
                     ? `${item.defaultWarehouse.code} — ${item.defaultWarehouse.name}`
-                    : "Not set",
+                    : t("fields.notSet"),
                 },
                 {
-                  label: "Default location",
-                  value: item.defaultLocation ? item.defaultLocation.code : "Not set",
+                  label: t("fields.defaultLocation"),
+                  value: item.defaultLocation ? item.defaultLocation.code : t("fields.notSet"),
                 },
               ]}
             />
 
             {item.description ? (
               <div className="mt-6 border-t border-line pt-5">
-                <h3 className="text-table font-semibold text-fg">Description</h3>
+                <h3 className="text-table font-semibold text-fg">{t("fields.description")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {item.description}
                 </p>
@@ -80,16 +84,16 @@ export default async function ItemPage({ params }: Params) {
 
           {item.capabilities.canViewStock ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Where it is</h2>
+              <h2 className="text-card font-semibold text-fg">{t("warehouseForm.whereItIs")}</h2>
               {item.byLocation.length === 0 ? (
                 <p className="nesto-card p-5 text-table text-fg-subtle">
-                  None of this item is recorded anywhere you can see.
+                  {t("detail.itemNowhere")}
                 </p>
               ) : (
                 <StockTable
                   rows={item.byLocation}
                   show="by-item"
-                  caption={`${item.name} by location`}
+                  caption={t("detail.byLocation", { name: item.name })}
                   listId="inventory.item-stock"
                 />
               )}
@@ -99,13 +103,13 @@ export default async function ItemPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Added by" value={item.createdBy ? <PersonLink memberId={item.createdBy.memberId} name={item.createdBy.fullName} /> : "—"} />
-              <Meta label="Added" value={formatDateTime(item.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(item.updatedAt)} />
+              <Meta label={t("detail.addedBy")} value={item.createdBy ? <PersonLink memberId={item.createdBy.memberId} name={item.createdBy.fullName} /> : "—"} />
+              <Meta label={t("detail.added")} value={formatDateTime(item.createdAt)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(item.updatedAt)} />
               {item.archivedAt ? (
-                <Meta label="Archived" value={formatDateTime(item.archivedAt)} />
+                <Meta label={t("labels.itemStatus.ARCHIVED")} value={formatDateTime(item.archivedAt)} />
               ) : null}
             </dl>
           </section>

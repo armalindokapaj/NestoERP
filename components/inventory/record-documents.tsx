@@ -1,5 +1,6 @@
 import type { UserContext } from "@/lib/context/types";
 import { RecordDocuments } from "@/components/documents/record-documents";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * This module's record documents, through the shared section (PRD #38 §55).
@@ -16,13 +17,14 @@ export async function InventoryRecordDocuments({
   entityId: string;
   emptyDescription?: string;
 }) {
+  const t = await getTranslations("inventory");
   return (
     <RecordDocuments
       context={context}
       entityType={entityType}
       entityId={entityId}
-      emptyTitle="No documents on file."
-      emptyDescription={emptyDescription ?? "Delivery notes, photographs and count sheets filed against this record appear here."}
+      emptyTitle={t("documents.emptyTitle")}
+      emptyDescription={emptyDescription ?? t("documents.emptyDescription")}
     />
   );
 }

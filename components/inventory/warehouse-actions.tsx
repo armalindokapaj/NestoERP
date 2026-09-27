@@ -10,11 +10,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { warehouseLifecycleAction } from "@/lib/actions/inventory";
 import type { WarehouseDetailDTO } from "@/lib/modules/inventory/inventory.types";
+import { useInventoryTranslations } from "./inventory-text";
 
 /** What a reader may do to a warehouse (PRD #20 §59, §60). */
 export function WarehouseActions({ warehouse }: { warehouse: WarehouseDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
   const [archiving, setArchiving] = React.useState(false);
 
@@ -39,14 +41,14 @@ export function WarehouseActions({ warehouse }: { warehouse: WarehouseDetailDTO 
         <Button asChild variant="secondary" size="sm">
           <Link href={`/inventory/warehouses/${warehouse.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("actions.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArchiving(true)}>
-          Archive
+          {t("actions.archive")}
         </Button>
       ) : null}
 
@@ -55,20 +57,20 @@ export function WarehouseActions({ warehouse }: { warehouse: WarehouseDetailDTO 
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => run("restore", "Warehouse restored as inactive.")}
+          onClick={() => run("restore", t("warehouseActions.restored"))}
         >
-          Restore
+          {t("actions.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title={`Archive ${warehouse.name}?`}
-        description="It stops taking and giving stock, and cannot be named on new documents. A warehouse still holding stock, or with drafts against it, cannot be archived — empty it first."
-        confirmLabel="Archive warehouse"
+        title={t("actions.archiveTitle", { name: warehouse.name })}
+        description={t("warehouseActions.archiveDescription")}
+        confirmLabel={t("warehouseActions.archiveConfirm")}
         pending={pending}
-        onConfirm={() => run("archive", "Warehouse archived.")}
+        onConfirm={() => run("archive", t("warehouseActions.archived"))}
       />
     </>
   );

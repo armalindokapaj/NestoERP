@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -22,7 +23,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const record = await returns.getReturn(context, returnId);
     return { title: record.returnNumber };
   } catch {
-    return { title: "Stock return" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.stockReturn") };
   }
 }
 
@@ -30,6 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ReturnPage({ params }: Params) {
   const { returnId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let record;
   try {
@@ -43,18 +46,18 @@ export default async function ReturnPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Returns", href: "/inventory/returns" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.returns"), href: "/inventory/returns" },
           { label: record.returnNumber },
         ]}
         title={record.returnNumber}
-        subtitle={`Back into ${record.warehouse.name}`}
+        subtitle={t("detail.backInto", { name: record.warehouse.name })}
         status={record.status}
         badges={<Badge tone="info">{record.project.code}</Badge>}
         meta={[
-          { label: "Returned", value: formatDate(record.returnDate) },
-          { label: "Lines", value: String(record.lineCount) },
-          { label: "Returned by", value: record.returnedBy ? <PersonLink memberId={record.returnedBy.memberId} name={record.returnedBy.fullName} /> : "—" },
+          { label: t("detail.returned"), value: formatDate(record.returnDate) },
+          { label: t("columns.lines"), value: String(record.lineCount) },
+          { label: t("fields.returnedBy"), value: record.returnedBy ? <PersonLink memberId={record.returnedBy.memberId} name={record.returnedBy.fullName} /> : "—" },
         ]}
         actions={
           <DocumentActions
@@ -68,25 +71,24 @@ export default async function ReturnPage({ params }: Params) {
 
       {record.status === "DRAFT" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This is a draft. Posting is what puts the material back into stock.
+          {t("notice.returnDraft")}
         </p>
       ) : record.status === "POSTED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          Posted. A posted return is corrected by an adjustment rather than reversed — the
-          material is physically back in the rack either way.
+          {t("notice.returnPosted")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Lines</h2>
-            <DocumentLinesTable lines={record.lines} caption={`Lines on ${record.returnNumber}`} />
+            <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
+            <DocumentLinesTable lines={record.lines} caption={t("detail.linesOn", { number: record.returnNumber })} />
           </section>
 
           {record.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("fields.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{record.notes}</p>
             </section>
           ) : null}
@@ -94,29 +96,29 @@ export default async function ReturnPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "From project",
+                  label: t("fields.fromProject"),
                   value: (
                     <Link href={`/projects/${record.project.id}`} className="hover:text-accent">
                       {record.project.code} — {record.project.name}
                     </Link>
                   ),
                 },
-                { label: "Back into", value: record.warehouse.name },
-                { label: "Drafted by", value: record.createdBy ? <PersonLink memberId={record.createdBy.memberId} name={record.createdBy.fullName} /> : "—" },
-                { label: "Drafted", value: formatDateTime(record.createdAt) },
-                { label: "Posted by", value: record.postedBy ? <PersonLink memberId={record.postedBy.memberId} name={record.postedBy.fullName} /> : "—" },
+                { label: t("columns.backInto"), value: record.warehouse.name },
+                { label: t("detail.draftedBy"), value: record.createdBy ? <PersonLink memberId={record.createdBy.memberId} name={record.createdBy.fullName} /> : "—" },
+                { label: t("detail.drafted"), value: formatDateTime(record.createdAt) },
+                { label: t("columns.postedBy"), value: record.postedBy ? <PersonLink memberId={record.postedBy.memberId} name={record.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>
 
           {record.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.activity")}</h2>
               <InventoryActivityFeed
                 context={context}
                 entityType="StockReturn"

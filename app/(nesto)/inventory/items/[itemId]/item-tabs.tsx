@@ -2,6 +2,7 @@ import Link from "@/components/navigation/nav-link";
 
 import type { ItemCapabilities } from "@/lib/modules/inventory/inventory.types";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Item record tabs (PRD #20 §305).
@@ -11,16 +12,16 @@ import { cn } from "@/lib/utils/cn";
  * them.
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "stock", label: "Stock", suffix: "/stock" },
-  { key: "movements", label: "Movements", suffix: "/movements" },
-  { key: "documents", label: "Documents", suffix: "/documents" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", label: "tabs.overview", suffix: "" },
+  { key: "stock", label: "meta.stock", suffix: "/stock" },
+  { key: "movements", label: "meta.movements", suffix: "/movements" },
+  { key: "documents", label: "meta.documents", suffix: "/documents" },
+  { key: "activity", label: "meta.activity", suffix: "/activity" },
 ] as const;
 
 export type ItemTabKey = (typeof TABS)[number]["key"];
 
-export function ItemTabs({
+export async function ItemTabs({
   itemId,
   active,
   capabilities,
@@ -29,6 +30,7 @@ export function ItemTabs({
   active: ItemTabKey;
   capabilities: ItemCapabilities;
 }) {
+  const t = await getTranslations("inventory");
   const show: Record<ItemTabKey, boolean> = {
     overview: true,
     stock: capabilities.canViewStock,
@@ -40,7 +42,7 @@ export function ItemTabs({
   const visible = TABS.filter((tab) => show[tab.key]);
 
   return (
-    <nav aria-label="Item sections" className="border-b border-line">
+    <nav aria-label={t("tabs.itemSections")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -56,7 +58,7 @@ export function ItemTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(tab.label)}
               </Link>
             </li>
           );

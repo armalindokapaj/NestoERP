@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { Package } from "lucide-react";
 
 import { StockTable } from "@/components/inventory/stock-table";
@@ -8,7 +9,10 @@ import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import { balanceListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import { WarehousePageShell, loadWarehousePage } from "../warehouse-shell";
 
-export const metadata: Metadata = { title: "Stock" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.stock") };
+}
 
 type Params = {
   params: Promise<{ warehouseId: string }>;
@@ -19,6 +23,7 @@ type Params = {
 export default async function WarehouseStockPage({ params, searchParams }: Params) {
   const { warehouseId } = await params;
   const { context, warehouse } = await loadWarehousePage(warehouseId, "stock");
+  const t = await getTranslations("inventory");
   const query = await searchParams;
 
   const result = await movements.listBalances(
@@ -41,15 +46,15 @@ export default async function WarehouseStockPage({ params, searchParams }: Param
       {result.data.length === 0 ? (
         <EmptyState
           icon={<Package />}
-          title="Nothing on hand."
-          description="This warehouse is not recorded as holding anything. A receipt or an opening-balance adjustment puts stock into it."
+          title={t("detail.nothingOnHand")}
+          description={t("detail.warehouseStockEmpty")}
         />
       ) : (
         <div className="space-y-4">
           <StockTable
             rows={result.data}
             show="by-location"
-            caption={`Stock in ${warehouse.name}`}
+            caption={t("detail.stockIn", { name: warehouse.name })}
             listId="inventory.warehouse-stock"
           />
           <Pagination meta={result.pagination} buildHref={buildHref} />

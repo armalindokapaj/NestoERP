@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Warehouse } from "lucide-react";
@@ -24,8 +25,12 @@ import {
   warehouseTypeLabels,
 } from "@/lib/modules/inventory/inventory.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
-export const metadata: Metadata = { title: "Warehouses" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.warehouses") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,6 +43,7 @@ export default async function WarehousesPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.warehouse.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -48,7 +54,7 @@ export default async function WarehousesPage({
       actions={
         can(context, "inventory.warehouse.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/warehouses/new">New warehouse</Link>
+            <Link href="/inventory/warehouses/new">{t("meta.newWarehouse")}</Link>
           </Button>
         ) : null
       }
@@ -67,6 +73,7 @@ async function WarehouseList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("inventory");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -98,22 +105,22 @@ async function WarehouseList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
+      label: t("columns.status"),
       options: WAREHOUSE_STATUSES.map((value) => ({
         value,
-        label: warehouseStatusLabels[value],
+        label: inventoryLabel(t, "warehouseStatus", value, warehouseStatusLabels[value]),
       })),
     },
     {
       param: "type",
-      label: "Type",
-      options: WAREHOUSE_TYPES.map((value) => ({ value, label: warehouseTypeLabels[value] })),
+      label: t("columns.type"),
+      options: WAREHOUSE_TYPES.map((value) => ({ value, label: inventoryLabel(t, "warehouseType", value, warehouseTypeLabels[value]) })),
     },
     ...(options.projects.length > 1
       ? [
           {
             param: "projectId",
-            label: "Project",
+            label: t("columns.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: `${project.code} — ${project.name}`,
@@ -130,12 +137,12 @@ async function WarehouseList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search code, name or city…"
+        searchPlaceholder={t("warehouses.search")}
         filters={filters}
         sortOptions={[
-          { value: "code-asc", label: "Code" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "updated-desc", label: "Recently updated" },
+          { value: "code-asc", label: t("fields.code") },
+          { value: "name-asc", label: t("sort.nameAz") },
+          { value: "updated-desc", label: t("sort.recentlyUpdated") },
         ]}
       />
 
@@ -143,18 +150,18 @@ async function WarehouseList({
         hasFilters ? (
           <EmptyState
             icon={<Warehouse />}
-            title="No warehouses match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/inventory/warehouses" }}
+            title={t("warehouses.noMatch")}
+            description={t("empty.noMatchDescription")}
+            action={{ label: t("empty.clearFilters"), href: "/inventory/warehouses" }}
           />
         ) : (
           <EmptyState
             icon={<Warehouse />}
-            title="No warehouses yet."
-            description="A warehouse is somewhere stock is physically kept — a central store, a site container, an office cupboard."
+            title={t("warehouses.emptyTitle")}
+            description={t("warehouses.emptyDescription")}
             action={
               can(context, "inventory.warehouse.create")
-                ? { label: "New warehouse", href: "/inventory/warehouses/new" }
+                ? { label: t("meta.newWarehouse"), href: "/inventory/warehouses/new" }
                 : undefined
             }
           />

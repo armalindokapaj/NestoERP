@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -23,7 +24,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const receipt = await receipts.getReceipt(context, receiptId);
     return { title: receipt.receiptNumber };
   } catch {
-    return { title: "Receipt" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.receipt") };
   }
 }
 
@@ -31,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ReceiptPage({ params }: Params) {
   const { receiptId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let receipt;
   try {
@@ -44,18 +47,18 @@ export default async function ReceiptPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Receipts", href: "/inventory/receipts" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.receipts"), href: "/inventory/receipts" },
           { label: receipt.receiptNumber },
         ]}
         title={receipt.receiptNumber}
         subtitle={receipt.warehouse.name}
         status={receipt.status}
         meta={[
-          { label: "Received", value: formatDate(receipt.receiptDate) },
-          { label: "Lines", value: String(receipt.lineCount) },
+          { label: t("detail.received"), value: formatDate(receipt.receiptDate) },
+          { label: t("columns.lines"), value: String(receipt.lineCount) },
           {
-            label: "Source",
+            label: t("columns.source"),
             value: <SourceLink link={receipt.goodsReceiptLink} />,
           },
         ]}
@@ -71,41 +74,39 @@ export default async function ReceiptPage({ params }: Params) {
 
       {receipt.status === "DRAFT" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This is a draft. Nothing has reached the stock ledger yet — posting is what increases
-          stock.
+          {t("notice.receiptDraft")}
         </p>
       ) : receipt.status === "REVERSED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This receipt has been reversed. The original movements are still on the ledger, with
-          opposite movements beside them.
+          {t("notice.receiptReversed")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Lines</h2>
+            <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
             <DocumentLinesTable
               lines={receipt.lines}
-              caption={`Lines on ${receipt.receiptNumber}`}
+              caption={t("detail.linesOn", { number: receipt.receiptNumber })}
             />
           </section>
 
           {receipt.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("fields.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{receipt.notes}</p>
             </section>
           ) : null}
 
           {receipt.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.documents")}</h2>
               <InventoryRecordDocuments
                 context={context}
                 entityType="inventory_receipt"
                 entityId={receipt.id}
-                emptyDescription="Delivery notes and photographs filed against this receipt appear here."
+                emptyDescription={t("documents.receiptEmpty")}
               />
             </section>
           ) : null}
@@ -113,20 +114,20 @@ export default async function ReceiptPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Warehouse", value: receipt.warehouse.name },
-                { label: "Drafted by", value: receipt.createdBy ? <PersonLink memberId={receipt.createdBy.memberId} name={receipt.createdBy.fullName} /> : "—" },
-                { label: "Drafted", value: formatDateTime(receipt.createdAt) },
-                { label: "Posted by", value: receipt.postedBy ? <PersonLink memberId={receipt.postedBy.memberId} name={receipt.postedBy.fullName} /> : "—" },
+                { label: t("fields.warehouse"), value: receipt.warehouse.name },
+                { label: t("detail.draftedBy"), value: receipt.createdBy ? <PersonLink memberId={receipt.createdBy.memberId} name={receipt.createdBy.fullName} /> : "—" },
+                { label: t("detail.drafted"), value: formatDateTime(receipt.createdAt) },
+                { label: t("columns.postedBy"), value: receipt.postedBy ? <PersonLink memberId={receipt.postedBy.memberId} name={receipt.postedBy.fullName} /> : "—" },
                 {
-                  label: "Posted",
+                  label: t("detail.posted"),
                   value: receipt.postedAt ? formatDateTime(receipt.postedAt) : "—",
                 },
                 ...(receipt.reversedAt
-                  ? [{ label: "Reversed", value: formatDateTime(receipt.reversedAt) }]
+                  ? [{ label: t("labels.transactionStatus.REVERSED"), value: formatDateTime(receipt.reversedAt) }]
                   : []),
               ]}
             />
@@ -134,7 +135,7 @@ export default async function ReceiptPage({ params }: Params) {
 
           {receipt.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.activity")}</h2>
               <InventoryActivityFeed
                 context={context}
                 entityType="InventoryReceipt"

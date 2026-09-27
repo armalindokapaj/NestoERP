@@ -6,6 +6,8 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import type { MovementDTO } from "@/lib/modules/inventory/inventory.types";
 import { movementTypeLabels } from "@/lib/modules/inventory/inventory.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "./inventory-labels";
 import { formatDateTime } from "@/lib/utils/format";
 import { formatSigned } from "./inventory-format";
 
@@ -19,10 +21,10 @@ import { formatSigned } from "./inventory-format";
  * the reader may open it — otherwise it names the document without linking to
  * a page that would refuse them (PRD #20 §179).
  */
-export function MovementTable({
+export async function MovementTable({
   movements,
   showItem = true,
-  caption = "Stock movements",
+  caption,
   listId = "inventory.movements",
   sort,
 }: {
@@ -34,6 +36,7 @@ export function MovementTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<MovementDTO>[] = [
     {
       key: "occurredAt",
@@ -41,7 +44,7 @@ export function MovementTable({
       mandatory: true,
       valueType: "datetime",
       sortKey: sort ? "occurred" : undefined,
-      label: "When",
+      label: t("columns.when"),
       primary: !showItem,
       render: (row) => (
         <span className="whitespace-nowrap text-fg-muted">{formatDateTime(row.occurredAt)}</span>
@@ -54,7 +57,7 @@ export function MovementTable({
       key: "item",
       id: "item",
       mandatory: true,
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -71,11 +74,11 @@ export function MovementTable({
       id: "movementType",
       mandatory: true,
       valueType: "status",
-      label: "Type",
+      label: t("columns.type"),
       render: (row) => (
         <span className="flex items-center gap-1.5">
-          {movementTypeLabels[row.movementType]}
-          {row.isReversal ? <Badge tone="default">Reversal</Badge> : null}
+          {inventoryLabel(t, "movementType", row.movementType, movementTypeLabels[row.movementType])}
+          {row.isReversal ? <Badge tone="default">{t("labels.movementType.REVERSAL")}</Badge> : null}
         </span>
       ),
     },
@@ -84,7 +87,7 @@ export function MovementTable({
       id: "quantity",
       mandatory: true,
       valueType: "number",
-      label: "Quantity",
+      label: t("columns.quantity"),
       align: "right",
       render: (row) => (
         <span
@@ -101,7 +104,7 @@ export function MovementTable({
     {
       key: "location",
       id: "location",
-      label: "Location",
+      label: t("columns.location"),
       hideBelow: "lg",
       render: (row) => (
         <span className="flex flex-col">
@@ -113,7 +116,7 @@ export function MovementTable({
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "xl",
       render: (row) =>
         row.project ? row.project.code : <span className="text-fg-subtle">—</span>,
@@ -121,7 +124,7 @@ export function MovementTable({
     {
       key: "source",
       id: "source",
-      label: "Source",
+      label: t("columns.source"),
       hideBelow: "md",
       render: (row) => {
         if (!row.source) return <span className="text-fg-subtle">—</span>;
@@ -137,7 +140,7 @@ export function MovementTable({
     {
       key: "postedBy",
       id: "postedBy",
-      label: "Posted by",
+      label: t("columns.postedBy"),
       hideBelow: "xl",
       render: (row) =>
         row.postedBy ? (
@@ -149,6 +152,6 @@ export function MovementTable({
   );
 
   return (
-    <DataTable listId={listId} sort={sort} columns={columns} records={movements} rowKey={(row) => row.id} caption={caption} />
+    <DataTable listId={listId} sort={sort} columns={columns} records={movements} rowKey={(row) => row.id} caption={caption ?? t("captions.movements")} />
   );
 }

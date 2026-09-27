@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentActions } from "@/components/inventory/document-actions";
@@ -20,7 +21,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const transfer = await transfers.getTransfer(context, transferId);
     return { title: transfer.transferNumber };
   } catch {
-    return { title: "Stock transfer" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.stockTransfer") };
   }
 }
 
@@ -28,6 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function TransferPage({ params }: Params) {
   const { transferId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let transfer;
   try {
@@ -41,16 +44,16 @@ export default async function TransferPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Transfers", href: "/inventory/transfers" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.transfers"), href: "/inventory/transfers" },
           { label: transfer.transferNumber },
         ]}
         title={transfer.transferNumber}
         subtitle={`${transfer.fromWarehouse.name} → ${transfer.toWarehouse.name}`}
         status={transfer.status}
         meta={[
-          { label: "Transferred", value: formatDate(transfer.transferDate) },
-          { label: "Lines", value: String(transfer.lineCount) },
+          { label: t("detail.transferred"), value: formatDate(transfer.transferDate) },
+          { label: t("columns.lines"), value: String(transfer.lineCount) },
         ]}
         actions={
           <DocumentActions
@@ -64,29 +67,27 @@ export default async function TransferPage({ params }: Params) {
 
       {transfer.status === "DRAFT" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This is a draft. Posting writes both halves at once — out of the source and into the
-          destination — so the company total never changes mid-flight.
+          {t("notice.transferDraft")}
         </p>
       ) : transfer.status === "REVERSED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This transfer has been reversed and the material is back where it started. All four
-          movements remain on the ledger.
+          {t("notice.transferReversed")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Lines</h2>
+            <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
             <TransferLinesTable
               lines={transfer.lines}
-              caption={`Lines on ${transfer.transferNumber}`}
+              caption={t("detail.linesOn", { number: transfer.transferNumber })}
             />
           </section>
 
           {transfer.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("fields.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {transfer.notes}
               </p>
@@ -96,22 +97,22 @@ export default async function TransferPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "From", value: transfer.fromWarehouse.name },
-                { label: "To", value: transfer.toWarehouse.name },
-                { label: "Drafted by", value: transfer.createdBy ? <PersonLink memberId={transfer.createdBy.memberId} name={transfer.createdBy.fullName} /> : "—" },
-                { label: "Drafted", value: formatDateTime(transfer.createdAt) },
-                { label: "Posted by", value: transfer.postedBy ? <PersonLink memberId={transfer.postedBy.memberId} name={transfer.postedBy.fullName} /> : "—" },
+                { label: t("detail.from"), value: transfer.fromWarehouse.name },
+                { label: t("detail.to"), value: transfer.toWarehouse.name },
+                { label: t("detail.draftedBy"), value: transfer.createdBy ? <PersonLink memberId={transfer.createdBy.memberId} name={transfer.createdBy.fullName} /> : "—" },
+                { label: t("detail.drafted"), value: formatDateTime(transfer.createdAt) },
+                { label: t("columns.postedBy"), value: transfer.postedBy ? <PersonLink memberId={transfer.postedBy.memberId} name={transfer.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>
 
           {transfer.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.activity")}</h2>
               <InventoryActivityFeed
                 context={context}
                 entityType="StockTransfer"

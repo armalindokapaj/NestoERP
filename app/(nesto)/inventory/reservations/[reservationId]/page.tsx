@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -25,7 +26,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const reservation = await reservations.getReservation(context, reservationId);
     return { title: reservation.reservationNumber };
   } catch {
-    return { title: "Reservation" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.reservation") };
   }
 }
 
@@ -39,6 +41,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ReservationPage({ params }: Params) {
   const { reservationId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let reservation;
   try {
@@ -67,8 +70,8 @@ export default async function ReservationPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Reservations", href: "/inventory/reservations" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.reservations"), href: "/inventory/reservations" },
           { label: reservation.reservationNumber },
         ]}
         title={reservation.reservationNumber}
@@ -79,22 +82,22 @@ export default async function ReservationPage({ params }: Params) {
             {reservation.project ? (
               <Badge tone="info">{reservation.project.code}</Badge>
             ) : (
-              <Badge tone="neutral">Held generally</Badge>
+              <Badge tone="neutral">{t("detail.heldGenerally")}</Badge>
             )}
-            {reservation.expired ? <Badge tone="warning">Past expiry</Badge> : null}
+            {reservation.expired ? <Badge tone="warning">{t("columns.pastExpiry")}</Badge> : null}
           </>
         }
         meta={[
           {
-            label: "Reserved",
+            label: t("columns.reserved"),
             value: `${formatQuantity(reservation.quantity)} ${reservation.item.baseUnit}`,
           },
           {
-            label: "Still held",
+            label: t("detail.stillHeld"),
             value: `${formatQuantity(reservation.remainingQuantity)} ${reservation.item.baseUnit}`,
           },
           {
-            label: "Required",
+            label: t("columns.required"),
             value: reservation.requiredDate ? formatDate(reservation.requiredDate) : "—",
           },
         ]}
@@ -102,19 +105,18 @@ export default async function ReservationPage({ params }: Params) {
       />
 
       <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-        A reservation holds quantity back from available without moving anything. Stock on hand is
-        unchanged, and releasing it changes nothing physical either.
+        {t("notice.reservation")}
       </p>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Item",
+                  label: t("columns.item"),
                   value: (
                     <Link
                       href={`/inventory/items/${reservation.item.id}`}
@@ -125,7 +127,7 @@ export default async function ReservationPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Warehouse",
+                  label: t("fields.warehouse"),
                   value: (
                     <Link
                       href={`/inventory/warehouses/${reservation.warehouse.id}`}
@@ -135,20 +137,20 @@ export default async function ReservationPage({ params }: Params) {
                     </Link>
                   ),
                 },
-                { label: "Location", value: reservation.location.code },
+                { label: t("columns.location"), value: reservation.location.code },
                 {
-                  label: "Project",
+                  label: t("fields.project"),
                   value: reservation.project
                     ? `${reservation.project.code} — ${reservation.project.name}`
-                    : "Not tied to a project",
+                    : t("detail.noProject"),
                 },
                 {
-                  label: "Taken so far",
+                  label: t("detail.takenSoFar"),
                   value: `${formatQuantity(reservation.fulfilledQuantity)} ${reservation.item.baseUnit}`,
                 },
                 {
-                  label: "Expires",
-                  value: reservation.expiresAt ? formatDate(reservation.expiresAt) : "No expiry",
+                  label: t("fields.expires"),
+                  value: reservation.expiresAt ? formatDate(reservation.expiresAt) : t("detail.noExpiry"),
                 },
               ]}
             />
@@ -156,11 +158,11 @@ export default async function ReservationPage({ params }: Params) {
 
           {recent.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Recent movements here</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.recentMovements")}</h2>
               <MovementTable
                 movements={recent}
                 showItem={false}
-                caption={`Movements of ${reservation.item.name} at ${reservation.location.code}`}
+                caption={t("detail.movementsOfAt", { name: reservation.item.name, location: reservation.location.code })}
                 listId="inventory.reservation-movements"
               />
             </section>
@@ -169,10 +171,10 @@ export default async function ReservationPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Reserved by" value={reservation.createdBy ? <PersonLink memberId={reservation.createdBy.memberId} name={reservation.createdBy.fullName} /> : "—"} />
-              <Meta label="Created" value={formatDateTime(reservation.createdAt)} />
+              <Meta label={t("detail.reservedBy")} value={reservation.createdBy ? <PersonLink memberId={reservation.createdBy.memberId} name={reservation.createdBy.fullName} /> : "—"} />
+              <Meta label={t("detail.created")} value={formatDateTime(reservation.createdAt)} />
             </dl>
           </section>
         </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { History } from "lucide-react";
 
 import { MovementTable } from "@/components/inventory/movement-table";
@@ -8,7 +9,10 @@ import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import { movementListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import { WarehousePageShell, loadWarehousePage } from "../warehouse-shell";
 
-export const metadata: Metadata = { title: "Movements" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.movements") };
+}
 
 type Params = {
   params: Promise<{ warehouseId: string }>;
@@ -19,6 +23,7 @@ type Params = {
 export default async function WarehouseMovementsPage({ params, searchParams }: Params) {
   const { warehouseId } = await params;
   const { context, warehouse } = await loadWarehousePage(warehouseId, "movements");
+  const t = await getTranslations("inventory");
   const query = await searchParams;
 
   const result = await movements.listMovements(
@@ -40,14 +45,14 @@ export default async function WarehouseMovementsPage({ params, searchParams }: P
       {result.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="Nothing has moved here."
-          description="Receipts, issues, transfers and adjustments touching this warehouse appear here, in order."
+          title={t("detail.nothingMovedHere")}
+          description={t("detail.warehouseMovementsEmpty")}
         />
       ) : (
         <div className="space-y-4">
           <MovementTable
             movements={result.data}
-            caption={`Movements through ${warehouse.name}`}
+            caption={t("detail.movementsThrough", { name: warehouse.name })}
             listId="inventory.warehouse-movements"
           />
           <Pagination meta={result.pagination} buildHref={buildHref} />

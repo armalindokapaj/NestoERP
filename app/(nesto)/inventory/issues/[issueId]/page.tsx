@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -24,7 +25,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const issue = await issues.getIssue(context, issueId);
     return { title: issue.issueNumber };
   } catch {
-    return { title: "Stock issue" };
+    const t = await getTranslations("inventory");
+    return { title: t("meta.stockIssue") };
   }
 }
 
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function IssuePage({ params }: Params) {
   const { issueId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let issue;
   try {
@@ -45,8 +48,8 @@ export default async function IssuePage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Issues", href: "/inventory/issues" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.issues"), href: "/inventory/issues" },
           { label: issue.issueNumber },
         ]}
         title={issue.issueNumber}
@@ -56,13 +59,13 @@ export default async function IssuePage({ params }: Params) {
           issue.project ? (
             <Badge tone="info">{issue.project.code}</Badge>
           ) : (
-            <Badge tone="neutral">General issue</Badge>
+            <Badge tone="neutral">{t("documentForm.generalIssue")}</Badge>
           )
         }
         meta={[
-          { label: "Issued", value: formatDate(issue.issueDate) },
-          { label: "Lines", value: String(issue.lineCount) },
-          { label: "Issued to", value: issue.issuedTo ? <PersonLink memberId={issue.issuedTo.memberId} name={issue.issuedTo.fullName} /> : "—" },
+          { label: t("detail.issued"), value: formatDate(issue.issueDate) },
+          { label: t("columns.lines"), value: String(issue.lineCount) },
+          { label: t("fields.issuedTo"), value: issue.issuedTo ? <PersonLink memberId={issue.issuedTo.memberId} name={issue.issuedTo.fullName} /> : "—" },
         ]}
         actions={
           <DocumentActions
@@ -76,38 +79,36 @@ export default async function IssuePage({ params }: Params) {
 
       {issue.status === "DRAFT" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This is a draft. Stock is unchanged until it is posted, and posting refuses any line
-          without enough available stock behind it.
+          {t("notice.issueDraft")}
         </p>
       ) : issue.status === "REVERSED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This issue has been reversed and the material is back in stock. The original movements
-          stay on the ledger.
+          {t("notice.issueReversed")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Lines</h2>
-            <DocumentLinesTable lines={issue.lines} caption={`Lines on ${issue.issueNumber}`} />
+            <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
+            <DocumentLinesTable lines={issue.lines} caption={t("detail.linesOn", { number: issue.issueNumber })} />
           </section>
 
           {issue.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("fields.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{issue.notes}</p>
             </section>
           ) : null}
 
           {issue.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.documents")}</h2>
               <InventoryRecordDocuments
                 context={context}
                 entityType="stock_issue"
                 entityId={issue.id}
-                emptyDescription="Signed dockets and site paperwork filed against this issue appear here."
+                emptyDescription={t("documents.issueEmpty")}
               />
             </section>
           ) : null}
@@ -115,12 +116,12 @@ export default async function IssuePage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Project",
+                  label: t("fields.project"),
                   value: issue.project ? (
                     <Link
                       href={`/projects/${issue.project.id}`}
@@ -129,21 +130,21 @@ export default async function IssuePage({ params }: Params) {
                       {issue.project.code} — {issue.project.name}
                     </Link>
                   ) : (
-                    "Not charged to a project"
+                    t("detail.notCharged")
                   ),
                 },
-                { label: "Warehouse", value: issue.warehouse.name },
-                { label: "Requested by", value: issue.requestedBy ? <PersonLink memberId={issue.requestedBy.memberId} name={issue.requestedBy.fullName} /> : "—" },
-                { label: "Drafted by", value: issue.createdBy ? <PersonLink memberId={issue.createdBy.memberId} name={issue.createdBy.fullName} /> : "—" },
-                { label: "Drafted", value: formatDateTime(issue.createdAt) },
-                { label: "Posted by", value: issue.postedBy ? <PersonLink memberId={issue.postedBy.memberId} name={issue.postedBy.fullName} /> : "—" },
+                { label: t("fields.warehouse"), value: issue.warehouse.name },
+                { label: t("fields.requestedBy"), value: issue.requestedBy ? <PersonLink memberId={issue.requestedBy.memberId} name={issue.requestedBy.fullName} /> : "—" },
+                { label: t("detail.draftedBy"), value: issue.createdBy ? <PersonLink memberId={issue.createdBy.memberId} name={issue.createdBy.fullName} /> : "—" },
+                { label: t("detail.drafted"), value: formatDateTime(issue.createdAt) },
+                { label: t("columns.postedBy"), value: issue.postedBy ? <PersonLink memberId={issue.postedBy.memberId} name={issue.postedBy.fullName} /> : "—" },
               ]}
             />
           </section>
 
           {issue.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("meta.activity")}</h2>
               <InventoryActivityFeed
                 context={context}
                 entityType="StockIssue"

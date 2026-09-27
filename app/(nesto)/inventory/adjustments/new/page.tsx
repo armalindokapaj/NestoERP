@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentForm } from "@/components/inventory/document-form";
@@ -11,11 +12,15 @@ import {
   heldBalances,
 } from "@/lib/modules/inventory/inventory.options";
 
-export const metadata: Metadata = { title: "New adjustment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.newAdjustment") };
+}
 
 /** Draft a adjustment (PRD #20 §281). */
 export default async function NewAdjustmentPage() {
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
   if (!can(context, "inventory.adjustment.create")) notFound();
 
   const [options, balances] = await Promise.all([
@@ -32,23 +37,23 @@ export default async function NewAdjustmentPage() {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Adjustments", href: "/inventory/adjustments" },
-          { label: "New adjustment" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.adjustments"), href: "/inventory/adjustments" },
+          { label: t("meta.newAdjustment") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New adjustment</h1>
-        <p className="mt-1.5 text-body text-fg-muted">Correct what the company believes it holds. Nothing physically moves — this is the one act that can make stock appear.</p>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newAdjustment")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{t("newPage.adjustments")}</p>
       </div>
 
       <DocumentForm
         kind="adjustments"
         action={action}
         cancelHref="/inventory/adjustments"
-        submitLabel="Save draft"
-        pendingLabel="Saving…"
+        submitLabel={t("form.saveDraft")}
+        pendingLabel={t("form.saving")}
         options={options}
         balances={balances}
       />

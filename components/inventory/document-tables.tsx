@@ -12,6 +12,8 @@ import type {
 } from "@/lib/modules/inventory/inventory.types";
 import { adjustmentReasonLabels } from "@/lib/modules/inventory/inventory.status";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "./inventory-labels";
 
 /**
  * The five stock-document lists (PRD #20 §323–§325).
@@ -21,13 +23,9 @@ import { formatDate } from "@/lib/utils/format";
  * should not have to relearn the table each time.
  */
 
-function lineLabel(count: number): string {
-  return `${count} ${count === 1 ? "line" : "lines"}`;
-}
-
-export function ReceiptTable({
+export async function ReceiptTable({
   receipts,
-  caption = "Receipts",
+  caption,
   listId = "inventory.receipts",
   sort,
 }: {
@@ -38,20 +36,21 @@ export function ReceiptTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<ReceiptSummaryDTO>[] = [
     {
       key: "receiptNumber",
       id: "receiptNumber",
       mandatory: true,
-      label: "Receipt",
+      label: t("columns.receipt"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.receiptNumber}</span>
           {row.goodsReceiptLink ? (
-            <span className="text-meta text-fg-subtle">From {row.goodsReceiptLink.label}</span>
+            <span className="text-meta text-fg-subtle">{t("columns.fromSource", { source: row.goodsReceiptLink.label })}</span>
           ) : (
-            <span className="text-meta text-fg-subtle">Recorded directly</span>
+            <span className="text-meta text-fg-subtle">{t("columns.recordedDirectly")}</span>
           )}
         </span>
       ),
@@ -59,7 +58,7 @@ export function ReceiptTable({
     {
       key: "warehouse",
       id: "warehouse",
-      label: "Warehouse",
+      label: t("columns.warehouse"),
       hideBelow: "md",
       render: (row) => row.warehouse.name,
     },
@@ -68,14 +67,14 @@ export function ReceiptTable({
       id: "receiptDate",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       render: (row) => formatDate(row.receiptDate),
     },
     {
       key: "lineCount",
       id: "lineCount",
       valueType: "number",
-      label: "Lines",
+      label: t("columns.lines"),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
@@ -85,7 +84,7 @@ export function ReceiptTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -98,15 +97,15 @@ export function ReceiptTable({
       records={receipts}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/receipts/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.receipts")}
     />
   );
 }
 
-export function IssueTable({
+export async function IssueTable({
   issues,
   showProject = true,
-  caption = "Issues",
+  caption,
   listId = "inventory.issues",
   sort,
 }: {
@@ -118,18 +117,19 @@ export function IssueTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<IssueSummaryDTO>[] = [
     {
       key: "issueNumber",
       id: "issueNumber",
       mandatory: true,
-      label: "Issue",
+      label: t("columns.issue"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.issueNumber}</span>
           <span className="text-meta text-fg-subtle">
-            {row.issuedTo ? `To ${row.issuedTo.fullName}` : lineLabel(row.lineCount)}
+            {row.issuedTo ? t("columns.issuedTo", { name: row.issuedTo.fullName }) : t("columns.lineCount", { count: row.lineCount })}
           </span>
         </span>
       ),
@@ -140,7 +140,7 @@ export function IssueTable({
     columns.push({
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "md",
       render: (row) =>
         row.project ? (
@@ -149,7 +149,7 @@ export function IssueTable({
             <span className="text-meta text-fg-subtle">{row.project.name}</span>
           </span>
         ) : (
-          <span className="text-fg-subtle">General</span>
+          <span className="text-fg-subtle">{t("columns.general")}</span>
         ),
     });
   }
@@ -158,7 +158,7 @@ export function IssueTable({
     {
       key: "warehouse",
       id: "warehouse",
-      label: "Warehouse",
+      label: t("columns.warehouse"),
       hideBelow: "lg",
       render: (row) => row.warehouse.name,
     },
@@ -167,14 +167,14 @@ export function IssueTable({
       id: "issueDate",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       render: (row) => formatDate(row.issueDate),
     },
     {
       key: "lineCount",
       id: "lineCount",
       valueType: "number",
-      label: "Lines",
+      label: t("columns.lines"),
       align: "right",
       hideBelow: "xl",
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
@@ -184,7 +184,7 @@ export function IssueTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   );
@@ -197,14 +197,14 @@ export function IssueTable({
       records={issues}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/issues/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.issues")}
     />
   );
 }
 
-export function ReturnTable({
+export async function ReturnTable({
   returns,
-  caption = "Returns",
+  caption,
   listId = "inventory.returns",
   sort,
 }: {
@@ -215,24 +215,25 @@ export function ReturnTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<ReturnSummaryDTO>[] = [
     {
       key: "returnNumber",
       id: "returnNumber",
       mandatory: true,
-      label: "Return",
+      label: t("columns.return"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.returnNumber}</span>
-          <span className="text-meta text-fg-subtle">{lineLabel(row.lineCount)}</span>
+          <span className="text-meta text-fg-subtle">{t("columns.lineCount", { count: row.lineCount })}</span>
         </span>
       ),
     },
     {
       key: "project",
       id: "project",
-      label: "From project",
+      label: t("columns.fromProject"),
       hideBelow: "md",
       render: (row) => (
         <span className="flex flex-col">
@@ -244,7 +245,7 @@ export function ReturnTable({
     {
       key: "warehouse",
       id: "warehouse",
-      label: "Back into",
+      label: t("columns.backInto"),
       hideBelow: "lg",
       render: (row) => row.warehouse.name,
     },
@@ -253,7 +254,7 @@ export function ReturnTable({
       id: "returnDate",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       render: (row) => formatDate(row.returnDate),
     },
     {
@@ -261,7 +262,7 @@ export function ReturnTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -274,14 +275,14 @@ export function ReturnTable({
       records={returns}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/returns/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.returns")}
     />
   );
 }
 
-export function TransferTable({
+export async function TransferTable({
   transfers,
-  caption = "Transfers",
+  caption,
   listId = "inventory.transfers",
   sort,
 }: {
@@ -292,12 +293,13 @@ export function TransferTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<TransferSummaryDTO>[] = [
     {
       key: "transferNumber",
       id: "transferNumber",
       mandatory: true,
-      label: "Transfer",
+      label: t("columns.transfer"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -311,7 +313,7 @@ export function TransferTable({
     {
       key: "route",
       id: "route",
-      label: "Route",
+      label: t("columns.route"),
       hideBelow: "lg",
       render: (row) => (
         <span>
@@ -326,14 +328,14 @@ export function TransferTable({
       id: "transferDate",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       render: (row) => formatDate(row.transferDate),
     },
     {
       key: "lineCount",
       id: "lineCount",
       valueType: "number",
-      label: "Lines",
+      label: t("columns.lines"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
@@ -343,7 +345,7 @@ export function TransferTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -356,14 +358,14 @@ export function TransferTable({
       records={transfers}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/transfers/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.transfers")}
     />
   );
 }
 
-export function AdjustmentTable({
+export async function AdjustmentTable({
   adjustments,
-  caption = "Adjustments",
+  caption,
   listId = "inventory.adjustments",
   sort,
 }: {
@@ -374,24 +376,25 @@ export function AdjustmentTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<AdjustmentSummaryDTO>[] = [
     {
       key: "adjustmentNumber",
       id: "adjustmentNumber",
       mandatory: true,
-      label: "Adjustment",
+      label: t("columns.adjustment"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.adjustmentNumber}</span>
-          <span className="text-meta text-fg-subtle">{adjustmentReasonLabels[row.reason]}</span>
+          <span className="text-meta text-fg-subtle">{inventoryLabel(t, "adjustmentReason", row.reason, adjustmentReasonLabels[row.reason])}</span>
         </span>
       ),
     },
     {
       key: "warehouse",
       id: "warehouse",
-      label: "Warehouse",
+      label: t("columns.warehouse"),
       hideBelow: "md",
       render: (row) => row.warehouse.name,
     },
@@ -400,14 +403,14 @@ export function AdjustmentTable({
       id: "adjustmentDate",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       render: (row) => formatDate(row.adjustmentDate),
     },
     {
       key: "lineCount",
       id: "lineCount",
       valueType: "number",
-      label: "Lines",
+      label: t("columns.lines"),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
@@ -417,7 +420,7 @@ export function AdjustmentTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -430,7 +433,7 @@ export function AdjustmentTable({
       records={adjustments}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/adjustments/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.adjustments")}
     />
   );
 }

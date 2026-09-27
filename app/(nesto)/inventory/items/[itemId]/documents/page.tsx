@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { InventoryRecordDocuments } from "@/components/inventory/record-documents";
 import { ItemPageShell, loadItemPage } from "../item-shell";
 
-export const metadata: Metadata = { title: "Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.documents") };
+}
 
 type Params = { params: Promise<{ itemId: string }> };
 
@@ -11,6 +15,7 @@ type Params = { params: Promise<{ itemId: string }> };
 export default async function ItemDocumentsPage({ params }: Params) {
   const { itemId } = await params;
   const { context, item } = await loadItemPage(itemId, "documents");
+  const t = await getTranslations("inventory");
 
   return (
     <ItemPageShell item={item} tab="documents">
@@ -18,7 +23,7 @@ export default async function ItemDocumentsPage({ params }: Params) {
         context={context}
         entityType="inventory_item"
         entityId={itemId}
-        emptyDescription="Specifications, datasheets and certificates for this item appear here."
+        emptyDescription={t("documents.itemEmpty")}
       />
     </ItemPageShell>
   );

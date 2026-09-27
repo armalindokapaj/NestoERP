@@ -23,6 +23,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { archiveLocationAction, createLocationAction } from "@/lib/actions/inventory";
 import type { LocationDTO } from "@/lib/modules/inventory/inventory.types";
+import { useInventoryTranslations } from "./inventory-text";
 
 /**
  * The bins, racks and bays inside a warehouse (PRD #20 §61–§66).
@@ -42,6 +43,7 @@ export function LocationList({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
   const [adding, setAdding] = React.useState(false);
   const [archiving, setArchiving] = React.useState<LocationDTO | null>(null);
@@ -51,7 +53,7 @@ export function LocationList({
       const result = await archiveLocationAction(warehouseId, location.id);
       if (result.ok) {
         setArchiving(null);
-        toast({ title: "Location archived.", tone: "success" });
+        toast({ title: t("locations.archived"), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -63,22 +65,22 @@ export function LocationList({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">Locations</h2>
+          <h2 className="text-card font-semibold text-fg">{t("locations.title")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            Every movement names one. Stock lives in a location, not in a warehouse.
+            {t("locations.subtitle")}
           </p>
         </div>
         {canCreate ? (
           <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
             <Plus aria-hidden="true" />
-            Add location
+            {t("locations.add")}
           </Button>
         ) : null}
       </div>
 
       {locations.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">
-          No locations are visible here.
+          {t("locations.empty")}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
@@ -90,16 +92,16 @@ export function LocationList({
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
                   {location.code}
-                  {location.isDefault ? <Badge tone="info">Default</Badge> : null}
+                  {location.isDefault ? <Badge tone="info">{t("locations.default")}</Badge> : null}
                   {location.status !== "ACTIVE" ? (
                     <StatusBadge status={location.status} />
                   ) : null}
                 </p>
                 <p className="text-meta text-fg-subtle">
-                  {location.name ?? "No name"}
+                  {location.name ?? t("locations.noName")}
                   {location.distinctItems > 0
-                    ? ` · ${location.distinctItems} item${location.distinctItems === 1 ? "" : "s"} held`
-                    : " · empty"}
+                    ? ` · ${t("locations.itemsHeld", { count: location.distinctItems })}`
+                    : ` · ${t("locations.emptyLocation")}`}
                 </p>
               </div>
 
@@ -110,7 +112,7 @@ export function LocationList({
                   disabled={pending}
                   onClick={() => setArchiving(location)}
                 >
-                  Archive
+                  {t("actions.archive")}
                 </Button>
               ) : null}
             </li>
@@ -120,9 +122,9 @@ export function LocationList({
 
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent className="max-w-md">
-          <DialogTitle>Add a location</DialogTitle>
+          <DialogTitle>{t("locations.addTitle")}</DialogTitle>
           <DialogDescription>
-            A bin, rack, bay or yard inside this warehouse.
+            {t("locations.addDescription")}
           </DialogDescription>
 
           {/* Inside the dialog, so its guarded close asks about what was typed (AUD-03 §5). */}
@@ -133,9 +135,9 @@ export function LocationList({
       <ConfirmDialog
         open={archiving !== null}
         onOpenChange={(open) => setArchiving(open ? archiving : null)}
-        title={archiving ? `Archive ${archiving.code}?` : "Archive location?"}
-        description="It stops accepting stock and cannot be named on new documents. A location still holding stock cannot be archived — move it out first."
-        confirmLabel="Archive location"
+        title={archiving ? t("actions.archiveTitle", { name: archiving.code }) : t("locations.archiveFallback")}
+        description={t("locations.archiveDescription")}
+        confirmLabel={t("locations.archiveConfirm")}
         pending={pending}
         onConfirm={() => archiving && archive(archiving)}
       />
@@ -146,16 +148,17 @@ export function LocationList({
 function AddLocationForm({ warehouseId, onAdded }: { warehouseId: string; onAdded: () => void }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({
     formRef,
     action: (formData: FormData) => createLocationAction(warehouseId, formData),
     module: "inventory",
     saveKind: "create",
-    label: "New location",
+    label: t("locations.newLocation"),
     onCommitted: () => {
       onAdded();
-      toast({ title: "Location added.", tone: "success" });
+      toast({ title: t("locations.added"), tone: "success" });
       router.refresh();
       return true;
     },
@@ -168,7 +171,7 @@ function AddLocationForm({ warehouseId, onAdded }: { warehouseId: string; onAdde
 
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
-          <Label htmlFor="location-code">Code</Label>
+          <Label htmlFor="location-code">{t("locations.code")}</Label>
           <Input id="location-code" name="code" required maxLength={40} />
           {errors.code ? (
             <p className="text-meta text-danger-strong">{errors.code[0]}</p>
@@ -176,12 +179,12 @@ function AddLocationForm({ warehouseId, onAdded }: { warehouseId: string; onAdde
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="location-name">Name</Label>
+          <Label htmlFor="location-name">{t("locations.name")}</Label>
           <Input id="location-name" name="name" maxLength={200} />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="location-description">Description</Label>
+          <Label htmlFor="location-description">{t("locations.description")}</Label>
           <Input id="location-description" name="description" maxLength={1000} />
         </div>
       </fieldset>
@@ -191,11 +194,11 @@ function AddLocationForm({ warehouseId, onAdded }: { warehouseId: string; onAdde
         {/* The guarded close, like the X (§5). */}
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            Cancel
+            {t("actions.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Adding…" : "Add location"}
+          {pending ? t("locations.adding") : t("locations.add")}
         </Button>
       </DialogFooter>
     </form>

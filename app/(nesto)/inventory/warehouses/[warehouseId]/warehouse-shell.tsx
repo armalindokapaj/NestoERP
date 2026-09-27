@@ -9,6 +9,8 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as warehouses from "@/lib/modules/inventory/warehouses/warehouse.service";
 import { warehouseTypeLabels } from "@/lib/modules/inventory/inventory.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import type { WarehouseDetailDTO } from "@/lib/modules/inventory/inventory.types";
 import { cn } from "@/lib/utils/cn";
 
@@ -20,11 +22,11 @@ import { cn } from "@/lib/utils/cn";
  * itself information (PRD #7 §60).
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "locations", label: "Locations", suffix: "/locations" },
-  { key: "stock", label: "Stock", suffix: "/stock" },
-  { key: "movements", label: "Movements", suffix: "/movements" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", label: "tabs.overview", suffix: "" },
+  { key: "locations", label: "meta.locations", suffix: "/locations" },
+  { key: "stock", label: "meta.stock", suffix: "/stock" },
+  { key: "movements", label: "meta.movements", suffix: "/movements" },
+  { key: "activity", label: "meta.activity", suffix: "/activity" },
 ] as const;
 
 export type WarehouseTabKey = (typeof TABS)[number]["key"];
@@ -55,7 +57,7 @@ export async function loadWarehousePage(
   return { context, warehouse };
 }
 
-export function WarehousePageShell({
+export async function WarehousePageShell({
   warehouse,
   tab,
   children,
@@ -64,6 +66,7 @@ export function WarehousePageShell({
   tab: WarehouseTabKey;
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("inventory");
   const show: Record<WarehouseTabKey, boolean> = {
     overview: true,
     locations: warehouse.locations.length > 0 || warehouse.capabilities.canManageLocations,
@@ -76,8 +79,8 @@ export function WarehousePageShell({
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Warehouses", href: "/inventory/warehouses" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.warehouses"), href: "/inventory/warehouses" },
           { label: warehouse.name },
         ]}
         title={warehouse.name}
@@ -85,19 +88,19 @@ export function WarehousePageShell({
         status={warehouse.status}
         badges={
           <>
-            <Badge tone="neutral">{warehouseTypeLabels[warehouse.warehouseType]}</Badge>
+            <Badge tone="neutral">{inventoryLabel(t, "warehouseType", warehouse.warehouseType, warehouseTypeLabels[warehouse.warehouseType])}</Badge>
             {warehouse.project ? <Badge tone="info">{warehouse.project.code}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Locations", value: String(warehouse.locationCount) },
-          { label: "Items held", value: String(warehouse.distinctItems) },
-          { label: "City", value: warehouse.city ?? "—" },
+          { label: t("columns.locations"), value: String(warehouse.locationCount) },
+          { label: t("columns.itemsHeld"), value: String(warehouse.distinctItems) },
+          { label: t("columns.city"), value: warehouse.city ?? "—" },
         ]}
         actions={<WarehouseActions warehouse={warehouse} />}
       />
 
-      <nav aria-label="Warehouse sections" className="border-b border-line">
+      <nav aria-label={t("tabs.warehouseSections")} className="border-b border-line">
         <ul className="-mb-px flex gap-1 overflow-x-auto">
           {TABS.filter((entry) => show[entry.key]).map((entry) => {
             const isActive = entry.key === tab;
@@ -113,7 +116,7 @@ export function WarehousePageShell({
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                   )}
                 >
-                  {entry.label}
+                  {t(entry.label)}
                 </Link>
               </li>
             );
@@ -123,12 +126,11 @@ export function WarehousePageShell({
 
       {warehouse.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This warehouse is archived. It cannot take or give stock, and cannot be named on new
-          documents, until it is restored.
+          {t("detail.warehouseArchived")}
         </p>
       ) : warehouse.status === "INACTIVE" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This warehouse is inactive. Only an active warehouse can take or give stock.
+          {t("detail.warehouseInactive")}
         </p>
       ) : null}
 

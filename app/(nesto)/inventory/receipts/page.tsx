@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Receipts" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.receipts") };
+}
 
 /** Receipts: Material arriving into stock, whether from a Procurement delivery or straight off a lorry. */
 export default async function ReceiptsPage({
@@ -22,6 +26,7 @@ export default async function ReceiptsPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.receipt.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -32,7 +37,7 @@ export default async function ReceiptsPage({
       actions={
         can(context, "inventory.receipt.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/receipts/new">New receipt</Link>
+            <Link href="/inventory/receipts/new">{t("meta.newReceipt")}</Link>
           </Button>
         ) : null
       }

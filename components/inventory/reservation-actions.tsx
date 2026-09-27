@@ -11,6 +11,7 @@ import {
   reservationLifecycleAction,
 } from "@/lib/actions/inventory";
 import type { ReservationDTO } from "@/lib/modules/inventory/inventory.types";
+import { useInventoryTranslations } from "./inventory-text";
 
 /**
  * Release and cancel (PRD #20 §161, §162).
@@ -23,6 +24,7 @@ import type { ReservationDTO } from "@/lib/modules/inventory/inventory.types";
 export function ReservationRowActions({ reservation }: { reservation: ReservationDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
   const [confirming, setConfirming] = React.useState<"release" | "cancel" | null>(null);
 
@@ -51,7 +53,7 @@ export function ReservationRowActions({ reservation }: { reservation: Reservatio
           disabled={pending}
           onClick={() => setConfirming("release")}
         >
-          Release
+          {t("reservationActions.release")}
         </Button>
       ) : null}
 
@@ -62,31 +64,31 @@ export function ReservationRowActions({ reservation }: { reservation: Reservatio
           disabled={pending}
           onClick={() => setConfirming("cancel")}
         >
-          Cancel
+          {t("reservationActions.cancel")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={confirming === "release"}
         onOpenChange={(open) => setConfirming(open ? "release" : null)}
-        title={`Release ${reservation.reservationNumber}?`}
-        description="The quantity goes back to available immediately. Nothing physically moves, and stock on hand is unchanged."
-        confirmLabel="Release"
-        cancelLabel="Keep it"
+        title={t("reservationActions.releaseTitle", { number: reservation.reservationNumber })}
+        description={t("reservationActions.releaseDescription")}
+        confirmLabel={t("reservationActions.release")}
+        cancelLabel={t("reservationActions.keep")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("release", "Reservation released.")}
+        onConfirm={() => run("release", t("reservationActions.released"))}
       />
 
       <ConfirmDialog
         open={confirming === "cancel"}
         onOpenChange={(open) => setConfirming(open ? "cancel" : null)}
-        title={`Cancel ${reservation.reservationNumber}?`}
-        description="The reservation is closed and stops holding stock back. It stays on record as cancelled."
-        confirmLabel="Cancel reservation"
-        cancelLabel="Keep it"
+        title={t("reservationActions.cancelTitle", { number: reservation.reservationNumber })}
+        description={t("reservationActions.cancelDescription")}
+        confirmLabel={t("reservationActions.cancelConfirm")}
+        cancelLabel={t("reservationActions.keep")}
         pending={pending}
-        onConfirm={() => run("cancel", "Reservation cancelled.")}
+        onConfirm={() => run("cancel", t("reservationActions.cancelled"))}
       />
     </div>
   );
@@ -96,6 +98,7 @@ export function ReservationRowActions({ reservation }: { reservation: Reservatio
 export function ExpireReservationsButton() {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
 
   return (
@@ -107,7 +110,11 @@ export function ExpireReservationsButton() {
         startTransition(async () => {
           const result = await expireReservationsAction();
           if (result.ok) {
-            toast({ title: result.message ?? "Done.", tone: "success" });
+            const released = result.count ?? 0;
+            toast({
+              title: released === 0 ? t("reservationActions.nothingExpired") : t("reservationActions.expiredReleased", { count: released }),
+              tone: "success",
+            });
             router.refresh();
           } else {
             toast({ title: result.error, tone: "danger" });
@@ -115,7 +122,7 @@ export function ExpireReservationsButton() {
         })
       }
     >
-      {pending ? "Releasing…" : "Release expired"}
+      {pending ? t("reservationActions.releasing") : t("reservationActions.releaseExpired")}
     </Button>
   );
 }

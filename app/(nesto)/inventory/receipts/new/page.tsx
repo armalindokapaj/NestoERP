@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentForm } from "@/components/inventory/document-form";
@@ -11,11 +12,15 @@ import {
   heldBalances,
 } from "@/lib/modules/inventory/inventory.options";
 
-export const metadata: Metadata = { title: "New receipt" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.newReceipt") };
+}
 
 /** Draft a receipt (PRD #20 §281). */
 export default async function NewReceiptPage() {
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
   if (!can(context, "inventory.receipt.create")) notFound();
 
   const [options, balances] = await Promise.all([
@@ -32,23 +37,23 @@ export default async function NewReceiptPage() {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Receipts", href: "/inventory/receipts" },
-          { label: "New receipt" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.receipts"), href: "/inventory/receipts" },
+          { label: t("meta.newReceipt") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New receipt</h1>
-        <p className="mt-1.5 text-body text-fg-muted">Record material arriving into stock. Save it as a draft, then post it to commit it to the ledger.</p>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newReceipt")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{t("newPage.receipts")}</p>
       </div>
 
       <DocumentForm
         kind="receipts"
         action={action}
         cancelHref="/inventory/receipts"
-        submitLabel="Save draft"
-        pendingLabel="Saving…"
+        submitLabel={t("form.saveDraft")}
+        pendingLabel={t("form.saving")}
         options={options}
         balances={balances}
       />

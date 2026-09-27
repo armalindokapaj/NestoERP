@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Adjustments" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.adjustments") };
+}
 
 /** Adjustments: Corrections to what the company believes it holds, without anything physically moving. */
 export default async function AdjustmentsPage({
@@ -22,6 +26,7 @@ export default async function AdjustmentsPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.adjustment.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -32,7 +37,7 @@ export default async function AdjustmentsPage({
       actions={
         can(context, "inventory.adjustment.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/adjustments/new">New adjustment</Link>
+            <Link href="/inventory/adjustments/new">{t("meta.newAdjustment")}</Link>
           </Button>
         ) : null
       }
