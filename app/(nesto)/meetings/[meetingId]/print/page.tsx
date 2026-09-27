@@ -11,11 +11,16 @@ import {
   MEETING_TYPE_LABELS,
   PARTICIPANT_ROLE_LABELS,
 } from "@/lib/modules/meetings/meeting.types";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadMeeting } from "../meeting-context";
 
 type Params = { params: Promise<{ meetingId: string }> };
 
-export const metadata: Metadata = { title: "Minutes" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meetings");
+  return { title: t("meta.minutes") };
+}
 
 /**
  * Print-friendly minutes (PRD #40 §71, §110, §111, §203, §204): company,
@@ -27,6 +32,7 @@ export default async function MeetingPrintPage({ params }: Params) {
   const { meetingId } = await params;
   const { context, meeting } = await loadMeeting(meetingId);
   const zone = meeting.timezone;
+  const t = await getTranslations("meetings");
   const final = meeting.minutesStatus === "FINAL";
   const dateTime = (iso: string) => new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeStyle: "short", timeZone: zone }).format(new Date(iso));
 
@@ -43,7 +49,7 @@ export default async function MeetingPrintPage({ params }: Params) {
       `}</style>
       <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link href={`/meetings/${meeting.id}?tab=minutes`} className="text-table font-medium text-accent-strong">
-          Back to meeting
+          {t("common.backToMeeting")}
         </Link>
         <PrintButton />
       </div>
@@ -53,35 +59,35 @@ export default async function MeetingPrintPage({ params }: Params) {
           <p className="text-micro font-semibold uppercase tracking-[0.14em] text-fg-subtle">{context.company.name}</p>
           <h1 className="mt-2 text-[26px] font-semibold leading-tight">{meeting.title}</h1>
           <p className="mt-1 text-table text-fg-muted">
-            Minutes of meeting · {final ? "Final" : "Draft — not yet final"}
+            {t("print.minutesOf", { state: final ? t("print.final") : t("print.draftNotFinal") })}
           </p>
           <dl className="mt-5 grid gap-x-8 gap-y-2 text-table sm:grid-cols-2">
-            <Row label="Date" value={meetingDay(meeting.startsAt, zone, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
-            <Row label="Time" value={`${meetingClock(meeting.startsAt, zone)}–${meetingClock(meeting.endsAt, zone)} (${zone.replace("_", " ")})`} />
-            <Row label="Type" value={MEETING_TYPE_LABELS[meeting.meetingType]} />
-            {meeting.project ? <Row label="Project" value={`${meeting.project.code} · ${meeting.project.name}`} /> : null}
-            <Row label="Location" value={[LOCATION_TYPE_LABELS[meeting.locationType], meeting.locationText].filter(Boolean).join(" · ")} />
-            <Row label="Organizer" value={meeting.organizer.fullName} />
-            {final && meeting.minutesFinalizedAt ? <Row label="Finalized" value={`${dateTime(meeting.minutesFinalizedAt)}${meeting.minutesFinalizedBy ? ` by ${meeting.minutesFinalizedBy}` : ""}`} /> : null}
-            {meeting.status === "CANCELLED" ? <Row label="Status" value="Cancelled" /> : null}
+            <Row label={t("print.date")} value={meetingDay(meeting.startsAt, zone, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
+            <Row label={t("print.time")} value={`${meetingClock(meeting.startsAt, zone)}–${meetingClock(meeting.endsAt, zone)} (${zone.replace("_", " ")})`} />
+            <Row label={t("print.type")} value={meetingsLabel(t, "type", meeting.meetingType, MEETING_TYPE_LABELS[meeting.meetingType])} />
+            {meeting.project ? <Row label={t("print.project")} value={`${meeting.project.code} · ${meeting.project.name}`} /> : null}
+            <Row label={t("print.location")} value={[meetingsLabel(t, "location", meeting.locationType, LOCATION_TYPE_LABELS[meeting.locationType]), meeting.locationText].filter(Boolean).join(" · ")} />
+            <Row label={t("print.organizer")} value={meeting.organizer.fullName} />
+            {final && meeting.minutesFinalizedAt ? <Row label={t("print.finalized")} value={meeting.minutesFinalizedBy ? t("print.finalizedBy", { when: dateTime(meeting.minutesFinalizedAt), name: meeting.minutesFinalizedBy }) : dateTime(meeting.minutesFinalizedAt)} /> : null}
+            {meeting.status === "CANCELLED" ? <Row label={t("print.status")} value={t("print.cancelled")} /> : null}
           </dl>
         </header>
 
-        <Section title="Participants">
+        <Section title={t("print.participants")}>
           <table className="w-full text-table">
             <thead>
               <tr className="border-b border-line text-left text-meta text-fg-subtle">
-                <th className="py-1.5 font-medium">Name</th>
-                <th className="py-1.5 font-medium">Role</th>
-                <th className="py-1.5 text-right font-medium">Attendance</th>
+                <th className="py-1.5 font-medium">{t("print.name")}</th>
+                <th className="py-1.5 font-medium">{t("print.role")}</th>
+                <th className="py-1.5 text-right font-medium">{t("print.attendance")}</th>
               </tr>
             </thead>
             <tbody>
               {meeting.participants.map((person) => (
                 <tr key={person.memberId} className="border-b border-line/60">
                   <td className="py-1.5">{person.fullName}</td>
-                  <td className="py-1.5 text-fg-muted">{PARTICIPANT_ROLE_LABELS[person.role]}{person.required ? "" : " (optional)"}</td>
-                  <td className="py-1.5 text-right text-fg-muted">{ATTENDANCE_LABELS[person.attendance]}</td>
+                  <td className="py-1.5 text-fg-muted">{meetingsLabel(t, "role", person.role, PARTICIPANT_ROLE_LABELS[person.role])}{person.required ? "" : t("print.optionalSuffix")}</td>
+                  <td className="py-1.5 text-right text-fg-muted">{meetingsLabel(t, "attendance", person.attendance, ATTENDANCE_LABELS[person.attendance])}</td>
                 </tr>
               ))}
             </tbody>
@@ -89,7 +95,7 @@ export default async function MeetingPrintPage({ params }: Params) {
         </Section>
 
         {meeting.agenda.length > 0 ? (
-          <Section title="Agenda">
+          <Section title={t("print.agenda")}>
             <ol className="space-y-1 text-table">
               {meeting.agenda.map((item, index) => (
                 <li key={item.id} className="flex gap-3">
@@ -98,16 +104,16 @@ export default async function MeetingPrintPage({ params }: Params) {
                     {item.title}
                     {item.presenter ? <span className="text-fg-subtle"> — {item.presenter.fullName}</span> : null}
                   </span>
-                  {item.status !== "PENDING" ? <span className="text-meta text-fg-subtle">{AGENDA_STATUS_LABELS[item.status]}</span> : null}
+                  {item.status !== "PENDING" ? <span className="text-meta text-fg-subtle">{meetingsLabel(t, "agendaStatus", item.status, AGENDA_STATUS_LABELS[item.status])}</span> : null}
                 </li>
               ))}
             </ol>
           </Section>
         ) : null}
 
-        <Section title="Minutes">
+        <Section title={t("print.minutes")}>
           {meeting.minutes.length === 0 ? (
-            <p className="text-table text-fg-subtle">No minutes were written.</p>
+            <p className="text-table text-fg-subtle">{t("print.noMinutes")}</p>
           ) : (
             <div className="space-y-5">
               {meeting.minutes.map((section) => (
@@ -120,9 +126,9 @@ export default async function MeetingPrintPage({ params }: Params) {
           )}
         </Section>
 
-        <Section title="Decisions">
+        <Section title={t("print.decisions")}>
           {meeting.decisions.length === 0 ? (
-            <p className="text-table text-fg-subtle">No decisions were recorded.</p>
+            <p className="text-table text-fg-subtle">{t("print.noDecisions")}</p>
           ) : (
             <ol className="space-y-3">
               {meeting.decisions.map((decision) => (
@@ -138,17 +144,17 @@ export default async function MeetingPrintPage({ params }: Params) {
           )}
         </Section>
 
-        <Section title="Action items">
+        <Section title={t("print.actionItems")}>
           {meeting.actions.length === 0 ? (
-            <p className="text-table text-fg-subtle">No actions were agreed.</p>
+            <p className="text-table text-fg-subtle">{t("print.noActions")}</p>
           ) : (
             <table className="w-full text-table">
               <thead>
                 <tr className="border-b border-line text-left text-meta text-fg-subtle">
-                  <th className="py-1.5 font-medium">Action</th>
-                  <th className="py-1.5 font-medium">Owner</th>
-                  <th className="py-1.5 font-medium">Due</th>
-                  <th className="py-1.5 text-right font-medium">Status</th>
+                  <th className="py-1.5 font-medium">{t("print.action")}</th>
+                  <th className="py-1.5 font-medium">{t("print.owner")}</th>
+                  <th className="py-1.5 font-medium">{t("print.due")}</th>
+                  <th className="py-1.5 text-right font-medium">{t("print.status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,7 +163,7 @@ export default async function MeetingPrintPage({ params }: Params) {
                     <td className="py-1.5 pr-3">{action.title}</td>
                     <td className="py-1.5 pr-3 text-fg-muted">{action.owner?.fullName ?? "—"}</td>
                     <td className="py-1.5 pr-3 tabular-nums text-fg-muted">{action.dueDate ?? "—"}</td>
-                    <td className="py-1.5 text-right text-fg-muted">{ACTION_STATUS_LABELS[action.status]}</td>
+                    <td className="py-1.5 text-right text-fg-muted">{meetingsLabel(t, "actionStatus", action.status, ACTION_STATUS_LABELS[action.status])}</td>
                   </tr>
                 ))}
               </tbody>
@@ -166,7 +172,7 @@ export default async function MeetingPrintPage({ params }: Params) {
         </Section>
 
         <footer className="mt-10 border-t border-line pt-4 text-meta text-fg-subtle">
-          Printed {dateTime(new Date().toISOString())} from NESTO. {final ? "" : "These minutes are a draft and may change."}
+          {t("print.printed", { when: dateTime(new Date().toISOString()) })} {final ? "" : t("print.draftNote")}
         </footer>
       </article>
     </div>

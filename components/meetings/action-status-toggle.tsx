@@ -7,6 +7,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, meetingApi } from "./meeting-api";
+import { useMeetingsTranslations } from "./meetings-text";
 
 /**
  * Done / not done for one action, optimistic with rollback (PRD #40 §242).
@@ -29,6 +30,7 @@ export function ActionStatusToggle({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const [checked, setChecked] = React.useState(done);
   const [pending, setPending] = React.useState(false);
   React.useEffect(() => setChecked(done), [done]);
@@ -43,7 +45,7 @@ export function ActionStatusToggle({
       else router.refresh();
     } catch (error) {
       setChecked(!next);
-      toast({ title: failureMessage(error, "The action could not be updated."), tone: "danger" });
+      toast({ title: failureMessage(error, t("actions.toggleFailed")), tone: "danger" });
     } finally {
       setPending(false);
     }
@@ -55,7 +57,7 @@ export function ActionStatusToggle({
       role="checkbox"
       aria-checked={checked}
       // A checkbox keeps one name; aria-checked carries the state (AUD-11 §3, AV-06).
-      aria-label={`Done: ${title}`}
+      aria-label={t("actions.doneLabel", { title })}
       disabled={disabled || pending}
       onClick={() => void toggle()}
       className={cn(

@@ -5,6 +5,7 @@ import { RecordDocuments } from "@/components/documents/record-documents";
 import { MeetingWorkspace } from "@/components/meetings/meeting-workspace";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { listMeetingActivity } from "@/lib/modules/meetings/meeting.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadMeeting } from "./meeting-context";
 
 type Params = { params: Promise<{ meetingId: string }> };
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { meeting } = await loadMeeting(meetingId);
     return { title: meeting.title };
   } catch {
-    return { title: "Meeting" };
+    return { title: (await getTranslations("meetings"))("common.meeting") };
   }
 }
 
@@ -29,6 +30,7 @@ export default async function MeetingPage({ params }: Params) {
   const { meetingId } = await params;
   const { context, meeting } = await loadMeeting(meetingId);
   const activity = await listMeetingActivity(context, meetingId);
+  const t = await getTranslations("meetings");
 
   return (
     <MeetingWorkspace
@@ -42,9 +44,9 @@ export default async function MeetingPage({ params }: Params) {
             entityType="meeting"
             entityId={meeting.id}
             canAttach={meeting.capabilities.canUploadDocuments}
-            title="Documents"
-            emptyTitle="No documents on this meeting."
-            emptyDescription="Agendas, drawings, presentations, site photos and reports shared for this meeting appear here."
+            title={t("documents.title")}
+            emptyTitle={t("documents.emptyTitle")}
+            emptyDescription={t("documents.emptyDescription")}
           />
         ) : null
       }

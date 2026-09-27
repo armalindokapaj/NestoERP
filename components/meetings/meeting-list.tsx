@@ -3,6 +3,8 @@ import { Presentation, Repeat, Video } from "lucide-react";
 
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { MEETING_TYPE_LABELS, type MeetingListItemDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
 import { AvatarStack, meetingClock, meetingDate, meetingDay, meetingZoneLabel, MeetingStatusBadge, ResponseBadge } from "./meeting-ui";
@@ -17,7 +19,8 @@ import { AvatarStack, meetingClock, meetingDate, meetingDay, meetingZoneLabel, M
  * that is not the reader's reference zone the row says so instead of converting
  * silently.
  */
-export function MeetingList({ meetings, zone, today, showProject = true }: { meetings: MeetingListItemDTO[]; zone: string; today: string; showProject?: boolean }) {
+export async function MeetingList({ meetings, zone, today, showProject = true }: { meetings: MeetingListItemDTO[]; zone: string; today: string; showProject?: boolean }) {
+  const t = await getTranslations("meetings");
   const groups = new Map<string, MeetingListItemDTO[]>();
   for (const meeting of meetings) {
     const day = meetingDate(meeting.startsAt, meeting.timezone || zone);
@@ -29,7 +32,7 @@ export function MeetingList({ meetings, zone, today, showProject = true }: { mee
       {[...groups.entries()].map(([day, rows]) => (
         <section key={day} aria-label={meetingDay(rows[0].startsAt, rows[0].timezone || zone)}>
           <h2 className={cn("mb-2 px-1 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
-            {day === today ? "Today · " : ""}
+            {day === today ? t("list.today") : ""}
             {meetingDay(rows[0].startsAt, rows[0].timezone || zone)}
           </h2>
           <ul className="nesto-card divide-y divide-line overflow-hidden">
@@ -46,7 +49,7 @@ export function MeetingList({ meetings, zone, today, showProject = true }: { mee
                     {otherZone ? (
                       <span
                         className="mt-0.5 block text-micro font-medium text-fg-subtle"
-                        title={`Shown in ${meeting.timezone} time, this meeting's own time zone. Your home company's zone is ${zone}.`}
+                        title={t("list.zoneNote", { zone: meeting.timezone, home: zone })}
                         data-testid="meeting-zone-note"
                       >
                         {meetingZoneLabel(meeting.startsAt, meeting.timezone)}
@@ -56,19 +59,19 @@ export function MeetingList({ meetings, zone, today, showProject = true }: { mee
                   <span className="min-w-0">
                     <span className="flex min-w-0 items-center gap-2">
                       <span className={cn("truncate text-body font-medium text-fg group-hover:text-accent-strong", meeting.status === "CANCELLED" && "text-fg-muted line-through")}>{meeting.title}</span>
-                      {meeting.recurring ? <Repeat aria-label="Repeating" className="size-3.5 shrink-0 text-fg-subtle" /> : null}
-                      {meeting.locationType === "ONLINE" || meeting.locationType === "HYBRID" ? <Video aria-label="Online" className="size-3.5 shrink-0 text-fg-subtle" /> : null}
+                      {meeting.recurring ? <Repeat aria-label={t("list.repeating")} className="size-3.5 shrink-0 text-fg-subtle" /> : null}
+                      {meeting.locationType === "ONLINE" || meeting.locationType === "HYBRID" ? <Video aria-label={t("list.online")} className="size-3.5 shrink-0 text-fg-subtle" /> : null}
                     </span>
                     <span className="mt-0.5 block truncate text-meta text-fg-muted">
-                      {[MEETING_TYPE_LABELS[meeting.meetingType], showProject ? meeting.project?.name : null, meeting.locationText, `Organized by ${meeting.organizer.fullName}`].filter(Boolean).join(" · ")}
+                      {[meetingsLabel(t, "type", meeting.meetingType, MEETING_TYPE_LABELS[meeting.meetingType]), showProject ? meeting.project?.name : null, meeting.locationText, t("list.organizedBy", { name: meeting.organizer.fullName })].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                   <span className="col-start-2 flex flex-wrap items-center gap-2 sm:col-start-3 sm:row-start-1 sm:justify-end">
                     {meeting.company ? <CompanyTag name={meeting.company.name} /> : null}
-                    <AvatarStack people={meeting.participantsPreview} total={meeting.participantCount} />
+                    <AvatarStack people={meeting.participantsPreview} total={meeting.participantCount} label={t("common.people", { count: meeting.participantCount })} />
                     {meeting.myResponse && meeting.myRole !== "ORGANIZER" && meeting.status === "SCHEDULED" ? <ResponseBadge response={meeting.myResponse} /> : null}
                     {meeting.status !== "SCHEDULED" ? <MeetingStatusBadge status={meeting.status} /> : null}
-                    {meeting.openActionCount > 0 ? <span className="text-meta text-fg-subtle">{meeting.openActionCount} open {meeting.openActionCount === 1 ? "action" : "actions"}</span> : null}
+                    {meeting.openActionCount > 0 ? <span className="text-meta text-fg-subtle">{t("list.openActions", { count: meeting.openActionCount })}</span> : null}
                   </span>
                 </>
               );

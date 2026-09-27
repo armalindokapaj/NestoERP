@@ -20,9 +20,11 @@ import {
   type MeetingDetailDTO,
   type MeetingParticipantDTO,
 } from "@/lib/modules/meetings/meeting.types";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PersonAvatar } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 import { PeoplePicker, type PickedPerson } from "./people-picker";
 
 /**
@@ -54,6 +56,7 @@ export function ParticipantsPanel({
   variant?: "rail" | "attendance";
 }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const [adding, setAdding] = React.useState(false);
   const [removing, setRemoving] = React.useState<MeetingParticipantDTO | null>(null);
   const [handing, setHanding] = React.useState<MeetingParticipantDTO | null>(null);
@@ -67,7 +70,7 @@ export function ParticipantsPanel({
     try {
       onChange(await meetingApi<MeetingDetailDTO>(`/api/meetings/${meeting.id}/participants/${memberId}`, { method: "PATCH", body }));
     } catch (error) {
-      toast({ title: failureMessage(error, "The change could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("participants.changeFailed")), tone: "danger" });
     } finally {
       setBusy(null);
     }
@@ -77,9 +80,9 @@ export function ParticipantsPanel({
     setBusy(person.memberId);
     try {
       onChange(await meetingApi<MeetingDetailDTO>(`/api/meetings/${meeting.id}/participants/${person.memberId}${scope === "FUTURE" ? "?scope=FUTURE" : ""}`, { method: "DELETE" }));
-      toast({ title: `${person.fullName} removed`, tone: "success" });
+      toast({ title: t("participants.removed", { name: person.fullName }), tone: "success" });
     } catch (error) {
-      toast({ title: failureMessage(error, "They could not be removed."), tone: "danger" });
+      toast({ title: failureMessage(error, t("participants.removeFailed")), tone: "danger" });
     } finally {
       setBusy(null);
       setRemoving(null);
@@ -90,9 +93,9 @@ export function ParticipantsPanel({
     setBusy(person.memberId);
     try {
       onChange(await meetingApi<MeetingDetailDTO>(`/api/meetings/${meeting.id}/organizer`, { body: { memberId: person.memberId } }));
-      toast({ title: `${person.fullName} now organizes this meeting`, tone: "success" });
+      toast({ title: t("participants.handed", { name: person.fullName }), tone: "success" });
     } catch (error) {
-      toast({ title: failureMessage(error, "The organizer could not be changed."), tone: "danger" });
+      toast({ title: failureMessage(error, t("participants.handFailed")), tone: "danger" });
     } finally {
       setBusy(null);
       setHanding(null);
@@ -103,19 +106,19 @@ export function ParticipantsPanel({
     <section aria-labelledby={`participants-${variant}`} className={cn(variant === "rail" && "nesto-card p-5")} data-testid="participants-panel">
       <div className="flex items-center justify-between gap-2">
         <h2 id={`participants-${variant}`} className="text-card font-semibold text-fg">
-          {variant === "attendance" ? "Attendance" : "Participants"}
+          {variant === "attendance" ? t("participants.attendance") : t("participants.participants")}
           <span className="ml-1.5 text-table font-normal text-fg-subtle">{meeting.participants.length}</span>
         </h2>
         {caps.canManageParticipants && variant === "rail" ? (
           <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(true)}>
             <UserPlus aria-hidden="true" />
-            Add
+            {t("participants.add")}
           </Button>
         ) : null}
       </div>
       {variant === "rail" ? (
         <p className="mt-1 text-meta text-fg-subtle">
-          {[counts.ACCEPTED ? `${counts.ACCEPTED} accepted` : null, counts.TENTATIVE ? `${counts.TENTATIVE} tentative` : null, counts.DECLINED ? `${counts.DECLINED} declined` : null, counts.PENDING ? `${counts.PENDING} awaiting reply` : null]
+          {[counts.ACCEPTED ? t("participants.accepted", { count: counts.ACCEPTED }) : null, counts.TENTATIVE ? t("participants.tentative", { count: counts.TENTATIVE }) : null, counts.DECLINED ? t("participants.declined", { count: counts.DECLINED }) : null, counts.PENDING ? t("participants.awaiting", { count: counts.PENDING }) : null]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -134,13 +137,13 @@ export function ParticipantsPanel({
                 {person.role === "ORGANIZER" ? <Crown aria-hidden="true" className="size-3 shrink-0 text-accent-strong" /> : null}
               </span>
               <span className="block truncate text-meta text-fg-subtle">
-                {[PARTICIPANT_ROLE_LABELS[person.role], person.required ? null : "Optional", person.role === "ORGANIZER" ? null : RESPONSE_LABELS[person.response], person.active ? null : "No longer a member"].filter(Boolean).join(" · ")}
+                {[meetingsLabel(t, "role", person.role, PARTICIPANT_ROLE_LABELS[person.role]), person.required ? null : t("common.optional"), person.role === "ORGANIZER" ? null : meetingsLabel(t, "response", person.response, RESPONSE_LABELS[person.response]), person.active ? null : t("participants.noLongerMember")].filter(Boolean).join(" · ")}
               </span>
             </span>
 
             {caps.canRecordAttendance ? (
               <select
-                aria-label={`Attendance for ${person.fullName}`}
+                aria-label={t("participants.attendanceFor", { name: person.fullName })}
                 value={person.attendance}
                 disabled={busy === person.memberId}
                 onChange={(change) => void patch(person.memberId, { attendance: change.target.value })}
@@ -151,12 +154,12 @@ export function ParticipantsPanel({
               >
                 {(["UNKNOWN", "PRESENT", "ABSENT", "EXCUSED"] as const).map((status) => (
                   <option key={status} value={status}>
-                    {ATTENDANCE_LABELS[status]}
+                    {meetingsLabel(t, "attendance", status, ATTENDANCE_LABELS[status])}
                   </option>
                 ))}
               </select>
             ) : person.attendance !== "UNKNOWN" && meeting.status !== "SCHEDULED" ? (
-              <span className="text-meta text-fg-muted">{ATTENDANCE_LABELS[person.attendance]}</span>
+              <span className="text-meta text-fg-muted">{meetingsLabel(t, "attendance", person.attendance, ATTENDANCE_LABELS[person.attendance])}</span>
             ) : null}
 
             {busy === person.memberId ? <Loader2 aria-hidden="true" className="size-4 animate-spin text-fg-subtle" /> : null}
@@ -164,20 +167,20 @@ export function ParticipantsPanel({
             {caps.canManageParticipants && person.role !== "ORGANIZER" && variant === "rail" ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" aria-label={`Manage ${person.fullName}`} className="grid place-items-center rounded-md p-1 text-fg-subtle opacity-70 outline-none hover:bg-hover hover:text-fg focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 touch:size-11 touch:p-0 touch:opacity-100">
+                  <button type="button" aria-label={t("participants.manage", { name: person.fullName })} className="grid place-items-center rounded-md p-1 text-fg-subtle opacity-70 outline-none hover:bg-hover hover:text-fg focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 touch:size-11 touch:p-0 touch:opacity-100">
                     <MoreHorizontal aria-hidden="true" className="size-4" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {ROLES.filter((role) => role !== person.role).map((role) => (
                     <DropdownMenuItem key={role} onSelect={() => void patch(person.memberId, { role })}>
-                      Make {PARTICIPANT_ROLE_LABELS[role].toLowerCase()}
+                      {t("participants.make", { role: meetingsLabel(t, "roleLower", role, PARTICIPANT_ROLE_LABELS[role].toLowerCase()) })}
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuItem onSelect={() => void patch(person.memberId, { required: !person.required })}>{person.required ? "Mark optional" : "Mark required"}</DropdownMenuItem>
-                  {caps.canTransferOrganizer && person.active ? <DropdownMenuItem onSelect={() => setHanding(person)}>Hand over as organizer</DropdownMenuItem> : null}
+                  <DropdownMenuItem onSelect={() => void patch(person.memberId, { required: !person.required })}>{person.required ? t("participants.markOptional") : t("participants.markRequired")}</DropdownMenuItem>
+                  {caps.canTransferOrganizer && person.active ? <DropdownMenuItem onSelect={() => setHanding(person)}>{t("participants.handOver")}</DropdownMenuItem> : null}
                   <DropdownMenuItem onSelect={() => setRemoving(person)} className="text-danger-strong">
-                    Remove from meeting
+                    {t("participants.removeFromMeeting")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -190,21 +193,21 @@ export function ParticipantsPanel({
 
       <Dialog open={removing !== null} onOpenChange={(open) => (open ? null : setRemoving(null))}>
         <DialogContent className="max-w-md">
-          <DialogTitle>Remove {removing?.fullName}?</DialogTitle>
+          <DialogTitle>{t("participants.removeTitle", { name: removing?.fullName ?? "" })}</DialogTitle>
           <DialogDescription>
-            {meeting.series ? "They come off this meeting and its reminders. You can also take them off every later meeting in the series." : "They come off the meeting and lose its reminders."}
+            {meeting.series ? t("participants.removeSeries") : t("participants.removeSingle")}
           </DialogDescription>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setRemoving(null)} disabled={busy !== null}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             {meeting.series ? (
               <Button type="button" variant="secondary" onClick={() => removing && void remove(removing, "FUTURE")} disabled={busy !== null}>
-                This and later meetings
+                {t("participants.thisAndLater")}
               </Button>
             ) : null}
             <Button type="button" variant="danger" onClick={() => removing && void remove(removing, "THIS")} disabled={busy !== null}>
-              {meeting.series ? "This meeting" : "Remove"}
+              {meeting.series ? t("participants.thisMeeting") : t("common.remove")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -212,9 +215,9 @@ export function ParticipantsPanel({
       <ConfirmDialog
         open={handing !== null}
         onOpenChange={(open) => (open ? null : setHanding(null))}
-        title={`Hand this meeting to ${handing?.fullName ?? ""}?`}
-        description="They become the organizer and decide who is on it and when it happens. You stay on as an attendee."
-        confirmLabel="Hand over"
+        title={t("participants.handTitle", { name: handing?.fullName ?? "" })}
+        description={t("participants.handDescription")}
+        confirmLabel={t("participants.handConfirm")}
         destructive={false}
         pending={busy !== null}
         onConfirm={() => handing && void handOver(handing)}
@@ -224,11 +227,12 @@ export function ParticipantsPanel({
 }
 
 function AddPeopleDialog({ open, onOpenChange, meeting, onChange }: { open: boolean; onOpenChange: (open: boolean) => void; meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void }) {
+  const t = useMeetingsTranslations();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>Add people</DialogTitle>
-        <DialogDescription>{meeting.status === "DRAFT" ? "They are invited when the meeting is scheduled." : "They are invited straight away."}</DialogDescription>
+        <DialogTitle>{t("participants.addTitle")}</DialogTitle>
+        <DialogDescription>{meeting.status === "DRAFT" ? t("participants.addDraft") : t("participants.addNow")}</DialogDescription>
         {/* Inside the dialog, so the people picked belong to its guarded close (AUD-03 §5). Mounted on open: it starts empty. */}
         <AddPeopleForm meeting={meeting} onChange={onChange} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -238,6 +242,7 @@ function AddPeopleDialog({ open, onOpenChange, meeting, onChange }: { open: bool
 
 function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; onDone: () => void }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const [picked, setPicked] = React.useState<Array<PickedPerson & { role: Role }>>([]);
   const [scope, setScope] = React.useState<"THIS" | "FUTURE">("THIS");
   const [pending, setPending] = React.useState(false);
@@ -246,7 +251,7 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
   // their invitations — a workflow step the prompt never takes (AUD-03 §3).
   const draft = meeting.status === "DRAFT";
   const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
-  const editor = useUnsavedEditor({ module: "meetings", saveKind: draft ? "create" : "none", workflow: "Add and invite", label: "Add people", save: draft ? () => run.current() : undefined });
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: draft ? "create" : "none", workflow: t("participants.addWorkflow"), label: t("participants.addTitle"), save: draft ? () => run.current() : undefined });
   const { setDirty, setSaving, setUnresolved } = editor;
   React.useEffect(() => setDirty(picked.length > 0 || scope !== "THIS"), [picked, scope, setDirty]);
 
@@ -264,13 +269,13 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
       setDirty(false);
       setUnresolved(false);
       setSaving(false);
-      toast({ title: picked.length === 1 ? `${picked[0].fullName} added` : `${picked.length} people added`, tone: "success" });
+      toast({ title: picked.length === 1 ? t("participants.added", { name: picked[0].fullName }) : t("participants.addedMany", { count: picked.length }), tone: "success" });
       onDone();
       return { kind: "committed" };
     } catch (error) {
       const outcome = meetingFailureOutcome(error);
       setUnresolved(outcome.kind === "unknown");
-      toast({ title: failureMessage(error, "They could not be added."), tone: "danger" });
+      toast({ title: failureMessage(error, t("participants.addFailed")), tone: "danger" });
       return outcome;
     } finally {
       setPending(false);
@@ -282,7 +287,7 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
     <>
       <div className="mt-4 space-y-3">
         <Label htmlFor="add-people" className="sr-only">
-          Find people
+          {t("participants.find")}
         </Label>
         <PeoplePicker id="add-people" exclude={[...meeting.participants.map((row) => row.memberId), ...picked.map((row) => row.memberId)]} onPick={(person) => setPicked((rows) => [...rows, { ...person, role: "ATTENDEE" }])} />
         {picked.length > 0 ? (
@@ -299,12 +304,12 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
                 >
                   {ROLES.map((role) => (
                     <option key={role} value={role}>
-                      {PARTICIPANT_ROLE_LABELS[role]}
+                      {meetingsLabel(t, "role", role, PARTICIPANT_ROLE_LABELS[role])}
                     </option>
                   ))}
                 </select>
                 <button type="button" className="text-meta text-fg-subtle hover:text-fg" onClick={() => setPicked((rows) => rows.filter((row) => row.memberId !== person.memberId))}>
-                  Remove
+                  {t("common.remove")}
                 </button>
               </li>
             ))}
@@ -312,10 +317,10 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
         ) : null}
         {meeting.series ? (
           <div className="space-y-1">
-            <Label htmlFor="add-people-scope">Add to</Label>
+            <Label htmlFor="add-people-scope">{t("participants.addTo")}</Label>
             <select id="add-people-scope" className={selectClass} value={scope} onChange={(change) => setScope(change.target.value as "THIS" | "FUTURE")}>
-              <option value="THIS">This meeting only</option>
-              <option value="FUTURE">This and every later meeting</option>
+              <option value="THIS">{t("participants.thisOnly")}</option>
+              <option value="FUTURE">{t("participants.everyLater")}</option>
             </select>
           </div>
         ) : null}
@@ -323,12 +328,12 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </DialogClose>
         <Button type="button" onClick={() => void run.current()} disabled={pending || picked.length === 0}>
           {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-          Add {picked.length > 1 ? `${picked.length} people` : ""}
+          {picked.length > 1 ? t("participants.addPeople", { count: picked.length }) : t("participants.addButton")}
         </Button>
       </DialogFooter>
     </>

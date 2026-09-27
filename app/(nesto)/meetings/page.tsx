@@ -9,16 +9,21 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { meetingExperience } from "@/lib/modules/meetings/meeting.workspace";
 import { MeetingsSection } from "./meetings-section";
 
-export const metadata: Metadata = { title: "Meetings" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meetings");
+  return { title: t("meta.upcoming") };
+}
 
 /** Upcoming meetings, soonest first — the default view (PRD #40 §91). */
 export default async function MeetingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await requireModule("meetings");
   const experience = meetingExperience(context);
   const params = await searchParams;
+  const t = await getTranslations("meetings");
 
   return (
     <ModulePage
@@ -30,7 +35,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
           <Button asChild size="sm">
             <Link href="/meetings/new">
               <Plus aria-hidden="true" />
-              New meeting
+              {t("common.newMeeting")}
             </Link>
           </Button>
         ) : null

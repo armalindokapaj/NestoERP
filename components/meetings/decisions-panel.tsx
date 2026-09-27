@@ -14,6 +14,7 @@ import type { MeetingDecisionDTO, MeetingDetailDTO } from "@/lib/modules/meeting
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PlainText } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
@@ -23,6 +24,7 @@ import { useMeetingDraft } from "./use-meeting-draft";
  */
 export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; limit?: number }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const canRecord = meeting.capabilities.canRecordDecision;
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
@@ -40,7 +42,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
       if (success) toast({ title: success, tone: "success" });
       return { kind: "committed" };
     } catch (error) {
-      toast({ title: failureMessage(error, "The decision could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("decisions.failed")), tone: "danger" });
       return meetingFailureOutcome(error);
     } finally {
       setPending(null);
@@ -53,12 +55,12 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
 
   // The decision being recorded and the one being edited are unsaved work (AUD-03 §3).
   const adder = useMeetingDraft({
-    label: "New decision",
+    label: t("decisions.newLabel"),
     saveKind: "create",
     dirty: title !== "" || description !== "",
     send: async () => {
       if (!title.trim()) return { kind: "invalid" };
-      const outcome = await send("add", `/api/meetings/${meeting.id}/decisions`, { body: { title: title.trim(), description: description.trim() || null } }, "Decision recorded");
+      const outcome = await send("add", `/api/meetings/${meeting.id}/decisions`, { body: { title: title.trim(), description: description.trim() || null } }, t("decisions.recorded"));
       if (outcome.kind === "committed") {
         setTitle("");
         setDescription("");
@@ -68,7 +70,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
     },
   });
   const editor = useMeetingDraft({
-    label: () => `Decision: ${edit.title.trim() || editBase.title}`,
+    label: () => t("decisions.editing", { title: edit.title.trim() || editBase.title }),
     saveKind: "save",
     dirty: editing !== null && (edit.title !== editBase.title || edit.description !== editBase.description),
     send: async () => {
@@ -86,12 +88,12 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
     <section aria-labelledby="decisions-heading" className="space-y-3" data-testid="decisions-panel">
       <div className="flex items-center justify-between gap-2">
         <h2 id="decisions-heading" className="text-card font-semibold text-fg">
-          Decisions <span className="ml-1 text-table font-normal text-fg-subtle">{meeting.decisions.length}</span>
+          {t("decisions.title")} <span className="ml-1 text-table font-normal text-fg-subtle">{meeting.decisions.length}</span>
         </h2>
         {canRecord && !open ? (
           <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <Plus aria-hidden="true" />
-            Record decision
+            {t("decisions.record")}
           </Button>
         ) : null}
       </div>
@@ -106,11 +108,11 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="decision-title">What was decided</Label>
-            <Input id="decision-title" autoFocus value={title} maxLength={300} onChange={(event) => setTitle(event.target.value)} placeholder="Use façade option B for the south elevation." />
+            <Label htmlFor="decision-title">{t("decisions.what")}</Label>
+            <Input id="decision-title" autoFocus value={title} maxLength={300} onChange={(event) => setTitle(event.target.value)} placeholder={t("decisions.whatPlaceholder")} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="decision-description">Detail (optional)</Label>
+            <Label htmlFor="decision-description">{t("decisions.detail")}</Label>
             <Textarea id="decision-description" rows={2} maxLength={10_000} value={description} onChange={(event) => setDescription(event.target.value)} />
           </div>
           <div className="flex justify-end gap-2">
@@ -126,18 +128,18 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                 })
               }
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={pending === "add" || !title.trim()}>
               {pending === "add" ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-              Record
+              {t("decisions.recordButton")}
             </Button>
           </div>
         </form>
       ) : null}
 
       {decisions.length === 0 ? (
-        <p className="text-table text-fg-subtle">No decisions recorded.</p>
+        <p className="text-table text-fg-subtle">{t("decisions.none")}</p>
       ) : (
         <ol className="space-y-2">
           {decisions.map((decision) => (
@@ -151,14 +153,14 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                     void editor.save();
                   }}
                 >
-                  <Input aria-label="Decision" value={edit.title} maxLength={300} onChange={(event) => setEdit({ ...edit, title: event.target.value })} />
-                  <Textarea aria-label="Detail" rows={2} value={edit.description} maxLength={10_000} onChange={(event) => setEdit({ ...edit, description: event.target.value })} />
+                  <Input aria-label={t("decisions.decision")} value={edit.title} maxLength={300} onChange={(event) => setEdit({ ...edit, title: event.target.value })} />
+                  <Textarea aria-label={t("decisions.detailLabel")} rows={2} value={edit.description} maxLength={10_000} onChange={(event) => setEdit({ ...edit, description: event.target.value })} />
                   <div className="flex justify-end gap-2">
                     <Button type="button" size="sm" variant="ghost" onClick={() => void editor.dismiss(() => setEditing(null))}>
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                     <Button type="submit" size="sm" disabled={!edit.title.trim() || pending === decision.id}>
-                      Save
+                      {t("common.save")}
                     </Button>
                   </div>
                 </form>
@@ -166,14 +168,14 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                 <div className="min-w-0 flex-1">
                   <p className="text-body font-medium text-fg">{decision.title}</p>
                   {decision.description ? <PlainText text={decision.description} className="mt-1 text-table text-fg-muted" /> : null}
-                  <p className="mt-1 text-meta text-fg-subtle">Recorded by {decision.recordedByMemberId ? <PersonLink memberId={decision.recordedByMemberId} name={decision.recordedBy} /> : decision.recordedBy}</p>
+                  <p className="mt-1 text-meta text-fg-subtle">{t("decisions.recordedBy")}{decision.recordedByMemberId ? <PersonLink memberId={decision.recordedByMemberId} name={decision.recordedBy} /> : decision.recordedBy}</p>
                 </div>
               )}
               {canRecord && editing !== decision.id ? (
                 <span className="flex shrink-0 items-start gap-0.5 opacity-70 group-hover:opacity-100">
                   <button
                     type="button"
-                    aria-label={`Edit ${decision.label}`}
+                    aria-label={t("decisions.edit", { label: decision.label })}
                     onClick={() => {
                       const value = { title: decision.title, description: decision.description ?? "" };
                       // Opening another decision replaces the one being edited: ask first.
@@ -187,7 +189,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
                   >
                     <Pencil aria-hidden="true" className="size-4" />
                   </button>
-                  <button type="button" aria-label={`Withdraw ${decision.label}`} onClick={() => setArchiving(decision)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
+                  <button type="button" aria-label={t("decisions.withdraw", { label: decision.label })} onClick={() => setArchiving(decision)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
                     <Trash2 aria-hidden="true" className="size-4" />
                   </button>
                 </span>
@@ -196,14 +198,14 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
           ))}
         </ol>
       )}
-      {limit && meeting.decisions.length > limit ? <p className="text-meta text-fg-subtle">and {meeting.decisions.length - limit} earlier</p> : null}
+      {limit && meeting.decisions.length > limit ? <p className="text-meta text-fg-subtle">{t("decisions.earlier", { count: meeting.decisions.length - limit })}</p> : null}
 
       <ConfirmDialog
         open={archiving !== null}
         onOpenChange={(value) => (value ? null : setArchiving(null))}
-        title={`Withdraw ${archiving?.label ?? "this decision"}?`}
-        description="It comes off the record. Its number is not reused."
-        confirmLabel="Withdraw"
+        title={t("decisions.withdrawTitle", { label: archiving?.label ?? t("decisions.thisDecision") })}
+        description={t("decisions.withdrawDescription")}
+        confirmLabel={t("decisions.withdrawConfirm")}
         pending={pending !== null}
         onConfirm={async () => {
           if (archiving && (await call(archiving.id, `/api/meetings/${meeting.id}/decisions/${archiving.id}`, { method: "DELETE" }))) setArchiving(null);
