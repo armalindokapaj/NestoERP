@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CalendarPlus } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import { localDate } from "@/lib/modules/calendar/calendar.time";
@@ -72,9 +73,10 @@ export function AgendaView({
         const list = byDay.get(day) ?? [];
         return (
           <section key={day} aria-label={dayHeading(day, zone, today)} className="border-b border-line py-4 last:border-b-0">
-            <h3 className={cn("mb-2 px-2 text-[12px] font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
+            {/* The page heading is the h1; day sections follow it directly (AUD-11 §3). */}
+            <h2 className={cn("mb-2 px-2 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
               {dayHeading(day, zone, today)}
-            </h3>
+            </h2>
             {list.length === 0 ? (
               <p className="px-2 text-table text-fg-muted">Nothing scheduled.</p>
             ) : (
@@ -93,7 +95,7 @@ export function AgendaView({
                         style={categoryStyle(event)}
                         className="group grid w-full grid-cols-[76px_minmax(0,1fr)] items-start gap-3 rounded-lg px-2 py-2.5 text-left outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[96px_minmax(0,1fr)]"
                       >
-                        <span className="pt-0.5 text-[12px] leading-5 text-fg-muted tabular-nums">
+                        <span className="pt-0.5 text-meta leading-5 text-fg-muted tabular-nums">
                           {event.allDay && eventDays(event, zone).length > 1
                             ? `Until ${new Intl.DateTimeFormat("en-GB", { timeZone: zone, day: "numeric", month: "short" }).format(new Date(new Date(event.endsAt ?? event.startsAt).getTime() - 1))}`
                             : event.allDay || continues
@@ -108,14 +110,14 @@ export function AgendaView({
                             {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0 text-[var(--cal)]" /> : null}
                             <span className="truncate text-body font-medium text-fg">{event.title}</span>
                             {event.status === "OVERDUE" ? (
-                              <span className="shrink-0 rounded-full bg-warning-soft px-1.5 text-[10px] font-medium text-warning-strong">Overdue</span>
+                              <Badge tone="warning" className="shrink-0 px-1.5 py-0">Overdue</Badge>
                             ) : null}
                             {event.severity === "critical" ? (
-                              <span className="shrink-0 rounded-full bg-danger-soft px-1.5 text-[10px] font-medium text-danger-strong">Critical</span>
+                              <Badge tone="danger" className="shrink-0 px-1.5 py-0">Critical</Badge>
                             ) : null}
                           </span>
                           {event.privacyMode !== "BUSY_ONLY" ? (
-                            <span className="truncate text-[12px] text-fg-muted">
+                            <span className="truncate text-meta text-fg-muted">
                               {[event.project ? event.project.name : event.subtitle, event.participants?.[0]?.name, event.location]
                                 .filter(Boolean)
                                 .join(" · ") || CATEGORY_META[event.category].label}

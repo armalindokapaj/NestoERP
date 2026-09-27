@@ -233,7 +233,7 @@ function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: stri
 /** What the page shows while the first page is on its way: the same cards, the same shape (§101-§103). */
 export function ProjectsPortfolioSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Loading projects">
+    <div className="space-y-5" role="status" aria-busy="true" aria-label="Loading projects">
       <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted sm:max-w-sm motion-reduce:animate-none" />
       <div className={GALLERY_GRID}>
         {Array.from({ length: 8 }, (_, index) => (

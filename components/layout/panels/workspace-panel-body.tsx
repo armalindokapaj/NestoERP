@@ -193,7 +193,7 @@ export function WorkspacePanelBody({
             setActiveKey(null);
           }}
           onKeyDown={onKeyDown}
-          className="h-9 w-full rounded-md border border-line bg-surface px-3 text-table text-fg placeholder:text-fg-subtle hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 touch:h-11"
+          className="h-9 w-full rounded-md border border-line bg-surface px-3 text-table text-fg placeholder:text-fg-subtle hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring touch:h-11"
         />
       ) : null}
 
@@ -206,7 +206,7 @@ export function WorkspacePanelBody({
         tabIndex={searchable ? -1 : 0}
         onKeyDown={searchable ? undefined : onKeyDown}
         data-testid="workspace-list"
-        className="-mx-1 min-h-0 flex-1 overflow-y-auto rounded-md px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="-mx-1 min-h-0 flex-1 overflow-y-auto rounded-md px-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         {groupOption ? (
           <div role="group" aria-label={t("groupHeading")} className="mb-2">

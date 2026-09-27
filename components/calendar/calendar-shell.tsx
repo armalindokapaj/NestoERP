@@ -250,7 +250,7 @@ export function CalendarShell({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-fg-subtle">Calendar</p>
+          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">Calendar</p>
           <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" aria-live="polite">
             {periodLabel(view, date, zone)}
           </h1>
@@ -286,7 +286,7 @@ export function CalendarShell({
               </button>
             ))}
           </div>
-          <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFilterSheet(true)} aria-label="Filters">
+          <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFilterSheet(true)} aria-label={filtersActive ? "Filters, some applied" : "Filters"}>
             <SlidersHorizontal aria-hidden="true" />
             {filtersActive ? <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" /> : null}
           </Button>

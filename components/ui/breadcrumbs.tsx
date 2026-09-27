@@ -167,7 +167,7 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
 
   return (
     <div className={cn("flex min-w-0 items-center gap-2", className)} data-testid="record-navigation-header">
-      <div className="flex shrink-0 items-center gap-1" aria-label="History navigation">
+      <div role="group" className="flex shrink-0 items-center gap-1" aria-label="History navigation">
         <HistoryButton
           direction="back"
           disabled={!navigation?.canGoBack && !fallback}

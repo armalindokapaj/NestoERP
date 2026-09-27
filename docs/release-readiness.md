@@ -3861,3 +3861,66 @@ There is no migration: dismissals are session-local, as PRD §10 allows.
   - Tab names mix Title Case ("My Tasks") and sentence case ("Low stock").
   - The tasks search placeholder stays "Search tasks…", because an AUD-04 spec finds the search box by that label.
 - **Not surveyed for page states:** activity, announcements, calendar, notifications, settings, organization and people.
+
+## 49. AUD-11 — Accessibility and visual consistency
+
+AUD-11 makes the existing workflows operable by keyboard, touch and assistive technology, and states that are signalled only by colour now carry text. It covers both themes and applies shared fixes once, in the primitives. This is a limited product audit, not a standards certification (PRD §1).
+
+The inventory is [surface-inventory.md](a11y/surface-inventory.md) (AV-01): shell and shared rows, then every module and Platform Admin area. The measured colour pairs are in [contrast.md](a11y/contrast.md).
+
+### 49.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Measured contrast failures, with the old ratio on its target background | Minimal token changes: `fg-subtle` #686d76 / #8a8f98, light warning #b27a1f, light danger #cc4540 plus a new `--nesto-danger-fg`, and a new `--nesto-control-border` of at least 3.1:1. A unit test measures 90 pairs in both themes from the real `tokens.css` and fails any pair below its threshold |
+| • Secondary text: 4.46:1 in light, 4.42:1 in dark<br>• Warning fill: 2.98:1<br>• White on the danger button: 3.96:1 in light, 2.91:1 in dark<br>• Text-field boundaries: 1.43:1 in light, 1.62:1 in dark | (fixed by the token changes above) |
+| Focus rings at 20–30% opacity. The select removed its outline. Menu items showed focus only as a tint. In forced-colours mode every ring disappeared | A solid 2px ring everywhere, an inset ring on menu and listbox items, and a system Highlight outline in forced-colours mode |
+| No skip link. Collapsed-rail links had no name. Labels sat on role-less elements. Dialogs could focus a destructive first control, and focus fell to the body when the button that opened a dialog was gone. Every toast was assertive, and there was no shared announcer | A skip link in the app and in Platform Admin (whose `<main>` is now `#nesto-main`). Named rail links. Dialogs skip destructive controls on open and return focus to main when the opener is gone. One polite and one assertive announcer, with only warning and danger toasts assertive. A dev-time warning for an unnamed icon button. `CardTitle` takes `as`, h2 by default |
+| Unread, billable and similar states were shown only by colour or a dot. Repeated row actions had generic names. Calendar pills were built ad hoc, some text was 9–10px, the Reject button style was inconsistent, and focus jumped to the top after a delete | Text for every such state. Contextual names ("Edit comment by …", "Unlink task …"). The shared `Badge` for status pills. No text under 11px, and named scale sizes. Decisions always use a secondary button. After a removal, focus goes to the next row, the previous one or the heading (`components/modules/focus-after-removal.ts`) |
+| The theme picker had three Tab stops. `config/theme.ts` had drifted from the CSS. Chart colours did not follow the theme | A radio group with arrow keys. `theme.ts` is aligned with the CSS and checked by a test. Charts resolve colours per scheme and stay visible in forced-colours mode. Reduced motion also stops smooth scrolling |
+| Three real pages had no title of their own | `company/[section]`, `support/[section]` and the support record page are titled. The other eight "untitled" routes only redirect |
+
+`@axe-core/playwright` is added as a dev dependency, the one test dependency the PRD allows.
+
+### 49.2 The evidence
+
+- **Unit tests** in `tests/unit/a11y/`: `contrast` (AV-10), `theme-drift` (AV-13, AV-14, AV-15), `announcer-and-names` (AV-06, AV-09) and `aud11-modules` (16, a ratchet). The ratchet fails on:
+  - positive tabindex;
+  - unnamed icon controls;
+  - labels on plain elements;
+  - clickable non-interactive elements, except two documented ones;
+  - text under 11px;
+  - ad hoc pills;
+  - hex colours;
+  - ghost-style Reject buttons.
+- **Full vitest:**
+  - `nesto_a6b`: 3,938 of 3,940. The 2 failures also fail on 324a3ca9 (the 3D viewer shell and the telemetry budget).
+  - `nesto_a6c`: 1,926 passed, 2 skipped.
+  - Every database gate passes after the run.
+- **Other gates:**
+  - tsc and eslint are clean.
+  - `verify:authorization`, `ownership`, `state`, `workers` and `production-guards` pass.
+  - The security matrix was regenerated, and the access manifest is current.
+  - A production `next build` passes.
+- **E2E, written for the final pass:**
+  - `tests/e2e/a11y/aud11-shared.spec.ts`:
+    - axe scans (wcag2a, wcag2aa, wcag21aa, failing on serious or critical) in light and dark, and with a menu open or an error shown;
+    - skip link and landmarks;
+    - a 25-stop focus sweep;
+    - the dialog trap and focus restore with AUD-03 Stay;
+    - live regions and themes;
+    - reduced motion and forced colours;
+    - 320px reflow, 200% text and 400% zoom.
+  - `aud11-modules.spec.ts`:
+    - an axe scan of each module's list, detail and editor, per role family and in both themes;
+    - keyboard-only task edit, approval, expense creation, and document open and download, each checked against the database.
+
+### 49.3 Not done and limits
+
+- **Manual screen-reader gates (NVDA on Windows, VoiceOver on Safari and iOS) are unrun.** They need real assistive-technology environments (PRD §8), and they have not been simulated.
+- **Specialist viewers:** the 3D viewer's canonical alternative is the units list; it offers no screen-reader equivalent for exploring the space. Uploaded files are not remediated: NESTO provides names, status and open/download, not the files' contents.
+- **Unmeasured:** white text over project photos.
+- **Decisions:**
+  - After a desktop navigation, focus stays on the sidebar link. It moves to main only when it would otherwise be lost, and Next.js announces the page title.
+  - Chart series keep their data colours in forced-colours mode; the legends carry the text.
+  - Disabled controls are exempt from the contrast ratios.

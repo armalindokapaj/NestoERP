@@ -43,6 +43,9 @@ function NavItem({
       // Only an accepted navigation closes the drawer; a modified click leaves it open (N02).
       onNavigate={() => onNavigate?.()}
       aria-current={active ? "page" : undefined}
+      // The rail hides the text label with display:none, which also removes it from the
+      // accessible name; the name is stated so a rail icon is never announced as just "link" (AUD-11 AV-06).
+      aria-label={label}
       data-pending={pending || undefined}
       className={cn(
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",

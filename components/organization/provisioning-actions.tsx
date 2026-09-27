@@ -56,7 +56,7 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
         </Button>
       ) : null}
       {actions.canReject ? (
-        <Button size="sm" variant="ghost" onClick={() => setOpen("reject")}>
+        <Button size="sm" variant="secondary" onClick={() => setOpen("reject")}>
           Reject
         </Button>
       ) : null}

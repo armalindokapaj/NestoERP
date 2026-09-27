@@ -9,6 +9,10 @@
  * edit repaints the product in both colour schemes rather than only one — the
  * light and dark values are declared together with light-dark() in tokens.css,
  * and nothing in TypeScript needs to know which one is showing.
+ *
+ * tests/unit/a11y/theme-drift.test.ts holds this file to the CSS (AUD-11 §2,
+ * AV-13): every colour names a declared token, and every number here equals
+ * the value tokens.css or globals.css actually declares.
  */
 
 const color = (token: string) => `var(--nesto-${token})`;
@@ -28,16 +32,35 @@ export const theme = {
 
     border: color("border"),
     borderStrong: color("border-strong"),
+    /** A control's identifying boundary, >= 3:1 on every ground (AUD-11 AV-10). */
+    controlBorder: color("control-border"),
 
     primary: color("primary"),
+    primaryFg: color("primary-fg"),
     accent: color("accent"),
+    accentFg: color("accent-fg"),
+    accentStrong: color("accent-strong"),
     accentSoft: color("accent-soft"),
+    ring: color("ring"),
     graphite: color("graphite"),
+    graphiteFg: color("graphite-fg"),
 
+    /** Fills: dots, bars, chart series, solid buttons. */
     success: color("success"),
     warning: color("warning"),
     danger: color("danger"),
+    dangerFg: color("danger-fg"),
     info: color("info"),
+    /** Text and figures in a status colour. */
+    successStrong: color("success-strong"),
+    warningStrong: color("warning-strong"),
+    dangerStrong: color("danger-strong"),
+    infoStrong: color("info-strong"),
+    /** Status grounds. */
+    successSoft: color("success-soft"),
+    warningSoft: color("warning-soft"),
+    dangerSoft: color("danger-soft"),
+    infoSoft: color("info-soft"),
   },
 
   /** 8px base scale (§8). */
@@ -45,6 +68,7 @@ export const theme = {
 
   /** §9 — moderate corners, never fully rounded surfaces. */
   radius: {
+    small: 6,
     button: 8,
     input: 8,
     smallCard: 10,
@@ -90,16 +114,26 @@ export const theme = {
     fast: 150,
     base: 180,
     slow: 220,
+    /** The public site's one entrance movement (§81). */
+    rise: 600,
     easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
   },
 
-  /** §85 — one ordered stack, so overlays cannot fight each other. */
+  /**
+   * §85 — one ordered stack, so overlays cannot fight each other. The full
+   * ladder that globals.css documents (AUD-04 §6), not only its first five
+   * rungs (AUD-11 §2: the view had drifted from the CSS).
+   */
   zIndex: {
-    sidebar: 40,
     topbar: 30,
+    sidebar: 40,
     drawer: 50,
+    sheet: 55,
     dialog: 60,
+    floating: 65,
+    tooltip: 66,
     toast: 70,
+    unsavedPrompt: 80,
   },
 } as const;
 

@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
+import { restoreFocusAfterClose, safeInitialFocus } from "@/lib/a11y/overlay-focus";
 
 export { useDialogClose } from "@/components/unsaved/guarded-root";
 import { cn } from "@/lib/utils/cn";
@@ -31,6 +32,8 @@ export function DialogContent({
   className,
   closeClassName,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   /** Placement of the close control, for a dialog drawn full screen under a notch. */
@@ -54,6 +57,16 @@ export function DialogContent({
           "data-[state=closed]:animate-[nesto-zoom-out_150ms_var(--nesto-ease)]",
           className,
         )}
+        /* Initial focus never on a destructive action; focus back to the invoker, or
+           to the main region when the invoker is gone (AUD-11 §4, AV-05). */
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          safeInitialFocus(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          restoreFocusAfterClose(event);
+        }}
         {...props}
       >
         {children}

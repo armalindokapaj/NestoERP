@@ -53,7 +53,7 @@ export function AvatarStack({ people, total, max = 4 }: { people: Array<Pick<Mee
   const shown = people.slice(0, max);
   const more = total - shown.length;
   return (
-    <span className="flex items-center" aria-label={`${total} ${total === 1 ? "person" : "people"}`}>
+    <span className="flex items-center" role="img" aria-label={`${total} ${total === 1 ? "person" : "people"}`}>
       {shown.map((person, index) => (
         <span key={person.memberId} className={cn("relative rounded-full ring-2 ring-surface", index > 0 && "-ml-1.5")} style={{ zIndex: shown.length - index }} title={person.fullName}>
           <PersonAvatar person={person} />

@@ -23,6 +23,7 @@
 
   --color-line: var(--nesto-border);
   --color-line-strong: var(--nesto-border-strong);
+  --color-control: var(--nesto-control-border);
 
   --color-primary: var(--nesto-primary);
   --color-primary-fg: var(--nesto-primary-fg);
@@ -45,6 +46,7 @@
   --color-danger: var(--nesto-danger);
   --color-danger-strong: var(--nesto-danger-strong);
   --color-danger-soft: var(--nesto-danger-soft);
+  --color-danger-fg: var(--nesto-danger-fg);
   --color-info: var(--nesto-info);
   --color-info-strong: var(--nesto-info-strong);
   --color-info-soft: var(--nesto-info-soft);
@@ -199,7 +201,10 @@
     outline-offset: 2px;
   }
 
-  /* §52: respect users who have asked for less motion. */
+  /* §52: respect users who have asked for less motion. Dialog zoom, drawer
+     slides, toasts, tooltips and navigation feedback all run on these keyframes
+     and transitions, so this one rule covers them; skeletons and the pending
+     dot are made static below rather than frozen mid-pulse (AUD-11 §7, AV-15). */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -207,6 +212,7 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 
@@ -557,4 +563,44 @@ html[data-nesto-covered] body {
    nothing of it stays readable behind the notice. */
 html[data-unsaved-masked] #nesto-main {
   visibility: hidden;
+}
+
+/*
+ * Forced colours / Windows High Contrast (AUD-11 §7, AV-15).
+ *
+ * The system palette replaces every author colour, and box-shadows vanish —
+ * which would take with them every `ring-*` focus indicator, the tinted
+ * selected states and the skeleton blocks. These rules put back a system-
+ * coloured equivalent; nothing opts out of the system colours wholesale.
+ * Unlayered and `!important` on purpose: they must beat the utilities that
+ * set `outline-style: none` beside a ring.
+ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Selected states drawn as a tint or a 2px bar: an underline survives. */
+  [aria-current="page"],
+  [role="tab"][aria-selected="true"],
+  [role="radio"][aria-checked="true"],
+  [role="menuitemradio"][aria-checked="true"] {
+    text-decoration-line: underline !important;
+    text-decoration-thickness: 2px !important;
+    text-underline-offset: 4px !important;
+  }
+
+  /* Loading is still visible: a skeleton block is an outlined shape. */
+  .nesto-skeleton {
+    outline: 1px solid GrayText;
+    outline-offset: -1px;
+  }
+
+  /* Menu and listbox rows highlighted with a tint only. */
+  [role="menuitem"][data-highlighted],
+  [role="option"][data-highlighted] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }

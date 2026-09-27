@@ -406,7 +406,7 @@ export function ApprovalsShell({
     <div className="flex flex-col gap-5" data-testid="approvals-center">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-fg-subtle">Approvals</p>
+          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">Approvals</p>
           <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
             {partial
               ? counts.waiting > 0
@@ -493,11 +493,10 @@ export function ApprovalsShell({
             >
               {tab.label}
               {tab.key === "waiting" && (counts.waiting > 0 || partial) ? (
-                <span
-                  className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}
-                  aria-label={partial ? `${counts.waiting > 0 ? `At least ${counts.waiting}` : "An unknown number"}, some sources could not be loaded` : undefined}
-                >
-                  {waitingText}
+                <span className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}>
+                  {/* A span's aria-label is not read; the partial count is spoken as text (AUD-11 §5, AV-06). */}
+                  <span aria-hidden={partial ? true : undefined}>{waitingText}</span>
+                  {partial ? <span className="sr-only">{`${counts.waiting > 0 ? `At least ${counts.waiting}` : "An unknown number"}, some sources could not be loaded`}</span> : null}
                 </span>
               ) : null}
             </button>

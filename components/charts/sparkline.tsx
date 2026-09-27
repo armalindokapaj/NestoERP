@@ -1,4 +1,5 @@
 import { TONE_COLOR, type ChartTone } from "@/components/charts/palette";
+import { cn } from "@/lib/utils/cn";
 
 /**
  * Line chart (design spec §71).
@@ -40,18 +41,20 @@ export function Sparkline({
       role="img"
       // The values themselves, not only the caption (AUD-04 §5, SP-14).
       aria-label={`${caption}: ${points.join(", ")}`}
-      className={className}
+      // The line is data: kept in forced colours (AUD-11 AV-15).
+      className={cn("forced-color-adjust-none", className)}
     >
       <polyline
         points={`0,${height} ${coords.join(" ")} ${width},${height}`}
-        fill={color}
+        // Styles, not attributes, so the token resolves for the current scheme (AUD-11 §7, AV-14).
+        style={{ fill: color }}
         fillOpacity="0.08"
         stroke="none"
       />
       <polyline
         points={coords.join(" ")}
         fill="none"
-        stroke={color}
+        style={{ stroke: color }}
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"

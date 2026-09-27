@@ -68,7 +68,8 @@ export default async function CompanySettingsPage() {
                   <p className="truncate text-table font-medium text-fg">{owner.holderName}</p>
                   <p className="text-meta text-fg-subtle">{[owner.isGroup ? t("company.ownershipGroup") : null, owner.holderRegistration].filter(Boolean).join(" · ")}</p>
                 </div>
-                <span className="shrink-0 text-table font-semibold tabular-nums text-fg" aria-label={t("company.ownershipShare")}>
+                <span className="shrink-0 text-table font-semibold tabular-nums text-fg">
+                  <span className="sr-only">{t("company.ownershipShare")}: </span>
                   {owner.sharePercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%
                 </span>
               </li>

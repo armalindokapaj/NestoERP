@@ -223,7 +223,7 @@ function ActionRow({
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
           {action.owner ? (
             <span className="flex items-center gap-1.5">
-              <PersonAvatar person={action.owner} className="size-5 text-[9px]" />
+              <PersonAvatar person={action.owner} className="size-5 text-micro" />
               <PersonLink memberId={action.owner.memberId} name={action.owner.fullName} />
             </span>
           ) : (

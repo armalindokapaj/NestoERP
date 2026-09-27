@@ -498,7 +498,7 @@ export function EventFormDrawer({
                       <TriangleAlert aria-hidden="true" className="size-4" />
                       {conflicts.length === 1 ? "1 person has a conflict" : `${conflicts.length} people have conflicts`}
                     </p>
-                    <ul className="mt-1 space-y-0.5 text-[12px]">
+                    <ul className="mt-1 space-y-0.5 text-meta">
                       {conflicts.map((conflict) => (
                         <li key={conflict.memberId}>
                           {conflict.fullName} — Busy{" "}

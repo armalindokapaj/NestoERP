@@ -55,7 +55,7 @@ export function MonthView({
             <div
               key={weekday}
               role="columnheader"
-              className={cn("px-3 py-2 text-[12px] font-medium uppercase tracking-[0.08em] text-fg-subtle", !workingDays.includes(index + 1) && "text-fg-subtle/70")}
+              className={cn("px-3 py-2 text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle", !workingDays.includes(index + 1) && "text-fg-subtle/70")}
             >
               {weekday}
             </div>
@@ -86,7 +86,7 @@ export function MonthView({
                   onClick={() => onSelectDate(day)}
                   aria-label={`Open ${dayHeading(day, zone, today)}`}
                   className={cn(
-                    "grid size-7 place-items-center self-start rounded-full text-[13px] tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                    "grid size-7 place-items-center self-start rounded-full text-table tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                     outside ? "text-fg-subtle" : "text-fg",
                     day === today ? "bg-accent font-semibold text-accent-fg" : "hover:bg-hover",
                   )}
@@ -101,7 +101,7 @@ export function MonthView({
                     <button
                       type="button"
                       onClick={() => setOverflowDay(day)}
-                      className="self-start rounded-md px-1.5 py-0.5 text-[12px] font-medium text-fg-muted outline-none hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-ring"
+                      className="self-start rounded-md px-1.5 py-0.5 text-meta font-medium text-fg-muted outline-none hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       +{hidden} more
                     </button>
@@ -118,7 +118,7 @@ export function MonthView({
         {/* Seven shrinkable columns: 7 × 40px no longer overflows a 320px phone (AUD-04 §8, D-08-13, MW-17). */}
         <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-y-1 rounded-xl border border-line bg-surface p-1 min-[360px]:p-2" role="grid" aria-label="Month">
           {WEEKDAYS.map((weekday) => (
-            <div key={weekday} className="py-1 text-center text-[11px] font-medium text-fg-subtle">
+            <div key={weekday} className="py-1 text-center text-micro font-medium text-fg-subtle">
               {weekday.slice(0, 1)}
             </div>
           ))}
@@ -133,7 +133,7 @@ export function MonthView({
                 aria-pressed={day === selectedDate}
                 aria-label={`${dayHeading(day, zone, today)}, ${list.length} ${list.length === 1 ? "event" : "events"}`}
                 className={cn(
-                  "mx-auto flex h-11 w-full max-w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "mx-auto flex h-11 w-full max-w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-table tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   day.slice(0, 7) !== month ? "text-fg-subtle" : "text-fg",
                   day === selectedDate ? "bg-primary text-primary-fg" : day === today ? "bg-accent-soft font-semibold text-accent-strong" : "",
                 )}
@@ -149,7 +149,7 @@ export function MonthView({
           })}
         </div>
         <section aria-label={dayHeading(selectedDate, zone, today)}>
-          <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">{dayHeading(selectedDate, zone, today)}</h3>
+          <h2 className="mb-2 text-meta font-semibold uppercase tracking-[0.08em] text-fg-subtle">{dayHeading(selectedDate, zone, today)}</h2>
           <div className="flex flex-col gap-2">
             {(byDay.get(selectedDate) ?? []).length === 0 ? (
               <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">Nothing scheduled.</p>

@@ -5,6 +5,7 @@ import { Repeat } from "lucide-react";
 
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_META } from "./calendar-model";
 
@@ -75,13 +76,13 @@ export const EventCard = React.forwardRef<
     >
       {variant === "block" ? (
         <>
-          <span className="flex w-full min-w-0 items-center gap-1 text-[12px] font-medium leading-4">
+          <span className="flex w-full min-w-0 items-center gap-1 text-meta font-medium leading-4">
             {Icon ? <Icon aria-hidden="true" className="size-3 shrink-0 text-[var(--cal)]" /> : null}
             <span className="truncate">{event.title}</span>
             {event.occurrence?.recurring ? <Repeat aria-hidden="true" className="size-3 shrink-0 text-fg-subtle" /> : null}
           </span>
           {time ? (
-            <span className="truncate text-[11px] leading-4 text-fg-muted tabular-nums">
+            <span className="truncate text-micro leading-4 text-fg-muted tabular-nums">
               {time}
               {event.endsAt ? `–${formatClock(new Date(event.endsAt), zone)}` : ""}
               {event.location ? ` · ${event.location}` : ""}
@@ -91,12 +92,12 @@ export const EventCard = React.forwardRef<
       ) : (
         <>
           {Icon ? <Icon aria-hidden="true" className="size-3 shrink-0 text-[var(--cal)]" /> : null}
-          {time ? <span className="shrink-0 text-[11px] text-fg-muted tabular-nums">{time}</span> : null}
-          <span className={cn("min-w-0 truncate", variant === "row" ? "text-table font-medium" : "text-[12px] leading-4")}>{event.title}</span>
+          {time ? <span className="shrink-0 text-micro text-fg-muted tabular-nums">{time}</span> : null}
+          <span className={cn("min-w-0 truncate", variant === "row" ? "text-table font-medium" : "text-meta leading-4")}>{event.title}</span>
           {event.status === "OVERDUE" ? (
-            <span className="ml-auto shrink-0 rounded-full bg-warning-soft px-1.5 text-[10px] font-medium text-warning-strong">Overdue</span>
+            <Badge tone="warning" className="ml-auto shrink-0 px-1.5 py-0">Overdue</Badge>
           ) : event.severity === "critical" ? (
-            <span className="ml-auto shrink-0 rounded-full bg-danger-soft px-1.5 text-[10px] font-medium text-danger-strong">Critical</span>
+            <Badge tone="danger" className="ml-auto shrink-0 px-1.5 py-0">Critical</Badge>
           ) : null}
         </>
       )}

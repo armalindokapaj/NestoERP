@@ -116,7 +116,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
           {profile.preferredName ? <p className="text-meta text-fg-subtle">Goes by {profile.preferredName}</p> : null}
           <p className="text-body text-fg">{profile.jobTitle ?? "—"}</p>
           <p className="text-table text-fg-muted">{[profile.employingCompany?.name, profile.department?.name].filter(Boolean).join(" · ") || profile.parentGroup.name}</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-table" aria-label="Contact">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-table" role="group" aria-label="Contact">
             {profile.workEmail ? (
               <a href={`mailto:${profile.workEmail}`} className="text-accent-strong hover:underline">
                 {profile.workEmail}

@@ -179,7 +179,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 }}
                 placeholder="Search actions…"
                 aria-controls={`${panelId}-list`}
-                className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-table text-fg outline-none focus:border-accent touch:h-11"
+                className="h-9 w-full rounded-md border border-control bg-surface pl-8 pr-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
               />
             </label>
           </div>
@@ -231,7 +231,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             >
               <label className="block space-y-1">
                 <span className="text-meta font-medium text-fg">Company</span>
-                <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent touch:h-11" data-testid="quick-create-company" required>
+                <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-company" required>
                   <option value="">Choose a company…</option>
                   {step.action.companies?.map((entry) => (
                     <option key={entry.id} value={entry.id}>
@@ -276,7 +276,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 ) : projects.items.length === 0 ? (
                   <span className="block text-table text-fg-muted">{t("quickCreate.noProjects")}</span>
                 ) : (
-                  <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent touch:h-11" data-testid="quick-create-project" required>
+                  <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-project" required>
                     <option value="">Choose a project…</option>
                     {projects.items.map((entry) => (
                       <option key={entry.id} value={entry.id}>

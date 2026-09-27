@@ -39,11 +39,20 @@
    */
   --nesto-fg: light-dark(#15171c, #f2f2f0);
   --nesto-fg-muted: light-dark(#5b6068, #a8adb6);
-  --nesto-fg-subtle: light-dark(#6a6f78, #868b94);
+  /* AUD-11 AV-10: nudged from #6a6f78 / #868b94 so metadata clears 4.5:1 on
+     the accent-soft (active row) and hover grounds too. */
+  --nesto-fg-subtle: light-dark(#686d76, #8a8f98);
 
   /* ---- Lines (§5) ---------------------------------------------------- */
   --nesto-border: light-dark(#e8e8e6, #282b31);
   --nesto-border-strong: light-dark(#d8d8d5, #3a3e45);
+  /*
+   * The boundary of a control whose outline is what identifies it: text
+   * inputs, selects, checkboxes and a switch's off track (AUD-11 §6, AV-10).
+   * At least 3:1 against every ground a control sits on; the two lines above
+   * stay the quiet dividers they are.
+   */
+  --nesto-control-border: light-dark(#858a93, #70757e);
 
   /* ---- Accent (§5) --------------------------------------------------- */
   /* Exactly one primary accent is in use at a time. */
@@ -77,10 +86,14 @@
   --nesto-success: light-dark(#1f9d68, #46b98a);
   --nesto-success-strong: light-dark(#187b51, #5ecb9c);
   --nesto-success-soft: light-dark(#e9f5ef, #14241d);
-  --nesto-warning: light-dark(#c58a25, #d9a552);
+  /* AUD-11 AV-10: the light fill from #c58a25, which was 2.98:1 on white. */
+  --nesto-warning: light-dark(#b27a1f, #d9a552);
   --nesto-warning-strong: light-dark(#8f641b, #e5b96f);
   --nesto-warning-soft: light-dark(#f9f1e3, #2a2114);
-  --nesto-danger: light-dark(#d9534f, #e8756f);
+  /* AUD-11 AV-10: the light fill from #d9534f, which carried white text at 3.96:1. */
+  --nesto-danger: light-dark(#cc4540, #e8756f);
+  /* Text on a solid danger fill: white on light, near-black on the lighter dark-scheme red. */
+  --nesto-danger-fg: light-dark(var(--nesto-white), #0d0f14);
   --nesto-danger-strong: light-dark(#c4302b, #f28f89);
   --nesto-danger-soft: light-dark(#fbedec, #2c1817);
   --nesto-info: light-dark(#465cff, #7c8cff);
@@ -137,11 +150,16 @@
   --nesto-content-max: 1600px;
 
   /* ---- Z-index (§85) ------------------------------------------------- */
+  /* The whole ladder of globals.css (AUD-04 §6), mirrored in config/theme.ts. */
   --nesto-z-sidebar: 40;
   --nesto-z-topbar: 30;
   --nesto-z-drawer: 50;
+  --nesto-z-sheet: 55;
   --nesto-z-dialog: 60;
+  --nesto-z-floating: 65;
+  --nesto-z-tooltip: 66;
   --nesto-z-toast: 70;
+  --nesto-z-unsaved-prompt: 80;
 }
 
 /*

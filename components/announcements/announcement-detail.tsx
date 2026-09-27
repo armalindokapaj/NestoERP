@@ -114,7 +114,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
           {item.pinned ? <PinnedMark /> : null}
           {item.status !== "PUBLISHED" ? <AnnouncementStatusBadge status={item.status} /> : null}
         </div>
-        <h1 className="mt-3 text-[28px] font-semibold leading-tight tracking-tight text-fg md:text-[34px]" data-testid="announcement-title">
+        <h1 className="mt-3 text-page font-semibold leading-tight tracking-tight text-fg md:text-[34px]" data-testid="announcement-title">
           {item.title}
         </h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">

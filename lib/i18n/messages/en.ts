@@ -21,6 +21,7 @@ type Described = { label: string; description: string };
  */
 export const en = {
   shell: {
+    skipToMain: "Skip to main content",
     mainNavigation: "Main navigation",
     bannerCheckFailed: "Critical announcements could not be checked.",
     bannerRetry: "Retry",

@@ -211,7 +211,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
                 maxLength={200}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => keyHandler.current?.(event)}
-                className="h-10 w-full rounded-md border border-line bg-surface pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent touch:h-11"
+                className="h-10 w-full rounded-md border border-control bg-surface pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
                 data-testid="search-input"
               />
             </div>

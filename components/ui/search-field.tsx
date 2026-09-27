@@ -35,9 +35,10 @@ export function SearchField({
       <input
         type="search"
         className={cn(
-          "h-10 w-full rounded-md border border-line bg-surface pl-9 text-body text-fg transition-colors touch:h-11",
-          "placeholder:text-fg-subtle hover:border-line-strong",
-          "focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20",
+          "h-10 w-full rounded-md border border-control bg-surface pl-9 text-body text-fg transition-colors touch:h-11",
+          "placeholder:text-fg-subtle",
+          // A solid 2px ring rather than a 20% tint (AUD-11 AV-04).
+          "focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring",
           "disabled:cursor-not-allowed disabled:bg-surface-muted",
           onClear && "[&::-webkit-search-cancel-button]:appearance-none",
           shortcut || onClear ? "pr-14" : "pr-3",

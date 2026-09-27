@@ -272,6 +272,8 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
                   <span className="flex items-center gap-1.5">
                     {item.sourceType === "ANNOUNCEMENT" ? <Megaphone aria-label={t("announcement")} className="size-3.5 shrink-0 text-fg-subtle" /> : <span className="sr-only">{t("notification")}</span>}
                     <span className={cn("text-table", item.readState === "UNREAD" ? "font-semibold text-fg" : "text-fg-muted")}>{item.title}</span>
+                    {/* The unread dot and bold weight are visual only; say it (AUD-11 §5, AV-06). */}
+                    {item.readState === "UNREAD" ? <span className="sr-only">, {t("unread")}</span> : null}
                   </span>
                   {item.bodyPreview ? <span className="mt-0.5 line-clamp-2 block text-meta text-fg-muted">{item.bodyPreview}</span> : null}
                   <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-fg-subtle">

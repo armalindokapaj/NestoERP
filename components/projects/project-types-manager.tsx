@@ -15,6 +15,7 @@ import { PROJECT_TYPE_NAME_MAX } from "@/config/project-types";
 import type { ProjectTypeDTO } from "@/lib/modules/projects/project.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
  * The company's list of project types (E-05A §30, §62).
@@ -136,6 +137,9 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     }
   }
 
+  // Focus goes to the next type, not <body>, once a row is deleted (AUD-11 §4, AV-04).
+  const refocus = React.useRef<(() => void) | null>(null);
+
   async function remove() {
     if (!deleteTarget) return;
     setPending(deleteTarget.id);
@@ -143,6 +147,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       await announcementApi(`/api/projects/types/${deleteTarget.id}`, { method: "DELETE" });
       setTypes((current) => current.filter((type) => type.id !== deleteTarget.id));
       setDeleteTarget(null);
+      refocus.current?.();
     } catch (error) {
       toast({ title: failureMessage(error, "The type could not be deleted."), tone: "danger" });
     } finally {
@@ -269,7 +274,10 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                         <span className="sr-only"> {type.name}</span>
                       </Button>
                       {type.projectCount === 0 ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={() => setDeleteTarget(type)} disabled={pending !== null}>
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={(event) => {
+                          refocus.current = planFocusAfterRemoval(event.currentTarget);
+                          setDeleteTarget(type);
+                        }} disabled={pending !== null}>
                           <Trash2 />
                         </Button>
                       ) : null}

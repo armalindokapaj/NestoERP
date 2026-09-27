@@ -16,6 +16,7 @@ import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import type { CommentDTO, MentionableMemberDTO, ThreadDTO } from "@/lib/core/collaboration/collaboration.service";
 import { cn } from "@/lib/utils/cn";
 import { formatRelativeTime } from "@/lib/utils/format";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
  * The discussion on a business record (PRD #38 §36, §160, §161).
@@ -177,7 +178,7 @@ export function CollaborationPanel({
       <p ref={liveRef} aria-live="polite" className="sr-only" />
 
       {state === "loading" ? (
-        <div className="mt-4 space-y-3" aria-busy="true" aria-label="Loading discussion">
+        <div className="mt-4 space-y-3" role="status" aria-busy="true" aria-label="Loading discussion">
           {[0, 1].map((key) => (
             <div key={key} className="flex gap-3">
               <div className="size-7 animate-pulse rounded-full bg-hover" />
@@ -316,6 +317,8 @@ function CommentItem({
   const toast = useToast();
   const [editing, setEditing] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
+  // Focus goes to the next comment once this one is deleted (AUD-11 §4, AV-04).
+  const refocus = React.useRef<(() => void) | null>(null);
   const [pending, setPending] = React.useState(false);
   const [first, ...rest] = comment.author.fullName.split(" ");
   // Relative time is computed after mount: the server has no business guessing
@@ -367,13 +370,16 @@ function CommentItem({
         {!editing && (comment.capabilities.canEdit || comment.capabilities.canArchive) ? (
           <div className="mt-1 flex gap-1">
             {comment.capabilities.canEdit ? (
-              <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label="Edit comment">
+              <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label={`Edit comment by ${comment.author.fullName}`}>
                 <Pencil aria-hidden="true" />
                 Edit
               </Button>
             ) : null}
             {comment.capabilities.canArchive ? (
-              <Button variant="ghost" size="sm" onClick={() => setConfirming(true)} aria-label="Delete comment">
+              <Button variant="ghost" size="sm" onClick={(event) => {
+                  refocus.current = planFocusAfterRemoval(event.currentTarget);
+                  setConfirming(true);
+                }} aria-label={`Delete comment by ${comment.author.fullName}`}>
                 <Trash2 aria-hidden="true" />
                 Delete
               </Button>
@@ -394,6 +400,7 @@ function CommentItem({
           try {
             await api(`/api/comments/${comment.id}`, { method: "DELETE" });
             onArchived();
+            refocus.current?.();
             setConfirming(false);
           } catch (error) {
             toast({ title: failureText(error), tone: "danger" });

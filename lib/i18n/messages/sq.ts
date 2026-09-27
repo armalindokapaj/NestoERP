@@ -11,6 +11,7 @@ import type { Messages } from "./en";
  */
 export const sq: Messages = {
   shell: {
+    skipToMain: "Kalo te përmbajtja kryesore",
     mainNavigation: "Navigimi kryesor",
     bannerCheckFailed: "Njoftimet kritike nuk u kontrolluan.",
     bannerRetry: "Provo përsëri",

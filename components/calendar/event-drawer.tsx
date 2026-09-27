@@ -107,7 +107,7 @@ export function EventDrawer({
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5" style={categoryStyle(event)}>
           <div className="min-w-0">
             {busy ? null : (
-              <p className="mb-2 flex items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.08em] text-fg-subtle">
+              <p className="mb-2 flex items-center gap-1.5 text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
                 <span aria-hidden="true" className="size-2 rounded-full bg-[var(--cal)]" />
                 {event.metadata?.sourceLabel ?? meta.label}
               </p>
@@ -157,7 +157,7 @@ export function EventDrawer({
 
               {detail ? (
                 <section>
-                  <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
                     <Users aria-hidden="true" className="size-3.5" /> People
                   </h3>
                   <ul className="space-y-1">
@@ -196,7 +196,7 @@ export function EventDrawer({
 
               {detail?.capabilities.canRespond ? (
                 <section>
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Going?</h3>
+                  <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Going?</h3>
                   <div className="flex gap-2" role="group" aria-label="Your reply">
                     {(["ACCEPTED", "TENTATIVE", "DECLINED"] as const).map((status) => (
                       <Button

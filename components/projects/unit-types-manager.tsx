@@ -16,6 +16,7 @@ import { UNIT_TYPE_CATEGORIES, UNIT_TYPE_CATEGORY_LABELS, UNIT_TYPE_CODE_MAX, UN
 import type { UnitTypeDTO } from "@/lib/modules/project-structure/unit-type.service";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
  * The company's list of unit types (E-05B §20, §21, §116).
@@ -147,6 +148,9 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
     }
   }
 
+  // Focus goes to the next type, not <body>, once a row is deleted (AUD-11 §4, AV-04).
+  const refocus = React.useRef<(() => void) | null>(null);
+
   async function remove() {
     if (!deleteTarget) return;
     setPending(deleteTarget.id);
@@ -154,6 +158,7 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
       await announcementApi(`/api/projects/unit-types/${deleteTarget.id}`, { method: "DELETE" });
       setTypes((current) => current.filter((type) => type.id !== deleteTarget.id));
       setDeleteTarget(null);
+      refocus.current?.();
     } catch (error) {
       toast({ title: failureMessage(error, "The type could not be deleted."), tone: "danger" });
     } finally {
@@ -265,7 +270,10 @@ export function UnitTypesManager({ initial }: { initial: UnitTypeDTO[] }) {
                         <span className="sr-only"> {type.name}</span>
                       </Button>
                       {type.unitCount === 0 ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={() => setDeleteTarget(type)} disabled={pending !== null}>
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={(event) => {
+                          refocus.current = planFocusAfterRemoval(event.currentTarget);
+                          setDeleteTarget(type);
+                        }} disabled={pending !== null}>
                           <Trash2 />
                         </Button>
                       ) : null}

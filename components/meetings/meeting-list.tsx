@@ -28,7 +28,7 @@ export function MeetingList({ meetings, zone, today, showProject = true }: { mee
     <div className="space-y-6" data-testid="meeting-list">
       {[...groups.entries()].map(([day, rows]) => (
         <section key={day} aria-label={meetingDay(rows[0].startsAt, rows[0].timezone || zone)}>
-          <h2 className={cn("mb-2 px-1 text-[12px] font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
+          <h2 className={cn("mb-2 px-1 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
             {day === today ? "Today · " : ""}
             {meetingDay(rows[0].startsAt, rows[0].timezone || zone)}
           </h2>

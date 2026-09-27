@@ -4,6 +4,9 @@ import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
+import { LiveAnnouncer } from "@/components/layout/live-announcer";
+import { RouteFocus } from "@/components/layout/route-focus";
+import { SkipLink } from "@/components/layout/skip-link";
 import { PlatformShell } from "@/components/platform/platform-shell";
 import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
@@ -31,6 +34,10 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
     <TooltipProvider>
     {/* Unsaved work (AUD-03): no workspace here, only the person. */}
     <UnsavedHost identity={identityKeys(context)} workspace={null} />
+    {/* Skip link, announcer and route focus, as in the application shell (AUD-11 §3, AV-02, AV-09). */}
+    <SkipLink />
+    <LiveAnnouncer />
+    <RouteFocus />
     <PlatformShell
       user={context.fullName}
       actions={<>{isDevMode ? <Suspense fallback={null}><DevUserSwitcher /></Suspense> : null}<SignOutButton /></>}

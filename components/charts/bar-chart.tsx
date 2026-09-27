@@ -23,9 +23,10 @@ export function BarChart({ data, caption }: { data: BarDatum[]; caption: string 
       {data.map((row) => (
         <li key={row.label} className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-meta leading-tight text-fg-muted [overflow-wrap:anywhere]">{row.label}</span>
-          <div aria-hidden="true" className="h-2 min-w-8 flex-1 overflow-hidden rounded-full bg-hover">
+          {/* Forced colours: an outlined track and a Highlight bar, never an empty gap (AUD-11 AV-15). */}
+          <div aria-hidden="true" className="h-2 min-w-8 flex-1 overflow-hidden rounded-full bg-hover forced-colors:outline forced-colors:outline-1 forced-colors:outline-[CanvasText]">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full forced-colors:bg-[Highlight]!"
               style={{
                 width: `${Math.round((row.value / max) * 100)}%`,
                 backgroundColor: TONE_COLOR[row.tone ?? "default"],

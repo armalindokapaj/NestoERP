@@ -65,6 +65,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <ToastPrimitive.Root
               key={toast.id}
+              /*
+               * Announced once, by Radix's own live copy (AUD-11 §5, AV-09): politely
+               * for a confirmation, assertively only for a warning or failure. A
+               * caller that raises a toast must not also call announce() with the
+               * same words.
+               */
+              type={toast.tone === "danger" || toast.tone === "warning" ? "foreground" : "background"}
               onOpenChange={(open) => {
                 if (!open) dismiss(toast.id);
               }}

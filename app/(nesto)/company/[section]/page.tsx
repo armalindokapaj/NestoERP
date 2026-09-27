@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { resolveModuleExperience, resolveSection } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { CompanyDetails, CompanyModules, CompanyOverview } from "../company-sections";
+
+/** A page title of its own (AUD-11 §3, AV-02). */
+export const metadata: Metadata = { title: "Company" };
 
 export default async function CompanySectionPage({
   params,
