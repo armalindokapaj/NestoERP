@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -21,6 +22,12 @@ import { cn } from "@/lib/utils/cn";
  * Use it for every hand-rolled `overflow-x-auto` wrapper (RC-6); the Table
  * primitive already does.
  */
+/** A table's scroll region, named "Table" in the reader's language when the caller gives no name. */
+export function TableScrollRegion({ label, ...props }: Omit<React.ComponentProps<typeof ScrollRegion>, "label"> & { label?: string }) {
+  const t = useTranslations("ui");
+  return <ScrollRegion label={label ?? t("table")} {...props} />;
+}
+
 export function ScrollRegion({
   label,
   className,

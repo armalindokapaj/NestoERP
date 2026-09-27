@@ -4,6 +4,7 @@ import type { Crumb } from "@/components/ui/breadcrumbs";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
@@ -28,9 +29,10 @@ export const loadTask = cache(async function loadTask(
 });
 
 /** Canonical breadcrumb trail: the task always lives under /tasks (PRD #11 §56, §172). */
-export function taskBreadcrumbs(task: TaskDetailDTO, trailing?: string): Crumb[] {
+export async function taskBreadcrumbs(task: TaskDetailDTO, trailing?: string): Promise<Crumb[]> {
+  const t = await getTranslations("tasks");
   const crumbs: Crumb[] = [
-    { label: "Tasks", href: "/tasks" },
+    { label: t("common.tasks"), href: "/tasks" },
     trailing ? { label: task.title, href: `/tasks/${task.id}` } : { label: task.title },
   ];
   if (trailing) crumbs.push({ label: trailing });

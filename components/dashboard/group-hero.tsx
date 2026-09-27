@@ -2,11 +2,10 @@ import Link from "@/components/navigation/nav-link";
 import { Building2, Info } from "lucide-react";
 
 import type { GroupIdentity } from "@/lib/modules/dashboard/dashboard.group";
+import { getTranslations } from "@/lib/i18n/server";
 
 /** What a demonstration tenant says about its data, wherever it says it (D-01 §69). */
-export const DEMO_DISCLAIMER = "Demo environment — public company and project information combined with synthetic operational data.";
-
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+export { DEMO_DISCLAIMER } from "./demo-disclaimer";
 
 /**
  * The group at the top of its dashboard (D-01 §26): name, legal name,
@@ -15,14 +14,15 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
  * synthetic. Shown to the people who see the group as a group: its Owner and
  * the heads of its functions.
  */
-export function GroupHero({ identity }: { identity: GroupIdentity }) {
+export async function GroupHero({ identity }: { identity: GroupIdentity }) {
+  const t = await getTranslations("dashboard");
   const facts = [identity.legalName, identity.registrationNumber ? `NIPT ${identity.registrationNumber}` : null, [identity.city, identity.country].filter(Boolean).join(", ") || null].filter(Boolean);
 
   return (
     <section aria-labelledby="group-hero-title" className="nesto-card overflow-hidden" data-testid="group-hero">
       <div className="flex flex-wrap items-center justify-between gap-4 border-l-2 border-l-accent p-5 md:p-6">
         <div className="min-w-0">
-          <p className="nesto-eyebrow text-fg-subtle">Group</p>
+          <p className="nesto-eyebrow text-fg-subtle">{t("group")}</p>
           <h2 id="group-hero-title" className="mt-1 truncate font-serif text-section text-fg">
             {identity.name}
           </h2>
@@ -34,15 +34,15 @@ export function GroupHero({ identity }: { identity: GroupIdentity }) {
         >
           <Building2 aria-hidden="true" className="size-4 text-fg-muted" />
           <span>
-            {plural(identity.activeCompanies, "active company", "active companies")}
-            {identity.suspendedCompanies ? <span className="text-fg-subtle"> · {identity.suspendedCompanies} suspended</span> : null}
+            {t("activeCompanies", { count: identity.activeCompanies })}
+            {identity.suspendedCompanies ? <span className="text-fg-subtle"> · {t("suspended", { count: identity.suspendedCompanies })}</span> : null}
           </span>
         </Link>
       </div>
       {identity.isDemo ? (
         <p role="note" className="flex items-start gap-2 border-t border-line bg-hover/60 px-5 py-2.5 text-meta text-fg-muted md:px-6">
           <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-          {DEMO_DISCLAIMER}
+          {t("demoDisclaimer")}
         </p>
       ) : null}
     </section>

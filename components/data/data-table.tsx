@@ -17,6 +17,7 @@ import type { ColumnMeta, ColumnValueType } from "@/lib/tables/columns";
 import { sortChoices } from "@/lib/tables/sort";
 import { effectiveHideBelow, isFigureColumn } from "@/lib/tables/visibility";
 import { cn } from "@/lib/utils/cn";
+import { UiText } from "@/components/i18n/ui-text";
 
 export type { TableSortConfig } from "@/components/data/sort-header";
 export type { ColumnValueType } from "@/lib/tables/columns";
@@ -181,7 +182,7 @@ export function DataTable<T>({
               })}
               {actions ? (
                 <TableHeaderCell scope="col" className="w-12 text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only"><UiText k="actions" /></span>
                 </TableHeaderCell>
               ) : null}
             </tr>

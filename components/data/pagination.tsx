@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageSizeSelect } from "@/components/data/page-size-select";
 import { pageHref, pageWindow, type SearchParamsInput } from "@/lib/modules/shared/list-query";
 import { cn } from "@/lib/utils/cn";
+import { UiNav, UiText } from "@/components/i18n/ui-text";
 
 export type PaginationMeta = {
   page: number;
@@ -56,14 +57,14 @@ export function Pagination({
   const count =
     range.total === 0 ? (
       <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
-        <span className="tabular-nums">0</span> results
+        <span className="tabular-nums">0</span> <UiText k="results" />
       </p>
     ) : (
       <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
         <span className="tabular-nums">
           {range.from}–{range.to}
         </span>{" "}
-        of <span className="tabular-nums">{range.total}</span>
+        <UiText k="of" /> <span className="tabular-nums">{range.total}</span>
       </p>
     );
 
@@ -83,8 +84,8 @@ export function Pagination({
     "inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg touch:h-11";
 
   return (
-    <nav
-      aria-label="Pagination"
+    <UiNav
+      k="pagination"
       className={cn("flex flex-wrap items-center justify-between gap-3 pt-1", className)}
     >
       {count}
@@ -94,31 +95,31 @@ export function Pagination({
         {range.page > 1 ? (
           <Link href={href(range.page - 1)} rel="prev" className={linkClass}>
             <ChevronLeft aria-hidden="true" className="size-4" />
-            Previous
+            <UiText k="previous" />
           </Link>
         ) : (
           <span className={cn(linkClass, "cursor-not-allowed opacity-50")} aria-disabled="true">
             <ChevronLeft aria-hidden="true" className="size-4" />
-            Previous
+            <UiText k="previous" />
           </span>
         )}
 
         <span className="text-table tabular-nums text-fg-subtle">
-          Page {range.page} of {range.totalPages}
+          <UiText k="pageOf" values={{ page: range.page, total: range.totalPages }} />
         </span>
 
         {range.page < range.totalPages ? (
           <Link href={href(range.page + 1)} rel="next" className={linkClass}>
-            Next
+            <UiText k="next" />
             <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         ) : (
           <span className={cn(linkClass, "cursor-not-allowed opacity-50")} aria-disabled="true">
-            Next
+            <UiText k="next" />
             <ChevronRight aria-hidden="true" className="size-4" />
           </span>
         )}
       </div>
-    </nav>
+    </UiNav>
   );
 }

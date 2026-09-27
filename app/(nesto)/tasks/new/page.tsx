@@ -6,13 +6,17 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { WhatIsThis } from "@/components/help/what-is-this";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { createTaskAction } from "@/lib/actions/tasks";
 import { taskFormOptions } from "@/lib/modules/tasks/task.options";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { buildLeadScopeWhere, buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { prisma } from "@/lib/database/prisma";
 
-export const metadata: Metadata = { title: "New Task" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tasks");
+  return { title: t("meta.newTask") };
+}
 
 /**
  * Create a task (PRD #11 §41, §89).
@@ -31,6 +35,7 @@ export default async function NewTaskPage({
   if (!can(context, "task.create")) notFound();
 
   const params = await searchParams;
+  const t = await getTranslations("tasks");
   const requestedProjectId = typeof params.projectId === "string" ? params.projectId : "";
   const parentType = typeof params.parentType === "string" ? params.parentType : "";
   const parentId = typeof params.parentId === "string" ? params.parentId : "";
@@ -62,10 +67,10 @@ export default async function NewTaskPage({
         : [],
     ]);
     parent = {
-      label: "Lead or opportunity",
+      label: t("create.leadOrOpportunity"),
       options: [
-        ...opportunities.map((row) => ({ value: `opportunity:${row.id}`, label: `Opportunity · ${row.name}` })),
-        ...leads.map((row) => ({ value: `lead:${row.id}`, label: `Lead · ${row.name}` })),
+        ...opportunities.map((row) => ({ value: `opportunity:${row.id}`, label: `${t("create.opportunity")} · ${row.name}` })),
+        ...leads.map((row) => ({ value: `lead:${row.id}`, label: `${t("create.lead")} · ${row.name}` })),
       ],
     };
     cancelHref = "/sales/tasks";
@@ -82,26 +87,23 @@ export default async function NewTaskPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Tasks", href: "/tasks" },
-          { label: "New task" },
+          { label: t("common.tasks"), href: "/tasks" },
+          { label: t("common.newTask") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New task</h1>
+        <h1 className="text-page font-semibold text-fg">{t("create.heading")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Track a piece of work, on a project or on its own.
+          {t("create.intro")}
         </p>
         {/* Project choice and assignment are where a first task goes wrong (AUD-05 §7, UX-13, UX-15). */}
-        <WhatIsThis id="tasks.create.project" title="Project and assignee" className="mt-2">
-          <p>
-            Choose a project to keep the task with that project&apos;s work: only active projects you can open are listed. Leave it empty for a
-            task that belongs to no project.
-          </p>
+        <WhatIsThis id="tasks.create.project" title={t("create.helpTitle")} className="mt-2">
+          <p>{t("create.helpProject")}</p>
           <p>
             {options.mayAssignOthers
-              ? "The assignee list follows the project you choose, so pick the project first. The person you assign sees the task in My tasks."
-              : "Your tasks are assigned to you; someone who may assign work can hand them to others."}
+              ? t("create.helpAssignOthers")
+              : t("create.helpAssignSelf")}
           </p>
         </WhatIsThis>
       </div>

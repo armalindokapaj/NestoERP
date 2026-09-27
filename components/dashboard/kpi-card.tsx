@@ -4,6 +4,7 @@ import { getIcon } from "@/components/layout/nav-icon";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { ResolvedKpi } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * A single KPI card (PRD #4 §16).
@@ -16,7 +17,8 @@ import { cn } from "@/lib/utils/cn";
  * company's own number, and following one enters that company and goes to the
  * records behind the card (Workspace Context §73, §74).
  */
-export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
+export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
+  const t = await getTranslations("dashboard");
   const Icon = getIcon(kpi.definition.icon);
 
   const body = (
@@ -54,7 +56,7 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
           body
         )}
         <details className="mt-3 border-t border-line pt-2">
-          <summary className="cursor-pointer text-meta font-medium text-accent-strong">View by company</summary>
+          <summary className="cursor-pointer text-meta font-medium text-accent-strong">{t("viewByCompany")}</summary>
           <ul className="mt-2 space-y-1">
             {breakdown.map((row) => (
               <li key={row.companyId} className="flex items-baseline justify-between gap-3 text-meta">
@@ -65,7 +67,7 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
                 ) : (
                   <span className="truncate text-fg-muted">{row.company}</span>
                 )}
-                <span className="shrink-0 font-medium tabular-nums text-fg" title={row.incomplete ? "Part of this could not be loaded" : undefined}>
+                <span className="shrink-0 font-medium tabular-nums text-fg" title={row.incomplete ? t("partNotLoaded") : undefined}>
                   {row.incomplete ? (row.value > 0 ? `${row.value}+` : "—") : row.value}
                 </span>
               </li>

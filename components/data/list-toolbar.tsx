@@ -21,6 +21,7 @@ import {
   type FilterOption,
 } from "@/lib/tables/filter-draft";
 import { applyListChange, clearListFilters, queryHref, sameQuery } from "@/lib/tables/list-url";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 export type { FilterConfig, FilterOption } from "@/lib/tables/filter-draft";
 
@@ -63,7 +64,7 @@ export type { FilterConfig, FilterOption } from "@/lib/tables/filter-draft";
  */
 
 export function ListToolbar({
-  searchPlaceholder = "Search…",
+  searchPlaceholder: searchPlaceholderProp,
   searchParam = "search",
   filters = [],
   sortOptions = [],
@@ -85,6 +86,8 @@ export function ListToolbar({
   applied?: Readonly<Record<string, string | undefined>>;
   className?: string;
 }) {
+  const t = useTranslations("ui");
+  const searchPlaceholder = searchPlaceholderProp ?? t("search");
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
@@ -208,7 +211,7 @@ export function ListToolbar({
 
         {sortOptions.length > 0 ? (
           <select
-            aria-label="Sort"
+            aria-label={t("sort")}
             className={selectClass}
             value={selected(sortParam, sortOptions, false)}
             onChange={(event) => apply(sortParam, event.target.value)}
@@ -224,7 +227,7 @@ export function ListToolbar({
         {hasActive ? (
           <Button variant="ghost" size="sm" onClick={clearAll}>
             <X aria-hidden="true" />
-            Clear
+            {t("clear")}
           </Button>
         ) : null}
       </div>
@@ -233,7 +236,7 @@ export function ListToolbar({
       {sortOptions.length > 0 ? (
         <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden" data-list-sort-control>
           <label htmlFor={`${controlId}-sort`} className="shrink-0 text-table font-medium text-fg-subtle">
-            Sort
+            {t("sort")}
           </label>
           <select
             id={`${controlId}-sort`}

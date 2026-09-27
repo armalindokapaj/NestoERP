@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowRight, X } from "lucide-react";
 
 import Link from "@/components/navigation/nav-link";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import type { StartHere } from "@/lib/modules/dashboard/dashboard.start-here";
 
 /**
@@ -27,6 +28,7 @@ export function StartHereCard({
   // Unknown until the browser's storage is read: nothing drawn, so a hidden card never flashes.
   const [hidden, setHidden] = React.useState<boolean | null>(null);
   const headingId = React.useId();
+  const t = useTranslations("dashboard");
 
   React.useEffect(() => {
     try {
@@ -55,12 +57,12 @@ export function StartHereCard({
     >
       <div className="flex items-start justify-between gap-3">
         <h2 id={headingId} className="text-card font-semibold text-fg">
-          Start here
+          {t("startHere")}
         </h2>
         <button
           type="button"
           onClick={hide}
-          aria-label="Hide Start here"
+          aria-label={t("hideStartHere")}
           className="-mr-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:size-11"
         >
           <X aria-hidden="true" className="size-4" />
@@ -96,9 +98,7 @@ export function StartHereCard({
         </ol>
       ) : (
         <p className="mt-2 text-body text-fg-muted">
-          Nothing has been shared with you here yet. Projects and tasks appear
-          on this dashboard when a colleague adds you to a project or assigns
-          you work.
+          {t("nothingShared")}
         </p>
       )}
     </section>

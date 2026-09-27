@@ -1,4 +1,4 @@
-import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
+import { DEMO_DISCLAIMER } from "@/components/dashboard/demo-disclaimer";
 import { brand } from "@/config/brand";
 
 /**

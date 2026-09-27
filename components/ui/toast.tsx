@@ -5,6 +5,7 @@ import * as ToastPrimitive from "@radix-ui/react-toast";
 import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Toast notifications (design spec §68).
@@ -43,6 +44,7 @@ const toneClasses: Record<ToastTone, string> = {
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("ui");
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
   const nextId = React.useRef(0);
 
@@ -98,7 +100,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               </div>
               {/* 24px with a mouse, 44px under touch, pulled into the card's corner (AUD-04 §3). */}
               <ToastPrimitive.Close
-                aria-label="Dismiss"
+                aria-label={t("dismiss")}
                 className="-m-1 grid size-6 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg touch:-my-2.5 touch:-mr-2.5 touch:ml-0 touch:size-11"
               >
                 <X className="size-3.5" />

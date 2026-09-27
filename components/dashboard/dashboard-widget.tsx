@@ -7,6 +7,8 @@ import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { AlertPriority, ResolvedWidget } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * The one widget renderer (PRD #4 §17, §18).
@@ -48,7 +50,8 @@ function RowLink({ href, companyId, className, children }: { href: string; compa
 }
 
 /** `fill`: rendered inside a cell that already carries the span (NAV-03 streamed dashboard). */
-export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidget; fill?: boolean }) {
+export async function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidget; fill?: boolean }) {
+  const t = await getTranslations("dashboard");
   const { definition, payload } = widget;
 
   const isEmpty =
@@ -82,7 +85,7 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
             href={definition.href}
             className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80"
           >
-            View all
+            {t("viewAll")}
             <ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         ) : null}
@@ -91,7 +94,7 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
       <div className="mt-4 min-w-0 flex-1">
         {payload.kind === "error" ? (
           <p className="text-table text-fg-muted">
-            Unable to load this section. Refresh the page to try again.
+            {t("loadFailed")}
           </p>
         ) : (
           <>
@@ -101,7 +104,7 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
                 <span>{incomplete}</span>
               </p>
             ) : null}
-            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{definition.emptyMessage}</p>) : <WidgetBody payload={payload} />}
+            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{definition.emptyMessage}</p>) : <WidgetBody payload={payload} t={t} />}
           </>
         )}
       </div>
@@ -109,7 +112,7 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
   );
 }
 
-function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
+function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Translate<"dashboard"> }) {
   switch (payload.kind) {
     case "list":
       return (
@@ -285,7 +288,7 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
                     </p>
                   ) : null}
                   {project.tags.length ? (
-                    <ul className="flex flex-wrap gap-1" aria-label="Type">
+                    <ul className="flex flex-wrap gap-1" aria-label={t("type")}>
                       {project.tags.map((tag) => (
                         <li key={tag} className="rounded-full bg-hover px-2 py-0.5 text-meta text-fg-muted">
                           {tag}
@@ -296,10 +299,10 @@ function WidgetBody({ payload }: { payload: ResolvedWidget["payload"] }) {
                   {project.progress !== null ? (
                     <div>
                       <div className="flex items-baseline justify-between text-meta">
-                        <span className="text-fg-muted">Progress</span>
+                        <span className="text-fg-muted">{t("progress")}</span>
                         <span className="font-medium tabular-nums text-fg">{project.progress}%</span>
                       </div>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-label={`${project.name} progress`} aria-valuenow={project.progress} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-label={t("progressOf", { name: project.name })} aria-valuenow={project.progress} aria-valuemin={0} aria-valuemax={100}>
                         <div className="h-full rounded-full bg-accent" style={{ width: `${project.progress}%` }} />
                       </div>
                     </div>

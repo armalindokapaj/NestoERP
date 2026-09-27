@@ -6,6 +6,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule } from "@/lib/access/guards";
 import { actionFailure, validationFailure, type ActionFailure } from "@/lib/actions/result";
 import { requireCompanyContext } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { revalidateTaskViews } from "@/lib/modules/tasks/task.invalidate";
 import type { TaskMutationMeta } from "@/lib/modules/tasks/task.mutation";
 import { taskAssigneeOptions } from "@/lib/modules/tasks/task.options";
@@ -126,7 +127,7 @@ export async function taskCommandAction(
     else if (command === "reopen") result = await tasks.reopenTask(context, taskId, { ...version, status: input.reopenTo });
     else if (command === "archive") result = await tasks.archiveTask(context, taskId, version);
     else if (command === "restore") result = await tasks.restoreTask(context, taskId, version);
-    else return { ok: false, code: "VALIDATION_ERROR", category: "validation", error: "That is not a task action." };
+    else return { ok: false, code: "VALIDATION_ERROR", category: "validation", error: (await getTranslations("tasks"))("errors.notAnAction") };
   } catch (error) {
     return toResult(error);
   }
@@ -175,6 +176,7 @@ export async function taskReviewSnapshotAction(taskId: string): Promise<TaskRevi
     throw error;
   }
   const archived = task.archivedAt !== null || task.status === "ARCHIVED";
+  const t = await getTranslations("tasks");
   return {
     access: "ok",
     task: {
@@ -187,9 +189,9 @@ export async function taskReviewSnapshotAction(taskId: string): Promise<TaskRevi
         title: task.title,
         description: task.description ?? "",
         projectId: task.project?.id ?? "",
-        projectLabel: task.project ? `${task.project.name} (${task.project.code})` : "No project",
+        projectLabel: task.project ? `${task.project.name} (${task.project.code})` : t("common.noProject"),
         assigneeMemberId: task.assignee?.memberId ?? "",
-        assigneeLabel: task.assignee?.fullName ?? "Unassigned",
+        assigneeLabel: task.assignee?.fullName ?? t("common.unassigned"),
         status: task.status,
         priority: task.priority,
         startDate: task.schedule.startDate?.slice(0, 10) ?? "",
@@ -217,10 +219,10 @@ export async function taskAssigneeOptionsAction(projectId: string | null): Promi
     return toResult(error);
   }
   if (!can(context, "task.create") && !can(context, "task.update")) {
-    return { ok: false, code: "FORBIDDEN", category: "permission", error: "You cannot assign tasks." };
+    return { ok: false, code: "FORBIDDEN", category: "permission", error: (await getTranslations("tasks"))("errors.cannotAssign") };
   }
   const requested = typeof projectId === "string" && projectId.trim() !== "" ? projectId.trim().slice(0, 64) : null;
   const result = await taskAssigneeOptions(context, requested);
-  if (!result.ok) return { ok: false, code: result.code, category: "validation", error: "That project is not available. Choose another project." };
+  if (!result.ok) return { ok: false, code: result.code, category: "validation", error: (await getTranslations("tasks"))("errors.projectUnavailable") };
   return result;
 }

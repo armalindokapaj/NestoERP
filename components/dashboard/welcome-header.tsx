@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { brand } from "@/config/brand";
 import type { UserContext } from "@/lib/context/types";
 import { greeting } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 import { StartHere } from "./start-here";
 
 /**
@@ -19,13 +20,14 @@ import { StartHere } from "./start-here";
  * "Start here" follows it, streamed on its own, so every dashboard gets it
  * from the one header rather than a second page slot (AUD-05 §7, UX-15).
  */
-export function WelcomeHeader({
+export async function WelcomeHeader({
   context,
   focus,
 }: {
   context: UserContext;
   focus: string;
 }) {
+  const t = await getTranslations("dashboard");
   const today = new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "2-digit",
@@ -42,7 +44,7 @@ export function WelcomeHeader({
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="font-serif text-display text-fg">Dashboard</h1>
+            <h1 className="font-serif text-display text-fg">{t("title")}</h1>
             <Badge tone="neutral">{context.roleLabel}</Badge>
           </div>
 
@@ -53,7 +55,7 @@ export function WelcomeHeader({
             data-testid="dashboard-workspace"
           >
             {context.workspace.scopeType === "GROUP"
-              ? `Across ${context.parentGroup.name}`
+              ? t("across", { name: context.parentGroup.name })
               : context.company.name}
           </p>
         </div>

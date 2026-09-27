@@ -13,6 +13,7 @@ import { CompanyTag } from "@/components/workspace/company-tag";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { testSectionDelay } from "@/lib/workspace/shell-slots";
 import {
   priorityTasksForWorkspace,
@@ -20,7 +21,10 @@ import {
   taskOverviewForWorkspace,
 } from "@/lib/modules/tasks/task.workspace";
 
-export const metadata: Metadata = { title: "Tasks" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tasks");
+  return { title: t("meta.tasks") };
+}
 
 /**
  * Tasks module overview (PRD #11 §7, §8).
@@ -40,6 +44,7 @@ export const metadata: Metadata = { title: "Tasks" };
  */
 export default async function TasksOverviewPage() {
   const context = await requireModule("tasks");
+  const t = await getTranslations("tasks");
   const experience = taskExperience(context);
   const group = inGroupWorkspace(context);
   const canCreate = !group && can(context, "task.create");
@@ -56,7 +61,7 @@ export default async function TasksOverviewPage() {
       actions={
         canCreate ? (
           <Button asChild size="sm">
-            <Link href="/tasks/new">New task</Link>
+            <Link href="/tasks/new">{t("common.newTask")}</Link>
           </Button>
         ) : null
       }
@@ -70,12 +75,12 @@ export default async function TasksOverviewPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title="Priority work" rows={6} />}>
+            <Suspense fallback={<ListSectionSkeleton title={t("overview.priorityWork")} rows={6} />}>
               <PriorityWork priority={priority} />
             </Suspense>
           </SectionBoundary>
           <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title="Your week" rows={3} />}>
+            <Suspense fallback={<ListSectionSkeleton title={t("overview.yourWeek")} rows={3} />}>
               <YourWeek stats={stats} />
             </Suspense>
           </SectionBoundary>
@@ -91,16 +96,17 @@ async function TaskStats({ stats }: { stats: Overview }) {
   // Test builds only: the delay-isolation evidence holds this optional section (S01).
   await testSectionDelay("tasks-stats");
   const value = await stats;
+  const t = await getTranslations("tasks");
   const cards = [
-    { label: "Open", value: value.open, href: "/tasks/all" },
-    { label: "Due today", value: value.dueToday, href: "/tasks/all?due=today" },
-    { label: "Overdue", value: value.overdue, href: "/tasks/overdue" },
-    { label: "Blocked", value: value.blocked, href: "/tasks/all?status=BLOCKED" },
+    { key: "open", label: t("overview.open"), value: value.open, href: "/tasks/all" },
+    { key: "today", label: t("overview.dueToday"), value: value.dueToday, href: "/tasks/all?due=today" },
+    { key: "overdue", label: t("overview.overdue"), value: value.overdue, href: "/tasks/overdue" },
+    { key: "blocked", label: t("overview.blocked"), value: value.blocked, href: "/tasks/all?status=BLOCKED" },
   ];
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-section="stats">
       {cards.map((card) => (
-        <Link key={card.label} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
+        <Link key={card.key} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
           <p className="text-table text-fg-muted">{card.label}</p>
           <p className="mt-2 text-page font-semibold tabular-nums text-fg">{card.value}</p>
         </Link>
@@ -112,17 +118,18 @@ async function TaskStats({ stats }: { stats: Overview }) {
 /** The primary section: high and critical work in view (NAV-03 STREAM-02). */
 async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof priorityTasksForWorkspace> }) {
   const priority = await pending;
+  const t = await getTranslations("tasks");
   return (
     <section className="nesto-card p-5" data-section="primary">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">Priority work</h2>
+        <h2 className="text-card font-semibold text-fg">{t("overview.priorityWork")}</h2>
         <Link href="/tasks/all?priority=HIGH,CRITICAL" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
-          All tasks
+          {t("overview.allTasks")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>
       {priority.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">No high or critical tasks in your view.</p>
+        <p className="mt-4 text-table text-fg-subtle">{t("overview.noPriority")}</p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {priority.map((task) => (
@@ -140,10 +147,10 @@ async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof
                 {task.company ? (
                   <div className="mt-0.5 flex min-w-0 items-center gap-2">
                     <CompanyTag name={task.company.name} className="shrink-0" />
-                    <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : "Personal task"}</p>
+                    <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : t("common.personalTask")}</p>
                   </div>
                 ) : (
-                  <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : "Personal task"}</p>
+                  <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : t("common.personalTask")}</p>
                 )}
               </div>
               <PriorityBadge priority={task.priority} />
@@ -157,13 +164,14 @@ async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof
 
 async function YourWeek({ stats }: { stats: Overview }) {
   const value = await stats;
+  const t = await getTranslations("tasks");
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">Your week</h2>
+      <h2 className="text-card font-semibold text-fg">{t("overview.yourWeek")}</h2>
       <dl className="mt-4 divide-y divide-line">
-        <Row label="Assigned to you and open" value={value.mine} href="/tasks/my-tasks" />
-        <Row label="Completed this week" value={value.completedThisWeek} href="/tasks/completed" />
-        <Row label="Overdue in your view" value={value.overdue} href="/tasks/overdue" />
+        <Row label={t("overview.assignedOpen")} value={value.mine} href="/tasks/my-tasks" />
+        <Row label={t("overview.completedThisWeek")} value={value.completedThisWeek} href="/tasks/completed" />
+        <Row label={t("overview.overdueInView")} value={value.overdue} href="/tasks/overdue" />
       </dl>
     </section>
   );

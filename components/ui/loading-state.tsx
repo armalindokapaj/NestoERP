@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils/cn";
+import { UiText } from "@/components/i18n/ui-text";
 
 /**
  * Structured loading placeholders (spec §60) — skeletons that mirror the shape
@@ -13,10 +14,10 @@ import { cn } from "@/lib/utils/cn";
  */
 type Announce = { label?: string; announce?: boolean };
 
-function LoadingStatus({ label = "Loading…", announce = true }: Announce) {
+function LoadingStatus({ label, announce = true }: Announce) {
   return announce ? (
     <p role="status" className="sr-only">
-      {label}
+      {label ?? <UiText k="loading" />}
     </p>
   ) : null;
 }

@@ -12,6 +12,7 @@ import { isColumnId, optionalColumns, type ColumnMeta } from "@/lib/tables/colum
 import { columnChoices, resolveHiddenColumns } from "@/lib/tables/preferences";
 import { cn } from "@/lib/utils/cn";
 import { BREAKPOINT_PX, columnStatesAt, shownOverWidth, withColumnChoiceAt } from "@/lib/tables/visibility";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * The Columns control and the column visibility it applies (AUD-08 §5, DT-08).
@@ -53,6 +54,7 @@ export function TableColumnsScope({
   leading?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("ui");
   const preferences = useTablePreferences(listId);
   const hidden = React.useMemo(() => resolveHiddenColumns(columns, preferences.stored), [columns, preferences.stored]);
   const forced = React.useMemo(() => shownOverWidth(columns, preferences.stored), [columns, preferences.stored]);
@@ -97,25 +99,25 @@ export function TableColumnsScope({
           {optional.length > 0 ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-auto" aria-label={label ? `Columns: ${label}` : "Columns"}>
+              <Button variant="secondary" size="sm" className="ml-auto" aria-label={label ? t("columnsLabel", { label }) : t("columns")}>
                 <Columns3 aria-hidden="true" />
-                Columns
+                {t("columns")}
                 {hiddenHere.length > 0 ? (
                   <span className="text-fg-subtle tabular-nums">
-                    <span aria-hidden="true">·</span> {hiddenHere.length} hidden
+                    <span aria-hidden="true">·</span> {t("columnsHidden", { count: hiddenHere.length })}
                   </span>
                 ) : null}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64 p-3">
               <fieldset>
-                <legend className="mb-2 text-table font-semibold text-fg">Show columns</legend>
+                <legend className="mb-2 text-table font-semibold text-fg">{t("showColumns")}</legend>
                 <ul className="max-h-72 space-y-1 overflow-y-auto">
                   {columns.map((column, index) => {
                     const id = `${scope}-${column.id}`;
                     const locked = column.mandatory || !isColumnId(column.id);
                     const state = states[index];
-                    const note = locked ? "Always shown" : state?.reason === "width" ? "Hidden at this width" : null;
+                    const note = locked ? t("alwaysShown") : state?.reason === "width" ? t("hiddenAtWidth") : null;
                     return (
                       <li key={column.id} className="flex min-h-9 items-center gap-2 touch:min-h-11">
                         <Checkbox
@@ -142,10 +144,10 @@ export function TableColumnsScope({
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
                 <Button variant="ghost" size="sm" onClick={reset} disabled={!customised}>
                   <RotateCcw aria-hidden="true" />
-                  Reset columns
+                  {t("resetColumns")}
                 </Button>
                 {!preferences.persistent && preferences.ready ? (
-                  <span className="text-micro text-fg-subtle">Not saved on this device</span>
+                  <span className="text-micro text-fg-subtle">{t("notSavedOnDevice")}</span>
                 ) : null}
               </div>
             </PopoverContent>

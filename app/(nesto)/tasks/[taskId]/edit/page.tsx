@@ -5,11 +5,15 @@ import { TaskEditForm } from "@/components/tasks/task-edit-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { updateTaskAction } from "@/lib/actions/tasks";
 import { taskFormOptions } from "@/lib/modules/tasks/task.options";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadTask, taskBreadcrumbs } from "../task-context";
 
 type Params = { params: Promise<{ taskId: string }> };
 
-export const metadata: Metadata = { title: "Edit Task" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tasks");
+  return { title: t("meta.edit") };
+}
 
 /**
  * Edit a task (PRD #11 §60, §61).
@@ -22,6 +26,7 @@ export default async function EditTaskPage({ params }: Params) {
   const { context, task } = await loadTask(taskId);
 
   if (!task.capabilities.canEdit) notFound();
+  const t = await getTranslations("tasks");
 
   const options = await taskFormOptions(context, task.project?.id ?? null);
   // A task raised from another record stays on that record's project, so the
@@ -36,11 +41,11 @@ export default async function EditTaskPage({ params }: Params) {
   // (AUD-09 §5, FV-10).
   const legacyProject =
     task.project && !projects.some((option) => option.value === task.project?.id)
-      ? { value: task.project.id, label: `${task.project.name} (${task.project.code}) — not available for new tasks` }
+      ? { value: task.project.id, label: `${task.project.name} (${task.project.code}) — ${t("editPage.notAvailable")}` }
       : undefined;
   const legacyAssignee =
     task.assignee && !options.assignees.some((option) => option.value === task.assignee?.memberId)
-      ? { value: task.assignee.memberId, label: `${task.assignee.fullName} — current assignee` }
+      ? { value: task.assignee.memberId, label: `${task.assignee.fullName} — ${t("editPage.currentAssignee")}` }
       : undefined;
 
   async function action(formData: FormData) {
@@ -50,10 +55,10 @@ export default async function EditTaskPage({ params }: Params) {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={taskBreadcrumbs(task, "Edit")} />
+      <Breadcrumbs items={await taskBreadcrumbs(task, t("common.edit"))} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit task</h1>
+        <h1 className="text-page font-semibold text-fg">{t("editPage.heading")}</h1>
         <p className="mt-1.5 text-body text-fg-muted [overflow-wrap:anywhere]">{task.title}</p>
       </div>
 

@@ -1,4 +1,4 @@
-import { DEMO_DISCLAIMER } from "@/components/dashboard/group-hero";
+import { DEMO_DISCLAIMER } from "@/components/dashboard/demo-disclaimer";
 import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
 import { PoweredBy } from "@/components/layout/powered-by";
 import { SidebarNav } from "@/components/layout/sidebar-nav";

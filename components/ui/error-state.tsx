@@ -4,6 +4,7 @@ import { TriangleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 export type ErrorStateProps = {
   title?: string;
@@ -16,12 +17,16 @@ export type ErrorStateProps = {
 
 /** The standard NESTO error component (spec §58). */
 export function ErrorState({
-  title = "Something went wrong.",
-  description = "Please try again.",
+  title: titleProp,
+  description: descriptionProp,
   onRetry,
-  retryLabel = "Retry",
+  retryLabel: retryLabelProp,
   className,
 }: ErrorStateProps) {
+  const t = useTranslations("ui");
+  const title = titleProp ?? t("errorTitle");
+  const description = descriptionProp ?? t("errorBody");
+  const retryLabel = retryLabelProp ?? t("retry");
   // Announced when it appears: a failed load replaces what the reader was
   // waiting for (AUD-05 §6, §8).
   return (

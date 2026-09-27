@@ -4,6 +4,7 @@ import * as React from "react";
 import { Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * SearchField (design spec §16, §89).
@@ -23,6 +24,7 @@ export function SearchField({
   onKeyDown,
   ...props
 }: React.ComponentProps<"input"> & { shortcut?: string; onClear?: () => void }) {
+  const t = useTranslations("ui");
   const hasText = typeof props.value === "string" && props.value.length > 0;
   const clearable = Boolean(onClear) && hasText && !props.disabled;
 
@@ -59,7 +61,7 @@ export function SearchField({
             onClear?.();
             (event.currentTarget.previousElementSibling as HTMLInputElement | null)?.focus();
           }}
-          aria-label="Clear search"
+          aria-label={t("clearSearch")}
           // A 44px target under touch: flush with the field's right edge, the icon unchanged (AUD-04 §3).
           className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:right-0 touch:size-11"
         >

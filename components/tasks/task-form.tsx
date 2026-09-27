@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { taskAssigneeOptionsAction } from "@/lib/actions/tasks";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Create / edit task form (PRD #11 §42, §43, §61).
@@ -34,19 +35,8 @@ export type TaskFormValues = {
   dueDate: string;
 };
 
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: "TODO", label: "To Do" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "BLOCKED", label: "Blocked" },
-  { value: "COMPLETED", label: "Completed" },
-];
-
-const PRIORITY_OPTIONS: SelectOption[] = [
-  { value: "LOW", label: "Low" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "HIGH", label: "High" },
-  { value: "CRITICAL", label: "Critical" },
-];
+const STATUS_VALUES = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"] as const;
+const PRIORITY_VALUES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
 export function TaskForm({
   mode,
@@ -54,7 +44,7 @@ export function TaskForm({
   projects,
   assignees,
   mayAssignOthers,
-  statuses = STATUS_OPTIONS,
+  statuses: statusesProp,
   cancelHref,
   expectedVersion,
   action,
@@ -100,6 +90,9 @@ export function TaskForm({
   /** The project `assignees` was read for, when it may not be `initial.projectId`; they are read again if not. */
   assigneesFor?: string;
 }) {
+  const t = useTranslations("tasks");
+  const statuses = statusesProp ?? STATUS_VALUES.map((value) => ({ value, label: t(`status.${value}`) }));
+  const priorities = PRIORITY_VALUES.map((value) => ({ value, label: t(`priority.${value}`) }));
   return (
     <RecordForm
       action={action}
@@ -109,17 +102,17 @@ export function TaskForm({
       module="tasks"
       saveKind={mode === "create" ? "create" : "save"}
       baselineValues={baselineValues}
-      submitLabel={mode === "create" ? "Create task" : "Save changes"}
-      pendingLabel={mode === "create" ? "Creating…" : "Saving…"}
+      submitLabel={mode === "create" ? t("common.createTask") : t("form.saveChanges")}
+      pendingLabel={mode === "create" ? t("form.creating") : t("common.saving")}
     >
       {expectedVersion !== undefined ? <input type="hidden" name="expectedVersion" value={expectedVersion} /> : null}
       {notice}
-      <FormSection title="Task details">
+      <FormSection title={t("form.details")}>
         {parent && "locked" in parent ? (
           <div className="sm:col-span-2">
             <input type="hidden" name="parent" value={parent.locked.value} />
             <p className="rounded-md bg-surface-muted px-3 py-2 text-table text-fg" data-testid="task-parent-locked">
-              <span className="text-fg-muted">Raised from </span>
+              <span className="text-fg-muted">{t("form.raisedFrom")}</span>
               {parent.locked.label}
             </p>
           </div>
@@ -129,7 +122,7 @@ export function TaskForm({
             <Field label={parent.label} name="parent" required>
               <select id="parent" name="parent" defaultValue="" required className={selectClass}>
                 <option value="" disabled>
-                  Choose a record
+                  {t("form.chooseRecord")}
                 </option>
                 {parent.options.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -141,13 +134,13 @@ export function TaskForm({
           </div>
         ) : null}
         <div className="sm:col-span-2">
-          <Field label="Title" name="title" required>
+          <Field label={t("fields.title")} name="title" required>
             <TitleInput defaultValue={initial.title} />
           </Field>
         </div>
 
         <div className="sm:col-span-2">
-          <Field label="Description" name="description">
+          <Field label={t("fields.description")} name="description">
             <Textarea
               id="description"
               name="description"
@@ -158,7 +151,7 @@ export function TaskForm({
           </Field>
         </div>
 
-        <Field label="Status" name="status" required>
+        <Field label={t("fields.status")} name="status" required>
           <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
             {/* Blocked is set by Mark blocked, which asks why (PRD #38 §44). */}
             {statuses.filter((option) => option.value !== "BLOCKED" || initial.status === "BLOCKED").map((option) => (
@@ -169,14 +162,14 @@ export function TaskForm({
           </select>
         </Field>
 
-        <Field label="Priority" name="priority" required>
+        <Field label={t("fields.priority")} name="priority" required>
           <select
             id="priority"
             name="priority"
             defaultValue={initial.priority}
             className={selectClass}
           >
-            {PRIORITY_OPTIONS.map((option) => (
+            {priorities.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -254,6 +247,7 @@ function AssignmentFields({
   legacyAssignee?: SelectOption;
   assigneesFor: string;
 }) {
+  const t = useTranslations("tasks");
   const [projectId, setProjectId] = React.useState(initialProjectId);
   const [assigneeId, setAssigneeId] = React.useState(initialAssigneeId);
   const [picker, setPicker] = React.useState<PickerState>({ state: "ready", options: assignees });
@@ -271,8 +265,8 @@ function AssignmentFields({
       options.find((option) => option.value === value)?.label ??
       (legacyAssignee?.value === value ? legacyAssignee.label : null) ??
       assignees.find((option) => option.value === value)?.label ??
-      "The assignee",
-    [assignees, legacyAssignee],
+      t("form.theAssignee"),
+    [assignees, legacyAssignee, t],
   );
 
   const load = React.useCallback(
@@ -293,17 +287,17 @@ function AssignmentFields({
             result.options.some((option) => option.value === current) ||
             (legacyAssignee?.value === current && nextProjectId === initialProjectId);
           if (!keep) {
-            setNote(`${labelOf(current, result.options).replace(/ — .*$/, "")} is not on this project's team, so the assignee was cleared.`);
+            setNote(t("form.assigneeCleared", { name: labelOf(current, result.options).replace(/ — .*$/, "") }));
             setAssigneeId("");
           }
         },
         () => {
           if (mine !== generation.current) return;
-          setPicker({ state: "error", message: "Couldn't load the people for this project." });
+          setPicker({ state: "error", message: t("form.loadPeopleFailed") });
         },
       );
     },
-    [initialProjectId, labelOf, legacyAssignee],
+    [initialProjectId, labelOf, legacyAssignee, t],
   );
 
   // Options read for another project than the one the form opens on — a
@@ -327,10 +321,10 @@ function AssignmentFields({
   const legacyShown = showLegacyAssignee && legacyAssignee && !options.some((option) => option.value === legacyAssignee.value);
 
   return (
-    <FormSection title="Assignment">
-      <Field label="Project" name="projectId" hint="Leave empty for a personal task that belongs to no project.">
+    <FormSection title={t("form.assignment")}>
+      <Field label={t("fields.project")} name="projectId" hint={t("form.projectHint")}>
         <select id="projectId" name="projectId" value={projectId} onChange={onProjectChange} className={selectClass}>
-          <option value="">No project</option>
+          <option value="">{t("common.noProject")}</option>
           {legacyProject && !projects.some((option) => option.value === legacyProject.value) ? (
             <option value={legacyProject.value} disabled={projectId !== legacyProject.value}>
               {legacyProject.label}
@@ -345,12 +339,12 @@ function AssignmentFields({
       </Field>
 
       <Field
-        label="Assignee"
+        label={t("fields.assignee")}
         name="assigneeMemberId"
         hint={
           mayAssignOthers
-            ? "Project work can only go to a member of that project."
-            : "You can take this task yourself or leave it unassigned."
+            ? t("form.assigneeHintOthers")
+            : t("form.assigneeHintSelf")
         }
       >
         {/* Disabled controls are not submitted: the shown value still is. */}
@@ -369,7 +363,7 @@ function AssignmentFields({
           className={selectClass}
           data-picker-state={picker.state === "ready" ? (options.length === 0 ? "empty" : "ready") : picker.state}
         >
-          <option value="">Unassigned</option>
+          <option value="">{t("common.unassigned")}</option>
           {legacyShown ? (
             <option value={legacyAssignee.value} disabled={assigneeId !== legacyAssignee.value}>
               {legacyAssignee.label}
@@ -383,12 +377,12 @@ function AssignmentFields({
           ))}
         </select>
         <div id="assigneeMemberId-state" className="text-meta" aria-live="polite">
-          {picker.state === "loading" ? <p className="text-fg-subtle">Loading the people on this project…</p> : null}
+          {picker.state === "loading" ? <p className="text-fg-subtle">{t("form.loadingPeople")}</p> : null}
           {picker.state === "ready" && options.length === 0 ? (
-            <p className="text-fg-subtle">No one on this project can take tasks yet. Leave it unassigned or add people to the project.</p>
+            <p className="text-fg-subtle">{t("form.noPeople")}</p>
           ) : null}
           {legacyShown && assigneeId === legacyAssignee.value ? (
-            <p className="text-fg-subtle">The current assignee is no longer active. They stay on this task until you change it, but can&apos;t be chosen again.</p>
+            <p className="text-fg-subtle">{t("form.legacyAssignee")}</p>
           ) : null}
           {note ? <p className="text-warning-strong" data-testid="task-assignee-cleared">{note}</p> : null}
         </div>
@@ -396,7 +390,7 @@ function AssignmentFields({
           <div role="alert" className="flex flex-wrap items-center gap-2 text-meta text-danger-strong">
             <span>{picker.message}</span>
             <Button type="button" size="sm" variant="secondary" onClick={() => load(projectId)}>
-              Retry
+              {t("form.retry")}
             </Button>
           </div>
         ) : null}
@@ -411,11 +405,12 @@ function AssignmentFields({
  * message lands on the due date (AUD-09 §3, FV-04).
  */
 function ScheduleFields({ initialStart, initialDue }: { initialStart: string; initialDue: string }) {
+  const t = useTranslations("tasks");
   const [start, setStart] = React.useState(initialStart);
   const errors = useFieldErrors();
   return (
-    <FormSection title="Schedule">
-      <Field label="Start date" name="startDate">
+    <FormSection title={t("form.schedule")}>
+      <Field label={t("fields.startDate")} name="startDate">
         <Input
           id="startDate"
           name="startDate"
@@ -427,7 +422,7 @@ function ScheduleFields({ initialStart, initialDue }: { initialStart: string; in
         />
       </Field>
 
-      <Field label="Due date" name="dueDate" hint="On or after the start date.">
+      <Field label={t("fields.dueDate")} name="dueDate" hint={t("form.dueHint")}>
         <Input
           id="dueDate"
           name="dueDate"
