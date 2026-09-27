@@ -209,6 +209,27 @@ describe("Company Project 3D viewer", () => {
     const restricted = await getProject3DViewerBootstrap(withoutSales, projectId);
     expect(restricted.units[0]?.commercial).toBeNull();
     expect(restricted.capabilities.commercial).toBe(false);
+    // The immersive viewer's extra fields never carry the price either.
+    expect(JSON.stringify(restricted)).not.toContain("250000");
+  });
+
+  it("carries the viewer's project identity, and the plan only to a reader who may open it", async () => {
+    const phase = await prisma.projectPhase.create({
+      data: { companyId: COMPANY.a, projectId, name: "Viewer structure", sortOrder: 1, status: "IN_PROGRESS", progressPercent: new Prisma.Decimal("40.00"), createdByMemberId: owner.membershipId },
+    });
+    try {
+      const bootstrap = await getProject3DViewerBootstrap(owner, projectId);
+      expect(bootstrap.project).toMatchObject({ id: projectId, name: "Company Viewer Test", company: { id: COMPANY.a } });
+      expect(bootstrap.construction).toEqual({
+        progressPercent: 40,
+        stages: [{ id: phase.id, name: "Viewer structure", order: 1, status: "active", progressPercent: 40, endDate: null }],
+      });
+
+      const withoutPlan = { ...owner, permissions: owner.permissions.filter((permission) => permission !== "project_planning.view") };
+      expect((await getProject3DViewerBootstrap(withoutPlan, projectId)).construction).toBeNull();
+    } finally {
+      await prisma.projectPhase.delete({ where: { id: phase.id } });
+    }
   });
 
   it("binds runtime asset grants to the exact key and expiry", async () => {

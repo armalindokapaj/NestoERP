@@ -50,7 +50,7 @@ const DETAILS: Record<string, string> = {
   "/projects/[projectId]": "ProjectWorkspaceSkeleton",
   "/projects/[projectId]/units": "ListPageSkeleton",
   "/projects/[projectId]/units/[unitId]": "DetailPageSkeleton",
-  "/projects/[projectId]/3d": "ViewportPageSkeleton",
+  // /projects/[projectId]/3d left the shell for app/(project-viewer): a full-screen viewer with its own splash.
   "/clients/[clientId]": "DetailPageSkeleton",
   "/tasks/[taskId]": "DetailPageSkeleton",
   "/finance/invoices/[invoiceId]": "DetailPageSkeleton",

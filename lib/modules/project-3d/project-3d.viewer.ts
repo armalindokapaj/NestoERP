@@ -1,4 +1,4 @@
-import type { UnitCommercialStatus } from "@prisma/client";
+import type { ProjectPhaseStatus, UnitCommercialStatus } from "@prisma/client";
 
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -10,6 +10,7 @@ import type { UserContext } from "@/lib/context/types";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
+import { planningOpen } from "@/lib/modules/project-planning/planning.permissions";
 import { isProject3DEntitlementActive } from "./project-3d.entitlement";
 import { assertProject3DStorageKey } from "./project-3d.storage";
 
@@ -19,6 +20,49 @@ function canOpenProjects(context: UserContext): boolean {
   return isModuleEnabled(context, "projects")
     && canAccessModule(context, "projects")
     && can(context, "project.view");
+}
+
+type ViewerStageStatus = "done" | "active" | "upcoming";
+
+function viewerStageStatus(status: ProjectPhaseStatus): ViewerStageStatus {
+  if (status === "COMPLETED") return "done";
+  if (status === "NOT_STARTED" || status === "CANCELLED") return "upcoming";
+  return "active";
+}
+
+/**
+ * The planning phases, read as the viewer's construction timeline. A phase
+ * without its own progress counts as 100 when completed and 0 when not
+ * started; the overall figure is the mean over phases that are not cancelled.
+ */
+export function constructionFromPhases(phases: Array<{
+  id: string;
+  name: string;
+  sortOrder: number;
+  status: ProjectPhaseStatus;
+  progressPercent: { toNumber(): number } | null;
+  plannedEndDate: Date | null;
+  forecastEndDate: Date | null;
+  actualEndDate: Date | null;
+}>) {
+  const stages = phases
+    .filter((phase) => phase.status !== "CANCELLED")
+    .map((phase, index) => {
+      const status = viewerStageStatus(phase.status);
+      const own = phase.progressPercent?.toNumber();
+      const progressPercent = Math.max(0, Math.min(100, Math.round(own ?? (status === "done" ? 100 : 0))));
+      const end = phase.actualEndDate ?? phase.forecastEndDate ?? phase.plannedEndDate;
+      return {
+        id: phase.id,
+        name: phase.name,
+        order: index + 1,
+        status,
+        progressPercent: status === "done" ? 100 : progressPercent,
+        endDate: end ? end.toISOString() : null,
+      };
+    });
+  const progressPercent = stages.length ? Math.round(stages.reduce((sum, stage) => sum + stage.progressPercent, 0) / stages.length) : 0;
+  return { progressPercent, stages };
 }
 
 function viewerUnitStatus(status: UnitCommercialStatus | null): "available" | "reserved" | "sold" {
@@ -88,7 +132,11 @@ export async function getProject3DViewerBootstrap(
     select: {
       id: true,
       name: true,
+      code: true,
+      status: true,
+      city: true,
       companyId: true,
+      company: { select: { id: true, name: true, phone: true, email: true } },
       project3DEntitlement: true,
       project3DConfig: {
         select: {
@@ -139,7 +187,7 @@ export async function getProject3DViewerBootstrap(
   const unitRows = unitIds.length === 0 ? [] : await prisma.projectUnit.findMany({
     where: { id: { in: unitIds }, projectId: project.id, companyId: project.companyId },
     select: {
-      id: true, unitCode: true, name: true, internalArea: true, saleableArea: true, rooms: true, bedrooms: true, bathrooms: true, salesPlanDocumentId: true,
+      id: true, unitCode: true, name: true, internalArea: true, saleableArea: true, rooms: true, bedrooms: true, bathrooms: true, orientation: true, salesPlanDocumentId: true,
       unitType: { select: { id: true, name: true, category: true } },
       floor: { select: { id: true, name: true, number: true, building: { select: { id: true, name: true, code: true } } } },
       commercialProfile: { select: { status: true } },
@@ -151,13 +199,19 @@ export async function getProject3DViewerBootstrap(
 
   const readableDocuments = filesVisible ? await buildDocumentAccessWhere(context) : null;
   const salesPlanIds = unitRows.map((unit) => unit.salesPlanDocumentId).filter((id): id is string => Boolean(id));
-  const [commercialRows, salesPlanRows, mediaRows] = await Promise.all([
+  const planVisible = planningOpen(context);
+  const [commercialRows, salesPlanRows, mediaRows, phaseRows] = await Promise.all([
     commercialVisible && unitIds.length ? prisma.unitCommercialProfile.findMany({ where: { unitId: { in: unitIds }, projectId: project.id, companyId: project.companyId }, select: { unitId: true, askingPrice: true, currency: true } }) : [],
     readableDocuments && salesPlanIds.length ? prisma.document.findMany({ where: { AND: [readableDocuments, { id: { in: salesPlanIds }, companyId: project.companyId, status: "ACTIVE", storageStatus: "AVAILABLE" }] }, select: { id: true, name: true } }) : [],
     readableDocuments && unitIds.length ? prisma.unitMedia.findMany({
       where: { companyId: project.companyId, projectId: project.id, unitId: { in: unitIds }, document: { is: { AND: [readableDocuments, { status: "ACTIVE", storageStatus: "AVAILABLE" }] } } },
       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true, unitId: true, category: true, caption: true, isPrimary: true },
+    }) : [],
+    planVisible ? prisma.projectPhase.findMany({
+      where: { companyId: project.companyId, projectId: project.id, archivedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, sortOrder: true, status: true, progressPercent: true, plannedEndDate: true, forecastEndDate: true, actualEndDate: true },
     }) : [],
   ]);
   const commercialByUnit = new Map(commercialRows.map((row) => [row.unitId, row]));
@@ -201,7 +255,7 @@ export async function getProject3DViewerBootstrap(
 
   return project3DBootstrapSchema.parse({
     schemaVersion: 1,
-    project: { id: project.id, name: project.name },
+    project: { id: project.id, name: project.name, code: project.code, status: project.status, city: project.city, company: project.company },
     release: { id: release.id, number: release.releaseNumber, publishedAt: release.publishedAt.toISOString() },
     experience,
     models,
@@ -222,11 +276,13 @@ export async function getProject3DViewerBootstrap(
         rooms: unitDetails ? unit.rooms : null,
         bedrooms: unitDetails ? unit.bedrooms : null,
         bathrooms: unitDetails ? unit.bathrooms : null,
+        orientation: unitDetails ? unit.orientation : null,
         commercial: commercialVisible ? { askingPrice: commercial?.askingPrice?.toFixed(2) ?? null, currency: commercial?.currency ?? null, pricePerSqm } : null,
         salesPlan: salesPlan ? { documentId: salesPlan.id, name: salesPlan.name, href: `/documents/${salesPlan.id}` } : null,
         media: (mediaByUnit.get(unit.id) ?? []).slice(0, 6).map((media) => ({ id: media.id, category: media.category, caption: media.caption, isPrimary: media.isPrimary, thumbnailHref: `/api/project-units/${unit.id}/media/${media.id}/thumbnail` })),
       };
     }),
+    construction: planVisible ? constructionFromPhases(phaseRows) : null,
     capabilities: {
       mapbox: Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN),
       unitDetails,

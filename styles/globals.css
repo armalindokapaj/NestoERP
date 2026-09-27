@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./project-viewer.css";
 
 /*
  * NESTO global stylesheet (design spec §93).

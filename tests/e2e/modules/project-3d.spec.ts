@@ -16,23 +16,16 @@ const VERSION_ID = "project_e2e_3d_version";
 const RELEASE_ID = "project_e2e_3d_release";
 const SOURCE_KEY = `companies/${COMPANY_ID}/projects/${PROJECT_ID}/3d/source/e2e-source.glb`;
 const RUNTIME_KEY = `companies/${COMPANY_ID}/projects/${PROJECT_ID}/3d/runtime/e2e-runtime.glb`;
+// The released units the Company viewer lists (one drawn in the model, one not).
+const UNIT_TYPE_ID = "project_e2e_3d_unit_type";
+const BUILDING_ID = "project_e2e_3d_building";
+const FLOOR_ID = "project_e2e_3d_floor";
+const UNITS = [
+  { id: "project_e2e_3d_unit_101", code: "E2E-101", mesh: "Unit_E2E-101", price: "185000.00", status: "FOR_SALE" as const, bedrooms: 2 },
+  { id: "project_e2e_3d_unit_102", code: "E2E-102", mesh: "Unit_E2E-102", price: "240000.00", status: "RESERVED" as const, bedrooms: 3 },
+];
 let groupName = "";
 let companyName = "";
-
-function emptyGlb(): Uint8Array {
-  const json = new TextEncoder().encode(JSON.stringify({ asset: { version: "2.0" }, scene: 0, scenes: [{}], nodes: [] }));
-  const jsonLength = Math.ceil(json.length / 4) * 4;
-  const bytes = new Uint8Array(12 + 8 + jsonLength);
-  const view = new DataView(bytes.buffer);
-  bytes.set(new TextEncoder().encode("glTF"), 0);
-  view.setUint32(4, 2, true);
-  view.setUint32(8, bytes.length, true);
-  view.setUint32(12, jsonLength, true);
-  view.setUint32(16, 0x4e4f534a, true);
-  bytes.fill(0x20, 20);
-  bytes.set(json, 20);
-  return bytes;
-}
 
 /** A GLB with one named triangle: small, valid, and preparable by the real pipeline. */
 function triangleGlb(nodeName: string): Uint8Array {
@@ -76,6 +69,11 @@ async function removeFixture() {
   await db.project3DConfig.deleteMany({ where: { projectId: PROJECT_ID } });
   await db.project3DEntitlement.deleteMany({ where: { projectId: PROJECT_ID } });
   await db.auditEvent.deleteMany({ where: { projectId: PROJECT_ID } });
+  await db.unitCommercialProfile.deleteMany({ where: { projectId: PROJECT_ID } });
+  await db.projectUnit.deleteMany({ where: { projectId: PROJECT_ID } });
+  await db.projectFloor.deleteMany({ where: { projectId: PROJECT_ID } });
+  await db.projectBuilding.deleteMany({ where: { projectId: PROJECT_ID } });
+  await db.projectUnitType.deleteMany({ where: { id: UNIT_TYPE_ID } });
   await db.projectMember.deleteMany({ where: { projectId: PROJECT_ID } });
   await db.project.deleteMany({ where: { id: PROJECT_ID } });
   await storageProvider().deleteObject(SOURCE_KEY).catch(() => undefined);
@@ -87,8 +85,17 @@ async function publishFixture() {
     db.project3DConfig.findUniqueOrThrow({ where: { projectId: PROJECT_ID } }),
     db.user.findUniqueOrThrow({ where: { username: "platform-admin" }, select: { id: true } }),
   ]);
-  const bytes = emptyGlb();
+  // One unit is drawn in the released model; the other is released but not drawn.
+  const bytes = triangleGlb(UNITS[0]!.mesh);
   await storageProvider().putObject(RUNTIME_KEY, bytes, "model/gltf-binary");
+  await db.projectUnitType.create({ data: { id: UNIT_TYPE_ID, companyId: COMPANY_ID, name: "E2E 3D apartment", code: "E2E3DAPT", category: "RESIDENTIAL", createdBy: platformUser.id } });
+  await db.projectBuilding.create({ data: { id: BUILDING_ID, companyId: COMPANY_ID, projectId: PROJECT_ID, name: "Tower E2E", nameKey: "TOWER E2E", sortOrder: 1, createdBy: platformUser.id } });
+  await db.projectFloor.create({ data: { id: FLOOR_ID, companyId: COMPANY_ID, projectId: PROJECT_ID, buildingId: BUILDING_ID, number: 1, name: "Floor 1", levelType: "STANDARD", floorKey: "STANDARD:1", sortOrder: 1, createdBy: platformUser.id } });
+  for (const [index, unit] of UNITS.entries()) {
+    await db.projectUnit.create({ data: { id: unit.id, companyId: COMPANY_ID, projectId: PROJECT_ID, floorId: FLOOR_ID, unitCode: unit.code, unitCodeKey: unit.code, unitTypeId: UNIT_TYPE_ID, saleableArea: new Prisma.Decimal("90.00"), bedrooms: unit.bedrooms, bathrooms: 1, sortOrder: index + 1, createdBy: platformUser.id } });
+    await db.unitCommercialProfile.create({ data: { companyId: COMPANY_ID, projectId: PROJECT_ID, unitId: unit.id, status: unit.status, askingPrice: new Prisma.Decimal(unit.price), currency: "EUR" } });
+  }
+  const unitBindings = UNITS.map((unit) => ({ meshName: unit.mesh, unitId: unit.id, unitCode: unit.code, poiYawDeg: 0, poiEnabled: true, poiDistanceOverride: null, poiHeightOverride: null }));
   const experience = (config.authoringDocument as { config: Record<string, unknown> }).config;
   const createdAt = new Date().toISOString();
   const manifest = {
@@ -116,7 +123,7 @@ async function publishFixture() {
       selectable: true,
       sceneManifest: [],
       nodeOverrides: [],
-      unitBindings: [],
+      unitBindings,
     }],
   };
 
@@ -203,10 +210,68 @@ test("Company sees only the active read-only release", async ({ page }) => {
   const explorerPromise = page.waitForEvent("popup");
   await launch.click();
   const explorer = await explorerPromise;
-  await expect(explorer.getByRole("heading", { level: 1, name: `${PROJECT_NAME} · 3D Explorer` })).toBeVisible();
-  await expect(explorer.getByTestId("project-3d-viewer")).toBeVisible();
-  await expect(explorer.getByText("Published experience · Release 1")).toBeVisible();
+  const consoleErrors: string[] = [];
+  explorer.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  explorer.on("pageerror", (error) => consoleErrors.push(error.message));
+  await expect(explorer).toHaveURL(new RegExp(`/projects/${PROJECT_ID}/3d$`));
+  await expect(explorer).toHaveTitle(`${PROJECT_NAME} · 3D Explorer · NESTO`);
+
+  // Full screen: the ported viewer, with no NESTO sidebar or top bar around it.
+  const viewer = explorer.getByTestId("project-3d-viewer");
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toHaveAttribute("data-release", "1");
+  await expect(explorer.locator("[data-shell-region]")).toHaveCount(0);
+  await expect(explorer.getByTestId("sidebar-header")).toHaveCount(0);
   await expect(explorer.getByRole("button", { name: /upload|publish|save experience|rollback/i })).toHaveCount(0);
+
+  // The HUD: identity with its Back control, the compass, utilities and the dock.
+  const back = explorer.getByTestId("project-3d-back");
+  await expect(back).toBeVisible({ timeout: 30_000 });
+  await expect(back).toHaveAttribute("href", `/projects/${PROJECT_ID}`);
+  await expect(explorer.getByText(PROJECT_NAME, { exact: true })).toBeVisible();
+  const dock = explorer.locator("[data-viewer-dock]");
+  for (const name of ["Explore", "Units", "Views", "Time"]) await expect(dock.getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(explorer.getByRole("button", { name: "More" })).toBeVisible();
+
+  // Sun and time.
+  await dock.getByRole("button", { name: "Time", exact: true }).click();
+  await expect(dock.getByText("Sun & Time").or(dock.getByRole("slider"))).toBeVisible();
+  await dock.getByRole("button", { name: "Close" }).click();
+
+  // Units: the floor rail, the filters and the list.
+  await dock.getByRole("button", { name: "Units", exact: true }).click();
+  await expect(explorer.locator("[data-viewer-floor-rail]")).toHaveCount(0); // No sections authored.
+  await dock.getByRole("button", { name: "Reserved", exact: true }).click();
+  await dock.getByRole("button", { name: /^List units — 1 units found$/ }).click();
+  await expect(explorer.getByText("E2E-102", { exact: true })).toBeVisible();
+  await expect(explorer.getByText("E2E-101", { exact: true })).toHaveCount(0);
+  // The units workspace replaces the dock while it is open.
+  await explorer.getByRole("button", { name: "All", exact: true }).first().click();
+  await expect(explorer.getByText("E2E-101", { exact: true })).toBeVisible();
+  await expect(explorer.getByText("€185,000").or(explorer.getByText("€185.000")).first()).toBeVisible();
+
+  // The list's detail view reaches the canonical unit record.
+  await explorer.getByText("E2E-101", { exact: true }).click();
+  await expect(explorer.getByRole("link", { name: "Open unit record" })).toHaveAttribute("href", `/projects/${PROJECT_ID}/units/${UNITS[0]!.id}`);
+  // Closing the workspace clears the selection, as on Rozaris.
+  await explorer.getByRole("button", { name: "Close", exact: true }).first().click();
+
+  // Clicking the unit's block in the scene opens its preview card.
+  const canvas = explorer.locator("canvas").first();
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.45, y: box.height * 0.72 } });
+  const card = explorer.getByRole("dialog", { name: "E2E-101" });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "View Unit" }).click();
+  await expect(card.getByTestId("project-3d-open-unit")).toHaveAttribute("href", `/projects/${PROJECT_ID}/units/${UNITS[0]!.id}`);
+
+  // Back returns to the project.
+  await back.click();
+  await expect(explorer).toHaveURL(new RegExp(`/projects/${PROJECT_ID}$`));
+  expect(consoleErrors).toEqual([]);
+  await explorer.close();
   await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT_ID}$`));
 
   const bootstrap = await page.request.get(`/api/projects/${PROJECT_ID}/3d/bootstrap`);
