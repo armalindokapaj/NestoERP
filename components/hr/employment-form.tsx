@@ -12,9 +12,10 @@ import {
 } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
-import { employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
+
+const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as const;
 
 export type EmploymentFormValues = {
   employeeNumber: string | null;
@@ -75,6 +76,8 @@ export function EmploymentForm({
   pendingLabel: string;
 }) {
   const creating = members !== undefined;
+  const t = useHrTranslations();
+  const translatedAction = useHrFormAction(action);
   const [subject, setSubject] = React.useState<Subject>("NEW");
   const [selectedMember, setSelectedMember] = React.useState("");
   const [selectedPerson, setSelectedPerson] = React.useState("");
@@ -93,7 +96,7 @@ export function EmploymentForm({
 
   return (
     <RecordForm
-      action={action}
+      action={translatedAction}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
@@ -102,9 +105,9 @@ export function EmploymentForm({
       onFailure={(result) => setDuplicates((result as { duplicates?: Duplicate[] }).duplicates ?? [])}
     >
       {creating ? (
-        <FormSection title="Who" description="Employment is for a person. A NESTO login is optional, and most site workers never need one.">
+        <FormSection title={t("employmentForm.who")} description={t("employmentForm.whoDescription")}>
           <input type="hidden" name="subject" value={subject} />
-          <Field label="The employee is" name="subject" className="sm:col-span-2">
+          <Field label={t("employmentForm.employeeIs")} name="subject" className="sm:col-span-2">
             <select
               id="subject"
               className={selectClass}
@@ -114,14 +117,14 @@ export function EmploymentForm({
                 setDuplicates([]);
               }}
             >
-              <option value="NEW">Somebody new, with no NESTO account</option>
-              {members && members.length > 0 ? <option value="MEMBER">A team member who already has a login here</option> : null}
-              {people && people.length > 0 ? <option value="PERSON">Somebody the group already knows</option> : null}
+              <option value="NEW">{t("employmentForm.subjectNew")}</option>
+              {members && members.length > 0 ? <option value="MEMBER">{t("employmentForm.subjectMember")}</option> : null}
+              {people && people.length > 0 ? <option value="PERSON">{t("employmentForm.subjectPerson")}</option> : null}
             </select>
           </Field>
 
           {subject === "MEMBER" ? (
-            <Field label="Team member" name="companyMemberId" required hint="Only members without an employment record are listed." className="sm:col-span-2">
+            <Field label={t("employmentForm.teamMember")} name="companyMemberId" required hint={t("employmentForm.teamMemberHint")} className="sm:col-span-2">
               <select
                 id="companyMemberId"
                 name="companyMemberId"
@@ -131,7 +134,7 @@ export function EmploymentForm({
                 onChange={(event) => setSelectedMember(event.target.value)}
               >
                 <option value="" disabled>
-                  Choose a team member
+                  {t("employmentForm.chooseMember")}
                 </option>
                 {(members ?? []).map((member) => (
                   <option key={member.value} value={member.value}>
@@ -143,7 +146,7 @@ export function EmploymentForm({
           ) : null}
 
           {subject === "PERSON" ? (
-            <Field label="Person" name="personProfileId" required hint="A former employee, a hired candidate, or somebody employed by another company of the group." className="sm:col-span-2">
+            <Field label={t("recruitment.person")} name="personProfileId" required hint={t("employmentForm.personHint")} className="sm:col-span-2">
               <select
                 id="personProfileId"
                 name="personProfileId"
@@ -153,7 +156,7 @@ export function EmploymentForm({
                 onChange={(event) => setSelectedPerson(event.target.value)}
               >
                 <option value="" disabled>
-                  Choose the person
+                  {t("employmentForm.choosePerson")}
                 </option>
                 {(people ?? []).map((person) => (
                   <option key={person.value} value={person.value}>
@@ -166,19 +169,19 @@ export function EmploymentForm({
 
           {subject === "NEW" ? (
             <>
-              <Field label="First name" name="firstName" required>
+              <Field label={t("employmentForm.firstName")} name="firstName" required>
                 <Input id="firstName" name="firstName" maxLength={80} required />
               </Field>
-              <Field label="Last name" name="lastName" required>
+              <Field label={t("employmentForm.lastName")} name="lastName" required>
                 <Input id="lastName" name="lastName" maxLength={80} required />
               </Field>
-              <Field label="Date of birth" name="dateOfBirth" hint="Private to HR. Helps tell two people with the same name apart.">
+              <Field label={t("employmentForm.dateOfBirth")} name="dateOfBirth" hint={t("employmentForm.dateOfBirthHint")}>
                 <Input id="dateOfBirth" name="dateOfBirth" type="date" />
               </Field>
-              <Field label="Work phone" name="workPhone">
+              <Field label={t("recruitment.workPhone")} name="workPhone">
                 <Input id="workPhone" name="workPhone" maxLength={40} inputMode="tel" />
               </Field>
-              <Field label="Personal phone" name="personalPhone" hint="Private to HR.">
+              <Field label={t("recruitment.personalPhone")} name="personalPhone" hint={t("employmentForm.privateToHr")}>
                 <Input id="personalPhone" name="personalPhone" maxLength={40} inputMode="tel" />
               </Field>
               {confirmNew ? <input type="hidden" name="confirmNewPerson" value="true" /> : null}
@@ -187,7 +190,7 @@ export function EmploymentForm({
 
           {subject === "NEW" && duplicates.length > 0 ? (
             <div className="space-y-3 rounded-md border border-warning/30 bg-warning-soft p-4 sm:col-span-2" data-testid="probable-duplicates">
-              <p className="text-table font-medium text-warning-strong">This may be somebody the group already has:</p>
+              <p className="text-table font-medium text-warning-strong">{t("employmentForm.maybeDuplicate")}</p>
               <ul className="space-y-2">
                 {duplicates.map((person) => (
                   <li key={person.personId} className="flex flex-wrap items-center justify-between gap-2 text-table">
@@ -200,51 +203,51 @@ export function EmploymentForm({
                       </span>
                     </span>
                     <Button type="button" size="sm" variant="secondary" onClick={() => employExistingPerson(person.personId)}>
-                      Employ this person
+                      {t("employmentForm.employThis")}
                     </Button>
                   </li>
                 ))}
               </ul>
               <label className="flex items-center gap-2 text-table text-fg">
                 <input type="checkbox" checked={confirmNew} onChange={(event) => setConfirmNew(event.target.checked)} />
-                None of them — this is somebody new
+                {t("employmentForm.noneNew")}
               </label>
             </div>
           ) : null}
         </FormSection>
       ) : null}
 
-      <FormSection title="Employment" description="Who this person is to the company, and on what terms.">
+      <FormSection title={t("tabs.employment")} description={t("employmentForm.employmentDescription")}>
         {creating ? (
-          <Field label="Employment type" name="employmentType" required>
+          <Field label={t("fields.employmentType")} name="employmentType" required>
             <select id="employmentType" name="employmentType" className={selectClass} defaultValue="FULL_TIME">
               {EMPLOYMENT_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {employmentTypeLabels[type]}
+                  {hrLabel(t, "employmentType", type)}
                 </option>
               ))}
             </select>
           </Field>
         ) : null}
 
-        <Field label="Employee number" name="employeeNumber" hint="Optional, and unique in the company.">
+        <Field label={t("fields.employeeNumber")} name="employeeNumber" hint={t("employmentForm.employeeNumberHint")}>
           <Input id="employeeNumber" name="employeeNumber" maxLength={60} defaultValue={values?.employeeNumber ?? ""} placeholder="EMP-014" />
         </Field>
 
-        <Field label="Worker category" name="workerCategory" hint="What kind of worker — not a NESTO role.">
+        <Field label={t("fields.workerCategory")} name="workerCategory" hint={t("employmentForm.workerCategoryHint")}>
           <select id="workerCategory" name="workerCategory" className={selectClass} defaultValue={values?.workerCategory ?? ""}>
-            <option value="">Not set</option>
+            <option value="">{t("employmentForm.notSet")}</option>
             {WORKER_CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {workerCategoryLabels[category]}
+                {hrLabel(t, "workerCategory", category)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Trade" name="tradeId" hint={trades.length === 0 ? "The company has no trades listed yet." : undefined}>
+        <Field label={t("columns.trade")} name="tradeId" hint={trades.length === 0 ? t("employmentForm.noTrades") : undefined}>
           <select id="tradeId" name="tradeId" className={selectClass} defaultValue={values?.tradeId ?? ""}>
-            <option value="">Not set</option>
+            <option value="">{t("employmentForm.notSet")}</option>
             {trades.map((trade) => (
               <option key={trade.value} value={trade.value}>
                 {trade.label}
@@ -255,9 +258,9 @@ export function EmploymentForm({
 
         {creating && subject !== "MEMBER" ? (
           <>
-            <Field label="Department" name="departmentId">
+            <Field label={t("columns.department")} name="departmentId">
               <select id="departmentId" name="departmentId" className={selectClass} defaultValue="">
-                <option value="">Not set</option>
+                <option value="">{t("employmentForm.notSet")}</option>
                 {(departments ?? []).map((department) => (
                   <option key={department.value} value={department.value}>
                     {department.label}
@@ -265,16 +268,16 @@ export function EmploymentForm({
                 ))}
               </select>
             </Field>
-            <Field label="Job title" name="jobTitle">
-              <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder="Senior electrician" />
+            <Field label={t("fields.jobTitle")} name="jobTitle">
+              <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder={t("employmentForm.jobTitlePlaceholder")} />
             </Field>
           </>
         ) : null}
 
         {creating ? (
-          <Field label="Manager" name="managerMemberId" hint="Who this person reports to.">
+          <Field label={t("columns.manager")} name="managerMemberId" hint={t("employmentForm.managerHint")}>
             <select id="managerMemberId" name="managerMemberId" className={selectClass} defaultValue="">
-              <option value="">No manager</option>
+              <option value="">{t("employmentForm.noManager")}</option>
               {managerChoices.map((manager) => (
                 <option key={manager.value} value={manager.value}>
                   {manager.label}
@@ -284,48 +287,47 @@ export function EmploymentForm({
           </Field>
         ) : (
           <p className="text-meta text-fg-subtle sm:col-span-2">
-            Department, job title, manager, work location, employment type and status change through “Change employment”, each from a date, and are kept
-            in the history.
+            {t("employmentForm.editNote")}
           </p>
         )}
       </FormSection>
 
-      <FormSection title="Dates" description="Employment cannot end before it starts.">
+      <FormSection title={t("dateRange.dates")} description={t("employmentForm.datesDescription")}>
         {creating ? (
-          <Field label="Planned start" name="startDate" hint="The employment is planned until HR starts it.">
+          <Field label={t("fields.plannedStart")} name="startDate" hint={t("employmentForm.plannedStartHint")}>
             <Input id="startDate" name="startDate" type="date" defaultValue="" />
           </Field>
         ) : null}
 
-        <Field label="Probation ends" name="probationEndDate">
+        <Field label={t("fields.probationEnds")} name="probationEndDate">
           <Input id="probationEndDate" name="probationEndDate" type="date" defaultValue={values?.probationEndDate ?? ""} />
         </Field>
 
-        <Field label="End date" name="endDate" hint="A planned last day. Ending employment is a separate action.">
+        <Field label={t("fields.endDate")} name="endDate" hint={t("employmentForm.endDateHint")}>
           <Input id="endDate" name="endDate" type="date" defaultValue={values?.endDate ?? ""} />
         </Field>
       </FormSection>
 
-      <FormSection title="Working arrangement">
+      <FormSection title={t("employmentForm.workingArrangement")}>
         {creating ? (
           <>
-            <Field label="Works at" name="workLocationType">
+            <Field label={t("employmentForm.worksAt")} name="workLocationType">
               <select id="workLocationType" name="workLocationType" className={selectClass} defaultValue="">
-                <option value="">Not set</option>
-                {Object.entries(workLocationTypeLabels).map(([value, label]) => (
+                <option value="">{t("employmentForm.notSet")}</option>
+                {WORK_LOCATION_TYPES.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {hrLabel(t, "workLocationType", value)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Work location" name="workLocation">
-              <Input id="workLocation" name="workLocation" maxLength={160} defaultValue="" placeholder="Tirana office" />
+            <Field label={t("fields.workLocation")} name="workLocation">
+              <Input id="workLocation" name="workLocation" maxLength={160} defaultValue="" placeholder={t("employmentForm.workLocationPlaceholder")} />
             </Field>
           </>
         ) : null}
 
-        <Field label="Weekly hours" name="weeklyHours" hint="Contracted hours, such as 40.">
+        <Field label={t("fields.weeklyHours")} name="weeklyHours" hint={t("employmentForm.weeklyHoursHint")}>
           <Input id="weeklyHours" name="weeklyHours" inputMode="decimal" defaultValue={values?.weeklyHours ?? ""} placeholder="40" />
         </Field>
       </FormSection>

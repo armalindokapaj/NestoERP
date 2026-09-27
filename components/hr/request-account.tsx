@@ -5,6 +5,7 @@ import * as React from "react";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
+import { useHrTranslations } from "./hr-text";
 
 /**
  * Ask Group IT for a NESTO login for an employee who has none (E-04 §88,
@@ -25,35 +26,36 @@ export function RequestAccountButton({
   departments: Array<{ id: string; name: string }>;
   roles: Array<{ key: string; label: string }>;
 }) {
+  const t = useHrTranslations();
   const { run } = useCommand();
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)} data-testid="request-account">
-        Request NESTO account
+        {t("account.request")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={`Request a NESTO account for ${name}`}
-        description="Group IT creates it from this employee's HR record once the Head of Group HR or the Owner approves. Their employment, pay, documents and assignments stay exactly as they are."
+        title={t("account.dialogTitle", { name })}
+        description={t("account.dialogDescription")}
         fields={[
           // An empty first choice, so nothing looks chosen that is not: a required select without one showed its first
           // option while sending nothing, and the request fell back to another department or role (AUD-09 §5).
-          { name: "companyDepartmentId", label: "Department", type: "select", required: true, emptyLabel: "Choose a department", options: departments.map((department) => ({ value: department.id, label: department.name })) },
-          { name: "functionalRoleKey", label: "NESTO role", type: "select", required: true, emptyLabel: "Choose a role", options: roles.map((role) => ({ value: role.key, label: role.label })) },
-          { name: "requestedUsername", label: "Preferred username", type: "text", hint: "Optional. Group IT follows firstname.lastname otherwise." },
-          { name: "requestedActivationDate", label: "Needed from", type: "date" },
-          { name: "notes", label: "Notes for Group IT", type: "textarea", rows: 3 },
+          { name: "companyDepartmentId", label: t("columns.department"), type: "select", required: true, emptyLabel: t("account.chooseDepartment"), options: departments.map((department) => ({ value: department.id, label: department.name })) },
+          { name: "functionalRoleKey", label: t("account.nestoRole"), type: "select", required: true, emptyLabel: t("account.chooseRole"), options: roles.map((role) => ({ value: role.key, label: role.label })) },
+          { name: "requestedUsername", label: t("account.preferredUsername"), type: "text", hint: t("account.usernameHint") },
+          { name: "requestedActivationDate", label: t("account.neededFrom"), type: "date" },
+          { name: "notes", label: t("account.notes"), type: "textarea", rows: 3 },
         ]}
         initial={{ companyDepartmentId: departmentId ?? "" }}
-        submitLabel="Submit request"
+        submitLabel={t("account.submit")}
         module="hr"
         testId="request-account-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/hr/user-provisioning-requests", { body: { ...payload, employeeProfileId: employeeId, submit: true } });
-          await run("access", async () => null, "Account request submitted.");
+          await run("access", async () => null, t("account.submitted"));
         }}
       />
     </>

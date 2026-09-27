@@ -8,8 +8,12 @@ import { createAttendanceAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import { listEmployees } from "@/lib/modules/hr/employees/employee.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Record attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.recordAttendance") };
+}
 
 /**
  * Record a day of attendance (PRD #16 §102, §103).
@@ -24,6 +28,7 @@ export default async function NewAttendancePage() {
   const forOthers = can(context, "hr.attendance.create");
   if (!forOthers && !can(context, "hr.self.attendance")) redirect("/access-denied");
 
+  const t = await getTranslations("hr");
   const employees =
     forOthers && can(context, "hr.employee.view")
       ? await listEmployees(context, {
@@ -46,12 +51,12 @@ export default async function NewAttendancePage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "HR", href: "/hr" },
-          { label: "Attendance", href: "/hr/attendance" },
-          { label: "Record a day" },
+          { label: t("meta.hr"), href: "/hr" },
+          { label: t("meta.attendance"), href: "/hr/attendance" },
+          { label: t("attendance.recordDay") },
         ]}
-        title="Record attendance"
-        subtitle="One record per person per day. Worked hours are calculated from the times."
+        title={t("meta.recordAttendance")}
+        subtitle={t("attendance.newSubtitle")}
       />
 
       <AttendanceForm
@@ -60,13 +65,13 @@ export default async function NewAttendancePage() {
           employees
             ? employees.data.map((employee) => ({
                 value: employee.id,
-                label: employee.accountStatus === "NO_ACCOUNT" ? `${employee.name.fullName} (no NESTO account)` : employee.name.fullName,
+                label: employee.accountStatus === "NO_ACCOUNT" ? t("leave.noAccountName", { name: employee.name.fullName }) : employee.name.fullName,
               }))
             : undefined
         }
         cancelHref="/hr/attendance"
-        submitLabel="Record day"
-        pendingLabel="Recording…"
+        submitLabel={t("attendance.recordDaySubmit")}
+        pendingLabel={t("attendance.recording")}
       />
     </div>
   );

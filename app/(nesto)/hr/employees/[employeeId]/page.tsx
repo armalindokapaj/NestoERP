@@ -9,9 +9,9 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink, membershipHref, personHref } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
-import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
-import { accountStatusLabels, employmentTypeLabels, progressStatusLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { RECRUITABLE_ROLE_KEYS } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { roles } from "@/config/roles";
 import type { RoleKey } from "@/config/roles";
@@ -26,7 +26,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { employee } = await loadEmployee(employeeId);
     return { title: employee.name.fullName };
   } catch {
-    return { title: "Employee" };
+    const t = await getTranslations("hr");
+    return { title: t("columns.employee") };
   }
 }
 
@@ -42,20 +43,21 @@ export default async function EmployeeDetailPage({ params }: Params) {
   const { context, employee } = await loadEmployee(employeeId);
   const caps = employee.employment;
   const changes = Object.values(caps).some(Boolean) || employee.capabilities.canEditEmployment;
+  const t = await getTranslations("hr");
   const options = changes ? await employmentChangeOptions(context, employeeId) : { departments: [], managers: [], documents: [], companies: [] };
 
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={employeeBreadcrumbs(employee)}
+        breadcrumbs={await employeeBreadcrumbs(employee)}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
-        badges={<Badge tone="neutral">{employmentTypeLabels[employee.employmentType]}</Badge>}
+        badges={<Badge tone="neutral">{hrLabel(t, "employmentType", employee.employmentType)}</Badge>}
         meta={[
-          { label: "Department", value: orDash(employee.department?.name) },
+          { label: t("columns.department"), value: orDash(employee.department?.name) },
           {
-            label: "Manager",
+            label: t("columns.manager"),
             value: employee.manager ? (
               <PersonLink memberId={employee.manager.memberId} name={employee.manager.fullName} />
             ) : (
@@ -63,7 +65,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
             ),
           },
           {
-            label: "Started",
+            label: t("columns.started"),
             value: employee.startDate ? formatDate(employee.startDate) : "—",
           },
         ]}
@@ -87,112 +89,110 @@ export default async function EmployeeDetailPage({ params }: Params) {
            * silently revoke access — so it is surfaced instead.
            */
           <p className="rounded-md border border-warning/30 bg-warning-soft px-4 py-3 text-table text-warning-strong">
-            Employment ended{employee.endDate ? ` on ${formatDate(employee.endDate)}` : ""}, but
-            this person still has active company access. Deactivating it is a{" "}
+            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate) }) : t("employee.ended")}{t("employee.stillAccess")}{" "}
             <Link
               href={membershipHref(employee.memberId)}
               className="font-medium underline underline-offset-2"
             >
-              Team action
+              {t("employee.teamAction")}
             </Link>
-            , taken deliberately by somebody who holds that permission.
+            {t("employee.takenDeliberately")}
           </p>
         ) : (
           <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-            Employment ended{employee.endDate ? ` on ${formatDate(employee.endDate)}` : ""}. Company
-            access is separate and is managed in{" "}
+            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate) }) : t("employee.ended")}{t("employee.accessSeparate")}{" "}
             <Link href={membershipHref(employee.memberId)} className="text-accent-strong hover:underline">
-              Team
+              {t("employee.team")}
             </Link>
-            .
+            {t("employee.fullStop")}
           </p>
         )
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Employment</h2>
+          <h2 className="text-card font-semibold text-fg">{t("tabs.employment")}</h2>
           <DetailGrid
             className="mt-4"
             columns={3}
             items={[
-              { label: "Employee number", value: orDash(employee.employeeNumber) },
-              { label: "Employment type", value: employmentTypeLabels[employee.employmentType] },
-              { label: "Worker category", value: employee.workerCategory ? workerCategoryLabels[employee.workerCategory] : "—" },
-              { label: "Trade", value: orDash(employee.trade?.name) },
-              { label: "Department", value: orDash(employee.department?.name) },
-              { label: "Job title", value: orDash(employee.jobTitle) },
+              { label: t("fields.employeeNumber"), value: orDash(employee.employeeNumber) },
+              { label: t("fields.employmentType"), value: hrLabel(t, "employmentType", employee.employmentType) },
+              { label: t("fields.workerCategory"), value: employee.workerCategory ? hrLabel(t, "workerCategory", employee.workerCategory) : "—" },
+              { label: t("columns.trade"), value: orDash(employee.trade?.name) },
+              { label: t("columns.department"), value: orDash(employee.department?.name) },
+              { label: t("fields.jobTitle"), value: orDash(employee.jobTitle) },
               {
-                label: "Start date",
+                label: t("fields.startDate"),
                 value: employee.startDate ? formatDate(employee.startDate) : "—",
               },
               {
-                label: "Probation ends",
+                label: t("fields.probationEnds"),
                 value: employee.probationEndDate ? formatDate(employee.probationEndDate) : "—",
               },
               {
-                label: "End date",
+                label: t("fields.endDate"),
                 value: employee.endDate ? formatDate(employee.endDate) : "—",
               },
               {
-                label: "Work location",
-                value: orDash([employee.workLocationType ? workLocationTypeLabels[employee.workLocationType] : null, employee.workLocation].filter(Boolean).join(", ")),
+                label: t("fields.workLocation"),
+                value: orDash([employee.workLocationType ? hrLabel(t, "workLocationType", employee.workLocationType) : null, employee.workLocation].filter(Boolean).join(", ")),
               },
-              { label: "Weekly hours", value: orDash(employee.weeklyHours) },
+              { label: t("fields.weeklyHours"), value: orDash(employee.weeklyHours) },
             ]}
           />
           {employee.capabilities.canViewHistory ? (
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
-              How they got here — every position, department, manager and status, from its date — is in the{" "}
+              {t("employee.howTheyGotHere")}{" "}
               <Link href={`/hr/employees/${employee.id}/history`} className="text-accent-strong hover:underline">
-                employment history
+                {t("employee.employmentHistory")}
               </Link>
-              .
+              {t("employee.fullStop")}
             </p>
           ) : null}
         </section>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Contact</h2>
+            <h2 className="text-card font-semibold text-fg">{t("employee.contact")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Work email", value: orDash(employee.email) },
-                { label: "Phone", value: orDash(employee.phone) },
+                { label: t("employee.workEmail"), value: orDash(employee.email) },
+                { label: t("employee.phone"), value: orDash(employee.phone) },
               ]}
             />
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
-              Contact details live on the{" "}
+              {t("employee.contactLiveOn")}{" "}
               <Link href={personHref({ personId: employee.personId })!} className="text-accent-strong hover:underline">
-                person profile
+                {t("employee.personProfile")}
               </Link>
-              , not on the employment record.
+              {t("employee.notOnEmployment")}
             </p>
           </section>
 
           <section className="nesto-card p-5" aria-labelledby="account-heading" data-testid="employee-account">
             <h2 id="account-heading" className="text-card font-semibold text-fg">
-              NESTO account
+              {t("columns.nestoAccount")}
             </h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Account", value: accountStatusLabels[employee.accountStatus] },
-                ...(employee.role ? [{ label: "Role", value: employee.role.name }] : []),
+                { label: t("employee.account"), value: hrLabel(t, "accountStatus", employee.accountStatus) },
+                ...(employee.role ? [{ label: t("employee.role"), value: employee.role.name }] : []),
               ]}
             />
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
               {employee.memberId ? (
                 <>
-                  Company access is managed on the{" "}
+                  {t("employee.accessManagedOn")}{" "}
                   <Link href={membershipHref(employee.memberId)} className="text-accent-strong hover:underline">
-                    team membership
+                    {t("employee.teamMembership")}
                   </Link>
-                  . Ending employment never removes it on its own.
+                  {t("employee.neverRemoves")}
                 </>
               ) : (
-                "Everything about this employee is recorded without a login: employment, pay, documents, attendance and where they work. A login, if one is ever needed, is linked to this same record."
+                t("employee.noLogin")
               )}
             </p>
             {employee.capabilities.canRequestAccount ? (
@@ -209,17 +209,17 @@ export default async function EmployeeDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Readiness</h2>
+            <h2 className="text-card font-semibold text-fg">{t("employee.readiness")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Onboarding",
-                  value: progressStatusLabels[employee.onboardingStatus],
+                  label: t("meta.onboarding"),
+                  value: hrLabel(t, "progressStatus", employee.onboardingStatus),
                 },
                 {
-                  label: "Offboarding",
-                  value: progressStatusLabels[employee.offboardingStatus],
+                  label: t("meta.offboarding"),
+                  value: hrLabel(t, "progressStatus", employee.offboardingStatus),
                 },
               ]}
             />

@@ -13,7 +13,8 @@ import type { UserContext } from "@/lib/context/types";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { parseAttendanceQuery } from "@/lib/modules/hr/hr.query";
 import { ATTENDANCE_SORT_KEYS, ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
-import { attendanceStatusLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -33,6 +34,7 @@ export async function AttendanceList({
 }) {
   const query = parseAttendanceQuery(searchParams);
   const result = await attendance.listAttendance(context, query);
+  const t = await getTranslations("hr");
 
   const seesOthers = can(context, "hr.attendance.view");
   const hasFilters = Boolean(
@@ -42,10 +44,10 @@ export async function AttendanceList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
+      label: t("columns.status"),
       options: ATTENDANCE_STATUSES.map((value) => ({
         value,
-        label: attendanceStatusLabels[value],
+        label: hrLabel(t, "attendanceStatus", value),
       })),
     },
   ];
@@ -68,11 +70,11 @@ export async function AttendanceList({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <ListToolbar
-          searchPlaceholder="Search employee…"
+          searchPlaceholder={t("common.searchEmployee")}
           filters={filters}
           sortOptions={[
-            { value: "date-desc", label: "Newest first" },
-            { value: "date-asc", label: "Oldest first" },
+            { value: "date-desc", label: t("attendance.sort.newest") },
+            { value: "date-asc", label: t("attendance.sort.oldest") },
           ]}
           className="flex-1"
         />
@@ -82,36 +84,36 @@ export async function AttendanceList({
           size="sm"
         >
           <Link href={withParam("exceptions", query.exceptionsOnly ? null : "1")}>
-            {query.exceptionsOnly ? "All days" : "Exceptions"}
+            {query.exceptionsOnly ? t("attendance.allDays") : t("attendance.exceptions")}
           </Link>
         </Button>
         {seesOthers ? (
           <Button asChild variant={query.mine ? "primary" : "secondary"} size="sm">
             <Link href={withParam("mine", query.mine ? null : "1")}>
-              {query.mine ? "Everyone" : "Only mine"}
+              {query.mine ? t("attendance.everyone") : t("leave.onlyMine")}
             </Link>
           </Button>
         ) : null}
       </div>
 
-      <DateRangeFilter label="Days" basePath="/hr/attendance" />
+      <DateRangeFilter label={t("attendance.days")} basePath="/hr/attendance" />
 
       {result.data.length === 0 ? (
         hasFilters ? (
           <EmptyState
             icon={<CalendarCheck />}
-            title="No HR records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/hr/attendance" }}
+            title={t("employees.noMatchTitle")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/hr/attendance" }}
           />
         ) : (
           <EmptyState
             icon={<CalendarCheck />}
-            title="No attendance records for this period."
-            description="Days recorded by HR, recorded by people themselves, or written from approved leave appear here."
+            title={t("attendance.emptyPeriodTitle")}
+            description={t("attendance.emptyDescription")}
             action={
               can(context, "hr.attendance.create") || can(context, "hr.self.attendance")
-                ? { label: "Record a day", href: "/hr/attendance/new" }
+                ? { label: t("attendance.recordDay"), href: "/hr/attendance/new" }
                 : undefined
             }
           />

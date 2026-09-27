@@ -13,7 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
-import { acceptsTimes, attendanceStatusLabels } from "@/lib/modules/hr/hr.status";
+import { acceptsTimes } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
 import type { AttendanceStatus } from "@prisma/client";
 import { localDay } from "./local-day";
 
@@ -60,10 +61,12 @@ export function AttendanceForm({
   );
 
   const timed = acceptsTimes(status);
+  const t = useHrTranslations();
+  const translatedAction = useHrFormAction(action);
 
   return (
     <RecordForm
-      action={action}
+      action={translatedAction}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
@@ -71,22 +74,22 @@ export function AttendanceForm({
       module="hr"
     >
       <FormSection
-        title={lockedDate ? `${lockedDate.employee} — ${lockedDate.date}` : "Attendance"}
+        title={lockedDate ? `${lockedDate.employee} — ${lockedDate.date}` : t("meta.attendance")}
         description={
           lockedDate
-            ? "One record per person per day, so the day itself cannot be changed here."
-            : "One record per person per day."
+            ? t("attendanceForm.lockedDescription")
+            : t("attendanceForm.description")
         }
       >
         {!lockedDate && employees ? (
-          <Field label="Employee" name="employeeId" hint="Leave empty to record your own day.">
+          <Field label={t("columns.employee")} name="employeeId" hint={t("attendanceForm.employeeHint")}>
             <select
               id="employeeId"
               name="employeeId"
               className={selectClass}
               defaultValue={values?.employeeId ?? ""}
             >
-              <option value="">Myself</option>
+              <option value="">{t("common.myself")}</option>
               {employees.map((employee) => (
                 <option key={employee.value} value={employee.value}>
                   {employee.label}
@@ -97,7 +100,7 @@ export function AttendanceForm({
         ) : null}
 
         {!lockedDate ? (
-          <Field label="Date" name="date" required>
+          <Field label={t("attendance.date")} name="date" required>
             <Input
               id="date"
               name="date"
@@ -108,7 +111,7 @@ export function AttendanceForm({
           </Field>
         ) : null}
 
-        <Field label="Status" name="status" required>
+        <Field label={t("columns.status")} name="status" required>
           <select
             id="status"
             name="status"
@@ -118,7 +121,7 @@ export function AttendanceForm({
           >
             {ATTENDANCE_STATUSES.map((value) => (
               <option key={value} value={value}>
-                {attendanceStatusLabels[value]}
+                {hrLabel(t, "attendanceStatus", value)}
               </option>
             ))}
           </select>
@@ -126,7 +129,7 @@ export function AttendanceForm({
 
         {timed ? (
           <>
-            <Field label="Check in" name="checkIn" hint="24-hour time, such as 09:00.">
+            <Field label={t("attendance.checkIn")} name="checkIn" hint={t("attendanceForm.checkInHint")}>
               <Input
                 id="checkIn"
                 name="checkIn"
@@ -135,7 +138,7 @@ export function AttendanceForm({
               />
             </Field>
 
-            <Field label="Check out" name="checkOut" hint="Worked hours are calculated from these.">
+            <Field label={t("attendance.checkOut")} name="checkOut" hint={t("attendanceForm.checkOutHint")}>
               <Input
                 id="checkOut"
                 name="checkOut"
@@ -146,11 +149,11 @@ export function AttendanceForm({
           </>
         ) : (
           <p className="self-end text-meta text-fg-subtle sm:col-span-2">
-            {attendanceStatusLabels[status]} days do not carry check-in and check-out times.
+            {t("attendanceForm.noTimes", { status: hrLabel(t, "attendanceStatus", status) })}
           </p>
         )}
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("attendance.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

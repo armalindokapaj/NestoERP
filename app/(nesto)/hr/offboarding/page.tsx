@@ -9,8 +9,12 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listProgress } from "@/lib/modules/hr/employees/progress.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Offboarding" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.offboarding") };
+}
 
 /**
  * Employment readiness for people leaving (PRD #16 §122–§127).
@@ -26,27 +30,27 @@ export default async function OffboardingPage() {
 
   const experience = resolveModuleExperience(context, "hr");
   const rows = await listProgress(context, "offboarding");
+  const t = await getTranslations("hr");
 
   return (
     <ModulePage experience={experience} activeSection="offboarding">
       <div className="space-y-4">
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Ending employment does not remove company access. Deactivating a membership is a Team
-          action, taken deliberately by somebody who holds that permission.
+          {t("progress.offboardingNote")}
         </p>
 
         {rows.length === 0 ? (
           <EmptyState
             icon={<UserRoundMinus />}
-            title="No employees currently offboarding."
-            description="People whose employment is ending, or whose offboarding is still open, appear here."
+            title={t("progress.offboardingEmptyTitle")}
+            description={t("progress.offboardingEmptyDescription")}
           />
         ) : (
           <ProgressTable
             rows={rows}
             total={rows.total}
             kind="offboarding"
-            dateLabel="Last day"
+            dateLabel={t("progress.lastDay")}
             canManage={can(context, "hr.offboarding.manage")}
           />
         )}

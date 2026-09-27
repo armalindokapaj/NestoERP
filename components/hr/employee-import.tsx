@@ -12,6 +12,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { ImportBatchDTO, ImportResultDTO } from "@/lib/modules/workforce/workforce.import";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
+import { useHrTranslations } from "./hr-text";
 
 /**
  * Adding employees from a spreadsheet (E-04 §93-§98, §228-§230): pick a CSV,
@@ -29,11 +30,12 @@ export function EmployeeImport({ template }: { template: string }) {
   const [pending, setPending] = React.useState<"preview" | "commit" | "discard" | null>(null);
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]>("all");
   const input = React.useRef<HTMLInputElement>(null);
+  const t = useHrTranslations();
 
   // A checked file waiting to be imported is unsaved work, and its only way
   // forward is the import itself (AUD-03 §3): leaving asks, and the prompt
   // never imports. Leaving sets the batch aside; nothing stored is deleted.
-  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Import", label: "Employee import" });
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Import", label: t("import.label") });
   const { setDirty, setSaving, setUnresolved } = editor;
   React.useEffect(() => setDirty(batch !== null), [batch, setDirty]);
   React.useEffect(() => setSaving(pending !== null), [pending, setSaving]);
@@ -47,7 +49,7 @@ export function EmployeeImport({ template }: { template: string }) {
       setBatch(await engineeringApi<ImportBatchDTO>("/api/hr/employees/import", { body: { fileName: file.name, csv } }));
       setFilter("all");
     } catch (failure) {
-      setError(failureMessage(failure, "The file could not be read."));
+      setError(failureMessage(failure, t("import.unreadable")));
     } finally {
       setPending(null);
       if (input.current) input.current.value = "";
@@ -66,7 +68,7 @@ export function EmployeeImport({ template }: { template: string }) {
       // No answer: it may have imported. Say so, and never run it again on its own (§6).
       const unknown = failureOutcome(failure).kind === "unknown";
       setUnresolved(unknown);
-      setError(unknown ? OUTCOME_COPY.unknown : failureMessage(failure, "The import did not run."));
+      setError(unknown ? OUTCOME_COPY.unknown : failureMessage(failure, t("import.didNotRun")));
     } finally {
       setPending(null);
     }
@@ -92,12 +94,12 @@ export function EmployeeImport({ template }: { template: string }) {
     <div className="space-y-4">
       <section className="nesto-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">Choose a CSV file</h2>
+          <h2 className="text-card font-semibold text-fg">{t("import.chooseCsv")}</h2>
           <p className="mt-1 text-table text-fg-muted">
-            First name and Last name are required. Employee code, Trade, Category, Job title, Department, Start date, Employment type, Phone, Project, Site and Crew are read when present. Pay is never imported.
+            {t("import.columnsHelp")}
           </p>
           <a href={templateHref} download="employees-template.csv" className="mt-1 inline-block text-table font-medium text-accent-strong hover:underline">
-            Download a template
+            {t("import.downloadTemplate")}
           </a>
         </div>
         <div className="shrink-0">
@@ -105,7 +107,7 @@ export function EmployeeImport({ template }: { template: string }) {
           <Button asChild disabled={pending !== null}>
             <label htmlFor="employee-import-file" className="cursor-pointer">
               <Upload aria-hidden="true" />
-              {pending === "preview" ? "Checking…" : "Choose file"}
+              {pending === "preview" ? t("import.checking") : t("import.chooseFile")}
             </label>
           </Button>
         </div>
@@ -120,24 +122,24 @@ export function EmployeeImport({ template }: { template: string }) {
       {result ? (
         <section className="nesto-card space-y-2 p-5" data-testid="import-result">
           <h2 className="text-card font-semibold text-fg">
-            {result.createdCount} {result.createdCount === 1 ? "employee" : "employees"} imported
+            {t("import.imported", { count: result.createdCount })}
           </h2>
           <p className="text-table text-fg-muted">
-            {result.assignedCount ? `${result.assignedCount} assigned to projects. ` : ""}
-            {result.crewedCount ? `${result.crewedCount} put in crews. ` : ""}
-            None of them has a NESTO account; request one from an employee&apos;s page when they need it.
+            {result.assignedCount ? t("import.assigned", { count: result.assignedCount }) : ""}
+            {result.crewedCount ? t("import.crewed", { count: result.crewedCount }) : ""}
+            {t("import.noAccounts")}
           </p>
           {result.failed.length ? (
             <ul className="space-y-1 text-table text-danger-strong">
               {result.failed.map((row) => (
                 <li key={row.line}>
-                  Row {row.line} ({row.name}): {row.message}
+                  {t("import.failedRow", { line: row.line, name: row.name, message: row.message })}
                 </li>
               ))}
             </ul>
           ) : null}
           <Link href="/hr/employees?accountStatus=NO_ACCOUNT" className="text-table font-medium text-accent-strong hover:underline">
-            See them in the employee list
+            {t("import.seeThem")}
           </Link>
         </section>
       ) : null}
@@ -149,20 +151,20 @@ export function EmployeeImport({ template }: { template: string }) {
               {/* An unspaced file name breaks instead of widening the card (AUD-04 §3, D-07-16, MW-01). */}
               <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{batch.fileName}</h2>
               <p className="text-meta text-fg-subtle" data-testid="import-summary">
-                {batch.rowCount} rows · {batch.validCount} ready · {batch.errorCount} with errors · {batch.warningCount} to check
-                {batch.ignoredColumns.length ? ` · not read: ${batch.ignoredColumns.join(", ")}` : ""}
+                {t("import.summary", { rows: batch.rowCount, ready: batch.validCount, errors: batch.errorCount, warnings: batch.warningCount })}
+                {batch.ignoredColumns.length ? t("import.notRead", { columns: batch.ignoredColumns.join(", ") }) : ""}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" onClick={() => void discard()} disabled={pending !== null}>
-                Set aside
+                {t("import.setAside")}
               </Button>
               <Button size="sm" onClick={() => void commit()} disabled={pending !== null || batch.validCount === 0} data-testid="import-commit">
-                {pending === "commit" ? "Importing…" : `Import ${batch.validCount} ${batch.validCount === 1 ? "employee" : "employees"}`}
+                {pending === "commit" ? t("import.importing") : t("import.importCount", { count: batch.validCount })}
               </Button>
             </div>
           </div>
-          <nav aria-label="Rows to show" className="flex flex-wrap gap-1.5 px-5 py-2.5">
+          <nav aria-label={t("import.rowsToShow")} className="flex flex-wrap gap-1.5 px-5 py-2.5">
             {FILTERS.map((value) => (
               <button
                 key={value}
@@ -171,17 +173,17 @@ export function EmployeeImport({ template }: { template: string }) {
                 aria-pressed={filter === value}
                 className={cn("inline-flex items-center rounded-full border px-3 py-1 text-table touch:min-h-11", filter === value ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:text-fg")}
               >
-                {value === "all" ? "All rows" : value === "errors" ? "Errors" : "To check"}
+                {value === "all" ? t("import.allRows") : value === "errors" ? t("import.errors") : t("import.toCheck")}
               </button>
             ))}
           </nav>
-          <Table flush aria-label="Rows in the file">
+          <Table flush aria-label={t("import.rowsInFile")}>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Row</TableHeaderCell>
-                <TableHeaderCell>Name</TableHeaderCell>
-                <TableHeaderCell>Trade · project · crew</TableHeaderCell>
-                <TableHeaderCell>Check</TableHeaderCell>
+                <TableHeaderCell>{t("import.row")}</TableHeaderCell>
+                <TableHeaderCell>{t("import.name")}</TableHeaderCell>
+                <TableHeaderCell>{t("import.tradeProjectCrew")}</TableHeaderCell>
+                <TableHeaderCell>{t("import.check")}</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -194,7 +196,7 @@ export function EmployeeImport({ template }: { template: string }) {
                   </TableCell>
                   <TableCell className="text-fg-muted">{[row.values.trade, row.values.project, row.values.crew].filter(Boolean).join(" · ") || "—"}</TableCell>
                   <TableCell>
-                    {row.errors.length === 0 && row.warnings.length === 0 ? <Badge tone="success">Ready</Badge> : null}
+                    {row.errors.length === 0 && row.warnings.length === 0 ? <Badge tone="success">{t("import.ready")}</Badge> : null}
                     {row.errors.map((message) => (
                       <span key={message} className="block text-meta text-danger-strong">
                         {message}
@@ -210,7 +212,7 @@ export function EmployeeImport({ template }: { template: string }) {
               ))}
             </TableBody>
           </Table>
-          {rows.length > 500 ? <p className="px-5 py-3 text-meta text-fg-subtle">Showing the first 500 of {rows.length} rows.</p> : null}
+          {rows.length > 500 ? <p className="px-5 py-3 text-meta text-fg-subtle">{t("import.first500", { total: rows.length })}</p> : null}
         </section>
       ) : null}
     </div>

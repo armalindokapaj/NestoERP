@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { TimelineEventDTO } from "@/lib/modules/hr/employment/employment.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * An employment timeline, newest first (E-03 §123-§131, §173).
@@ -14,10 +15,11 @@ import { formatDate } from "@/lib/utils/format";
  * rests on. The event is said in words, never by colour alone, and every date
  * is a real `<time>`.
  */
-export function EmploymentTimeline({ events, showCompany = false, emptyText = "No history yet." }: { events: TimelineEventDTO[]; showCompany?: boolean; emptyText?: string }) {
-  if (events.length === 0) return <p className="text-table text-fg-muted">{emptyText}</p>;
+export async function EmploymentTimeline({ events, showCompany = false, emptyText }: { events: TimelineEventDTO[]; showCompany?: boolean; emptyText?: string }) {
+  const t = await getTranslations("hr");
+  if (events.length === 0) return <p className="text-table text-fg-muted">{emptyText ?? t("timeline.empty")}</p>;
   return (
-    <ol className="relative space-y-4 border-l border-line pl-5" aria-label="Employment timeline, newest first">
+    <ol className="relative space-y-4 border-l border-line pl-5" aria-label={t("timeline.label")}>
       {events.map((event) => (
         <li key={event.id} className="relative" data-testid="timeline-event">
           <span aria-hidden="true" className="absolute -left-[1.625rem] top-1.5 size-2.5 rounded-full border-2 border-surface bg-accent" />
@@ -27,7 +29,7 @@ export function EmploymentTimeline({ events, showCompany = false, emptyText = "N
             </time>
             <h3 className="text-table font-semibold text-fg">{event.title}</h3>
             {showCompany ? <span className="text-meta text-fg-subtle">· {event.company.name}</span> : null}
-            {event.corrected ? <Badge tone="warning">Corrected</Badge> : null}
+            {event.corrected ? <Badge tone="warning">{t("history.corrected")}</Badge> : null}
           </div>
           {event.summary.length > 0 ? <p className="mt-1 text-table text-fg-muted">{event.summary.join(" · ")}</p> : null}
           {event.changes.length > 0 ? (
@@ -35,9 +37,9 @@ export function EmploymentTimeline({ events, showCompany = false, emptyText = "N
               {event.changes.map((change) => (
                 <li key={change.label} className="flex flex-wrap items-center gap-1">
                   <span className="font-medium text-fg">{change.label}:</span>
-                  <span>{change.from ?? "none"}</span>
-                  <ArrowRight aria-label="to" className="size-3" />
-                  <span>{change.to ?? "none"}</span>
+                  <span>{change.from ?? t("timeline.none")}</span>
+                  <ArrowRight aria-label={t("reports.to")} className="size-3" />
+                  <span>{change.to ?? t("timeline.none")}</span>
                 </li>
               ))}
             </ul>
@@ -52,7 +54,7 @@ export function EmploymentTimeline({ events, showCompany = false, emptyText = "N
               ) : null}
               {event.createdBy ? (
                 <span>
-                  Recorded by <PersonLink userId={event.createdByUserId} name={event.createdBy} />
+                  {t("common.recordedBy")} <PersonLink userId={event.createdByUserId} name={event.createdBy} />
                 </span>
               ) : null}
             </p>

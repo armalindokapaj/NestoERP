@@ -6,10 +6,14 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { updateEmployeeProfileAction } from "@/lib/actions/hr";
 import { tradeOptions } from "@/lib/modules/hr/employees/employee.repository";
 import { employeeBreadcrumbs, loadEmployee } from "../../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
-export const metadata: Metadata = { title: "Edit details" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.editDetails") };
+}
 
 /**
  * Edit what of an employment record is not history (PRD #16 §50; E-03 §37,
@@ -23,6 +27,7 @@ export default async function EditEmploymentPage({ params }: Params) {
   const trades = await tradeOptions(context, employee.trade?.id ?? null);
 
   if (!employee.capabilities.canEditEmployment) redirect(`/hr/employees/${employeeId}`);
+  const t = await getTranslations("hr");
 
   async function action(formData: FormData) {
     "use server";
@@ -32,8 +37,8 @@ export default async function EditEmploymentPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Edit details")}
-        title={`Edit ${employee.name.fullName}’s details`}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("meta.editDetails"))}
+        title={t("employment.editTitle", { name: employee.name.fullName })}
         status={employee.employmentStatus}
       />
 
@@ -47,12 +52,12 @@ export default async function EditEmploymentPage({ params }: Params) {
           workerCategory: employee.workerCategory,
           tradeId: employee.trade?.id ?? null,
         }}
-        trades={trades.map((trade) => ({ value: trade.id, label: trade.isActive ? trade.name : `${trade.name} (retired)` }))}
+        trades={trades.map((trade) => ({ value: trade.id, label: trade.isActive ? trade.name : t("employment.retiredTrade", { name: trade.name }) }))}
         memberId={employee.memberId}
         versionUpdatedAt={employee.updatedAt}
         cancelHref={`/hr/employees/${employeeId}/employment`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
       />
     </div>
   );

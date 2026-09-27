@@ -2,7 +2,8 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { attendanceSourceLabels } from "@/lib/modules/hr/hr.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hrLabel } from "./hr-labels";
 import type { AttendanceDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate } from "@/lib/utils/format";
 import { formatTimeOfDay, formatWorkedMinutes } from "./hr-format";
@@ -14,7 +15,7 @@ import { formatTimeOfDay, formatWorkedMinutes } from "./hr-format";
  * check-out by the service, so the column can't disagree with the record
  * (PRD #16 §106).
  */
-export function AttendanceTable({
+export async function AttendanceTable({
   records,
   showEmployee = true,
   listId = "hr.attendance",
@@ -27,6 +28,7 @@ export function AttendanceTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("hr");
   const columns: TableColumn<AttendanceDTO>[] = [
     ...(showEmployee
       ? [
@@ -34,7 +36,7 @@ export function AttendanceTable({
             key: "employee",
             id: "employee",
             mandatory: true,
-            label: "Employee",
+            label: t("columns.employee"),
             primary: true,
             render: (record: AttendanceDTO) => (
               <span className="min-w-0">
@@ -53,7 +55,7 @@ export function AttendanceTable({
             mandatory: true,
             valueType: "date" as const,
             sortKey: sort ? "date" : undefined,
-            label: "Date",
+            label: t("attendance.date"),
             primary: true,
             render: (record: AttendanceDTO) => <span>{formatDate(record.date)}</span>,
           },
@@ -66,7 +68,7 @@ export function AttendanceTable({
             mandatory: true,
             valueType: "date" as const,
             sortKey: sort ? "date" : undefined,
-            label: "Date",
+            label: t("attendance.date"),
             hideBelow: "xl" as const,
             render: (record: AttendanceDTO) => (
               <span className="text-fg-muted">{formatDate(record.date)}</span>
@@ -79,13 +81,13 @@ export function AttendanceTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (record) => <StatusBadge status={record.status} />,
     },
     {
       key: "checkIn",
       id: "checkIn",
-      label: "Check in",
+      label: t("attendance.checkIn"),
       hideBelow: "md",
       render: (record) => (
         <span className="tabular-nums text-fg-muted">{formatTimeOfDay(record.checkIn)}</span>
@@ -94,7 +96,7 @@ export function AttendanceTable({
     {
       key: "checkOut",
       id: "checkOut",
-      label: "Check out",
+      label: t("attendance.checkOut"),
       hideBelow: "md",
       render: (record) => (
         <span className="tabular-nums text-fg-muted">{formatTimeOfDay(record.checkOut)}</span>
@@ -104,7 +106,7 @@ export function AttendanceTable({
       key: "worked",
       id: "worked",
       valueType: "number",
-      label: "Worked",
+      label: t("attendance.worked"),
       align: "right",
       render: (record) => (
         <span className="tabular-nums text-fg">{formatWorkedMinutes(record.workedMinutes)}</span>
@@ -113,19 +115,19 @@ export function AttendanceTable({
     {
       key: "source",
       id: "source",
-      label: "Source",
+      label: t("attendance.source"),
       hideBelow: "xl",
       render: (record) => (
-        <span className="text-fg-muted">{attendanceSourceLabels[record.source]}</span>
+        <span className="text-fg-muted">{hrLabel(t, "attendanceSource", record.source)}</span>
       ),
     },
     {
       key: "exception",
       id: "exception",
-      label: "Flag",
+      label: t("attendance.flag"),
       hideBelow: "lg",
       render: (record) =>
-        record.isException ? <Badge tone="warning">Needs a look</Badge> : <span>—</span>,
+        record.isException ? <Badge tone="warning">{t("attendance.needsLook")}</Badge> : <span>—</span>,
     },
   ];
 
@@ -133,7 +135,7 @@ export function AttendanceTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Attendance"
+      caption={t("meta.attendance")}
       columns={columns}
       records={records}
       rowKey={(record) => record.id}

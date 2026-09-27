@@ -5,6 +5,8 @@ import { PersonLink } from "@/components/people/person-link";
 import { Wallet } from "lucide-react";
 import type { CompensationDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { hrLabel } from "./hr-labels";
 
 /**
  * Effective-dated pay history (PRD #16 §240).
@@ -13,20 +15,15 @@ import { formatDate } from "@/lib/utils/format";
  * still open is the current one. The history is the audit trail, which is why
  * there is no delete (PRD #16 §65, §241).
  */
-const PAY_TYPE_LABELS: Record<string, string> = {
-  SALARY: "Salary",
-  HOURLY: "Hourly",
-  DAILY: "Daily",
-  OTHER: "Other",
-};
 
-export function CompensationHistory({ records }: { records: CompensationDTO[] }) {
+export async function CompensationHistory({ records }: { records: CompensationDTO[] }) {
+  const t = await getTranslations("hr");
   if (records.length === 0) {
     return (
       <EmptyState
         icon={<Wallet />}
-        title="No compensation recorded."
-        description="Pay is recorded as effective-dated entries, so the history stays intact."
+        title={t("reports.compensationEmpty")}
+        description={t("compensation.emptyDescription")}
       />
     );
   }
@@ -45,17 +42,17 @@ export function CompensationHistory({ records }: { records: CompensationDTO[] })
                   className="text-card"
                 />
                 <span className="text-table text-fg-muted">
-                  {PAY_TYPE_LABELS[record.payType] ?? record.payType}
+                  {hrLabel(t, "payType", record.payType)}
                 </span>
-                {record.isCurrent ? <Badge tone="success">Current</Badge> : null}
+                {record.isCurrent ? <Badge tone="success">{t("compensation.current")}</Badge> : null}
               </div>
               <p className="mt-1 text-meta text-fg-subtle">
                 {formatDate(record.effectiveFrom)} —{" "}
-                {record.effectiveTo ? formatDate(record.effectiveTo) : "open"}
+                {record.effectiveTo ? formatDate(record.effectiveTo) : t("compensation.open")}
               </p>
             </div>
             <p className="text-meta text-fg-subtle">
-              Recorded by {record.recordedBy ? <PersonLink memberId={record.recordedByMemberId} name={record.recordedBy} /> : "—"}
+              {t("common.recordedBy")} {record.recordedBy ? <PersonLink memberId={record.recordedByMemberId} name={record.recordedBy} /> : "—"}
             </p>
           </div>
 

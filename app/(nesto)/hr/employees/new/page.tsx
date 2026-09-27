@@ -13,8 +13,12 @@ import {
   personOptions,
   tradeOptions,
 } from "@/lib/modules/hr/employees/employee.repository";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New employee" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.newEmployee") };
+}
 
 /**
  * Add an employee (PRD #16 §38, §225; E-04 §228-§230).
@@ -28,6 +32,7 @@ export default async function NewEmployeePage() {
   const context = await requireModule("hr");
 
   if (!can(context, "hr.employee.create_profile")) redirect("/access-denied");
+  const t = await getTranslations("hr");
 
   const [members, managers, people, departments, trades] = await Promise.all([
     membersWithoutProfile(context),
@@ -46,12 +51,12 @@ export default async function NewEmployeePage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "HR", href: "/hr" },
-          { label: "Employees", href: "/hr/employees" },
-          { label: "New employee" },
+          { label: t("meta.hr"), href: "/hr" },
+          { label: t("meta.employees"), href: "/hr/employees" },
+          { label: t("meta.newEmployee") },
         ]}
-        title="New employee"
-        subtitle="With or without a NESTO account. A login can be requested later for the same record."
+        title={t("meta.newEmployee")}
+        subtitle={t("employees.newSubtitle")}
       />
 
       <EmploymentForm
@@ -71,8 +76,8 @@ export default async function NewEmployeePage() {
           label: `${manager.user.firstName} ${manager.user.lastName} — ${manager.role.name}`,
         }))}
         cancelHref="/hr/employees"
-        submitLabel="Create employee"
-        pendingLabel="Creating…"
+        submitLabel={t("employees.createEmployee")}
+        pendingLabel={t("common.creating")}
       />
     </div>
   );

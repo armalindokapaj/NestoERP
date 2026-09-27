@@ -12,10 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { cancelScheduledChangeAction, correctEmploymentHistoryAction } from "@/lib/actions/hr";
-import { statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
+import { statusReasonLabels } from "@/lib/modules/hr/employment/employment.labels";
+import { EMPLOYMENT_TYPES } from "@/lib/modules/hr/hr.schema";
+import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
+
+const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as const;
 import type { EmploymentChangeOptionsDTO } from "@/lib/modules/hr/employment/employment.options";
 import type { AssignmentRowDTO, StatusRowDTO } from "@/lib/modules/hr/employment/employment.types";
-import { employmentStatusLabels, employmentTypeLabels } from "@/lib/modules/hr/hr.status";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 
@@ -24,6 +27,8 @@ const selectClass =
 
 /** Cancels a scheduled change before it applies (E-03 §157). */
 export function CancelScheduledChange({ employeeId, changeId, label }: { employeeId: string; changeId: string; label: string }) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
@@ -31,24 +36,24 @@ export function CancelScheduledChange({ employeeId, changeId, label }: { employe
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)} disabled={pending}>
-        Cancel
+        {t("common.cancel")}
       </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="Cancel this scheduled change?"
-        description={`${label} will not take effect. It stays listed as cancelled.`}
-        confirmLabel="Cancel the change"
+        title={t("historyActions.cancelTitle")}
+        description={t("historyActions.cancelDescription", { label })}
+        confirmLabel={t("historyActions.cancelConfirm")}
         pending={pending}
         onConfirm={() =>
           startTransition(async () => {
             const result = await cancelScheduledChangeAction(employeeId, changeId);
             if (result.ok) {
-              toast({ title: "Scheduled change cancelled.", tone: "success" });
+              toast({ title: t("historyActions.cancelled"), tone: "success" });
               setOpen(false);
               router.refresh();
             } else {
-              toast({ title: result.error, tone: "danger" });
+              toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
             }
           })
         }
@@ -65,19 +70,20 @@ export function CancelScheduledChange({ employeeId, changeId, label }: { employe
 type CorrectionProps = { employeeId: string; kind: "ASSIGNMENT" | "STATUS"; row: AssignmentRowDTO | StatusRowDTO; options: EmploymentChangeOptionsDTO };
 
 export function CorrectHistoryRow(props: CorrectionProps) {
+  const t = useHrTranslations();
   const [open, setOpen] = React.useState(false);
   const { row, kind } = props;
   const from = kind === "ASSIGNMENT" ? (row as AssignmentRowDTO).startDate : (row as StatusRowDTO).effectiveFrom;
   return (
     <>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)} aria-label={`Correct the row from ${from}`}>
-        Correct
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)} aria-label={t("historyActions.correctLabel", { date: from })}>
+        {t("historyActions.correct")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogTitle>Correct history</DialogTitle>
+          <DialogTitle>{t("historyActions.correctTitle")}</DialogTitle>
           <DialogDescription>
-            The original row stays, marked as corrected, and the audit trail keeps both. Say why the history was wrong.
+            {t("historyActions.correctDescription")}
           </DialogDescription>
           {/* Inside the dialog, so its guarded close asks about the correction (AUD-03 §5). */}
           <CorrectionForm {...props} onDone={() => setOpen(false)} />
@@ -93,6 +99,8 @@ export function CorrectHistoryRow(props: CorrectionProps) {
  * fields, then the server's validation — without closing or navigating.
  */
 function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionProps & { onDone: () => void }) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const toast = useToast();
   const close = useDialogClose();
@@ -114,13 +122,13 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
     correctionReason: "",
   }));
   const [draft, setDraft] = React.useState<Record<string, string>>(initial);
-  const editor = useUnsavedEditor({ module: "hr", saveKind: "save", label: "History correction", save: () => save("continue") });
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "save", label: t("historyActions.correctionLabel"), save: () => save("continue") });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = Object.keys(initial).some((key) => draft[key] !== initial[key]);
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
   const set = (key: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setDraft((current) => ({ ...current, [key]: event.target.value }));
-  const departments = assignment?.department?.id && !options.departments.some((option) => option.id === assignment.department?.id) ? [{ id: assignment.department.id, name: `${assignment.department.name} (as recorded)` }, ...options.departments] : options.departments;
-  const managers = assignment?.manager?.memberId && !options.managers.some((option) => option.id === assignment.manager?.memberId) ? [{ id: assignment.manager.memberId, name: `${assignment.manager.name} (as recorded)` }, ...options.managers] : options.managers;
+  const departments = assignment?.department?.id && !options.departments.some((option) => option.id === assignment.department?.id) ? [{ id: assignment.department.id, name: t("historyActions.asRecorded", { name: assignment.department.name }) }, ...options.departments] : options.departments;
+  const managers = assignment?.manager?.memberId && !options.managers.some((option) => option.id === assignment.manager?.memberId) ? [{ id: assignment.manager.memberId, name: t("historyActions.asRecorded", { name: assignment.manager.name }) }, ...options.managers] : options.managers;
 
   async function save(mode: "normal" | "continue"): Promise<SaveOutcome> {
     const form = formRef.current;
@@ -171,11 +179,11 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
     if (result.ok) {
       setUnresolved(false);
       setDirty(false);
-      toast({ title: "History corrected. The original is kept.", tone: "success" });
+      toast({ title: t("historyActions.corrected"), tone: "success" });
       if (mode === "normal") onDone();
       router.refresh();
     } else {
-      setError(result.fieldErrors ? Object.values(result.fieldErrors).flat()[0] ?? result.error : result.error);
+      setError(result.fieldErrors ? Object.values(result.fieldErrors).flat()[0] ?? serverText(result.error) ?? result.error : serverText(result.error) ?? result.error);
     }
     return outcome;
   }
@@ -188,19 +196,19 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
   return (
     <form ref={formRef} onSubmit={submit} className="mt-4 space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="correct-date">{kind === "ASSIGNMENT" ? "Started" : "From"}</Label>
+        <Label htmlFor="correct-date">{kind === "ASSIGNMENT" ? t("columns.started") : t("leave.from")}</Label>
         <Input id="correct-date" type="date" value={draft.date} onChange={set("date")} required />
       </div>
       {assignment ? (
         <>
           <div className="space-y-1.5">
-            <Label htmlFor="correct-title">Job title</Label>
+            <Label htmlFor="correct-title">{t("fields.jobTitle")}</Label>
             <Input id="correct-title" value={draft.jobTitle} onChange={set("jobTitle")} maxLength={120} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="correct-department">Department</Label>
+            <Label htmlFor="correct-department">{t("columns.department")}</Label>
             <select id="correct-department" className={selectClass} value={draft.departmentId} onChange={set("departmentId")}>
-              <option value="">None</option>
+              <option value="">{t("changes.none")}</option>
               {departments.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
@@ -209,9 +217,9 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="correct-manager">Manager</Label>
+            <Label htmlFor="correct-manager">{t("columns.manager")}</Label>
             <select id="correct-manager" className={selectClass} value={draft.managerMemberId} onChange={set("managerMemberId")}>
-              <option value="">No manager</option>
+              <option value="">{t("employmentForm.noManager")}</option>
               {managers.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
@@ -221,27 +229,27 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="correct-location-type">Works at</Label>
+              <Label htmlFor="correct-location-type">{t("employmentForm.worksAt")}</Label>
               <select id="correct-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")}>
-                <option value="">Not set</option>
-                {Object.entries(workLocationTypeLabels).map(([value, label]) => (
+                <option value="">{t("employmentForm.notSet")}</option>
+                {WORK_LOCATION_TYPES.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {hrLabel(t, "workLocationType", value)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="correct-location">Place</Label>
+              <Label htmlFor="correct-location">{t("changes.place")}</Label>
               <Input id="correct-location" value={draft.workLocation} onChange={set("workLocation")} maxLength={160} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="correct-type">Employment type</Label>
+            <Label htmlFor="correct-type">{t("fields.employmentType")}</Label>
             <select id="correct-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
-              {Object.entries(employmentTypeLabels).map(([value, label]) => (
+              {EMPLOYMENT_TYPES.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {hrLabel(t, "employmentType", value)}
                 </option>
               ))}
             </select>
@@ -249,20 +257,20 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
         </>
       ) : (
         <div className="space-y-1.5">
-          <Label htmlFor="correct-status-reason">Reason for the {employmentStatusLabels[status!.status].toLowerCase()} status</Label>
+          <Label htmlFor="correct-status-reason">{t("historyActions.reasonFor", { status: hrLabel(t, "employmentStatus", status!.status).toLowerCase() })}</Label>
           <select id="correct-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
-            {Object.entries(statusReasonLabels)
-              .filter(([value]) => value !== "CORRECTION")
-              .map(([value, label]) => (
+            {Object.keys(statusReasonLabels)
+              .filter((value) => value !== "CORRECTION")
+              .map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {hrLabel(t, "statusReason", value)}
                 </option>
               ))}
           </select>
         </div>
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="correct-reason">Why is this being corrected?</Label>
+        <Label htmlFor="correct-reason">{t("historyActions.why")}</Label>
         <Textarea id="correct-reason" rows={2} value={draft.correctionReason} onChange={set("correctionReason")} required minLength={3} maxLength={2000} />
       </div>
       {error ? (
@@ -272,10 +280,10 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button type="button" variant="secondary" onClick={close} disabled={pending}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save correction"}
+          {pending ? t("common.saving") : t("historyActions.save")}
         </Button>
       </div>
     </form>

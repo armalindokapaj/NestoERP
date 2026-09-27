@@ -13,7 +13,8 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { employeeDocumentReport, hasCredentialReports, qualificationReport, type DocumentCategoryRow, type QualificationCoverageRow, type QualificationTitleRow } from "@/lib/modules/hr/credentials/credential.reports";
-import { employmentTypeLabels, leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { isDay } from "@/lib/modules/hr/employment/employment.dates";
 import { getOrganizationReport } from "@/lib/modules/hr/employment/employment.report";
 import type { HeadcountRowDTO } from "@/lib/modules/hr/employment/employment.types";
@@ -21,7 +22,10 @@ import * as reports from "@/lib/modules/hr/reports/reports.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "HR reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.hrReports") };
+}
 
 /**
  * The built-in HR reports (PRD #16 §139, §140).
@@ -32,15 +36,15 @@ export const metadata: Metadata = { title: "HR reports" };
  * the compensation permission on top (PRD #16 §141, §292).
  */
 const REPORTS = [
-  { key: "headcount", label: "Headcount" },
-  { key: "leave", label: "Leave summary" },
-  { key: "attendance", label: "Attendance summary" },
-  { key: "ending-soon", label: "Employment ending" },
-  { key: "compensation", label: "Compensation" },
-  { key: "organization", label: "Organization" },
+  { key: "headcount" },
+  { key: "leave" },
+  { key: "attendance" },
+  { key: "ending-soon" },
+  { key: "compensation" },
+  { key: "organization" },
   // What the people HR looks after hold, and what is on their files (E-02 §157).
-  { key: "qualifications", label: "Qualifications" },
-  { key: "employee-documents", label: "Employee documents" },
+  { key: "qualifications" },
+  { key: "employee-documents" },
 ] as const;
 
 type ReportKey = (typeof REPORTS)[number]["key"];
@@ -56,6 +60,7 @@ export default async function HrReportsPage({
 
   const experience = resolveModuleExperience(context, "hr");
   const { report: requested, asOf, from, to } = await searchParams;
+  const t = await getTranslations("hr");
 
   const allowed = reports.availableReports(context);
   const available = REPORTS.filter((entry) =>
@@ -71,8 +76,8 @@ export default async function HrReportsPage({
       <ModulePage experience={experience} activeSection="reports">
         <EmptyState
           icon={<ChartColumn />}
-          title="No reports in your view."
-          description="Reports follow the same permissions as the lists they summarise."
+          title={t("reports.emptyTitle")}
+          description={t("reports.emptyDescription")}
         />
       </ModulePage>
     );
@@ -84,7 +89,7 @@ export default async function HrReportsPage({
   return (
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
-        <nav aria-label="Reports" className="border-b border-line">
+        <nav aria-label={t("reports.nav")} className="border-b border-line">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
             {available.map((entry) => (
               <li key={entry.key}>
@@ -98,7 +103,7 @@ export default async function HrReportsPage({
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                   )}
                 >
-                  {entry.label}
+                  {t(`reports.tabs.${entry.key}`)}
                 </Link>
               </li>
             ))}
@@ -140,36 +145,37 @@ function ReportShell({
 
 async function HeadcountReport({ context }: { context: UserContext }) {
   const rows = await reports.headcountReport(context);
+  const t = await getTranslations("hr");
 
   const columns: TableColumn<reports.HeadcountRow>[] = [
     {
       key: "department",
-      label: "Department",
+      label: t("columns.department"),
       primary: true,
       render: (row) => <span>{row.department}</span>,
     },
     {
       key: "active",
-      label: "Active",
+      label: hrLabel(t, "employmentStatus", "ACTIVE"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.active}</span>,
     },
     {
       key: "onLeave",
-      label: "On leave",
+      label: hrLabel(t, "employmentStatus", "ON_LEAVE"),
       align: "right",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.onLeave}</span>,
     },
     {
       key: "planned",
-      label: "Planned",
+      label: hrLabel(t, "employmentStatus", "PLANNED"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.planned}</span>,
     },
     {
       key: "ended",
-      label: "Ended",
+      label: hrLabel(t, "employmentStatus", "ENDED"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.ended}</span>,
@@ -178,14 +184,14 @@ async function HeadcountReport({ context }: { context: UserContext }) {
 
   return (
     <ReportShell
-      title="Headcount"
-      description="Active headcount counts employment that is running — active plus on leave. Suspended and ended are shown separately (PRD #16 §142)."
+      title={t("overview.headcount")}
+      description={t("reports.headcountDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No employment records in your view." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.headcountEmpty")} />
       ) : (
         <DataTable
-          caption="Headcount by department"
+          caption={t("reports.headcountCaption")}
           columns={columns}
           records={rows}
           rowKey={(row) => row.departmentId ?? row.department}
@@ -197,23 +203,24 @@ async function HeadcountReport({ context }: { context: UserContext }) {
 
 async function LeaveReport({ context }: { context: UserContext }) {
   const rows = await reports.leaveSummary(context);
+  const t = await getTranslations("hr");
 
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "leaveType",
-      label: "Leave type",
+      label: t("reports.leaveType"),
       primary: true,
-      render: (row) => <span>{leaveTypeLabels[row.leaveType]}</span>,
+      render: (row) => <span>{hrLabel(t, "leaveType", row.leaveType)}</span>,
     },
     {
       key: "requests",
-      label: "Requests",
+      label: t("reports.requests"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.requests}</span>,
     },
     {
       key: "days",
-      label: "Days",
+      label: t("attendance.days"),
       align: "right",
       render: (row) => <span className="tabular-nums">{formatDays(row.days)}</span>,
     },
@@ -221,14 +228,14 @@ async function LeaveReport({ context }: { context: UserContext }) {
 
   return (
     <ReportShell
-      title="Leave summary"
-      description="Approved leave this leave year, within your scope. Reasons are never part of a report."
+      title={t("reports.tabs.leave")}
+      description={t("reports.leaveDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No leave recorded this year." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.leaveEmpty")} />
       ) : (
         <DataTable
-          caption="Leave summary"
+          caption={t("reports.tabs.leave")}
           columns={columns}
           records={rows}
           rowKey={(row) => row.leaveType}
@@ -240,43 +247,44 @@ async function LeaveReport({ context }: { context: UserContext }) {
 
 async function AttendanceReport({ context }: { context: UserContext }) {
   const rows = await reports.attendanceSummary(context);
+  const t = await getTranslations("hr");
 
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "employee",
-      label: "Employee",
+      label: t("columns.employee"),
       primary: true,
       render: (row) => <span className="min-w-0 truncate">{row.fullName}</span>,
     },
     {
       key: "present",
-      label: "Present",
+      label: hrLabel(t, "attendanceStatus", "PRESENT"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.present}</span>,
     },
     {
       key: "remote",
-      label: "Remote",
+      label: hrLabel(t, "attendanceStatus", "REMOTE"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.remote}</span>,
     },
     {
       key: "onLeave",
-      label: "On leave",
+      label: hrLabel(t, "employmentStatus", "ON_LEAVE"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.onLeave}</span>,
     },
     {
       key: "absent",
-      label: "Absent",
+      label: hrLabel(t, "attendanceStatus", "ABSENT"),
       align: "right",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.absent}</span>,
     },
     {
       key: "exceptions",
-      label: "Exceptions",
+      label: t("attendance.exceptions"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.exceptions}</span>,
     },
@@ -284,14 +292,14 @@ async function AttendanceReport({ context }: { context: UserContext }) {
 
   return (
     <ReportShell
-      title="Attendance summary"
-      description="The last 30 days. An exception is an absence, or a day somebody checked in and never checked out."
+      title={t("reports.tabs.attendance")}
+      description={t("reports.attendanceDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No attendance recorded in this period." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.attendanceEmpty")} />
       ) : (
         <DataTable
-          caption="Attendance summary"
+          caption={t("reports.tabs.attendance")}
           columns={columns}
           records={rows}
           rowKey={(row) => row.employeeId}
@@ -304,45 +312,46 @@ async function AttendanceReport({ context }: { context: UserContext }) {
 
 async function EndingSoonReport({ context }: { context: UserContext }) {
   const rows = await reports.upcomingEndDates(context);
+  const t = await getTranslations("hr");
 
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "employee",
-      label: "Employee",
+      label: t("columns.employee"),
       primary: true,
       render: (row) => <span className="min-w-0 truncate">{row.fullName}</span>,
     },
     {
       key: "department",
-      label: "Department",
+      label: t("columns.department"),
       hideBelow: "md",
       render: (row) => <span className="text-fg-muted">{orDash(row.department)}</span>,
     },
     {
       key: "employmentType",
-      label: "Type",
+      label: t("columns.type"),
       hideBelow: "lg",
       render: (row) => (
-        <span className="text-fg-muted">{employmentTypeLabels[row.employmentType]}</span>
+        <span className="text-fg-muted">{hrLabel(t, "employmentType", row.employmentType)}</span>
       ),
     },
     {
       key: "endDate",
-      label: "Last day",
+      label: t("progress.lastDay"),
       render: (row) => <span>{formatDate(row.endDate)}</span>,
     },
   ];
 
   return (
     <ReportShell
-      title="Employment ending"
-      description="End dates in the next 90 days, for employment that has not already ended (PRD #16 §145)."
+      title={t("overview.employmentEnding")}
+      description={t("reports.endingDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No employment ending in the next 90 days." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.endingEmpty")} />
       ) : (
         <DataTable
-          caption="Employment ending"
+          caption={t("overview.employmentEnding")}
           columns={columns}
           records={rows}
           rowKey={(row) => row.employeeId}
@@ -357,32 +366,33 @@ const count = (value: number, tone?: string) => <span className={cn("tabular-num
 
 async function QualificationsReport({ context }: { context: UserContext }) {
   const report = await qualificationReport(context);
+  const t = await getTranslations("hr");
 
   const coverage: TableColumn<QualificationCoverageRow>[] = [
-    { key: "type", label: "Qualification", primary: true, render: (row) => <span>{row.label}</span> },
-    { key: "holders", label: "People holding", align: "right", render: (row) => count(row.holders) },
-    { key: "coverage", label: "Coverage", align: "right", render: (row) => <span className="tabular-nums text-fg-muted">{Math.round(row.coverage * 100)}%</span> },
-    { key: "unverified", label: "To verify", align: "right", render: (row) => count(row.unverified, "text-info-strong") },
-    { key: "expiring", label: "Expiring in 30 days", align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
-    { key: "expired", label: "Expired", align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
+    { key: "type", label: t("reports.qualification"), primary: true, render: (row) => <span>{row.label}</span> },
+    { key: "holders", label: t("reports.peopleHolding"), align: "right", render: (row) => count(row.holders) },
+    { key: "coverage", label: t("reports.coverage"), align: "right", render: (row) => <span className="tabular-nums text-fg-muted">{Math.round(row.coverage * 100)}%</span> },
+    { key: "unverified", label: t("documents.worklist.verify"), align: "right", render: (row) => count(row.unverified, "text-info-strong") },
+    { key: "expiring", label: t("documents.worklist.expiring"), align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
+    { key: "expired", label: t("documents.worklist.expired"), align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
   ];
   const titles: TableColumn<QualificationTitleRow>[] = [
-    { key: "title", label: "Qualification", primary: true, render: (row) => <span>{row.title}</span> },
-    { key: "type", label: "Kind", render: (row) => <span className="text-fg-muted">{row.typeLabel}</span> },
-    { key: "holders", label: "People", align: "right", render: (row) => count(row.holders) },
+    { key: "title", label: t("reports.qualification"), primary: true, render: (row) => <span>{row.title}</span> },
+    { key: "type", label: t("reports.kind"), render: (row) => <span className="text-fg-muted">{row.typeLabel}</span> },
+    { key: "holders", label: t("reports.people"), align: "right", render: (row) => count(row.holders) },
   ];
 
   return (
     <ReportShell
-      title="Qualifications"
-      description={`Verified, current qualifications of the ${report.people} ${report.people === 1 ? "person" : "people"} working here in your view — what people keep private is not counted. The lists of what to verify or renew are under Documents.`}
+      title={t("reports.tabs.qualifications")}
+      description={t("reports.qualificationsDescription", { count: report.people })}
     >
       {report.coverage.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No qualifications in your view." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.qualificationsEmpty")} />
       ) : (
         <div className="space-y-5">
-          <DataTable caption="Coverage by kind of qualification" columns={coverage} records={report.coverage} rowKey={(row) => row.type} />
-          {report.titles.length > 0 ? <DataTable caption="Most held" columns={titles} records={report.titles} rowKey={(row) => `${row.type}:${row.title}`} /> : null}
+          <DataTable caption={t("reports.coverageCaption")} columns={coverage} records={report.coverage} rowKey={(row) => row.type} />
+          {report.titles.length > 0 ? <DataTable caption={t("reports.mostHeld")} columns={titles} records={report.titles} rowKey={(row) => `${row.type}:${row.title}`} /> : null}
         </div>
       )}
     </ReportShell>
@@ -391,23 +401,24 @@ async function QualificationsReport({ context }: { context: UserContext }) {
 
 async function EmployeeDocumentsReport({ context }: { context: UserContext }) {
   const rows = await employeeDocumentReport(context);
+  const t = await getTranslations("hr");
   const columns: TableColumn<DocumentCategoryRow>[] = [
-    { key: "category", label: "Category", primary: true, render: (row) => <span>{row.label}</span> },
-    { key: "group", label: "Group", hideBelow: "md", render: (row) => <span className="text-fg-muted">{row.groupLabel}</span> },
-    { key: "current", label: "On file", align: "right", render: (row) => count(row.current) },
-    { key: "unverified", label: "To verify", align: "right", render: (row) => count(row.unverified, "text-info-strong") },
-    { key: "expiring", label: "Expiring in 30 days", align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
-    { key: "expired", label: "Expired", align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
+    { key: "category", label: t("columns.category"), primary: true, render: (row) => <span>{row.label}</span> },
+    { key: "group", label: t("reports.group"), hideBelow: "md", render: (row) => <span className="text-fg-muted">{row.groupLabel}</span> },
+    { key: "current", label: t("reports.onFile"), align: "right", render: (row) => count(row.current) },
+    { key: "unverified", label: t("documents.worklist.verify"), align: "right", render: (row) => count(row.unverified, "text-info-strong") },
+    { key: "expiring", label: t("documents.worklist.expiring"), align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
+    { key: "expired", label: t("documents.worklist.expired"), align: "right", hideBelow: "md", render: (row) => count(row.expired, "text-danger-strong") },
   ];
   return (
     <ReportShell
-      title="Employee documents"
-      description="Current documents on the files of people working here in your view, by category. Only the categories you may open are counted; nothing is shown of what they say."
+      title={t("meta.employeeDocuments")}
+      description={t("reports.documentsDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No employee documents in your view." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.documentsEmpty")} />
       ) : (
-        <DataTable caption="Employee documents by category" columns={columns} records={rows} rowKey={(row) => row.category} />
+        <DataTable caption={t("reports.documentsCaption")} columns={columns} records={rows} rowKey={(row) => row.category} />
       )}
     </ReportShell>
   );
@@ -415,35 +426,36 @@ async function EmployeeDocumentsReport({ context }: { context: UserContext }) {
 
 async function CompensationReport({ context }: { context: UserContext }) {
   const rows = await reports.compensationReport(context);
+  const t = await getTranslations("hr");
 
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "employee",
-      label: "Employee",
+      label: t("columns.employee"),
       primary: true,
       render: (row) => <span className="min-w-0 truncate">{row.fullName}</span>,
     },
     {
       key: "department",
-      label: "Department",
+      label: t("columns.department"),
       hideBelow: "md",
       render: (row) => <span className="text-fg-muted">{orDash(row.department)}</span>,
     },
     {
       key: "payType",
-      label: "Pay type",
+      label: t("compensation.payType"),
       hideBelow: "lg",
-      render: (row) => <span className="text-fg-muted">{row.payType}</span>,
+      render: (row) => <span className="text-fg-muted">{hrLabel(t, "payType", row.payType)}</span>,
     },
     {
       key: "baseAmount",
-      label: "Amount",
+      label: t("compensation.amount"),
       align: "right",
       render: (row) => <Money amount={row.baseAmount} currency={row.currency} emphasis />,
     },
     {
       key: "effectiveFrom",
-      label: "Since",
+      label: t("reports.since"),
       hideBelow: "md",
       render: (row) => <span className="text-fg-muted">{formatDate(row.effectiveFrom)}</span>,
     },
@@ -451,14 +463,14 @@ async function CompensationReport({ context }: { context: UserContext }) {
 
   return (
     <ReportShell
-      title="Compensation"
-      description="Current pay for employees in your view. This report needs the compensation permission on top of report access (PRD #16 §141)."
+      title={t("tabs.compensation")}
+      description={t("reports.compensationDescription")}
     >
       {rows.length === 0 ? (
-        <EmptyState icon={<ChartColumn />} title="No compensation recorded." />
+        <EmptyState icon={<ChartColumn />} title={t("reports.compensationEmpty")} />
       ) : (
         <DataTable
-          caption="Compensation"
+          caption={t("tabs.compensation")}
           columns={columns}
           records={rows}
           rowKey={(row) => row.employeeId}
@@ -477,11 +489,13 @@ async function CompensationReport({ context }: { context: UserContext }) {
 async function OrganizationReport({ context, query }: { context: UserContext; query: { asOf?: string; from?: string; to?: string } }) {
   const valid = (value?: string) => (value && isDay(value) ? value : undefined);
   const report = await getOrganizationReport(context, { asOf: valid(query.asOf), from: valid(query.from), to: valid(query.to) });
+  const t = await getTranslations("hr");
+  const years = (value: number | null) => (value === null ? "—" : t("reports.years", { years: value }));
   const breakdown = (title: string, rows: HeadcountRowDTO[], testId: string) => (
     <section className="nesto-card p-5" aria-label={title} data-testid={testId}>
       <h3 className="text-table font-semibold text-fg">{title}</h3>
       {rows.length === 0 ? (
-        <p className="mt-2 text-meta text-fg-subtle">Nobody.</p>
+        <p className="mt-2 text-meta text-fg-subtle">{t("reports.nobody")}</p>
       ) : (
         <ul className="mt-2 space-y-1 text-table">
           {rows.map((row) => (
@@ -496,66 +510,66 @@ async function OrganizationReport({ context, query }: { context: UserContext; qu
   );
   const moves = report.movements;
   return (
-    <ReportShell title="Organization" description={`Headcount on ${formatDate(report.asOf)} — employed that day, active or on leave, where they sat that day — and what changed from ${formatDate(report.period.from)} to ${formatDate(report.period.to)}.`}>
+    <ReportShell title={t("reports.tabs.organization")} description={t("reports.organizationDescription", { asOf: formatDate(report.asOf), from: formatDate(report.period.from), to: formatDate(report.period.to) })}>
       {/* 44px controls under touch; the 16px phone font comes from globals.css (AUD-04 §3, D-07-13, MW-09). */}
-      <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Report dates">
+      <form method="get" className="flex flex-wrap items-end gap-3" aria-label={t("reports.dates")}>
         <input type="hidden" name="report" value="organization" />
         <label className="space-y-1 text-meta text-fg-muted">
-          <span className="block">As of</span>
+          <span className="block">{t("reports.asOf")}</span>
           <input type="date" name="asOf" defaultValue={report.asOf} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
         <label className="space-y-1 text-meta text-fg-muted">
-          <span className="block">Changes from</span>
+          <span className="block">{t("reports.changesFrom")}</span>
           <input type="date" name="from" defaultValue={report.period.from} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
         <label className="space-y-1 text-meta text-fg-muted">
-          <span className="block">to</span>
+          <span className="block">{t("reports.to")}</span>
           <input type="date" name="to" defaultValue={report.period.to} className="h-9 rounded-md border border-line bg-surface px-2 text-table text-fg touch:h-11" />
         </label>
         <button type="submit" className="h-9 rounded-md border border-line-strong px-3 text-table font-medium text-fg hover:bg-hover touch:h-11 touch:min-w-11">
-          Show
+          {t("reports.show")}
         </button>
       </form>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="nesto-card p-4" data-testid="org-headcount">
-          <p className="text-meta text-fg-subtle">Headcount</p>
+          <p className="text-meta text-fg-subtle">{t("overview.headcount")}</p>
           <p className="text-2xl font-semibold tabular-nums text-fg">{report.headcount}</p>
         </div>
         <div className="nesto-card p-4">
-          <p className="text-meta text-fg-subtle">Joiners · leavers</p>
+          <p className="text-meta text-fg-subtle">{t("reports.joinersLeavers")}</p>
           <p className="text-2xl font-semibold tabular-nums text-fg">
             {moves.joiners} · {moves.leavers}
           </p>
         </div>
         <div className="nesto-card p-4">
-          <p className="text-meta text-fg-subtle">Promotions · transfers</p>
+          <p className="text-meta text-fg-subtle">{t("reports.promotionsTransfers")}</p>
           <p className="text-2xl font-semibold tabular-nums text-fg">
             {moves.promotions} · {moves.departmentTransfers + moves.companyTransfers}
           </p>
         </div>
         <div className="nesto-card p-4">
-          <p className="text-meta text-fg-subtle">Average tenure</p>
-          <p className="text-2xl font-semibold tabular-nums text-fg">{report.tenure.averageYears === null ? "—" : `${report.tenure.averageYears} yrs`}</p>
+          <p className="text-meta text-fg-subtle">{t("reports.averageTenure")}</p>
+          <p className="text-2xl font-semibold tabular-nums text-fg">{years(report.tenure.averageYears)}</p>
         </div>
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
-        {breakdown("By company", report.byCompany, "org-by-company")}
-        {breakdown("By department", report.byDepartment, "org-by-department")}
-        {breakdown("By job title", report.byTitle, "org-by-title")}
-        {breakdown("By status", report.byStatus, "org-by-status")}
+        {breakdown(t("reports.byCompany"), report.byCompany, "org-by-company")}
+        {breakdown(t("reports.byDepartment"), report.byDepartment, "org-by-department")}
+        {breakdown(t("reports.byTitle"), report.byTitle, "org-by-title")}
+        {breakdown(t("reports.byStatus"), report.byStatus, "org-by-status")}
       </div>
-      <section className="nesto-card p-5" aria-label="Movements">
-        <h3 className="text-table font-semibold text-fg">Movements in the period</h3>
+      <section className="nesto-card p-5" aria-label={t("reports.movements")}>
+        <h3 className="text-table font-semibold text-fg">{t("reports.movementsInPeriod")}</h3>
         <dl className="mt-2 grid gap-2 text-table sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ["Joiners", moves.joiners],
-            ["Leavers", moves.leavers],
-            ["Promotions", moves.promotions],
-            ["Department transfers", moves.departmentTransfers],
-            ["Company transfers", moves.companyTransfers],
-            ["Manager changes", moves.managerChanges],
-            ["Status changes", moves.statusChanges],
-            ["Median tenure", report.tenure.medianYears === null ? "—" : `${report.tenure.medianYears} yrs`],
+            [t("reports.joiners"), moves.joiners],
+            [t("reports.leavers"), moves.leavers],
+            [t("reports.promotions"), moves.promotions],
+            [t("reports.departmentTransfers"), moves.departmentTransfers],
+            [t("reports.companyTransfers"), moves.companyTransfers],
+            [t("reports.managerChanges"), moves.managerChanges],
+            [t("reports.statusChanges"), moves.statusChanges],
+            [t("reports.medianTenure"), years(report.tenure.medianYears)],
           ].map(([label, value]) => (
             <div key={label as string} className="flex justify-between gap-3">
               <dt className="text-fg-muted">{label}</dt>

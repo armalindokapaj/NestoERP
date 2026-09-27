@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
-import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
 import { countWorkingDays } from "@/lib/modules/hr/hr.calendar";
 import { localDay } from "./local-day";
 
@@ -61,10 +61,12 @@ export function LeaveForm({
   const [endDate, setEndDate] = React.useState(values?.endDate ?? todayValue);
 
   const days = workingDayCount(startDate, endDate);
+  const t = useHrTranslations();
+  const translatedAction = useHrFormAction(action);
 
   return (
     <RecordForm
-      action={action}
+      action={translatedAction}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
@@ -72,15 +74,15 @@ export function LeaveForm({
       module="hr"
     >
       <FormSection
-        title="Leave request"
-        description="Saved as a draft. It reaches an approver once you submit it."
+        title={t("meta.leaveRequest")}
+        description={t("leaveForm.description")}
       >
         {employees ? (
           <Field
-            label="Employee"
+            label={t("columns.employee")}
             name="employeeId"
             className="sm:col-span-2"
-            hint="Choose Myself to request your own leave."
+            hint={t("leaveForm.employeeHint")}
           >
             <select
               id="employeeId"
@@ -88,7 +90,7 @@ export function LeaveForm({
               className={selectClass}
               defaultValue={values?.employeeId ?? ""}
             >
-              <option value="">Myself</option>
+              <option value="">{t("common.myself")}</option>
               {employees.map((employee) => (
                 <option key={employee.value} value={employee.value}>
                   {employee.label}
@@ -98,7 +100,7 @@ export function LeaveForm({
           </Field>
         ) : null}
 
-        <Field label="Leave type" name="leaveType" required>
+        <Field label={t("reports.leaveType")} name="leaveType" required>
           <select
             id="leaveType"
             name="leaveType"
@@ -107,7 +109,7 @@ export function LeaveForm({
           >
             {LEAVE_TYPES.map((type) => (
               <option key={type} value={type}>
-                {leaveTypeLabels[type]}
+                {hrLabel(t, "leaveType", type)}
               </option>
             ))}
           </select>
@@ -116,17 +118,17 @@ export function LeaveForm({
         <div className="flex items-end">
           <p aria-live="polite" className="text-table text-fg-muted">
             {days === null ? (
-              "Choose a date range."
+              t("leaveForm.chooseRange")
             ) : (
               <>
-                <span className="font-semibold tabular-nums text-fg">{days}</span> working{" "}
-                {days === 1 ? "day" : "days"}, weekends excluded
+                <span className="font-semibold tabular-nums text-fg">{days}</span>{" "}
+                {t("leaveForm.workingDays", { count: days })}
               </>
             )}
           </p>
         </div>
 
-        <Field label="First day" name="startDate" required>
+        <Field label={t("leaveForm.firstDay")} name="startDate" required>
           <Input
             id="startDate"
             name="startDate"
@@ -137,7 +139,7 @@ export function LeaveForm({
           />
         </Field>
 
-        <Field label="Last day" name="endDate" required>
+        <Field label={t("progress.lastDay")} name="endDate" required>
           <Input
             id="endDate"
             name="endDate"
@@ -150,14 +152,14 @@ export function LeaveForm({
 
         {values?.reasonHidden ? (
           <p className="text-meta text-fg-subtle sm:col-span-2" data-testid="leave-reason-private">
-            The reason is private to the requester. It is kept as it is.
+            {t("leaveForm.reasonPrivate")}
           </p>
         ) : (
           <Field
-            label="Reason"
+            label={t("history.reason")}
             name="reason"
             className="sm:col-span-2"
-            hint="Optional. Only you and readers with the reason permission can see it."
+            hint={t("leaveForm.reasonHint")}
           >
             <Textarea
               id="reason"

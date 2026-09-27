@@ -17,9 +17,13 @@ import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { employmentChangeAction } from "@/lib/actions/hr";
 import { addDays } from "@/lib/modules/hr/employment/employment.dates";
-import { POSITION_REASONS, STATUS_CHANGE_REASONS, TERMINATION_REASONS, assignmentReasonLabels, statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
+import { POSITION_REASONS, STATUS_CHANGE_REASONS, TERMINATION_REASONS } from "@/lib/modules/hr/employment/employment.labels";
 import type { EmploymentChangeOptionsDTO, Option } from "@/lib/modules/hr/employment/employment.options";
-import { canTransitionEmployment, employmentStatusLabels, employmentTypeLabels } from "@/lib/modules/hr/hr.status";
+import { EMPLOYMENT_TYPES } from "@/lib/modules/hr/hr.schema";
+import { canTransitionEmployment } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
+
+const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as const;
 import type { EmployeeDetailDTO } from "@/lib/modules/hr/hr.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
@@ -28,17 +32,6 @@ const selectClass =
 
 type Action = "POSITION" | "DEPARTMENT" | "LEGAL_ENTITY" | "MANAGER" | "LOCATION" | "EMPLOYMENT_TYPE" | "STATUS" | "TERMINATE" | "REHIRE";
 
-const TITLES: Record<Action, string> = {
-  POSITION: "Change position or title",
-  DEPARTMENT: "Transfer to another department",
-  LEGAL_ENTITY: "Transfer to another company",
-  MANAGER: "Change manager",
-  LOCATION: "Change work location",
-  EMPLOYMENT_TYPE: "Change employment type",
-  STATUS: "Change status",
-  TERMINATE: "End employment",
-  REHIRE: "Rehire",
-};
 
 /**
  * Employment changes, one semantic action at a time (E-03 §96-§104, §163-§170).
@@ -56,17 +49,18 @@ export function EmploymentChanges({ employee, options, today }: { employee: Empl
   const [action, setAction] = React.useState<Action | null>(null);
   const planned = status === "PLANNED";
   const ended = status === "ENDED";
+  const t = useHrTranslations();
 
   const items: Array<{ action: Action; label: string; show: boolean }> = [
-    { action: "STATUS", label: planned ? "Start employment" : "Change status", show: caps.canChangeStatus && !ended },
-    { action: "POSITION", label: planned ? "Change planned position" : "Promote or change title", show: caps.canChangePosition },
-    { action: "DEPARTMENT", label: "Transfer department", show: caps.canTransferDepartment },
-    { action: "LEGAL_ENTITY", label: "Transfer to another company", show: caps.canTransferCompany && options.companies.length > 0 },
-    { action: "MANAGER", label: "Change manager", show: caps.canChangeManager },
-    { action: "LOCATION", label: "Change work location", show: caps.canChangeLocation },
-    { action: "EMPLOYMENT_TYPE", label: "Change employment type", show: caps.canChangeEmploymentType },
-    { action: "TERMINATE", label: planned ? "Withdraw planned employment" : "End employment", show: caps.canChangeStatus && !ended },
-    { action: "REHIRE", label: "Rehire", show: caps.canChangeStatus && ended },
+    { action: "STATUS", label: planned ? t("changes.startEmployment") : t("changes.titles.STATUS"), show: caps.canChangeStatus && !ended },
+    { action: "POSITION", label: planned ? t("changes.changePlannedPosition") : t("changes.promote"), show: caps.canChangePosition },
+    { action: "DEPARTMENT", label: t("changes.transferDepartment"), show: caps.canTransferDepartment },
+    { action: "LEGAL_ENTITY", label: t("changes.titles.LEGAL_ENTITY"), show: caps.canTransferCompany && options.companies.length > 0 },
+    { action: "MANAGER", label: t("changes.titles.MANAGER"), show: caps.canChangeManager },
+    { action: "LOCATION", label: t("changes.titles.LOCATION"), show: caps.canChangeLocation },
+    { action: "EMPLOYMENT_TYPE", label: t("changes.titles.EMPLOYMENT_TYPE"), show: caps.canChangeEmploymentType },
+    { action: "TERMINATE", label: planned ? t("changes.withdraw") : t("changes.titles.TERMINATE"), show: caps.canChangeStatus && !ended },
+    { action: "REHIRE", label: t("changes.titles.REHIRE"), show: caps.canChangeStatus && ended },
   ];
   const visible = items.filter((item) => item.show);
 
@@ -76,7 +70,7 @@ export function EmploymentChanges({ employee, options, today }: { employee: Empl
         <Button asChild variant="secondary" size="sm">
           <Link href={`/hr/employees/${employee.id}/employment/edit`}>
             <PenLine aria-hidden="true" />
-            Edit details
+            {t("meta.editDetails")}
           </Link>
         </Button>
       ) : null}
@@ -84,12 +78,12 @@ export function EmploymentChanges({ employee, options, today }: { employee: Empl
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" data-testid="employment-change-menu">
-              Change employment
+              {t("changes.menu")}
               <ChevronDown aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{planned ? "Planned employment" : ended ? "Ended employment" : "Dated changes"}</DropdownMenuLabel>
+            <DropdownMenuLabel>{planned ? t("changes.plannedEmployment") : ended ? t("changes.endedEmployment") : t("changes.datedChanges")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {visible.map((item) => (
               <DropdownMenuItem key={item.action} onSelect={() => setAction(item.action)}>
@@ -124,6 +118,8 @@ function ChangeDialog(props: ChangeDialogProps) {
 }
 
 function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeDialogProps) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const close = useDialogClose();
   const toast = useToast();
@@ -157,7 +153,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const running = React.useRef(false);
-  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Apply", label: TITLES[action] });
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Apply", label: t(`changes.titles.${action}`) });
   const { setDirty, setSaving, setUnresolved } = editor;
   // Dirty against the values it opened with: putting them back makes it clean again.
   const dirty = confirmed || Object.keys(initialDraft).some((key) => draft[key] !== initialDraft[key]);
@@ -199,19 +195,19 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
   }
 
   const name = (list: Option[], id: string) => list.find((option) => option.id === id)?.name ?? null;
-  const location = (type: string, place: string) => [type ? workLocationTypeLabels[type as keyof typeof workLocationTypeLabels] : null, place].filter(Boolean).join(", ") || null;
+  const location = (type: string, place: string) => [type ? hrLabel(t, "workLocationType", type) : null, place].filter(Boolean).join(", ") || null;
   const review: Array<{ label: string; from: string | null; to: string | null }> = (() => {
     const rows: Array<{ label: string; from: string | null; to: string | null }> = [];
     const add = (label: string, from: string | null, to: string | null) => rows.push({ label, from, to });
-    if (action === "LEGAL_ENTITY") add("Company", "This company", target?.name ?? null);
-    if (["POSITION", "LEGAL_ENTITY", "REHIRE"].includes(action)) add("Job title", employee.jobTitle, draft.jobTitle || employee.jobTitle);
-    if (["DEPARTMENT", "LEGAL_ENTITY", "REHIRE"].includes(action)) add("Department", employee.department?.name ?? null, name(departments, draft.departmentId) ?? (action === "LEGAL_ENTITY" ? null : (employee.department?.name ?? null)));
-    if (["POSITION", "DEPARTMENT", "MANAGER", "LEGAL_ENTITY", "REHIRE"].includes(action)) add("Manager", employee.manager?.fullName ?? null, draft.managerMemberId ? name(managers, draft.managerMemberId) : action === "MANAGER" || action === "LEGAL_ENTITY" ? null : (employee.manager?.fullName ?? null));
-    if (action === "LOCATION") add("Work location", location(employee.workLocationType ?? "", employee.workLocation ?? ""), location(draft.workLocationType, draft.workLocation));
-    if (action === "EMPLOYMENT_TYPE") add("Employment type", employmentTypeLabels[employee.employmentType], employmentTypeLabels[draft.employmentType as keyof typeof employmentTypeLabels]);
-    if (action === "STATUS") add("Status", employmentStatusLabels[employee.employmentStatus], employmentStatusLabels[draft.status as keyof typeof employmentStatusLabels]);
-    if (action === "TERMINATE") add("Status", employmentStatusLabels[employee.employmentStatus], employmentStatusLabels.ENDED);
-    if (action === "REHIRE") add("Status", employmentStatusLabels.ENDED, effective > today ? employmentStatusLabels.PLANNED : employmentStatusLabels.ACTIVE);
+    if (action === "LEGAL_ENTITY") add(t("recruitment.company"), t("changes.thisCompany"), target?.name ?? null);
+    if (["POSITION", "LEGAL_ENTITY", "REHIRE"].includes(action)) add(t("fields.jobTitle"), employee.jobTitle, draft.jobTitle || employee.jobTitle);
+    if (["DEPARTMENT", "LEGAL_ENTITY", "REHIRE"].includes(action)) add(t("columns.department"), employee.department?.name ?? null, name(departments, draft.departmentId) ?? (action === "LEGAL_ENTITY" ? null : (employee.department?.name ?? null)));
+    if (["POSITION", "DEPARTMENT", "MANAGER", "LEGAL_ENTITY", "REHIRE"].includes(action)) add(t("columns.manager"), employee.manager?.fullName ?? null, draft.managerMemberId ? name(managers, draft.managerMemberId) : action === "MANAGER" || action === "LEGAL_ENTITY" ? null : (employee.manager?.fullName ?? null));
+    if (action === "LOCATION") add(t("fields.workLocation"), location(employee.workLocationType ?? "", employee.workLocation ?? ""), location(draft.workLocationType, draft.workLocation));
+    if (action === "EMPLOYMENT_TYPE") add(t("fields.employmentType"), hrLabel(t, "employmentType", employee.employmentType), hrLabel(t, "employmentType", draft.employmentType));
+    if (action === "STATUS") add(t("columns.status"), hrLabel(t, "employmentStatus", employee.employmentStatus), hrLabel(t, "employmentStatus", draft.status));
+    if (action === "TERMINATE") add(t("columns.status"), hrLabel(t, "employmentStatus", employee.employmentStatus), hrLabel(t, "employmentStatus", "ENDED"));
+    if (action === "REHIRE") add(t("columns.status"), hrLabel(t, "employmentStatus", "ENDED"), hrLabel(t, "employmentStatus", effective > today ? "PLANNED" : "ACTIVE"));
     return rows;
   })();
 
@@ -236,11 +232,11 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
       if (result.ok) {
         setUnresolved(false);
         setDirty(false);
-        toast({ title: result.message ?? "Saved.", tone: "success" });
+        toast({ title: serverText(result.message) ?? t("server.saved"), tone: "success" });
         onClose();
         router.refresh();
       } else {
-        setError(result.error);
+        setError(serverText(result.error) ?? result.error);
         setFieldErrors(result.fieldErrors ?? {});
         setStep("form");
       }
@@ -266,13 +262,13 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
 
   return (
     <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-      <DialogTitle>{TITLES[action]}</DialogTitle>
+      <DialogTitle>{t(`changes.titles.${action}`)}</DialogTitle>
       <DialogDescription>
         {revisesPlan
-          ? "The employment has not started, so this revises the plan."
+          ? t("changes.revisesPlan")
           : action === "LEGAL_ENTITY"
-            ? "Their employment here ends the day before, and one begins in the other company. Company access is managed in Team."
-            : "Recorded in the employment history from the day it takes effect. Company access is managed in Team, and is not touched here."}
+            ? t("changes.transferDescription")
+            : t("changes.recordedDescription")}
       </DialogDescription>
 
       {step === "form" ? (
@@ -283,54 +279,54 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
             setStep("review");
           }}
         >
-          {action === "LEGAL_ENTITY" ? selectOf("change-company", "Company", "targetCompanyId", options.companies) : null}
+          {action === "LEGAL_ENTITY" ? selectOf("change-company", t("recruitment.company"), "targetCompanyId", options.companies) : null}
           {["POSITION", "LEGAL_ENTITY", "REHIRE"].includes(action) ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-title">Job title</Label>
+              <Label htmlFor="change-title">{t("fields.jobTitle")}</Label>
               <Input id="change-title" value={draft.jobTitle} onChange={set("jobTitle")} maxLength={120} required={action !== "REHIRE"} />
               {field("jobTitle")}
             </div>
           ) : null}
           {action === "POSITION" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-position-reason">Kind of change</Label>
+              <Label htmlFor="change-position-reason">{t("changes.kindOfChange")}</Label>
               <select id="change-position-reason" className={selectClass} value={draft.positionReason} onChange={set("positionReason")}>
                 {POSITION_REASONS.map((reason) => (
                   <option key={reason} value={reason}>
-                    {assignmentReasonLabels[reason]}
+                    {hrLabel(t, "assignmentReason", reason)}
                   </option>
                 ))}
               </select>
             </div>
           ) : null}
-          {["DEPARTMENT", "LEGAL_ENTITY", "REHIRE"].includes(action) ? selectOf("change-department", "Department", "departmentId", departments, action === "REHIRE" ? "As before" : "Choose…") : null}
-          {["POSITION", "DEPARTMENT", "MANAGER", "LEGAL_ENTITY", "REHIRE"].includes(action) ? selectOf("change-manager", "Manager", "managerMemberId", managers, "No manager") : null}
+          {["DEPARTMENT", "LEGAL_ENTITY", "REHIRE"].includes(action) ? selectOf("change-department", t("columns.department"), "departmentId", departments, action === "REHIRE" ? t("changes.asBefore") : t("changes.choose")) : null}
+          {["POSITION", "DEPARTMENT", "MANAGER", "LEGAL_ENTITY", "REHIRE"].includes(action) ? selectOf("change-manager", t("columns.manager"), "managerMemberId", managers, t("employmentForm.noManager")) : null}
           {action === "LOCATION" || action === "LEGAL_ENTITY" ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="change-location-type">Works at</Label>
+                <Label htmlFor="change-location-type">{t("employmentForm.worksAt")}</Label>
                 <select id="change-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")} required={action === "LOCATION"}>
-                  <option value="">{action === "LOCATION" ? "Choose…" : "As before"}</option>
-                  {Object.entries(workLocationTypeLabels).map(([value, label]) => (
+                  <option value="">{action === "LOCATION" ? t("changes.choose") : t("changes.asBefore")}</option>
+                  {WORK_LOCATION_TYPES.map((value) => (
                     <option key={value} value={value}>
-                      {label}
+                      {hrLabel(t, "workLocationType", value)}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="change-location">Place</Label>
-                <Input id="change-location" value={draft.workLocation} onChange={set("workLocation")} maxLength={160} placeholder="Tirana office, site name…" />
+                <Label htmlFor="change-location">{t("changes.place")}</Label>
+                <Input id="change-location" value={draft.workLocation} onChange={set("workLocation")} maxLength={160} placeholder={t("changes.placePlaceholder")} />
               </div>
             </div>
           ) : null}
           {["EMPLOYMENT_TYPE", "LEGAL_ENTITY", "REHIRE"].includes(action) ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-type">Employment type</Label>
+              <Label htmlFor="change-type">{t("fields.employmentType")}</Label>
               <select id="change-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
-                {Object.entries(employmentTypeLabels).map(([value, label]) => (
+                {EMPLOYMENT_TYPES.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {hrLabel(t, "employmentType", value)}
                   </option>
                 ))}
               </select>
@@ -339,23 +335,23 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           {action === "STATUS" ? (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="change-status">New status</Label>
+                <Label htmlFor="change-status">{t("changes.newStatus")}</Label>
                 <select id="change-status" className={selectClass} value={draft.status} onChange={set("status")}>
                   {reachable.map((next) => (
                     <option key={next} value={next}>
-                      {planned ? "Active — employment starts" : employmentStatusLabels[next]}
+                      {planned ? t("changes.activeStarts") : hrLabel(t, "employmentStatus", next)}
                     </option>
                   ))}
                 </select>
               </div>
               {!planned ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="change-status-reason">Reason</Label>
+                  <Label htmlFor="change-status-reason">{t("history.reason")}</Label>
                   <select id="change-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
-                    <option value="">Usual for this change</option>
+                    <option value="">{t("changes.usualReason")}</option>
                     {STATUS_CHANGE_REASONS.map((reason) => (
                       <option key={reason} value={reason}>
-                        {statusReasonLabels[reason]}
+                        {hrLabel(t, "statusReason", reason)}
                       </option>
                     ))}
                   </select>
@@ -367,24 +363,24 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
             <>
               {!planned ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="change-last-day">Last working day</Label>
+                  <Label htmlFor="change-last-day">{t("changes.lastWorkingDay")}</Label>
                   <Input id="change-last-day" type="date" value={draft.lastWorkingDay} onChange={set("lastWorkingDay")} required />
                   {field("lastWorkingDay")}
                   {employee.guards.openLeaveRequests > 0 || employee.guards.managedEmployees > 0 ? (
                     <p className="text-meta text-fg-subtle">
-                      {employee.guards.openLeaveRequests > 0 ? `${employee.guards.openLeaveRequests} open leave request(s). ` : ""}
-                      {employee.guards.managedEmployees > 0 ? `Manages ${employee.guards.managedEmployees} employee(s). ` : ""}
-                      Nothing is reassigned automatically.
+                      {employee.guards.openLeaveRequests > 0 ? t("changes.openLeave", { count: employee.guards.openLeaveRequests }) : ""}
+                      {employee.guards.managedEmployees > 0 ? t("changes.manages", { count: employee.guards.managedEmployees }) : ""}
+                      {t("changes.nothingReassigned")}
                     </p>
                   ) : null}
                 </div>
               ) : null}
               <div className="space-y-1.5">
-                <Label htmlFor="change-end-reason">Reason</Label>
+                <Label htmlFor="change-end-reason">{t("history.reason")}</Label>
                 <select id="change-end-reason" className={selectClass} value={draft.terminationReason} onChange={set("terminationReason")}>
                   {TERMINATION_REASONS.map((reason) => (
                     <option key={reason} value={reason}>
-                      {statusReasonLabels[reason]}
+                      {hrLabel(t, "statusReason", reason)}
                     </option>
                   ))}
                 </select>
@@ -393,13 +389,13 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           ) : null}
           {(action === "STATUS" && !planned) || action === "TERMINATE" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-private-reason">Private reason</Label>
-              <Textarea id="change-private-reason" rows={2} maxLength={2000} value={draft.privateReason} onChange={set("privateReason")} placeholder="Optional. Seen only by HR with private access — never by colleagues or in notifications." />
+              <Label htmlFor="change-private-reason">{t("history.privateReason")}</Label>
+              <Textarea id="change-private-reason" rows={2} maxLength={2000} value={draft.privateReason} onChange={set("privateReason")} placeholder={t("changes.privateReasonPlaceholder")} />
             </div>
           ) : null}
           {!revisesPlan && action !== "TERMINATE" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-effective">{action === "STATUS" && planned ? "First day" : action === "REHIRE" ? "New start date" : "Effective from"}</Label>
+              <Label htmlFor="change-effective">{action === "STATUS" && planned ? t("leaveForm.firstDay") : action === "REHIRE" ? t("changes.newStartDate") : t("compensation.effectiveFrom")}</Label>
               <Input id="change-effective" type="date" value={draft.effectiveDate} onChange={set("effectiveDate")} required />
               {field("effectiveDate")}
             </div>
@@ -407,29 +403,29 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           <TimingNote timing={timing} effective={effective} />
           {options.documents.length > 0 ? (
             <div className="space-y-1.5">
-              <Label htmlFor="change-document">Supporting document</Label>
+              <Label htmlFor="change-document">{t("changes.supportingDocument")}</Label>
               <select id="change-document" className={selectClass} value={draft.documentId} onChange={set("documentId")}>
-                <option value="">None</option>
+                <option value="">{t("changes.none")}</option>
                 {options.documents.map((document) => (
                   <option key={document.id} value={document.id}>
                     {document.name}
                   </option>
                 ))}
               </select>
-              <p className="text-meta text-fg-subtle">Linked, not copied: the document stays in the employee&apos;s files.</p>
+              <p className="text-meta text-fg-subtle">{t("changes.linkedNotCopied")}</p>
             </div>
           ) : (
             <p className="text-meta text-fg-subtle">
-              To link a contract or letter, first file it in the{" "}
+              {t("changes.toLink")}{" "}
               <Link className="text-accent-strong hover:underline" href={`/hr/employees/${employee.id}/documents`}>
-                employee&apos;s documents
+                {t("changes.employeesDocuments")}
               </Link>
-              .
+              {t("employee.fullStop")}
             </p>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="change-note">HR note</Label>
-            <Textarea id="change-note" rows={2} maxLength={2000} value={draft.note} onChange={set("note")} placeholder="Optional. HR only." />
+            <Label htmlFor="change-note">{t("changes.hrNote")}</Label>
+            <Textarea id="change-note" rows={2} maxLength={2000} value={draft.note} onChange={set("note")} placeholder={t("changes.hrNotePlaceholder")} />
           </div>
           {error ? (
             <p role="alert" className="text-meta text-danger-strong">
@@ -438,26 +434,26 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button type="button" variant="secondary" onClick={close} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              Review
+              {t("changes.review")}
             </Button>
           </div>
         </form>
       ) : (
         <div className="mt-4 space-y-4">
           {/* Values wrap inside the dialog at 320px; a very long one pans in its own region (AUD-04 §6, D-07-09, MW-10). */}
-          <ScrollRegion label="Before and after">
-          <table className="w-full text-table [overflow-wrap:anywhere]" aria-label="Before and after">
+          <ScrollRegion label={t("changes.beforeAfter")}>
+          <table className="w-full text-table [overflow-wrap:anywhere]" aria-label={t("changes.beforeAfter")}>
             <thead>
               <tr className="text-left text-meta text-fg-subtle">
                 <th className="pb-2 font-medium">&nbsp;</th>
-                <th className="pb-2 font-medium">Now</th>
+                <th className="pb-2 font-medium">{t("changes.now")}</th>
                 <th className="pb-2 font-medium">
-                  <span className="sr-only">becomes</span>
+                  <span className="sr-only">{t("changes.becomes")}</span>
                 </th>
-                <th className="pb-2 font-medium">From {effective}</th>
+                <th className="pb-2 font-medium">{t("changes.fromDate", { date: effective })}</th>
               </tr>
             </thead>
             <tbody>
@@ -480,7 +476,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           {highImpact ? (
             <label className="flex items-start gap-2 text-body text-fg">
               <input type="checkbox" className="mt-1" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} data-testid="confirm-high-impact" />
-              <span>{action === "TERMINATE" ? `I confirm ${employee.name.fullName}'s employment ends after ${draft.lastWorkingDay}.` : `I confirm ${employee.name.fullName} moves to ${target?.name ?? "the other company"} from ${effective}.`}</span>
+              <span>{action === "TERMINATE" ? t("changes.confirmEnd", { name: employee.name.fullName, date: draft.lastWorkingDay }) : t("changes.confirmMove", { name: employee.name.fullName, company: target?.name ?? t("changes.otherCompany"), date: effective })}</span>
             </label>
           ) : null}
           {error ? (
@@ -490,10 +486,10 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setStep("form")} disabled={pending}>
-              Back
+              {t("changes.back")}
             </Button>
             <Button type="button" onClick={submit} disabled={pending || (highImpact && !confirmed)}>
-              {pending ? "Saving…" : timing === "FUTURE" ? "Schedule" : "Apply"}
+              {pending ? t("common.saving") : timing === "FUTURE" ? t("changes.schedule") : t("changes.apply")}
             </Button>
           </div>
         </div>
@@ -503,17 +499,18 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
 }
 
 function TimingNote({ timing, effective }: { timing: "PLAN" | "FUTURE" | "PAST" | "TODAY"; effective: string }) {
+  const t = useHrTranslations();
   if (timing === "FUTURE") {
     return (
       <p className="flex items-center gap-2 text-meta text-fg-muted">
         <CalendarClock aria-hidden="true" className="size-3.5" />
-        <Badge tone="info">Scheduled for {effective}</Badge>
-        It takes effect on that day, and can be cancelled until then.
+        <Badge tone="info">{t("history.scheduledFor", { date: effective })}</Badge>
+        {t("changes.takesEffect")}
       </p>
     );
   }
   if (timing === "PAST") {
-    return <p className="text-meta text-warning-strong">Backdated to {effective}: this needs the right to correct history, and can only fall within the current period.</p>;
+    return <p className="text-meta text-warning-strong">{t("changes.backdated", { date: effective })}</p>;
   }
   return null;
 }

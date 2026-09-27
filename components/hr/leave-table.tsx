@@ -2,7 +2,8 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
-import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hrLabel } from "./hr-labels";
 import type { LeaveRequestDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate } from "@/lib/utils/format";
 import { formatDays } from "./hr-format";
@@ -14,7 +15,7 @@ import { formatDays } from "./hr-format";
  * all for a reader who is the requester or holds `hr.leave.reason.view`
  * (PRD #16 §95).
  */
-export function LeaveTable({
+export async function LeaveTable({
   requests,
   showEmployee = true,
   listId = "hr.leave",
@@ -28,6 +29,7 @@ export function LeaveTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("hr");
   const columns: TableColumn<LeaveRequestDTO>[] = [
     ...(showEmployee
       ? [
@@ -35,13 +37,13 @@ export function LeaveTable({
             key: "employee",
             id: "employee",
             mandatory: true,
-            label: "Employee",
+            label: t("columns.employee"),
             primary: true,
             render: (request: LeaveRequestDTO) => (
               <span className="min-w-0">
                 <span className="block truncate">{request.employee.fullName}</span>
                 <span className="block truncate text-meta font-normal text-fg-subtle">
-                  {leaveTypeLabels[request.leaveType]}
+                  {hrLabel(t, "leaveType", request.leaveType)}
                 </span>
               </span>
             ),
@@ -52,9 +54,9 @@ export function LeaveTable({
             key: "leaveType",
             id: "leaveType",
             mandatory: true,
-            label: "Type",
+            label: t("columns.type"),
             primary: true,
-            render: (request: LeaveRequestDTO) => <span>{leaveTypeLabels[request.leaveType]}</span>,
+            render: (request: LeaveRequestDTO) => <span>{hrLabel(t, "leaveType", request.leaveType)}</span>,
           },
         ]),
     ...(showEmployee
@@ -63,10 +65,10 @@ export function LeaveTable({
             key: "leaveType",
             id: "leaveType",
             mandatory: true,
-            label: "Type",
+            label: t("columns.type"),
             hideBelow: "xl" as const,
             render: (request: LeaveRequestDTO) => (
-              <span className="text-fg-muted">{leaveTypeLabels[request.leaveType]}</span>
+              <span className="text-fg-muted">{hrLabel(t, "leaveType", request.leaveType)}</span>
             ),
           },
         ]
@@ -76,14 +78,14 @@ export function LeaveTable({
       id: "from",
       valueType: "date",
       sortKey: sort ? "start" : undefined,
-      label: "From",
+      label: t("leave.from"),
       render: (request) => <span className="text-fg-muted">{formatDate(request.startDate)}</span>,
     },
     {
       key: "to",
       id: "to",
       valueType: "date",
-      label: "To",
+      label: t("leave.to"),
       hideBelow: "md",
       render: (request) => <span className="text-fg-muted">{formatDate(request.endDate)}</span>,
     },
@@ -91,7 +93,7 @@ export function LeaveTable({
       key: "days",
       id: "days",
       valueType: "number",
-      label: "Days",
+      label: t("attendance.days"),
       align: "right",
       render: (request) => (
         <span className="tabular-nums text-fg">{formatDays(request.days)}</span>
@@ -102,13 +104,13 @@ export function LeaveTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (request) => <StatusBadge status={request.status} />,
     },
     {
       key: "decided",
       id: "decided",
-      label: "Decided by",
+      label: t("leave.decidedBy"),
       hideBelow: "xl",
       render: (request) => (
         <span className="text-fg-muted">
@@ -122,7 +124,7 @@ export function LeaveTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Leave requests"
+      caption={t("leave.caption")}
       columns={columns}
       records={requests}
       rowKey={(request) => request.id}

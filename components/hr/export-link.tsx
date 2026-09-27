@@ -1,6 +1,7 @@
 "use client";
 
 import { ExportControl } from "@/lib/core/export/export-control";
+import { useHrTranslations } from "./hr-text";
 
 /**
  * Exports the list as it is currently filtered (PRD #16 §146, §147; AUD-08 §7).
@@ -10,10 +11,11 @@ import { ExportControl } from "@/lib/core/export/export-control";
  */
 export function HrExportLink({
   type,
-  label = "Export CSV",
+  label,
 }: {
   type: "employees" | "leave" | "attendance";
   label?: string;
 }) {
-  return <ExportControl endpoint="/api/hr/export" selector={{ param: "type", value: type }} label={label} testId={`hr-export-${type}`} />;
+  const t = useHrTranslations();
+  return <ExportControl endpoint="/api/hr/export" selector={{ param: "type", value: type }} label={label ?? t("common.exportCsv")} testId={`hr-export-${type}`} />;
 }

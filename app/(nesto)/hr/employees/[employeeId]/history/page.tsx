@@ -10,18 +10,21 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
-import { assignmentReasonLabels, changeStatusLabels, changeTypeLabels, historySourceLabels, statusReasonLabels, workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
 import { getEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
-import { employmentStatusLabels, employmentTypeLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
-export const metadata: Metadata = { title: "Employment history" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employmentHistory") };
+}
 
-const period = (from: string, to: string | null) => `${formatDate(from)} – ${to ? formatDate(to) : "now"}`;
+const period = (from: string, to: string | null, now: string) => `${formatDate(from)} – ${to ? formatDate(to) : now}`;
 
 /**
  * Employment history (E-03 §55-§58, §123-§131, §162, §169, §171).
@@ -47,35 +50,37 @@ export default async function EmploymentHistoryPage({ params }: Params) {
   const hr = history.view === "HR";
   const caps = history.capabilities;
   const options = hr && caps.canCorrect ? await employmentChangeOptions(context, employeeId) : null;
+  const t = await getTranslations("hr");
+  const now = t("history.now");
   const scheduled = history.scheduled.filter((row) => row.status === "SCHEDULED" || row.status === "FAILED");
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={employeeBreadcrumbs(employee, "History")} title={employee.name.fullName} subtitle={orDash(employee.jobTitle)} status={employee.employmentStatus} />
+      <RecordContextHeader breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.history"))} title={employee.name.fullName} subtitle={orDash(employee.jobTitle)} status={employee.employmentStatus} />
       <EmployeeTabs employeeId={employee.id} active="history" show={employeeTabVisibility(employee)} />
 
       {hr && scheduled.length > 0 ? (
         <section className="nesto-card p-5" aria-labelledby="scheduled-changes">
           <h2 id="scheduled-changes" className="text-card font-semibold text-fg">
-            Scheduled changes
+            {t("history.scheduledChanges")}
           </h2>
           <ul className="mt-3 divide-y divide-line">
             {scheduled.map((change) => (
               <li key={change.id} className="flex flex-wrap items-center justify-between gap-3 py-3" data-testid="scheduled-change">
                 <div className="space-y-0.5">
                   <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
-                    {changeTypeLabels[change.type]}
-                    <Badge tone={change.status === "FAILED" ? "danger" : "info"}>{change.status === "FAILED" ? "Failed" : `Scheduled for ${formatDate(change.effectiveDate)}`}</Badge>
+                    {hrLabel(t, "changeType", change.type)}
+                    <Badge tone={change.status === "FAILED" ? "danger" : "info"}>{change.status === "FAILED" ? hrLabel(t, "changeStatus", "FAILED") : t("history.scheduledFor", { date: formatDate(change.effectiveDate) })}</Badge>
                   </p>
                   <p className="text-meta text-fg-muted">{change.summary}</p>
                   {change.failureReason ? <p className="text-meta text-danger-strong">{change.failureReason}</p> : null}
                   {change.requestedBy ? (
                     <p className="text-meta text-fg-subtle">
-                      Scheduled by <PersonLink userId={change.requestedByUserId} name={change.requestedBy} />
+                      {t("history.scheduledBy")} <PersonLink userId={change.requestedByUserId} name={change.requestedBy} />
                     </p>
                   ) : null}
                 </div>
-                {change.canCancel ? <CancelScheduledChange employeeId={employeeId} changeId={change.id} label={`The ${changeTypeLabels[change.type].toLowerCase()} on ${formatDate(change.effectiveDate)}`} /> : null}
+                {change.canCancel ? <CancelScheduledChange employeeId={employeeId} changeId={change.id} label={t("history.changeOn", { change: hrLabel(t, "changeType", change.type).toLowerCase(), date: formatDate(change.effectiveDate) })} /> : null}
               </li>
             ))}
           </ul>
@@ -84,9 +89,9 @@ export default async function EmploymentHistoryPage({ params }: Params) {
 
       <section className="nesto-card p-5" aria-labelledby="timeline">
         <h2 id="timeline" className="text-card font-semibold text-fg">
-          Timeline
+          {t("history.timeline")}
         </h2>
-        <p className="mt-1 text-meta text-fg-subtle">{hr ? "Every change from the day it took effect, newest first." : "Your positions, departments and managers over time, newest first."}</p>
+        <p className="mt-1 text-meta text-fg-subtle">{hr ? t("history.timelineHr") : t("history.timelineSelf")}</p>
         <div className="mt-4">
           <EmploymentTimeline events={history.timeline} />
         </div>
@@ -94,34 +99,34 @@ export default async function EmploymentHistoryPage({ params }: Params) {
 
       <section className="nesto-card p-5" aria-labelledby="assignments">
         <h2 id="assignments" className="text-card font-semibold text-fg">
-          Positions and placements
+          {t("history.positions")}
         </h2>
         {/* The tables pan in labelled regions; headings stay put (AUD-04 §5, D-07-15, MW-19). */}
-        <ScrollRegion label="Positions and placements" className="mt-3">
+        <ScrollRegion label={t("history.positions")} className="mt-3">
         <table className="w-full min-w-[720px] text-table">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
-              <th className="py-2 pr-3 font-medium">Period</th>
-              <th className="py-2 pr-3 font-medium">Job title</th>
-              <th className="py-2 pr-3 font-medium">Department</th>
-              <th className="py-2 pr-3 font-medium">Manager</th>
-              <th className="py-2 pr-3 font-medium">Location</th>
-              <th className="py-2 pr-3 font-medium">Type</th>
-              <th className="py-2 pr-3 font-medium">Why</th>
-              {hr ? <th className="py-2 font-medium">Recorded</th> : null}
+              <th className="py-2 pr-3 font-medium">{t("history.period")}</th>
+              <th className="py-2 pr-3 font-medium">{t("fields.jobTitle")}</th>
+              <th className="py-2 pr-3 font-medium">{t("columns.department")}</th>
+              <th className="py-2 pr-3 font-medium">{t("columns.manager")}</th>
+              <th className="py-2 pr-3 font-medium">{t("history.location")}</th>
+              <th className="py-2 pr-3 font-medium">{t("columns.type")}</th>
+              <th className="py-2 pr-3 font-medium">{t("history.why")}</th>
+              {hr ? <th className="py-2 font-medium">{t("history.recorded")}</th> : null}
             </tr>
           </thead>
           <tbody>
             {history.assignments.map((row) => (
               <tr key={row.id} className={row.supersededAt ? "border-t border-line text-fg-subtle line-through decoration-fg-subtle/40" : "border-t border-line"} data-testid={row.supersededAt ? "assignment-superseded" : "assignment-row"}>
-                <td className="py-2 pr-3 whitespace-nowrap">{period(row.startDate, row.endDate)}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{period(row.startDate, row.endDate, now)}</td>
                 <td className="py-2 pr-3">{orDash(row.jobTitle)}</td>
                 <td className="py-2 pr-3">{orDash(row.department?.name)}</td>
                 <td className="py-2 pr-3">{row.manager ? <PersonLink memberId={row.manager.memberId} name={row.manager.name} /> : "—"}</td>
-                <td className="py-2 pr-3">{orDash([row.workLocationType ? workLocationTypeLabels[row.workLocationType] : null, row.workLocation].filter(Boolean).join(", "))}</td>
-                <td className="py-2 pr-3">{employmentTypeLabels[row.employmentType]}</td>
+                <td className="py-2 pr-3">{orDash([row.workLocationType ? hrLabel(t, "workLocationType", row.workLocationType) : null, row.workLocation].filter(Boolean).join(", "))}</td>
+                <td className="py-2 pr-3">{hrLabel(t, "employmentType", row.employmentType)}</td>
                 <td className="py-2 pr-3">
-                  {assignmentReasonLabels[row.reason]}
+                  {hrLabel(t, "assignmentReason", row.reason)}
                   {row.document ? (
                     <>
                       {" · "}
@@ -133,7 +138,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                 </td>
                 {hr ? (
                   <td className="py-2 align-top text-meta">
-                    <span className="block no-underline">{historySourceLabels[row.source]}
+                    <span className="block no-underline">{hrLabel(t, "historySource", row.source)}
                       {row.createdBy ? (
                         <>
                           {" · "}
@@ -141,9 +146,9 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                         </>
                       ) : null}
                     </span>
-                    {row.supersededAt ? <Badge tone="warning">Corrected</Badge> : null}
-                    {row.correctionReason ? <span className="block text-fg-muted no-underline">Correction: {row.correctionReason}</span> : null}
-                    {row.note ? <span className="block text-fg-muted no-underline">Note: {row.note}</span> : null}
+                    {row.supersededAt ? <Badge tone="warning">{t("history.corrected")}</Badge> : null}
+                    {row.correctionReason ? <span className="block text-fg-muted no-underline">{t("history.correction", { reason: row.correctionReason })}</span> : null}
+                    {row.note ? <span className="block text-fg-muted no-underline">{t("history.note", { note: row.note })}</span> : null}
                     {!row.supersededAt && options ? <CorrectHistoryRow employeeId={employeeId} kind="ASSIGNMENT" row={row} options={options} /> : null}
                   </td>
                 ) : null}
@@ -156,29 +161,29 @@ export default async function EmploymentHistoryPage({ params }: Params) {
 
       <section className="nesto-card p-5" aria-labelledby="statuses">
         <h2 id="statuses" className="text-card font-semibold text-fg">
-          Status
+          {t("columns.status")}
         </h2>
-        <ScrollRegion label="Status history" className="mt-3">
+        <ScrollRegion label={t("history.statusHistory")} className="mt-3">
         <table className="w-full min-w-[560px] text-table">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
-              <th className="py-2 pr-3 font-medium">Period</th>
-              <th className="py-2 pr-3 font-medium">Status</th>
-              <th className="py-2 pr-3 font-medium">Reason</th>
-              {caps.canViewPrivateReason ? <th className="py-2 pr-3 font-medium">Private reason</th> : null}
-              {hr ? <th className="py-2 font-medium">Recorded</th> : null}
+              <th className="py-2 pr-3 font-medium">{t("history.period")}</th>
+              <th className="py-2 pr-3 font-medium">{t("columns.status")}</th>
+              <th className="py-2 pr-3 font-medium">{t("history.reason")}</th>
+              {caps.canViewPrivateReason ? <th className="py-2 pr-3 font-medium">{t("history.privateReason")}</th> : null}
+              {hr ? <th className="py-2 font-medium">{t("history.recorded")}</th> : null}
             </tr>
           </thead>
           <tbody>
             {history.statuses.map((row) => (
               <tr key={row.id} className={row.supersededAt ? "border-t border-line text-fg-subtle line-through decoration-fg-subtle/40" : "border-t border-line"}>
-                <td className="py-2 pr-3 whitespace-nowrap">{period(row.effectiveFrom, row.effectiveTo)}</td>
-                <td className="py-2 pr-3">{employmentStatusLabels[row.status]}</td>
-                <td className="py-2 pr-3">{statusReasonLabels[row.reason]}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{period(row.effectiveFrom, row.effectiveTo, now)}</td>
+                <td className="py-2 pr-3">{hrLabel(t, "employmentStatus", row.status)}</td>
+                <td className="py-2 pr-3">{hrLabel(t, "statusReason", row.reason)}</td>
                 {caps.canViewPrivateReason ? <td className="py-2 pr-3">{orDash(row.privateReason)}</td> : null}
                 {hr ? (
                   <td className="py-2 align-top text-meta">
-                    <span className="block no-underline">{historySourceLabels[row.source]}
+                    <span className="block no-underline">{hrLabel(t, "historySource", row.source)}
                       {row.createdBy ? (
                         <>
                           {" · "}
@@ -186,7 +191,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                         </>
                       ) : null}
                     </span>
-                    {row.correctionReason ? <span className="block text-fg-muted no-underline">Correction: {row.correctionReason}</span> : null}
+                    {row.correctionReason ? <span className="block text-fg-muted no-underline">{t("history.correction", { reason: row.correctionReason })}</span> : null}
                     {!row.supersededAt && options ? <CorrectHistoryRow employeeId={employeeId} kind="STATUS" row={row} options={options} /> : null}
                   </td>
                 ) : null}
@@ -200,14 +205,14 @@ export default async function EmploymentHistoryPage({ params }: Params) {
       {hr && history.scheduled.some((row) => row.status === "APPLIED" || row.status === "CANCELLED") ? (
         <section className="nesto-card p-5" aria-labelledby="past-schedule">
           <h2 id="past-schedule" className="text-card font-semibold text-fg">
-            Past scheduled changes
+            {t("history.pastScheduled")}
           </h2>
           <ul className="mt-3 space-y-1 text-table text-fg-muted">
             {history.scheduled
               .filter((row) => row.status === "APPLIED" || row.status === "CANCELLED")
               .map((row) => (
                 <li key={row.id}>
-                  {changeTypeLabels[row.type]} for {formatDate(row.effectiveDate)} — {changeStatusLabels[row.status].toLowerCase()}
+                  {t("history.pastRow", { change: hrLabel(t, "changeType", row.type), date: formatDate(row.effectiveDate), status: hrLabel(t, "changeStatus", row.status).toLowerCase() })}
                   {row.cancelReason ? ` (${row.cancelReason})` : ""}
                 </li>
               ))}

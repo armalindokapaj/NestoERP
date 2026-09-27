@@ -13,8 +13,12 @@ import { requireModule } from "@/lib/context/current-user";
 import { employmentIdForMember } from "@/lib/modules/hr/employees/employee.service";
 import { hrScopeKind } from "@/lib/modules/hr/hr.scope";
 import { EmployeesList } from "./employees-list";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Employees" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employees") };
+}
 
 /**
  * The employee directory (PRD #16 §39).
@@ -42,6 +46,7 @@ export default async function EmployeesPage({
 
   const experience = resolveModuleExperience(context, "hr");
   const params = await searchParams;
+  const t = await getTranslations("hr");
 
   return (
     <ModulePage
@@ -52,12 +57,12 @@ export default async function EmployeesPage({
           {can(context, "hr.export") ? <HrExportLink type="employees" /> : null}
           {can(context, "hr.employee.import") ? (
             <Button asChild size="sm" variant="secondary">
-              <Link href="/hr/employees/import">Import</Link>
+              <Link href="/hr/employees/import">{t("employees.import")}</Link>
             </Button>
           ) : null}
           {can(context, "hr.employee.create_profile") ? (
             <Button asChild size="sm">
-              <Link href="/hr/employees/new">Add employment record</Link>
+              <Link href="/hr/employees/new">{t("employees.addRecord")}</Link>
             </Button>
           ) : null}
         </div>

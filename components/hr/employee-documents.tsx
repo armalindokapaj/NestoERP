@@ -19,7 +19,6 @@ import { UnsavedValue } from "@/components/unsaved/unsaved-value";
 import {
   CATEGORY_RULES,
   VERIFICATION_LABELS,
-  VISIBILITY_LABELS,
   type CredentialVerificationStatus,
   type DocumentGroup,
   type EmployeeDocumentCategory,
@@ -30,6 +29,8 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 import { fileSize, uploadNewVersion, uploadToEmployment } from "./employee-file-upload";
+import { hrLabel, useHrTranslations } from "./hr-text";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * An employee's documents (E-02 §94-§99, §217-§223): the same list on the
@@ -56,31 +57,34 @@ function date(value: string | null): string {
 }
 
 export function VerificationBadge({ status, verifiable = true }: { status: CredentialVerificationStatus; verifiable?: boolean }) {
+  const t = useHrTranslations();
   if (!verifiable && status === "UNVERIFIED") return null;
   return (
     <Badge tone={VERIFICATION_TONE[status]} data-testid="verification">
       {status === "VERIFIED" ? <ShieldCheck className="size-3" aria-hidden="true" /> : null}
-      {VERIFICATION_LABELS[status]}
+      {hrLabel(t, "verification", status)}
     </Badge>
   );
 }
 
 function ExpiryText({ row }: { row: Pick<EmployeeDocumentDTO, "expiryDate" | "expiry" | "daysToExpiry" | "isCurrent"> }) {
+  const t = useHrTranslations();
   if (!row.expiryDate) return <span className="text-fg-subtle">—</span>;
   const tone = !row.isCurrent ? "text-fg-muted" : row.expiry === "EXPIRED" ? "text-danger-strong" : row.expiry === "EXPIRING" ? "text-warning-strong" : "text-fg";
   return (
     <span className={cn("whitespace-nowrap", tone)}>
       {formatDate(row.expiryDate)}
-      {row.isCurrent && row.expiry === "EXPIRING" ? <span className="block text-meta">in {row.daysToExpiry} days</span> : null}
-      {row.isCurrent && row.expiry === "EXPIRED" ? <span className="block text-meta">expired</span> : null}
+      {row.isCurrent && row.expiry === "EXPIRING" ? <span className="block text-meta">{t("worklist.inDays", { count: row.daysToExpiry ?? 0 })}</span> : null}
+      {row.isCurrent && row.expiry === "EXPIRED" ? <span className="block text-meta">{t("employeeDocs.expired")}</span> : null}
     </span>
   );
 }
 
 function StateBadge({ row }: { row: EmployeeDocumentDTO }) {
-  if (row.archived) return <Badge tone="default">Archived</Badge>;
-  if (!row.isCurrent) return <Badge tone="default">Historical</Badge>;
-  return <Badge tone="neutral">Current</Badge>;
+  const t = useHrTranslations();
+  if (row.archived) return <Badge tone="default">{t("employeeDocs.archived")}</Badge>;
+  if (!row.isCurrent) return <Badge tone="default">{t("employeeDocs.historical")}</Badge>;
+  return <Badge tone="neutral">{t("compensation.current")}</Badge>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -95,6 +99,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
   // A worklist links to one document: it opens, whatever the filters show (§153, §154).
   const [selected, setSelected] = React.useState<EmployeeDocumentDTO | null>(() => (focusId ? (data.documents.find((row) => row.id === focusId) ?? null) : null));
   const [adding, setAdding] = React.useState<AddRequest | null>(null);
+  const t = useHrTranslations();
 
   const canAdd = data.capabilities.open && data.capabilities.addable.length > 0;
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -120,9 +125,9 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
         {heading ? (
           <div>
             <h2 id="employee-documents-heading" className="text-card font-semibold text-fg">
-              Documents
+              {t("tabs.documents")}
             </h2>
-            <p className="mt-0.5 text-meta text-fg-subtle">{data.isSelf ? "Your documents as your employer keeps them. What HR keeps to itself is not listed." : "Only the documents you may open are listed."}</p>
+            <p className="mt-0.5 text-meta text-fg-subtle">{data.isSelf ? t("employeeDocs.selfNote") : t("employeeDocs.othersNote")}</p>
           </div>
         ) : (
           <span />
@@ -130,17 +135,17 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
         {canAdd ? (
           <Button size="sm" onClick={() => setAdding({})} data-testid="add-employee-document">
             <Paperclip aria-hidden="true" />
-            Add document
+            {t("employeeDocs.add")}
           </Button>
         ) : null}
       </div>
 
       {nothing ? (
-        <EmptyState icon={<FileText />} title="No documents available to you" description={canAdd ? "Contracts, certificates, licences and a CV filed for this employee appear here." : "Documents you may open appear here."} />
+        <EmptyState icon={<FileText />} title={t("employeeDocs.emptyTitle")} description={canAdd ? t("employeeDocs.emptyCanAdd") : t("employeeDocs.emptyOther")} />
       ) : (
         <>
           {groups.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" role="group" aria-label="Categories">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" role="group" aria-label={t("employeeDocs.categories")}>
               {groups.map((entry) => (
                 <button
                   key={entry.group}
@@ -154,8 +159,8 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                   <span className="text-meta font-medium text-fg-muted">{entry.label}</span>
                   <span className="text-card font-semibold tabular-nums text-fg">{entry.count}</span>
                   <span className="flex flex-wrap gap-1">
-                    {entry.expiring > 0 ? <Badge tone="warning">{entry.expiring} expiring</Badge> : null}
-                    {entry.unverified > 0 ? <Badge tone="info">{entry.unverified} to verify</Badge> : null}
+                    {entry.expiring > 0 ? <Badge tone="warning">{t("employeeDocs.expiring", { count: entry.expiring })}</Badge> : null}
+                    {entry.unverified > 0 ? <Badge tone="info">{t("employeeDocs.toVerify", { count: entry.unverified })}</Badge> : null}
                   </span>
                 </button>
               ))}
@@ -166,24 +171,24 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
             <div className="flex flex-wrap items-end gap-2" role="search">
               {/* On a phone the search takes its own row, and the two choices share the next. */}
               <label className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:max-w-xs sm:flex-1">
-                <span className="text-meta font-medium text-fg-muted">Search</span>
-                <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title, issuer, number" aria-label="Search documents" />
+                <span className="text-meta font-medium text-fg-muted">{t("employeeDocs.search")}</span>
+                <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("employeeDocs.searchPlaceholder")} aria-label={t("employeeDocs.searchLabel")} />
               </label>
               <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
-                <span className="text-meta font-medium text-fg-muted">Show</span>
-                <select className={selectClass} value={status} onChange={(event) => setStatus(event.target.value as Status)} aria-label="Current or historical">
-                  <option value="current">Current</option>
-                  <option value="historical">Historical and archived</option>
-                  <option value="all">All</option>
+                <span className="text-meta font-medium text-fg-muted">{t("reports.show")}</span>
+                <select className={selectClass} value={status} onChange={(event) => setStatus(event.target.value as Status)} aria-label={t("employeeDocs.currentOrHistorical")}>
+                  <option value="current">{t("compensation.current")}</option>
+                  <option value="historical">{t("employeeDocs.historicalArchived")}</option>
+                  <option value="all">{t("recruitment.all")}</option>
                 </select>
               </label>
               <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
-                <span className="text-meta font-medium text-fg-muted">Verification</span>
-                <select className={selectClass} value={verification} onChange={(event) => setVerification(event.target.value as CredentialVerificationStatus | "ALL")} aria-label="Verification">
-                  <option value="ALL">Any</option>
+                <span className="text-meta font-medium text-fg-muted">{t("worklist.verification")}</span>
+                <select className={selectClass} value={verification} onChange={(event) => setVerification(event.target.value as CredentialVerificationStatus | "ALL")} aria-label={t("worklist.verification")}>
+                  <option value="ALL">{t("employeeDocs.any")}</option>
                   {(Object.keys(VERIFICATION_LABELS) as CredentialVerificationStatus[]).map((key) => (
                     <option key={key} value={key}>
-                      {VERIFICATION_LABELS[key]}
+                      {hrLabel(t, "verification", key)}
                     </option>
                   ))}
                 </select>
@@ -191,23 +196,23 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
             </div>
           ) : null}
 
-          {data.documents.length > 0 && rows.length === 0 ? <p className="nesto-card p-4 text-table text-fg-muted">No documents match. Clear a filter to see more.</p> : null}
+          {data.documents.length > 0 && rows.length === 0 ? <p className="nesto-card p-4 text-table text-fg-muted">{t("employeeDocs.noMatch")}</p> : null}
 
           {rows.length > 0 ? (
             <>
               <div className="nesto-card hidden p-0 md:block">
-                <Table aria-label="Documents">
+                <Table aria-label={t("tabs.documents")}>
                   <TableHead>
                     <TableRow>
-                      <TableHeaderCell>Title</TableHeaderCell>
-                      <TableHeaderCell>Category</TableHeaderCell>
-                      <TableHeaderCell>Issuer</TableHeaderCell>
-                      <TableHeaderCell>Issued</TableHeaderCell>
-                      <TableHeaderCell>Expires</TableHeaderCell>
-                      <TableHeaderCell>Status</TableHeaderCell>
-                      <TableHeaderCell>Verification</TableHeaderCell>
+                      <TableHeaderCell>{t("employeeDocs.title")}</TableHeaderCell>
+                      <TableHeaderCell>{t("columns.category")}</TableHeaderCell>
+                      <TableHeaderCell>{t("worklist.issuer")}</TableHeaderCell>
+                      <TableHeaderCell>{t("employeeDocs.issued")}</TableHeaderCell>
+                      <TableHeaderCell>{t("worklist.expires")}</TableHeaderCell>
+                      <TableHeaderCell>{t("columns.status")}</TableHeaderCell>
+                      <TableHeaderCell>{t("worklist.verification")}</TableHeaderCell>
                       <TableHeaderCell>
-                        <span className="sr-only">Actions</span>
+                        <span className="sr-only">{t("employeeDocs.actions")}</span>
                       </TableHeaderCell>
                     </TableRow>
                   </TableHead>
@@ -218,7 +223,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                           <button type="button" className="text-left font-medium text-fg hover:text-accent-strong hover:underline" onClick={() => setSelected(row)}>
                             {row.title}
                           </button>
-                          {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">New file since it was verified</span> : null}
+                          {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">{t("employeeDocs.newFileSince")}</span> : null}
                         </TableCell>
                         <TableCell>{row.categoryLabel}</TableCell>
                         <TableCell>{row.issuer ?? "—"}</TableCell>
@@ -241,7 +246,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                 </Table>
               </div>
 
-              <ul className="space-y-2 md:hidden" aria-label="Documents">
+              <ul className="space-y-2 md:hidden" aria-label={t("tabs.documents")}>
                 {rows.map((row) => (
                   <li key={row.id} className="nesto-card flex items-start justify-between gap-3 p-3" data-testid="employee-document-card">
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelected(row)}>
@@ -266,7 +271,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
           {summaries.length > 0 ? (
             <section className="space-y-2" aria-labelledby="shared-documents-heading" data-testid="document-summaries">
               <h3 id="shared-documents-heading" className="text-table font-semibold text-fg">
-                Shared with colleagues
+                {t("employeeDocs.shared")}
               </h3>
               <ul className="nesto-card divide-y divide-line p-0">
                 {summaries.map((row) => (
@@ -280,7 +285,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                       </span>
                     </span>
                     <span className="flex items-center gap-2 text-meta text-fg-muted">
-                      {row.expiryDate ? `Expires ${formatDate(row.expiryDate)}` : null}
+                      {row.expiryDate ? t("employeeDocs.expiresOn", { date: formatDate(row.expiryDate) }) : null}
                       <VerificationBadge status="VERIFIED" />
                     </span>
                   </li>
@@ -300,12 +305,13 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
 }
 
 function UnfiledFiles({ files, canFile, onFile }: { files: UnfiledDocumentDTO[]; canFile: boolean; onFile: (file: UnfiledDocumentDTO) => void }) {
+  const t = useHrTranslations();
   return (
     <section className="space-y-2" aria-labelledby="unfiled-heading" data-testid="unfiled-documents">
       <h3 id="unfiled-heading" className="text-table font-semibold text-fg">
-        Not filed yet
+        {t("employeeDocs.notFiled")}
       </h3>
-      <p className="text-meta text-fg-subtle">Uploaded to this record without saying what they are. Until they are filed only HR and whoever uploaded them can see them.</p>
+      <p className="text-meta text-fg-subtle">{t("employeeDocs.notFiledNote")}</p>
       <ul className="nesto-card divide-y divide-line p-0">
         {files.map((file) => (
           <li key={file.documentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-table" data-testid="unfiled-document">
@@ -315,12 +321,12 @@ function UnfiledFiles({ files, canFile, onFile }: { files: UnfiledDocumentDTO[];
               </Link>
               <span className="text-meta text-fg-subtle">
                 {" · "}
-                {fileSize(file.sizeBytes)} · uploaded {formatDate(file.uploadedAt)}
+                {fileSize(file.sizeBytes)} · {t("employeeDocs.uploaded", { date: formatDate(file.uploadedAt) })}
               </span>
             </span>
             {canFile && file.storageStatus === "AVAILABLE" ? (
               <Button size="sm" variant="secondary" onClick={() => onFile(file)}>
-                File it
+                {t("employeeDocs.fileIt")}
               </Button>
             ) : null}
           </li>
@@ -339,6 +345,7 @@ function base(row: Pick<EmployeeDocumentDTO, "employeeId" | "id">) {
 }
 
 function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDocumentDTO; contracts: Array<{ value: string; label: string }>; onOpen?: () => void; onRenew: () => void }) {
+  const t = useHrTranslations();
   const { run, pending } = useCommand();
   const [dialog, setDialog] = React.useState<"verify" | "reject" | "supersede" | "archive" | "edit" | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
@@ -349,31 +356,31 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="ghost" aria-label={`Actions for ${row.title}`} data-testid="employee-document-actions">
+          <Button size="sm" variant="ghost" aria-label={t("employeeDocs.actionsFor", { title: row.title })} data-testid="employee-document-actions">
             <MoreHorizontal aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {onOpen ? <DropdownMenuItem onSelect={onOpen}>Details</DropdownMenuItem> : null}
+          {onOpen ? <DropdownMenuItem onSelect={onOpen}>{t("leave.details")}</DropdownMenuItem> : null}
           {openable ? (
             <DropdownMenuItem asChild>
               <a href={`/api/documents/${row.file.documentId}/download`} download>
-                Download
+                {t("employeeDocs.download")}
               </a>
             </DropdownMenuItem>
           ) : null}
           {actions.canVerify || actions.canReject || actions.canResubmit ? <DropdownMenuSeparator /> : null}
-          {actions.canVerify ? <DropdownMenuItem onSelect={() => setDialog("verify")}>Verify</DropdownMenuItem> : null}
-          {actions.canReject ? <DropdownMenuItem onSelect={() => setDialog("reject")}>Reject</DropdownMenuItem> : null}
+          {actions.canVerify ? <DropdownMenuItem onSelect={() => setDialog("verify")}>{t("employeeDocs.verify")}</DropdownMenuItem> : null}
+          {actions.canReject ? <DropdownMenuItem onSelect={() => setDialog("reject")}>{t("leaveActions.reject")}</DropdownMenuItem> : null}
           {actions.canResubmit ? (
-            <DropdownMenuItem onSelect={() => void run("resubmit", () => engineeringApi(`${base(row)}/resubmit`, { body: { expectedVersion: versionOf(row) } }), "Sent back for verification.")}>Resubmit</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void run("resubmit", () => engineeringApi(`${base(row)}/resubmit`, { body: { expectedVersion: versionOf(row) } }), t("employeeDocs.resubmitted"))}>{t("employeeDocs.resubmit")}</DropdownMenuItem>
           ) : null}
           {actions.canEdit || actions.canReplaceFile || actions.canRenew || actions.canSupersede || actions.canArchive ? <DropdownMenuSeparator /> : null}
-          {actions.canEdit ? <DropdownMenuItem onSelect={() => setDialog("edit")}>Edit details</DropdownMenuItem> : null}
-          {actions.canReplaceFile ? <DropdownMenuItem onSelect={() => fileInput.current?.click()}>Replace file (new version)</DropdownMenuItem> : null}
-          {actions.canRenew ? <DropdownMenuItem onSelect={onRenew}>Renew</DropdownMenuItem> : null}
-          {actions.canSupersede ? <DropdownMenuItem onSelect={() => setDialog("supersede")}>No longer current…</DropdownMenuItem> : null}
-          {actions.canArchive ? <DropdownMenuItem onSelect={() => setDialog("archive")}>Archive…</DropdownMenuItem> : null}
+          {actions.canEdit ? <DropdownMenuItem onSelect={() => setDialog("edit")}>{t("meta.editDetails")}</DropdownMenuItem> : null}
+          {actions.canReplaceFile ? <DropdownMenuItem onSelect={() => fileInput.current?.click()}>{t("employeeDocs.replaceFile")}</DropdownMenuItem> : null}
+          {actions.canRenew ? <DropdownMenuItem onSelect={onRenew}>{t("employeeDocs.renew")}</DropdownMenuItem> : null}
+          {actions.canSupersede ? <DropdownMenuItem onSelect={() => setDialog("supersede")}>{t("employeeDocs.noLongerCurrent")}</DropdownMenuItem> : null}
+          {actions.canArchive ? <DropdownMenuItem onSelect={() => setDialog("archive")}>{t("employeeDocs.archiveEllipsis")}</DropdownMenuItem> : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -381,64 +388,64 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
         ref={fileInput}
         type="file"
         className="sr-only"
-        aria-label={`New version of ${row.title}`}
+        aria-label={t("employeeDocs.newVersionOf", { title: row.title })}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file) void run("version", () => uploadNewVersion(row.file.documentId, file), "New version uploaded. It counts once it has been checked.");
+          if (file) void run("version", () => uploadNewVersion(row.file.documentId, file), t("employeeDocs.versionUploaded"));
         }}
       />
       {/* A new version on its way up would be lost by leaving now (AUD-03 §3 files). */}
-      {pending === "version" ? <UnsavedValue dirty={false} saving module="hr" saveKind="none" label={`New version of ${row.title}`} /> : null}
+      {pending === "version" ? <UnsavedValue dirty={false} saving module="hr" saveKind="none" label={t("employeeDocs.newVersionOf", { title: row.title })} /> : null}
 
       <FormDialog
         open={dialog === "verify"}
         onOpenChange={(open) => setDialog(open ? "verify" : null)}
-        title={`Verify ${row.title}`}
-        description="Check the file, the issuer, the number and the dates against the original. You cannot verify your own."
-        fields={[{ name: "note", label: "Note", type: "textarea", rows: 2, placeholder: "For example: checked against the register" }]}
-        submitLabel="Verify"
+        title={t("employeeDocs.verifyTitle", { title: row.title })}
+        description={t("employeeDocs.verifyDescription")}
+        fields={[{ name: "note", label: t("candidate.note"), type: "textarea", rows: 2, placeholder: t("employeeDocs.verifyPlaceholder") }]}
+        submitLabel={t("employeeDocs.verify")}
         module="hr"
         testId="verify-document-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`${base(row)}/verify`, { body: { ...payload, expectedVersion: versionOf(row) } });
-          await run("verify", async () => null, "Verified.");
+          await run("verify", async () => null, t("employeeDocs.verified"));
         }}
       />
       <ReasonDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title={`Reject ${row.title}`}
-        description="The employee reads this reason and can resubmit with a corrected file."
-        confirmLabel="Reject"
+        title={t("employeeDocs.rejectTitle", { title: row.title })}
+        description={t("employeeDocs.rejectDescription")}
+        confirmLabel={t("leaveActions.reject")}
         onConfirm={async (payload) => {
           await engineeringApi(`${base(row)}/reject`, { body: { ...payload, expectedVersion: versionOf(row) } });
-          await run("reject", async () => null, "Rejected.");
+          await run("reject", async () => null, t("employeeDocs.rejected"));
         }}
       />
       <ReasonDialog
         open={dialog === "supersede"}
         onOpenChange={(open) => setDialog(open ? "supersede" : null)}
-        title={`${row.title} no longer applies`}
-        description="It stays on file as history, marked superseded. Nothing is deleted."
-        confirmLabel="Mark superseded"
+        title={t("employeeDocs.supersedeTitle", { title: row.title })}
+        description={t("employeeDocs.supersedeDescription")}
+        confirmLabel={t("employeeDocs.markSuperseded")}
         required={false}
-        extraFields={[{ name: "replacementId", label: "Replaced by", type: "select", emptyLabel: "Nothing on file", options: (row.category === "EMPLOYMENT_CONTRACT" ? contracts : []).filter((option) => option.value !== row.id), wide: true }]}
+        extraFields={[{ name: "replacementId", label: t("employeeDocs.replacedByLabel"), type: "select", emptyLabel: t("employeeDocs.nothingOnFile"), options: (row.category === "EMPLOYMENT_CONTRACT" ? contracts : []).filter((option) => option.value !== row.id), wide: true }]}
         onConfirm={async (payload) => {
           await engineeringApi(`${base(row)}/supersede`, { body: { ...payload, expectedVersion: versionOf(row) } });
-          await run("supersede", async () => null, "Marked superseded.");
+          await run("supersede", async () => null, t("employeeDocs.superseded"));
         }}
       />
       <ReasonDialog
         open={dialog === "archive"}
         onOpenChange={(open) => setDialog(open ? "archive" : null)}
-        title={`Archive ${row.title}`}
-        description="It leaves the employee's file. HR keeps it, with its history, among archived documents."
-        confirmLabel="Archive"
+        title={t("employeeDocs.archiveTitle", { title: row.title })}
+        description={t("employeeDocs.archiveDescription")}
+        confirmLabel={t("employeeDocs.archive")}
         destructive
         onConfirm={async (payload) => {
           await engineeringApi(`${base(row)}/archive`, { body: { ...payload, expectedVersion: versionOf(row) } });
-          await run("archive", async () => null, "Archived.");
+          await run("archive", async () => null, t("employeeDocs.archivedDone"));
         }}
       />
       <EditDocumentDialog row={row} open={dialog === "edit"} onOpenChange={(open) => setDialog(open ? "edit" : null)} />
@@ -456,6 +463,7 @@ function versionOf(row: EmployeeDocumentDTO): number {
 /* -------------------------------------------------------------------------- */
 
 function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: EmployeeDocumentDTO | null; onOpenChange: (open: boolean) => void; contracts: Array<{ value: string; label: string }>; onRenew: (row: EmployeeDocumentDTO) => void }) {
+  const t = useHrTranslations();
   return (
     <Drawer open={row !== null} onOpenChange={onOpenChange}>
       <DrawerContent side="right" className="p-5" data-testid="employee-document-drawer">
@@ -474,45 +482,45 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
             </div>
             {/* Both columns may shrink and long numbers break, so the drawer never widens at 320px (AUD-04 §3, D-07-10, MW-01). */}
             <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-2 text-table [overflow-wrap:anywhere]">
-              <dt className="text-fg-muted">Issuer</dt>
+              <dt className="text-fg-muted">{t("worklist.issuer")}</dt>
               <dd>{row.issuer ?? "—"}</dd>
-              <dt className="text-fg-muted">Number</dt>
+              <dt className="text-fg-muted">{t("employeeDocs.number")}</dt>
               <dd>{row.documentNumber ?? "—"}</dd>
-              <dt className="text-fg-muted">Issued</dt>
+              <dt className="text-fg-muted">{t("employeeDocs.issued")}</dt>
               <dd>{date(row.issueDate)}</dd>
-              <dt className="text-fg-muted">Expires</dt>
+              <dt className="text-fg-muted">{t("worklist.expires")}</dt>
               <dd>
                 <ExpiryText row={row} />
               </dd>
               {row.effectiveFrom || row.effectiveTo ? (
                 <>
-                  <dt className="text-fg-muted">In effect</dt>
+                  <dt className="text-fg-muted">{t("employeeDocs.inEffect")}</dt>
                   <dd>
-                    {date(row.effectiveFrom)} – {row.effectiveTo ? date(row.effectiveTo) : "open"}
+                    {date(row.effectiveFrom)} – {row.effectiveTo ? date(row.effectiveTo) : t("compensation.open")}
                   </dd>
                 </>
               ) : null}
-              <dt className="text-fg-muted">Who may see it</dt>
-              <dd>{VISIBILITY_LABELS[row.visibility]}</dd>
-              <dt className="text-fg-muted">Filed by</dt>
+              <dt className="text-fg-muted">{t("employeeDocs.whoMaySee")}</dt>
+              <dd>{hrLabel(t, "visibility", row.visibility)}</dd>
+              <dt className="text-fg-muted">{t("employeeDocs.filedBy")}</dt>
               <dd>
                 {row.createdBy ? <PersonLink memberId={row.createdByMemberId} name={row.createdBy} /> : "—"} · {formatDate(row.createdAt)}
               </dd>
               {row.verifiable ? (
                 <>
-                  <dt className="text-fg-muted">Verification</dt>
+                  <dt className="text-fg-muted">{t("worklist.verification")}</dt>
                   <dd>
-                    {VERIFICATION_LABELS[row.verificationStatus]}
-                    {row.verifiedBy ? <> by <PersonLink memberId={row.verifiedByMemberId} name={row.verifiedBy} /></> : null}
+                    {hrLabel(t, "verification", row.verificationStatus)}
+                    {row.verifiedBy ? <> {t("employeeDocs.by")} <PersonLink memberId={row.verifiedByMemberId} name={row.verifiedBy} /></> : null}
                     {row.verifiedAt ? `, ${formatDate(row.verifiedAt)}` : ""}
                     {row.verificationNote ? <span className="block text-meta text-fg-muted">“{row.verificationNote}”</span> : null}
-                    {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">A new file was uploaded after it was verified.</span> : null}
+                    {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">{t("employeeDocs.newFileAfter")}</span> : null}
                   </dd>
                 </>
               ) : null}
               {row.archived ? (
                 <>
-                  <dt className="text-fg-muted">Archived</dt>
+                  <dt className="text-fg-muted">{t("employeeDocs.archived")}</dt>
                   <dd>{row.archiveReason ?? "—"}</dd>
                 </>
               ) : null}
@@ -521,33 +529,33 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
             {row.amends || row.supersedes || row.supersededBy ? (
               <section aria-labelledby="document-history-heading" className="space-y-1.5 text-table">
                 <h3 id="document-history-heading" className="font-semibold text-fg">
-                  History
+                  {t("tabs.history")}
                 </h3>
-                {row.amends ? <p>Amends {row.amends.title}</p> : null}
-                {row.supersedes ? <p>Replaces {row.supersedes.title}</p> : null}
-                {row.supersededBy ? <p>Replaced by {row.supersededBy.title}</p> : null}
+                {row.amends ? <p>{t("employeeDocs.amends", { title: row.amends.title })}</p> : null}
+                {row.supersedes ? <p>{t("employeeDocs.replaces", { title: row.supersedes.title })}</p> : null}
+                {row.supersededBy ? <p>{t("employeeDocs.replacedBy", { title: row.supersededBy.title })}</p> : null}
               </section>
             ) : null}
 
             <section aria-labelledby="document-file-heading" className="space-y-1.5 text-table">
               <h3 id="document-file-heading" className="font-semibold text-fg">
-                File
+                {t("employeeDocs.file")}
               </h3>
               <p className="text-fg-muted">
                 {row.file.fileName}
-                {row.file.versionNumber ? ` · version ${row.file.versionNumber}` : ""} · {fileSize(row.file.sizeBytes)}
+                {row.file.versionNumber ? t("employeeDocs.version", { number: row.file.versionNumber }) : ""} · {fileSize(row.file.sizeBytes)}
               </p>
               {row.file.storageStatus === "AVAILABLE" ? (
                 <p className="flex flex-wrap gap-3">
                   <a href={`/api/documents/${row.file.documentId}/download`} download className="font-medium text-accent-strong hover:underline">
-                    Download
+                    {t("employeeDocs.download")}
                   </a>
                   <Link href={row.file.href} className="font-medium text-accent-strong hover:underline">
-                    Versions and activity
+                    {t("employeeDocs.versions")}
                   </Link>
                 </p>
               ) : (
-                <p className="text-warning-strong">File temporarily unavailable.</p>
+                <p className="text-warning-strong">{t("employeeDocs.unavailable")}</p>
               )}
             </section>
           </div>
@@ -563,28 +571,29 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
 
 type AddRequest = { replaces?: EmployeeDocumentDTO; unfiled?: UnfiledDocumentDTO };
 
-function metadataFields(category: EmployeeDocumentCategory | "", visibilities: string[], contracts: Array<{ value: string; label: string }>, withCategory: Array<{ value: string; label: string }> | null): FormField[] {
+function metadataFields(t: Translate<"hr">, category: EmployeeDocumentCategory | "", visibilities: string[], contracts: Array<{ value: string; label: string }>, withCategory: Array<{ value: string; label: string }> | null): FormField[] {
   const rule = category ? CATEGORY_RULES[category] : null;
   const dated = rule ? rule.class === "EMPLOYMENT" || rule.class === "COMPENSATION" : false;
   return [
-    ...(withCategory ? [{ name: "category", label: "What it is", type: "select" as const, required: true, emptyLabel: "Choose…", options: withCategory, wide: true }] : []),
-    { name: "title", label: "Title", type: "text", placeholder: rule ? `For example ${rule.label}` : "What HR calls it", wide: true },
-    { name: "issuer", label: "Issued by", type: "text" },
-    { name: "documentNumber", label: "Number", type: "text" },
-    { name: "issueDate", label: "Issued on", type: "date" },
-    { name: "expiryDate", label: rule?.expiryExpected ? "Expires on" : "Expires on (if it does)", type: "date" },
+    ...(withCategory ? [{ name: "category", label: t("employeeDocs.whatItIs"), type: "select" as const, required: true, emptyLabel: t("changes.choose"), options: withCategory, wide: true }] : []),
+    { name: "title", label: t("employeeDocs.title"), type: "text", placeholder: rule ? t("employeeDocs.forExample", { label: rule.label }) : t("employeeDocs.whatHrCallsIt"), wide: true },
+    { name: "issuer", label: t("employeeDocs.issuedBy"), type: "text" },
+    { name: "documentNumber", label: t("employeeDocs.number"), type: "text" },
+    { name: "issueDate", label: t("employeeDocs.issuedOn"), type: "date" },
+    { name: "expiryDate", label: rule?.expiryExpected ? t("employeeDocs.expiresOnLabel") : t("employeeDocs.expiresIfItDoes"), type: "date" },
     ...(dated
       ? [
-          { name: "effectiveFrom", label: "In effect from", type: "date" as const },
-          { name: "effectiveTo", label: "In effect until", type: "date" as const },
+          { name: "effectiveFrom", label: t("employeeDocs.inEffectFrom"), type: "date" as const },
+          { name: "effectiveTo", label: t("employeeDocs.inEffectUntil"), type: "date" as const },
         ]
       : []),
-    ...(category === "CONTRACT_AMENDMENT" ? [{ name: "amendsId", label: "Amends", type: "select" as const, emptyLabel: "Choose the contract…", options: contracts, wide: true }] : []),
-    { name: "visibility", label: "Who may see it", type: "select", emptyLabel: rule ? `Default: ${VISIBILITY_LABELS[rule.defaultVisibility]}` : "Default for this kind of document", options: visibilities.map((value) => ({ value, label: VISIBILITY_LABELS[value as keyof typeof VISIBILITY_LABELS] })), wide: true },
+    ...(category === "CONTRACT_AMENDMENT" ? [{ name: "amendsId", label: t("employeeDocs.amendsLabel"), type: "select" as const, emptyLabel: t("employeeDocs.chooseContract"), options: contracts, wide: true }] : []),
+    { name: "visibility", label: t("employeeDocs.whoMaySee"), type: "select", emptyLabel: rule ? t("employeeDocs.defaultVisibility", { label: hrLabel(t, "visibility", rule.defaultVisibility) }) : t("employeeDocs.defaultForKind"), options: visibilities.map((value) => ({ value, label: hrLabel(t, "visibility", value) })), wide: true },
   ];
 }
 
 function AddDocumentDialog({ request, onClose, data, contracts }: { request: AddRequest | null; onClose: () => void; data: EmployeeDocumentsDTO; contracts: Array<{ value: string; label: string }> }) {
+  const t = useHrTranslations();
   const { run } = useCommand();
   const [file, setFile] = React.useState<File | null>(null);
   const [fileError, setFileError] = React.useState<string | null>(null);
@@ -599,7 +608,7 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
   const addable = data.capabilities.addable;
   const entry = addable.find((row) => row.category === (fixed ?? category));
   const options = addable.map((row) => ({ value: row.category, label: `${CATEGORY_RULES[row.category].label}` }));
-  const fields = metadataFields(fixed ?? category, entry?.visibilities ?? [], contracts, fixed ? null : options);
+  const fields = metadataFields(t, fixed ?? category, entry?.visibilities ?? [], contracts, fixed ? null : options);
   const renewing = request?.replaces;
   const needsFile = !request?.unfiled;
 
@@ -607,11 +616,11 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
     <FormDialog
       open={request !== null}
       onOpenChange={(open) => !open && onClose()}
-      title={renewing ? `Renew ${renewing.title}` : request?.unfiled ? `File ${request.unfiled.name}` : "Add a document"}
-      description={renewing ? "The new document becomes current. The one it renews stays on file, marked superseded." : "The file is kept once, on this employee's record. Say what it is and who may see it."}
+      title={renewing ? t("employeeDocs.renewTitle", { title: renewing.title }) : request?.unfiled ? t("employeeDocs.fileTitle", { name: request.unfiled.name }) : t("employeeDocs.addTitle")}
+      description={renewing ? t("employeeDocs.renewDescription") : t("employeeDocs.addDescription")}
       fields={fields}
       initial={renewing ? { title: renewing.title, issuer: renewing.issuer ?? "", documentNumber: "", category: renewing.category } : { title: request?.unfiled ? request.unfiled.name.replace(/\.[A-Za-z0-9]{1,6}$/, "") : "" }}
-      submitLabel={renewing ? "Renew" : request?.unfiled ? "File it" : "Add document"}
+      submitLabel={renewing ? t("employeeDocs.renew") : request?.unfiled ? t("employeeDocs.fileIt") : t("employeeDocs.add")}
       saveKind="create"
       module="hr"
       testId="add-employee-document-dialog"
@@ -621,25 +630,25 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
       }}
       onSubmit={async (payload) => {
         const chosen = (fixed ?? payload.category) as EmployeeDocumentCategory | null;
-        if (!chosen) throw { status: 400, code: "VALIDATION_ERROR", message: "Say what the document is.", details: { category: ["Say what the document is."] } };
+        if (!chosen) throw { status: 400, code: "VALIDATION_ERROR", message: t("employeeDocs.sayWhat"), details: { category: [t("employeeDocs.sayWhat")] } };
         let documentId = request?.unfiled?.documentId ?? null;
         if (!documentId) {
           if (!file) {
-            setFileError("Choose the file.");
-            throw { status: 400, code: "VALIDATION_ERROR", message: "Choose the file.", details: {} };
+            setFileError(t("employeeDocs.chooseFile"));
+            throw { status: 400, code: "VALIDATION_ERROR", message: t("employeeDocs.chooseFile"), details: {} };
           }
           documentId = await uploadToEmployment(data.employeeId, file, String(payload.title ?? "") || file.name);
         }
         const body = { ...payload, category: chosen, documentId, visibility: payload.visibility ?? undefined };
         const url = renewing ? `/api/hr/employees/${data.employeeId}/documents/${renewing.id}/renew` : `/api/hr/employees/${data.employeeId}/documents`;
         await engineeringApi(url, { body });
-        await run("add", async () => null, renewing ? "Renewed. The earlier document is kept as history." : "Document filed.");
+        await run("add", async () => null, renewing ? t("employeeDocs.renewed") : t("employeeDocs.filed"));
       }}
     >
       {needsFile ? (
         <div className="flex flex-col gap-1">
           <label htmlFor="employee-document-file" className="text-meta font-medium text-fg-muted">
-            File<span className="text-danger-strong"> *</span>
+            {t("employeeDocs.file")}<span className="text-danger-strong"> *</span>
           </label>
           {/* Named, so a chosen file is part of what the dialog would lose (AUD-03 §3). */}
           <input
@@ -654,7 +663,7 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
             }}
             aria-invalid={Boolean(fileError) || undefined}
           />
-          {fileError ? <p className="text-meta text-danger-strong">{fileError}</p> : <p className="text-meta text-fg-subtle">PDF or an image. It is checked before it can be opened.</p>}
+          {fileError ? <p className="text-meta text-danger-strong">{fileError}</p> : <p className="text-meta text-fg-subtle">{t("employeeDocs.fileHint")}</p>}
         </div>
       ) : null}
     </FormDialog>
@@ -662,24 +671,25 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
 }
 
 function EditDocumentDialog({ row, open, onOpenChange }: { row: EmployeeDocumentDTO; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useHrTranslations();
   const { run } = useCommand();
   const visibilities = (CATEGORY_RULES[row.category].visibilities as string[]).filter((value) => value !== "PRIVATE_EMPLOYEE" || row.visibility === "PRIVATE_EMPLOYEE");
-  const fields = metadataFields(row.category, visibilities, [], null).filter((field) => field.name !== "amendsId");
+  const fields = metadataFields(t, row.category, visibilities, [], null).filter((field) => field.name !== "amendsId");
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`Edit ${row.title}`}
-      description="Corrects what it is and who may see it. Its verification is never changed here."
+      title={t("leave.editTitle", { label: row.title })}
+      description={t("employeeDocs.editDescription")}
       fields={fields}
       initial={{ title: row.title, issuer: row.issuer, documentNumber: row.documentNumber, issueDate: row.issueDate, expiryDate: row.expiryDate, effectiveFrom: row.effectiveFrom, effectiveTo: row.effectiveTo, visibility: row.visibility }}
-      submitLabel="Save"
+      submitLabel={t("candidate.save")}
       module="hr"
       testId="edit-employee-document-dialog"
       wide
       onSubmit={async (payload) => {
         await engineeringApi(base(row), { method: "PATCH", body: { ...payload, visibility: payload.visibility ?? row.visibility, title: payload.title ?? row.title, expectedVersion: versionOf(row) } });
-        await run("edit", async () => null, "Saved.");
+        await run("edit", async () => null, t("server.saved"));
       }}
     />
   );
