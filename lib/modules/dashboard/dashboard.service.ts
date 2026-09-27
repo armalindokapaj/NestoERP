@@ -645,7 +645,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             { members: { some: { companyMemberId: context.membershipId, status: "ACTIVE" } } },
           ],
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         take: 6,
         select: { id: true, name: true, code: true, status: true, client: { select: { name: true } } },
       });
@@ -857,7 +857,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             },
           ],
         },
-        orderBy: { endDate: "asc" },
+        orderBy: [{ endDate: "asc" }, { id: "asc" }],
         take: 5,
         select: { id: true, name: true, code: true, endDate: true, status: true },
       });
@@ -883,7 +883,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             { archivedAt: null, status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] } },
           ],
         },
-        orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "desc" }],
+        orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "desc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -958,7 +958,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             { status: "SENT", dueDate: { lt: new Date() } },
           ],
         },
-        orderBy: { dueDate: "asc" },
+        orderBy: [{ dueDate: "asc" }, { id: "asc" }],
         take: 5,
         select: {
           id: true,
@@ -1035,7 +1035,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         // The HR module's own scope resolver, so a dashboard widget can never
         // show leave the HR pages would hide (PRD #16 §164).
         where: buildLeaveScopeWhere(context),
-        orderBy: [{ status: "asc" }, { startDate: "asc" }],
+        orderBy: [{ status: "asc" }, { startDate: "asc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1119,7 +1119,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         where: {
           AND: [buildOpportunityScopeWhere(context), { archivedAt: null, stage: { in: OPEN_STAGES } }],
         },
-        orderBy: { estimatedValue: "desc" },
+        orderBy: [{ estimatedValue: "desc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1174,7 +1174,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             },
           ],
         },
-        orderBy: { expiryDate: "asc" },
+        orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         take: 5,
         select: {
           id: true,
@@ -1220,7 +1220,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "purchaseOrders": {
       const rows = await prisma.purchaseOrder.findMany({
         where: buildProjectLinkedScopeWhere(context, "procurement"),
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         take: 5,
         select: {
           id: true,
@@ -1267,7 +1267,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "recentMovements": {
       const rows = await prisma.stockMovement.findMany({
         where: { AND: [buildMovementScopeWhere(context), { companyId: context.companyId }] },
-        orderBy: { occurredAt: "desc" },
+        orderBy: [{ occurredAt: "desc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1354,7 +1354,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             ],
           },
         },
-        orderBy: [{ severity: "desc" }, { dueDate: "asc" }],
+        orderBy: [{ severity: "desc" }, { dueDate: "asc" }, { id: "asc" }],
         take: 5,
         select: {
           id: true,
@@ -1410,7 +1410,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           ...buildIncidentScopeWhere(context),
           status: { in: OPEN_INCIDENT_STATUSES },
         },
-        orderBy: [{ severity: "desc" }, { occurredAt: "desc" }],
+        orderBy: [{ severity: "desc" }, { occurredAt: "desc" }, { id: "asc" }],
         take: 5,
         select: {
           id: true,
@@ -1439,7 +1439,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       // The directory's own scope, so the widget never lists somebody the Team page would not (PRD #14 §145).
       const rows = await prisma.companyMember.findMany({
         where: { AND: [buildTeamScopeWhere(context), { status: "ACTIVE" }] },
-        orderBy: { user: { firstName: "asc" } },
+        orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1500,7 +1500,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "recentDocuments": {
       const rows = await prisma.document.findMany({
         where: { AND: [await buildDocumentAccessWhere(context), { status: "ACTIVE" }] },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1527,7 +1527,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       if (!supportOpen(context)) return { kind: "list", items: [] };
       const rows = await prisma.supportRequest.findMany({
         where: { companyId: context.companyId },
-        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }, { id: "asc" }],
         take: 6,
         select: {
           id: true,
@@ -1883,7 +1883,7 @@ async function projectBudgetItems(context: UserContext, take: number) {
         { isCurrent: true, status: "APPROVED", project: { AND: [buildProjectScopeWhere(context), { archivedAt: null }] } },
       ],
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     take,
     select: {
       currency: true,
@@ -1946,49 +1946,62 @@ async function countProjectsAtRisk(context: UserContext): Promise<number> {
  * stock sitting in three bins is still stock. Prisma cannot compare two columns
  * in a filter, so the comparison happens after a narrow select rather than by
  * loading the whole table.
+ *
+ * Every item with a reorder point is read, in id-keyed batches, so the low-stock
+ * count is the true count rather than the count among an arbitrary first 300
+ * (AUD-08 §4: totals are matching records, not loaded rows). The result orders
+ * by on-hand, then SKU, then id — a total order (DT-04).
  */
 export async function lowStockRows(context: UserContext) {
-  const items = await prisma.inventoryItem.findMany({
-    where: {
-      companyId: context.companyId,
-      archivedAt: null,
-      status: "ACTIVE",
-      reorderPoint: { not: null },
-    },
-    select: { id: true, sku: true, name: true, baseUnit: true, reorderPoint: true },
-    take: 300,
-  });
+  const low: Array<{ id: string; sku: string; name: string; baseUnit: string; reorderPoint: Prisma.Decimal | null; onHand: number; reorder: number }> = [];
+  let after: string | null = null;
+  for (;;) {
+    const items: Array<{ id: string; sku: string; name: string; baseUnit: string; reorderPoint: Prisma.Decimal | null }> = await prisma.inventoryItem.findMany({
+      where: {
+        companyId: context.companyId,
+        archivedAt: null,
+        status: "ACTIVE",
+        reorderPoint: { not: null },
+        ...(after ? { id: { gt: after } } : {}),
+      },
+      select: { id: true, sku: true, name: true, baseUnit: true, reorderPoint: true },
+      orderBy: { id: "asc" },
+      take: LOW_STOCK_BATCH,
+    });
+    if (items.length === 0) break;
 
-  if (items.length === 0) return [];
+    // Summed over the locations the reader can see, the way the Inventory pages
+    // count it: stock in a project store they cannot open is not theirs to
+    // count, and an item low only there is not low for them (PRD #20 §246,
+    // PRD #47 §175).
+    const balances = await prisma.inventoryBalance.groupBy({
+      by: ["inventoryItemId"],
+      where: {
+        AND: [
+          buildBalanceScopeWhere(context),
+          { companyId: context.companyId, inventoryItemId: { in: items.map((i) => i.id) } },
+        ],
+      },
+      _sum: { onHandQuantity: true },
+    });
 
-  // Summed over the locations the reader can see, the way the Inventory pages
-  // count it: stock in a project store they cannot open is not theirs to
-  // count, and an item low only there is not low for them (PRD #20 §246,
-  // PRD #47 §175).
-  const balances = await prisma.inventoryBalance.groupBy({
-    by: ["inventoryItemId"],
-    where: {
-      AND: [
-        buildBalanceScopeWhere(context),
-        { companyId: context.companyId, inventoryItemId: { in: items.map((i) => i.id) } },
-      ],
-    },
-    _sum: { onHandQuantity: true },
-  });
+    const onHandById = new Map(
+      balances.map((row) => [row.inventoryItemId, decimalToNumber(row._sum.onHandQuantity)]),
+    );
 
-  const onHandById = new Map(
-    balances.map((row) => [row.inventoryItemId, decimalToNumber(row._sum.onHandQuantity)]),
-  );
+    for (const item of items) {
+      const onHand = onHandById.get(item.id) ?? 0;
+      const reorder = decimalToNumber(item.reorderPoint);
+      if (onHand <= reorder) low.push({ ...item, onHand, reorder });
+    }
+    if (items.length < LOW_STOCK_BATCH) break;
+    after = items[items.length - 1].id;
+  }
 
-  return items
-    .map((item) => ({
-      ...item,
-      onHand: onHandById.get(item.id) ?? 0,
-      reorder: decimalToNumber(item.reorderPoint),
-    }))
-    .filter((item) => item.onHand <= item.reorder)
-    .sort((a, b) => a.onHand - b.onHand);
+  return low.sort((a, b) => a.onHand - b.onHand || a.sku.localeCompare(b.sku) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
+
+const LOW_STOCK_BATCH = 500;
 
 async function lowStockItems(context: UserContext, take: number) {
   return (await lowStockRows(context)).slice(0, take);

@@ -1,4 +1,5 @@
 import { UsersRound } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -9,6 +10,8 @@ import type { UserContext } from "@/lib/context/types";
 import { parseTeamListQuery, type TeamQueryDefaults } from "@/lib/modules/team/team.query";
 import { teamFilterOptions } from "@/lib/modules/team/team.repository";
 import * as team from "@/lib/modules/team/team.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { TEAM_SORT_KEYS } from "@/lib/modules/team/team.schema";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -90,15 +93,9 @@ export async function TeamList({
         ]),
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
 
   const showLastLogin = can(context, "team.member.security_metadata.view");
 
@@ -144,7 +141,7 @@ export async function TeamList({
         )
       ) : (
         <>
-          <TeamTable members={result.data} showLastLogin={showLastLogin} />
+          <TeamTable members={result.data} showLastLogin={showLastLogin} sort={{ value: query.sort, keys: TEAM_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

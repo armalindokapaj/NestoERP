@@ -19,7 +19,8 @@ import type { UserContext } from "@/lib/context/types";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { parseBudgetQuery } from "@/lib/modules/finance/finance.query";
 import { companyFilterOptions, financeContexts, financeExperience } from "@/lib/modules/finance/finance.workspace";
-import { firstValue } from "@/lib/modules/shared/list-query";
+import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { BUDGET_SORT_KEYS } from "@/lib/modules/finance/budgets/budget.schema";
 
 export const metadata: Metadata = { title: "Budgets" };
 
@@ -83,15 +84,9 @@ async function BudgetsList({
 
   const hasFilters = Boolean(query.search || query.status?.length || query.currentOnly || company);
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/finance/budgets?${search}` : "/finance/budgets";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/finance/budgets", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/finance/budgets", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -145,7 +140,7 @@ async function BudgetsList({
         )
       ) : (
         <>
-          <BudgetTable budgets={result.data} />
+          <BudgetTable budgets={result.data} sort={{ value: query.sort, keys: BUDGET_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

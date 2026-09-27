@@ -101,13 +101,17 @@ export type ItemInput = z.infer<typeof itemSchema>;
 
 export const itemListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
-  view: z.enum(["all", "low-stock", "archived"]).default("all"),
+  view: z.enum(["all", "low-stock", "archived"]).default("all")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("all"),
   status: z.array(z.enum(ITEM_STATUSES)).optional(),
   category: z.array(z.enum(ITEM_CATEGORIES)).optional(),
   warehouseId: z.string().optional(),
   sort: z
     .enum(["name-asc", "sku-asc", "updated-desc", "created-desc", "stock-asc"])
-    .default("name-asc"),
+    .default("name-asc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("name-asc"),
 });
 
 export type ItemListQuery = z.infer<typeof itemListQuerySchema>;
@@ -143,7 +147,9 @@ export const warehouseListQuerySchema = paginationSchema.extend({
   status: z.array(z.enum(WAREHOUSE_STATUSES)).optional(),
   warehouseType: z.array(z.enum(WAREHOUSE_TYPES)).optional(),
   projectId: z.string().optional(),
-  sort: z.enum(["code-asc", "name-asc", "updated-desc"]).default("code-asc"),
+  sort: z.enum(["code-asc", "name-asc", "updated-desc"]).default("code-asc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("code-asc"),
 });
 
 export type WarehouseListQuery = z.infer<typeof warehouseListQuerySchema>;
@@ -294,6 +300,10 @@ export type ReservationInput = z.infer<typeof reservationSchema>;
 /* List queries                                                                */
 /* -------------------------------------------------------------------------- */
 
+/** The movement and document sorts, named so a header sort control can check them (AUD-08 §4). */
+export const MOVEMENT_SORT_KEYS = ["occurred-desc", "occurred-asc"] as const;
+export const TRANSACTION_SORT_KEYS = ["date-desc", "date-asc", "number-asc", "updated-desc"] as const;
+
 export const movementListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
   movementType: z.array(z.enum(MOVEMENT_TYPES)).optional(),
@@ -303,7 +313,9 @@ export const movementListQuerySchema = paginationSchema.extend({
   projectId: z.string().optional(),
   from: optionalBusinessDate,
   to: optionalBusinessDate,
-  sort: z.enum(["occurred-desc", "occurred-asc"]).default("occurred-desc"),
+  sort: z.enum(MOVEMENT_SORT_KEYS).default("occurred-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("occurred-desc"),
 });
 
 export type MovementListQuery = z.infer<typeof movementListQuerySchema>;
@@ -314,7 +326,9 @@ export const transactionListQuerySchema = paginationSchema.extend({
   warehouseId: z.string().optional(),
   projectId: z.string().optional(),
   reason: optionalEnum(ADJUSTMENT_REASONS),
-  sort: z.enum(["date-desc", "date-asc", "number-asc", "updated-desc"]).default("date-desc"),
+  sort: z.enum(TRANSACTION_SORT_KEYS).default("date-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("date-desc"),
 });
 
 export type TransactionListQuery = z.infer<typeof transactionListQuerySchema>;
@@ -325,7 +339,9 @@ export const reservationListQuerySchema = paginationSchema.extend({
   warehouseId: z.string().optional(),
   projectId: z.string().optional(),
   inventoryItemId: z.string().optional(),
-  sort: z.enum(["created-desc", "required-asc", "expires-asc"]).default("created-desc"),
+  sort: z.enum(["created-desc", "required-asc", "expires-asc"]).default("created-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("created-desc"),
 });
 
 export type ReservationListQuery = z.infer<typeof reservationListQuerySchema>;
@@ -336,8 +352,14 @@ export const balanceListQuerySchema = paginationSchema.extend({
   locationId: z.string().optional(),
   inventoryItemId: z.string().optional(),
   /** Hides rows that hold nothing, which is most of them (PRD #20 §180). */
-  heldOnly: z.coerce.boolean().optional().default(true),
-  sort: z.enum(["item-asc", "available-desc", "available-asc"]).default("item-asc"),
+  // `?heldOnly=false` (or 0) means false: `z.coerce.boolean` read every non-empty string as true (AUD-08 §3).
+  heldOnly: z
+    .preprocess((value) => (value === "false" || value === "0" ? false : value === "true" || value === "1" ? true : value), z.boolean().optional())
+    .default(true)
+    .catch(true),
+  sort: z.enum(["item-asc", "available-desc", "available-asc"]).default("item-asc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("item-asc"),
 });
 
 export type BalanceListQuery = z.infer<typeof balanceListQuerySchema>;

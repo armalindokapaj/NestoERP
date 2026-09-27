@@ -1,11 +1,15 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import type { UserContext } from "@/lib/context/types";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import type { TeamListQuery, TeamSortKey } from "./team.schema";
 import { buildTeamScopeWhere } from "./team.scope";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * Database access for Team (PRD #14 §143, §232).
@@ -123,20 +127,26 @@ export function buildTeamListWhere(
 export async function listMembers(context: UserContext, query: TeamListQuery) {
   const where = buildTeamListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.companyMember.findMany({
-      where,
-      select: SUMMARY_SELECT,
-      orderBy: SORT_ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-    }),
-    prisma.companyMember.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "team.members.list",
+    async (tx) => {
+      const window = pageWindow(await tx.companyMember.count({ where }), query.page, query.limit);
+      const rows = await tx.companyMember.findMany({
+        where,
+        select: SUMMARY_SELECT,
+        orderBy: withTieBreaker(SORT_ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const counts = await visibleProjectCounts(context, rows.map((row) => row.id));
 
-  return { rows, total, projectCounts: counts };
+  return { rows, total: window.total, window, projectCounts: counts };
 }
 
 /**
@@ -161,28 +171,24 @@ export async function visibleProjectCounts(
       },
       _count: { _all: true },
     }),
-    prisma.project.groupBy({
-      by: ["projectManagerMemberId"],
-      where: {
-        AND: [
-          buildProjectScopeWhere(context),
-          { projectManagerMemberId: { in: memberIds } },
-          // A manager is also a member, so counting both would double up.
-          { members: { none: { companyMemberId: { in: memberIds }, status: "ACTIVE" } } },
-        ],
+    // The projects these people manage, with whether each manager is also an active member of it.
+    // A manager who is also a member is counted once — by the membership above. (A `none` over the
+    // whole page used to drop a project whenever anybody else on the page was a member of it.)
+    prisma.project.findMany({
+      where: { AND: [buildProjectScopeWhere(context), { projectManagerMemberId: { in: memberIds } }] },
+      select: {
+        projectManagerMemberId: true,
+        members: { where: { companyMemberId: { in: memberIds }, status: "ACTIVE" }, select: { companyMemberId: true } },
       },
-      _count: { _all: true },
     }),
   ]);
 
   const counts = new Map<string, number>();
   for (const row of memberships) counts.set(row.companyMemberId, row._count._all);
-  for (const row of managed) {
-    if (!row.projectManagerMemberId) continue;
-    counts.set(
-      row.projectManagerMemberId,
-      (counts.get(row.projectManagerMemberId) ?? 0) + row._count._all,
-    );
+  for (const project of managed) {
+    const manager = project.projectManagerMemberId;
+    if (!manager || project.members.some((member) => member.companyMemberId === manager)) continue;
+    counts.set(manager, (counts.get(manager) ?? 0) + 1);
   }
   return counts;
 }

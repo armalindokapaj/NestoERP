@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   canSeeStock,
   loadMemberRef,
@@ -65,6 +66,9 @@ type ItemRow = Prisma.InventoryItemGetPayload<{ select: typeof ITEM_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listItems(context: UserContext, query: ItemListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "inventory.item.view");
@@ -85,35 +89,81 @@ export async function listItems(context: UserContext, query: ItemListQuery) {
 
   const where: Prisma.InventoryItemWhereInput = { AND: filters };
 
-  // The low-stock view needs every candidate before it can rank them, because
-  // "low" is a comparison between two columns Prisma cannot filter on.
-  const lowStockView = query.view === "low-stock";
+  /*
+   * "Low" and "lowest stock first" compare an item's summed balances with its
+   * own thresholds, which Prisma cannot filter or sort on. So the derived path
+   * classifies every item the scope and filters match — ids, thresholds and one
+   * grouped sum, no row cap — then sorts, counts and pages that set, and reads
+   * full rows for the page alone (AUD-08 §3's pipeline: filters → derived
+   * classification → stable sort → pagination; DT-03, DT-04). It used to rank
+   * only the first 500 items by name, so a low item beyond them was missing and
+   * the count said so.
+   */
+  if (query.view === "low-stock" || query.sort === "stock-asc") return listItemsDerived(context, query, where);
 
-  const page: { skip: number; take: number } = lowStockView
-    ? { skip: 0, take: 500 }
-    : { skip: skipFor(query.page, query.limit), take: query.limit };
-
-  const [rows, total] = await Promise.all([
-    prisma.inventoryItem.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: page.skip,
-      take: page.take,
-      select: ITEM_SELECT,
-    }),
-    prisma.inventoryItem.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.items.list",
+    async (tx) => {
+      const window = pageWindow(await tx.inventoryItem.count({ where }), query.page, query.limit);
+      const rows = await tx.inventoryItem.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: ITEM_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const stock = await stockForItems(context, rows.map((row) => row.id));
-  let data = rows.map((row) => toSummaryDTO(context, row, stock.get(row.id)));
+  return { data: rows.map((row) => toSummaryDTO(context, row, stock.get(row.id))), pagination: window };
+}
 
-  if (lowStockView) {
-    data = data.filter((item) => needsAttention(item.level));
-    const page = data.slice(skipFor(query.page, query.limit), skipFor(query.page, query.limit) + query.limit);
-    return { data: page, pagination: paginationMeta(data.length, query.page, query.limit) };
-  }
+/** The low-stock view and the stock sort: classified and ordered over every match, then paged. */
+async function listItemsDerived(context: UserContext, query: ItemListQuery, where: Prisma.InventoryItemWhereInput) {
+  const { rows, window, stock } = await runInTransaction(
+    "inventory.items.derived-list",
+    async (tx) => {
+      const candidates = await tx.inventoryItem.findMany({
+        where,
+        // The name order (then id) is the tie-break for equal stock, and the whole order of the low-stock view.
+        orderBy: withTieBreaker<Prisma.InventoryItemOrderByWithRelationInput>(query.sort === "stock-asc" ? [{ name: "asc" }] : orderFor(query.sort)),
+        select: { id: true, minimumStock: true, reorderPoint: true },
+      });
+      const sums = await stockForItems(context, candidates.map((row) => row.id), tx);
+      const onHand = (id: string) => sums.get(id)?.onHand ?? ZERO;
+      let ordered = candidates;
+      if (query.view === "low-stock") {
+        // Without stock permission nothing is classified, as on the rows themselves (PRD #20 §20).
+        ordered = canSeeStock(context)
+          ? ordered.filter((row) =>
+              needsAttention(
+                stockLevelFor({
+                  onHand: Number(onHand(row.id)),
+                  minimumStock: row.minimumStock === null ? null : Number(row.minimumStock),
+                  reorderPoint: row.reorderPoint === null ? null : Number(row.reorderPoint),
+                }),
+              ),
+            )
+          : [];
+      }
+      if (query.sort === "stock-asc") {
+        // Decimal comparison of the raw sums; equal stock keeps the name-then-id order (stable sort).
+        ordered = [...ordered].sort((a, b) => onHand(a.id).comparedTo(onHand(b.id)));
+      }
+      const window = pageWindow(ordered.length, query.page, query.limit);
+      const pageIds = ordered.slice(skipFor(window.page, window.limit), skipFor(window.page, window.limit) + window.limit).map((row) => row.id);
+      const found = await tx.inventoryItem.findMany({ where: { id: { in: pageIds } }, select: ITEM_SELECT });
+      const byId = new Map(found.map((row) => [row.id, row]));
+      return { rows: pageIds.map((id) => byId.get(id)!).filter(Boolean), window, stock: sums };
+    },
+    LIST_READ,
+  );
 
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+  return { data: rows.map((row) => toSummaryDTO(context, row, stock.get(row.id))), pagination: window };
 }
 
 function orderFor(sort: ItemListQuery["sort"]): Prisma.InventoryItemOrderByWithRelationInput[] {
@@ -140,10 +190,11 @@ function orderFor(sort: ItemListQuery["sort"]): Prisma.InventoryItemOrderByWithR
 async function stockForItems(
   context: UserContext,
   itemIds: string[],
+  client: Prisma.TransactionClient = prisma,
 ): Promise<Map<string, { onHand: Prisma.Decimal; reserved: Prisma.Decimal }>> {
   if (!canSeeStock(context) || itemIds.length === 0) return new Map();
 
-  const rows = await prisma.inventoryBalance.groupBy({
+  const rows = await client.inventoryBalance.groupBy({
     by: ["inventoryItemId"],
     where: { AND: [buildBalanceScopeWhere(context), { inventoryItemId: { in: itemIds } }] },
     _sum: { onHandQuantity: true, reservedQuantity: true },

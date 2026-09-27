@@ -20,7 +20,8 @@ import { addLocalDays, daysBetween, localDate } from "@/lib/modules/calendar/cal
 import { filesOpen } from "@/lib/modules/engineering/engineering.permissions";
 import { resolveEngineeringSettings } from "@/lib/modules/engineering/engineering.settings";
 import { kept } from "@/lib/modules/engineering/engineering.fields";
-import { at, dateLabel, dateOf, fail, holders, people, personOf } from "@/lib/modules/engineering/engineering.shared";
+import { at, dateLabel, dateOf, fail, holders, LIST_SNAPSHOT, people, personOf, REGISTER_PAGE_SIZE } from "@/lib/modules/engineering/engineering.shared";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { ACTIVITY_ENTITY, COMPLIANCE_RECORD, contractorsOpen, MODULE, readableComplianceWhere } from "./contractor.permissions";
 import type { ComplianceInput, ComplianceListQuery, UpdateComplianceInput } from "./contractor.schema";
@@ -111,7 +112,8 @@ async function toDTOs(context: UserContext, rows: ItemRow[], todayDate: string):
   });
 }
 
-const ORDER: Prisma.ContractorComplianceItemOrderByWithRelationInput[] = [{ expiresAt: { sort: "asc", nulls: "last" } }, { title: "asc" }];
+/** Soonest expiry first, undated items last, then title; the id breaks ties (AUD-08 §4, DT-04). */
+const ORDER: Prisma.ContractorComplianceItemOrderByWithRelationInput[] = [{ expiresAt: { sort: "asc", nulls: "last" } }, { title: "asc" }, { id: "asc" }];
 
 export async function listContractorCompliance(context: UserContext, contractorId: string): Promise<ComplianceItemDTO[]> {
   const contractor = await findReadableContractor(context, contractorId);
@@ -127,19 +129,19 @@ export async function listContractorCompliance(context: UserContext, contractorI
 export async function listCompliance(context: UserContext, query: ComplianceListQuery): Promise<{ items: ComplianceItemDTO[]; total: number; page: number; pageSize: number }> {
   assertModule(context, MODULE);
   if (!contractorsOpen(context, "contractor_compliance.view")) throw new AccessError("FORBIDDEN", "You cannot see contractor compliance.");
-  const pageSize = 50;
+  const pageSize = REGISTER_PAGE_SIZE;
   const filters: Prisma.ContractorComplianceItemWhereInput[] = [readableComplianceWhere(context), { archivedAt: null }];
   if (query.status) filters.push({ status: query.status });
   if (query.alerts) filters.push({ status: { in: COMPLIANCE_ALERT_STATUSES } });
   if (query.type) filters.push({ type: query.type });
   if (query.q) filters.push({ OR: [{ title: { contains: query.q, mode: "insensitive" } }, { referenceNumber: { contains: query.q, mode: "insensitive" } }, { contractor: { legalName: { contains: query.q, mode: "insensitive" } } }] });
   const where = { AND: filters };
-  const [rows, total, clock] = await Promise.all([
-    prisma.contractorComplianceItem.findMany({ where, orderBy: ORDER, skip: (query.page - 1) * pageSize, take: pageSize, select: ITEM_SELECT }),
-    prisma.contractorComplianceItem.count({ where }),
+  // Rows and total from one snapshot; the page clamped so a page past the end moves once (AUD-08 §4, DT-05, DT-06).
+  const [[rows, total], clock] = await Promise.all([
+    prisma.$transaction([prisma.contractorComplianceItem.findMany({ where, orderBy: ORDER, skip: (query.page - 1) * pageSize, take: pageSize, select: ITEM_SELECT }), prisma.contractorComplianceItem.count({ where })], LIST_SNAPSHOT),
     today(context.companyId),
   ]);
-  return { items: await toDTOs(context, rows, clock.today), total, page: query.page, pageSize };
+  return { items: await toDTOs(context, rows, clock.today), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 /* -------------------------------------------------------------------------- */

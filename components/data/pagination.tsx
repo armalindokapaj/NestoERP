@@ -1,6 +1,8 @@
 import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { PageSizeSelect } from "@/components/data/page-size-select";
+import { pageHref, pageWindow, type SearchParamsInput } from "@/lib/modules/shared/list-query";
 import { cn } from "@/lib/utils/cn";
 
 export type PaginationMeta = {
@@ -11,24 +13,70 @@ export type PaginationMeta = {
 };
 
 /**
- * Server-side pagination (PRD #7 §28).
+ * Server-side pagination (PRD #7 §28, AUD-08 §4).
  *
  * The page number lives in the URL, so refresh, back/forward and a copied link
- * all land on the same records (PRD #7 §24).
+ * all land on the same records (PRD #7 §24). The count is the number of
+ * matching authorized records, never the rows loaded: "1–25 of 73", and
+ * "0 results" for an empty list — never "1–0" (AUD-08 §4, DT-05). A single
+ * page still says how many records there are; only the Previous/Next
+ * navigation is left out, since there is nowhere to go.
+ *
+ * Page links keep every other query key. Pass `buildHref`, or `searchParams`
+ * (the page's own) with an optional `basePath` and the links are built with
+ * `pageHref`, which preserves search, filters, section, sort and limit.
+ *
+ * `pageSizes` adds a Rows-per-page control offering exactly those sizes — only
+ * sizes the module's parser accepts (AUD-08 §4) — remembered per list when a
+ * `listId` is given.
  */
 export function Pagination({
   meta,
   buildHref,
+  searchParams,
+  basePath = "",
+  pageSizes,
+  listId,
+  limitParam = "limit",
   className,
 }: {
   meta: PaginationMeta;
-  buildHref: (page: number) => string;
+  buildHref?: (page: number) => string;
+  searchParams?: SearchParamsInput;
+  basePath?: string;
+  pageSizes?: readonly number[];
+  listId?: string;
+  limitParam?: string;
   className?: string;
 }) {
-  if (meta.totalPages <= 1) return null;
+  const range = pageWindow(meta.total, meta.page, meta.limit);
+  const href = buildHref ?? ((page: number) => pageHref(basePath, searchParams ?? {}, page));
+  const showSizes = Boolean(pageSizes && pageSizes.length > 1 && range.total > Math.min(...pageSizes));
 
-  const first = (meta.page - 1) * meta.limit + 1;
-  const last = Math.min(meta.page * meta.limit, meta.total);
+  const count =
+    range.total === 0 ? (
+      <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
+        <span className="tabular-nums">0</span> results
+      </p>
+    ) : (
+      <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
+        <span className="tabular-nums">
+          {range.from}–{range.to}
+        </span>{" "}
+        of <span className="tabular-nums">{range.total}</span>
+      </p>
+    );
+
+  const sizes =
+    showSizes && pageSizes ? (
+      <PageSizeSelect listId={listId} sizes={pageSizes} current={range.limit} param={limitParam} />
+    ) : null;
+
+  // One page: the count (and the size control, when useful), but no navigation
+  // landmark — there is nowhere to navigate to.
+  if (range.totalPages <= 1) {
+    return <div className={cn("flex flex-wrap items-center justify-between gap-3 pt-1", className)}>{count}{sizes}</div>;
+  }
 
   const linkClass =
     "inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg";
@@ -38,16 +86,12 @@ export function Pagination({
       aria-label="Pagination"
       className={cn("flex flex-wrap items-center justify-between gap-3 pt-1", className)}
     >
-      <p className="text-table text-fg-muted">
-        <span className="tabular-nums">
-          {first}–{last}
-        </span>{" "}
-        of <span className="tabular-nums">{meta.total}</span>
-      </p>
+      {count}
 
-      <div className="flex items-center gap-2">
-        {meta.page > 1 ? (
-          <Link href={buildHref(meta.page - 1)} rel="prev" className={linkClass}>
+      <div className="flex flex-wrap items-center gap-2">
+        {sizes}
+        {range.page > 1 ? (
+          <Link href={href(range.page - 1)} rel="prev" className={linkClass}>
             <ChevronLeft aria-hidden="true" className="size-4" />
             Previous
           </Link>
@@ -59,11 +103,11 @@ export function Pagination({
         )}
 
         <span className="text-table tabular-nums text-fg-subtle">
-          Page {meta.page} of {meta.totalPages}
+          Page {range.page} of {range.totalPages}
         </span>
 
-        {meta.page < meta.totalPages ? (
-          <Link href={buildHref(meta.page + 1)} rel="next" className={linkClass}>
+        {range.page < range.totalPages ? (
+          <Link href={href(range.page + 1)} rel="next" className={linkClass}>
             Next
             <ChevronRight aria-hidden="true" className="size-4" />
           </Link>

@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../hse.list";
 import { loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { buildHseMemberWhere, buildHseProjectWhere, buildPpeScopeWhere } from "../hse.scope";
@@ -67,10 +68,12 @@ type Row = Prisma.PpeCheckGetPayload<{ select: typeof SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listPpeChecks(context: UserContext, query: PpeListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.ppe.view");
-
+/**
+ * The PPE register's predicate (AUD-08 §3, DT-03): scope, then filters and
+ * search. A foreign project id is ANDed with scope and narrows to nothing
+ * (DT-22).
+ */
+export function buildPpeListWhere(context: UserContext, query: PpeListQuery): Prisma.PpeCheckWhereInput {
   const filters: Prisma.PpeCheckWhereInput[] = [buildPpeScopeWhere(context)];
 
   if (query.result?.length) filters.push({ result: { in: query.result } });
@@ -87,21 +90,36 @@ export async function listPpeChecks(context: UserContext, query: PpeListQuery) {
     });
   }
 
-  const where: Prisma.PpeCheckWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.PpeCheckOrderByWithRelationInput[] =
-    query.sort === "number-asc" ? [{ checkNumber: "asc" }] : [{ checkDate: "desc" }];
+/** The allowlisted PPE sorts, each ending in the id (AUD-08 §4, DT-04). `checkDate` is never null. */
+export function ppeListOrder(sort: PpeListQuery["sort"]): Prisma.PpeCheckOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.PpeCheckOrderByWithRelationInput>(
+    sort === "number-asc" ? [{ checkNumber: "asc" }] : [{ checkDate: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.ppeCheck.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SELECT,
-    }),
-    prisma.ppeCheck.count({ where }),
-  ]);
+export async function listPpeChecks(context: UserContext, query: PpeListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.ppe.view");
+
+  const where = buildPpeListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.ppeCheck.findMany({
+        where,
+        orderBy: ppeListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: SELECT,
+      }),
+      prisma.ppeCheck.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -141,7 +159,7 @@ export async function listForProject(
 
   const rows = await prisma.ppeCheck.findMany({
     where: { AND: [buildPpeScopeWhere(context), { projectId }] },
-    orderBy: [{ checkDate: "desc" }],
+    orderBy: ppeListOrder("recent"),
     take: limit,
     select: SELECT,
   });

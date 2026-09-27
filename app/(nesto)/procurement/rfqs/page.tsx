@@ -18,6 +18,7 @@ import type { UserContext } from "@/lib/context/types";
 import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 import { rfqListQuerySchema } from "@/lib/modules/procurement/procurement.schema";
 import { RFQ_STATUSES, rfqStatusLabels } from "@/lib/modules/procurement/procurement.status";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Enquiries" };
 
@@ -104,15 +105,9 @@ async function RfqList({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/procurement/rfqs?${search}` : "/procurement/rfqs";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/procurement/rfqs", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/procurement/rfqs", searchParams, page);
 
   return (
     <div className="space-y-4">

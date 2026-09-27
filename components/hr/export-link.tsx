@@ -1,17 +1,12 @@
 "use client";
 
-import Link from "@/components/navigation/nav-link";
-import { useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { ExportControl } from "@/lib/core/export/export-control";
 
 /**
- * Downloads the list as it is currently filtered (PRD #16 §146, §147).
+ * Exports the list as it is currently filtered (PRD #16 §146, §147; AUD-08 §7).
  *
- * The link carries the page's own search parameters, so the file matches the
- * screen. Nothing here decides what may be exported — the endpoint re-runs the
- * list service, which re-runs the scope.
+ * Every matching record in the standard columns, not the page on screen. The
+ * endpoint re-runs the list service, which re-runs the scope.
  */
 export function HrExportLink({
   type,
@@ -20,18 +15,5 @@ export function HrExportLink({
   type: "employees" | "leave" | "attendance";
   label?: string;
 }) {
-  const searchParams = useSearchParams();
-
-  const params = new URLSearchParams(searchParams.toString());
-  params.delete("page");
-  params.set("type", type);
-
-  return (
-    <Button asChild variant="secondary" size="sm">
-      <Link href={`/api/hr/export?${params.toString()}`} prefetch={false} download>
-        <Download aria-hidden="true" />
-        {label}
-      </Link>
-    </Button>
-  );
+  return <ExportControl endpoint="/api/hr/export" selector={{ param: "type", value: type }} label={label} testId={`hr-export-${type}`} />;
 }

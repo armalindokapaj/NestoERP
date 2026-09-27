@@ -20,6 +20,7 @@ import {
   actionDTO,
   ENTITY,
   getMeeting,
+  LIST_SNAPSHOT,
   MODULE,
   readableTaskIds,
   RECORD,
@@ -386,7 +387,8 @@ export function actionListWhere(context: UserContext, query: ActionListQuery): P
   };
 }
 
-export const ACTION_LIST_ORDER: Prisma.MeetingActionItemOrderByWithRelationInput[] = [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }];
+/** Soonest due first, undated actions last, then oldest first; the id breaks ties (AUD-08 §4, DT-04). */
+export const ACTION_LIST_ORDER: Prisma.MeetingActionItemOrderByWithRelationInput[] = [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }, { id: "asc" }];
 
 export const ACTION_LIST_INCLUDE = {
   owner: { select: { id: true, status: true, user: { select: { firstName: true, lastName: true, avatarUrl: true } } } },
@@ -441,16 +443,19 @@ export async function listActionItems(context: UserContext, query: ActionListQue
   assertModule(context, MODULE);
   assertPermission(context, "meeting.view");
   const where = actionListWhere(context, query);
-  const [rows, total] = await Promise.all([
-    prisma.meetingActionItem.findMany({
-      where,
-      orderBy: ACTION_LIST_ORDER,
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      include: ACTION_LIST_INCLUDE,
-    }),
-    prisma.meetingActionItem.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.meetingActionItem.findMany({
+        where,
+        orderBy: ACTION_LIST_ORDER,
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        include: ACTION_LIST_INCLUDE,
+      }),
+      prisma.meetingActionItem.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
 
   return { data: await actionListDTOs(context, rows), pagination: paginationMeta(total, query.page, query.limit) };
 }

@@ -7,7 +7,7 @@ import { readableUnitWhere } from "@/lib/modules/project-structure/structure.per
 import { UNIT_PUBLICATION_STATUS_LABELS } from "@/lib/modules/project-structure/unit-publishing.types";
 import { publishUnit, requestUnitRevision } from "@/lib/modules/project-structure/unit-publishing.service";
 import { loadPublishStates } from "@/lib/modules/project-structure/unit-publishing.state";
-import type { ApprovalProvider, ProviderItem } from "../approvals.provider";
+import { isWindowed, markWindowed, type ApprovalProvider, type ProviderItem } from "../approvals.provider";
 import { createCycleProvider, type CycleTable, type RecordFacts } from "../approvals.cycle-provider";
 import { excludesAmountFilter, MATCH_LIMIT, projectRef, projectWhere, term } from "./shared";
 
@@ -125,7 +125,9 @@ async function withUnitVersions(context: UserContext, items: ProviderItem[]): Pr
 export const projectsApprovalProvider: ApprovalProvider = {
   ...unitPublishing,
   async queue(context, query) {
-    return withUnitVersions(context, await unitPublishing.queue(context, query));
+    const answer = await unitPublishing.queue(context, query);
+    // A copied answer carries the cycle read's own completeness with it (AUD-08 §4).
+    return markWindowed(await withUnitVersions(context, answer), isWindowed(answer));
   },
   async detail(context, approvalId) {
     const detail = await unitPublishing.detail(context, approvalId);

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
@@ -28,6 +28,14 @@ export const MODULE = "meetings" as const;
 export const ENTITY = "Meeting";
 /** The record registry type: what notifications, comments and documents call a meeting. */
 export const RECORD = "meeting";
+
+/**
+ * A list page and its total read from one REPEATABLE READ snapshot (AUD-08 §4,
+ * DT-06), so a meeting or action committed between the two statements cannot
+ * make "1–25 of 73" disagree with the rows. Pages across requests stay a live
+ * view: a later insert can shift an offset page.
+ */
+export const LIST_SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
 
 export async function meetingTimezone(companyId: string): Promise<string> {
   const row = await prisma.companySettings.findUnique({ where: { companyId }, select: { timezone: true } });

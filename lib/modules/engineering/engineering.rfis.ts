@@ -14,6 +14,7 @@ import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { addLocalDays } from "@/lib/modules/calendar/calendar.time";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { loadEngineeringProject } from "./engineering.documents";
 import { linkedRecordProject, tasksFromRecord } from "./engineering.links";
 import { notifyEngineering } from "./engineering.notify";
@@ -30,10 +31,12 @@ import {
   dateOf,
   fail,
   isOverdue,
+  LIST_SNAPSHOT,
   people,
   personOf,
   projectArchived,
   projectNumber,
+  REGISTER_PAGE_SIZE,
   resolveProjectContext,
   withNumber,
 } from "./engineering.shared";
@@ -118,12 +121,14 @@ async function toRows(context: UserContext, rows: RfiRow[]): Promise<RfiRowDTO[]
   }));
 }
 
-export async function listRfis(context: UserContext, query: RfiListQuery): Promise<{ items: RfiRowDTO[]; total: number; page: number; pageSize: number }> {
-  assertModule(context, MODULE);
-  if (!engineeringOpen(context, "rfi.view")) throw new AccessError("FORBIDDEN", "You cannot open RFIs.");
-  if (query.projectId) await loadEngineeringProject(context, query.projectId, "rfi.view");
-  const pageSize = 50;
-  const { today } = await companyToday(context.companyId);
+/**
+ * The whole predicate of an RFI list (AUD-08 §3): the reader's scope, then the
+ * section and the filters, AND across filters. `today` is the company's
+ * calendar day (`YYYY-MM-DD`); a due date is a calendar day stored as its UTC
+ * midnight, so "overdue" is a due day before today. Shared by the list and by
+ * counts that must agree with it (My engineering work).
+ */
+export function buildRfiListWhere(context: UserContext, query: Omit<RfiListQuery, "page">, today: string): Prisma.RfiWhereInput {
   const filters: Prisma.RfiWhereInput[] = [readableRfiWhere(context)];
   if (query.projectId) filters.push({ projectId: query.projectId });
   if (query.status) filters.push({ status: query.status });
@@ -135,13 +140,31 @@ export async function listRfis(context: UserContext, query: RfiListQuery): Promi
   if (query.contractorId) filters.push({ contractorId: query.contractorId });
   if (query.workPackageId) filters.push({ workPackageId: query.workPackageId });
   if (query.assignee === "me") filters.push({ assignedToMemberId: context.membershipId });
+  if (query.raisedBy === "me") filters.push({ createdByMemberId: context.membershipId });
   if (query.q) filters.push({ OR: [{ rfiNumber: { contains: query.q, mode: "insensitive" } }, { subject: { contains: query.q, mode: "insensitive" } }] });
-  const where = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.rfi.findMany({ where, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { rfiNumber: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: RFI_SELECT }),
-    prisma.rfi.count({ where }),
-  ]);
-  return { items: await toRows(context, rows), total, page: query.page, pageSize };
+  return { AND: filters };
+}
+
+/**
+ * One register page (AUD-08 §3, §4): authorized scope, then the section
+ * (`projectId`, `drawings`/`types`) and the filters, then the order — due date ascending with undated RFIs last, then RFI number; the id breaks ties
+ * (DT-04) — then the page, all in the database. Rows and total share one
+ * snapshot (DT-06); `page` is the request clamped to the last real page, so a
+ * page past the end moves there once (DT-05). A project id outside the
+ * reader's reach is refused like a missing one (DT-22).
+ */
+export async function listRfis(context: UserContext, query: RfiListQuery): Promise<{ items: RfiRowDTO[]; total: number; page: number; pageSize: number }> {
+  assertModule(context, MODULE);
+  if (!engineeringOpen(context, "rfi.view")) throw new AccessError("FORBIDDEN", "You cannot open RFIs.");
+  if (query.projectId) await loadEngineeringProject(context, query.projectId, "rfi.view");
+  const pageSize = REGISTER_PAGE_SIZE;
+  const { today } = await companyToday(context.companyId);
+  const where = buildRfiListWhere(context, query, today);
+  const [rows, total] = await prisma.$transaction(
+    [prisma.rfi.findMany({ where, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { rfiNumber: "asc" }, { id: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: RFI_SELECT }), prisma.rfi.count({ where })],
+    LIST_SNAPSHOT,
+  );
+  return { items: await toRows(context, rows), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 export async function findReadableRfi(context: UserContext, id: string): Promise<RfiRow> {

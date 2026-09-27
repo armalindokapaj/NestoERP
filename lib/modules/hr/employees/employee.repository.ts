@@ -2,10 +2,14 @@ import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { accountStatusWhere } from "../hr.person";
 import { buildEmployeeScopeWhere, buildHrMemberScopeWhere } from "../hr.scope";
 import type { EmployeeListQuery, EmployeeSortKey } from "../hr.schema";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /** Employee queries (PRD #16 §39–§44, §208, §211; E-04 §18-§20, §238-§244). */
 
@@ -122,18 +126,24 @@ export function buildEmployeeListWhere(
 export async function listEmployees(context: UserContext, query: EmployeeListQuery) {
   const where = buildEmployeeListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.employeeProfile.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.employeeProfile.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "hr.employees.list",
+    async (tx) => {
+      const window = pageWindow(await tx.employeeProfile.count({ where }), query.page, query.limit);
+      const rows = await tx.employeeProfile.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
-  return { rows, total };
+  return { rows, total: window.total, window };
 }
 
 /** By employment id, which is how every HR route addresses an employee (E-04 §7, §14). */

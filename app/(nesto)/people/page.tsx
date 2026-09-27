@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -56,6 +57,8 @@ export default async function PeoplePage({ searchParams }: Props) {
     return text ? `/people?${text}` : "/people";
   };
   const pageHref = (page: number) => directoryHref({ page });
+  // A page past the end moves once to the last real page, the filters kept (AUD-08 §4, DT-05).
+  if (directory.pagination.page !== query.page) redirect(pageHref(directory.pagination.page));
   const filtered = Boolean(query.q || query.company || query.department || query.title || query.location || query.project || query.manager || query.role || query.view || query.status === "all");
   // The directory's views (E-08 §11): everybody, or the reader's own company, department or project colleagues.
   const inGroup = context.workspace.scopeType === "GROUP";

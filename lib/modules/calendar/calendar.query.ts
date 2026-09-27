@@ -4,6 +4,7 @@ import type { UserContext } from "@/lib/context/types";
 import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { calendarProviders } from "./calendar.providers";
+import { SOURCE_LIMIT } from "./providers/provider.helpers";
 import { RANGE_MAX_DAYS } from "./calendar.schema";
 import { calendarSettings } from "./calendar.service";
 import type { CalendarCategory, CalendarEventDTO, CalendarFilters, CalendarRange, CalendarResponse } from "./calendar.types";
@@ -69,6 +70,7 @@ export async function getCalendar(context: UserContext, range: CalendarRange, fi
   const events: CalendarEventDTO[] = [];
   const providerCounts: Record<string, number> = {};
   const failed: string[] = [];
+  const capped = new Set<string>();
 
   for (let index = 0; index < providers.length; index += CONCURRENCY) {
     const batch = providers.slice(index, index + CONCURRENCY);
@@ -77,7 +79,7 @@ export async function getCalendar(context: UserContext, range: CalendarRange, fi
         const providerStarted = Date.now();
         try {
           const rows = await withTimeout(
-            provider.getEvents({ context, range, filters: safeFilters, timezone: settings.timezone }),
+            provider.getEvents({ context, range, filters: safeFilters, timezone: settings.timezone, reportCapped: () => capped.add(provider.key) }),
             PROVIDER_TIMEOUT_MS,
           );
           return { provider, rows };
@@ -105,13 +107,18 @@ export async function getCalendar(context: UserContext, range: CalendarRange, fi
           wanted(safeFilters, row.privacyMode === "BUSY_ONLY" ? "HR" : row.category) &&
           (row.providerKey === provider.key || row.privacyMode === "BUSY_ONLY"),
       );
+      // A provider that does not report its own reads (another module's) still cannot hand back SOURCE_LIMIT rows unnoticed.
+      if (rows.length >= SOURCE_LIMIT) capped.add(provider.key);
       providerCounts[provider.key] = kept.length;
       events.push(...kept);
     }
   }
 
-  events.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || Number(b.allDay) - Number(a.allDay) || a.title.localeCompare(b.title));
-  const truncated = events.length > MAX_EVENTS;
+  // Start, all-day first, title, then the event id: a total order, so the MAX_EVENTS cut is the same on every read (AUD-08 §4, DT-04).
+  events.sort((a, b) => a.startsAt.localeCompare(b.startsAt) || Number(b.allDay) - Number(a.allDay) || a.title.localeCompare(b.title) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  // Truncated when the merge passed MAX_EVENTS or any source's own read stopped at its limit: never a silent partial range (AUD-08 §4, DT-05).
+  const cappedProviders = [...capped].sort();
+  const truncated = events.length > MAX_EVENTS || cappedProviders.length > 0;
 
   incrementCounter(Metric.CALENDAR_QUERY);
   incrementCounter(Metric.CALENDAR_QUERY_DURATION_MS, {}, Date.now() - started);
@@ -120,11 +127,12 @@ export async function getCalendar(context: UserContext, range: CalendarRange, fi
   return {
     range: { from: range.from.toISOString(), to: range.to.toISOString() },
     timezone: settings.timezone,
-    events: truncated ? events.slice(0, MAX_EVENTS) : events,
+    events: events.length > MAX_EVENTS ? events.slice(0, MAX_EVENTS) : events,
     meta: {
       providerCounts,
       ...(failed.length > 0 ? { partialFailureProviders: failed } : {}),
       ...(truncated ? { truncated: true } : {}),
+      ...(cappedProviders.length > 0 ? { cappedProviders } : {}),
     },
     capabilities: {
       canCreate: canAccessModule(context, "calendar") && can(context, "calendar.event.create"),

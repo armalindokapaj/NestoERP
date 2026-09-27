@@ -5,6 +5,7 @@ import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "./qaqc.list";
 import type { QaqcActivityDTO } from "./qaqc.types";
 
 /**
@@ -34,10 +35,12 @@ export async function listRecordActivity(
     entityId,
   };
 
-  const [rows, total] = await Promise.all([
+  // Newest first, the id breaking ties within one instant; the page and its
+  // total from one snapshot (AUD-08 §4, DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction([
     prisma.activity.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: skipFor(page, limit),
       take: limit,
       select: {
@@ -50,7 +53,7 @@ export async function listRecordActivity(
       },
     }),
     prisma.activity.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   const data: QaqcActivityDTO[] = rows.map((row) => ({
     id: row.id,

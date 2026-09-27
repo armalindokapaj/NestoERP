@@ -1,12 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
+import { pageWindow, skipFor } from "@/lib/modules/shared/list-query";
 import { REDACTED } from "./audit-redaction";
-import { AuditAction } from "./audit-policy.registry";
-import { recordUserAction } from "./audit.service";
 
 /**
  * Reading the audit log (PRD #28 §151-§168, §260-§261).
@@ -28,7 +28,8 @@ export const auditQuerySchema = z.object({
   projectIds: z.array(z.string()).optional(),
   entityTypes: z.array(z.string()).optional(),
   query: z.string().max(200).optional(),
-  page: z.coerce.number().int().min(1).default(1),
+  // A page that is not a page number is page 1, not an error page (AUD-08 §3).
+  page: z.coerce.number().int().min(1).default(1).catch(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
 
@@ -137,30 +138,33 @@ function toListItem(row: {
 export async function listAuditEvents(context: UserContext, query: AuditQuery) {
   assertPermission(context, "audit.view");
 
+  // One evaluation instant (the default 30-day window is resolved once, here) and one snapshot for the
+  // count and the page; a page past the end reads the last real page (AUD-08 §4, DT-05, DT-06).
   const where = buildWhere(context, query);
-  const [rows, total] = await Promise.all([
-    prisma.auditEvent.findMany({
-      where,
-      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    prisma.auditEvent.count({ where }),
-  ]);
+  const { rows, window } = await runInTransaction(
+    "audit.events.list",
+    async (tx) => {
+      const window = pageWindow(await tx.auditEvent.count({ where }), query.page, query.pageSize);
+      const rows = await tx.auditEvent.findMany({
+        where,
+        // Newest first; the id breaks a same-instant tie (AUD-08 §4, DT-04).
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+      });
+      return { rows, window };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
 
   return {
     data: rows.map(toListItem),
-    pagination: {
-      page: query.page,
-      limit: query.pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
-    },
+    pagination: { page: window.page, limit: window.limit, total: window.total, totalPages: window.totalPages },
   };
 }
 
-/** Strips sensitive values again for readers without audit.sensitive.view. */
-function redactForReader(
+/** Strips sensitive values again for readers without audit.sensitive.view (the list, the detail and the export). */
+export function redactForReader(
   value: Record<string, unknown> | null,
   canSeeSensitive: boolean,
 ): Record<string, unknown> | null {
@@ -211,90 +215,4 @@ export async function listCorrelatedEvents(context: UserContext, correlationId: 
     take: 100,
   });
   return rows.map(toListItem);
-}
-
-/**
- * CSV export of the audit log (PRD #28 §170-§174).
- *
- * Built on the same `buildWhere` the list uses, so the file is a copy of the
- * screen: same company scope, same filters, same redaction. An export that
- * queried independently would eventually disagree with the view it claims to
- * reproduce, and the direction it disagrees in is a disclosure.
- *
- * Three rules the PRD is specific about:
- *
- *   - a row cap, because an export is a spreadsheet and not a database dump;
- *   - the export is itself audited, since taking a copy of the evidence is an
- *     event an auditor wants to see;
- *   - and that audit does not recurse — the rows are read *before* the export
- *     event is written, so an export never contains the record of itself, and
- *     writing it triggers no further export.
- */
-const MAX_EXPORT_ROWS = 5000;
-
-export async function exportAuditEvents(
-  context: UserContext,
-  query: AuditQuery,
-): Promise<{ filename: string; csv: string; rowCount: number }> {
-  assertPermission(context, "audit.view");
-  assertPermission(context, "audit.export");
-
-  const canSeeSensitive = context.permissions.includes("audit.sensitive.view");
-
-  const rows = await prisma.auditEvent.findMany({
-    where: buildWhere(context, query),
-    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-    take: MAX_EXPORT_ROWS,
-  });
-
-  const csv = toCsv(
-    [
-      "Occurred at",
-      "Actor",
-      "Actor type",
-      "Role",
-      "Module",
-      "Category",
-      "Severity",
-      "Action",
-      "Entity type",
-      "Entity",
-      "Reason",
-      "Changes",
-    ],
-    rows.map((row) => {
-      const item = toListItem(row);
-      const changes = redactForReader(
-        row.changesJson as Record<string, unknown> | null,
-        canSeeSensitive,
-      );
-      return [
-        item.occurredAt,
-        item.actor.displayName,
-        item.actor.type,
-        item.actor.roleSnapshot ?? "",
-        item.moduleKey,
-        item.category,
-        item.severity,
-        item.actionKey,
-        item.entity?.type ?? "",
-        item.entity?.label ?? "",
-        row.reason ?? "",
-        changes ? JSON.stringify(changes) : "",
-      ];
-    }),
-  );
-
-  await recordUserAction(context, {
-    actionKey: AuditAction.AUDIT_LOG_EXPORTED,
-    entity: { type: "audit_log", id: context.companyId, label: "Audit log export" },
-    metadata: { rowCount: rows.length, capped: rows.length === MAX_EXPORT_ROWS },
-  });
-
-  return { filename: "audit-log.csv", csv, rowCount: rows.length };
-}
-
-function toCsv(headers: string[], rows: string[][]): string {
-  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
-  return [headers, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
 }

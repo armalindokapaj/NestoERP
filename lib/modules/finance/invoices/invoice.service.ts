@@ -180,7 +180,8 @@ export async function getInvoice(
       ? prisma.payment.findMany({
           // Every payment with money allocated to this invoice (E-05F §31).
           where: { allocations: { some: { invoiceId: invoice.id } } },
-          orderBy: { paymentDate: "desc" },
+          // Newest first, the id breaking a same-day tie, so the order holds still (AUD-08 §4, DT-04).
+          orderBy: [{ paymentDate: "desc" }, { id: "asc" }],
           select: PAYMENT_SELECT,
         })
       : Promise.resolve([]),

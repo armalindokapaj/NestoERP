@@ -6,7 +6,7 @@ import { prisma } from "@/lib/database/prisma";
 import { expandRecurrence, parseRecurrence } from "../calendar.recurrence";
 import type { CalendarCategory, CalendarEventDTO, CalendarProvider } from "../calendar.types";
 import { canEditEvent, readableEventWhere } from "../calendar.visibility";
-import { SOURCE_LIMIT } from "./provider.helpers";
+import { SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Calendar-owned events: company events, holidays, trainings, team and
@@ -29,7 +29,8 @@ export const calendarOwnedProvider: CalendarProvider = {
   categories: ["COMPANY", "PERSONAL", "PROJECT"],
   capabilities: { draggable: true, resizable: true, quickEdit: true },
   enabled: (context) => canAccessModule(context, "calendar") && can(context, "calendar.view"),
-  async getEvents({ context, range, filters }) {
+  async getEvents(input) {
+    const { context, range, filters } = input;
     const where: Prisma.CalendarEventWhereInput = {
       AND: [
         readableEventWhere(context),
@@ -48,9 +49,9 @@ export const calendarOwnedProvider: CalendarProvider = {
       ],
     };
 
-    const rows = await prisma.calendarEvent.findMany({
+    const rows = await sourceRows(input, prisma.calendarEvent.findMany({
       where,
-      orderBy: { startsAt: "asc" },
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
       take: SOURCE_LIMIT,
       select: {
         id: true,
@@ -70,11 +71,11 @@ export const calendarOwnedProvider: CalendarProvider = {
         createdBy: { select: { user: { select: { firstName: true, lastName: true } } } },
         participants: {
           take: 6,
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ createdAt: "asc" }, { memberId: "asc" }],
           select: { memberId: true, member: { select: { user: { select: { firstName: true, lastName: true } } } } },
         },
       },
-    });
+    }));
 
     // A project the reader cannot open is never named on an event they see
     // through an invitation (PRD #39 §46).

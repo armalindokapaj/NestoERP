@@ -15,6 +15,8 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { parsePaymentQuery } from "@/lib/modules/finance/finance.query";
 import * as payments from "@/lib/modules/finance/payments/payment.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { PAYMENT_SORT_KEYS } from "@/lib/modules/finance/payments/payment.schema";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -57,20 +59,16 @@ async function PaymentsList({
 }) {
   const query = parsePaymentQuery(searchParams);
   const result = await payments.listPayments(context, query);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) {
+    redirect(listPageRedirect("/finance/payments", searchParams, result.pagination.page));
+  }
 
   const hasFilters = Boolean(
     query.search || query.direction?.length || query.status?.length || query.method?.length,
   );
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/finance/payments?${search}` : "/finance/payments";
-  }
+  const buildHref = (page: number) => pageHref("/finance/payments", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -129,7 +127,7 @@ async function PaymentsList({
         )
       ) : (
         <>
-          <PaymentTable payments={result.data} />
+          <PaymentTable payments={result.data} sort={{ value: query.sort, keys: PAYMENT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

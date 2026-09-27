@@ -17,7 +17,8 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../qaqc.list";
 import {
   dateString,
   isOverdue,
@@ -110,13 +111,21 @@ const OPEN_STATUSES: CorrectiveActionStatus[] = [
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listActions(
+/**
+ * The corrective-action register's predicate (AUD-08 §3, DT-02, DT-03): scope,
+ * then the section (`view`), then filters and search — shared by the page,
+ * its count and the CSV export. OR within a filter, AND across filters; a
+ * foreign project, member or NCR id is ANDed with scope and narrows to
+ * nothing (DT-22).
+ *
+ * "Overdue" compares the due date with the start of today in UTC — the day a
+ * stored due date names — as the row badge and the overview do; the company's
+ * own calendar day is not applied here yet (recorded in the AUD-08 manifest).
+ */
+export function buildCorrectiveActionListWhere(
   context: UserContext,
   query: CorrectiveActionListQuery,
-) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.corrective_action.view");
-
+): Prisma.CorrectiveActionWhereInput {
   const filters: Prisma.CorrectiveActionWhereInput[] = [
     buildCorrectiveActionScopeWhere(context),
   ];
@@ -143,25 +152,48 @@ export async function listActions(
     });
   }
 
-  const where: Prisma.CorrectiveActionWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.CorrectiveActionOrderByWithRelationInput[] =
-    query.sort === "due-asc"
+/**
+ * The allowlisted corrective-action sorts (AUD-08 §4, DT-04). An action
+ * without a due date sorts after every dated one; every order ends in the id.
+ */
+export function correctiveActionListOrder(
+  sort: CorrectiveActionListQuery["sort"],
+): Prisma.CorrectiveActionOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.CorrectiveActionOrderByWithRelationInput>(
+    sort === "due-asc"
       ? [{ dueDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ actionNumber: "asc" }]
-        : [{ createdAt: "desc" }];
+        : [{ createdAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.correctiveAction.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.correctiveAction.count({ where }),
-  ]);
+export async function listActions(
+  context: UserContext,
+  query: CorrectiveActionListQuery,
+) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.corrective_action.view");
+
+  const where = buildCorrectiveActionListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.correctiveAction.findMany({
+        where,
+        orderBy: correctiveActionListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.correctiveAction.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
@@ -224,7 +256,8 @@ export async function listForParent(
             : { inspectionId: parent.inspectionId },
       ],
     },
-    orderBy: { createdAt: "asc" },
+    // Complete, not paged: one parent's actions (AUD-08 §4 tie-breaker).
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -232,22 +265,34 @@ export async function listForParent(
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
+/**
+ * A project's corrective actions for its QA/QC tab: newest first (the
+ * register's `created-desc`, so "View all" continues it), the first `limit`
+ * and the true total (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<CorrectiveActionSummaryDTO[]> {
-  if (!can(context, "qaqc.corrective_action.view")) return [];
+): Promise<ListPreview<CorrectiveActionSummaryDTO>> {
+  if (!can(context, "qaqc.corrective_action.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.correctiveAction.findMany({
-    where: { AND: [buildCorrectiveActionScopeWhere(context), { projectId }] },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.CorrectiveActionWhereInput = { AND: [buildCorrectiveActionScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.correctiveAction.findMany({
+        where,
+        orderBy: correctiveActionListOrder("created-desc"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.correctiveAction.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function actionFormOptions(context: UserContext) {

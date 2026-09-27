@@ -1,4 +1,5 @@
 import { Scale } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ContractTable } from "@/components/contracts/contract-table";
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/modules/contracts/contracts/contract.status";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import { canSeeCommercial } from "@/lib/modules/contracts/contract.dto";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -161,15 +163,9 @@ export async function ContractList({
     { value: "status-asc", label: "Status" },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
 
   return (
     <div className="space-y-4">

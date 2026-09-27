@@ -11,7 +11,8 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { engineeringOpen, filesOpen, filesWritable, readableRfiWhere, readableSubmittalWhere } from "@/lib/modules/engineering/engineering.permissions";
 import { kept } from "@/lib/modules/engineering/engineering.fields";
-import { fail } from "@/lib/modules/engineering/engineering.shared";
+import { fail, LIST_SNAPSHOT } from "@/lib/modules/engineering/engineering.shared";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { RFI_OPEN_STATUSES } from "@/lib/modules/engineering/engineering.types";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -201,12 +202,16 @@ export async function listContractors(context: UserContext, query: ContractorLis
   if (query.compliance === "alerts") filters.push({ complianceItems: { some: { archivedAt: null, status: { in: COMPLIANCE_ALERT_STATUSES } } } });
   if (query.projectId) filters.push({ projectAssignments: { some: { AND: [readableAssignmentWhere(context), { projectId: query.projectId }] } } });
   const where = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.contractorProfile.findMany({ where, orderBy: [{ legalName: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize, select: CONTRACTOR_SELECT }),
-    prisma.contractorProfile.count({ where }),
-  ]);
+  // Legal name, then the id: two contractors with one name keep one order on every page (AUD-08 §4, DT-04).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.contractorProfile.findMany({ where, orderBy: [{ legalName: "asc" }, { id: "asc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize, select: CONTRACTOR_SELECT }),
+      prisma.contractorProfile.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
   const counts = await contractorCounts(context, rows.map((row) => row.id));
-  return { items: rows.map((row) => toListItem(row, counts.get(row.id), context)), total, page: query.page, pageSize: query.pageSize };
+  return { items: rows.map((row) => toListItem(row, counts.get(row.id), context)), total, page: paginationMeta(total, query.page, query.pageSize).page, pageSize: query.pageSize };
 }
 
 export async function getContractor(context: UserContext, id: string): Promise<ContractorDetailDTO> {

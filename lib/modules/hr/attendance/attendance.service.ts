@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { companyDays } from "@/lib/core/notifications/company-day";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   businessDateString,
   today,
@@ -75,6 +76,9 @@ type AttendanceRow = Prisma.AttendanceRecordGetPayload<{ select: typeof SELECT }
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listAttendance(context: UserContext, query: AttendanceListQuery) {
   assertModule(context, MODULE);
 
@@ -122,20 +126,26 @@ export async function listAttendance(context: UserContext, query: AttendanceList
 
   const where: Prisma.AttendanceRecordWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.attendanceRecord.findMany({
-      where,
-      orderBy: query.sort === "date-asc" ? [{ date: "asc" }] : [{ date: "desc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SELECT,
-    }),
-    prisma.attendanceRecord.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "hr.attendance.list",
+    async (tx) => {
+      const window = pageWindow(await tx.attendanceRecord.count({ where }), query.page, query.limit);
+      const rows = await tx.attendanceRecord.findMany({
+        where,
+        orderBy: withTieBreaker(query.sort === "date-asc" ? [{ date: "asc" }] : [{ date: "desc" }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map((row) => toDTO(context, row)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

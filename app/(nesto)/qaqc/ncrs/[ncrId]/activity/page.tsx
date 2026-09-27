@@ -5,15 +5,22 @@ import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 
 export const metadata: Metadata = { title: "Activity" };
 
-type Params = { params: Promise<{ ncrId: string }> };
+type Params = {
+  params: Promise<{ ncrId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 /** One NCR's history (PRD #21 §186). */
-export default async function NcrActivityPage({ params }: Params) {
+export default async function NcrActivityPage({ params, searchParams }: Params) {
   const { ncrId } = await params;
+  const query = await searchParams;
+  const { page } = paginationSchema.parse({ page: typeof query.page === "string" ? query.page : undefined });
+  const basePath = `/qaqc/ncrs/${ncrId}/activity`;
   const context = await requireModule("qaqc");
 
   let ncr;
@@ -42,7 +49,13 @@ export default async function NcrActivityPage({ params }: Params) {
         <p className="mt-1.5 text-body text-fg-muted">{ncr.ncrNumber}</p>
       </div>
 
-      <QaqcActivityFeed context={context} entityType="NonConformanceReport" entityId={ncr.id} />
+      <QaqcActivityFeed
+        context={context}
+        entityType="NonConformanceReport"
+        entityId={ncr.id}
+        page={page}
+        buildHref={(target) => pageHref(basePath, query, target)}
+      />
     </div>
   );
 }

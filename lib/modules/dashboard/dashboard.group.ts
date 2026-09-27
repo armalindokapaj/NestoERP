@@ -493,7 +493,7 @@ export async function groupMilestones(context: UserContext, limit = 6): Promise<
   if (!seesGroup(context)) return [];
   const rows = (await Promise.all((await companyContexts(context)).map(async ({ name, context: company }) => (await upcomingMilestones(company, limit)).map((row) => ({ ...row, company: name }))))).flat();
   return rows
-    .sort((a, b) => Number(b.delayed) - Number(a.delayed) || (a.displayDate ?? "").localeCompare(b.displayDate ?? ""))
+    .sort((a, b) => Number(b.delayed) - Number(a.delayed) || (a.displayDate ?? "").localeCompare(b.displayDate ?? "") || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .slice(0, limit)
     .map((row) => ({
       id: row.id,

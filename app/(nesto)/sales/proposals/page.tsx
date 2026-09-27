@@ -4,6 +4,7 @@ import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
+import { inGroupWorkspace } from "@/config/workspace";
 import { SalesExportLink } from "@/components/sales/export-link";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
@@ -32,7 +33,7 @@ export default async function ProposalsPage({
       activeSection="proposals"
       actions={
         <div className="flex items-center gap-2">
-          {can(context, "sales.export") ? <SalesExportLink type="proposals" /> : null}
+          {!inGroupWorkspace(context) && can(context, "sales.export") ? <SalesExportLink type="proposals" /> : null}
           {can(context, "sales.proposal.create") ? (
             <Button asChild size="sm">
               <Link href="/sales/proposals/new">New proposal</Link>

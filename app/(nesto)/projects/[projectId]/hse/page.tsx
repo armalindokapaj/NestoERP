@@ -45,6 +45,11 @@ export const metadata: Metadata = { title: "Project HSE" };
  *
  * An active stop-work sits above everything, because it is the one safety state
  * on a project page that must be impossible to miss (PRD #22 §175).
+ *
+ * Each section is a bounded preview of the full register (AUD-08 §4, DT-01):
+ * the first rows and the true count of this project's records, with "View all"
+ * opening the register filtered to this project — never a silent stop at 20.
+ * Stop-works are few and shown complete.
  */
 export default async function ProjectHsePage({ params }: Params) {
   const { projectId } = await params;
@@ -77,13 +82,17 @@ export default async function ProjectHsePage({ params }: Params) {
 
   const nothing =
     stopWorkRows.length === 0 &&
-    hazardRows.length === 0 &&
-    incidentRows.length === 0 &&
-    inspectionRows.length === 0 &&
-    actionRows.length === 0 &&
-    permitRows.length === 0 &&
-    toolboxRows.length === 0 &&
-    observationRows.length === 0;
+    hazardRows.total === 0 &&
+    incidentRows.total === 0 &&
+    inspectionRows.total === 0 &&
+    actionRows.total === 0 &&
+    permitRows.total === 0 &&
+    toolboxRows.total === 0 &&
+    observationRows.total === 0;
+
+  /** The full register narrowed to this project, in the preview's own order where the register has it. */
+  const viewAll = (list: string, sort?: string) =>
+    `/hse/${list}?projectId=${encodeURIComponent(project.id)}${sort ? `&sort=${sort}` : ""}`;
 
   const mayReport = can(context, "hse.hazard.create");
   const active = stopWorkRows.filter((record) => record.status === "ACTIVE");
@@ -193,67 +202,157 @@ export default async function ProjectHsePage({ params }: Params) {
               <StopWorkTable
                 records={stopWorkRows}
                 caption={`Stop-work on ${project.name}`}
+                listId="projects.hse-stop-work"
               />
             </section>
           ) : null}
 
-          {hazardRows.length > 0 ? (
+          {hazardRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Hazards</h2>
-              <HazardTable hazards={hazardRows} caption={`Hazards on ${project.name}`} />
+              <HazardTable
+                hazards={hazardRows.data}
+                caption={`Hazards on ${project.name}`}
+                listId="projects.hse-hazards"
+              />
+              <PreviewFooter
+                shown={hazardRows.data.length}
+                total={hazardRows.total}
+                href={viewAll("hazards", "risk-desc")}
+                noun="hazards"
+              />
             </section>
           ) : null}
 
-          {incidentRows.length > 0 ? (
+          {incidentRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Incidents</h2>
-              <IncidentTable incidents={incidentRows} caption={`Incidents on ${project.name}`} />
+              <IncidentTable
+                incidents={incidentRows.data}
+                caption={`Incidents on ${project.name}`}
+                listId="projects.hse-incidents"
+              />
+              <PreviewFooter
+                shown={incidentRows.data.length}
+                total={incidentRows.total}
+                href={viewAll("incidents", "occurred-desc")}
+                noun="incidents"
+              />
             </section>
           ) : null}
 
-          {inspectionRows.length > 0 ? (
+          {inspectionRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Inspections</h2>
               <InspectionTable
-                inspections={inspectionRows}
+                inspections={inspectionRows.data}
                 caption={`Inspections on ${project.name}`}
+                listId="projects.hse-inspections"
+              />
+              <PreviewFooter
+                shown={inspectionRows.data.length}
+                total={inspectionRows.total}
+                href={viewAll("inspections")}
+                noun="inspections"
               />
             </section>
           ) : null}
 
-          {actionRows.length > 0 ? (
+          {actionRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Actions</h2>
-              <ActionTable actions={actionRows} caption={`HSE actions on ${project.name}`} />
+              <ActionTable
+                actions={actionRows.data}
+                caption={`HSE actions on ${project.name}`}
+                listId="projects.hse-actions"
+              />
+              <PreviewFooter
+                shown={actionRows.data.length}
+                total={actionRows.total}
+                href={viewAll("actions")}
+                noun="actions"
+              />
             </section>
           ) : null}
 
-          {permitRows.length > 0 ? (
+          {permitRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Permits</h2>
-              <PermitTable permits={permitRows} caption={`Permits on ${project.name}`} />
+              <PermitTable
+                permits={permitRows.data}
+                caption={`Permits on ${project.name}`}
+                listId="projects.hse-permits"
+              />
+              <PreviewFooter
+                shown={permitRows.data.length}
+                total={permitRows.total}
+                href={viewAll("permits")}
+                noun="permits"
+              />
             </section>
           ) : null}
 
-          {toolboxRows.length > 0 ? (
+          {toolboxRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Toolbox talks</h2>
-              <ToolboxTable talks={toolboxRows} caption={`Toolbox talks on ${project.name}`} />
+              <ToolboxTable
+                talks={toolboxRows.data}
+                caption={`Toolbox talks on ${project.name}`}
+                listId="projects.hse-toolbox-talks"
+              />
+              <PreviewFooter
+                shown={toolboxRows.data.length}
+                total={toolboxRows.total}
+                href={viewAll("toolbox-talks", "date-desc")}
+                noun="toolbox talks"
+              />
             </section>
           ) : null}
 
-          {observationRows.length > 0 ? (
+          {observationRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Environmental</h2>
               <ObservationTable
-                observations={observationRows}
+                observations={observationRows.data}
                 caption={`Environmental observations on ${project.name}`}
+                listId="projects.hse-environment"
+              />
+              <PreviewFooter
+                shown={observationRows.data.length}
+                total={observationRows.total}
+                href={viewAll("environment", "observed-desc")}
+                noun="observations"
               />
             </section>
           ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Under a preview: how many of the project's records it shows, and the way to
+ * the rest (AUD-08 §4). A complete preview still states its count.
+ */
+function PreviewFooter({ shown, total, href, noun }: { shown: number; total: number; href: string; noun: string }) {
+  return (
+    <p className="flex flex-wrap items-baseline justify-between gap-2 text-meta text-fg-muted" data-testid="preview-count">
+      <span>
+        {shown < total ? (
+          <>
+            Showing <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span> {noun}
+          </>
+        ) : (
+          <>
+            <span className="tabular-nums">{total}</span> {noun}
+          </>
+        )}
+      </span>
+      <Link href={href} className="text-accent hover:underline">
+        View all {noun}
+      </Link>
+    </p>
   );
 }
 

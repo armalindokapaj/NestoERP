@@ -1,6 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { ProjectSummaryDTO } from "@/lib/modules/projects/project.types";
@@ -13,13 +13,30 @@ import { formatDate } from "@/lib/utils/format";
  * breakpoint. Clicking a row opens the project — individual cells are not
  * separately clickable (PRD #10 §18), except the manager's name, which leads to
  * their profile as every name does (E-08 §5).
+ *
+ * Column metadata (AUD-08 §5): the project name/code is the identity column
+ * and status is mandatory. Header sorts only where the page passes `sort`.
  */
-export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
+export function ProjectTable({
+  projects,
+  listId = "projects.archived",
+  sort,
+}: {
+  projects: ProjectSummaryDTO[];
+  /** A nested use (a client's Projects tab) names its own list (AUD-08 §5). */
+  listId?: string;
+  /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
+  const sortable = Boolean(sort);
   const columns: TableColumn<ProjectSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
       label: "Project",
       primary: true,
+      mandatory: true,
+      sortKey: sortable ? "name" : undefined,
       render: (project) => (
         <>
           <span className="block truncate">{project.name}</span>
@@ -29,6 +46,7 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
     },
     {
       key: "client",
+      id: "client",
       label: "Client",
       hideBelow: "lg",
       render: (project) =>
@@ -40,6 +58,7 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
     },
     {
       key: "manager",
+      id: "manager",
       label: "Project Manager",
       hideBelow: "xl",
       render: (project) =>
@@ -51,17 +70,27 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
+      sortKey: sortable ? "status" : undefined,
       label: "Status",
       render: (project) => <StatusBadge status={project.status} />,
     },
     {
       key: "priority",
+      id: "priority",
+      valueType: "status",
+      sortKey: sortable ? "priority" : undefined,
       label: "Priority",
       hideBelow: "lg",
       render: (project) => <PriorityBadge priority={project.priority} />,
     },
     {
       key: "endDate",
+      id: "end",
+      valueType: "date",
+      sortKey: sortable ? "end" : undefined,
       label: "End date",
       hideBelow: "xl",
       render: (project) => (
@@ -72,6 +101,8 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
     },
     {
       key: "team",
+      id: "team",
+      valueType: "number",
       label: "Team",
       hideBelow: "xl",
       align: "right",
@@ -81,6 +112,8 @@ export function ProjectTable({ projects }: { projects: ProjectSummaryDTO[] }) {
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Projects"
       columns={columns}
       records={projects}

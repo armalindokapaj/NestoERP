@@ -2,7 +2,7 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { buildOrderScopeWhere, buildRequestScopeWhere, buildRfqScopeWhere } from "@/lib/modules/procurement/procurement.scope";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Buying dates (PRD #39 §58): when a request's goods are needed, when an RFQ's
@@ -24,7 +24,7 @@ export const procurementProvider: CalendarProvider = {
     const events: Array<CalendarEventDTO | null> = [];
 
     if (can(context, "procurement.request.view")) {
-      const rows = await prisma.purchaseRequest.findMany({
+      const rows = await sourceRows(input, prisma.purchaseRequest.findMany({
         where: {
           AND: [
             buildRequestScopeWhere(context),
@@ -35,7 +35,7 @@ export const procurementProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, requestNumber: true, title: true, status: true, requiredDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.requiredDate!, {
@@ -57,11 +57,11 @@ export const procurementProvider: CalendarProvider = {
     }
 
     if (can(context, "procurement.rfq.view") && !filters.myOnly) {
-      const rows = await prisma.rFQ.findMany({
+      const rows = await sourceRows(input, prisma.rFQ.findMany({
         where: { AND: [buildRfqScopeWhere(context), { status: "ISSUED", responseDueDate: window }, projectFilter(input)] },
         take: SOURCE_LIMIT,
         select: { id: true, rfqNumber: true, title: true, status: true, responseDueDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.responseDueDate!, {
@@ -82,7 +82,7 @@ export const procurementProvider: CalendarProvider = {
     }
 
     if (can(context, "procurement.order.view")) {
-      const rows = await prisma.purchaseOrder.findMany({
+      const rows = await sourceRows(input, prisma.purchaseOrder.findMany({
         where: {
           AND: [
             buildOrderScopeWhere(context),
@@ -93,7 +93,7 @@ export const procurementProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, poNumber: true, status: true, requiredDate: true, supplier: { select: { name: true } }, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.requiredDate!, {

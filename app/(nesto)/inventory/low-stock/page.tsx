@@ -17,6 +17,7 @@ import { canSeeStock } from "@/lib/modules/inventory/inventory.dto";
 import * as items from "@/lib/modules/inventory/items/item.service";
 import { itemListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import type { ItemSummaryDTO } from "@/lib/modules/inventory/inventory.types";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Low stock" };
 
@@ -42,10 +43,10 @@ export default async function LowStockPage({
   const params = await searchParams;
   const page = typeof params.page === "string" ? params.page : undefined;
 
-  const result = await items.listItems(
-    context,
-    itemListQuerySchema.parse({ view: "low-stock", sort: "stock-asc", page }),
-  );
+  const query = itemListQuerySchema.parse({ view: "low-stock", sort: "stock-asc", page });
+  const result = await items.listItems(context, query);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/inventory/low-stock", params, result.pagination.page));
 
   const mayRequest = can(context, "procurement.request.create");
   const mayReserve = can(context, "inventory.reservation.create");
@@ -53,6 +54,8 @@ export default async function LowStockPage({
   const columns: TableColumn<ItemSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Item",
       primary: true,
       render: (row) => (
@@ -69,6 +72,8 @@ export default async function LowStockPage({
     },
     {
       key: "onHand",
+      id: "onHand",
+      valueType: "number",
       label: "On hand",
       align: "right",
       render: (row) => (
@@ -79,6 +84,8 @@ export default async function LowStockPage({
     },
     {
       key: "available",
+      id: "available",
+      valueType: "number",
       label: "Available",
       align: "right",
       hideBelow: "md",
@@ -88,6 +95,8 @@ export default async function LowStockPage({
     },
     {
       key: "reorderPoint",
+      id: "reorderPoint",
+      valueType: "number",
       label: "Reorder at",
       align: "right",
       hideBelow: "lg",
@@ -100,6 +109,8 @@ export default async function LowStockPage({
     },
     {
       key: "minimumStock",
+      id: "minimumStock",
+      valueType: "number",
       label: "Minimum",
       align: "right",
       hideBelow: "xl",
@@ -112,14 +123,15 @@ export default async function LowStockPage({
     },
     {
       key: "level",
+      id: "level",
+      mandatory: true,
+      valueType: "status",
       label: "Level",
       render: (row) => <StockLevelBadge level={row.level} />,
     },
   ];
 
-  function buildHref(next: number) {
-    return next > 1 ? `/inventory/low-stock?page=${next}` : "/inventory/low-stock";
-  }
+  const buildHref = (next: number) => pageHref("/inventory/low-stock", params, next);
 
   return (
     <ModulePage
@@ -136,6 +148,7 @@ export default async function LowStockPage({
       ) : (
         <div className="space-y-4">
           <DataTable
+      listId="inventory.low-stock"
             columns={columns}
             records={result.data}
             rowKey={(row) => row.id}

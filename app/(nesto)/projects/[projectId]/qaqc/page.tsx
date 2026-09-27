@@ -34,6 +34,10 @@ export const metadata: Metadata = { title: "Project QA/QC" };
  * table. Being given a project does not by itself hand somebody its quality
  * history: the tab needs a quality permission, and every quality scope narrows
  * the rows again on the way out (PRD #21 §26).
+ *
+ * Each section is a bounded preview of the full register (AUD-08 §4, DT-01):
+ * the first rows and the true count of this project's records, with "View all"
+ * opening the register filtered to this project — never a silent stop at 20.
  */
 export default async function ProjectQaqcPage({ params }: Params) {
   const { projectId } = await params;
@@ -42,23 +46,28 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
   if (!projectActions.canViewQaqc) redirect("/access-denied");
 
+  const empty = { data: [], total: 0 };
   const [summary, inspectionRows, defectRows, ncrRows, actionRows] = await Promise.all([
     projectQuality(context, projectId),
     can(context, "qaqc.inspection.view")
       ? inspections
           .listInspections(context, inspectionListQuerySchema.parse({ projectId, limit: 20 }))
-          .then((result) => result.data)
-      : Promise.resolve([]),
+          .then((result) => ({ data: result.data, total: result.pagination.total }))
+      : Promise.resolve(empty),
     defects.listForProject(context, projectId, 20),
     ncrs.listForProject(context, projectId, 20),
     actions.listForProject(context, projectId, 20),
   ]);
 
   const nothing =
-    inspectionRows.length === 0 &&
-    defectRows.length === 0 &&
-    ncrRows.length === 0 &&
-    actionRows.length === 0;
+    inspectionRows.total === 0 &&
+    defectRows.total === 0 &&
+    ncrRows.total === 0 &&
+    actionRows.total === 0;
+
+  /** The full register narrowed to this project, in the preview's own order where the register has it. */
+  const viewAll = (list: string, sort?: string) =>
+    `/qaqc/${list}?projectId=${encodeURIComponent(project.id)}${sort ? `&sort=${sort}` : ""}`;
 
   const mayRequest = can(context, "qaqc.request.create");
 
@@ -136,50 +145,103 @@ export default async function ProjectQaqcPage({ params }: Params) {
             <Stat label="Open actions" value={String(summary.openActions)} />
           </section>
 
-          {inspectionRows.length > 0 ? (
+          {inspectionRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Inspections</h2>
               <InspectionTable
-                inspections={inspectionRows}
+                inspections={inspectionRows.data}
                 caption={`Inspections on ${project.name}`}
+                listId="projects.qaqc-inspections"
+              />
+              <PreviewFooter
+                shown={inspectionRows.data.length}
+                total={inspectionRows.total}
+                href={viewAll("inspections")}
+                noun="inspections"
               />
             </section>
           ) : null}
 
-          {defectRows.length > 0 ? (
+          {defectRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Defects</h2>
               <DefectTable
-                defects={defectRows}
+                defects={defectRows.data}
                 showProject={false}
                 caption={`Defects on ${project.name}`}
+                listId="projects.qaqc-defects"
+              />
+              <PreviewFooter
+                shown={defectRows.data.length}
+                total={defectRows.total}
+                href={viewAll("defects", "severity-desc")}
+                noun="defects"
               />
             </section>
           ) : null}
 
-          {ncrRows.length > 0 ? (
+          {ncrRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Non-conformances</h2>
               <NcrTable
-                ncrs={ncrRows}
+                ncrs={ncrRows.data}
                 showProject={false}
                 caption={`NCRs on ${project.name}`}
+                listId="projects.qaqc-ncrs"
+              />
+              <PreviewFooter
+                shown={ncrRows.data.length}
+                total={ncrRows.total}
+                href={viewAll("ncrs", "severity-desc")}
+                noun="NCRs"
               />
             </section>
           ) : null}
 
-          {actionRows.length > 0 ? (
+          {actionRows.total > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Corrective actions</h2>
               <CorrectiveActionTable
-                actions={actionRows}
+                actions={actionRows.data}
                 caption={`Corrective actions on ${project.name}`}
+                listId="projects.qaqc-corrective-actions"
+              />
+              <PreviewFooter
+                shown={actionRows.data.length}
+                total={actionRows.total}
+                href={viewAll("corrective-actions")}
+                noun="corrective actions"
               />
             </section>
           ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Under a preview: how many of the project's records it shows, and the way to
+ * the rest (AUD-08 §4). A complete preview still states its count.
+ */
+function PreviewFooter({ shown, total, href, noun }: { shown: number; total: number; href: string; noun: string }) {
+  return (
+    <p className="flex flex-wrap items-baseline justify-between gap-2 text-meta text-fg-muted" data-testid="preview-count">
+      <span>
+        {shown < total ? (
+          <>
+            Showing <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span> {noun}
+          </>
+        ) : (
+          <>
+            <span className="tabular-nums">{total}</span> {noun}
+          </>
+        )}
+      </span>
+      <Link href={href} className="text-accent hover:underline">
+        View all {noun}
+      </Link>
+    </p>
   );
 }
 

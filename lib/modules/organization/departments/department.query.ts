@@ -185,7 +185,7 @@ async function branchRows(groupDepartmentId: string, companyIds: string[] | null
       company: { select: { id: true, name: true } },
       assignments: { where: { ...live(now), positionLevel: { in: ["MEMBER", "COMPANY_MANAGER"] } }, select: { id: true, userId: true, positionLevel: true, startsAt: true, user: USER } },
     },
-    orderBy: { company: { name: "asc" } },
+    orderBy: [{ company: { name: "asc" } }, { id: "asc" }],
   });
   return branches.map((branch) => {
     const manager = branch.assignments.find((row) => row.positionLevel === "COMPANY_MANAGER");
@@ -247,7 +247,7 @@ export async function getDepartmentDetail(actor: DepartmentActor, groupDepartmen
     prisma.company.findMany({
       where: { parentGroupId, ...(reader.companyIds ? { id: { in: reader.companyIds } } : {}) },
       select: { id: true, name: true, status: true },
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
     branchRows(department.id, reader.companyIds, parentGroupId),
   ]);
@@ -305,7 +305,7 @@ export async function getDepartmentTeam(actor: DepartmentActor, groupDepartmentI
       user: USER,
       company: { select: { id: true, name: true } },
     },
-    orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }, { createdAt: "asc" }],
+    orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }, { createdAt: "asc" }, { id: "asc" }],
   });
 
   const userIds = [...new Set(rows.map((row) => row.userId))];
@@ -400,7 +400,7 @@ export async function getDepartmentTeam(actor: DepartmentActor, groupDepartmentI
   const companies = await prisma.company.findMany({
     where: { parentGroupId, ...(reader.companyIds ? { id: { in: reader.companyIds } } : {}), departments: { some: { groupDepartmentId: department.id } } },
     select: { id: true, name: true },
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   return { data, filters: { companies } };
 }
@@ -415,7 +415,7 @@ export async function listBranchMembers(actor: DepartmentActor, branchId: string
   const rows = await prisma.departmentAssignment.findMany({
     where: { ...live(), companyDepartmentId: branch.id, positionLevel: { in: ["MEMBER", "COMPANY_MANAGER"] } },
     select: { id: true, positionLevel: true, status: true, startsAt: true, endsAt: true, user: USER },
-    orderBy: [{ positionLevel: "asc" }, { user: { lastName: "asc" } }],
+    orderBy: [{ positionLevel: "asc" }, { user: { lastName: "asc" } }, { id: "asc" }],
   });
   return rows.map((row) => ({
     id: row.id,
@@ -475,7 +475,7 @@ export async function getDepartmentActivity(actor: DepartmentActor, groupDepartm
   const events = await prisma.auditEvent.findMany({
     where: { OR: [{ entityType: "GroupDepartment", entityId: department.id }, ...(assignmentIds.length ? [{ entityType: "DepartmentAssignment", entityId: { in: assignmentIds } }] : [])] },
     select: { id: true, occurredAt: true, actionKey: true, beforeJson: true, afterJson: true, actorUserId: true, actorDisplayNameSnapshot: true, companyId: true },
-    orderBy: { occurredAt: "desc" },
+    orderBy: [{ occurredAt: "desc" }, { id: "asc" }],
     take: limit,
   });
   return events
@@ -528,7 +528,7 @@ export async function listDepartmentCandidates(actor: DepartmentActor, groupDepa
       parentGroupMemberships: { where: { parentGroupId, status: "ACTIVE" }, select: { id: true } },
       departmentAssignments: { where: { ...live(), groupDepartmentId: department.id }, select: { positionLevel: true, companyDepartmentId: true } },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
     take: 200,
   });
 
@@ -626,7 +626,7 @@ export async function listOrganizationCompanies(actor: DepartmentActor) {
         select: { id: true, assignments: { where: { ...live(), positionLevel: { in: ["MEMBER", "COMPANY_MANAGER"] } }, select: { userId: true, positionLevel: true } } },
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   return companies.map((company) => ({
     id: company.id,

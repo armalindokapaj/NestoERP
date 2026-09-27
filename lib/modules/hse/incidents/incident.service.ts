@@ -13,7 +13,8 @@ import type { UserContext } from "@/lib/context/types";
 import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
@@ -114,10 +115,18 @@ type DetailRow = Prisma.HseIncidentGetPayload<{ select: typeof DETAIL_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listIncidents(context: UserContext, query: IncidentListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.incident.view");
-
+/**
+ * The incident register's predicate (AUD-08 §3, DT-02, DT-03): scope, then the
+ * section (`view`), then filters and search — one `where` for the page, its
+ * count and the CSV export, so "Mine" or "Near misses" cannot fall away when
+ * the same query is exported. Multi-value filters are OR within a filter and
+ * AND across filters. A project id from another company narrows to nothing:
+ * it is ANDed with the reader's scope, never used instead of it (DT-22).
+ */
+export function buildIncidentListWhere(
+  context: UserContext,
+  query: IncidentListQuery,
+): Prisma.HseIncidentWhereInput {
   const filters: Prisma.HseIncidentWhereInput[] = [buildIncidentScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_INCIDENT_STATUSES } });
@@ -148,27 +157,48 @@ export async function listIncidents(context: UserContext, query: IncidentListQue
     });
   }
 
-  const where: Prisma.HseIncidentWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseIncidentOrderByWithRelationInput[] =
-    query.sort === "occurred-desc"
+/**
+ * The allowlisted incident sorts (AUD-08 §4, DT-04). Severity compares the
+ * enum's declared order (LOW < MEDIUM < HIGH < CRITICAL), never its label;
+ * every order ends in the id. No sort key here is nullable.
+ */
+export function incidentListOrder(
+  sort: IncidentListQuery["sort"],
+): Prisma.HseIncidentOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseIncidentOrderByWithRelationInput>(
+    sort === "occurred-desc"
       ? [{ occurredAt: "desc" }]
-      : query.sort === "severity-desc"
+      : sort === "severity-desc"
         ? [{ severity: "desc" }, { occurredAt: "desc" }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ incidentNumber: "asc" }]
-          : [{ updatedAt: "desc" }];
+          : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseIncident.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseIncident.count({ where }),
-  ]);
+export async function listIncidents(context: UserContext, query: IncidentListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.incident.view");
+
+  const where = buildIncidentListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseIncident.findMany({
+        where,
+        orderBy: incidentListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseIncident.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -237,25 +267,37 @@ export async function getIncident(
   };
 }
 
+/**
+ * A project's incidents for its HSE tab: the first `limit` by occurrence and
+ * the true total, so the tab never stops silently at `limit` (AUD-08 §4). The
+ * order is the register's `occurred-desc`, so "View all" continues it.
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<IncidentSummaryDTO[]> {
-  if (!can(context, "hse.incident.view")) return [];
+): Promise<ListPreview<IncidentSummaryDTO>> {
+  if (!can(context, "hse.incident.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.hseIncident.findMany({
-    where: { AND: [buildIncidentScopeWhere(context), { projectId }] },
-    orderBy: [{ occurredAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.HseIncidentWhereInput = { AND: [buildIncidentScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseIncident.findMany({
+        where,
+        orderBy: incidentListOrder("occurred-desc"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseIncident.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.investigatorMemberId]),
   );
-  return rows.map((row) => toSummaryDTO(context, row, members));
+  return { data: rows.map((row) => toSummaryDTO(context, row, members)), total };
 }
 
 export async function incidentFilterOptions(context: UserContext) {

@@ -209,19 +209,26 @@ describe("the company filter (§86, §87)", () => {
     expect(b.data.every((row) => row.company?.id === COMPANY.b)).toBe(true);
   });
 
-  it("ignores a company the person may not read: no error, no rows from it, nothing disclosed", async () => {
+  // AUD-08 §3, DT-22: an unreadable, suspended, unknown or switched-off company
+  // answers no rows — the same empty answer for each, so nothing is disclosed.
+  // It used to be ignored and answer every company: a silent broadening.
+  it("a company the person may not read: no error, no rows, nothing disclosed", async () => {
     const owner = await loginAs("OWNER", { workspace: "GROUP" });
     const everything = await listTasksForWorkspace(owner, query());
+    expect(everything.data.length).toBeGreaterThan(0);
     for (const company of [COMPANY.tenant, COMPANY.suspended, "company_that_does_not_exist"]) {
       const asked = await listTasksForWorkspace(owner, query({ company }));
-      expect(idsOf(asked.data), company).toEqual(idsOf(everything.data));
+      expect(idsOf(asked.data), company).toEqual([]);
+      expect(asked.pagination.total, company).toBe(0);
     }
     // A company that switched Tasks off is a company the person may not read from here.
     await switchTasksOff(COMPANY.b);
     const fresh = await loginAs("OWNER", { workspace: "GROUP" });
     const off = await listTasksForWorkspace(fresh, query({ company: COMPANY.b }));
-    expect(idsOf(off.data)).not.toContain(ids.b);
-    expect(off.data.length).toBeGreaterThan(0);
+    expect(idsOf(off.data)).toEqual([]);
+    // Positive control: a readable company still narrows to its own rows.
+    const readable = await listTasksForWorkspace(fresh, query({ company: COMPANY.d }));
+    expect(idsOf(readable.data)).toEqual([ids.d, ids.multiD].sort());
   });
 
   it("is locked in a company workspace: the list stays that company's", async () => {
@@ -297,15 +304,18 @@ describe("GET /api/tasks and POST /api/tasks", () => {
     expect(body.data.every((row) => row.company !== undefined && row.company.name === names[row.company.id])).toBe(true);
   });
 
-  it("narrows by company, ignoring one the caller may not read", async () => {
+  // AUD-08 §3, DT-22: a company the caller may not read narrows to nothing. It
+  // used to be dropped, answering all six rows — a silent broadening.
+  it("narrows by company; one the caller may not read answers no rows, never every company", async () => {
     actAs(await loginAs("OWNER", { workspace: "GROUP" }));
     const narrowed = (await (await get(`&company=${COMPANY.d}`)).json()) as { data: Array<{ id: string }> };
     expect(idsOf(narrowed.data)).toEqual([ids.d, ids.multiD].sort());
     const foreign = await get(`&company=${COMPANY.tenant}`);
     expect(foreign.status).toBe(200);
-    const body = (await foreign.json()) as { data: Array<{ id: string }> };
+    const body = (await foreign.json()) as { data: Array<{ id: string }>; pagination: { total: number } };
     expect(idsOf(body.data)).not.toContain(ids.tenant);
-    expect(body.data.length).toBe(6);
+    expect(body.data.length).toBe(0);
+    expect(body.pagination.total).toBe(0);
   });
 
   it("answers the company's own list, with no company on the row, in a company workspace", async () => {

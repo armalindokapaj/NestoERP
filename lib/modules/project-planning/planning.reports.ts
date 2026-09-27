@@ -69,12 +69,31 @@ export type PlanningReport = {
   variance: ReportRow[];
   critical: ReportRow[];
   portfolio: Array<{ projectId: string; name: string; next: ReportRow | null; criticalDelays: number; forecastEnd: string | null }>;
+  /** More than ROW_LIMIT milestones matched: every figure above covers the first ROW_LIMIT only (AUD-08 §4). */
+  truncated: boolean;
+  /** How many rows each capped list had before its top-N cut, so a shortened list is labelled (AUD-08 §4). */
+  listTotals: { overdue: number; variance: number; critical: number };
+  /** More than PROJECT_OPTIONS readable projects: the project picker lists the first ones by name (plus the selected one). */
+  projectsTruncated: boolean;
 };
 
-async function readRows(context: UserContext, where: Prisma.ProjectMilestoneWhereInput, today: string): Promise<ReportRow[]> {
-  const rows = await prisma.projectMilestone.findMany({ where: { AND: [readableMilestoneWhere(context), { archivedAt: null, project: { is: { archivedAt: null } } }, where] }, take: ROW_LIMIT, orderBy: [{ projectId: "asc" }, { sortOrder: "asc" }], select: SELECT });
+const PROJECT_OPTIONS = 500;
+
+/** Ties within a sort fall back to the milestone id, so every ordered list and every cut is total (AUD-08 §4, DT-04). */
+const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * The readable milestones matching `where`, in project and plan order with the
+ * id as the tie-breaker. ROW_LIMIT bounds the read; one row more is asked for
+ * so a read that reached it is known (`truncated`) rather than reported as
+ * the whole portfolio (AUD-08 §4, DT-05).
+ */
+async function readRowsBounded(context: UserContext, where: Prisma.ProjectMilestoneWhereInput, today: string): Promise<{ rows: ReportRow[]; truncated: boolean }> {
+  const read = await prisma.projectMilestone.findMany({ where: { AND: [readableMilestoneWhere(context), { archivedAt: null, project: { is: { archivedAt: null } } }, where] }, take: ROW_LIMIT + 1, orderBy: [{ projectId: "asc" }, { sortOrder: "asc" }, { id: "asc" }], select: SELECT });
+  const truncated = read.length > ROW_LIMIT;
+  const rows = truncated ? read.slice(0, ROW_LIMIT) : read;
   const people = await names(context.companyId, rows.map((row) => row.ownerMemberId));
-  return rows.map((row) => {
+  return { truncated, rows: rows.map((row) => {
     const dates = { status: row.status, baselineDate: dateOf(row.baselineDate), plannedDate: dateOf(row.plannedDate), forecastDate: dateOf(row.forecastDate), actualDate: dateOf(row.actualDate) };
     return {
       id: row.id,
@@ -94,7 +113,11 @@ async function readRows(context: UserContext, where: Prisma.ProjectMilestoneWher
       critical: row.critical,
       href: `/projects/${row.projectId}/planning?milestone=${row.id}`,
     };
-  });
+  }) };
+}
+
+async function readRows(context: UserContext, where: Prisma.ProjectMilestoneWhereInput, today: string): Promise<ReportRow[]> {
+  return (await readRowsBounded(context, where, today)).rows;
 }
 
 export async function planningReport(context: UserContext, query: ReportQuery): Promise<PlanningReport> {
@@ -111,11 +134,19 @@ export async function planningReport(context: UserContext, query: ReportQuery): 
     ...(query.ownerId ? { ownerMemberId: query.ownerId } : {}),
     ...(query.critical !== undefined ? { critical: query.critical } : {}),
   };
-  const [projects, phases, all] = await Promise.all([
-    prisma.project.findMany({ where: { AND: [door, { archivedAt: null }] }, orderBy: { name: "asc" }, take: 500, select: { id: true, name: true, code: true } }),
+  const [projectRead, phases, read] = await Promise.all([
+    prisma.project.findMany({ where: { AND: [door, { archivedAt: null }] }, orderBy: [{ name: "asc" }, { id: "asc" }], take: PROJECT_OPTIONS + 1, select: { id: true, name: true, code: true } }),
     query.projectId ? prisma.projectPhase.findMany({ where: { companyId: context.companyId, projectId: query.projectId, archivedAt: null, project: { is: door } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
-    readRows(context, where, today),
+    readRowsBounded(context, where, today),
   ]);
+  const all = read.rows;
+  const projectsTruncated = projectRead.length > PROJECT_OPTIONS;
+  const projects = projectRead.slice(0, PROJECT_OPTIONS);
+  // The chosen project stays in the picker even past the cut, so the form shows the query the report answers (AUD-08 §3).
+  if (query.projectId && !projects.some((project) => project.id === query.projectId)) {
+    const chosen = await prisma.project.findFirst({ where: { AND: [door, { archivedAt: null }, { id: query.projectId }] }, select: { id: true, name: true, code: true } });
+    if (chosen) projects.push(chosen);
+  }
   const rows = all.filter((row) => (!query.from || (row.displayDate !== null && row.displayDate >= query.from)) && (!query.to || (row.displayDate !== null && row.displayDate <= query.to)));
 
   const counted = rows.filter((row) => row.status !== "CANCELLED");
@@ -149,12 +180,14 @@ export async function planningReport(context: UserContext, query: ReportQuery): 
 
   const portfolio = [...new Set(counted.map((row) => row.projectId))].map((projectId) => {
     const own = counted.filter((row) => row.projectId === projectId);
-    const next = own.filter((row) => !isClosed(row.status) && row.displayDate).sort((a, b) => a.displayDate!.localeCompare(b.displayDate!))[0] ?? null;
+    const next = own.filter((row) => !isClosed(row.status) && row.displayDate).sort((a, b) => a.displayDate!.localeCompare(b.displayDate!) || byId(a, b))[0] ?? null;
     const ends = own.map((row) => row.displayDate).filter((date): date is string => Boolean(date)).sort();
     return { projectId, name: own[0].projectName, next, criticalDelays: own.filter((row) => row.critical && late(row)).length, forecastEnd: ends[ends.length - 1] ?? null };
   });
 
   const ownerIds = [...new Set(all.map((row) => row.owner?.memberId).filter((id): id is string => Boolean(id)))];
+  const overdue = open.filter((row) => row.delayed);
+  const critical = counted.filter((row) => row.critical);
   return {
     query,
     today,
@@ -172,13 +205,16 @@ export async function planningReport(context: UserContext, query: ReportQuery): 
       delayedThisMonth: counted.filter((row) => late(row) && row.forecastDate && row.forecastDate >= monthStart && row.forecastDate < today).length,
     },
     byStatus: MILESTONE_STATUSES.map((status) => ({ status, label: STATUS_LABELS[status], count: rows.filter((row) => row.status === status).length })),
-    byProject: [...byProject.values()].sort((a, b) => b.delayed - a.delayed || a.name.localeCompare(b.name)),
+    byProject: [...byProject.values()].sort((a, b) => b.delayed - a.delayed || a.name.localeCompare(b.name) || a.projectId.localeCompare(b.projectId)),
     byPhase: [...byPhase.values()],
-    overdue: open.filter((row) => row.delayed).sort((a, b) => b.overdueDays - a.overdueDays).slice(0, 50),
-    variance: withVariance.sort((a, b) => (b.varianceDays ?? 0) - (a.varianceDays ?? 0)).slice(0, 100),
+    overdue: overdue.sort((a, b) => b.overdueDays - a.overdueDays || byId(a, b)).slice(0, 50),
+    variance: withVariance.sort((a, b) => (b.varianceDays ?? 0) - (a.varianceDays ?? 0) || byId(a, b)).slice(0, 100),
     // Late first, then what is still ahead by date; achieved ones last (§168).
-    critical: counted.filter((row) => row.critical).sort((a, b) => Number(late(b)) - Number(late(a)) || Number(isClosed(a.status)) - Number(isClosed(b.status)) || (a.displayDate ?? "9999").localeCompare(b.displayDate ?? "9999")).slice(0, 100),
-    portfolio: portfolio.sort((a, b) => b.criticalDelays - a.criticalDelays || a.name.localeCompare(b.name)),
+    critical: critical.sort((a, b) => Number(late(b)) - Number(late(a)) || Number(isClosed(a.status)) - Number(isClosed(b.status)) || (a.displayDate ?? "9999").localeCompare(b.displayDate ?? "9999") || byId(a, b)).slice(0, 100),
+    portfolio: portfolio.sort((a, b) => b.criticalDelays - a.criticalDelays || a.name.localeCompare(b.name) || a.projectId.localeCompare(b.projectId)),
+    truncated: read.truncated,
+    listTotals: { overdue: overdue.length, variance: withVariance.length, critical: critical.length },
+    projectsTruncated,
   };
 }
 
@@ -195,7 +231,7 @@ export async function upcomingMilestones(context: UserContext, limit = 6): Promi
   const today = localDate(new Date(), settings.timezone);
   const horizon = new Date(`${addLocalDays(today, 30)}T23:59:59.000Z`);
   const rows = await readRows(context, { ...OPEN, OR: [{ forecastDate: { lte: horizon } }, { forecastDate: null, plannedDate: { lte: horizon } }, { forecastDate: null, plannedDate: null, baselineDate: { lte: horizon } }] }, today);
-  return rows.sort((a, b) => Number(b.delayed) - Number(a.delayed) || (a.displayDate ?? "").localeCompare(b.displayDate ?? "")).slice(0, limit);
+  return rows.sort((a, b) => Number(b.delayed) - Number(a.delayed) || (a.displayDate ?? "").localeCompare(b.displayDate ?? "") || byId(a, b)).slice(0, limit);
 }
 
 /** Critical milestones that are late, at risk or critically blocked, across projects (§168, §170). */
@@ -208,7 +244,7 @@ export async function criticalMilestones(context: UserContext, limit = 6): Promi
   return rows
     .map((row) => ({ ...row, blocked: blocked.has(row.id) }))
     .filter((row) => row.delayed || row.status === "AT_RISK" || row.status === "DELAYED" || row.blocked)
-    .sort((a, b) => b.overdueDays - a.overdueDays || (a.displayDate ?? "").localeCompare(b.displayDate ?? ""))
+    .sort((a, b) => b.overdueDays - a.overdueDays || (a.displayDate ?? "").localeCompare(b.displayDate ?? "") || byId(a, b))
     .slice(0, limit);
 }
 

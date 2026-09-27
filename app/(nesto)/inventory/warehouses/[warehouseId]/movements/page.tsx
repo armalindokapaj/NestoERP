@@ -48,6 +48,7 @@ export default async function WarehouseMovementsPage({ params, searchParams }: P
           <MovementTable
             movements={result.data}
             caption={`Movements through ${warehouse.name}`}
+            listId="inventory.warehouse-movements"
           />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </div>

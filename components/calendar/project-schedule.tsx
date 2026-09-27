@@ -28,6 +28,11 @@ export function ProjectSchedule({ calendar, startDate }: { calendar: CalendarRes
           Some calendar items could not be loaded.
         </p>
       ) : null}
+      {calendar.meta.truncated ? (
+        <p role="status" data-testid="calendar-truncated" className="mt-3 rounded-lg bg-warning-soft px-3 py-2 text-table text-warning-strong">
+          Not every item in this period is shown: there are more than the calendar loads at once.
+        </p>
+      ) : null}
       <AgendaView date={start} zone={zone} today={today} events={calendar.events} onOpen={setOpen} />
       <div className="flex justify-between border-t border-line py-3">
         <button type="button" className="text-table font-medium text-fg-muted hover:text-fg" onClick={() => setStart(today)}>

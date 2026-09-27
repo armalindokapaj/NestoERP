@@ -163,7 +163,7 @@ export async function names(companyId: string, ids: Array<string | null | undefi
 export async function projectMemberOptions(companyId: string, projectId: string): Promise<Option[]> {
   const rows = await prisma.companyMember.findMany({
     where: { companyId, status: "ACTIVE", OR: [{ projectMemberships: { some: { projectId, status: "ACTIVE" } } }, { managedProjects: { some: { id: projectId } } }] },
-    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }],
+    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
     take: 300,
     select: { id: true, user: { select: { firstName: true, lastName: true } } },
   });
@@ -314,8 +314,8 @@ export function matchesQuick(milestone: MilestoneSummaryDTO, quick: NonNullable<
 
 async function readPlan(project: PlanningProject, today: string) {
   const [phases, rows, edges] = await Promise.all([
-    prisma.projectPhase.findMany({ where: { companyId: project.companyId, projectId: project.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
-    prisma.projectMilestone.findMany({ where: { companyId: project.companyId, projectId: project.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: MILESTONE_SELECT }),
+    prisma.projectPhase.findMany({ where: { companyId: project.companyId, projectId: project.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }] }),
+    prisma.projectMilestone.findMany({ where: { companyId: project.companyId, projectId: project.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }], select: MILESTONE_SELECT }),
     prisma.projectMilestoneDependency.findMany({ where: { companyId: project.companyId, projectId: project.id }, select: { id: true, predecessorMilestoneId: true, successorMilestoneId: true, lagDays: true } }),
   ]);
   const phaseOrder = new Map(phases.map((phase, index) => [phase.id, index]));

@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   dateString,
   loadMemberRef,
@@ -84,6 +85,9 @@ type DetailRow = Prisma.InventoryReceiptGetPayload<{ select: typeof DETAIL_SELEC
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listReceipts(context: UserContext, query: TransactionListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "inventory.receipt.view");
@@ -97,20 +101,26 @@ export async function listReceipts(context: UserContext, query: TransactionListQ
 
   const where: Prisma.InventoryReceiptWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.inventoryReceipt.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.inventoryReceipt.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.receipts.list",
+    async (tx) => {
+      const window = pageWindow(await tx.inventoryReceipt.count({ where }), query.page, query.limit);
+      const rows = await tx.inventoryReceipt.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map((row) => toSummaryDTO(context, row)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

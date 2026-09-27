@@ -50,6 +50,7 @@ export default async function WarehouseStockPage({ params, searchParams }: Param
             rows={result.data}
             show="by-location"
             caption={`Stock in ${warehouse.name}`}
+            listId="inventory.warehouse-stock"
           />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </div>

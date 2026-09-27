@@ -8,7 +8,8 @@ import { assertDecisionGuard, requireDecisionGuard, singlePending, type Approval
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { boundedLimit, boundedPage } from "../sales.query";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { buildProposalScopeWhere } from "../sales.scope";
@@ -234,6 +235,9 @@ export async function cancelPendingApprovals(
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 const APPROVAL_SELECT = {
   id: true,
   recordType: true,
@@ -275,19 +279,25 @@ export async function listApprovals(
     recordId: { in: reachable },
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.salesApproval.findMany({
-      where,
-      orderBy: [{ status: "asc" }, { submittedAt: "desc" }],
-      skip: skipFor(page, limit),
-      take: limit,
-      select: APPROVAL_SELECT,
-    }),
-    prisma.salesApproval.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "sales.approvals.list",
+    async (tx) => {
+      const window = pageWindow(await tx.salesApproval.count({ where }), page, limit);
+      const rows = await tx.salesApproval.findMany({
+        where,
+        orderBy: withTieBreaker([{ status: "asc" }, { submittedAt: "desc" }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: APPROVAL_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const data = await hydrate(context, rows);
-  return { data, pagination: paginationMeta(total, page, limit) };
+  return { data, pagination: window };
 }
 
 /** How many decisions are waiting, for the overview (PRD #17 §21). */

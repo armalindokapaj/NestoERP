@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -11,6 +11,7 @@ import { can } from "@/lib/access/can";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { loadTask, taskBreadcrumbs } from "../task-context";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ taskId: string }>;
@@ -36,6 +37,8 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
   const activity = await tasks.listActivity(context, taskId, { page, limit: 25 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== page) redirect(listPageRedirect(`/tasks/${taskId}/activity`, query, activity.pagination.page));
 
   return (
     <div className="space-y-5">

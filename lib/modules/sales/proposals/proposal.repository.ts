@@ -2,9 +2,13 @@ import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { buildProposalScopeWhere } from "../sales.scope";
 import type { ProposalListQuery, ProposalSortKey } from "./proposal.schema";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /** Proposal queries (PRD #17 §245, §248). */
 
@@ -100,18 +104,24 @@ export function buildProposalListWhere(
 export async function listProposals(context: UserContext, query: ProposalListQuery) {
   const where = buildProposalListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.proposal.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.proposal.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "sales.proposals.list",
+    async (tx) => {
+      const window = pageWindow(await tx.proposal.count({ where }), query.page, query.limit);
+      const rows = await tx.proposal.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
-  return { rows, total };
+  return { rows, total: window.total, window };
 }
 
 export function findProposalInScope(context: UserContext, proposalId: string) {

@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import Link from "@/components/navigation/nav-link";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
+import { Pagination } from "@/components/data/pagination";
 import { DailyLogList } from "@/components/daily-logs/daily-log-list";
 import { ModulePage } from "@/components/modules/module-page";
-import { Button } from "@/components/ui/button";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
 import { projectDoor } from "@/lib/modules/daily-logs/daily-log.permissions";
 import { listQuerySchema } from "@/lib/modules/daily-logs/daily-log.schema";
 import { listDailyLogs } from "@/lib/modules/daily-logs/daily-log.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { DAILY_LOG_STATUSES, DAILY_LOG_STATUS_LABELS } from "@/lib/modules/daily-logs/daily-log.types";
 
 export const metadata: Metadata = { title: "Daily logs" };
@@ -32,30 +33,15 @@ export default async function DailyLogsPage({ searchParams }: { searchParams: Pr
     { param: "status", label: "Status", options: DAILY_LOG_STATUSES.map((status) => ({ value: status, label: DAILY_LOG_STATUS_LABELS[status] })) },
     ...(projects.length ? [{ param: "projectId", label: "Project", options: projects.map((project) => ({ value: project.id, label: project.name })) }] : []),
   ];
-  const href = (page: number) => {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) if (typeof value === "string" && key !== "page") next.set(key, value);
-    if (page > 1) next.set("page", String(page));
-    return `/daily-logs${next.size ? `?${next}` : ""}`;
-  };
+  // A count on every page, and a page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (list.page !== query.page) redirect(listPageRedirect("/daily-logs", params, list.page));
 
   return (
     <ModulePage experience={experience} activeSection="all">
       <div className="space-y-4">
         <ListToolbar searchPlaceholder="Search by project or summary…" searchParam="q" filters={filters} />
         <DailyLogList items={list.items} showProject emptyTitle="No daily logs here." emptyDescription="Open a project's Daily Logs tab to start the day's record." />
-        <div className="flex justify-center gap-2">
-          {query.page > 1 ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link href={href(query.page - 1)}>Newer</Link>
-            </Button>
-          ) : null}
-          {query.page * query.pageSize < list.total ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link href={href(query.page + 1)}>Older</Link>
-            </Button>
-          ) : null}
-        </div>
+        <Pagination meta={{ page: list.page, limit: list.pageSize, total: list.total, totalPages: Math.max(1, Math.ceil(list.total / list.pageSize)) }} buildHref={(page) => pageHref("/daily-logs", params, page)} />
       </div>
     </ModulePage>
   );

@@ -223,6 +223,7 @@ export default async function InspectionPage({ params }: Params) {
                 context={context}
                 entityType="HseInspection"
                 entityId={inspection.id}
+                moreHref={`/hse/inspections/${inspection.id}/activity`}
               />
             </section>
           ) : null}

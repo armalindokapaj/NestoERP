@@ -168,6 +168,8 @@ export type ProjectTimeSummaryDTO = {
   byProject: Array<{ projectId: string; name: string; code: string | null; minutes: number; billableMinutes: number }>;
   byMember: Array<{ memberId: string; name: string; minutes: number; billableMinutes: number }>;
   byTask: Array<{ taskId: string | null; title: string; minutes: number }>;
+  /** How many tasks carry time in the range; `byTask` holds the top 50 of them by hours. */
+  byTaskCount: number;
   byWeek: Array<{ weekStart: string; minutes: number; billableMinutes: number }>;
   /** Individual entries; what people wrote is shown only to team readers (§126, §178, §230). */
   entries: Array<WorkLogDTO & { member: TimesheetPerson; status: TimesheetStatus }>;

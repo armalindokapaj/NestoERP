@@ -14,7 +14,6 @@ import { transitionFor } from "@/lib/core/state/machine";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
@@ -91,12 +90,12 @@ export async function listContracts(context: UserContext, query: ContractListQue
   assertPermission(context, "legal.contract.view");
 
   const today = new Date();
-  const { rows, total } = await repository.listContracts(context, withoutCommercialQuery(context, query), today);
+  const { rows, window } = await repository.listContracts(context, withoutCommercialQuery(context, query), today);
   const overdue = await overdueObligationCounts(rows.map((row) => row.id), today);
 
   return {
     data: rows.map((row) => toSummaryDTO(context, row, today, overdue)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

@@ -225,10 +225,14 @@ export async function listProjectUnits(context: UserContext, projectId: string, 
   }
 
   const where: Prisma.ProjectUnitWhereInput = { AND: filters };
-  const [total, rows] = await Promise.all([
-    prisma.projectUnit.count({ where }),
-    prisma.projectUnit.findMany({ where, orderBy: orderFor(query.sort), skip: (query.page - 1) * query.limit, take: query.limit, select: UNIT_SELECT }),
-  ]);
+  // Count and page from one snapshot (AUD-08 §4, DT-06); every order ends in the id (DT-04).
+  const [total, rows] = await prisma.$transaction(
+    [
+      prisma.projectUnit.count({ where }),
+      prisma.projectUnit.findMany({ where, orderBy: orderFor(query.sort), skip: (query.page - 1) * query.limit, take: query.limit, select: UNIT_SELECT }),
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
   return { items: rows.map(toUnitDTO), page: query.page, pageSize: query.limit, total };
 }
 
@@ -276,7 +280,7 @@ export async function listUnitActivity(context: UserContext, unitId: string, opt
   // Sales entries name prices and deals, so they are read only with the unit's sales grant (E-05E §32, §53).
   const modules = can(context, "project.unit.sales.view") ? ["projects", "sales"] : ["projects"];
   const where: Prisma.ActivityWhereInput = { companyId: context.companyId, module: { in: modules }, entityType: "ProjectUnit", entityId: unit.id };
-  const [total, rows] = await Promise.all([
+  const [total, rows] = await prisma.$transaction([
     prisma.activity.count({ where }),
     prisma.activity.findMany({
       where,
@@ -285,7 +289,7 @@ export async function listUnitActivity(context: UserContext, unitId: string, opt
       take: limit,
       select: { id: true, action: true, message: true, createdAt: true, actorMemberId: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
     }),
-  ]);
+  ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   return {
     items: rows.map((row) => ({ id: row.id, action: row.action, message: row.message, actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : null, actorMemberId: row.actorMemberId, createdAt: row.createdAt.toISOString() })),
     page,

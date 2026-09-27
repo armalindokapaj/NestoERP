@@ -12,7 +12,8 @@ import { AccessError, assertModule, assertPermission } from "@/lib/access/guards
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor } from "@/lib/modules/shared/list-query";
 import { toAmountString } from "../finance.money";
 import {
   buildBudgetScopeWhere,
@@ -269,6 +270,9 @@ export async function cancelPendingApprovals(
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 const APPROVAL_SELECT = {
   id: true,
   recordType: true,
@@ -306,19 +310,26 @@ export async function listApprovals(
     OR: reachableApprovalClauses(await reachableRecordIds(context)),
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.financeApproval.findMany({
-      where,
-      orderBy: [{ status: "asc" }, { submittedAt: "desc" }],
-      skip: skipFor(page, limit),
-      take: limit,
-      select: APPROVAL_SELECT,
-    }),
-    prisma.financeApproval.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "finance.approvals.list",
+    async (tx) => {
+      const window = pageWindow(await tx.financeApproval.count({ where }), page, limit);
+      const rows = await tx.financeApproval.findMany({
+        where,
+        // Pending first, newest first, the id breaking ties (AUD-08 §4, DT-04).
+        orderBy: [{ status: "asc" }, { submittedAt: "desc" }, { id: "asc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: APPROVAL_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const data = await hydrate(context, rows);
-  return { data, pagination: paginationMeta(total, page, limit) };
+  return { data, pagination: window };
 }
 
 /**

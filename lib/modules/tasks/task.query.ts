@@ -48,12 +48,13 @@ export function parseTaskListQuery(
     ? (sortValue as TaskSortKey)
     : (defaults.sort ?? "due-asc");
 
+  // A section's due restriction (Overdue) is the section itself, so a `due`
+  // in the URL cannot replace it; elsewhere `due` is an ordinary filter
+  // (AUD-08 §3, DT-02). Sort, by contrast, is only a section's default.
   const dueValue = read(params, "due");
-  const due: TaskDueFilter | undefined = (TASK_DUE_FILTERS as readonly string[]).includes(
-    dueValue ?? "",
-  )
-    ? (dueValue as TaskDueFilter)
-    : defaults.due;
+  const due: TaskDueFilter | undefined =
+    defaults.due ??
+    ((TASK_DUE_FILTERS as readonly string[]).includes(dueValue ?? "") ? (dueValue as TaskDueFilter) : undefined);
 
   const page = Number.parseInt(read(params, "page") ?? "1", 10);
   const limit = Number.parseInt(read(params, "limit") ?? "25", 10);

@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -11,7 +12,7 @@ import * as issues from "@/lib/modules/inventory/documents/issue.service";
 import * as receipts from "@/lib/modules/inventory/documents/receipt.service";
 import * as returns from "@/lib/modules/inventory/documents/return.service";
 import * as transfers from "@/lib/modules/inventory/documents/transfer.service";
-import { transactionListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
+import { TRANSACTION_SORT_KEYS, transactionListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import {
   ADJUSTMENT_REASONS,
   TRANSACTION_STATUSES,
@@ -25,6 +26,7 @@ import {
   ReturnTable,
   TransferTable,
 } from "./document-tables";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 /**
  * The five stock-document lists, from one place (PRD #20 §323–§325).
@@ -144,15 +146,9 @@ export async function DocumentListSection({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/inventory/${kind}?${search}` : `/inventory/${kind}`;
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(`/inventory/${kind}`, searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref(`/inventory/${kind}`, searchParams, page);
 
   const mayCreate = can(context, CREATE_PERMISSION[kind]);
   const copy = EMPTY_COPY[kind];
@@ -207,11 +203,11 @@ export async function DocumentListSection({
       />
 
       {kind === "receipts" ? (
-        <ReceiptTable receipts={result.data as Awaited<ReturnType<typeof receipts.listReceipts>>["data"]} />
+        <ReceiptTable receipts={result.data as Awaited<ReturnType<typeof receipts.listReceipts>>["data"]} sort={{ value: query.sort, keys: TRANSACTION_SORT_KEYS }} />
       ) : kind === "issues" ? (
-        <IssueTable issues={result.data as Awaited<ReturnType<typeof issues.listIssues>>["data"]} />
+        <IssueTable issues={result.data as Awaited<ReturnType<typeof issues.listIssues>>["data"]} sort={{ value: query.sort, keys: TRANSACTION_SORT_KEYS }} />
       ) : kind === "returns" ? (
-        <ReturnTable returns={result.data as Awaited<ReturnType<typeof returns.listReturns>>["data"]} />
+        <ReturnTable returns={result.data as Awaited<ReturnType<typeof returns.listReturns>>["data"]} sort={{ value: query.sort, keys: TRANSACTION_SORT_KEYS }} />
       ) : kind === "transfers" ? (
         <TransferTable
           transfers={result.data as Awaited<ReturnType<typeof transfers.listTransfers>>["data"]}

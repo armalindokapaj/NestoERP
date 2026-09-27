@@ -97,6 +97,10 @@ export type DocumentSortKey = (typeof DOCUMENT_SORT_KEYS)[number];
 
 const FILE_GROUPS = Object.keys(FILE_TYPE_GROUPS) as [string, ...string[]];
 
+/** Upload-date presets offered by the toolbar (PRD #13 §83). */
+export const DOCUMENT_DATE_PRESETS = ["today", "7d", "30d", "year"] as const;
+export type DocumentDatePreset = (typeof DOCUMENT_DATE_PRESETS)[number];
+
 /** Context values offered by the list filter (PRD #13 §72, §79). */
 export const DOCUMENT_CONTEXT_FILTERS = ["project", "client", "task", "record", "company"] as const;
 
@@ -117,15 +121,22 @@ export const documentListQuerySchema = z.object({
   uploadedByMemberId: z.string().optional(),
   /**
    * The Group workspace's company filter (Workspace Context §86, §87). A filter,
-   * not the workspace: only a company the reader may already read narrows
-   * anything, and the company workspace never looks at it. A value that cannot
-   * be a company id is dropped rather than refused, like one that is not theirs.
+   * not the workspace: only a company the reader may already read narrows to
+   * its rows, and the company workspace never looks at it. A value that cannot
+   * be a company id, like one that is not theirs, narrows to no rows — it is
+   * kept, never dropped into "every company" (AUD-08 §3, DT-22).
    */
   companyId: z
     .string()
     .trim()
     .optional()
-    .transform((value) => (value && value.length <= 64 ? value : undefined)),
+    .transform((value) => value || undefined),
+  /**
+   * Upload-date bounds as calendar days in the company's timezone, inclusive
+   * at both ends (AUD-08 §3, DT-03). `datePreset` is resolved against the
+   * company's own "today" by the repository, not the server's clock zone.
+   */
+  datePreset: z.enum(DOCUMENT_DATE_PRESETS).optional(),
   dateFrom: optionalDate,
   dateTo: optionalDate,
   page: z.number().int().min(1).default(1),

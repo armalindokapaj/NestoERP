@@ -37,6 +37,7 @@ export default async function OnboardingPage() {
       ) : (
         <ProgressTable
           rows={rows}
+          total={rows.total}
           kind="onboarding"
           dateLabel="Starts"
           canManage={can(context, "hr.onboarding.manage")}

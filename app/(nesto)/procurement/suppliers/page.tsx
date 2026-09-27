@@ -27,6 +27,7 @@ import {
   supplierStatusLabels,
   supplierTypeLabels,
 } from "@/lib/modules/procurement/procurement.status";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Suppliers" };
 
@@ -142,15 +143,9 @@ async function SupplierList({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/procurement/suppliers?${search}` : "/procurement/suppliers";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/procurement/suppliers", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/procurement/suppliers", searchParams, page);
 
   return (
     <div className="space-y-4">

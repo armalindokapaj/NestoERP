@@ -44,6 +44,7 @@ export default async function OffboardingPage() {
         ) : (
           <ProgressTable
             rows={rows}
+            total={rows.total}
             kind="offboarding"
             dateLabel="Last day"
             canManage={can(context, "hr.offboarding.manage")}

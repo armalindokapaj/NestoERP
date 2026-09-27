@@ -9,10 +9,12 @@ import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/recor
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { approvalDocuments } from "./approvals.documents";
+import { MATCH_LIMIT } from "./providers/shared";
 import {
   approvalError,
   dateRange,
   keysetWhere,
+  markWindowed,
   memberNames,
   notFound,
   personOrUnknown,
@@ -169,6 +171,9 @@ export type CycleProviderConfig = {
 
 /** How many rows one source contributes to one view before the Center stops asking (§252). */
 export const WINDOW = 300;
+
+/** What one provider read learned about its own completeness (AUD-08 §4). */
+type ReadFlags = { windowed: boolean };
 const MAX_ROUNDS = 4;
 
 const CYCLE_STATUSES = new Set<UnifiedApprovalStatus>(["PENDING", "APPROVED", "REJECTED", "RETURNED", "CANCELLED"]);
@@ -202,31 +207,43 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
     return Boolean(adapter.selfPermission && can(context, adapter.selfPermission));
   }
 
-  async function matchClause(context: UserContext, query: ProviderQuery): Promise<object | null> {
+  async function matchClause(context: UserContext, query: ProviderQuery, flags: ReadFlags): Promise<object | null> {
     if (!query.q && !query.projectId && query.amountMin === undefined && query.amountMax === undefined) return null;
     const filters = { q: query.q, projectId: query.projectId, amountMin: query.amountMin, amountMax: query.amountMax };
     const clauses: object[] = [];
     for (const type of types) {
       const ids = await config.records[type].match(context, filters);
+      // A match list at its bound may have left matching records out (§252): the answer is a window, not the whole (AUD-08 §4).
+      if (ids.length >= MATCH_LIMIT) flags.windowed = true;
       if (ids.length > 0) clauses.push({ recordType: type, recordId: { in: ids } });
     }
     // Nothing matched: a clause no row can satisfy, rather than no clause.
     return clauses.length > 0 ? { OR: clauses } : { id: { in: [] } };
   }
 
-  /** Rows for a view, in date order, until `limit` survive reachability or the table runs out. */
+  /**
+   * Rows for a view, in date order, until `limit` survive reachability or the table runs out.
+   *
+   * Either bound can end the read before the table does — Waiting reads one
+   * window and then keeps only what this reader may decide; the other tabs stop
+   * after MAX_ROUNDS windows — and when one does, `flags.windowed` says so, so
+   * the Center never presents a bounded read as the complete list (AUD-08 §4).
+   */
   async function collectRows(
     context: UserContext,
     query: ProviderQuery,
     base: object[],
     dateField: "submittedAt" | "decidedAt",
     keep: (row: CycleRow) => Promise<boolean> | boolean,
+    flags: ReadFlags,
   ): Promise<Array<{ row: CycleRow; sortAt: Date }>> {
     const table = config.table();
     const kept: Array<{ row: CycleRow; sortAt: Date }> = [];
     let after = query.after;
     const take = query.tab === "waiting" ? WINDOW : Math.min(WINDOW, Math.max(query.limit * 2, 40));
-    for (let round = 0; round < (query.tab === "waiting" ? 1 : MAX_ROUNDS); round += 1) {
+    const rounds = query.tab === "waiting" ? 1 : MAX_ROUNDS;
+    let finished = false;
+    for (let round = 0; round < rounds; round += 1) {
       const keyset = query.tab === "waiting" ? null : keysetWhere(dateField, config.key, { after, order: query.order });
       const rows = await table.findMany({
         where: { AND: [...base, ...(keyset ? [keyset] : [])] },
@@ -240,10 +257,15 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         if (!(await keep(row))) continue;
         kept.push({ row, sortAt: (dateField === "decidedAt" ? row.decidedAt : row.submittedAt) ?? row.submittedAt });
       }
-      if (rows.length < take || kept.length >= query.limit) break;
+      if (rows.length < take || kept.length >= query.limit) {
+        // The table ran out, or enough survived; on Waiting a full window may still have left rows unread.
+        finished = !(query.tab === "waiting" && rows.length >= take);
+        break;
+      }
       const last = rows[rows.length - 1];
       after = { at: (dateField === "decidedAt" ? last.decidedAt : last.submittedAt) ?? last.submittedAt, providerKey: config.key, approvalId: last.id };
     }
+    if (!finished) flags.windowed = true;
     return kept.slice(0, query.tab === "waiting" ? WINDOW : query.limit);
   }
 
@@ -406,12 +428,19 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
     });
   }
 
+  /** One view's items, marked as windowed when a bound ended the read early (AUD-08 §4). */
   async function queue(context: UserContext, query: ProviderQuery): Promise<ProviderItem[]> {
+    const flags: ReadFlags = { windowed: false };
+    const items = await queueRows(context, query, flags);
+    return markWindowed(items, flags.windowed);
+  }
+
+  async function queueRows(context: UserContext, query: ProviderQuery, flags: ReadFlags): Promise<ProviderItem[]> {
     const me = context.membershipId;
     const base: object[] = [{ companyId: context.companyId }];
     const statuses = query.statuses.filter((status) => CYCLE_STATUSES.has(status) && (returns || status !== "RETURNED"));
     if (query.statuses.length > 0 && statuses.length === 0) return [];
-    const match = await matchClause(context, query);
+    const match = await matchClause(context, query, flags);
     if (match) base.push(match);
     if (query.requesterId) base.push({ submittedByMemberId: query.requesterId });
 
@@ -421,7 +450,7 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       base.push({ status: "PENDING", recordType: { in: allowed } });
       const range = dateRange(query);
       if (range) base.push({ submittedAt: range });
-      const entries = await collectRows(context, query, base, "submittedAt", () => true);
+      const entries = await collectRows(context, query, base, "submittedAt", () => true, flags);
       const rows = entries.map((entry) => entry.row);
       const chains = config.chain ? await loadApprovalStepsFor(config.key, rows.map((row) => row.id)) : new Map<string, StepRow[]>();
       const eligibility = await eligibilityFor(context, rows, chains);
@@ -439,7 +468,7 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       if (statuses.length > 0) base.push({ status: { in: statuses } });
       const range = dateRange(query);
       if (range) base.push({ submittedAt: range });
-      return (await buildItems(context, await collectRows(context, query, base, "submittedAt", () => true))).items;
+      return (await buildItems(context, await collectRows(context, query, base, "submittedAt", () => true, flags))).items;
     }
 
     // Approved, rejected, returned: decisions this person took, or, on Returned, requests returned to them.
@@ -456,7 +485,7 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         : query.tab === "returned" && query.returned === "all"
           ? [{ OR: [{ decidedByMemberId: me }, { submittedByMemberId: me }] }]
           : [{ decidedByMemberId: me }];
-    const cycles = await collectRows(context, query, [...base, ...whose, { status: outcome }, ...(range ? [{ decidedAt: range }] : [])], "decidedAt", () => true);
+    const cycles = await collectRows(context, query, [...base, ...whose, { status: outcome }, ...(range ? [{ decidedAt: range }] : [])], "decidedAt", () => true, flags);
 
     // A step of a chain decided by this person, while the cycle carried on or ended elsewhere.
     let stepEntries: Array<{ row: CycleRow; sortAt: Date }> = [];

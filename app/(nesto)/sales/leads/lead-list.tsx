@@ -1,4 +1,5 @@
 import { UserPlus } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -11,6 +12,7 @@ import { LEAD_SOURCES, LEAD_STATUSES } from "@/lib/modules/sales/leads/lead.sche
 import { leadSourceLabels, leadStatusLabels } from "@/lib/modules/sales/leads/lead.status";
 import * as leads from "@/lib/modules/sales/leads/lead.service";
 import { parseLeadQuery } from "@/lib/modules/sales/sales.query";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -73,15 +75,9 @@ export async function LeadList({
     },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/sales/leads?${search}` : "/sales/leads";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/sales/leads", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/sales/leads", searchParams, page);
 
   return (
     <div className="space-y-4">

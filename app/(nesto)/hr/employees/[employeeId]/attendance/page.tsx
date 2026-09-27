@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
 
 import { AttendanceTable } from "@/components/hr/attendance-table";
@@ -11,6 +11,7 @@ import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { parseAttendanceQuery } from "@/lib/modules/hr/hr.query";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ employeeId: string }>;
@@ -27,8 +28,12 @@ export default async function EmployeeAttendanceTabPage({ params, searchParams }
   if (!employee.capabilities.canViewAttendance) notFound();
 
   const search = await searchParams;
+  // The tab is this employment's days: its id wins over any `employeeId` in the address (AUD-08 §3, DT-02).
   const query = parseAttendanceQuery({ ...search, employeeId });
   const result = await attendance.listAttendance(context, query);
+  const basePath = `/hr/employees/${employeeId}/attendance`;
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, search, result.pagination.page));
 
   return (
     <div className="space-y-5">
@@ -53,15 +58,9 @@ export default async function EmployeeAttendanceTabPage({ params, searchParams }
         />
       ) : (
         <>
-          <AttendanceTable records={result.data} showEmployee={false} />
-          <Pagination
-            meta={result.pagination}
-            buildHref={(page) =>
-              page > 1
-                ? `/hr/employees/${employeeId}/attendance?page=${page}`
-                : `/hr/employees/${employeeId}/attendance`
-            }
-          />
+          <AttendanceTable records={result.data} showEmployee={false} listId="hr.employee-attendance" />
+          {/* Page links keep the tab's other query keys (AUD-08 §3). */}
+          <Pagination meta={result.pagination} buildHref={(page) => pageHref(basePath, search, page)} />
         </>
       )}
     </div>

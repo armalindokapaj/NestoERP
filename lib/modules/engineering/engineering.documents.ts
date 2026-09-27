@@ -10,6 +10,7 @@ import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.se
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { engineeringDocumentMachine } from "./engineering.document.machine";
 import { linkableTypesFor, listLinks, tasksFromRecord } from "./engineering.links";
 import {
@@ -38,13 +39,15 @@ import {
   fail,
   isOverdue,
   isUniqueViolation,
+  LIST_SNAPSHOT,
   loadProjectThrough,
   memberOptions,
   people,
   personOf,
   projectArchived,
-  resolveProjectContext,
   type ProjectRef,
+  REGISTER_PAGE_SIZE,
+  resolveProjectContext,
 } from "./engineering.shared";
 import {
   DRAWING_TYPES,
@@ -127,11 +130,19 @@ export async function loadEngineeringProject(context: UserContext, projectId: st
   return loadProjectThrough(engineeringProjectDoor(context, permission), projectId, "You cannot open this project's engineering records.");
 }
 
+/**
+ * One register page (AUD-08 §3, §4): authorized scope, then the section
+ * (`projectId`, `drawings`/`types`) and the filters, then the order — project name, then document number; the id breaks ties so a page never repeats or drops a row
+ * (DT-04) — then the page, all in the database. Rows and total share one
+ * snapshot (DT-06); `page` is the request clamped to the last real page, so a
+ * page past the end moves there once (DT-05). A project id outside the
+ * reader's reach is refused like a missing one (DT-22).
+ */
 export async function listEngineeringDocuments(context: UserContext, query: EngineeringDocumentListQuery): Promise<{ items: EngineeringDocumentRowDTO[]; total: number; page: number; pageSize: number }> {
   assertModule(context, MODULE);
   if (!engineeringOpen(context, "engineering_document.view")) throw new AccessError("FORBIDDEN", "You cannot open the document register.");
   if (query.projectId) await loadEngineeringProject(context, query.projectId, "engineering_document.view");
-  const pageSize = 50;
+  const pageSize = REGISTER_PAGE_SIZE;
   const filters: Prisma.EngineeringDocumentWhereInput[] = [readableEngineeringDocumentWhere(context)];
   if (query.projectId) filters.push({ projectId: query.projectId });
   if (query.drawings) filters.push({ documentType: { in: DRAWING_TYPES } });
@@ -144,11 +155,11 @@ export async function listEngineeringDocuments(context: UserContext, query: Engi
   if (query.awaitingReview) filters.push({ status: { in: [...AWAITING] } });
   if (query.q) filters.push({ OR: [{ documentNumber: { contains: query.q, mode: "insensitive" } }, { title: { contains: query.q, mode: "insensitive" } }] });
   const where = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.engineeringDocument.findMany({ where, orderBy: [{ project: { name: "asc" } }, { documentNumber: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: DOCUMENT_SELECT }),
-    prisma.engineeringDocument.count({ where }),
-  ]);
-  return { items: await toRows(context, rows), total, page: query.page, pageSize };
+  const [rows, total] = await prisma.$transaction(
+    [prisma.engineeringDocument.findMany({ where, orderBy: [{ project: { name: "asc" } }, { documentNumber: "asc" }, { id: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: DOCUMENT_SELECT }), prisma.engineeringDocument.count({ where })],
+    LIST_SNAPSHOT,
+  );
+  return { items: await toRows(context, rows), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 export async function getEngineeringDocument(context: UserContext, id: string): Promise<EngineeringDocumentDetailDTO> {

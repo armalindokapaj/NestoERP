@@ -230,14 +230,18 @@ describe("a company that does not offer Documents (§60, §92)", () => {
     expect(result.data.map((row) => row.id)).not.toContain(documentB);
   });
 
-  it("ignores a company filter that names it, and shows what the group does read", async () => {
+  // AUD-08 §3, DT-22: a company whose Documents are off answers no rows; it
+  // used to be ignored, answering every other company's files instead.
+  it("a company filter that names it answers no rows; the group still reads the rest", async () => {
     await switchModule(COMPANY.b, "documents", false);
     const fresh = await loginAs("OWNER", { workspace: "GROUP" });
 
     const unfiltered = await listDocumentsForWorkspace(fresh, query());
     const named = await listDocumentsForWorkspace(fresh, query({ companyId: COMPANY.b }));
-    expect(named.data.map((row) => row.id).sort()).toEqual(unfiltered.data.map((row) => row.id).sort());
-    expect(named.data.map((row) => row.id)).not.toContain(documentB);
+    expect(named.data.map((row) => row.id)).toEqual([]);
+    expect(named.pagination.total).toBe(0);
+    expect(unfiltered.data.length).toBeGreaterThan(0);
+    expect(unfiltered.data.map((row) => row.id)).not.toContain(documentB);
   });
 
   it("is refused, not shown as empty, to a person who holds Documents nowhere", async () => {
@@ -257,12 +261,15 @@ describe("the company filter (§86, §87)", () => {
     expect(namesOf(onlyD.data)).toEqual(["Forma marina survey"]);
   });
 
-  it("ignores a company the person may not read, and one that does not exist, without saying which", async () => {
+  // AUD-08 §3, DT-22: unreadable, unknown and malformed companies all answer
+  // the same empty list — nothing broadens, and nothing says which it was.
+  it("a company the person may not read, one that does not exist and a malformed id all answer no rows", async () => {
     const unfiltered = await listDocumentsForWorkspace(owner, query());
+    expect(unfiltered.pagination.total).toBeGreaterThan(0);
     for (const companyId of [COMPANY.tenant, COMPANY.works, COMPANY.suspended, "company_that_does_not_exist", "x".repeat(300)]) {
       const result = await listDocumentsForWorkspace(owner, query({ companyId }));
-      expect(result.data.map((row) => row.id).sort(), companyId).toEqual(unfiltered.data.map((row) => row.id).sort());
-      expect(result.pagination.total).toBe(unfiltered.pagination.total);
+      expect(result.data.map((row) => row.id), companyId).toEqual([]);
+      expect(result.pagination.total, companyId).toBe(0);
     }
   });
 
@@ -366,7 +373,9 @@ describe("GET /api/documents (§85)", () => {
     expect(body.data.find((row) => row.id === documentB)?.company).toEqual({ id: COMPANY.b, name: "Meridian Developments" });
   });
 
-  it("narrows to a company with ?company=, and ignores one that is not the person's to read", async () => {
+  // AUD-08 §3, DT-22: a company the person may not read answers no rows. It
+  // used to be ignored, answering every company's files — a silent broadening.
+  it("narrows to a company with ?company=; one that is not the person's to read answers no rows", async () => {
     actAs(owner);
     const narrowed = await listDocumentsRoute(url(`search=${encodeURIComponent(TAG)}&company=${COMPANY.b}`));
     const narrowedBody = (await narrowed.json()) as { data: Array<{ id: string }> };
@@ -375,7 +384,7 @@ describe("GET /api/documents (§85)", () => {
     const foreign = await listDocumentsRoute(url(`search=${encodeURIComponent(TAG)}&company=${COMPANY.tenant}`));
     expect(foreign.status).toBe(200);
     const foreignBody = (await foreign.json()) as { data: Array<{ id: string }> };
-    expect(foreignBody.data.map((row) => row.id).sort()).toEqual([documentA, documentB, documentD].sort());
+    expect(foreignBody.data.map((row) => row.id)).toEqual([]);
   });
 
   it("in a company workspace answers only that company, without company labels", async () => {

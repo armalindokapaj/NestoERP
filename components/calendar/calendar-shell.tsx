@@ -293,6 +293,13 @@ export function CalendarShell({
         </div>
       ) : null}
 
+      {response.meta.truncated ? (
+        // A bounded read is said out loud, never shown as the whole period (AUD-08 §4, DT-05).
+        <p role="status" data-testid="calendar-truncated" className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-table text-warning-strong">
+          Not every item in this period is shown: there are more than the calendar loads at once. Narrow the filters or choose a shorter view.
+        </p>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 gap-4">
         <aside
           className={cn(

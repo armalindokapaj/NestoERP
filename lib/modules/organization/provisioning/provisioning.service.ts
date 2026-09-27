@@ -1,4 +1,4 @@
-import type { Prisma, ProvisioningStatus } from "@prisma/client";
+import { Prisma, type ProvisioningStatus } from "@prisma/client";
 
 import { isMembershipRoleKey, roleLabel } from "@/config/roles";
 import { can, canAny, getModuleScope } from "@/lib/access/can";
@@ -11,11 +11,12 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { assertTransitionAllowed, applyTransition } from "@/lib/core/state/transition";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { linkEmploymentToLogin } from "@/lib/modules/hr/person.doors";
 import { RECRUITABLE_ROLE_KEYS } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor } from "@/lib/modules/shared/list-query";
 import { createProvisionedMembership } from "@/lib/modules/team/team.provisioning";
 import { provisioningRequestMachine, type ProvisioningAction } from "./provisioning.machine";
 import type { CreateProvisioningRequestInput, ProvisionInput, ProvisioningListQuery } from "./provisioning.schema";
@@ -170,17 +171,23 @@ export async function listProvisioningRequests(context: UserContext, query: Prov
   const where: Prisma.UserProvisioningRequestWhereInput = {
     AND: [reachWhere(context), query.status ? { status: query.status } : {}],
   };
-  const [total, rows] = await Promise.all([
-    prisma.userProvisioningRequest.count({ where }),
-    prisma.userProvisioningRequest.findMany({
-      where,
-      select: SUMMARY_SELECT,
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      skip: (query.page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-  ]);
-  return { data: rows.map(toSummary), meta: paginationMeta(total, query.page, PAGE_SIZE) };
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "organization.provisioning.list",
+    async (tx) => {
+      const window = pageWindow(await tx.userProvisioningRequest.count({ where }), query.page, PAGE_SIZE);
+      const rows = await tx.userProvisioningRequest.findMany({
+        where,
+        select: SUMMARY_SELECT,
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+      });
+      return { rows, window };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
+  return { data: rows.map(toSummary), meta: window };
 }
 
 async function findInReach(context: UserContext, requestId: string) {

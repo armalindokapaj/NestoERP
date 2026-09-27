@@ -68,7 +68,7 @@ export async function listApproverAssignments(context: UserContext): Promise<App
   if (!managing && !team) throw new AccessError("FORBIDDEN");
   const members = await prisma.companyMember.findMany({
     where: { AND: [{ companyId: context.companyId, status: "ACTIVE" }, managing ? {} : team!] },
-    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }],
+    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
     take: 500,
     select: {
       ...PERSON,
@@ -106,7 +106,7 @@ export async function approverOptions(context: UserContext): Promise<TimesheetPe
   assertPermission(context, "timesheet.settings.manage");
   const members = await prisma.companyMember.findMany({
     where: { companyId: context.companyId, status: "ACTIVE", user: { status: "ACTIVE" } },
-    orderBy: [{ user: { firstName: "asc" } }],
+    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
     take: 500,
     select: PERSON,
   });

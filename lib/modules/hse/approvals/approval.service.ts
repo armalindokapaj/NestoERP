@@ -8,6 +8,7 @@ import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../hse.list";
 import { dateString, loadMembers, toProjectRef } from "../hse.dto";
 import {
   buildIncidentScopeWhere,
@@ -467,16 +468,21 @@ export async function listApprovalQueue(
     ...(options.includeDecided ? {} : { status: "PENDING" as const }),
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.hseApproval.findMany({
-      where,
-      orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
-      skip: skipFor(page, limit),
-      take: limit,
-      select: APPROVAL_SELECT,
-    }),
-    prisma.hseApproval.count({ where }),
-  ]);
+  // One snapshot for the page and its total; the oldest waiting first, then
+  // the id, so equal submission times keep one order across pages (AUD-08 §4).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseApproval.findMany({
+        where,
+        orderBy: [{ status: "asc" }, { submittedAt: "asc" }, { id: "asc" }],
+        skip: skipFor(page, limit),
+        take: limit,
+        select: APPROVAL_SELECT,
+      }),
+      prisma.hseApproval.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,

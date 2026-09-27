@@ -34,7 +34,8 @@ export async function listFavorites(context: UserContext, options: { limit?: num
   if (!(await resolveProductivitySettings(context.companyId)).favoritesEnabled) return [];
   const rows = await prisma.userFavorite.findMany({
     where: { companyId: context.companyId, memberId: context.membershipId },
-    orderBy: { createdAt: "desc" },
+    // Newest first, then id: a total order, so which favorites fill the limit is stable (AUD-08 §4, DT-04).
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: FAVORITES_LIMIT,
     select: { entityType: true, entityId: true, createdAt: true },
   });

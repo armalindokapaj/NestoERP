@@ -3630,3 +3630,72 @@ No migrations.
   - The QA/QC request edit shows an inspector field that is never saved.
   - HSE lifecycle notes have no length limit.
   - Project animations cannot be uploaded, because there is no video type in the file registry.
+
+## 46. AUD-08 — Data tables and exports: the list, its count and its file agree
+
+AUD-08 makes every list read its rows, its count and its totals as one answer. Each list sorts deterministically, and each export carries exactly what the list matches. The inventory of 243 lists, with their query owner, sections, filters, sorts, limits, columns, actions and export, is [list-manifest.md](tables/list-manifest.md) (DT-01). A test fails when a `listId` in code has no row.
+
+### 46.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Rows and count came from two separate reads (`Promise.all`), so they could disagree, and a page past the end came back empty next to a non-zero count | One REPEATABLE READ transaction per list response (`pageWindow`). A page past the end redirects once to the last real page (`listPageRedirect`), or to page 1 when there are no rows |
+| Sorts had no unique tie-breaker: equal dates or names could repeat or skip rows across pages | `withTieBreaker` appends the id to every list and export sort. Null placement is stated per key |
+| Many lists and tabs stopped at 50, 100, 300, 500 or 10,000 rows without saying so. Affected: project tasks and documents, approvals, calendar sources, HSE and QA/QC registers, procurement and contract approvals, recruitment, provisioning, activity feeds, dashboard low stock and the planning report | They page, or say "Showing N of M" / "top N of M". The approvals and calendar sources report `windowed`/`truncated` |
+| Filters and sorts that ran on the fetched page only: opportunity probability, low stock, "ready to close" | Applied in the query, before the count and the page |
+| Section restrictions were lost: `/contracts/drafts?view=archived`, an Overdue `due` override, and contract section exports that exported every contract | The section is part of the typed query, and the page, count, summary and export all read it |
+| An unreadable or unknown `company` filter in the Group workspace, and a foreign project filter in People, fell back to every company | They return no rows (DT-22) |
+| Exports stopped silently at 1,000 (sales, HR), 100 (contracts) or 5,000 (audit), and a bad filter was dropped | A shared exporter (`lib/core/export`): declared limits (10,000 rows / 10 MiB / 30 s unless stricter), a count preflight, `EXPORT_LIMIT_EXCEEDED` and `EXPORT_INCOMPLETE` as JSON (never a short file), strict parameters (`EXPORT_FILTER_INVALID`, `EXPORT_COMPANY_OUT_OF_SCOPE`), one consistent read, `no-store` and `nosniff` headers, and standard columns with company and project ids and a separate currency column |
+| QA/QC, inventory and audit wrote CSV without formula protection, and number-like text was left bare | Every file goes through `csv.ts` with typed columns. Only declared numbers stay bare, and formula-like text (including whitespace- or control-prefixed forms) is guarded |
+| Export links saved whatever came back | An Export button showing "All matching records · Standard columns", Preparing/Ready/Failed and a retry, which never saves an error response as a file |
+| No column choice, header sort or honest counts | A Columns control (mandatory identity columns, Reset; stored per user, workspace and list in local storage, ids only, safe when storage is denied). Header sorts with `aria-sort`. "1–25 of 73", "0 results", and a count even on a single page. Clear filters keeps section and sort. Search no longer navigates on an unchanged blur |
+| Other bugs found and fixed | The QA/QC approvals count included records the reader cannot open. HSE inspection failed-item counts were wrong. `heldOnly=false` was read as true. A stale sort in the URL crashed procurement and inventory pages. An employee's Attendance tab listed everyone. Team sections could be swapped from the URL. Activity and document date ranges used the server's midnight instead of the company's day |
+
+No migrations. No selection-based bulk action exists in any module. Every list records "not supported", and no selection UI was built (§6).
+
+### 46.2 The evidence
+
+- **New tests:**
+  - Shared: `tests/unit/tables/*` and `tests/api/tables/aud08-shared` (58).
+  - CSV and exports: `tests/unit/csv/aud08-csv` and `tests/api/exports/aud08-exports`.
+    - The exports are checked by parsing the actual bytes with an independent RFC 4180 reader.
+    - They cover DT-14 (all matching rows beyond one page, in order), DT-15, DT-16 (a concurrent write during an export, held with a real lock barrier), DT-17 and DT-18 (21 adversarial values).
+  - Per module, `aud08-*` files in tasks, documents, clients, HSE, QA/QC, engineering, meetings, daily logs, announcements, approvals, calendar, activity, dashboard, planning, finance, contracts, sales, inventory, HR, team and people.
+  - Expected ids, counts and totals are written by hand in every test.
+  - DT-06 holds a list between its page read and its count while another connection commits. It fails under READ COMMITTED (30 against 29), which proves the test detects the race.
+- **Full vitest on two lanes:**
+  - `nesto_a6b`: 3,586 of 3,588. The two failures also fail on 324a3ca9: the 3D viewer shell (another workstream) and the telemetry series budget (AUD-07).
+  - `nesto_a10e`: 1,925 passed, 2 skipped, and 1 failure, a clock-dependent flake explained below.
+- **`announcements.schedule` flake:** the seeded "office closure" schedule is dated "days from now" at seed time, and it had come due on the lanes. The test now moves seeded schedules a year ahead for its duration and restores them. It passes on a lane where that schedule was due, and the seed row is left SCHEDULED.
+- **Tests changed on purpose:**
+  - The tasks, documents and meetings `group-workspace` tests now expect no rows for an unreadable company filter (DT-22).
+  - `tests/unit/utils/csv.test.ts`: number-like text is now text.
+  - `tests/e2e/modules/hse.spec.ts`: the export control is now a button.
+  - `audit-trail.test.ts` now calls `exportAuditLog`; the truncating `exportAuditEvents` was removed.
+- **Gates:**
+  - Pass: `tsc`; eslint on 405 changed files; `verify:authorization`, `ownership`, `state`, `workers`, `production-guards`, `company-integrity`, `organization`, `employment`, `employee-integrity`, `workflows`; `security:matrix --check`; `security:access-manifest:check`.
+  - A production `next build` also passes. It was built into a separate output directory before pushing, and is now done for every PRD.
+- **E2E, written for the single final pass:** `tests/e2e/tables/aud08-{shared,exports,operations,business}.spec.ts`.
+
+### 46.3 Limits and open decisions
+
+- **Snapshot cost:** each list now opens a short read transaction. AUD-07 measures its cost.
+- **Caps still in place,** each now stated on screen or in the manifest:
+  - crews, invitations and access grants;
+  - department candidates and activity;
+  - employee documents and qualifications;
+  - unit sales and legal history;
+  - activity feeds in inventory, sales and contracts;
+  - contractor projects, contacts and compliance (200);
+  - the timesheet approver roster.
+- **Custom tables** (engineering, contractors, daily logs, meetings, announcements) have honest counts and sorts, but no Columns control.
+- **Open product questions:**
+  - Audit export: the audit log caps exports at 5,000 events and has no date filter, so a busy company can hit a refusal it cannot narrow.
+  - Finance export wording still says "CSV downloaded" (AUD-01's test); every other export says "Download started".
+  - The approvals amount sort compares amounts in different currencies.
+  - "Overdue": tasks count due-today as overdue, while HSE and QA/QC use the UTC day.
+  - Sales unit inventory still makes two separate reads.
+  - An unparseable contract date filter is ignored rather than refused.
+- **Other limits:**
+  - Leading-zero codes stay text in the file, but a spreadsheet may still show them as numbers unless the column is imported as Text.
+  - The Export control's sentences are not yet in `lib/i18n/messages`.

@@ -262,7 +262,12 @@ export default async function HazardPage({ params }: Params) {
           {may.canViewActivity ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Activity</h2>
-              <HseActivityFeed context={context} entityType="HseHazard" entityId={hazard.id} />
+              <HseActivityFeed
+                context={context}
+                entityType="HseHazard"
+                entityId={hazard.id}
+                moreHref={`/hse/hazards/${hazard.id}/activity`}
+              />
             </section>
           ) : null}
         </div>

@@ -6,6 +6,7 @@ import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { getUnreadCountForWorkspace, markAllReadForWorkspace, markRecordNotificationsRead, readableRows, WITHDRAWN_TITLE, withdrawnNotificationIds } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
+import { addLocalDays, isValidTimeZone, startOfLocalDay } from "@/lib/core/time/zoned-time";
 import { excerpt } from "@/lib/modules/announcements/announcement.body";
 import { announcementsOpen, reachWhere } from "@/lib/modules/announcements/announcement.permissions";
 import { acknowledgeAnnouncement, live, markRead as markAnnouncementRead, markSeenMany } from "@/lib/modules/announcements/announcement.service";
@@ -64,6 +65,13 @@ export type ActivityFilters = {
   q?: string | null;
   from?: Date | null;
   to?: Date | null;
+  /**
+   * Inclusive calendar days (YYYY-MM-DD). When given they win over `from`/`to`
+   * and are read in the session company's zone: `from` its local midnight,
+   * `to` the instant before the next local midnight (AUD-08 §3).
+   */
+  fromDay?: string | null;
+  toDay?: string | null;
   cursor?: string | null;
   limit?: number;
 };
@@ -294,8 +302,21 @@ async function notificationItems(contexts: UserContext[], filters: ActivityFilte
  * The first page carries the critical announcements still waiting on the
  * person above the chronology; they are not repeated below it.
  */
-export async function listActivity(session: UserContext, filters: ActivityFilters = {}): Promise<ActivityPage> {
+/** Day filters as instants in the session company's zone; plain instants pass through (AUD-08 §3). */
+async function zonedRange(session: UserContext, filters: ActivityFilters): Promise<ActivityFilters> {
+  if (!filters.fromDay && !filters.toDay) return filters;
+  const settings = await prisma.companySettings.findUnique({ where: { companyId: session.companyId }, select: { timezone: true } });
+  const zone = settings?.timezone && isValidTimeZone(settings.timezone) ? settings.timezone : "UTC";
+  return {
+    ...filters,
+    from: filters.fromDay ? startOfLocalDay(filters.fromDay, zone) : (filters.from ?? null),
+    to: filters.toDay ? new Date(startOfLocalDay(addLocalDays(filters.toDay, 1), zone).getTime() - 1) : (filters.to ?? null),
+  };
+}
+
+export async function listActivity(session: UserContext, input: ActivityFilters = {}): Promise<ActivityPage> {
   const started = performance.now();
+  const filters = await zonedRange(session, input);
   const all = await resolvePersonalContexts(session);
   const contexts = narrow(all, filters.companyId);
   const type = filters.type ?? "ALL";

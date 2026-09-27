@@ -2,6 +2,8 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import type { Prisma } from "@prisma/client";
+import { SNAPSHOT } from "../hse.list";
 import { RISK_AXIS, calculateRiskLevel, riskLevelLabels } from "../hse.risk";
 import {
   buildActionScopeWhere,
@@ -67,6 +69,14 @@ export type ReportResult = {
   label: string;
   columns: { key: string; label: string; numeric?: boolean }[];
   rows: ReportRow[];
+  /**
+   * A bounded register's true number of matching records, and the row bound
+   * it stopped at (AUD-08 §4, DT-01): when `total > limit` the page says so
+   * and points at the full, paged list instead of truncating silently.
+   * Absent on aggregates and complete lists.
+   */
+  total?: number;
+  limit?: number;
   /** The 5×5 grid, only for the risk matrix (PRD #22 §202). */
   matrix?: {
     likelihood: number;
@@ -185,28 +195,40 @@ async function hazardRegister(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.hseHazard.findMany({
-    where: { ...buildHazardScopeWhere(context), ...project },
-    orderBy: [{ riskScore: "desc" }, { observedAt: "desc" }],
-    take: 500,
-    select: {
-      hazardNumber: true,
-      title: true,
-      hazardCategory: true,
-      riskLevel: true,
-      riskScore: true,
-      residualRiskLevel: true,
-      status: true,
-      observedAt: true,
-      dueDate: true,
-      project: { select: { code: true } },
-      assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.HseHazardWhereInput = { ...buildHazardScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseHazard.findMany({
+        where,
+        orderBy: [{ riskScore: "desc" }, { observedAt: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          hazardNumber: true,
+          title: true,
+          hazardCategory: true,
+          riskLevel: true,
+          riskScore: true,
+          residualRiskLevel: true,
+          status: true,
+          observedAt: true,
+          dueDate: true,
+          project: { select: { code: true } },
+          assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      prisma.hseHazard.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const now = Date.now();
 
   return {
+    total,
+    limit: 500,
     key: "hazard-register",
     label,
     columns: [
@@ -303,28 +325,40 @@ async function criticalHazards(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.hseHazard.findMany({
-    where: {
-      ...buildHazardScopeWhere(context),
-      ...project,
-      riskLevel: "CRITICAL",
-      status: { in: OPEN_HAZARD_STATUSES },
-    },
-    orderBy: [{ observedAt: "asc" }],
-    take: 200,
-    select: {
-      hazardNumber: true,
-      title: true,
-      riskScore: true,
-      status: true,
-      observedAt: true,
-      immediateControl: true,
-      project: { select: { code: true } },
-      assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.HseHazardWhereInput = {
+    ...buildHazardScopeWhere(context),
+    ...project,
+    riskLevel: "CRITICAL",
+    status: { in: OPEN_HAZARD_STATUSES },
+  };
+  // A bounded register: the first 200 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseHazard.findMany({
+        where,
+        orderBy: [{ observedAt: "asc" }, { id: "asc" }],
+        take: 200,
+        select: {
+          hazardNumber: true,
+          title: true,
+          riskScore: true,
+          status: true,
+          observedAt: true,
+          immediateControl: true,
+          project: { select: { code: true } },
+          assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      prisma.hseHazard.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return {
+    total,
+    limit: 200,
     key: "critical-hazards",
     label,
     columns: [
@@ -479,26 +513,38 @@ async function riskRegister(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.hseRiskAssessment.findMany({
-    where: { ...buildRiskAssessmentScopeWhere(context), ...project },
-    orderBy: [{ assessmentNumber: "asc" }, { version: "desc" }],
-    take: 500,
-    select: {
-      assessmentNumber: true,
-      title: true,
-      version: true,
-      status: true,
-      assessmentDate: true,
-      reviewDate: true,
-      project: { select: { code: true } },
-      owner: { select: { user: { select: { firstName: true, lastName: true } } } },
-      items: { select: { riskLevel: true } },
-    },
-  });
+  const where: Prisma.HseRiskAssessmentWhereInput = { ...buildRiskAssessmentScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseRiskAssessment.findMany({
+        where,
+        orderBy: [{ assessmentNumber: "asc" }, { version: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          assessmentNumber: true,
+          title: true,
+          version: true,
+          status: true,
+          assessmentDate: true,
+          reviewDate: true,
+          project: { select: { code: true } },
+          owner: { select: { user: { select: { firstName: true, lastName: true } } } },
+          items: { select: { riskLevel: true } },
+        },
+      }),
+      prisma.hseRiskAssessment.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
   return {
+    total,
+    limit: 500,
     key: "risk-register",
     label,
     columns: [
@@ -543,32 +589,44 @@ async function actionReport(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.hseAction.findMany({
-    where: { ...buildActionScopeWhere(context), ...project },
-    orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-    take: 500,
-    select: {
-      actionNumber: true,
-      title: true,
-      priority: true,
-      status: true,
-      dueDate: true,
-      project: { select: { code: true } },
-      assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
-      hazard: { select: { hazardNumber: true } },
-      incident: { select: { incidentNumber: true } },
-      inspection: { select: { inspectionNumber: true } },
-      riskAssessment: { select: { assessmentNumber: true } },
-      environmentalObservation: { select: { observationNumber: true } },
-      stopWork: { select: { stopWorkNumber: true } },
-      permit: { select: { permitNumber: true } },
-    },
-  });
+  const where: Prisma.HseActionWhereInput = { ...buildActionScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseAction.findMany({
+        where,
+        orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+        take: 500,
+        select: {
+          actionNumber: true,
+          title: true,
+          priority: true,
+          status: true,
+          dueDate: true,
+          project: { select: { code: true } },
+          assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
+          hazard: { select: { hazardNumber: true } },
+          incident: { select: { incidentNumber: true } },
+          inspection: { select: { inspectionNumber: true } },
+          riskAssessment: { select: { assessmentNumber: true } },
+          environmentalObservation: { select: { observationNumber: true } },
+          stopWork: { select: { stopWorkNumber: true } },
+          permit: { select: { permitNumber: true } },
+        },
+      }),
+      prisma.hseAction.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const midnight = new Date();
   midnight.setHours(0, 0, 0, 0);
 
   return {
+    total,
+    limit: 500,
     key: "action-report",
     label,
     columns: [
@@ -622,22 +680,34 @@ async function toolboxSummary(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.toolboxTalk.findMany({
-    where: { ...buildToolboxScopeWhere(context), ...project, status: "COMPLETED" },
-    orderBy: [{ talkDate: "desc" }],
-    take: 500,
-    select: {
-      talkNumber: true,
-      title: true,
-      topic: true,
-      talkDate: true,
-      project: { select: { code: true } },
-      conductedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
-      participants: { select: { attendanceStatus: true } },
-    },
-  });
+  const where: Prisma.ToolboxTalkWhereInput = { ...buildToolboxScopeWhere(context), ...project, status: "COMPLETED" };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.toolboxTalk.findMany({
+        where,
+        orderBy: [{ talkDate: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          talkNumber: true,
+          title: true,
+          topic: true,
+          talkDate: true,
+          project: { select: { code: true } },
+          conductedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
+          participants: { select: { attendanceStatus: true } },
+        },
+      }),
+      prisma.toolboxTalk.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return {
+    total,
+    limit: 500,
     key: "toolbox-summary",
     label,
     columns: [
@@ -672,26 +742,38 @@ async function permitRegister(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.hseWorkPermit.findMany({
-    where: { ...buildPermitScopeWhere(context), ...project },
-    orderBy: [{ validFrom: "desc" }],
-    take: 500,
-    select: {
-      permitNumber: true,
-      permitType: true,
-      title: true,
-      status: true,
-      locationText: true,
-      validFrom: true,
-      validUntil: true,
-      project: { select: { code: true } },
-      responsible: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.HseWorkPermitWhereInput = { ...buildPermitScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseWorkPermit.findMany({
+        where,
+        orderBy: [{ validFrom: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          permitNumber: true,
+          permitType: true,
+          title: true,
+          status: true,
+          locationText: true,
+          validFrom: true,
+          validUntil: true,
+          project: { select: { code: true } },
+          responsible: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      prisma.hseWorkPermit.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const now = Date.now();
 
   return {
+    total,
+    limit: 500,
     key: "permit-register",
     label,
     columns: [
@@ -742,7 +824,7 @@ async function expiringPermits(
       status: { in: ["ACTIVE", "APPROVED", "SUSPENDED"] },
       validUntil: { gte: now, lte: horizon },
     },
-    orderBy: [{ validUntil: "asc" }],
+    orderBy: [{ validUntil: "asc" }, { id: "asc" }],
     select: {
       permitNumber: true,
       permitType: true,
@@ -855,26 +937,38 @@ async function environmentalRegister(
   project: { projectId?: string },
   label: string,
 ): Promise<ReportResult> {
-  const rows = await prisma.environmentalObservation.findMany({
-    where: { ...buildObservationScopeWhere(context), ...project },
-    orderBy: [{ observedAt: "desc" }],
-    take: 500,
-    select: {
-      observationNumber: true,
-      title: true,
-      category: true,
-      severity: true,
-      status: true,
-      observedAt: true,
-      dueDate: true,
-      project: { select: { code: true } },
-      assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.EnvironmentalObservationWhereInput = { ...buildObservationScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.environmentalObservation.findMany({
+        where,
+        orderBy: [{ observedAt: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          observationNumber: true,
+          title: true,
+          category: true,
+          severity: true,
+          status: true,
+          observedAt: true,
+          dueDate: true,
+          project: { select: { code: true } },
+          assignedTo: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      prisma.environmentalObservation.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const now = Date.now();
 
   return {
+    total,
+    limit: 500,
     key: "environmental-register",
     label,
     columns: [
@@ -913,22 +1007,34 @@ async function stopWorkRegister(
 ): Promise<ReportResult> {
   if (!can(context, "hse.stop_work.view")) throw new AccessError("FORBIDDEN");
 
-  const rows = await prisma.stopWorkRecord.findMany({
-    where: { ...buildStopWorkScopeWhere(context), ...project },
-    orderBy: [{ status: "asc" }, { issuedAt: "desc" }],
-    take: 500,
-    select: {
-      stopWorkNumber: true,
-      title: true,
-      status: true,
-      issuedAt: true,
-      releasedAt: true,
-      project: { select: { code: true } },
-      issuedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.StopWorkRecordWhereInput = { ...buildStopWorkScopeWhere(context), ...project };
+  // A bounded register: the first 500 rows in a stable order (the id
+  // breaks ties) and the true total from the same snapshot, so the page can
+  // say where it stopped instead of stopping silently (AUD-08 §4, DT-01).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.stopWorkRecord.findMany({
+        where,
+        orderBy: [{ status: "asc" }, { issuedAt: "desc" }, { id: "asc" }],
+        take: 500,
+        select: {
+          stopWorkNumber: true,
+          title: true,
+          status: true,
+          issuedAt: true,
+          releasedAt: true,
+          project: { select: { code: true } },
+          issuedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+      prisma.stopWorkRecord.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return {
+    total,
+    limit: 500,
     key: "stop-work-register",
     label,
     columns: [

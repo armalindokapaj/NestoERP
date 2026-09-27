@@ -154,7 +154,16 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
       .then(async (response) => {
         const json = (await response.json().catch(() => null)) as { data?: UnitListDTO; error?: { message?: string } } | null;
         if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? "Could not load units.");
-        setUnits(json.data);
+        const list = json.data;
+        // A page left past the end (a delete, a move, a narrower filter) steps
+        // once to the last real page; its URL follows (AUD-08 §4, DT-05). The
+        // target is always in range, so this cannot loop.
+        const lastPage = Math.max(1, Math.ceil(list.total / list.pageSize));
+        if (list.items.length === 0 && list.total > 0 && list.page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
+        setUnits(list);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;

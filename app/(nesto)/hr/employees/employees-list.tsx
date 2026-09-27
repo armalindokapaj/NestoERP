@@ -1,4 +1,5 @@
 import { UserRoundCog } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -8,10 +9,11 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseEmployeeQuery } from "@/lib/modules/hr/hr.query";
 import { ACCOUNT_STATUSES } from "@/lib/modules/hr/hr.person";
-import { EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
+import { EMPLOYEE_SORT_KEYS, EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
 import { accountStatusLabels, employmentStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import { employeeFilterOptions } from "@/lib/modules/hr/employees/employee.repository";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -90,15 +92,9 @@ export async function EmployeesList({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/hr/employees?${search}` : "/hr/employees";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/hr/employees", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/hr/employees", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -137,7 +133,7 @@ export async function EmployeesList({
         )
       ) : (
         <>
-          <EmployeeTable employees={result.data} />
+          <EmployeeTable employees={result.data} sort={{ value: query.sort, keys: EMPLOYEE_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

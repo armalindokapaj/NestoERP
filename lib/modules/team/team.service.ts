@@ -7,12 +7,13 @@ import { Prisma, type MembershipStatus } from "@prisma/client";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as repository from "./team.repository";
 import { canTransitionMembershipStatus } from "./membership.status";
 import type { TeamListQuery, UpdateMemberInput } from "./team.schema";
@@ -45,16 +46,21 @@ const ENTITY = "CompanyMember";
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listMembers(context: UserContext, query: TeamListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "team.member.view");
 
-  const { rows, total, projectCounts } = await repository.listMembers(context, query);
   const showSecurity = can(context, "team.member.security_metadata.view");
+  // Ordering by last login would reveal it to a reader who may not see it: that sort is theirs only (AUD-08 §5, DT-09).
+  const sorted = query.sort === "last-login-desc" && !showSecurity ? { ...query, sort: "name-asc" as const } : query;
+  const { rows, window, projectCounts } = await repository.listMembers(context, sorted);
 
   return {
     data: rows.map((row) => toSummaryDTO(row, projectCounts.get(row.id) ?? 0, showSecurity)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -143,23 +149,29 @@ export async function listMemberActivity(
     ],
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.activity.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: skipFor(options.page, options.limit),
-      take: options.limit,
-      select: {
-        id: true,
-        action: true,
-        message: true,
-        createdAt: true,
-        actorMemberId: true,
-        actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
-      },
-    }),
-    prisma.activity.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "team.activity.list",
+    async (tx) => {
+      const window = pageWindow(await tx.activity.count({ where }), options.page, options.limit);
+      const rows = await tx.activity.findMany({
+        where,
+        orderBy: withTieBreaker({ createdAt: "desc" }),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: {
+          id: true,
+          action: true,
+          message: true,
+          createdAt: true,
+          actorMemberId: true,
+          actorMember: { select: { user: { select: { firstName: true, lastName: true } } } },
+        },
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const data: TeamActivityDTO[] = rows.map((row) => ({
     id: row.id,
@@ -172,7 +184,7 @@ export async function listMemberActivity(
     createdAt: row.createdAt.toISOString(),
   }));
 
-  return { data, pagination: paginationMeta(total, options.page, options.limit) };
+  return { data, pagination: window };
 }
 
 /* -------------------------------------------------------------------------- */

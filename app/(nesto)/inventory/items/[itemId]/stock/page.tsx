@@ -23,7 +23,7 @@ export default async function ItemStockPage({ params }: Params) {
           description="None of this item is recorded in a location you can see."
         />
       ) : (
-        <StockTable rows={item.byLocation} show="by-item" caption={`${item.name} by location`} />
+        <StockTable rows={item.byLocation} show="by-item" caption={`${item.name} by location`} listId="inventory.item-stock" />
       )}
     </ItemPageShell>
   );

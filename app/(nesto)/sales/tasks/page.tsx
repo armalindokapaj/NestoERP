@@ -118,7 +118,7 @@ async function SalesTaskList({
         />
       ) : (
         <>
-          <TaskTable tasks={result.data} />
+          <TaskTable tasks={result.data} listId="sales.tasks" />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

@@ -396,16 +396,27 @@ export async function listAnnouncements(context: UserContext, query: FeedQuery):
       term ? { OR: [{ title: term }, { body: term }] } : {},
     ],
   };
-  const orderBy: Prisma.AnnouncementOrderByWithRelationInput[] = query.tab === "manage" ? [{ updatedAt: "desc" }] : query.tab === "history" ? [{ publishedAt: "desc" }] : [{ pinned: "desc" }, { publishedAt: "desc" }];
+  /*
+   * Manage: last edited first. History: newest publication first. The reading
+   * tabs: pinned first, then newest publication. `publishedAt` is null only on
+   * drafts and schedules, which the reading tabs never show; in Manage it is
+   * not sorted on. The id breaks every tie (AUD-08 §4, DT-04).
+   */
+  const orderBy: Prisma.AnnouncementOrderByWithRelationInput[] = query.tab === "manage" ? [{ updatedAt: "desc" }] : query.tab === "history" ? [{ publishedAt: { sort: "desc", nulls: "last" } }] : [{ pinned: "desc" }, { publishedAt: { sort: "desc", nulls: "last" } }];
   const offset = query.cursor ? Number(query.cursor) : 0;
-  const [rows, unread, acknowledge] = await Promise.all([
-    prisma.announcement.findMany({ where, orderBy: [...orderBy, { id: "desc" }], skip: offset, take: query.limit + 1, select: ROW_SELECT }),
-    prisma.announcement.count({ where: tabWhere.unread }),
-    prisma.announcement.count({ where: tabWhere.acknowledge }),
-  ]);
+  // The slice, its total and the badge counts from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total, unread, acknowledge] = await prisma.$transaction(
+    [
+      prisma.announcement.findMany({ where, orderBy: [...orderBy, { id: "desc" }], skip: offset, take: query.limit + 1, select: ROW_SELECT }),
+      prisma.announcement.count({ where }),
+      prisma.announcement.count({ where: tabWhere.unread }),
+      prisma.announcement.count({ where: tabWhere.acknowledge }),
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
   const page = rows.slice(0, query.limit);
   const cards = await toCards(context, page);
-  return { items: cards, nextCursor: rows.length > query.limit ? String(offset + query.limit) : null, counts: { unread, acknowledge } };
+  return { items: cards, nextCursor: rows.length > query.limit ? String(offset + query.limit) : null, total, counts: { unread, acknowledge } };
 }
 
 export async function getAnnouncement(context: UserContext, announcementId: string): Promise<AnnouncementDetailDTO> {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { ScrollText } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
@@ -12,6 +13,7 @@ import { can } from "@/lib/access/can";
 import { getTranslations } from "@/lib/i18n/server";
 import { formatDateTime } from "@/lib/utils/format";
 import { requireSettingsSection } from "../settings-access";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -57,6 +59,8 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
     listAuditEvents(context, query),
     getTranslations("settings"),
   ]);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (pagination.page !== query.page) redirect(listPageRedirect("/settings/audit", params, pagination.page));
 
   return (
     <div className="space-y-5">
@@ -123,10 +127,8 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
               </tbody>
             </table>
           </div>
-          <Pagination
-            meta={pagination}
-            buildHref={(next) => (next > 1 ? `/settings/audit?page=${next}` : "/settings/audit")}
-          />
+          {/* Page links keep the severity and the search: paging used to drop them (AUD-08 §3). */}
+          <Pagination meta={pagination} buildHref={(next) => pageHref("/settings/audit", params, next)} />
         </>
       )}
     </div>

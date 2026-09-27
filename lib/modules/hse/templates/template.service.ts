@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../hse.list";
 import { dateString, loadMemberRef } from "../hse.dto";
 import { buildTemplateScopeWhere } from "../hse.scope";
 import type { TemplateInput, TemplateListQuery } from "../hse.schema";
@@ -75,10 +76,14 @@ type ListRow = Prisma.HseInspectionTemplateGetPayload<{ select: typeof LIST_SELE
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listTemplates(context: UserContext, query: TemplateListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.template.view");
-
+/**
+ * The safety-checklist register's predicate (AUD-08 §3, DT-03): scope, then
+ * filters and search. OR within a filter, AND across filters.
+ */
+export function buildTemplateListWhere(
+  context: UserContext,
+  query: TemplateListQuery,
+): Prisma.HseInspectionTemplateWhereInput {
   const filters: Prisma.HseInspectionTemplateWhereInput[] = [buildTemplateScopeWhere(context)];
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
@@ -96,25 +101,42 @@ export async function listTemplates(context: UserContext, query: TemplateListQue
     });
   }
 
-  const where: Prisma.HseInspectionTemplateWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseInspectionTemplateOrderByWithRelationInput[] =
-    query.sort === "code-asc"
+/** The allowlisted checklist sorts, each ending in the id (AUD-08 §4, DT-04). No key is nullable. */
+export function templateListOrder(
+  sort: TemplateListQuery["sort"],
+): Prisma.HseInspectionTemplateOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseInspectionTemplateOrderByWithRelationInput>(
+    sort === "code-asc"
       ? [{ code: "asc" }, { version: "desc" }]
-      : query.sort === "name-asc"
+      : sort === "name-asc"
         ? [{ name: "asc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseInspectionTemplate.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseInspectionTemplate.count({ where }),
-  ]);
+export async function listTemplates(context: UserContext, query: TemplateListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.template.view");
+
+  const where = buildTemplateListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseInspectionTemplate.findMany({
+        where,
+        orderBy: templateListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseInspectionTemplate.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return {
     data: rows.map(toSummaryDTO),

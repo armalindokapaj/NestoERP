@@ -79,26 +79,43 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
 export function AnnouncementList({ initial, tab, query, zone }: { initial: AnnouncementFeedDTO; tab: FeedTab; query: string; zone: string }) {
   const [items, setItems] = React.useState(initial.items);
   const [cursor, setCursor] = React.useState(initial.nextCursor);
+  const [total, setTotal] = React.useState(initial.total);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Which applied query a "Load more" belongs to: a response that arrives after
+  // the filters changed is dropped, so the cards always match the filters shown
+  // (AUD-08 §3, DT-20).
+  const generation = React.useRef(0);
 
   React.useEffect(() => {
+    generation.current += 1;
     setItems(initial.items);
     setCursor(initial.nextCursor);
+    setTotal(initial.total);
+    setPending(false);
+    setError(null);
   }, [initial]);
 
   async function more() {
-    if (!cursor) return;
+    if (!cursor || pending) return;
+    const mine = generation.current;
     setPending(true);
     setError(null);
     try {
       const next = await announcementApi<AnnouncementFeedDTO>(`/api/announcements?${query}${query ? "&" : ""}cursor=${cursor}`);
-      setItems((current) => [...current, ...next.items]);
+      if (mine !== generation.current) return;
+      // Offsets are a live view: a notice published meanwhile can shift the next slice, so a card
+      // already shown is not shown twice (AUD-08 §4).
+      setItems((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...next.items.filter((item) => !seen.has(item.id))];
+      });
       setCursor(next.nextCursor);
+      setTotal(next.total);
     } catch (failure) {
-      setError(failureMessage(failure));
+      if (mine === generation.current) setError(failureMessage(failure));
     } finally {
-      setPending(false);
+      if (mine === generation.current) setPending(false);
     }
   }
 
@@ -121,6 +138,9 @@ export function AnnouncementList({ initial, tab, query, zone }: { initial: Annou
           <Card key={item.id} item={item} zone={zone} manage={tab === "manage"} />
         ))}
       </ul>
+      <p className="text-table text-fg-muted" aria-live="polite" data-testid="announcement-count">
+        Showing <span className="tabular-nums">{items.length}</span> of <span className="tabular-nums">{Math.max(total, items.length)}</span>
+      </p>
       {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
       {cursor ? (
         <div className="flex justify-center">

@@ -12,6 +12,7 @@ import { ORIENTATION_LABELS, POSITION_LABELS, type UnitDTO, type UnitListDTO } f
 import { areaText, countText } from "./structure-ui";
 import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
 import { PublicationBadge } from "./unit-page/publication-badge";
+import { pageWindow } from "@/lib/modules/shared/list-query";
 
 /**
  * The unit table (E-05B §46, §109), with each unit's publication and commercial
@@ -86,9 +87,11 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
 
 export function UnitTable({ projectId, list, showLocation, actions, onPage, loading }: { projectId: string; list: UnitListDTO; showLocation: boolean; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
-  const first = list.total ? (list.page - 1) * list.pageSize + 1 : 0;
-  const last = Math.min(list.page * list.pageSize, list.total);
-  const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
+  // "1–50 of 73", "0 results", and a count on a single page too (AUD-08 §4, DT-05).
+  const range = pageWindow(list.total, list.page, list.pageSize);
+  const first = range.from;
+  const last = range.to;
+  const pages = range.totalPages;
 
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
@@ -178,9 +181,9 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
         ))}
       </ul>
 
-      {list.total > list.pageSize ? (
+      {pages > 1 ? (
         <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-table text-fg-muted">
+          <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
             <span className="tabular-nums">
               {first}–{last}
             </span>{" "}
@@ -192,7 +195,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               Previous
             </Button>
             <span className="text-table tabular-nums text-fg-subtle">
-              Page {list.page} of {pages}
+              Page {range.page} of {pages}
             </span>
             <Button variant="secondary" size="sm" disabled={list.page >= pages || loading} onClick={() => onPage(list.page + 1)}>
               Next
@@ -200,7 +203,22 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
             </Button>
           </div>
         </nav>
-      ) : null}
+      ) : (
+        <p className="mt-3 text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
+          {list.total === 0 ? (
+            <>
+              <span className="tabular-nums">0</span> results
+            </>
+          ) : (
+            <>
+              <span className="tabular-nums">
+                {first}–{last}
+              </span>{" "}
+              of <span className="tabular-nums">{list.total}</span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ import { listProvisioningRequests } from "@/lib/modules/organization/provisionin
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 import { statusLabel } from "@/lib/utils/status";
+import { Pagination } from "@/components/data/pagination";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "User provisioning" };
 
@@ -33,6 +35,8 @@ export default async function ProvisioningPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = provisioningListQuerySchema.parse({ status: one(params.status), page: one(params.page) });
   const list = await listProvisioningRequests(context, query);
+  // Every request is reachable page by page — the page used to show the first 25 and no way on (AUD-08 §4, DT-05).
+  if (list.meta.page !== query.page) redirect(listPageRedirect("/organization/provisioning", params, list.meta.page));
   const chip = (active: boolean) =>
     cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
@@ -91,6 +95,7 @@ export default async function ProvisioningPage({ searchParams }: Props) {
             </Table>
           </section>
         )}
+        <Pagination meta={list.meta} buildHref={(next) => pageHref("/organization/provisioning", params, next)} />
       </div>
     </ModulePage>
   );

@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { accountStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
@@ -12,10 +13,19 @@ import { formatDate, orDash } from "@/lib/utils/format";
  * an employee DTO at all, so no column here could show it even by accident
  * (PRD #16 §40, §169).
  */
-export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }) {
+export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
+  employees: EmployeeSummaryDTO[];
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   const columns: TableColumn<EmployeeSummaryDTO>[] = [
     {
       key: "employee",
+      id: "employee",
+      mandatory: true,
+      sortKey: sort ? "name" : undefined,
       label: "Employee",
       primary: true,
       render: (employee) => (
@@ -29,6 +39,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "work",
+      id: "work",
       label: "Category · trade",
       hideBelow: "lg",
       render: (employee) => (
@@ -39,6 +50,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "employeeNumber",
+      id: "employeeNumber",
       label: "Employee no.",
       hideBelow: "xl",
       render: (employee) => (
@@ -47,6 +59,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "department",
+      id: "department",
       label: "Department",
       hideBelow: "lg",
       render: (employee) => (
@@ -55,6 +68,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "manager",
+      id: "manager",
       label: "Manager",
       hideBelow: "xl",
       render: (employee) => (
@@ -65,6 +79,7 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "employmentType",
+      id: "employmentType",
       label: "Type",
       hideBelow: "md",
       render: (employee) => (
@@ -73,11 +88,16 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (employee) => <StatusBadge status={employee.employmentStatus} />,
     },
     {
       key: "account",
+      id: "account",
+      valueType: "status",
       label: "NESTO account",
       hideBelow: "md",
       render: (employee) => (
@@ -88,6 +108,9 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
     },
     {
       key: "startDate",
+      id: "startDate",
+      valueType: "date",
+      sortKey: sort ? "start" : undefined,
       label: "Started",
       hideBelow: "lg",
       render: (employee) => (
@@ -100,6 +123,8 @@ export function EmployeeTable({ employees }: { employees: EmployeeSummaryDTO[] }
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Employees"
       columns={columns}
       records={employees}

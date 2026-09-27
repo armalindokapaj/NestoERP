@@ -1,34 +1,23 @@
-import Link from "@/components/navigation/nav-link";
-import { Download } from "lucide-react";
+"use client";
 
-import { Button } from "@/components/ui/button";
+import { ExportControl } from "@/lib/core/export/export-control";
 import type { HseExportKind } from "@/lib/modules/hse/hse.export";
 
 /**
- * CSV export (PRD #22 §216, §217).
+ * CSV export (PRD #22 §216, §217; AUD-08 §7).
  *
- * A plain link carrying the current filters, so the file is the list the reader
- * is looking at — same scope, same rows. There is no separate "export
- * everything" door.
+ * Every row the list's current filters match — same scope, same view, same
+ * order — read from the page's own address when clicked. There is no separate
+ * "export everything" door. `search` is accepted for the pages that still pass
+ * it; the address in the browser is the one source of truth.
  */
 export function HseExportLink({
   kind,
-  search,
   label = "Export CSV",
 }: {
   kind: HseExportKind;
   search?: string;
   label?: string;
 }) {
-  const params = new URLSearchParams(search ?? "");
-  params.set("kind", kind);
-
-  return (
-    <Button asChild variant="secondary" size="sm">
-      <Link href={`/api/hse/export?${params.toString()}`} prefetch={false}>
-        <Download aria-hidden="true" />
-        {label}
-      </Link>
-    </Button>
-  );
+  return <ExportControl endpoint="/api/hse/export" selector={{ param: "kind", value: kind }} label={label} testId={`hse-export-${kind}`} />;
 }

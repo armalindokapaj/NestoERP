@@ -112,7 +112,8 @@ export async function listProjectMedia(context: UserContext, projectId: string):
       visibility: "PROJECT",
       document: { status: "ACTIVE", storageStatus: "AVAILABLE" },
     },
-    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    // Featured, the manager's order, oldest first, then id: a total order (AUD-08 §4, DT-04).
+    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     select: MEDIA_SELECT,
   });
   const items = rows.map((row) => toDTO(projectId, row));

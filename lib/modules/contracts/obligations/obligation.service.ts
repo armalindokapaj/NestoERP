@@ -13,7 +13,7 @@ import { applyTransition } from "@/lib/core/state/transition";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import { dateString, toMemberRef } from "../contract.dto";
 import { buildContractScopeWhere } from "../contract.scope";
@@ -59,6 +59,9 @@ type ObligationRow = Prisma.ContractObligationGetPayload<{ select: typeof OBLIGA
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 export async function listForContract(
   context: UserContext,
@@ -117,20 +120,26 @@ export async function listObligations(context: UserContext, query: ObligationLis
     ],
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.contractObligation.findMany({
-      where,
-      orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: OBLIGATION_SELECT,
-    }),
-    prisma.contractObligation.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "contracts.obligations.list",
+    async (tx) => {
+      const window = pageWindow(await tx.contractObligation.count({ where }), query.page, query.limit);
+      const rows = await tx.contractObligation.findMany({
+        where,
+        orderBy: withTieBreaker([{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: OBLIGATION_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map((row) => toDTO(context, row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

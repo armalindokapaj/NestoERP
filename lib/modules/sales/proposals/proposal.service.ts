@@ -7,7 +7,6 @@ import { prisma } from "@/lib/database/prisma";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "@/lib/modules/finance/finance.fields";
 import { toAmountString, toRateString } from "@/lib/modules/finance/finance.money";
 import * as approvals from "../approvals/approval.service";
@@ -61,11 +60,11 @@ export async function listProposals(context: UserContext, query: ProposalListQue
   assertModule(context, MODULE);
   assertPermission(context, "sales.proposal.view");
 
-  const { rows, total } = await repository.listProposals(context, query);
+  const { rows, window } = await repository.listProposals(context, query);
 
   return {
     data: rows.map(toSummaryDTO),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

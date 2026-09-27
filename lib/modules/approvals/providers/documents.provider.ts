@@ -12,6 +12,7 @@ import {
   approvalError,
   dateRange,
   keysetWhere,
+  markWindowed,
   memberNames,
   notFound,
   personOrUnknown,
@@ -23,7 +24,7 @@ import {
 } from "../approvals.provider";
 import type { ApprovalStepDTO, UnifiedApprovalHistoryEntry, UnifiedApprovalStatus } from "../approvals.types";
 import { WINDOW } from "../approvals.cycle-provider";
-import { excludesAmountFilter, formatDate, startOfToday } from "./shared";
+import { excludesAmountFilter, formatDate, MATCH_LIMIT, startOfToday } from "./shared";
 
 /**
  * Document reviews in the Center (PRD #41 §62, §63, §265, §274).
@@ -154,6 +155,7 @@ export const documentReviewProvider: ApprovalProvider = {
     if (excludesAmountFilter(query)) return [];
     const me = context.membershipId;
     const base: Prisma.DocumentReviewWhereInput[] = [{ companyId: context.companyId }];
+    let matchCapped = false;
     if (query.requesterId) base.push({ requestedByMemberId: query.requesterId });
     if (query.projectId || query.q) {
       const matching = await prisma.document.findMany({
@@ -165,8 +167,10 @@ export const documentReviewProvider: ApprovalProvider = {
           ],
         },
         select: { id: true },
-        take: 500,
+        take: MATCH_LIMIT,
       });
+      // A match list at its bound may have left matching documents out (AUD-08 §4).
+      if (matching.length >= MATCH_LIMIT) matchCapped = true;
       base.push({ documentId: { in: matching.map((row) => row.id) } });
     }
     const statuses = query.statuses.filter((status) => status in STATUS) as DocumentReviewStatus[];
@@ -201,16 +205,20 @@ export const documentReviewProvider: ApprovalProvider = {
     }
 
     const keyset = query.tab === "waiting" ? null : keysetWhere(dateField, KEY, query);
+    const take = query.tab === "waiting" ? WINDOW : Math.min(WINDOW, query.limit * 2);
     const rows = await prisma.documentReview.findMany({
       where: { AND: [...base, ...(keyset ? [keyset as Prisma.DocumentReviewWhereInput] : [])] },
       orderBy: [{ [dateField]: query.order }, { id: query.order }],
-      take: query.tab === "waiting" ? WINDOW : Math.min(WINDOW, query.limit * 2),
+      take,
       select: SELECT,
     });
     const items = await buildItems(context, rows.map((row) => ({ row, sortAt: (row[dateField] ?? row.requestedAt) as Date })), lenders);
     // A delegated review whose reviewer can no longer review it stays with the reviewer.
     const visible = query.tab === "waiting" ? items.filter((item) => item.canApprove) : items;
-    return visible.slice(0, query.tab === "waiting" ? WINDOW : query.limit);
+    const limit = query.tab === "waiting" ? WINDOW : query.limit;
+    // A full read that kept fewer than asked, or a full Waiting window, may have left rows unread (AUD-08 §4).
+    const windowed = matchCapped || (rows.length >= take && (query.tab === "waiting" || visible.length < limit));
+    return markWindowed(visible.slice(0, limit), windowed);
   },
 
   async detail(context, approvalId): Promise<ProviderDetail | null> {

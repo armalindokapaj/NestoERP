@@ -97,7 +97,7 @@ export async function listDelegations(context: UserContext): Promise<{ given: Ap
       OR: [{ fromMemberId: context.membershipId }, { toMemberId: context.membershipId }],
       endsAt: { gt: since },
     },
-    orderBy: [{ startsAt: "desc" }],
+    orderBy: [{ startsAt: "desc" }, { id: "asc" }],
     take: 50,
     select: SELECT,
   });

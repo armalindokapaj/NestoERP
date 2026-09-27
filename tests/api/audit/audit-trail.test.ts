@@ -4,9 +4,9 @@ import { AccessError } from "@/lib/access/guards";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import {
   auditQuerySchema,
-  exportAuditEvents,
   listAuditEvents,
 } from "@/lib/core/audit/audit-query.service";
+import { exportAuditLog } from "@/lib/core/export/audit-log.export";
 import * as team from "@/lib/modules/team/team.service";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
 
@@ -129,7 +129,7 @@ describe("exporting the log (PRD #28 §170-§174)", () => {
         pageSize: 100,
       });
 
-    const first = await exportAuditEvents(owner, query());
+    const first = await exportAuditLog(owner, query());
 
     expect(first.filename).toBe("audit-log.csv");
     expect(first.csv.split("\r\n")).toHaveLength(first.rowCount + 1); // header + rows
@@ -145,7 +145,7 @@ describe("exporting the log (PRD #28 §170-§174)", () => {
      * next export sees exactly one row more — the first export's own event —
      * rather than the first export having counted itself.
      */
-    const second = await exportAuditEvents(owner, query());
+    const second = await exportAuditLog(owner, query());
     writtenEventIds.push((await newestEvent(owner.companyId, AuditAction.AUDIT_LOG_EXPORTED))!.id);
 
     expect(second.rowCount).toBe(first.rowCount + 1);
@@ -155,7 +155,7 @@ describe("exporting the log (PRD #28 §170-§174)", () => {
     const engineer = await loginAs("ENGINEER");
 
     await expect(
-      exportAuditEvents(engineer, auditQuerySchema.parse({ page: 1, pageSize: 10 })),
+      exportAuditLog(engineer, auditQuerySchema.parse({ page: 1, pageSize: 10 })),
     ).rejects.toBeInstanceOf(AccessError);
   });
 });

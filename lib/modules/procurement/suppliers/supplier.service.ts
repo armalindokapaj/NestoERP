@@ -6,8 +6,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { buildSupplierWhere } from "../procurement.scope";
 import type { SupplierDetailDTO, SupplierSummaryDTO } from "../procurement.types";
 import {
@@ -78,27 +79,38 @@ export function normalizeSupplierName(name: string): string {
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listSuppliers(context: UserContext, query: SupplierListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.supplier.view");
 
   const where = buildListWhere([context], query);
 
-  const [rows, total, openOrders] = await Promise.all([
-    prisma.supplier.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUPPLIER_SELECT,
-    }),
-    prisma.supplier.count({ where }),
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const [{ rows, window }, openOrders] = await Promise.all([
+    runInTransaction(
+      "procurement.suppliers.list",
+      async (tx) => {
+        const window = pageWindow(await tx.supplier.count({ where }), query.page, query.limit);
+        const rows = await tx.supplier.findMany({
+          where,
+          orderBy: withTieBreaker(orderFor(query.sort)),
+          skip: skipFor(window.page, window.limit),
+          take: window.limit,
+          select: SUPPLIER_SELECT,
+        });
+        return { rows, window };
+      },
+      LIST_READ,
+    ),
     openOrderCounts([context]),
   ]);
 
   return {
     data: rows.map((row) => toSummaryDTO(row, openOrders.get(row.id) ?? 0)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -146,22 +158,29 @@ export async function listSuppliersForWorkspace(session: UserContext, query: Sup
   );
   const where = buildListWhere(contexts, query);
 
-  const [rows, total, openOrders] = await Promise.all([
-    prisma.supplier.findMany({
-      where,
-      // The list's own sort first; the id keeps a page boundary stable when rows tie.
-      orderBy: [...orderFor(query.sort), { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: GROUP_SUPPLIER_SELECT,
-    }),
-    prisma.supplier.count({ where }),
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const [{ rows, window }, openOrders] = await Promise.all([
+    runInTransaction(
+      "procurement.suppliers.group-list",
+      async (tx) => {
+        const window = pageWindow(await tx.supplier.count({ where }), query.page, query.limit);
+        const rows = await tx.supplier.findMany({
+          where,
+          orderBy: withTieBreaker(orderFor(query.sort)),
+          skip: skipFor(window.page, window.limit),
+          take: window.limit,
+          select: GROUP_SUPPLIER_SELECT,
+        });
+        return { rows, window };
+      },
+      LIST_READ,
+    ),
     openOrderCounts(contexts),
   ]);
 
   return {
     data: rows.map((row) => toSummaryDTO(row, openOrders.get(row.id) ?? 0)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

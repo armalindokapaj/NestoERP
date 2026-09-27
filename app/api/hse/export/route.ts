@@ -1,150 +1,24 @@
 import { withContext } from "@/lib/api/respond";
-import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
-import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { exportHse, type HseExportKind, type HseExportQueries } from "@/lib/modules/hse/hse.export";
-import {
-  actionListSchema,
-  hazardListSchema,
-  incidentListSchema,
-  inspectionListSchema,
-  observationListSchema,
-  permitListSchema,
-  riskAssessmentListSchema,
-  toolboxListSchema,
-} from "@/lib/modules/hse/hse.schema";
+import { exportResponse, recordExport } from "@/lib/core/export/exporter";
+import { exportSelector } from "@/lib/core/export/export-params";
+import { exportHse, HSE_EXPORT_KINDS, parseHseExport } from "@/lib/modules/hse/hse.export";
 
 /**
- * CSV export (PRD #22 §216, §217).
+ * CSV export (PRD #22 §216, §217; AUD-08 §7).
  *
  * The same query, the same services and the same scope as the screen — so the
- * file can never contain a row the reader could not open. The `hse.export`
- * grant is checked on top of the view permission for whatever is exported.
+ * file can never contain a row the reader could not open, and holds every row
+ * the list matches. The `hse.export` grant is checked on top of the view
+ * permission for whatever is exported. `kind`, not `type`, picks the file: the
+ * HSE lists already use type filters of their own and the export control copies
+ * the whole query string. An unknown kind or filter is refused.
  */
-const KINDS = [
-  "inspections",
-  "hazards",
-  "incidents",
-  "risk-assessments",
-  "actions",
-  "toolbox-talks",
-  "permits",
-  "environment",
-] as const;
-
-function list(params: URLSearchParams, key: string): string[] | undefined {
-  const raw = params.get(key);
-  if (!raw) return undefined;
-  const values = raw.split(",").filter(Boolean);
-  return values.length > 0 ? values : undefined;
-}
-
 export async function GET(request: Request) {
   return withContext(async (context) => {
     const params = new URL(request.url).searchParams;
-    /*
-     * `kind`, not `type`: the HSE lists already use type filters of their own
-     * and the export link copies the whole query string. Two meanings on one
-     * parameter is how a filter quietly becomes a 422 nobody can explain.
-     */
-    const raw = params.get("kind");
-    const kind: HseExportKind = (KINDS as readonly string[]).includes(raw ?? "")
-      ? (raw as HseExportKind)
-      : "hazards";
-
-    const shared = {
-      search: params.get("search") ?? undefined,
-      view: params.get("view") ?? undefined,
-      sort: params.get("sort") ?? undefined,
-      projectId: params.get("projectId") ?? undefined,
-    };
-
-    /*
-     * Only the requested kind's filters are parsed (PRD #47 §69). Each list has
-     * its own enums, and the export link carries whichever list it came from —
-     * parsing all eight schemas turned `?kind=incidents&severity=HIGH` into a
-     * 422 from the hazard schema.
-     */
-    const queries: Partial<HseExportQueries> = {};
-    switch (kind) {
-      case "inspections":
-        queries.inspections = inspectionListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          result: list(params, "result"),
-          inspectionType: list(params, "inspectionType"),
-          assignedInspectorMemberId: params.get("assignedInspectorMemberId") ?? undefined,
-        });
-        break;
-      case "hazards":
-        queries.hazards = hazardListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          riskLevel: list(params, "riskLevel"),
-          hazardCategory: list(params, "hazardCategory"),
-          assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
-        });
-        break;
-      case "incidents":
-        queries.incidents = incidentListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          incidentType: list(params, "incidentType"),
-          severity: list(params, "severity"),
-        });
-        break;
-      case "risk-assessments":
-        queries.riskAssessments = riskAssessmentListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-        });
-        break;
-      case "actions":
-        queries.actions = actionListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          actionType: list(params, "actionType"),
-          priority: list(params, "priority"),
-          assignedToMemberId: params.get("assignedToMemberId") ?? undefined,
-        });
-        break;
-      case "toolbox-talks":
-        queries.toolbox = toolboxListSchema.parse({ ...shared, status: list(params, "status") });
-        break;
-      case "permits":
-        queries.permits = permitListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          permitType: list(params, "permitType"),
-        });
-        break;
-      case "environment":
-        queries.environment = observationListSchema.parse({
-          ...shared,
-          status: list(params, "status"),
-          category: list(params, "category"),
-          severity: list(params, "severity"),
-        });
-        break;
-    }
-
-    const { filename, csv } = await exportHse(context, kind, queries);
-
-    /*
-     * Who took a copy of company data, and which one (PRD #28 §130). The row
-     * counts and the filter values are not recorded — the evidence is that an
-     * export happened, not a second copy of what left.
-     */
-    await recordUserAction(context, {
-      actionKey: AuditAction.REPORT_EXPORTED_CSV,
-      entity: { type: "export", id: "hse", label: filename },
-      metadata: { module: "hse" },
-    });
-
-    return new Response(csv, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
+    const kind = exportSelector(params, "kind", HSE_EXPORT_KINDS, "hazards");
+    const prepared = await exportHse(context, kind, parseHseExport(context, kind, params));
+    await recordExport(context, { id: "hse", module: "hse", filename: prepared.filename });
+    return exportResponse(prepared);
   });
 }

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/database/prisma";
 import type { CalendarProvider } from "@/lib/modules/calendar/calendar.types";
-import { compact, dateWindow, isPastDue, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, wants } from "@/lib/modules/calendar/providers/provider.helpers";
+import { compact, dateWindow, isPastDue, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows, wants } from "@/lib/modules/calendar/providers/provider.helpers";
 import { contractorsOpen, readableComplianceWhere } from "@/lib/modules/contractors/contractor.permissions";
 import { COMPLIANCE_TYPE_LABELS } from "@/lib/modules/contractors/contractor.types";
 import { engineeringOpen, readableRfiWhere, readableSubmittalWhere } from "./engineering.permissions";
@@ -25,7 +25,7 @@ export const rfiCalendarProvider: CalendarProvider = {
   async getEvents(input) {
     const { context, filters } = input;
     if (!wants(input, "ENGINEERING")) return [];
-    const rows = await prisma.rfi.findMany({
+    const rows = await sourceRows(input, prisma.rfi.findMany({
       where: {
         AND: [
           readableRfiWhere(context),
@@ -35,10 +35,10 @@ export const rfiCalendarProvider: CalendarProvider = {
           filters.memberIds?.length ? { assignedToMemberId: { in: filters.memberIds } } : {},
         ],
       },
-      orderBy: { dueAt: "asc" },
+      orderBy: [{ dueAt: "asc" }, { id: "asc" }],
       take: SOURCE_LIMIT,
       select: { id: true, rfiNumber: true, subject: true, status: true, priority: true, dueAt: true, projectId: true, project: PROJECT_SELECT },
-    });
+    }));
     return compact(
       rows.map((row) => {
         const late = isPastDue(row.dueAt!, input);
@@ -71,7 +71,7 @@ export const submittalCalendarProvider: CalendarProvider = {
   async getEvents(input) {
     const { context, filters } = input;
     if (!wants(input, "ENGINEERING")) return [];
-    const rows = await prisma.technicalSubmittal.findMany({
+    const rows = await sourceRows(input, prisma.technicalSubmittal.findMany({
       where: {
         AND: [
           readableSubmittalWhere(context),
@@ -81,10 +81,10 @@ export const submittalCalendarProvider: CalendarProvider = {
           filters.memberIds?.length ? { assignedReviewerMemberId: { in: filters.memberIds } } : {},
         ],
       },
-      orderBy: { dueAt: "asc" },
+      orderBy: [{ dueAt: "asc" }, { id: "asc" }],
       take: SOURCE_LIMIT,
       select: { id: true, submittalNumber: true, title: true, dueAt: true, projectId: true, project: PROJECT_SELECT },
-    });
+    }));
     return compact(
       rows.map((row) =>
         onBusinessDate(input, row.dueAt!, {
@@ -116,12 +116,12 @@ export const complianceCalendarProvider: CalendarProvider = {
     const { context, filters } = input;
     // Company-level dates: no project, nobody's personal schedule.
     if (!wants(input, "LEGAL") || filters.myOnly || filters.memberIds?.length || filters.projectIds?.length) return [];
-    const rows = await prisma.contractorComplianceItem.findMany({
+    const rows = await sourceRows(input, prisma.contractorComplianceItem.findMany({
       where: { AND: [readableComplianceWhere(context), { archivedAt: null, status: { notIn: ["WAIVED", "ARCHIVED"] }, expiresAt: dateWindow(input) }] },
-      orderBy: { expiresAt: "asc" },
+      orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
       take: SOURCE_LIMIT,
       select: { id: true, title: true, type: true, status: true, expiresAt: true, contractorId: true, contractor: { select: { legalName: true } } },
-    });
+    }));
     return compact(
       rows.map((row) =>
         onBusinessDate(input, row.expiresAt!, {

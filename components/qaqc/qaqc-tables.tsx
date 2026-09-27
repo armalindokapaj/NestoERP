@@ -1,6 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
@@ -25,12 +25,89 @@ import { ResultBadge, SeverityBadge } from "./qaqc-format";
  *
  * An inspection row carries both its status and its result, side by side,
  * because they answer different questions and the reader needs both (§65).
+ *
+ * Column metadata (AUD-08 §5): each table's identity column (the primary) and
+ * its status stay visible; every other column may be hidden in the Columns
+ * control when a page names the list (`listId`). Header sorts appear only where
+ * a page passes `sort` — the server-parsed sort of the rows on screen — and
+ * only on columns whose order is one of the list's allowlisted sorts. Record
+ * child tables (an NCR's corrective actions) pass neither and render as before.
  */
 
+/** Presentation props every QA/QC table takes (AUD-08 §5). */
+type ListProps = {
+  /** `qaqc.<list>` or `projects.qaqc-<list>`: turns on the Columns control. */
+  listId?: string;
+  /** The applied sort and the list's allowlist; header sorts only when given. */
+  sort?: TableSortConfig;
+};
+
+type ColumnMeta = Pick<TableColumn<unknown>, "mandatory" | "valueType" | "defaultHidden" | "sortKey">;
+
+/**
+ * Lays each column's presentation metadata over its definition by key
+ * (AUD-08 §5): a stable id (the key), the mandatory flag, the value type and —
+ * only when the page passed a sort — the allowlisted sort stem.
+ */
+function withMeta<T>(
+  columns: TableColumn<T>[],
+  sort: TableSortConfig | undefined,
+  meta: Record<string, ColumnMeta>,
+): TableColumn<T>[] {
+  return columns.map((column) => {
+    const extra = meta[column.key];
+    if (!extra) return { ...column, id: column.key };
+    const { sortKey, ...rest } = extra;
+    return { ...column, id: column.key, ...rest, ...(sort && sortKey ? { sortKey } : {}) };
+  });
+}
+
+const STATUS: ColumnMeta = { mandatory: true, valueType: "status" };
+
+const REQUEST_COLUMNS: Record<string, ColumnMeta> = {
+  requiredByDate: { valueType: "date", sortKey: "required" },
+  priority: { valueType: "status", sortKey: "priority" },
+  status: STATUS,
+};
+
+const INSPECTION_COLUMNS: Record<string, ColumnMeta> = {
+  inspectionNumber: { sortKey: "number" },
+  inspectionDate: { valueType: "date", sortKey: "date" },
+  status: STATUS,
+  result: STATUS,
+};
+
+const TEMPLATE_COLUMNS: Record<string, ColumnMeta> = {
+  name: { sortKey: "name" },
+  itemCount: { valueType: "number" },
+  usageCount: { valueType: "number" },
+  status: STATUS,
+};
+
+const DEFECT_COLUMNS: Record<string, ColumnMeta> = {
+  dueDate: { valueType: "date", sortKey: "due" },
+  severity: { valueType: "status", sortKey: "severity" },
+  status: STATUS,
+};
+
+const NCR_COLUMNS: Record<string, ColumnMeta> = {
+  openActions: { valueType: "number" },
+  dueDate: { valueType: "date", sortKey: "due" },
+  severity: { valueType: "status", sortKey: "severity" },
+  status: STATUS,
+};
+
+const CORRECTIVE_ACTION_COLUMNS: Record<string, ColumnMeta> = {
+  dueDate: { valueType: "date", sortKey: "due" },
+  status: STATUS,
+};
+
 export function RequestTable({
+  listId,
+  sort,
   requests,
   caption = "Inspection requests",
-}: {
+}: ListProps & {
   requests: RequestSummaryDTO[];
   caption?: string;
 }) {
@@ -98,7 +175,9 @@ export function RequestTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, REQUEST_COLUMNS)}
       records={requests}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/requests/${row.id}`}
@@ -108,9 +187,11 @@ export function RequestTable({
 }
 
 export function InspectionTable({
+  listId,
+  sort,
   inspections,
   caption = "Inspections",
-}: {
+}: ListProps & {
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
@@ -173,7 +254,9 @@ export function InspectionTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, INSPECTION_COLUMNS)}
       records={inspections}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/inspections/${row.id}`}
@@ -183,9 +266,11 @@ export function InspectionTable({
 }
 
 export function TemplateTable({
+  listId,
+  sort,
   templates,
   caption = "Inspection templates",
-}: {
+}: ListProps & {
   templates: TemplateSummaryDTO[];
   caption?: string;
 }) {
@@ -231,7 +316,9 @@ export function TemplateTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, TEMPLATE_COLUMNS)}
       records={templates}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/templates/${row.id}`}
@@ -241,10 +328,12 @@ export function TemplateTable({
 }
 
 export function DefectTable({
+  listId,
+  sort,
   defects,
   showProject = true,
   caption = "Defects",
-}: {
+}: ListProps & {
   defects: DefectSummaryDTO[];
   showProject?: boolean;
   caption?: string;
@@ -311,7 +400,9 @@ export function DefectTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, DEFECT_COLUMNS)}
       records={defects}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/defects/${row.id}`}
@@ -321,10 +412,12 @@ export function DefectTable({
 }
 
 export function NcrTable({
+  listId,
+  sort,
   ncrs,
   showProject = true,
   caption = "Non-conformance reports",
-}: {
+}: ListProps & {
   ncrs: NcrSummaryDTO[];
   showProject?: boolean;
   caption?: string;
@@ -394,7 +487,9 @@ export function NcrTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, NCR_COLUMNS)}
       records={ncrs}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/ncrs/${row.id}`}
@@ -404,10 +499,12 @@ export function NcrTable({
 }
 
 export function CorrectiveActionTable({
+  listId,
+  sort,
   actions,
   showParent = true,
   caption = "Corrective actions",
-}: {
+}: ListProps & {
   actions: CorrectiveActionSummaryDTO[];
   showParent?: boolean;
   caption?: string;
@@ -483,7 +580,9 @@ export function CorrectiveActionTable({
 
   return (
     <DataTable
-      columns={columns}
+      listId={listId}
+      sort={sort}
+      columns={withMeta(columns, sort, CORRECTIVE_ACTION_COLUMNS)}
       records={actions}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/corrective-actions/${row.id}`}

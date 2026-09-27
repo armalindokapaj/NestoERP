@@ -9,6 +9,7 @@ import type { RecordType } from "@/lib/core/records/record.types";
 import type { Permission } from "@/config/permissions";
 import { prisma } from "@/lib/database/prisma";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../qaqc.list";
 import { loadMembers } from "../qaqc.dto";
 import { buildInspectionScopeWhere, buildNcrScopeWhere } from "../qaqc.scope";
 import type { ApprovalListQuery } from "../qaqc.schema";
@@ -362,44 +363,61 @@ export async function listApprovals(context: UserContext, query: ApprovalListQue
     return { data: [], pagination: paginationMeta(0, query.page, query.limit) };
   }
 
-  const where: Prisma.QualityApprovalWhereInput = {
-    AND: [{ companyId: context.companyId }, statuses, { recordType: { in: wanted } }],
-  };
-
-  const [rows, total] = await Promise.all([
-    prisma.qualityApproval.findMany({
-      where,
-      orderBy: { submittedAt: "asc" },
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: APPROVAL_SELECT,
-    }),
-    prisma.qualityApproval.count({ where }),
-  ]);
-
   /*
-   * The record behind each row, fetched through its own scope clause — so a
-   * cycle on a record the reader cannot open is dropped rather than listed
-   * with a name they were not entitled to (PRD #21 §164).
+   * The records behind the queue, fetched through their own scope clauses
+   * first — so the page and its total count only cycles on records the reader
+   * can open (AUD-08 §3, DT-03, DT-22). Before, the page was read and the
+   * unreachable rows dropped afterwards: "3 waiting" above one row, a blank
+   * page 2, and a total that counted another site's NCRs.
    */
-  const inspectionIds = rows.filter((r) => r.recordType === "INSPECTION").map((r) => r.recordId);
-  const ncrIds = rows.filter((r) => r.recordType === "NCR").map((r) => r.recordId);
-
-  const [inspections, ncrs, members] = await Promise.all([
-    inspectionIds.length > 0
+  const [inspections, ncrs] = await Promise.all([
+    wanted.includes("INSPECTION")
       ? prisma.qualityInspection.findMany({
-          where: { AND: [buildInspectionScopeWhere(context), { id: { in: inspectionIds } }] },
+          where: buildInspectionScopeWhere(context),
           select: { id: true, inspectionNumber: true, summary: true, inspectionType: true },
         })
       : Promise.resolve([]),
-    ncrIds.length > 0
+    wanted.includes("NCR")
       ? prisma.nonConformanceReport.findMany({
-          where: { AND: [buildNcrScopeWhere(context), { id: { in: ncrIds } }] },
+          where: buildNcrScopeWhere(context),
           select: { id: true, ncrNumber: true, title: true },
         })
       : Promise.resolve([]),
-    loadMembers(context.companyId, rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId])),
   ]);
+
+  const reachable: Prisma.QualityApprovalWhereInput[] = [];
+  if (inspections.length > 0) {
+    reachable.push({ recordType: "INSPECTION", recordId: { in: inspections.map((row) => row.id) } });
+  }
+  if (ncrs.length > 0) reachable.push({ recordType: "NCR", recordId: { in: ncrs.map((row) => row.id) } });
+  if (reachable.length === 0) {
+    return { data: [], pagination: paginationMeta(0, query.page, query.limit) };
+  }
+
+  const where: Prisma.QualityApprovalWhereInput = {
+    AND: [{ companyId: context.companyId }, statuses, { OR: reachable }],
+  };
+
+  // The oldest waiting first, the id breaking ties; page and total from one
+  // snapshot (AUD-08 §4, DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.qualityApproval.findMany({
+        where,
+        orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: APPROVAL_SELECT,
+      }),
+      prisma.qualityApproval.count({ where }),
+    ],
+    SNAPSHOT,
+  );
+
+  const members = await loadMembers(
+    context.companyId,
+    rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
+  );
 
   const refs = new Map<string, RecordRef>();
   for (const row of inspections) {

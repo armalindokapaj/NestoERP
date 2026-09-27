@@ -26,7 +26,8 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import type { RecordType } from "@/lib/core/records/record.types";
 import type { Permission } from "@/config/permissions";
 import { prisma } from "@/lib/database/prisma";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { toAmountString, toMemberRef, toSupplierRef } from "../procurement.dto";
 import { buildOrderScopeWhere, buildRequestScopeWhere } from "../procurement.scope";
 import type { MemberRef, ProcurementApprovalDTO } from "../procurement.types";
@@ -454,6 +455,9 @@ export async function cancelPendingApprovals(
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 type RecordRef = {
   reference: string;
   title: string;
@@ -624,20 +628,26 @@ export async function listApprovals(
     recordId: { in: recordIds },
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.procurementApproval.findMany({
-      where,
-      orderBy: [{ status: "asc" }, { submittedAt: "desc" }],
-      skip: skipFor(page, limit),
-      take: limit,
-      select: APPROVAL_SELECT,
-    }),
-    prisma.procurementApproval.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.approvals.list",
+    async (tx) => {
+      const window = pageWindow(await tx.procurementApproval.count({ where }), page, limit);
+      const rows = await tx.procurementApproval.findMany({
+        where,
+        orderBy: withTieBreaker([{ status: "asc" }, { submittedAt: "desc" }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: APPROVAL_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: await hydrate(context, rows, reachable),
-    pagination: paginationMeta(total, page, limit),
+    pagination: window,
   };
 }
 

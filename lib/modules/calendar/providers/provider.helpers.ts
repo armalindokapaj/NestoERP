@@ -75,3 +75,15 @@ export function compact<T>(values: Array<T | null>): T[] {
 }
 
 export const SOURCE_LIMIT = 500;
+
+/**
+ * One bounded source read. A read that comes back at SOURCE_LIMIT may have
+ * left events in the range unread, so it is reported to the aggregator, which
+ * marks the response truncated rather than silently showing a partial range
+ * (AUD-08 §4, DT-05).
+ */
+export async function sourceRows<T>(input: Pick<CalendarProviderContext, "reportCapped">, read: Promise<T[]>): Promise<T[]> {
+  const rows = await read;
+  if (rows.length >= SOURCE_LIMIT) input.reportCapped?.();
+  return rows;
+}

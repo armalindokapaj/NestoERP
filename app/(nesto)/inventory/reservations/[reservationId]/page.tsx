@@ -161,6 +161,7 @@ export default async function ReservationPage({ params }: Params) {
                 movements={recent}
                 showItem={false}
                 caption={`Movements of ${reservation.item.name} at ${reservation.location.code}`}
+                listId="inventory.reservation-movements"
               />
             </section>
           ) : null}

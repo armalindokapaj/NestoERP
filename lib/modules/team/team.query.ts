@@ -31,10 +31,22 @@ function list<T extends string>(value: string | undefined, allowed: readonly T[]
 
 export type TeamQueryDefaults = Partial<Pick<TeamListQuery, "status" | "sort">>;
 
+/**
+ * `defaults.status` is the section's restriction (People: active and invited;
+ * Inactive: inactive and suspended). A `status` in the address narrows within
+ * it and can never step outside it — `/team/people?status=INACTIVE` is the
+ * People section, not the inactive list (AUD-08 §3, DT-02). The API passes no
+ * section and reads the address as before.
+ */
 export function parseTeamListQuery(
   params: RawParams,
   defaults: TeamQueryDefaults = {},
 ): TeamListQuery {
+  const requested = list(read(params, "status"), MEMBERSHIP_STATUSES);
+  const section = defaults.status;
+  const within = section && requested ? requested.filter((status) => section.includes(status)) : requested;
+  const status = section ? (within?.length ? within : section) : requested;
+
   const sortValue = read(params, "sort");
   const sort: TeamSortKey = (TEAM_SORT_KEYS as readonly string[]).includes(sortValue ?? "")
     ? (sortValue as TeamSortKey)
@@ -47,7 +59,7 @@ export function parseTeamListQuery(
     search: read(params, "search") || undefined,
     roleId: read(params, "roleId") || undefined,
     departmentId: read(params, "departmentId") || undefined,
-    status: list(read(params, "status"), MEMBERSHIP_STATUSES) ?? defaults.status,
+    status,
     projectId: read(params, "projectId") || undefined,
     page: Number.isFinite(page) && page > 0 ? page : 1,
     limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 25,

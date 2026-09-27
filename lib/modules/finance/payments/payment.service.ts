@@ -8,7 +8,8 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "../finance.fields";
 import { money, subtract, toAmountString, ZERO } from "../finance.money";
 import { buildExpenseScopeWhere, buildInvoiceScopeWhere, buildPaymentScopeWhere } from "../finance.scope";
@@ -67,16 +68,24 @@ export const PAYMENT_SELECT = {
 
 export type PaymentRow = Prisma.PaymentGetPayload<{ select: typeof PAYMENT_SELECT }>;
 
+/**
+ * The payment register's sorts (AUD-08 §4, DT-04): raw typed columns — the
+ * payment date and the Decimal amount, both required, so no null placement —
+ * each ending in the id, so equal dates or amounts page in one fixed order.
+ */
 const ORDER: Record<string, Prisma.PaymentOrderByWithRelationInput[]> = {
-  "date-desc": [{ paymentDate: "desc" }],
-  "date-asc": [{ paymentDate: "asc" }],
-  "amount-desc": [{ amount: "desc" }],
-  "amount-asc": [{ amount: "asc" }],
+  "date-desc": withTieBreaker<Prisma.PaymentOrderByWithRelationInput>([{ paymentDate: "desc" }]),
+  "date-asc": withTieBreaker<Prisma.PaymentOrderByWithRelationInput>([{ paymentDate: "asc" }]),
+  "amount-desc": withTieBreaker<Prisma.PaymentOrderByWithRelationInput>([{ amount: "desc" }]),
+  "amount-asc": withTieBreaker<Prisma.PaymentOrderByWithRelationInput>([{ amount: "asc" }]),
 };
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
+
+/** A read-only list snapshot: the count and the rows see the same payments (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 export async function listPayments(context: UserContext, query: PaymentListQuery) {
   assertModule(context, MODULE);
@@ -108,20 +117,26 @@ export async function listPayments(context: UserContext, query: PaymentListQuery
 
   const where: Prisma.PaymentWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.payment.findMany({
-      where,
-      orderBy: ORDER[query.sort] ?? ORDER["date-desc"],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: PAYMENT_SELECT,
-    }),
-    prisma.payment.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "finance.payments.list",
+    async (tx) => {
+      const window = pageWindow(await tx.payment.count({ where }), query.page, query.limit);
+      const rows = await tx.payment.findMany({
+        where,
+        orderBy: ORDER[query.sort] ?? ORDER["date-desc"],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: PAYMENT_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map((row) => toSummaryDTO(context, row)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: { page: window.page, limit: window.limit, total: window.total, totalPages: window.totalPages },
   };
 }
 

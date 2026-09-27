@@ -20,7 +20,8 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import {
   dateString,
   daysOverdue,
@@ -122,10 +123,20 @@ export type ActionParent = {
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listActions(context: UserContext, query: ActionListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.action.view");
-
+/**
+ * The HSE action register's predicate (AUD-08 §3, DT-02, DT-03): scope, then
+ * the section (`view`), then filters and search — shared by the page, its
+ * count and the CSV export. OR within a filter, AND across filters; a foreign
+ * project or member id is ANDed with scope and narrows to nothing (DT-22).
+ *
+ * "Overdue" compares the due date with the start of today in UTC — the day a
+ * stored due date names — as the row badge and the overview do; the company's
+ * own calendar day is not applied here yet (recorded in the AUD-08 manifest).
+ */
+export function buildActionListWhere(
+  context: UserContext,
+  query: ActionListQuery,
+): Prisma.HseActionWhereInput {
   const filters: Prisma.HseActionWhereInput[] = [buildActionScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_ACTION_STATUSES } });
@@ -151,27 +162,46 @@ export async function listActions(context: UserContext, query: ActionListQuery) 
     });
   }
 
-  const where: Prisma.HseActionWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseActionOrderByWithRelationInput[] =
-    query.sort === "due-asc"
+/**
+ * The allowlisted action sorts (AUD-08 §4, DT-04). An action without a due
+ * date sorts after every dated one; priority compares the enum's declared
+ * order (LOW < MEDIUM < HIGH < CRITICAL). Every order ends in the id.
+ */
+export function actionListOrder(sort: ActionListQuery["sort"]): Prisma.HseActionOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseActionOrderByWithRelationInput>(
+    sort === "due-asc"
       ? [{ dueDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "priority-desc"
+      : sort === "priority-desc"
         ? [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ actionNumber: "asc" }]
-          : [{ updatedAt: "desc" }];
+          : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseAction.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseAction.count({ where }),
-  ]);
+export async function listActions(context: UserContext, query: ActionListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.action.view");
+
+  const where = buildActionListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseAction.findMany({
+        where,
+        orderBy: actionListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseAction.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
@@ -229,7 +259,8 @@ export async function listForParent(
 
   const rows = await prisma.hseAction.findMany({
     where: { AND: [buildActionScopeWhere(context), parent] },
-    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    // Complete, not paged: one parent's actions (AUD-08 §4 tie-breaker).
+    orderBy: [{ priority: "desc" }, { createdAt: "desc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -237,22 +268,34 @@ export async function listForParent(
   return rows.map((row) => toSummaryDTO(context, row, members));
 }
 
+/**
+ * A project's actions for its HSE tab: open work first (status in its declared
+ * order, then due date, undated last), the first `limit` and the true total
+ * (AUD-08 §4). The tab links to the full register for the rest.
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<ActionSummaryDTO[]> {
-  if (!can(context, "hse.action.view")) return [];
+): Promise<ListPreview<ActionSummaryDTO>> {
+  if (!can(context, "hse.action.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.hseAction.findMany({
-    where: { AND: [buildActionScopeWhere(context), { projectId }] },
-    orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.HseActionWhereInput = { AND: [buildActionScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseAction.findMany({
+        where,
+        orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseAction.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
-  return rows.map((row) => toSummaryDTO(context, row, members));
+  return { data: rows.map((row) => toSummaryDTO(context, row, members)), total };
 }
 
 export async function actionFilterOptions(context: UserContext) {

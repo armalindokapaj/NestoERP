@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
@@ -7,6 +7,7 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { listRecordActivity } from "@/lib/modules/finance/finance.activity";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 import { formatDateTime } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "../invoice-context";
 import { FinanceRecordTabs } from "../record-tabs";
@@ -30,6 +31,8 @@ export default async function InvoiceActivityPage({ params, searchParams }: Para
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
   const activity = await listRecordActivity(context, "Invoice", invoiceId, { page, limit: 25 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== page) redirect(listPageRedirect(`/finance/invoices/${invoice.id}/activity`, query, activity.pagination.page));
 
   return (
     <div className="space-y-5">

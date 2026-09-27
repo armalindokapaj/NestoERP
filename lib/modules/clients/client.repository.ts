@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { buildClientScopeWhere, buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
@@ -15,15 +15,27 @@ import type { ClientListQuery, ClientSortKey } from "./client.schema";
  * left it to the caller would be one refactor away from leaking (PRD #12 §19).
  */
 
+/**
+ * The allowlisted sorts (AUD-08 §4, DT-04). Each ends in the client id, so
+ * equal names, types or statuses keep one order across pages. Type and status
+ * compare the enums' declared order, never their labels.
+ *
+ * `projects-desc` orders by every project linked to the client — Prisma cannot
+ * order by a filtered relation count — while the Projects column shows the
+ * active projects in the caller's scope; the manifest records the difference.
+ */
 const SORT_ORDER: Record<ClientSortKey, Prisma.ClientOrderByWithRelationInput[]> = {
-  "updated-desc": [{ updatedAt: "desc" }],
-  "created-desc": [{ createdAt: "desc" }],
-  "name-asc": [{ name: "asc" }],
-  "name-desc": [{ name: "desc" }],
-  "projects-desc": [{ projects: { _count: "desc" } }, { name: "asc" }],
-  "type-asc": [{ type: "asc" }, { name: "asc" }],
-  "status-asc": [{ status: "asc" }, { name: "asc" }],
+  "updated-desc": [{ updatedAt: "desc" }, { id: "asc" }],
+  "created-desc": [{ createdAt: "desc" }, { id: "asc" }],
+  "name-asc": [{ name: "asc" }, { id: "asc" }],
+  "name-desc": [{ name: "desc" }, { id: "asc" }],
+  "projects-desc": [{ projects: { _count: "desc" } }, { name: "asc" }, { id: "asc" }],
+  "type-asc": [{ type: "asc" }, { name: "asc" }, { id: "asc" }],
+  "status-asc": [{ status: "asc" }, { name: "asc" }, { id: "asc" }],
 };
+
+/** A page and its total from one snapshot (AUD-08 §4, DT-06). */
+const SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
 
 /** The one primary contact a client may have (PRD #12 §180). */
 const PRIMARY_CONTACT = {
@@ -141,10 +153,11 @@ export function buildClientListWhere(
   return { AND: filters };
 }
 
+/** Rows and count share one predicate and one snapshot; the database slices (AUD-08 §3, §4). */
 export async function listClients(context: UserContext, query: ClientListQuery) {
   const where = buildClientListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total] = await prisma.$transaction([
     prisma.client.findMany({
       where,
       select: SUMMARY_SELECT,
@@ -153,7 +166,7 @@ export async function listClients(context: UserContext, query: ClientListQuery) 
       take: query.limit,
     }),
     prisma.client.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   const counts = await visibleProjectCounts(
     context,
@@ -242,29 +255,55 @@ export async function clientCounts(context: UserContext, clientId: string) {
   return { visibleProjects, visibleDocuments, activeContacts };
 }
 
-/** Projects linked to a client, narrowed to the caller's project scope (PRD #12 §92). */
-export async function listClientProjects(context: UserContext, clientId: string) {
+/**
+ * Projects linked to a client, narrowed to the caller's project scope (PRD #12 §92).
+ *
+ * Bounded at `CLIENT_PROJECTS_CAP`. `listClientProjectsWithTotal` reads the
+ * true total in the same snapshot, so the tab and the API say "100 of N"
+ * instead of truncating silently (AUD-08 §4). Order: status (enum order), most
+ * recently updated, then id.
+ */
+export const CLIENT_PROJECTS_CAP = 100;
+
+const CLIENT_PROJECT_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  status: true,
+  priority: true,
+  startDate: true,
+  endDate: true,
+  updatedAt: true,
+  archivedAt: true,
+  client: { select: { id: true, name: true } },
+  projectManager: {
+    select: { id: true, user: { select: { firstName: true, lastName: true } } },
+  },
+  _count: { select: { members: { where: { status: "ACTIVE" as const } } } },
+} satisfies Prisma.ProjectSelect;
+
+function clientProjectsRead(context: UserContext, clientId: string) {
   return prisma.project.findMany({
     where: { AND: [buildProjectScopeWhere(context), { clientId }] },
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      status: true,
-      priority: true,
-      startDate: true,
-      endDate: true,
-      updatedAt: true,
-      archivedAt: true,
-      client: { select: { id: true, name: true } },
-      projectManager: {
-        select: { id: true, user: { select: { firstName: true, lastName: true } } },
-      },
-      _count: { select: { members: { where: { status: "ACTIVE" as const } } } },
-    },
-    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-    take: 100,
+    select: CLIENT_PROJECT_SELECT,
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
+    take: CLIENT_PROJECTS_CAP,
   });
+}
+
+export async function listClientProjects(context: UserContext, clientId: string) {
+  return clientProjectsRead(context, clientId);
+}
+
+export async function listClientProjectsWithTotal(context: UserContext, clientId: string) {
+  const [rows, total] = await prisma.$transaction(
+    [
+      clientProjectsRead(context, clientId),
+      prisma.project.count({ where: { AND: [buildProjectScopeWhere(context), { clientId }] } }),
+    ],
+    SNAPSHOT,
+  );
+  return { rows, total, cap: CLIENT_PROJECTS_CAP };
 }
 
 export async function listClientActivity(
@@ -281,10 +320,11 @@ export async function listClientActivity(
     OR: [{ entityId: clientId }, { metadata: { path: ["clientId"], equals: clientId } }],
   };
 
-  const [rows, total] = await Promise.all([
+  // Newest first, id as tie-breaker, page and total from one snapshot (DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction([
     prisma.activity.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: skipFor(options.page, options.limit),
       take: options.limit,
       select: {
@@ -297,7 +337,7 @@ export async function listClientActivity(
       },
     }),
     prisma.activity.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }
@@ -337,7 +377,7 @@ export async function listContacts(
         : { archivedAt: null, status: { not: "ARCHIVED" as const } }),
     },
     select: CONTACT_SELECT,
-    orderBy: [{ isPrimary: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ isPrimary: "desc" }, { lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
   });
 }
 

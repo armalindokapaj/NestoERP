@@ -8,7 +8,7 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { WINDOW } from "./approvals.cycle-provider";
 import { afterCursor, completeItem, decodeCursor, encodeCursor, sortItems, sortKey } from "./approvals.order";
-import { approvalError, providerUnavailable, type ApprovalProvider, type ProviderItem, type ProviderQuery } from "./approvals.provider";
+import { approvalError, isWindowed, providerUnavailable, type ApprovalProvider, type ProviderItem, type ProviderQuery } from "./approvals.provider";
 import { approvalProviders, type ApprovalProviderRegistry } from "./approvals.registry";
 import type { ApprovalQuery } from "./approvals.schema";
 import type {
@@ -51,14 +51,14 @@ export function summary(provider: ApprovalProvider): ApprovalProviderSummary {
   return { key: provider.key, label: provider.label, moduleKey: provider.moduleKey };
 }
 
-async function bounded<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
+async function bounded<T, R>(items: T[], limit: number, run: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
   async function worker() {
     while (next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await run(items[index]);
+      results[index] = await run(items[index], index);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
@@ -74,16 +74,22 @@ async function bounded<T, R>(items: T[], limit: number, run: (item: T) => Promis
  */
 export type Source = { context: UserContext; provider: ApprovalProvider; company?: ApprovalCompany };
 
-/** Answers are aligned with `sources`, so a caller can tell which company a list came from. */
+/**
+ * Answers are aligned with `sources`, so a caller can tell which company a list came from.
+ * `windowed[i]` is true when source i stopped at one of its own bounds before its
+ * rows ran out (AUD-08 §4), whatever the length of what it kept.
+ */
 export async function askSources(
   sources: Source[],
   query: ProviderQuery,
-): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[] }> {
+): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[]; windowed: boolean[] }> {
   const failed: ApprovalProviderSummary[] = [];
-  const items = await bounded(sources, PROVIDER_CONCURRENCY, async ({ context, provider, company }) => {
+  const windowed = new Array<boolean>(sources.length).fill(false);
+  const items = await bounded(sources, PROVIDER_CONCURRENCY, async ({ context, provider, company }, index) => {
     const started = Date.now();
     try {
       const rows = await provider.queue(context, query);
+      windowed[index] = isWindowed(rows);
       return company ? rows.map((row) => ({ ...row, company })) : rows;
     } catch (error) {
       failed.push(company ? { ...summary(provider), company } : summary(provider));
@@ -100,14 +106,19 @@ export async function askSources(
       incrementCounter(Metric.APPROVALS_PROVIDER_DURATION_MS, { provider: provider.key }, Date.now() - started);
     }
   });
-  return { items, failed };
+  return { items, failed, windowed };
+}
+
+/** Whether source i's answer is a bounded window: it filled WINDOW, or said it stopped early. */
+export function sourceSaturated(items: ProviderItem[][], windowed: boolean[]): boolean[] {
+  return items.map((rows, index) => rows.length >= WINDOW || Boolean(windowed[index]));
 }
 
 async function askProviders(
   context: UserContext,
   providers: ApprovalProvider[],
   query: ProviderQuery,
-): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[] }> {
+): Promise<{ items: ProviderItem[][]; failed: ApprovalProviderSummary[]; windowed: boolean[] }> {
   return askSources(
     providers.map((provider) => ({ context, provider })),
     query,
@@ -143,11 +154,11 @@ export async function getApprovalCounts(context: UserContext, options: Options =
   assertCenter(context);
   const registry = options.registry ?? approvalProviders;
   const now = options.now ?? new Date();
-  const { items, failed } = await askProviders(context, registry.getEnabledProviders(context), waitingQuery(now));
+  const { items, failed, windowed } = await askProviders(context, registry.getEnabledProviders(context), waitingQuery(now));
   return {
     ...countsOf(
       items.flat().map((item) => completeItem(item, now)),
-      items.some((list) => list.length >= WINDOW),
+      sourceSaturated(items, windowed).some(Boolean),
       failed,
     ),
     failedProviders: failed,
@@ -155,7 +166,9 @@ export async function getApprovalCounts(context: UserContext, options: Options =
 }
 
 /** Header counts without the API alias: what a queue result carries (the list's own failures are beside it). */
-function headerCounts({ failedProviders: _failed, ...counts }: CountsResult): ApprovalCounts {
+function headerCounts(result: CountsResult): ApprovalCounts {
+  const counts: ApprovalCounts & { failedProviders?: unknown } = { ...result };
+  delete counts.failedProviders;
   return counts;
 }
 
@@ -221,8 +234,10 @@ export async function readQueue(sources: Source[], query: ApprovalQuery, now: Da
     now,
   };
 
-  const { items: perSource, failed } = await askSources(sources, providerQuery);
-  const saturated = perSource.map((rows) => !exact && rows.length >= WINDOW);
+  const { items: perSource, failed, windowed: stopped } = await askSources(sources, providerQuery);
+  // A source is a window when it filled WINDOW on a windowed read, or said its own bound ended it early —
+  // an exact date-ordered read too, whose next page would otherwise silently never come (AUD-08 §4).
+  const saturated = perSource.map((rows, index) => (!exact && rows.length >= WINDOW) || stopped[index]);
   const windowed = saturated.some(Boolean);
 
   let items = perSource.flat().map((item) => completeItem(item, now));

@@ -11,6 +11,8 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import * as approvals from "@/lib/modules/contracts/approvals/approval.service";
+import { Pagination } from "@/components/data/pagination";
+import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Contract approvals" };
 
@@ -32,10 +34,15 @@ export default async function ContractApprovalsPage({
   const params = await searchParams;
   const decided = params.status === "DECIDED";
 
+  const requested = Number.parseInt(firstValue(params.page) ?? "1", 10);
+  const page = Number.isFinite(requested) && requested > 0 ? requested : 1;
   const result = await approvals.listApprovals(context, {
     status: decided ? "DECIDED" : "PENDING",
+    page,
     limit: 50,
   });
+  // Every approval is reachable page by page — no silent first 50; a page past the end moves once (AUD-08 §4, DT-05).
+  if (result.pagination.page !== page) redirect(listPageRedirect("/contracts/approvals", params, result.pagination.page));
 
   return (
     <ModulePage
@@ -66,7 +73,10 @@ export default async function ContractApprovalsPage({
             }
           />
         ) : (
-          <ContractApprovalQueue approvals={result.data} />
+          <>
+            <ContractApprovalQueue approvals={result.data} />
+            <Pagination meta={result.pagination} buildHref={(next) => pageHref("/contracts/approvals", params, next)} />
+          </>
         )}
       </div>
     </ModulePage>

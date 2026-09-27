@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
@@ -22,13 +23,22 @@ const SETTLEMENT_TONES = {
   UNPAID: "neutral",
 } as const;
 
-export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
+export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
+  invoices: InvoiceSummaryDTO[];
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   // Rows read in the Group workspace name their company and open through it.
   const grouped = invoices.some((invoice) => invoice.company);
 
   const columns: TableColumn<InvoiceSummaryDTO>[] = [
     {
       key: "number",
+      id: "number",
+      mandatory: true,
+      sortKey: sort ? "number" : undefined,
       label: "Invoice",
       primary: true,
       render: (invoice) => {
@@ -52,6 +62,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
     ...(grouped ? [companyColumn<InvoiceSummaryDTO>()] : []),
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "xl",
       render: (invoice) => (
@@ -60,18 +71,28 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
     },
     {
       key: "issued",
+      id: "issued",
+      valueType: "date",
+      sortKey: sort ? "issue" : undefined,
       label: "Issued",
       hideBelow: "xl",
       render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.issueDate)}</span>,
     },
     {
       key: "due",
+      id: "due",
+      valueType: "date",
+      sortKey: sort ? "due" : undefined,
       label: "Due",
       hideBelow: "lg",
       render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.dueDate)}</span>,
     },
     {
       key: "total",
+      id: "total",
+      mandatory: true,
+      valueType: "money",
+      sortKey: sort ? "amount" : undefined,
       label: "Total",
       align: "right",
       render: (invoice) => (
@@ -80,6 +101,8 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
     },
     {
       key: "outstanding",
+      id: "outstanding",
+      valueType: "money",
       label: "Outstanding",
       align: "right",
       hideBelow: "lg",
@@ -93,11 +116,16 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (invoice) => <StatusBadge status={invoice.status} />,
     },
     {
       key: "settlement",
+      id: "settlement",
+      valueType: "status",
       label: "Settlement",
       hideBelow: "md",
       render: (invoice) => (
@@ -110,6 +138,8 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceSummaryDTO[] }) {
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Invoices"
       columns={columns}
       records={invoices}

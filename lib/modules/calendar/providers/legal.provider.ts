@@ -2,7 +2,7 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { buildAmendmentScopeWhere, buildContractScopeWhere, buildObligationScopeWhere } from "@/lib/modules/contracts/contract.scope";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectRef, PROJECT_SELECT, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Contract dates (PRD #39 §57): start, expiry and termination, obligation due
@@ -22,7 +22,7 @@ export const legalProvider: CalendarProvider = {
     const projects = filters.projectIds?.length ? { projectId: { in: filters.projectIds } } : {};
     const events: Array<CalendarEventDTO | null> = [];
 
-    const contracts = await prisma.contract.findMany({
+    const contracts = await sourceRows(input, prisma.contract.findMany({
       where: {
         AND: [
           buildContractScopeWhere(context),
@@ -34,7 +34,7 @@ export const legalProvider: CalendarProvider = {
       },
       take: SOURCE_LIMIT,
       select: { id: true, contractNumber: true, title: true, status: true, effectiveDate: true, expiryDate: true, terminationDate: true, project: PROJECT_SELECT },
-    });
+    }));
     for (const row of contracts) {
       const base = { sourceType: "contract", sourceId: row.id, providerKey: "legal", category: "LEGAL" as const, project: projectRef(row.project), href: `/contracts/${row.id}`, metadata: { sourceLabel: "Contract", moduleKey: "contracts" } };
       if (row.effectiveDate) events.push(onBusinessDate(input, row.effectiveDate, { ...base, id: `legal:start:${row.id}`, title: `${row.contractNumber} starts`, subtitle: row.title, status: row.status }));
@@ -43,7 +43,7 @@ export const legalProvider: CalendarProvider = {
     }
 
     if (can(context, "legal.obligation.view")) {
-      const obligations = await prisma.contractObligation.findMany({
+      const obligations = await sourceRows(input, prisma.contractObligation.findMany({
         where: {
           AND: [
             buildObligationScopeWhere(context),
@@ -54,7 +54,7 @@ export const legalProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, title: true, dueDate: true, contract: { select: { id: true, contractNumber: true, project: PROJECT_SELECT } } },
-      });
+      }));
       for (const row of obligations) {
         const overdue = isPastDue(row.dueDate!, input);
         events.push(
@@ -77,7 +77,7 @@ export const legalProvider: CalendarProvider = {
     }
 
     if (can(context, "legal.amendment.view") && !filters.myOnly) {
-      const amendments = await prisma.contractAmendment.findMany({
+      const amendments = await sourceRows(input, prisma.contractAmendment.findMany({
         where: {
           AND: [
             buildAmendmentScopeWhere(context),
@@ -87,7 +87,7 @@ export const legalProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, amendmentNumber: true, title: true, status: true, effectiveDate: true, contract: { select: { id: true, contractNumber: true, project: PROJECT_SELECT } } },
-      });
+      }));
       for (const row of amendments) {
         events.push(
           onBusinessDate(input, row.effectiveDate!, {

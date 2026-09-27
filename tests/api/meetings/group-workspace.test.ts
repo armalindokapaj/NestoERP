@@ -268,18 +268,23 @@ describe("the company filter (§86, §87)", () => {
     expect(b.data.every((row) => row.company?.id === COMPANY.b)).toBe(true);
   });
 
-  it("ignores a company the person may not read: no error, no rows from it, nothing disclosed", async () => {
+  // AUD-08 §3, DT-22 changed this deliberately: a company the person may not
+  // read used to be dropped, answering every company instead — a silent
+  // broadening. It now narrows to no rows: still no error and nothing disclosed.
+  it("narrows a company the person may not read to no rows: no error, nothing disclosed, never every company", async () => {
     const owner = await loginAs("OWNER", { workspace: "GROUP" });
     const everything = await listMeetingsForWorkspace(owner, meetingQuery());
+    expect(everything.data.length).toBeGreaterThan(0);
     for (const company of [COMPANY.tenant, COMPANY.suspended, "company_that_does_not_exist"]) {
       const asked = await listMeetingsForWorkspace(owner, meetingQuery({ company }));
-      expect(idsOf(asked.data), company).toEqual(idsOf(everything.data));
+      expect(idsOf(asked.data), company).toEqual([]);
+      expect(asked.pagination.total, company).toBe(0);
     }
     await switchMeetingsOff(COMPANY.b);
     const fresh = await loginAs("OWNER", { workspace: "GROUP" });
     const off = await listMeetingsForWorkspace(fresh, meetingQuery({ company: COMPANY.b }));
-    expect(idsOf(off.data)).not.toContain(ids.b);
-    expect(off.data.length).toBeGreaterThan(0);
+    expect(idsOf(off.data)).toEqual([]);
+    expect((await listMeetingsForWorkspace(fresh, meetingQuery())).data.length).toBeGreaterThan(0);
   });
 
   it("is locked in a company workspace: the list stays that company's", async () => {
@@ -327,7 +332,9 @@ describe("actions from meetings (§34)", () => {
     const owner = await loginAs("OWNER", { workspace: "GROUP" });
     const foreign = await listActionItemsForWorkspace(owner, actionQuery({ company: COMPANY.tenant }));
     expect(idsOf(foreign.data)).not.toContain(actionIds.tenant);
-    expect(mineOnly(foreign.data).length).toBe(4);
+    // AUD-08 §3, DT-22 (deliberate change): an unreadable company narrows to nothing, never to every company.
+    expect(foreign.data).toEqual([]);
+    expect(foreign.pagination.total).toBe(0);
     const b = await listActionItemsForWorkspace(owner, actionQuery({ company: COMPANY.b }));
     expect(b.data.every((row) => row.company?.id === COMPANY.b)).toBe(true);
     expect(idsOf(mineOnly(b.data))).toEqual(sortedIds(actionIds.b, actionIds.bColleague));
@@ -366,7 +373,7 @@ describe("GET /api/meetings, GET /api/meetings/actions and POST /api/meetings", 
     expect(body.data.find((row) => row.id === ids.d)?.timezone).toBe("Asia/Tokyo");
   });
 
-  it("narrows by company, ignoring one the caller may not read", async () => {
+  it("narrows by company; one the caller may not read narrows to nothing (AUD-08 DT-22)", async () => {
     actAs(await loginAs("OWNER", { workspace: "GROUP" }));
     const narrowed = (await (await getMeetings(`&company=${COMPANY.d}`)).json()) as { data: Array<{ id: string }> };
     expect(idsOf(narrowed.data)).toEqual(sortedIds(ids.d, ids.dMulti));
@@ -374,7 +381,8 @@ describe("GET /api/meetings, GET /api/meetings/actions and POST /api/meetings", 
     expect(foreign.status).toBe(200);
     const body = (await foreign.json()) as { data: Array<{ id: string }> };
     expect(idsOf(body.data)).not.toContain(ids.tenant);
-    expect(body.data.length).toBe(7);
+    // AUD-08 §3, DT-22 (deliberate change): no longer every company's seven meetings.
+    expect(body.data.length).toBe(0);
   });
 
   it("answers the company's own list, with no company on the row, in a company workspace", async () => {

@@ -78,11 +78,11 @@ export async function listLeads(context: UserContext, query: LeadListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "sales.lead.view");
 
-  const { rows, total } = await repository.listLeads(context, query);
+  const { rows, window } = await repository.listLeads(context, query);
 
   return {
     data: rows.map(toSummaryDTO),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -98,12 +98,12 @@ export async function listLeadsForWorkspace(session: UserContext, query: LeadLis
   const readers = await groupReaders(session, "sales.lead.view", query.companyId);
   if (readers.length === 0) return { data: [] as LeadSummaryDTO[], pagination: paginationMeta(0, query.page, query.limit) };
 
-  const { rows, total } = await repository.listLeadsInGroup(readers, query);
+  const { rows, window } = await repository.listLeadsInGroup(readers, query);
   const companies = companyRefs(readers);
 
   return {
     data: rows.map((row) => ({ ...toSummaryDTO(row), company: companies.get(row.companyId) })),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

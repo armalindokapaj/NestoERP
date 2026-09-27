@@ -12,6 +12,7 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import * as approvals from "@/lib/modules/finance/approvals/approval.service";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -43,6 +44,10 @@ export default async function FinanceApprovalsPage({
     page,
     limit: 25,
   });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== page) {
+    redirect(listPageRedirect("/finance/approvals", decided ? { status: "DECIDED", page: String(page) } : { page: String(page) }, result.pagination.page));
+  }
 
   return (
     <ModulePage

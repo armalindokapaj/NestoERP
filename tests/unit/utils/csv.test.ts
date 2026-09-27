@@ -24,7 +24,9 @@ describe("CSV export cells (PRD #47 §69)", () => {
 
   it("keeps numbers, negative amounts and ordinary text as they are", () => {
     expect(csvCell(-120.5)).toBe("-120.5");
-    expect(csvCell("-120.50")).toBe("-120.50");
+    // Declared numeric output stays a number; number-like text is text (AUD-08 §7, DT-18).
+    expect(csvCell("-120.50", "number")).toBe("-120.50");
+    expect(csvCell("-120.50")).toBe(`"'-120.50"`);
     expect(csvCell("Riverside Tower")).toBe("Riverside Tower");
     expect(csvCell(null)).toBe("");
   });

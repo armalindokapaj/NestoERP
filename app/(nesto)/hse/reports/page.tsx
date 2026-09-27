@@ -13,6 +13,21 @@ import * as reports from "@/lib/modules/hse/reports/reports.service";
 export const metadata: Metadata = { title: "HSE reports" };
 
 /**
+ * Where the whole of a bounded register lives: the paged list with the same
+ * scope and, where the list has it, the same section and order (AUD-08 §4).
+ */
+const FULL_LIST: Record<string, string> = {
+  "hazard-register": "/hse/hazards?sort=risk-desc",
+  "critical-hazards": "/hse/hazards?view=critical",
+  "risk-register": "/hse/risk-assessments?sort=number-asc",
+  "action-report": "/hse/actions",
+  "toolbox-summary": "/hse/toolbox-talks?status=COMPLETED&sort=date-desc",
+  "permit-register": "/hse/permits",
+  "environmental-register": "/hse/environment?sort=observed-desc",
+  "stop-work-register": "/hse/stop-work",
+};
+
+/**
  * The HSE reports (PRD #22 §199–§215).
  *
  * Every one aggregates server-side under the reader's own scope, and only the
@@ -114,12 +129,27 @@ export default async function HseReportsPage({
                 Nothing to report yet under your access.
               </p>
             ) : (
-              <DataTable
-                caption={result.label}
-                columns={columns}
-                records={records}
-                rowKey={(row) => row.__key}
-              />
+              <>
+                <DataTable
+                  caption={result.label}
+                  columns={columns}
+                  records={records}
+                  rowKey={(row) => row.__key}
+                />
+                {/* A register stops at its bound; it says so and points at the
+                    paged list rather than looking complete (AUD-08 §4, DT-01). */}
+                {result.total !== undefined && result.total > result.rows.length ? (
+                  <p className="text-meta text-fg-muted" data-testid="report-truncated">
+                    Showing the first <span className="tabular-nums">{result.rows.length}</span> of{" "}
+                    <span className="tabular-nums">{result.total}</span>.{" "}
+                    {FULL_LIST[result.key] ? (
+                      <Link href={FULL_LIST[result.key]!} className="text-accent hover:underline">
+                        Open the full list
+                      </Link>
+                    ) : null}
+                  </p>
+                ) : null}
+              </>
             )}
           </section>
         ) : (

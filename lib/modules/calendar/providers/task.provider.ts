@@ -1,7 +1,7 @@
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import type { CalendarPriority, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Task dates (PRD #39 §54): the due date, or the start date of work that has
@@ -20,7 +20,7 @@ export const taskProvider: CalendarProvider = {
   async getEvents(input) {
     const { context, filters } = input;
     const window = dateWindow(input);
-    const rows = await prisma.task.findMany({
+    const rows = await sourceRows(input, prisma.task.findMany({
       where: {
         AND: [
           buildTaskScopeWhere(context),
@@ -32,7 +32,7 @@ export const taskProvider: CalendarProvider = {
         ],
       },
       take: SOURCE_LIMIT,
-      orderBy: { dueDate: "asc" },
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
       select: {
         id: true,
         title: true,
@@ -43,7 +43,7 @@ export const taskProvider: CalendarProvider = {
         project: PROJECT_SELECT,
         assignee: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
       },
-    });
+    }));
 
     return compact(
       rows.map((row) => {

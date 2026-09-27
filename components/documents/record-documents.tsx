@@ -110,7 +110,20 @@ export async function RecordDocuments({
           </Button>
         </div>
       ) : null}
-      <DocumentTable documents={result.data} />
+      <DocumentTable documents={result.data} listId="records.documents" />
+      {/* The true count; the first 100 are shown, never silently (AUD-08 §4). */}
+      <p className="text-table text-fg-muted" data-testid="pagination-count">
+        {result.pagination.total > result.data.length ? (
+          <>
+            Showing the first <span className="tabular-nums">{result.data.length}</span> of{" "}
+            <span className="tabular-nums">{result.pagination.total}</span> documents.
+          </>
+        ) : (
+          <>
+            <span className="tabular-nums">{result.pagination.total}</span> {result.pagination.total === 1 ? "document" : "documents"}
+          </>
+        )}
+      </p>
     </div>
   );
 }

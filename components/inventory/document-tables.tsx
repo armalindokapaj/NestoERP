@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type {
   AdjustmentSummaryDTO,
@@ -27,13 +28,21 @@ function lineLabel(count: number): string {
 export function ReceiptTable({
   receipts,
   caption = "Receipts",
+  listId = "inventory.receipts",
+  sort,
 }: {
   receipts: ReceiptSummaryDTO[];
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<ReceiptSummaryDTO>[] = [
     {
       key: "receiptNumber",
+      id: "receiptNumber",
+      mandatory: true,
       label: "Receipt",
       primary: true,
       render: (row) => (
@@ -49,17 +58,23 @@ export function ReceiptTable({
     },
     {
       key: "warehouse",
+      id: "warehouse",
       label: "Warehouse",
       hideBelow: "md",
       render: (row) => row.warehouse.name,
     },
     {
       key: "receiptDate",
+      id: "receiptDate",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       label: "Date",
       render: (row) => formatDate(row.receiptDate),
     },
     {
       key: "lineCount",
+      id: "lineCount",
+      valueType: "number",
       label: "Lines",
       align: "right",
       hideBelow: "lg",
@@ -67,6 +82,9 @@ export function ReceiptTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -74,6 +92,8 @@ export function ReceiptTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={receipts}
       rowKey={(row) => row.id}
@@ -87,14 +107,22 @@ export function IssueTable({
   issues,
   showProject = true,
   caption = "Issues",
+  listId = "inventory.issues",
+  sort,
 }: {
   issues: IssueSummaryDTO[];
   showProject?: boolean;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<IssueSummaryDTO>[] = [
     {
       key: "issueNumber",
+      id: "issueNumber",
+      mandatory: true,
       label: "Issue",
       primary: true,
       render: (row) => (
@@ -111,6 +139,7 @@ export function IssueTable({
   if (showProject) {
     columns.push({
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "md",
       render: (row) =>
@@ -128,17 +157,23 @@ export function IssueTable({
   columns.push(
     {
       key: "warehouse",
+      id: "warehouse",
       label: "Warehouse",
       hideBelow: "lg",
       render: (row) => row.warehouse.name,
     },
     {
       key: "issueDate",
+      id: "issueDate",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       label: "Date",
       render: (row) => formatDate(row.issueDate),
     },
     {
       key: "lineCount",
+      id: "lineCount",
+      valueType: "number",
       label: "Lines",
       align: "right",
       hideBelow: "xl",
@@ -146,6 +181,9 @@ export function IssueTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -153,6 +191,8 @@ export function IssueTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={issues}
       rowKey={(row) => row.id}
@@ -165,13 +205,21 @@ export function IssueTable({
 export function ReturnTable({
   returns,
   caption = "Returns",
+  listId = "inventory.returns",
+  sort,
 }: {
   returns: ReturnSummaryDTO[];
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<ReturnSummaryDTO>[] = [
     {
       key: "returnNumber",
+      id: "returnNumber",
+      mandatory: true,
       label: "Return",
       primary: true,
       render: (row) => (
@@ -183,6 +231,7 @@ export function ReturnTable({
     },
     {
       key: "project",
+      id: "project",
       label: "From project",
       hideBelow: "md",
       render: (row) => (
@@ -194,17 +243,24 @@ export function ReturnTable({
     },
     {
       key: "warehouse",
+      id: "warehouse",
       label: "Back into",
       hideBelow: "lg",
       render: (row) => row.warehouse.name,
     },
     {
       key: "returnDate",
+      id: "returnDate",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       label: "Date",
       render: (row) => formatDate(row.returnDate),
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -212,6 +268,8 @@ export function ReturnTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={returns}
       rowKey={(row) => row.id}
@@ -224,13 +282,21 @@ export function ReturnTable({
 export function TransferTable({
   transfers,
   caption = "Transfers",
+  listId = "inventory.transfers",
+  sort,
 }: {
   transfers: TransferSummaryDTO[];
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<TransferSummaryDTO>[] = [
     {
       key: "transferNumber",
+      id: "transferNumber",
+      mandatory: true,
       label: "Transfer",
       primary: true,
       render: (row) => (
@@ -244,6 +310,7 @@ export function TransferTable({
     },
     {
       key: "route",
+      id: "route",
       label: "Route",
       hideBelow: "lg",
       render: (row) => (
@@ -256,11 +323,16 @@ export function TransferTable({
     },
     {
       key: "transferDate",
+      id: "transferDate",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       label: "Date",
       render: (row) => formatDate(row.transferDate),
     },
     {
       key: "lineCount",
+      id: "lineCount",
+      valueType: "number",
       label: "Lines",
       align: "right",
       hideBelow: "md",
@@ -268,6 +340,9 @@ export function TransferTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -275,6 +350,8 @@ export function TransferTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={transfers}
       rowKey={(row) => row.id}
@@ -287,13 +364,21 @@ export function TransferTable({
 export function AdjustmentTable({
   adjustments,
   caption = "Adjustments",
+  listId = "inventory.adjustments",
+  sort,
 }: {
   adjustments: AdjustmentSummaryDTO[];
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<AdjustmentSummaryDTO>[] = [
     {
       key: "adjustmentNumber",
+      id: "adjustmentNumber",
+      mandatory: true,
       label: "Adjustment",
       primary: true,
       render: (row) => (
@@ -305,17 +390,23 @@ export function AdjustmentTable({
     },
     {
       key: "warehouse",
+      id: "warehouse",
       label: "Warehouse",
       hideBelow: "md",
       render: (row) => row.warehouse.name,
     },
     {
       key: "adjustmentDate",
+      id: "adjustmentDate",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       label: "Date",
       render: (row) => formatDate(row.adjustmentDate),
     },
     {
       key: "lineCount",
+      id: "lineCount",
+      valueType: "number",
       label: "Lines",
       align: "right",
       hideBelow: "lg",
@@ -323,6 +414,9 @@ export function AdjustmentTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -330,6 +424,8 @@ export function AdjustmentTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={adjustments}
       rowKey={(row) => row.id}

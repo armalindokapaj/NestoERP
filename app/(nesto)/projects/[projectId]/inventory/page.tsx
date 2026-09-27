@@ -50,14 +50,16 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
   if (!actions.canViewInventory) redirect("/access-denied");
 
-  const [consumption, issueRows, returnRows, reservationRows, movementRows] = await Promise.all([
+  // Returns, reservations and movements are previews of the latest 20; each
+  // says how many there are in all, so none is cut short silently (AUD-08 §4).
+  const [consumption, issueRows, returnList, reservationList, movementList] = await Promise.all([
     projectConsumption(context, projectId),
     issues.listForProject(context, projectId),
     can(context, "inventory.return.view")
       ? returns
           .listReturns(context, transactionListQuerySchema.parse({ projectId, limit: 20 }))
-          .then((result) => result.data)
-      : Promise.resolve([]),
+          .then((result) => ({ rows: result.data, total: result.pagination.total }))
+      : Promise.resolve({ rows: [], total: 0 }),
     can(context, "inventory.reservation.view")
       ? reservations
           .listReservations(
@@ -68,15 +70,18 @@ export default async function ProjectInventoryPage({ params }: Params) {
               limit: 20,
             }),
           )
-          .then((result) => result.data)
-      : Promise.resolve([]),
+          .then((result) => ({ rows: result.data, total: result.pagination.total }))
+      : Promise.resolve({ rows: [], total: 0 }),
     can(context, "inventory.movement.view")
       ? movements
           .listMovements(context, movementListQuerySchema.parse({ projectId, limit: 20 }))
-          .then((result) => result.data)
-      : Promise.resolve([]),
+          .then((result) => ({ rows: result.data, total: result.pagination.total }))
+      : Promise.resolve({ rows: [], total: 0 }),
   ]);
 
+  const returnRows = returnList.rows;
+  const reservationRows = reservationList.rows;
+  const movementRows = movementList.rows;
   const mayIssue = can(context, "inventory.issue.create");
   const consumptionColumns: TableColumn<ProjectConsumptionRow>[] = [
     {
@@ -196,6 +201,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
                 </p>
               </div>
               <DataTable
+                listId="projects.inventory.consumption"
                 columns={consumptionColumns}
                 records={consumption}
                 rowKey={(row) => row.item.id}
@@ -219,6 +225,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Returned</h2>
               <ReturnTable returns={returnRows} caption={`Returns from ${project.name}`} />
+              <PreviewCount shown={returnRows.length} total={returnList.total} />
             </section>
           ) : null}
 
@@ -229,6 +236,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
                 reservations={reservationRows}
                 caption={`Stock held for ${project.name}`}
               />
+              <PreviewCount shown={reservationRows.length} total={reservationList.total} href={`/inventory/reservations?projectId=${project.id}`} />
             </section>
           ) : null}
 
@@ -239,10 +247,36 @@ export default async function ProjectInventoryPage({ params }: Params) {
                 movements={movementRows}
                 caption={`Stock movements on ${project.name}`}
               />
+              <PreviewCount shown={movementRows.length} total={movementList.total} href={`/inventory/movements?projectId=${project.id}`} />
             </section>
           ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+/** A preview's honest count: "Latest 20 of 57", with the full list when there is one (AUD-08 §4). */
+function PreviewCount({ shown, total, href }: { shown: number; total: number; href?: string }) {
+  return (
+    <p className="text-table text-fg-muted" data-testid="preview-count">
+      {shown < total ? (
+        <>
+          Latest <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span>
+          {href ? (
+            <>
+              {" · "}
+              <Link href={href} className="font-medium text-accent-strong hover:underline">
+                View all
+              </Link>
+            </>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <span className="tabular-nums">{total}</span> in total
+        </>
+      )}
+    </p>
   );
 }

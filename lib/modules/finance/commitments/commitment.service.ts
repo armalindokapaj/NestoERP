@@ -6,10 +6,11 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, sortNulls, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { businessDateString, keepOrSet } from "../finance.fields";
@@ -84,17 +85,26 @@ const DETAIL_SELECT = {
 
 type CommitmentDetailRow = Prisma.CommitmentGetPayload<{ select: typeof DETAIL_SELECT }>;
 
-const ORDER: Record<string, Prisma.CommitmentOrderByWithRelationInput[]> = {
-  "expected-asc": [{ expectedDate: { sort: "asc", nulls: "last" } }],
-  "expected-desc": [{ expectedDate: { sort: "desc", nulls: "last" } }],
-  "amount-desc": [{ amount: "desc" }],
-  "amount-asc": [{ amount: "asc" }],
-  "updated-desc": [{ updatedAt: "desc" }],
+/**
+ * Commitment sorts (AUD-08 §4, DT-04). The expected date is optional: a
+ * commitment without one goes last in both directions. Every sort ends in the
+ * id, so equal dates or amounts page in one fixed order.
+ */
+type CommitmentOrder = Prisma.CommitmentOrderByWithRelationInput;
+const ORDER: Record<string, CommitmentOrder[]> = {
+  "expected-asc": withTieBreaker<CommitmentOrder>([{ expectedDate: sortNulls("asc", "last") }]),
+  "expected-desc": withTieBreaker<CommitmentOrder>([{ expectedDate: sortNulls("desc", "last") }]),
+  "amount-desc": withTieBreaker<CommitmentOrder>([{ amount: "desc" }]),
+  "amount-asc": withTieBreaker<CommitmentOrder>([{ amount: "asc" }]),
+  "updated-desc": withTieBreaker<CommitmentOrder>([{ updatedAt: "desc" }]),
 };
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 export async function listCommitments(context: UserContext, query: CommitmentListQuery) {
   assertModule(context, MODULE);
@@ -135,20 +145,26 @@ export async function listCommitments(context: UserContext, query: CommitmentLis
 
   const where: Prisma.CommitmentWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.commitment.findMany({
-      where,
-      orderBy: ORDER[query.sort] ?? ORDER["expected-asc"],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.commitment.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "finance.commitments.list",
+    async (tx) => {
+      const window = pageWindow(await tx.commitment.count({ where }), query.page, query.limit);
+      const rows = await tx.commitment.findMany({
+        where,
+        orderBy: ORDER[query.sort] ?? ORDER["expected-asc"],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map(toSummaryDTO),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

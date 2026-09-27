@@ -8,8 +8,9 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor } from "@/lib/modules/shared/list-query";
 import { dayOf, todayDay } from "../employment/employment.dates";
 import { startHistory, syncCache } from "../employment/employment.history";
 import { toBusinessDate } from "../hr.date";
@@ -105,6 +106,9 @@ function assertRecruitment(context: UserContext, permission: "candidate.view" | 
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 const SUMMARY_SELECT = {
   id: true,
   status: true,
@@ -154,17 +158,23 @@ export async function listCandidates(context: UserContext, query: CandidateListQ
         : {},
     ],
   };
-  const [total, rows] = await Promise.all([
-    prisma.candidateProfile.count({ where }),
-    prisma.candidateProfile.findMany({
-      where,
-      select: SUMMARY_SELECT,
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      skip: (query.page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-  ]);
-  return { data: rows.map(toSummary), meta: paginationMeta(total, query.page, PAGE_SIZE) };
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "hr.candidates.list",
+    async (tx) => {
+      const window = pageWindow(await tx.candidateProfile.count({ where }), query.page, PAGE_SIZE);
+      const rows = await tx.candidateProfile.findMany({
+        where,
+        select: SUMMARY_SELECT,
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
+  return { data: rows.map(toSummary), meta: window };
 }
 
 export async function getCandidate(context: UserContext, candidateId: string): Promise<CandidateDetailDTO> {

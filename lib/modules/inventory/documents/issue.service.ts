@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { releaseReservation } from "../balances/balance.service";
 import {
   dateString,
@@ -97,6 +98,9 @@ type ListRow = Prisma.StockIssueGetPayload<{ select: typeof LIST_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listIssues(context: UserContext, query: TransactionListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "inventory.issue.view");
@@ -111,29 +115,37 @@ export async function listIssues(context: UserContext, query: TransactionListQue
 
   const where: Prisma.StockIssueWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.stockIssue.findMany({
-      where,
-      orderBy:
-        query.sort === "date-asc"
-          ? [{ issueDate: "asc" }]
-          : query.sort === "number-asc"
-            ? [{ issueNumber: "asc" }]
-            : query.sort === "updated-desc"
-              ? [{ updatedAt: "desc" }]
-              : [{ issueDate: "desc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.stockIssue.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.issues.list",
+    async (tx) => {
+      const window = pageWindow(await tx.stockIssue.count({ where }), query.page, query.limit);
+      const rows = await tx.stockIssue.findMany({
+        where,
+        // Many issues share a day; every sort ends in the id (AUD-08 §4, DT-04).
+        orderBy: withTieBreaker<Prisma.StockIssueOrderByWithRelationInput>(
+          query.sort === "date-asc"
+            ? [{ issueDate: "asc" }]
+            : query.sort === "number-asc"
+              ? [{ issueNumber: "asc" }]
+              : query.sort === "updated-desc"
+                ? [{ updatedAt: "desc" }]
+                : [{ issueDate: "desc" }],
+        ),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const members = await loadMembers(rows.map((row) => row.issuedToMemberId));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, members)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -198,7 +210,7 @@ export async function listForProject(
 
   const rows = await prisma.stockIssue.findMany({
     where: { AND: [buildIssueScopeWhere(context), { projectId, status: "POSTED" }] },
-    orderBy: { issueDate: "desc" },
+    orderBy: [{ issueDate: "desc" }, { id: "asc" }],
     take: 100,
     select: LIST_SELECT,
   });

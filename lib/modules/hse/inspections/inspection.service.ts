@@ -12,7 +12,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
@@ -128,10 +129,16 @@ const DUE_STATUSES: HseInspectionStatus[] = ["DRAFT", "SCHEDULED", "IN_PROGRESS"
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listInspections(context: UserContext, query: InspectionListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.inspection.view");
-
+/**
+ * The safety-inspection register's predicate (AUD-08 §3, DT-02, DT-03): scope,
+ * then the section (`view`), then filters and search — shared by the page, its
+ * count and the CSV export. OR within a filter, AND across filters; a foreign
+ * project or member id is ANDed with scope and narrows to nothing (DT-22).
+ */
+export function buildInspectionListWhere(
+  context: UserContext,
+  query: InspectionListQuery,
+): Prisma.HseInspectionWhereInput {
   const filters: Prisma.HseInspectionWhereInput[] = [buildInspectionScopeWhere(context)];
 
   if (query.view === "mine") {
@@ -166,34 +173,65 @@ export async function listInspections(context: UserContext, query: InspectionLis
     });
   }
 
-  const where: Prisma.HseInspectionWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseInspectionOrderByWithRelationInput[] =
-    query.sort === "scheduled-asc"
+/**
+ * The allowlisted inspection sorts (AUD-08 §4, DT-04). An inspection with no
+ * scheduled date sorts after every scheduled one; every order ends in the id.
+ */
+export function inspectionListOrder(
+  sort: InspectionListQuery["sort"],
+): Prisma.HseInspectionOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseInspectionOrderByWithRelationInput>(
+    sort === "scheduled-asc"
       ? [{ scheduledDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ inspectionNumber: "asc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total, failedCounts] = await Promise.all([
-    prisma.hseInspection.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseInspection.count({ where }),
-    // One grouped query for every row's failed-item count, rather than one
-    // query per row (PRD #22 §420).
-    prisma.hseInspectionChecklistItem.groupBy({
-      by: ["inspectionId"],
-      where: { inspection: where, result: "FAIL" },
-      _count: { _all: true },
-    }),
-  ]);
+/**
+ * Failed checklist items per inspection, for the rows on one page only — one
+ * grouped query, not one per row (PRD #22 §420), and not a count over every
+ * matching inspection when only this page is shown (AUD-08 §8).
+ */
+async function failedItemCounts(
+  client: Prisma.TransactionClient,
+  inspectionIds: string[],
+): Promise<Map<string, number>> {
+  if (inspectionIds.length === 0) return new Map();
+  const grouped = await client.hseInspectionChecklistItem.groupBy({
+    by: ["inspectionId"],
+    where: { inspectionId: { in: inspectionIds }, result: "FAIL" },
+    _count: { _all: true },
+  });
+  return new Map(grouped.map((row) => [row.inspectionId, row._count._all]));
+}
 
-  const failed = new Map(failedCounts.map((row) => [row.inspectionId, row._count._all]));
+export async function listInspections(context: UserContext, query: InspectionListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.inspection.view");
+
+  const where = buildInspectionListWhere(context, query);
+
+  // Rows, total and the rows' failed counts from one snapshot (AUD-08 §4, DT-06).
+  const { rows, total, failed } = await prisma.$transaction(async (tx) => {
+    const [rows, total] = await Promise.all([
+      tx.hseInspection.findMany({
+        where,
+        orderBy: inspectionListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      tx.hseInspection.count({ where }),
+    ]);
+    const failed = await failedItemCounts(tx, rows.map((row) => row.id));
+    return { rows, total, failed };
+  }, SNAPSHOT);
+
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
 
   return {
@@ -264,22 +302,36 @@ export async function getInspection(
   };
 }
 
+/**
+ * A project's inspections for its HSE tab: the first `limit`, most recently
+ * updated first (the register's default order), with their real failed-item
+ * counts — the tab used to show 0 for every row — and the true total
+ * (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<InspectionSummaryDTO[]> {
-  if (!can(context, "hse.inspection.view")) return [];
+): Promise<ListPreview<InspectionSummaryDTO>> {
+  if (!can(context, "hse.inspection.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.hseInspection.findMany({
-    where: { AND: [buildInspectionScopeWhere(context), { projectId }] },
-    orderBy: [{ updatedAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.HseInspectionWhereInput = { AND: [buildInspectionScopeWhere(context), { projectId }] };
+  const { rows, total, failed } = await prisma.$transaction(async (tx) => {
+    const [rows, total] = await Promise.all([
+      tx.hseInspection.findMany({
+        where,
+        orderBy: inspectionListOrder("recent"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      tx.hseInspection.count({ where }),
+    ]);
+    const failed = await failedItemCounts(tx, rows.map((row) => row.id));
+    return { rows, total, failed };
+  }, SNAPSHOT);
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
-  return rows.map((row) => toSummaryDTO(row, members, 0));
+  return { data: rows.map((row) => toSummaryDTO(row, members, failed.get(row.id) ?? 0)), total };
 }
 
 export async function inspectionFilterOptions(context: UserContext) {

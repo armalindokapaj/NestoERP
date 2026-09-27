@@ -9,7 +9,7 @@ import {
 } from "@/lib/modules/hse/hse.scope";
 import { addLocalDays, businessDate } from "../calendar.time";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, todayIn } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows, todayIn } from "./provider.helpers";
 
 /**
  * Safety dates (PRD #39 §60): scheduled inspections, toolbox talks, permit
@@ -44,7 +44,7 @@ export const hseProvider: CalendarProvider = {
     });
 
     if (can(context, "hse.inspection.view")) {
-      const rows = await prisma.hseInspection.findMany({
+      const rows = await sourceRows(input, prisma.hseInspection.findMany({
         where: {
           AND: [
             buildInspectionScopeWhere(context),
@@ -55,7 +55,7 @@ export const hseProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, inspectionNumber: true, inspectionType: true, status: true, scheduledDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(onBusinessDate(input, row.scheduledDate!, {
           ...base(`hse:inspection:${row.id}`, "hse_inspection", `/hse/inspections/${row.id}`, "HSE inspection"),
@@ -68,7 +68,7 @@ export const hseProvider: CalendarProvider = {
     }
 
     if (can(context, "hse.toolbox.view")) {
-      const rows = await prisma.toolboxTalk.findMany({
+      const rows = await sourceRows(input, prisma.toolboxTalk.findMany({
         where: {
           AND: [
             buildToolboxScopeWhere(context),
@@ -79,7 +79,7 @@ export const hseProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, talkNumber: true, title: true, status: true, talkDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(onBusinessDate(input, row.talkDate, {
           ...base(`hse:toolbox:${row.id}`, "toolbox_talk", `/hse/toolbox-talks/${row.id}`, "Toolbox talk"),
@@ -92,7 +92,7 @@ export const hseProvider: CalendarProvider = {
     }
 
     if (can(context, "hse.permit.view")) {
-      const rows = await prisma.hseWorkPermit.findMany({
+      const rows = await sourceRows(input, prisma.hseWorkPermit.findMany({
         where: {
           AND: [
             buildPermitScopeWhere(context),
@@ -103,7 +103,7 @@ export const hseProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, permitNumber: true, title: true, status: true, validUntil: true, project: PROJECT_SELECT },
-      });
+      }));
       const today = todayIn(input.timezone);
       for (const row of rows) {
         const expiry = businessDate(row.validUntil!);
@@ -121,7 +121,7 @@ export const hseProvider: CalendarProvider = {
     }
 
     if (can(context, "hse.risk.view")) {
-      const rows = await prisma.hseRiskAssessment.findMany({
+      const rows = await sourceRows(input, prisma.hseRiskAssessment.findMany({
         where: {
           AND: [
             buildRiskAssessmentScopeWhere(context),
@@ -132,7 +132,7 @@ export const hseProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, assessmentNumber: true, title: true, status: true, reviewDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(onBusinessDate(input, row.reviewDate!, {
           ...base(`hse:risk:${row.id}`, "risk_assessment", `/hse/risk-assessments/${row.id}`, "Risk assessment"),
@@ -145,7 +145,7 @@ export const hseProvider: CalendarProvider = {
     }
 
     if (can(context, "hse.action.view")) {
-      const rows = await prisma.hseAction.findMany({
+      const rows = await sourceRows(input, prisma.hseAction.findMany({
         where: {
           AND: [
             buildActionScopeWhere(context),
@@ -156,7 +156,7 @@ export const hseProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, actionNumber: true, title: true, status: true, priority: true, dueDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         const overdue = row.status !== "PENDING_VERIFICATION" && isPastDue(row.dueDate!, input);
         events.push(onBusinessDate(input, row.dueDate!, {

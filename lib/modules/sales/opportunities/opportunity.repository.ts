@@ -2,10 +2,14 @@ import { Prisma } from "@prisma/client";
 
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { buildOpportunityScopeWhere, buildOpportunityUnionWhere } from "../sales.scope";
-import { CLOSED_STAGES, OPEN_STAGES } from "./opportunity.stage";
+import { CLOSED_STAGES, effectiveProbability, getDefaultStageProbability, OPEN_STAGES, OPPORTUNITY_STAGES } from "./opportunity.stage";
 import type { OpportunityListQuery, OpportunitySortKey } from "./opportunity.schema";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /** Opportunity queries (PRD #17 §71–§74, §245–§247). */
 
@@ -16,9 +20,11 @@ const OWNER_SELECT = {
 } satisfies Prisma.CompanyMemberSelect;
 
 /**
- * Weighted value is not a column, so it cannot be a SQL sort key. The list
- * orders by estimate and the service re-orders the page by the derived figure —
- * honest about being a page-level sort, and correct for what the reader sees.
+ * The column sorts (AUD-08 §4, DT-04). Weighted value and probability are
+ * derived, so `weighted-desc` and `probability-desc` are ordered over every
+ * match by `derivedPage` below — never a re-sort of one page, which put the
+ * largest weighted deal of page 2 below the smallest of page 1. Each order ends
+ * in the id; close date goes last when there is none.
  */
 const ORDER: Record<OpportunitySortKey, Prisma.OpportunityOrderByWithRelationInput[]> = {
   "updated-desc": [{ updatedAt: "desc" }],
@@ -117,12 +123,63 @@ function opportunityFilters(query: OpportunityListQuery, mineMemberIds: string[]
   else if (query.ownerMemberId) filters.push({ ownerMemberId: query.ownerMemberId });
   if (query.clientId) filters.push({ clientId: query.clientId });
   if (query.currency) filters.push({ currency: query.currency });
+  // Probability is the override when set, else the stage's default: a filter the database can apply
+  // before the count and the page (AUD-08 §3, DT-03) — it used to trim the page after it was read.
+  if (query.minProbability !== undefined) filters.push(probabilityWhere("gte", query.minProbability));
+  if (query.maxProbability !== undefined) filters.push(probabilityWhere("lte", query.maxProbability));
   if (query.minValue) filters.push({ estimatedValue: { gte: new Prisma.Decimal(query.minValue) } });
   if (query.maxValue) filters.push({ estimatedValue: { lte: new Prisma.Decimal(query.maxValue) } });
   if (query.closeFrom) filters.push({ expectedCloseDate: { gte: query.closeFrom } });
   if (query.closeTo) filters.push({ expectedCloseDate: { lte: query.closeTo } });
 
   return filters;
+}
+
+/** `effectiveProbability` as a `where`: the override when there is one, else the stage default. */
+function probabilityWhere(op: "gte" | "lte", bound: number): Prisma.OpportunityWhereInput {
+  const stages = OPPORTUNITY_STAGES.filter((stage) =>
+    op === "gte" ? getDefaultStageProbability(stage) >= bound : getDefaultStageProbability(stage) <= bound,
+  );
+  return {
+    OR: [
+      { probabilityOverride: { [op]: new Prisma.Decimal(bound) } },
+      { probabilityOverride: null, stage: { in: stages } },
+    ],
+  };
+}
+
+const DERIVED_SORTS: ReadonlySet<OpportunitySortKey> = new Set(["weighted-desc", "probability-desc"]);
+
+/**
+ * One page of a derived sort, from one snapshot: every matching deal's stage,
+ * override and estimate is read (ids and three columns, no row cap), ordered by
+ * the derived figure in Decimal — weighted value or probability, highest first,
+ * then the estimate, then the id — and only the page's rows are read in full.
+ * The figures are compared as raw numbers; like the column sorts, a sort does
+ * not convert currencies.
+ */
+async function derivedPageIds(tx: Prisma.TransactionClient, where: Prisma.OpportunityWhereInput, query: OpportunityListQuery) {
+  const candidates = await tx.opportunity.findMany({
+    where,
+    orderBy: [{ estimatedValue: "desc" }, { id: "asc" }],
+    select: { id: true, stage: true, probabilityOverride: true, estimatedValue: true },
+  });
+  const key = (row: (typeof candidates)[number]) => {
+    const probability = effectiveProbability(row.stage, row.probabilityOverride);
+    return query.sort === "weighted-desc" ? new Prisma.Decimal(row.estimatedValue).times(probability) : probability;
+  };
+  const keyed = candidates.map((row) => ({ id: row.id, key: key(row) }));
+  // Array.prototype.sort is stable: equal figures keep the estimate-then-id order.
+  keyed.sort((a, b) => b.key.comparedTo(a.key));
+  const window = pageWindow(keyed.length, query.page, query.limit);
+  const ids = keyed.slice(skipFor(window.page, window.limit), skipFor(window.page, window.limit) + window.limit).map((row) => row.id);
+  return { ids, window };
+}
+
+/** Rows read by id, put back in the order the ids were ranked. */
+function inOrder<T extends { id: string }>(ids: string[], rows: T[]): T[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
 export function buildOpportunityListWhere(
@@ -148,18 +205,28 @@ export function buildOpportunityGroupWhere(
 export async function listOpportunities(context: UserContext, query: OpportunityListQuery) {
   const where = buildOpportunityListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.opportunity.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.opportunity.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "sales.opportunities.list",
+    async (tx) => {
+      if (DERIVED_SORTS.has(query.sort)) {
+        const { ids, window } = await derivedPageIds(tx, where, query);
+        return { rows: inOrder(ids, await tx.opportunity.findMany({ where: { id: { in: ids } }, select: SUMMARY_SELECT })), window };
+      }
+      const window = pageWindow(await tx.opportunity.count({ where }), query.page, query.limit);
+      const rows = await tx.opportunity.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
-  return { rows, total };
+  return { rows, total: window.total, window };
 }
 
 /**
@@ -170,18 +237,28 @@ export async function listOpportunities(context: UserContext, query: Opportunity
 export async function listOpportunitiesInGroup(contexts: UserContext[], query: OpportunityListQuery) {
   const where = buildOpportunityGroupWhere(contexts, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.opportunity.findMany({
-      where,
-      orderBy: [...ORDER[query.sort], { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: GROUP_SUMMARY_SELECT,
-    }),
-    prisma.opportunity.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "sales.opportunities.group-list",
+    async (tx) => {
+      if (DERIVED_SORTS.has(query.sort)) {
+        const { ids, window } = await derivedPageIds(tx, where, query);
+        return { rows: inOrder(ids, await tx.opportunity.findMany({ where: { id: { in: ids } }, select: GROUP_SUMMARY_SELECT })), window };
+      }
+      const window = pageWindow(await tx.opportunity.count({ where }), query.page, query.limit);
+      const rows = await tx.opportunity.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: GROUP_SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
-  return { rows, total };
+  return { rows, total: window.total, window };
 }
 
 export function findOpportunityInScope(context: UserContext, opportunityId: string) {

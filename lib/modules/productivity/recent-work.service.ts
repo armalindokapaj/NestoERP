@@ -53,7 +53,8 @@ export async function listRecentWork(context: UserContext, options: { limit?: nu
   if (!(await resolveProductivitySettings(context.companyId)).recentWorkEnabled) return [];
   const rows = await prisma.recentItem.findMany({
     where: { companyId: context.companyId, memberId: context.membershipId },
-    orderBy: { lastAccessedAt: "desc" },
+    // Most recent first, then id: a total order, so which rows fill the cap is stable (AUD-08 §4, DT-04).
+    orderBy: [{ lastAccessedAt: "desc" }, { id: "asc" }],
     take: RECENT_CAP,
     select: { entityType: true, entityId: true, lastAccessedAt: true },
   });

@@ -1,3 +1,5 @@
+import { Prisma, type AuditCategory } from "@prisma/client";
+
 import { MODULE_KEYS, modules as moduleRegistry, type ModuleKey } from "@/config/modules";
 import { isPermission, moduleForPermission, type Permission } from "@/config/permissions";
 import { roleList } from "@/config/roles";
@@ -5,6 +7,7 @@ import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { buildMemberContext } from "@/lib/context/member-context";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
@@ -41,7 +44,7 @@ export async function listPlatformCompanies(context: PlatformContext) {
   assertPlatform(context, "platform.company.view");
   const rows = await prisma.company.findMany({
     where: { parentGroup: { isTestFixture: false } },
-    orderBy: [{ parentGroup: { name: "asc" } }, { name: "asc" }],
+    orderBy: [{ parentGroup: { name: "asc" } }, { name: "asc" }, { id: "asc" }],
     select: { id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true, parentGroup: { select: { id: true, name: true } }, _count: { select: { memberships: true, projects: true, modules: { where: { enabled: true } } } } },
   });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString(), users: row._count.memberships, projects: row._count.projects, modules: row._count.modules }));
@@ -80,7 +83,7 @@ export async function listPlatformProjects(context: PlatformContext) {
 export async function listImplementations(context: PlatformContext) {
   assertPlatform(context, "platform.group.view");
   const rows = await prisma.parentGroup.findMany({
-    where: { isTestFixture: false }, orderBy: { updatedAt: "desc" },
+    where: { isTestFixture: false }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     select: { id: true, name: true, slug: true, status: true, updatedAt: true, activatedAt: true, _count: { select: { companies: true, people: true, departments: true } } },
   });
   return rows.map((row) => ({
@@ -94,7 +97,7 @@ export async function listPlatformPeople(context: PlatformContext) {
   assertPlatform(context, "platform.people.view");
   const rows = await prisma.personProfile.findMany({
     where: { parentGroup: { isTestFixture: false } },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
     select: { id: true, firstName: true, lastName: true, preferredName: true, jobTitle: true, workEmail: true, workPhone: true, lifecycleStatus: true, createdAt: true, parentGroup: { select: { id: true, name: true } }, user: { select: { id: true, username: true, status: true, _count: { select: { memberships: true } } } } },
   });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
@@ -103,7 +106,7 @@ export async function listPlatformPeople(context: PlatformContext) {
 export async function listPlatformUsers(context: PlatformContext) {
   assertPlatform(context, "platform.user.view");
   const rows = await prisma.user.findMany({
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
     select: { id: true, username: true, firstName: true, lastName: true, email: true, status: true, lastLoginAt: true, createdAt: true, platformAccess: { select: { roleKey: true, status: true } }, personProfile: { select: { parentGroup: { select: { id: true, name: true } } } }, _count: { select: { memberships: true, sessions: true } } },
   });
   return rows.map((row) => ({ ...row, lastLoginAt: iso(row.lastLoginAt), createdAt: row.createdAt.toISOString() }));
@@ -112,7 +115,7 @@ export async function listPlatformUsers(context: PlatformContext) {
 export async function listPlatformMemberships(context: PlatformContext) {
   assertPlatform(context, "platform.membership.view");
   const rows = await prisma.companyMember.findMany({
-    where: { company: { parentGroup: { isTestFixture: false } } }, orderBy: [{ user: { lastName: "asc" } }, { company: { name: "asc" } }],
+    where: { company: { parentGroup: { isTestFixture: false } } }, orderBy: [{ user: { lastName: "asc" } }, { company: { name: "asc" } }, { id: "asc" }],
     select: { id: true, status: true, jobTitle: true, createdAt: true, user: { select: { id: true, username: true, firstName: true, lastName: true } }, company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } }, role: { select: { key: true, name: true } }, department: { select: { name: true } } },
   });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
@@ -121,7 +124,7 @@ export async function listPlatformMemberships(context: PlatformContext) {
 export async function listRolePermissionRegistry(context: PlatformContext) {
   assertPlatform(context, "platform.access.inspect");
   const [roles, permissions] = await Promise.all([
-    prisma.role.findMany({ orderBy: { name: "asc" }, select: { id: true, key: true, name: true, description: true, _count: { select: { permissions: true, members: true } } } }),
+    prisma.role.findMany({ orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, key: true, name: true, description: true, _count: { select: { permissions: true, members: true } } } }),
     prisma.permission.findMany({ orderBy: [{ module: "asc" }, { key: "asc" }], select: { id: true, key: true, module: true, action: true, description: true, _count: { select: { roles: true } } } }),
   ]);
   return { roles, permissions, catalogue: roleList };
@@ -130,7 +133,7 @@ export async function listRolePermissionRegistry(context: PlatformContext) {
 export async function listPlatformGrants(context: PlatformContext) {
   assertPlatform(context, "platform.access.inspect");
   const rows = await prisma.accessGrant.findMany({
-    where: { parentGroup: { isTestFixture: false } }, orderBy: { createdAt: "desc" },
+    where: { parentGroup: { isTestFixture: false } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     select: { id: true, functionKey: true, scopeType: true, scopeId: true, accessLevel: true, startsAt: true, expiresAt: true, revokedAt: true, reason: true, createdAt: true, user: { select: { id: true, firstName: true, lastName: true, username: true } }, parentGroup: { select: { id: true, name: true } } },
   });
   return rows.map((row) => ({ ...row, startsAt: iso(row.startsAt), expiresAt: iso(row.expiresAt), revokedAt: iso(row.revokedAt), createdAt: row.createdAt.toISOString() }));
@@ -139,7 +142,7 @@ export async function listPlatformGrants(context: PlatformContext) {
 export async function listPlatformSessions(context: PlatformContext) {
   assertPlatform(context, "platform.session.view");
   const rows = await prisma.session.findMany({
-    orderBy: { updatedAt: "desc" }, take: 250,
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: 250,
     select: { id: true, userAgent: true, ipAddress: true, expiresAt: true, createdAt: true, updatedAt: true, user: { select: { id: true, username: true, firstName: true, lastName: true, status: true } }, company: { select: { id: true, name: true } } },
   });
   return rows.map((row) => ({ ...row, expiresAt: row.expiresAt.toISOString(), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), active: row.expiresAt > new Date() }));
@@ -179,7 +182,7 @@ export async function inspectAccess(context: PlatformContext, input: { userId: s
 export async function listPlatformModules(context: PlatformContext) {
   assertPlatform(context, "platform.module.view");
   const [rows, companies] = await Promise.all([
-    prisma.module.findMany({ orderBy: { name: "asc" }, select: { id: true, key: true, name: true, description: true, route: true, status: true, companyModules: { select: { companyId: true, enabled: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } } } }),
+    prisma.module.findMany({ orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, key: true, name: true, description: true, route: true, status: true, companyModules: { select: { companyId: true, enabled: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } } } }),
     prisma.company.count({ where: { parentGroup: { isTestFixture: false } } }),
   ]);
   return rows.map((row) => ({ ...row, registry: moduleRegistry[row.key as ModuleKey] ?? null, enabledCompanies: row.companyModules.filter((item) => item.enabled).length, companies }));
@@ -193,9 +196,9 @@ export async function listFeatureFlags(context: PlatformContext) {
 export async function platformTemplates(context: PlatformContext) {
   assertPlatform(context, "platform.module.view");
   const [projectTypes, qualityTemplates, hseTemplates] = await Promise.all([
-    prisma.projectType.findMany({ orderBy: { name: "asc" }, take: 100, select: { id: true, name: true, isActive: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
-    prisma.inspectionTemplate.findMany({ orderBy: { updatedAt: "desc" }, take: 100, select: { id: true, name: true, status: true, version: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
-    prisma.hseInspectionTemplate.findMany({ orderBy: { updatedAt: "desc" }, take: 100, select: { id: true, name: true, status: true, version: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
+    prisma.projectType.findMany({ orderBy: [{ name: "asc" }, { id: "asc" }], take: 100, select: { id: true, name: true, isActive: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
+    prisma.inspectionTemplate.findMany({ orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: 100, select: { id: true, name: true, status: true, version: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
+    prisma.hseInspectionTemplate.findMany({ orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: 100, select: { id: true, name: true, status: true, version: true, company: { select: { name: true, parentGroup: { select: { name: true } } } } } }),
   ]);
   return { projectTypes, qualityTemplates, hseTemplates };
 }
@@ -212,11 +215,11 @@ export async function platformOperations(context: PlatformContext) {
   assertPlatform(context, "platform.operations.view");
   const [heartbeats, processes, failures, mail, outbox, storage, uploads] = await Promise.all([
     prisma.workerHeartbeat.findMany({ orderBy: { job: "asc" } }),
-    prisma.workerProcess.findMany({ orderBy: { lastHeartbeatAt: "desc" }, take: 50 }),
-    prisma.jobFailure.findMany({ orderBy: { failedAt: "desc" }, take: 100 }),
+    prisma.workerProcess.findMany({ orderBy: [{ lastHeartbeatAt: "desc" }, { workerId: "asc" }], take: 50 }),
+    prisma.jobFailure.findMany({ orderBy: [{ failedAt: "desc" }, { id: "asc" }], take: 100 }),
     prisma.mailDelivery.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.notificationEventOutbox.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.companyStorageUsage.findMany({ orderBy: { usedBytes: "desc" }, include: { company: { select: { id: true, name: true, parentGroup: { select: { name: true } } } } } }),
+    prisma.companyStorageUsage.findMany({ orderBy: [{ usedBytes: "desc" }, { companyId: "asc" }], include: { company: { select: { id: true, name: true, parentGroup: { select: { name: true } } } } } }),
     prisma.documentUploadSession.count({ where: { status: "EXPIRED" } }),
   ]);
   return {
@@ -276,17 +279,41 @@ export async function platformHealth(context: PlatformContext) {
 export async function platformSecurity(context: PlatformContext) {
   assertPlatform(context, "platform.security.view");
   const [failedLogins, accessChanges] = await Promise.all([
-    prisma.authEvent.findMany({ where: { type: { in: ["LOGIN_FAILED", "LOGIN_RATE_LIMITED", "ACCOUNT_BLOCKED", "MEMBERSHIP_DENIED"] } }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, type: true, ipAddress: true, userAgent: true, metadata: true, createdAt: true, user: { select: { username: true, firstName: true, lastName: true } } } }),
+    prisma.authEvent.findMany({ where: { type: { in: ["LOGIN_FAILED", "LOGIN_RATE_LIMITED", "ACCOUNT_BLOCKED", "MEMBERSHIP_DENIED"] } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100, select: { id: true, type: true, ipAddress: true, userAgent: true, metadata: true, createdAt: true, user: { select: { username: true, firstName: true, lastName: true } } } }),
     prisma.auditEvent.findMany({ where: { category: "ACCESS_CONTROL" }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 100, select: { id: true, actionKey: true, actorDisplayNameSnapshot: true, entityType: true, entityLabelSnapshot: true, reason: true, severity: true, occurredAt: true } }),
   ]);
   return { failedLogins: failedLogins.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })), accessChanges: accessChanges.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() })) };
 }
 
-export async function platformAudit(context: PlatformContext) {
+/** How many of the newest audit events the platform audit pages show; each states it with its total (AUD-08 §4). */
+export const PLATFORM_AUDIT_SHOWN = 250;
+
+/**
+ * The newest audit events, optionally of some categories only. The category is
+ * a filter in the query — before the cap, never after it — so the security page
+ * shows the newest 250 security events rather than the security events among
+ * the newest 250 of any kind (AUD-08 §3). `total` is every matching event, from
+ * the same snapshot, so the page can say "the newest N of M".
+ */
+export async function platformAuditPage(context: PlatformContext, categories?: AuditCategory[]) {
   assertPlatform(context, "platform.audit.view");
-  const rows = await prisma.auditEvent.findMany({ orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 250, select: { id: true, actionKey: true, moduleKey: true, category: true, severity: true, actorDisplayNameSnapshot: true, actorRoleSnapshot: true, entityType: true, entityId: true, entityLabelSnapshot: true, parentGroupId: true, companyId: true, projectId: true, reason: true, occurredAt: true, requestId: true } });
-  return rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() }));
+  const where: Prisma.AuditEventWhereInput = categories?.length ? { category: { in: categories } } : {};
+  const { rows, total } = await runInTransaction(
+    "platform.audit.list",
+    async (tx) => ({
+      total: await tx.auditEvent.count({ where }),
+      rows: await tx.auditEvent.findMany({ where, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: PLATFORM_AUDIT_SHOWN, select: AUDIT_ROW_SELECT }),
+    }),
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
+  return { rows: rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() })), total };
 }
+
+export async function platformAudit(context: PlatformContext) {
+  return (await platformAuditPage(context)).rows;
+}
+
+const AUDIT_ROW_SELECT = { id: true, actionKey: true, moduleKey: true, category: true, severity: true, actorDisplayNameSnapshot: true, actorRoleSnapshot: true, entityType: true, entityId: true, entityLabelSnapshot: true, parentGroupId: true, companyId: true, projectId: true, reason: true, occurredAt: true, requestId: true } satisfies Prisma.AuditEventSelect;
 
 export const PLATFORM_SETTING_DEFAULTS = {
   "general.platformName": "NESTO",
@@ -324,7 +351,7 @@ export async function platformSupport(context: PlatformContext) {
     prisma.company.findMany({ where: { parentGroup: { isTestFixture: false } }, orderBy: { name: "asc" }, select: { id: true, name: true, status: true, parentGroupId: true } }),
     prisma.user.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }], select: { id: true, username: true, firstName: true, lastName: true, status: true } }),
     prisma.project.findMany({ where: { company: { parentGroup: { isTestFixture: false } } }, orderBy: { name: "asc" }, select: { id: true, code: true, name: true, companyId: true, status: true } }),
-    prisma.supportAccessSession.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.supportAccessSession.findMany({ orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100 }),
   ]);
   return { groups, companies, users, projects, sessions: sessions.map((row) => ({ ...row, expiresAt: row.expiresAt.toISOString(), createdAt: row.createdAt.toISOString(), active: !row.revokedAt && row.expiresAt > now })) };
 }

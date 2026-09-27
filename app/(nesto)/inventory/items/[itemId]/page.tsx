@@ -90,6 +90,7 @@ export default async function ItemPage({ params }: Params) {
                   rows={item.byLocation}
                   show="by-item"
                   caption={`${item.name} by location`}
+                  listId="inventory.item-stock"
                 />
               )}
             </section>

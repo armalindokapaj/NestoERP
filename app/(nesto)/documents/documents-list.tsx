@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Files } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -12,6 +13,9 @@ import {
   parseDocumentListQuery,
   type DocumentQueryDefaults,
 } from "@/lib/modules/documents/document.query";
+import { DOCUMENT_SORT_KEYS } from "@/lib/modules/documents/document.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import {
   documentFilterOptionsForWorkspace,
   listDocumentCompanies,
@@ -64,6 +68,8 @@ export async function DocumentsList({
     documentFilterOptionsForWorkspace(context, query.companyId),
     listDocumentCompanies(context),
   ]);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
 
   const hasFilters = Boolean(
     (group && query.companyId) ||
@@ -73,7 +79,9 @@ export async function DocumentsList({
       query.projectId ||
       query.clientId ||
       query.uploadedByMemberId ||
-      query.dateFrom,
+      query.datePreset ||
+      query.dateFrom ||
+      query.dateTo,
   );
 
   // Only the contexts this reader actually has documents in are offered.
@@ -131,15 +139,11 @@ export async function DocumentsList({
     },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
+  // Clear filters drops only this list's filter and search keys; the sort and
+  // any other route key stay (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", searchParams, 1).slice(1), ["search", "fileType", "context", "projectId", "clientId", "uploadedBy", "company", "date", "dateFrom", "dateTo"]);
+  const clearHref = cleared ? `${basePath}?${cleared}` : basePath;
 
   return (
     <div className="space-y-4">
@@ -163,7 +167,7 @@ export async function DocumentsList({
             icon={<Files />}
             title="No documents match these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            action={{ label: "Clear filters", href: clearHref }}
           />
         ) : (
           <EmptyState
@@ -179,7 +183,7 @@ export async function DocumentsList({
         )
       ) : (
         <>
-          <DocumentTable documents={result.data} showStatus={variant === "archived"} group={group} />
+          <DocumentTable documents={result.data} showStatus={variant === "archived"} group={group} sort={{ value: query.sort, keys: DOCUMENT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

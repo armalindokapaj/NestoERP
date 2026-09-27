@@ -18,6 +18,8 @@ import type { UserContext } from "@/lib/context/types";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import { parseCommitmentQuery } from "@/lib/modules/finance/finance.query";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { COMMITMENT_SORT_KEYS } from "@/lib/modules/finance/commitments/commitment.schema";
 
 export const metadata: Metadata = { title: "Commitments" };
 
@@ -72,15 +74,9 @@ async function CommitmentsList({
     query.search || query.status?.length || query.category?.length || query.projectId || query.openOnly,
   );
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/finance/commitments?${search}` : "/finance/commitments";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/finance/commitments", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/finance/commitments", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -151,7 +147,7 @@ async function CommitmentsList({
         )
       ) : (
         <>
-          <CommitmentTable commitments={result.data} />
+          <CommitmentTable commitments={result.data} sort={{ value: query.sort, keys: COMMITMENT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

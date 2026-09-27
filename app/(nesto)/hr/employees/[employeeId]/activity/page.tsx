@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { listEmployeeActivity } from "@/lib/modules/hr/hr.activity";
 import { formatDateTime, orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ employeeId: string }>;
@@ -36,6 +37,8 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
   const activity = await listEmployeeActivity(context, employeeId, { page, limit: 25 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== page) redirect(listPageRedirect(`/hr/employees/${employeeId}/activity`, query, activity.pagination.page));
 
   return (
     <div className="space-y-5">

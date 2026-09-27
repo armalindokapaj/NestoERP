@@ -26,6 +26,7 @@ import {
   RESERVATION_STATUSES,
   reservationStatusLabels,
 } from "@/lib/modules/inventory/inventory.status";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Reservations" };
 
@@ -106,15 +107,9 @@ async function ReservationList({
     },
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/inventory/reservations?${search}` : "/inventory/reservations";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/inventory/reservations", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/inventory/reservations", searchParams, page);
 
   return (
     <div className="space-y-4">

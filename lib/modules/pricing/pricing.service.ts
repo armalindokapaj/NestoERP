@@ -184,10 +184,10 @@ export async function submitPricingLead(input: PricingLeadInput, now = new Date(
 export async function getPricingAdministration(context: PlatformContext) {
   assertPricingPermission(context, "platform.pricing.view");
   const [versions, promotions, recentQuotes] = await Promise.all([
-    prisma.pricingVersion.findMany({ orderBy: [{ createdAt: "desc" }], take: 50 }),
-    prisma.pricingPromotion.findMany({ orderBy: [{ createdAt: "desc" }] }),
+    prisma.pricingVersion.findMany({ orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 50 }),
+    prisma.pricingPromotion.findMany({ orderBy: [{ createdAt: "desc" }, { id: "asc" }] }),
     prisma.pricingQuote.findMany({
-      orderBy: [{ createdAt: "desc" }],
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       take: 20,
       select: { id: true, reference: true, productMode: true, status: true, standardMonthlyCents: true, contractMonths: true, pricingVersionCode: true, createdAt: true, _count: { select: { leads: true } } },
     }),

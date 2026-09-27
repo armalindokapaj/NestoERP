@@ -33,12 +33,13 @@ async function groupTaskContexts(session: UserContext): Promise<UserContext[]> {
 /**
  * The `company` filter, checked against the companies the person may read
  * (§86, §87). A company they may not read — or none at all — is not an error
- * and not a hint that it exists: the filter is simply not applied.
+ * and not a hint that it exists: it narrows to no authorized rows. It is never
+ * dropped to answer every company instead, which would silently broaden what
+ * the person asked for (AUD-08 §3, DT-22).
  */
 function narrowToCompany(contexts: UserContext[], company: string | undefined): UserContext[] {
   if (!company) return contexts;
-  const narrowed = contexts.filter((context) => context.companyId === company);
-  return narrowed.length > 0 ? narrowed : contexts;
+  return contexts.filter((context) => context.companyId === company);
 }
 
 const refOf = (context: UserContext): CompanyRef => ({ id: context.companyId, name: context.company.name });

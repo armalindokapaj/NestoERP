@@ -3,7 +3,6 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
-import { WINDOW } from "./approvals.cycle-provider";
 import { completeItem } from "./approvals.order";
 import { approvalProviders, type ApprovalProviderRegistry } from "./approvals.registry";
 import type { ApprovalQuery } from "./approvals.schema";
@@ -15,6 +14,7 @@ import {
   isUnfilteredWaiting,
   listApprovals,
   readQueue,
+  sourceSaturated,
   summary,
   waitingQuery,
   type Source,
@@ -96,22 +96,23 @@ const NO_COUNTS: ApprovalCounts = { waiting: 0, overdue: 0, critical: 0, capped:
 
 async function groupCounts(contexts: UserContext[], registry: ApprovalProviderRegistry, now: Date): Promise<CountsResult> {
   const sources = sourcesOf(contexts, registry, []);
-  const { items, failed } = await askSources(sources, waitingQuery(now));
+  const { items, failed, windowed } = await askSources(sources, waitingQuery(now));
   return {
     ...countsByCompany(
       contexts.map(companyOf),
       items.flat().map((item) => completeItem(item, now)),
-      saturatedCompanies(
-        sources,
-        items.map((rows) => rows.length >= WINDOW),
-      ),
+      saturatedCompanies(sources, sourceSaturated(items, windowed)),
       failed,
     ),
     failedProviders: failed,
   };
 }
 
-const withoutAlias = ({ failedProviders: _failed, ...counts }: CountsResult): ApprovalCounts => counts;
+function withoutAlias(result: CountsResult): ApprovalCounts {
+  const counts: ApprovalCounts & { failedProviders?: unknown } = { ...result };
+  delete counts.failedProviders;
+  return counts;
+}
 
 /**
  * What waits on this person, per company and in all (§33). A company workspace

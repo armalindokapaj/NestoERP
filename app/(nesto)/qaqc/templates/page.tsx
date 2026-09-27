@@ -17,6 +17,8 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as templates from "@/lib/modules/qaqc/templates/template.service";
 import { templateListQuerySchema } from "@/lib/modules/qaqc/qaqc.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import {
   INSPECTION_TYPES,
   TEMPLATE_STATUSES,
@@ -28,7 +30,13 @@ export const metadata: Metadata = { title: "Inspection templates" };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-/** The checklists a company inspects against (PRD #21 §49–§53). */
+/**
+ * The checklists a company inspects against (PRD #21 §49–§53).
+ *
+ * AUD-08 (§3–§5): one parsed query (search, status, type, sort, page, page
+ * size); a page past the end moves once to the last real page; header sorts
+ * only for the allowlisted orders; the table is `qaqc.templates`.
+ */
 export default async function TemplatesPage({
   searchParams,
 }: {
@@ -83,9 +91,13 @@ async function TemplateList({
     inspectionType: types?.length ? types : undefined,
     sort: read("sort"),
     page: read("page"),
+    limit: read("limit"),
   });
 
   const result = await templates.listTemplates(context, query);
+  if (result.pagination.page !== query.page) {
+    redirect(listPageRedirect("/qaqc/templates", searchParams, result.pagination.page));
+  }
   const hasFilters = Boolean(query.search || query.status?.length || query.inspectionType?.length);
 
   const filters: FilterConfig[] = [
@@ -101,15 +113,9 @@ async function TemplateList({
     },
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/qaqc/templates?${search}` : "/qaqc/templates";
-  }
+  const buildHref = (page: number) => pageHref("/qaqc/templates", searchParams, page);
+  // Clear drops search and filters, keeps sort and page size (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", searchParams, 1).replace(/^\?/, ""), ["search", "status", "type"]);
 
   return (
     <div className="space-y-4">
@@ -121,6 +127,7 @@ async function TemplateList({
           { value: "name-asc", label: "Name A–Z" },
           { value: "updated-desc", label: "Recently updated" },
         ]}
+        applied={{ sort: query.sort }}
       />
 
       {result.data.length === 0 ? (
@@ -129,7 +136,7 @@ async function TemplateList({
             icon={<ClipboardList />}
             title="No templates match these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/qaqc/templates" }}
+            action={{ label: "Clear filters", href: cleared ? `/qaqc/templates?${cleared}` : "/qaqc/templates" }}
           />
         ) : (
           <EmptyState
@@ -145,8 +152,17 @@ async function TemplateList({
         )
       ) : (
         <>
-          <TemplateTable templates={result.data} />
-          <Pagination meta={result.pagination} buildHref={buildHref} />
+          <TemplateTable
+            templates={result.data}
+            listId="qaqc.templates"
+            sort={{ value: query.sort, keys: ["code-asc", "name-asc", "updated-desc"] }}
+          />
+          <Pagination
+            meta={result.pagination}
+            buildHref={buildHref}
+            pageSizes={[25, 50, 100]}
+            listId="qaqc.templates"
+          />
         </>
       )}
     </div>
