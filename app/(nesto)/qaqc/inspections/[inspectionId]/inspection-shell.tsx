@@ -2,6 +2,7 @@ import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { InspectionActions } from "@/components/qaqc/inspection-actions";
 import { ResultBadge } from "@/components/qaqc/qaqc-format";
@@ -13,7 +14,7 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
-import { inspectionTypeLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -27,10 +28,10 @@ import { cn } from "@/lib/utils/cn";
  * those get confused.
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "execute", label: "Checklist", suffix: "/execute" },
-  { key: "documents", label: "Documents", suffix: "/documents" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", label: "inspectionPage.overview", suffix: "" },
+  { key: "execute", label: "inspectionPage.checklist", suffix: "/execute" },
+  { key: "documents", label: "inspectionPage.documents", suffix: "/documents" },
+  { key: "activity", label: "inspectionPage.activity", suffix: "/activity" },
 ] as const;
 
 export type InspectionTabKey = (typeof TABS)[number]["key"];
@@ -72,6 +73,7 @@ export async function InspectionPageShell({
   tab: InspectionTabKey;
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("qaqc");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle =
     inspection.capabilities.canApprove || inspection.capabilities.canReject
@@ -88,8 +90,8 @@ export async function InspectionPageShell({
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Inspections", href: "/qaqc/inspections" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.inspections"), href: "/qaqc/inspections" },
           { label: inspection.inspectionNumber },
         ]}
         title={inspection.summary ?? inspection.inspectionNumber}
@@ -98,28 +100,28 @@ export async function InspectionPageShell({
         badges={
           <>
             <ResultBadge result={inspection.result} />
-            <Badge tone="neutral">{inspectionTypeLabels[inspection.inspectionType]}</Badge>
+            <Badge tone="neutral">{qaqcLabel(t, "inspectionType", inspection.inspectionType)}</Badge>
             {inspection.reinspectionSequence ? (
-              <Badge tone="info">Reinspection {inspection.reinspectionSequence}</Badge>
+              <Badge tone="info">{t("common.reinspectionN", { n: inspection.reinspectionSequence })}</Badge>
             ) : null}
           </>
         }
         meta={[
           {
-            label: "Inspector",
+            label: t("detail.inspector"),
             value: inspection.assignedInspector ? (
               <PersonLink memberId={inspection.assignedInspector.memberId} name={inspection.assignedInspector.fullName} />
             ) : (
-              "Not assigned"
+              t("common.notAssigned")
             ),
           },
           {
-            label: "Inspected",
-            value: inspection.inspectionDate ? formatDate(inspection.inspectionDate) : "Not yet",
+            label: t("inspectionPage.inspected"),
+            value: inspection.inspectionDate ? formatDate(inspection.inspectionDate) : t("common.notYet"),
           },
           {
-            label: "Project",
-            value: inspection.project ? inspection.project.code : "Company",
+            label: t("detail.project"),
+            value: inspection.project ? inspection.project.code : t("common.company"),
           },
         ]}
         actions={
@@ -130,7 +132,7 @@ export async function InspectionPageShell({
         }
       />
 
-      <nav aria-label="Inspection sections" className="border-b border-line">
+      <nav aria-label={t("inspectionPage.tabs")} className="border-b border-line">
         <ul className="-mb-px flex gap-1 overflow-x-auto">
           {TABS.filter((entry) => show[entry.key]).map((entry) => {
             const isActive = entry.key === tab;
@@ -147,7 +149,7 @@ export async function InspectionPageShell({
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                   )}
                 >
-                  {entry.label}
+                  {t(entry.label)}
                 </Link>
               </li>
             );
@@ -157,16 +159,15 @@ export async function InspectionPageShell({
 
       {inspection.status === "REJECTED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This inspection was rejected and sent back. Reworking it returns it to being under way
-          — the rejection stays on the record.
+          {t("inspectionPage.rejectedNote")}
         </p>
       ) : inspection.status === "CANCELLED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This inspection was cancelled. It has no quality effect and releases nothing.
+          {t("inspectionPage.cancelledNote")}
         </p>
       ) : inspection.result === "CONDITIONAL" && inspection.decisionNote ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          <span className="font-medium text-fg">Accepted on condition:</span>{" "}
+          <span className="font-medium text-fg">{t("inspectionPage.conditionLabel")}</span>{" "}
           {inspection.decisionNote}
         </p>
       ) : null}

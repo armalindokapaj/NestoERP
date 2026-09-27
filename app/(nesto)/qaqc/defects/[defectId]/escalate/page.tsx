@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import {
@@ -13,11 +14,15 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { escalateDefectAction } from "@/lib/actions/qaqc";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
-import { NCR_CATEGORIES, ncrCategoryLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { NCR_CATEGORIES } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 
 type Params = { params: Promise<{ defectId: string }> };
 
-export const metadata: Metadata = { title: "Raise an NCR" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.raiseNcr") };
+}
 
 /**
  * Turning a defect into a formal non-conformance (PRD #21 §170, §172).
@@ -29,6 +34,7 @@ export const metadata: Metadata = { title: "Raise an NCR" };
 export default async function EscalateDefectPage({ params }: Params) {
   const { defectId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let defect;
   try {
@@ -49,19 +55,17 @@ export default async function EscalateDefectPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Defects", href: "/qaqc/defects" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.defects"), href: "/qaqc/defects" },
           { label: defect.defectNumber, href: `/qaqc/defects/${defect.id}` },
-          { label: "Raise an NCR" },
+          { label: t("crumbs.raiseNcr") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Raise an NCR</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.raiseNcr")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          {defect.defectNumber} stays open and still has to be fixed. The NCR asks the separate
-          question of why it happened, and cannot close until that is answered and a corrective
-          action has been verified.
+          {t("defectPage.escalateIntro", { number: defect.defectNumber })}
         </p>
       </div>
 
@@ -69,14 +73,14 @@ export default async function EscalateDefectPage({ params }: Params) {
         module="qaqc"
         action={action}
         cancelHref={`/qaqc/defects/${defect.id}`}
-        submitLabel="Raise NCR"
-        pendingLabel="Raising…"
+        submitLabel={t("defectPage.raiseNcr")}
+        pendingLabel={t("common.raising")}
       >
         <FormSection
-          title="Non-conformance"
-          description="The description, project, severity and assignee come across from the defect."
+          title={t("defectPage.escalateSection")}
+          description={t("defectPage.escalateBody")}
         >
-          <Field label="Title" name="title" className="sm:col-span-2">
+          <Field label={t("defectPage.title")} name="title" className="sm:col-span-2">
             <Input
               id="title"
               name="title"
@@ -86,11 +90,11 @@ export default async function EscalateDefectPage({ params }: Params) {
           </Field>
 
           <Field
-            label="Category"
+            label={t("detail.category")}
             name="category"
             required
             className="sm:col-span-2"
-            hint="What kind of failure this was — it is how quality trends are read later."
+            hint={t("defectPage.categoryHint")}
           >
             <select
               id="category"
@@ -101,7 +105,7 @@ export default async function EscalateDefectPage({ params }: Params) {
             >
               {NCR_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
-                  {ncrCategoryLabels[category]}
+                  {qaqcLabel(t, "ncrCategory", category)}
                 </option>
               ))}
             </select>

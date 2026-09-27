@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/toast";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { submitInspectionAction } from "@/lib/actions/qaqc";
-import { inspectionResultLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "./qaqc-labels";
+import { QaqcText, useQaqcTranslations } from "./qaqc-text";
 import type { QualityInspectionResult } from "@prisma/client";
 
 /**
@@ -38,7 +39,7 @@ export function SubmitInspection({
   if (blockers.length > 0) {
     return (
       <div className="nesto-card space-y-2 p-5">
-        <h3 className="text-card font-semibold text-fg">Before this can be submitted</h3>
+        <h3 className="text-card font-semibold text-fg"><QaqcText k="submit.blockers" /></h3>
         <ul className="space-y-1">
           {blockers.map((blocker) => (
             <li key={blocker} className="text-table text-fg-muted">
@@ -73,6 +74,7 @@ function SubmitInspectionForm({
   defaultSummary: string;
 }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [result, setResult] = React.useState<string>(allowedResults[0] ?? "PASS");
@@ -87,10 +89,10 @@ function SubmitInspectionForm({
     action: (formData: FormData) => submitInspectionAction(inspectionId, formData),
     module: "qaqc",
     saveKind: "none",
-    workflow: "Submit for approval",
-    label: "Result",
-    onCommitted: (outcome) => {
-      toast({ title: outcome?.message ?? "Sent for approval.", tone: "success" });
+    workflow: t("submit.workflow"),
+    label: t("submit.label"),
+    onCommitted: () => {
+      toast({ title: t("submit.sent"), tone: "success" });
       router.push(`/qaqc/inspections/${inspectionId}`);
       router.refresh();
       return true;
@@ -102,11 +104,11 @@ function SubmitInspectionForm({
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
-        <h3 className="text-card font-semibold text-fg">Record the result</h3>
+        <h3 className="text-card font-semibold text-fg">{t("submit.title")}</h3>
         <p className="mt-1 text-meta text-fg-subtle">
           {passBlocked
-            ? "A required check failed, so this cannot be recorded as a pass. It can still be accepted with a condition."
-            : "Every required check is answered. Choose the overall verdict."}
+            ? t("submit.passBlocked")
+            : t("submit.ready")}
         </p>
       </div>
 
@@ -114,7 +116,7 @@ function SubmitInspectionForm({
 
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
-          <Label htmlFor="result">Result</Label>
+          <Label htmlFor="result">{t("submit.label")}</Label>
           <select
             id="result"
             name="result"
@@ -125,40 +127,39 @@ function SubmitInspectionForm({
           >
             {allowedResults.map((option) => (
               <option key={option} value={option}>
-                {inspectionResultLabels[option]}
+                {qaqcLabel(t, "inspectionResult", option)}
               </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="summary">Summary</Label>
+          <Label htmlFor="summary">{t("form.inspection.summary")}</Label>
           <Textarea
             id="summary"
             name="summary"
             rows={3}
             defaultValue={defaultSummary}
             maxLength={4000}
-            placeholder="What was found?"
+            placeholder={t("submit.summaryPlaceholder")}
           />
         </div>
 
         {result === "CONDITIONAL" ? (
           <div className="space-y-1.5">
             <Label htmlFor="decisionNote">
-              The condition<span className="ml-0.5 text-danger-strong">*</span>
+              {t("submit.condition")}<span className="ml-0.5 text-danger-strong">*</span>
             </Label>
             <Textarea
               id="decisionNote"
               name="decisionNote"
               rows={3}
               maxLength={4000}
-              placeholder="What has to happen for this acceptance to hold?"
+              placeholder={t("submit.conditionPlaceholder")}
               required
             />
             <p className="text-meta text-fg-subtle">
-              &ldquo;Accepted with a condition&rdquo; is not a verdict until somebody says what the
-              condition is.
+              {t("submit.conditionHint")}
             </p>
           </div>
         ) : null}
@@ -166,7 +167,7 @@ function SubmitInspectionForm({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Submitting…" : "Submit for approval"}
+          {pending ? t("submit.submitting") : t("submit.workflow")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

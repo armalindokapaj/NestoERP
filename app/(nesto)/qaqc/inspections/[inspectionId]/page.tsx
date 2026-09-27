@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -15,7 +16,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { requireModule } from "@/lib/context/current-user";
 import * as inspectionService from "@/lib/modules/qaqc/inspections/inspection.service";
 import * as materials from "@/lib/modules/qaqc/materials/material.service";
-import { inspectionTypeLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import { formatDateTime, orDash } from "@/lib/utils/format";
 import { InspectionPageShell, loadInspectionPage } from "./inspection-shell";
 
@@ -28,7 +29,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const inspection = await inspectionService.getInspection(context, inspectionId);
     return { title: inspection.inspectionNumber };
   } catch {
-    return { title: "Inspection" };
+    const t = await getTranslations("qaqc");
+    return { title: t("meta.inspection") };
   }
 }
 
@@ -36,6 +38,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function InspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const { context, inspection } = await loadInspectionPage(inspectionId, "overview");
+  const t = await getTranslations("qaqc");
 
   const lines =
     inspection.inspectionType === "MATERIAL" && inspection.source
@@ -54,19 +57,19 @@ export default async function InspectionPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Type", value: inspectionTypeLabels[inspection.inspectionType] },
+                { label: t("detail.type"), value: qaqcLabel(t, "inspectionType", inspection.inspectionType) },
                 {
-                  label: "Template",
+                  label: t("detail.template"),
                   value: inspection.templateName
                     ? `${inspection.templateName}${inspection.templateVersion ? ` v${inspection.templateVersion}` : ""}`
-                    : "No checklist",
+                    : t("common.noChecklist"),
                 },
                 {
-                  label: "Project",
+                  label: t("detail.project"),
                   value: inspection.project ? (
                     <Link
                       href={`/projects/${inspection.project.id}`}
@@ -75,12 +78,12 @@ export default async function InspectionPage({ params }: Params) {
                       {inspection.project.code} — {inspection.project.name}
                     </Link>
                   ) : (
-                    "Not tied to a project"
+                    t("common.notTied")
                   ),
                 },
-                { label: "Where", value: orDash(inspection.locationText) },
+                { label: t("detail.where"), value: orDash(inspection.locationText) },
                 {
-                  label: "From request",
+                  label: t("detail.fromRequest"),
                   value: inspection.requestId ? (
                     <Link
                       href={`/qaqc/requests/${inspection.requestId}`}
@@ -89,11 +92,11 @@ export default async function InspectionPage({ params }: Params) {
                       {inspection.requestNumber}
                     </Link>
                   ) : (
-                    "Raised directly"
+                    t("common.raisedDirectly")
                   ),
                 },
                 {
-                  label: "Delivery",
+                  label: t("detail.delivery"),
                   value: inspection.source ? (
                     inspection.source.href ? (
                       <Link href={inspection.source.href} className="hover:text-accent">
@@ -106,15 +109,15 @@ export default async function InspectionPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: "Work reference", value: orDash(inspection.workReference) },
-                { label: "Drawing", value: orDash(inspection.drawingReference) },
-                { label: "Specification", value: orDash(inspection.specificationReference) },
+                { label: t("detail.workReference"), value: orDash(inspection.workReference) },
+                { label: t("detail.drawing"), value: orDash(inspection.drawingReference) },
+                { label: t("detail.specification"), value: orDash(inspection.specificationReference) },
               ]}
             />
 
             {inspection.summary ? (
               <div className="mt-6 border-t border-line pt-5">
-                <h3 className="text-table font-semibold text-fg">What was found</h3>
+                <h3 className="text-table font-semibold text-fg">{t("inspectionPage.whatFound")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {inspection.summary}
                 </p>
@@ -125,10 +128,9 @@ export default async function InspectionPage({ params }: Params) {
           {showMaterial ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">Material</h2>
+                <h2 className="text-card font-semibold text-fg">{t("inspectionPage.material")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  Quality decides what may be used; Inventory records where it went. Accepted,
-                  rejected and conditional have to add back to the quantity inspected.
+                  {t("inspectionPage.materialBody")}
                 </p>
               </div>
               <MaterialPanel
@@ -144,28 +146,28 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.defects.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Defects raised</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inspectionPage.defectsRaised")}</h2>
               <DefectTable
                 defects={inspection.defects}
-                caption={`Defects from ${inspection.inspectionNumber}`}
+                caption={t("inspectionPage.defectsCaption", { number: inspection.inspectionNumber })}
               />
             </section>
           ) : null}
 
           {inspection.ncrs.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Non-conformances</h2>
-              <NcrTable ncrs={inspection.ncrs} caption={`NCRs from ${inspection.inspectionNumber}`} />
+              <h2 className="text-card font-semibold text-fg">{t("inspectionPage.nonConformances")}</h2>
+              <NcrTable ncrs={inspection.ncrs} caption={t("inspectionPage.ncrsCaption", { number: inspection.inspectionNumber })} />
             </section>
           ) : null}
 
           {inspection.correctiveActions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Corrective actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
               <CorrectiveActionTable
                 actions={inspection.correctiveActions}
                 showParent={false}
-                caption={`Actions from ${inspection.inspectionNumber}`}
+                caption={t("inspectionPage.actionsCaption", { number: inspection.inspectionNumber })}
               />
             </section>
           ) : null}
@@ -173,35 +175,35 @@ export default async function InspectionPage({ params }: Params) {
           {inspection.reinspections.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">Reinspections</h2>
+                <h2 className="text-card font-semibold text-fg">{t("inspectionPage.reinspections")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  A fresh look with its own verdict. This inspection is unchanged by them.
+                  {t("inspectionPage.reinspectionsBody")}
                 </p>
               </div>
               <InspectionTable
                 inspections={inspection.reinspections}
-                caption={`Reinspections of ${inspection.inspectionNumber}`}
+                caption={t("inspectionPage.reinspectionsCaption", { number: inspection.inspectionNumber })}
               />
             </section>
           ) : null}
 
           {inspection.parentInspectionId ? (
             <p className="text-meta text-fg-subtle">
-              This is a reinspection of{" "}
+              {t("inspectionPage.reinspectionOf")}{" "}
               <Link
                 href={`/qaqc/inspections/${inspection.parentInspectionId}`}
                 className="text-accent-strong hover:underline"
               >
-                the earlier inspection
+                {t("inspectionPage.earlier")}
               </Link>
-              , which keeps its own verdict.
+              {t("inspectionPage.keepsVerdict")}
             </p>
           ) : null}
 
           {inspection.capabilities.canExecute && inspection.checklist.length > 0 ? (
             <Button asChild>
               <Link href={`/qaqc/inspections/${inspection.id}/execute`}>
-                {inspection.status === "DRAFT" ? "Start the checklist" : "Continue the checklist"}
+                {inspection.status === "DRAFT" ? t("inspectionPage.startChecklist") : t("inspectionPage.continueChecklist")}
               </Link>
             </Button>
           ) : null}
@@ -209,10 +211,10 @@ export default async function InspectionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Created by"
+                label={t("detail.createdBy")}
                 value={
                   inspection.createdBy ? (
                     <PersonLink memberId={inspection.createdBy.memberId} name={inspection.createdBy.fullName} />
@@ -221,9 +223,9 @@ export default async function InspectionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Created" value={formatDateTime(inspection.createdAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(inspection.createdAt)} />
               <Meta
-                label="Carried out by"
+                label={t("inspectionPage.carriedOutBy")}
                 value={
                   inspection.executedBy ? (
                     <PersonLink memberId={inspection.executedBy.memberId} name={inspection.executedBy.fullName} />
@@ -233,18 +235,18 @@ export default async function InspectionPage({ params }: Params) {
                 }
               />
               {inspection.submittedAt ? (
-                <Meta label="Submitted" value={formatDateTime(inspection.submittedAt)} />
+                <Meta label={t("detail.submitted")} value={formatDateTime(inspection.submittedAt)} />
               ) : null}
               {inspection.approvedAt ? (
                 <Meta
-                  label="Approved"
+                  label={t("inspectionPage.approved")}
                   value={
                     <>
                       {formatDateTime(inspection.approvedAt)}
                       {inspection.approvedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
+                          {t("detail.by")} <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -253,14 +255,14 @@ export default async function InspectionPage({ params }: Params) {
               ) : null}
               {inspection.rejectedAt ? (
                 <Meta
-                  label="Rejected"
+                  label={t("inspectionPage.rejected")}
                   value={
                     <>
                       {formatDateTime(inspection.rejectedAt)}
                       {inspection.rejectedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={inspection.rejectedBy.memberId} name={inspection.rejectedBy.fullName} />
+                          {t("detail.by")} <PersonLink memberId={inspection.rejectedBy.memberId} name={inspection.rejectedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -268,7 +270,7 @@ export default async function InspectionPage({ params }: Params) {
                 />
               ) : null}
               {inspection.closedAt ? (
-                <Meta label="Closed" value={formatDateTime(inspection.closedAt)} />
+                <Meta label={t("detail.closed")} value={formatDateTime(inspection.closedAt)} />
               ) : null}
             </dl>
           </section>

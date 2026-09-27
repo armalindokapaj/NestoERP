@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { QaqcListSection } from "@/components/qaqc/qaqc-list";
@@ -9,7 +10,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Reinspections" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.reinspections") };
+}
 
 /**
  * Work that has been looked at more than once (PRD #21 §154, §198).
@@ -24,6 +28,7 @@ export default async function QaqcReinspectionsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.reinspection.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -33,7 +38,7 @@ export default async function QaqcReinspectionsPage({
     <ModulePage
       experience={experience}
       activeSection="reinspections"
-      description="Work that failed or was accepted with a condition, and has been looked at again. Each re-look carries its own verdict."
+      description={t("descriptions.reinspections")}
     >
       <Suspense fallback={<SkeletonTable rows={8} />}>
         <QaqcListSection

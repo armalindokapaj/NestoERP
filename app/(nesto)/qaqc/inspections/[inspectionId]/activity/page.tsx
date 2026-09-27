@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
 import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import { InspectionPageShell, loadInspectionPage } from "../inspection-shell";
 
-export const metadata: Metadata = { title: "Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.activity") };
+}
 
 type Params = {
   params: Promise<{ inspectionId: string }>;

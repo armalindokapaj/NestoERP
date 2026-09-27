@@ -9,14 +9,20 @@ import { requireModule } from "@/lib/context/current-user";
 import { updateInspectionAction } from "@/lib/actions/hse";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 import { inspectionTypeLabels } from "@/lib/modules/hse/hse.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
-export const metadata: Metadata = { title: "Edit inspection" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editInspection") };
+}
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
 export default async function EditInspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.inspection.create")) notFound();
 
   let inspection;
@@ -37,21 +43,21 @@ export default async function EditInspectionPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
           { label: inspection.inspectionNumber, href: `/hse/inspections/${inspectionId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {inspection.inspectionNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: inspection.inspectionNumber })}</h1>
       </div>
 
       <InspectionForm
         action={update}
         cancelHref={`/hse/inspections/${inspectionId}`}
-        submitLabel="Save inspection"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveInspection")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={inspection.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,
@@ -63,7 +69,7 @@ export default async function EditInspectionPage({ params }: Params) {
         }))}
         templates={options.templates.map((template) => ({
           value: template.id,
-          label: `${template.code} — ${template.name} (${inspectionTypeLabels[template.inspectionType]}, v${template.version})`,
+          label: `${template.code} — ${template.name} (${hseLabel(t, "inspectionType", template.inspectionType, inspectionTypeLabels[template.inspectionType])}, v${template.version})`,
         }))}
         values={{
           inspectionType: inspection.inspectionType,

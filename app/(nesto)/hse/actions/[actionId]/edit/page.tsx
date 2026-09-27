@@ -8,14 +8,19 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateHseActionAction } from "@/lib/actions/hse";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit action" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editAction") };
+}
 
 type Params = { params: Promise<{ actionId: string }> };
 
 export default async function EditHseActionPage({ params }: Params) {
   const { actionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.action.update")) notFound();
 
   let action;
@@ -36,21 +41,21 @@ export default async function EditHseActionPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Actions", href: "/hse/actions" },
+          { label: t("pages.actions.title"), href: "/hse/actions" },
           { label: action.actionNumber, href: `/hse/actions/${actionId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {action.actionNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: action.actionNumber })}</h1>
       </div>
 
       <ActionForm
         action={update}
         cancelHref={`/hse/actions/${actionId}`}
-        submitLabel="Save action"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveAction")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={action.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

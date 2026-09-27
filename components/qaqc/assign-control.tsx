@@ -23,7 +23,9 @@ import {
   assignNcrAction,
   assignRequestAction,
 } from "@/lib/actions/qaqc";
-import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
+import { useCommonTranslations } from "@/components/i18n/common-text";
+import type { MessageKey } from "@/lib/i18n/translator";
+import { useQaqcTranslations } from "./qaqc-text";
 
 /**
  * Handing a quality record to somebody (PRD #21 §45, §74, §117, §130, §145).
@@ -37,16 +39,26 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
  */
 type Kind = "request" | "inspection" | "defect" | "ncr" | "action";
 
-const LABEL: Record<Kind, string> = {
-  request: "Assign inspector",
-  inspection: "Reassign",
-  defect: "Assign",
-  ncr: "Assign",
-  action: "Reassign",
+const LABEL: Record<Kind, MessageKey<"qaqc">> = {
+  request: "assign.assignInspector",
+  inspection: "assign.reassign",
+  defect: "assign.assign",
+  ncr: "assign.assign",
+  action: "assign.reassign",
+};
+
+/** What the server says on success, word for word, in the reader's language. */
+const ASSIGNED: Record<Kind, MessageKey<"qaqc">> = {
+  request: "assign.inspectorAssigned",
+  inspection: "assign.inspectorAssigned",
+  defect: "assign.defectAssigned",
+  ncr: "assign.ncrAssigned",
+  action: "assign.actionAssigned",
 };
 
 export function AssignControl({ kind, recordId }: { kind: Kind; recordId: string }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
   const [members, setMembers] = React.useState<{ id: string; name: string }[] | null>(null);
@@ -83,7 +95,7 @@ export function AssignControl({ kind, recordId }: { kind: Kind; recordId: string
               : await assignActionAction(recordId, memberId);
 
     if (result.ok) {
-      toast({ title: result.message ?? "Assigned.", tone: "success" });
+      toast({ title: t(ASSIGNED[kind]), tone: "success" });
       setOpen(false);
       router.refresh();
       return true;
@@ -95,20 +107,20 @@ export function AssignControl({ kind, recordId }: { kind: Kind; recordId: string
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        {LABEL[kind]}
+        {t(LABEL[kind])}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>{LABEL[kind]}</DialogTitle>
+          <DialogTitle>{t(LABEL[kind])}</DialogTitle>
           <DialogDescription>
             {kind === "request"
-              ? "Assigning an inspector is what turns a request into work."
-              : "The record becomes theirs to carry out."}
+              ? t("assign.requestBody")
+              : t("assign.recordBody")}
           </DialogDescription>
 
           {/* Inside the dialog, so the choice belongs to its guarded close (AUD-03 §5). */}
-          <AssignBody members={members} onAssign={assign} label={LABEL[kind]} />
+          <AssignBody members={members} onAssign={assign} label={t(LABEL[kind])} />
         </DialogContent>
       </Dialog>
     </>
@@ -132,11 +144,13 @@ function AssignBody({
   label: string;
 }) {
   const close = useDialogClose();
+  const t = useQaqcTranslations();
+  const tc = useCommonTranslations();
   const [memberId, setMemberId] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const running = React.useRef(false);
-  const editor = useUnsavedEditor({ module: "qaqc", saveKind: "none", workflow: "Assign", label });
+  const editor = useUnsavedEditor({ module: "qaqc", saveKind: "none", workflow: t("assign.assign"), label });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(memberId !== ""), [memberId, setDirty]);
@@ -153,7 +167,7 @@ function AssignBody({
     } catch {
       // It may or may not have happened: say so, never retry it (§6).
       setUnresolved(true);
-      setError(OUTCOME_COPY.unknown);
+      setError(tc("outcomeUnknown"));
     } finally {
       running.current = false;
       setPending(false);
@@ -168,7 +182,7 @@ function AssignBody({
   return (
     <>
       <div className="space-y-1.5">
-        <Label htmlFor="assign-member">Person</Label>
+        <Label htmlFor="assign-member">{tc("assign.person")}</Label>
         <select
           id="assign-member"
           className={selectClass}
@@ -176,7 +190,7 @@ function AssignBody({
           onChange={(event) => setMemberId(event.target.value)}
           disabled={members === null || pending}
         >
-          <option value="">{members === null ? "Loading…" : "Choose somebody"}</option>
+          <option value="">{members === null ? tc("loading") : tc("assign.choose")}</option>
           {(members ?? []).map((member) => (
             <option key={member.id} value={member.id}>
               {member.name}
@@ -189,10 +203,10 @@ function AssignBody({
       <DialogFooter>
         {/* The guarded close, like the X: never a direct setOpen(false) (§5). */}
         <Button variant="secondary" onClick={close} disabled={pending}>
-          Cancel
+          {tc("cancel")}
         </Button>
         <Button disabled={pending || !memberId} onClick={() => void assign()}>
-          {pending ? "Assigning…" : "Assign"}
+          {pending ? tc("assign.assigning") : tc("assign.assign")}
         </Button>
       </DialogFooter>
     </>

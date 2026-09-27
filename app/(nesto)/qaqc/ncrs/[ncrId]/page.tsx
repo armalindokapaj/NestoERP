@@ -1,5 +1,6 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -17,7 +18,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
-import { ncrCategoryLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ ncrId: string }> };
@@ -29,7 +30,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const ncr = await ncrs.getNcr(context, ncrId);
     return { title: ncr.ncrNumber };
   } catch {
-    return { title: "Non-conformance report" };
+    const t = await getTranslations("qaqc");
+    return { title: t("meta.ncr") };
   }
 }
 
@@ -43,6 +45,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function NcrPage({ params }: Params) {
   const { ncrId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let ncr;
   try {
@@ -60,8 +63,8 @@ export default async function NcrPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "NCRs", href: "/qaqc/ncrs" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.ncrs"), href: "/qaqc/ncrs" },
           { label: ncr.ncrNumber },
         ]}
         title={ncr.title}
@@ -70,21 +73,21 @@ export default async function NcrPage({ params }: Params) {
         badges={
           <>
             <SeverityBadge severity={ncr.severity} />
-            <Badge tone="neutral">{ncrCategoryLabels[ncr.category]}</Badge>
-            {ncr.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            <Badge tone="neutral">{qaqcLabel(t, "ncrCategory", ncr.category)}</Badge>
+            {ncr.overdue ? <Badge tone="danger">{t("common.overdue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Project", value: ncr.project ? ncr.project.code : "Company-wide" },
+          { label: t("detail.project"), value: ncr.project ? ncr.project.code : t("common.companyWide") },
           {
-            label: "Assigned to",
+            label: t("detail.assignedTo"),
             value: ncr.assignedTo ? (
               <PersonLink memberId={ncr.assignedTo.memberId} name={ncr.assignedTo.fullName} />
             ) : (
-              "Not assigned"
+              t("common.notAssigned")
             ),
           },
-          { label: "Due", value: ncr.dueDate ? formatDate(ncr.dueDate) : "No date" },
+          { label: t("detail.due"), value: ncr.dueDate ? formatDate(ncr.dueDate) : t("common.noDate") },
         ]}
         actions={
           <>
@@ -99,25 +102,25 @@ export default async function NcrPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What did not meet requirement</h2>
+            <h2 className="text-card font-semibold text-fg">{t("ncrPage.whatFailed")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{ncr.description}</p>
 
             <DetailGrid
               className="mt-6 border-t border-line pt-5"
               items={[
-                { label: "Category", value: ncrCategoryLabels[ncr.category] },
+                { label: t("detail.category"), value: qaqcLabel(t, "ncrCategory", ncr.category) },
                 {
-                  label: "Project",
+                  label: t("detail.project"),
                   value: ncr.project ? (
                     <Link href={`/projects/${ncr.project.id}`} className="hover:text-accent">
                       {ncr.project.code} — {ncr.project.name}
                     </Link>
                   ) : (
-                    "Not tied to a project"
+                    t("common.notTied")
                   ),
                 },
                 {
-                  label: "Found on",
+                  label: t("detail.foundOn"),
                   value: ncr.inspection ? (
                     <Link
                       href={`/qaqc/inspections/${ncr.inspection.id}`}
@@ -126,11 +129,11 @@ export default async function NcrPage({ params }: Params) {
                       {ncr.inspection.inspectionNumber}
                     </Link>
                   ) : (
-                    "Raised directly"
+                    t("common.raisedDirectly")
                   ),
                 },
                 {
-                  label: "From defect",
+                  label: t("ncrPage.fromDefect"),
                   value: ncr.sourceDefect ? (
                     <Link
                       href={`/qaqc/defects/${ncr.sourceDefect.id}`}
@@ -143,7 +146,7 @@ export default async function NcrPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Delivery",
+                  label: t("detail.delivery"),
                   value: ncr.source ? (
                     ncr.source.href ? (
                       <Link href={ncr.source.href} className="hover:text-accent">
@@ -157,7 +160,7 @@ export default async function NcrPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Quality owner",
+                  label: t("detail.qualityOwner"),
                   value: ncr.owner ? <PersonLink memberId={ncr.owner.memberId} name={ncr.owner.fullName} /> : "—",
                 },
               ]}
@@ -165,48 +168,47 @@ export default async function NcrPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Investigation</h2>
+            <h2 className="text-card font-semibold text-fg">{t("ncrPage.investigation")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
-              This is what separates an NCR from a defect. Without a root cause, closing it records
-              that a problem stopped being discussed rather than that it was solved.
+              {t("ncrPage.investigationBody")}
             </p>
 
             <dl className="mt-4 space-y-4">
-              <Block label="Immediate action" value={ncr.immediateAction} />
-              <Block label="Root cause" value={ncr.rootCause} />
-              <Block label="Corrective action summary" value={ncr.correctiveActionSummary} />
-              {ncr.closureNote ? <Block label="Closure note" value={ncr.closureNote} /> : null}
+              <Block label={t("ncrPage.immediateAction")} value={ncr.immediateAction} />
+              <Block label={t("ncrPage.rootCause")} value={ncr.rootCause} />
+              <Block label={t("ncrPage.summary")} value={ncr.correctiveActionSummary} />
+              {ncr.closureNote ? <Block label={t("ncrPage.closureNote")} value={ncr.closureNote} /> : null}
             </dl>
           </section>
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">Corrective actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
               <p className="text-meta text-fg-subtle">
-                Every one has to be verified before this NCR can close.
+                {t("ncrPage.actionsNote")}
               </p>
             </div>
             {ncr.correctiveActions.length === 0 ? (
               <p className="nesto-card p-5 text-table text-fg-subtle">
-                None raised yet. An NCR cannot close without at least one.
+                {t("ncrPage.noActions")}
               </p>
             ) : (
               <CorrectiveActionTable
                 actions={ncr.correctiveActions}
                 showParent={false}
-                caption={`Actions on ${ncr.ncrNumber}`}
+                caption={t("ncrPage.actionsCaption", { number: ncr.ncrNumber })}
               />
             )}
           </section>
 
           {ncr.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="non_conformance_report"
                 entityId={ncr.id}
-                emptyDescription="Evidence, supplier correspondence and closure records appear here."
+                emptyDescription={t("documents.ncr")}
               />
             </section>
           ) : null}
@@ -214,10 +216,10 @@ export default async function NcrPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Raised by"
+                label={t("detail.raisedBy")}
                 value={
                   ncr.createdBy ? (
                     <PersonLink memberId={ncr.createdBy.memberId} name={ncr.createdBy.fullName} />
@@ -226,20 +228,20 @@ export default async function NcrPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(ncr.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(ncr.createdAt)} />
               {ncr.submittedAt ? (
-                <Meta label="Submitted" value={formatDateTime(ncr.submittedAt)} />
+                <Meta label={t("detail.submitted")} value={formatDateTime(ncr.submittedAt)} />
               ) : null}
               {ncr.approvedAt ? (
                 <Meta
-                  label="Closure approved"
+                  label={t("ncrPage.closureApproved")}
                   value={
                     <>
                       {formatDateTime(ncr.approvedAt)}
                       {ncr.approvedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={ncr.approvedBy.memberId} name={ncr.approvedBy.fullName} />
+                          {t("detail.by")} <PersonLink memberId={ncr.approvedBy.memberId} name={ncr.approvedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -248,14 +250,14 @@ export default async function NcrPage({ params }: Params) {
               ) : null}
               {ncr.rejectedAt ? (
                 <Meta
-                  label="Closure rejected"
+                  label={t("ncrPage.closureRejected")}
                   value={
                     <>
                       {formatDateTime(ncr.rejectedAt)}
                       {ncr.rejectedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={ncr.rejectedBy.memberId} name={ncr.rejectedBy.fullName} />
+                          {t("detail.by")} <PersonLink memberId={ncr.rejectedBy.memberId} name={ncr.rejectedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -263,14 +265,14 @@ export default async function NcrPage({ params }: Params) {
                 />
               ) : null}
               {ncr.closedAt ? (
-                <Meta label="Closed" value={formatDateTime(ncr.closedAt)} />
+                <Meta label={t("detail.closed")} value={formatDateTime(ncr.closedAt)} />
               ) : null}
             </dl>
           </section>
 
           {ncr.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="NonConformanceReport"
@@ -289,12 +291,13 @@ export default async function NcrPage({ params }: Params) {
   );
 }
 
-function Block({ label, value }: { label: string; value: string | null }) {
+async function Block({ label, value }: { label: string; value: string | null }) {
+  const t = await getTranslations("qaqc");
   return (
     <div>
       <dt className="nesto-eyebrow text-fg-subtle">{label}</dt>
       <dd className="mt-1 whitespace-pre-wrap text-table text-fg-muted">
-        {value ?? <span className="text-fg-subtle">Not recorded yet.</span>}
+        {value ?? <span className="text-fg-subtle">{t("ncrPage.notRecorded")}</span>}
       </dd>
     </div>
   );

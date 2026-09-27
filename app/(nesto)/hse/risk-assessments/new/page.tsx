@@ -7,12 +7,17 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createRiskAssessmentAction } from "@/lib/actions/hse";
 import * as risk from "@/lib/modules/hse/risk-assessments/risk.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New risk assessment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.risk-assessments") };
+}
 
 /** A structured look at one activity (PRD #22 §106). */
 export default async function NewRiskAssessmentPage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.risk.create")) notFound();
 
   const options = await risk.riskFormOptions(context);
@@ -22,24 +27,23 @@ export default async function NewRiskAssessmentPage() {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Risk assessments", href: "/hse/risk-assessments" },
-          { label: "New" },
+          { label: t("pages.riskAssessments.title"), href: "/hse/risk-assessments" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New risk assessment</h1>
+        <h1 className="text-page font-semibold text-fg">{t("list.create.risk-assessments")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          One line per hazard: what could hurt somebody, what already controls it, and what will
-          be left once the extra controls go in.
+          {t("page.riskIntro")}
         </p>
       </div>
 
       <RiskAssessmentForm
         action={createRiskAssessmentAction}
         cancelHref="/hse/risk-assessments"
-        submitLabel="Create assessment"
-        pendingLabel="Creating…"
+        submitLabel={t("page.createAssessment")}
+        pendingLabel={t("page.creating")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

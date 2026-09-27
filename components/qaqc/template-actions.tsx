@@ -11,9 +11,12 @@ import { useToast } from "@/components/ui/toast";
 import { templateLifecycleAction } from "@/lib/actions/qaqc";
 import type { TemplateDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 
+import { useQaqcTranslations } from "./qaqc-text";
+
 /** What a reader may do to a template (PRD #21 §53, §58). */
 export function TemplateActions({ template }: { template: TemplateDetailDTO }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [archiving, setArchiving] = React.useState(false);
@@ -37,7 +40,7 @@ export function TemplateActions({ template }: { template: TemplateDetailDTO }) {
     <>
       {may.canUse ? (
         <Button asChild size="sm">
-          <Link href={`/qaqc/inspections/new?templateId=${template.id}`}>Start an inspection</Link>
+          <Link href={`/qaqc/inspections/new?templateId=${template.id}`}>{t("common.startInspection")}</Link>
         </Button>
       ) : null}
 
@@ -45,14 +48,14 @@ export function TemplateActions({ template }: { template: TemplateDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/qaqc/templates/${template.id}/edit`}>
             <PenLine aria-hidden="true" />
-            {template.usageCount > 0 ? "New version" : "Edit"}
+            {template.usageCount > 0 ? t("templateActions.newVersion") : t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArchiving(true)}>
-          Archive
+          {t("templateActions.archive")}
         </Button>
       ) : null}
 
@@ -61,20 +64,20 @@ export function TemplateActions({ template }: { template: TemplateDetailDTO }) {
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => run("restore", "Template restored as inactive.")}
+          onClick={() => run("restore", t("templateActions.restored"))}
         >
-          Restore
+          {t("templateActions.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title={`Archive ${template.code} v${template.version}?`}
-        description="It leaves the picker and cannot be used on new inspections. Inspections already run against it keep their checklist exactly as it was. An inspection still in flight blocks this."
-        confirmLabel="Archive template"
+        title={t("templateActions.archiveTitle", { code: template.code, version: template.version })}
+        description={t("templateActions.archiveBody")}
+        confirmLabel={t("templateActions.archiveConfirm")}
         pending={pending}
-        onConfirm={() => run("archive", "Template archived.")}
+        onConfirm={() => run("archive", t("templateActions.archived"))}
       />
     </>
   );

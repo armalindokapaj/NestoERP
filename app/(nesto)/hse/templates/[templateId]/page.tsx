@@ -15,7 +15,9 @@ import {
   responseTypeLabels,
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ templateId: string }> };
 
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const template = await templates.getTemplate(context, templateId);
     return { title: template.code };
   } catch {
-    return { title: "Checklist" };
+    return { title: (await getTranslations("hse"))("record.checklist") };
   }
 }
 
@@ -34,6 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function TemplatePage({ params }: Params) {
   const { templateId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let template;
   try {
@@ -50,27 +53,27 @@ export default async function TemplatePage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Checklists", href: "/hse/templates" },
+          { label: t("pages.templates.title"), href: "/hse/templates" },
           { label: template.code },
         ]}
         title={template.name}
-        subtitle={`${template.code} · version ${template.version}`}
+        subtitle={t("risk.detail.version", { number: template.code, version: template.version })}
         status={template.status}
         badges={
           template.usageCount > 0 ? (
-            <Badge tone="neutral">Used {template.usageCount}×</Badge>
+            <Badge tone="neutral">{t("template.detail.used", { count: template.usageCount })}</Badge>
           ) : null
         }
         meta={[
-          { label: "Type", value: inspectionTypeLabels[template.inspectionType] },
-          { label: "Checks", value: String(template.itemCount) },
+          { label: t("record.type"), value: hseLabel(t, "inspectionType", template.inspectionType, inspectionTypeLabels[template.inspectionType]) },
+          { label: t("template.detail.checks"), value: String(template.itemCount) },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {may.canEdit ? (
               <Button asChild variant="secondary">
                 <Link href={`/hse/templates/${template.id}/edit`}>
-                  {may.wouldVersion ? `Edit — makes v${template.version + 1}` : "Edit"}
+                  {may.wouldVersion ? t("template.detail.editMakes", { version: template.version + 1 }) : t("template.detail.edit")}
                 </Link>
               </Button>
             ) : null}
@@ -83,34 +86,31 @@ export default async function TemplatePage({ params }: Params) {
           break it (PRD #22 §349). */}
       {may.wouldVersion ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          {template.usageCount} inspection{template.usageCount === 1 ? " has" : "s have"} been run
-          against this version. Editing it creates version {template.version + 1} and leaves this
-          one exactly as it is, so those inspections still read against what they were actually
-          checked with.
+          {t("template.detail.wouldVersion", { count: template.usageCount, version: template.version + 1 })}
         </p>
       ) : null}
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">About</h2>
+        <h2 className="text-card font-semibold text-fg">{t("risk.detail.about")}</h2>
         <DetailGrid
           className="mt-4"
           items={[
-            { label: "Description", value: orDash(template.description) },
+            { label: t("record.description"), value: orDash(template.description) },
             {
-              label: "Created by",
+              label: t("record.createdBy"),
               value: template.createdBy ? (
                 <PersonLink memberId={template.createdBy.memberId} name={template.createdBy.fullName} />
               ) : (
                 "—"
               ),
             },
-            { label: "Created", value: formatDateTime(template.createdAt) },
+            { label: t("record.created"), value: formatDateTime(template.createdAt) },
           ]}
         />
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Checks</h2>
+        <h2 className="text-card font-semibold text-fg">{t("template.detail.checks")}</h2>
         <ol className="mt-4 divide-y divide-line">
           {template.items.map((item) => (
             <li key={item.id} className="py-3 first:pt-0 last:pb-0">
@@ -127,7 +127,7 @@ export default async function TemplatePage({ params }: Params) {
                 <p className="mt-1 text-meta text-fg-subtle">{item.description}</p>
               ) : null}
               <p className="mt-1.5 flex flex-wrap gap-2 text-meta text-fg-subtle">
-                <span>{responseTypeLabels[item.responseType]}</span>
+                <span>{hseLabel(t, "responseType", item.responseType, responseTypeLabels[item.responseType])}</span>
                 {item.riskIfFailed ? (
                   <Badge
                     tone={
@@ -138,10 +138,10 @@ export default async function TemplatePage({ params }: Params) {
                           : "neutral"
                     }
                   >
-                    {severityLabels[item.riskIfFailed]} if failed
+                    {t("template.detail.ifFailed", { severity: hseLabel(t, "severity", item.riskIfFailed, severityLabels[item.riskIfFailed]) })}
                   </Badge>
                 ) : null}
-                {item.requiresNoteOnFail ? <span>Needs a note if it fails</span> : null}
+                {item.requiresNoteOnFail ? <span>{t("template.detail.needsNote")}</span> : null}
               </p>
             </li>
           ))}

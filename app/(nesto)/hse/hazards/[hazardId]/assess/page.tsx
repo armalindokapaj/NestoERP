@@ -7,8 +7,12 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Reassess risk" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.reassessRisk") };
+}
 
 type Params = { params: Promise<{ hazardId: string }> };
 
@@ -16,6 +20,7 @@ type Params = { params: Promise<{ hazardId: string }> };
 export default async function AssessHazardPage({ params }: Params) {
   const { hazardId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.hazard.assess")) notFound();
 
   let hazard;
@@ -33,17 +38,16 @@ export default async function AssessHazardPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber, href: `/hse/hazards/${hazardId}` },
-          { label: "Reassess" },
+          { label: t("page.crumbReassess") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Reassess {hazard.hazardNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.reassessNumber", { number: hazard.hazardNumber })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Score it as it stands now, and again as it will be once the controls are in. Controls
-          reduce risk — the residual score cannot be higher than the first.
+          {t("page.reassessIntro")}
         </p>
       </div>
 

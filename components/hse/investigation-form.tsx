@@ -4,6 +4,7 @@ import { Field, FormSection, RecordForm } from "@/components/forms/record-form";
 import { Textarea } from "@/components/ui/textarea";
 import { recordInvestigationAction } from "@/lib/actions/hse";
 import type { IncidentDetailDTO } from "@/lib/modules/hse/hse.types";
+import { useHseTranslations } from "@/components/hse/hse-text";
 
 /**
  * The investigation panel (PRD #22 §90, §91, §363).
@@ -13,6 +14,7 @@ import type { IncidentDetailDTO } from "@/lib/modules/hse/hse.types";
  * not the shape it is written in.
  */
 export function InvestigationForm({ incident }: { incident: IncidentDetailDTO }) {
+  const t = useHseTranslations();
   const action = recordInvestigationAction.bind(null, incident.id);
   const serious = incident.severity === "HIGH" || incident.severity === "CRITICAL";
 
@@ -21,16 +23,16 @@ export function InvestigationForm({ incident }: { incident: IncidentDetailDTO })
       module="hse"
       action={action}
       cancelHref={`/hse/incidents/${incident.id}`}
-      submitLabel="Save findings"
-      pendingLabel="Saving…"
+      submitLabel={t("forms.saveFindings")}
+      pendingLabel={t("page.saving")}
       versionUpdatedAt={incident.updatedAt}
     >
       <FormSection
-        title="Findings"
-        description="Saved as you go. Nothing here closes the incident — that is a separate act, and somebody else decides it."
+        title={t("forms.findings")}
+        description={t("forms.findingsIntro")}
       >
         <Field
-          label="What was found"
+          label={t("incident.detail.whatWasFound")}
           name="investigationSummary"
           required={serious}
           className="sm:col-span-2"
@@ -45,14 +47,14 @@ export function InvestigationForm({ incident }: { incident: IncidentDetailDTO })
         </Field>
 
         <Field
-          label="Root cause"
+          label={t("incident.detail.rootCause")}
           name="rootCause"
           required={serious}
           className="sm:col-span-2"
           hint={
             serious
-              ? "Required before this incident can be closed. Why it was able to happen, not who was involved."
-              : "Why it was able to happen."
+              ? t("forms.rootCauseRequired")
+              : t("forms.rootCauseHint")
           }
         >
           <Textarea
@@ -64,7 +66,7 @@ export function InvestigationForm({ incident }: { incident: IncidentDetailDTO })
           />
         </Field>
 
-        <Field label="Lessons learned" name="lessonsLearned" className="sm:col-span-2">
+        <Field label={t("incident.detail.lessonsLearned")} name="lessonsLearned" className="sm:col-span-2">
           <Textarea
             id="lessonsLearned"
             name="lessonsLearned"

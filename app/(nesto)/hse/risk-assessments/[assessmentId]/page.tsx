@@ -16,7 +16,9 @@ import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as risk from "@/lib/modules/hse/risk-assessments/risk.service";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ assessmentId: string }> };
 
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const assessment = await risk.getRiskAssessment(context, assessmentId);
     return { title: assessment.assessmentNumber };
   } catch {
-    return { title: "Risk assessment" };
+    return { title: (await getTranslations("hse"))("record.riskAssessment") };
   }
 }
 
@@ -35,6 +37,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function RiskAssessmentPage({ params }: Params) {
   const { assessmentId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let assessment;
   try {
@@ -53,11 +56,11 @@ export default async function RiskAssessmentPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Risk assessments", href: "/hse/risk-assessments" },
+          { label: t("pages.riskAssessments.title"), href: "/hse/risk-assessments" },
           { label: assessment.assessmentNumber },
         ]}
         title={assessment.title}
-        subtitle={`${assessment.assessmentNumber} · version ${assessment.version}`}
+        subtitle={t("risk.detail.version", { number: assessment.assessmentNumber, version: assessment.version })}
         status={assessment.status}
         badges={
           <>
@@ -71,26 +74,26 @@ export default async function RiskAssessmentPage({ params }: Params) {
                       : "neutral"
                 }
               >
-                Highest: {riskLevelLabels[assessment.highestRisk]}
+                {t("risk.detail.highest", { level: hseLabel(t, "riskLevel", assessment.highestRisk, riskLevelLabels[assessment.highestRisk]) })}
               </Badge>
             ) : null}
-            {assessment.reviewDue ? <Badge tone="warning">Review due</Badge> : null}
+            {assessment.reviewDue ? <Badge tone="warning">{t("risk.detail.reviewDue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Project", value: assessment.project?.code ?? "Company-wide" },
+          { label: t("record.project"), value: assessment.project?.code ?? t("record.companyWide") },
           {
-            label: "Owner",
+            label: t("risk.detail.owner"),
             value: assessment.owner ? (
               <PersonLink memberId={assessment.owner.memberId} name={assessment.owner.fullName} />
             ) : (
               "—"
             ),
           },
-          { label: "Assessed", value: formatDate(assessment.assessmentDate) },
+          { label: t("risk.detail.assessed"), value: formatDate(assessment.assessmentDate) },
           {
-            label: "Review",
-            value: assessment.reviewDate ? formatDate(assessment.reviewDate) : "No date",
+            label: t("risk.detail.review"),
+            value: assessment.reviewDate ? formatDate(assessment.reviewDate) : t("record.noDate"),
           },
         ]}
         actions={<RiskAssessmentActions assessment={assessment} cycle={cycle} />}
@@ -99,22 +102,20 @@ export default async function RiskAssessmentPage({ params }: Params) {
       {/* Flagged, never invalidated: a person decides (PRD #22 §359). */}
       {assessment.reviewDue ? (
         <p className="rounded-md border border-warning-border bg-warning-subtle px-4 py-3 text-table text-warning-strong">
-          This assessment has passed its review date. It is still valid — nothing expires by
-          itself — but somebody should look at it.
+          {t("risk.detail.reviewPassed")}
         </p>
       ) : null}
 
       {assessment.status === "APPROVED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          Approved and frozen. Site work is carried out against this document, so a material
-          change creates version {assessment.version + 1} rather than rewriting it.
+          {t("risk.detail.frozen", { version: assessment.version + 1 })}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">About</h2>
+            <h2 className="text-card font-semibold text-fg">{t("risk.detail.about")}</h2>
             {assessment.description ? (
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {assessment.description}
@@ -125,7 +126,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: assessment.project ? (
                     <Link
                       href={`/projects/${assessment.project.id}`}
@@ -134,22 +135,22 @@ export default async function RiskAssessmentPage({ params }: Params) {
                       {assessment.project.code} — {assessment.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
-                { label: "Activity", value: orDash(assessment.activityType) },
-                { label: "Location", value: orDash(assessment.locationText) },
+                { label: t("risk.detail.activity"), value: orDash(assessment.activityType) },
+                { label: t("record.location"), value: orDash(assessment.locationText) },
               ]}
             />
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Hazards</h2>
+            <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazards")}</h2>
             <ol className="space-y-3">
               {assessment.items.map((item, index) => (
                 <li key={item.id} className="nesto-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <p className="nesto-eyebrow text-fg-subtle">Hazard {index + 1}</p>
+                    <p className="nesto-eyebrow text-fg-subtle">{t("risk.detail.hazardN", { n: index + 1 })}</p>
                     <span className="flex items-center gap-2">
                       <RiskBadge risk={item.risk} />
                       {item.residualRisk ? (
@@ -170,10 +171,10 @@ export default async function RiskAssessmentPage({ params }: Params) {
                   <DetailGrid
                     className="mt-4"
                     items={[
-                      { label: "Existing controls", value: orDash(item.existingControls) },
-                      { label: "Further controls", value: orDash(item.additionalControls) },
+                      { label: t("risk.detail.existingControls"), value: orDash(item.existingControls) },
+                      { label: t("risk.detail.furtherControls"), value: orDash(item.additionalControls) },
                       {
-                        label: "Responsible",
+                        label: t("permit.detail.responsible"),
                         value: item.responsible ? (
                           <PersonLink memberId={item.responsible.memberId} name={item.responsible.fullName} />
                         ) : (
@@ -181,7 +182,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
                         ),
                       },
                       {
-                        label: "By when",
+                        label: t("risk.detail.byWhen"),
                         value: item.dueDate ? formatDate(item.dueDate) : "—",
                       },
                     ]}
@@ -193,22 +194,22 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
           {assessment.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={assessment.actions}
-                caption={`Actions from ${assessment.assessmentNumber}`}
+                caption={t("inspection.detail.actionsFrom", { number: assessment.assessmentNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="risk_assessment"
                 entityId={assessment.id}
-                emptyDescription="The signed assessment, method statement and marked-up plans appear here."
+                emptyDescription={t("risk.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -216,10 +217,10 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Created by"
+                label={t("record.createdBy")}
                 value={
                   assessment.createdBy ? (
                     <PersonLink memberId={assessment.createdBy.memberId} name={assessment.createdBy.fullName} />
@@ -228,20 +229,20 @@ export default async function RiskAssessmentPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Created" value={formatDateTime(assessment.createdAt)} />
+              <Meta label={t("record.created")} value={formatDateTime(assessment.createdAt)} />
               {assessment.submittedAt ? (
-                <Meta label="Submitted" value={formatDateTime(assessment.submittedAt)} />
+                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(assessment.submittedAt)} />
               ) : null}
               {assessment.approvedAt ? (
                 <Meta
-                  label="Approved"
+                  label={t("inspection.detail.approved")}
                   value={
                     <>
                       {formatDateTime(assessment.approvedAt)}
                       {assessment.approvedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={assessment.approvedBy.memberId} name={assessment.approvedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={assessment.approvedBy.memberId} name={assessment.approvedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -249,14 +250,14 @@ export default async function RiskAssessmentPage({ params }: Params) {
                 />
               ) : null}
               {assessment.archivedAt ? (
-                <Meta label="Archived" value={formatDateTime(assessment.archivedAt)} />
+                <Meta label={t("risk.detail.archived")} value={formatDateTime(assessment.archivedAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseRiskAssessment"

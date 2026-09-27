@@ -19,6 +19,8 @@ import {
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
 import type { ChecklistItemDTO } from "@/lib/modules/hse/hse.types";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * Answering a safety checklist (PRD #22 §311, §312, §313).
@@ -49,8 +51,10 @@ export function ChecklistExecutor(props: ChecklistExecutorProps) {
 }
 
 function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: ChecklistExecutorProps) {
+  const t = useHseTranslations();
   const router = useRouter();
   const toast = useToast();
+  const serverText = useHseServerText();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [answers, setAnswers] = React.useState(() =>
     Object.fromEntries(
@@ -72,7 +76,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
   /**
    * Many answers held before one save, so the checklist is an editor under
    * the unsaved-work contract (AUD-03 §3): leaving with unsaved answers asks
-   * first, and "Save and continue" runs this same "Save checklist". Saving is
+   * first, and "Save and continue" runs this same t("page.saveChecklist"). Saving is
    * ordinary — submitting the inspection is the separate panel below. Read-only,
    * no form is rendered, so the editor never holds anything unsaved.
    */
@@ -81,10 +85,10 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
     action: (formData: FormData) => executeInspectionAction(inspectionId, formData),
     module: "hse",
     saveKind: "save",
-    label: "Checklist",
+    label: t("record.checklist"),
     onCommitted: (result, mode) => {
       if (mode === "normal") {
-        toast({ title: result?.message ?? "Checklist saved.", tone: "success" });
+        toast({ title: serverText(result?.message) ?? t("exec.saved"), tone: "success" });
         router.refresh();
       }
       return true;
@@ -140,10 +144,10 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                           : "neutral"
                     }
                   >
-                    {severityLabels[item.riskIfFailed]} if failed
+                    {t("template.detail.ifFailed", { severity: hseLabel(t, "severity", item.riskIfFailed, severityLabels[item.riskIfFailed]) })}
                   </Badge>
                 ) : null}
-                {responseTypeLabels[item.responseType]}
+                {hseLabel(t, "responseType", item.responseType, responseTypeLabels[item.responseType])}
               </span>
             </div>
 
@@ -151,7 +155,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
 
             {verdict ? (
               <div className="space-y-1.5">
-                <Label htmlFor={`answer-${index}`}>Result</Label>
+                <Label htmlFor={`answer-${index}`}>{t("inspection.detail.result")}</Label>
                 <select
                   id={`answer-${index}`}
                   name={`answers[${index}][result]`}
@@ -160,10 +164,10 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                   onChange={(event) => update(item.id, { result: event.target.value })}
                   disabled={readOnly}
                 >
-                  <option value="">Not answered</option>
+                  <option value="">{t("exec.notAnswered")}</option>
                   {allowed.map((value) => (
                     <option key={value} value={value}>
-                      {value === "PASS" ? "Pass" : value === "FAIL" ? "Fail" : "Not applicable"}
+                      {value === "PASS" ? t("exec.pass") : value === "FAIL" ? t("exec.fail") : t("exec.notApplicable")}
                     </option>
                   ))}
                 </select>
@@ -172,7 +176,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
               <>
                 <div className="space-y-1.5">
                   <Label htmlFor={`answer-${index}`}>
-                    {item.responseType === "NUMBER" ? "Measurement" : "Answer"}
+                    {item.responseType === "NUMBER" ? t("exec.measurement") : t("exec.answer")}
                   </Label>
                   <Input
                     id={`answer-${index}`}
@@ -185,7 +189,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`verdict-${index}`}>Verdict</Label>
+                  <Label htmlFor={`verdict-${index}`}>{t("exec.verdict")}</Label>
                   <select
                     id={`verdict-${index}`}
                     name={`answers[${index}][result]`}
@@ -194,10 +198,10 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                     onChange={(event) => update(item.id, { result: event.target.value })}
                     disabled={readOnly}
                   >
-                    <option value="">Not answered</option>
+                    <option value="">{t("exec.notAnswered")}</option>
                     {allowed.map((value) => (
                       <option key={value} value={value}>
-                        {value === "PASS" ? "Pass" : value === "FAIL" ? "Fail" : "Not applicable"}
+                        {value === "PASS" ? t("exec.pass") : value === "FAIL" ? t("exec.fail") : t("exec.notApplicable")}
                       </option>
                     ))}
                   </select>
@@ -207,7 +211,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
 
             <div className="space-y-1.5">
               <Label htmlFor={`note-${index}`}>
-                Note{needsNote ? <span className="ml-0.5 text-danger-strong">*</span> : null}
+                {t("people.note")}{needsNote ? <span className="ml-0.5 text-danger-strong">*</span> : null}
               </Label>
               <Textarea
                 id={`note-${index}`}
@@ -220,8 +224,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
               />
               {needsNote && answer.note.trim() === "" ? (
                 <p className="text-meta text-danger-strong">
-                  This check needs a note explaining the failure before the inspection can be
-                  submitted.
+                  {t("exec.needsNote")}
                 </p>
               ) : null}
             </div>
@@ -248,15 +251,13 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
 
       {failed.length > 0 ? (
         <p className="rounded-lg border border-warning-border bg-warning-subtle p-4 text-meta text-warning-strong">
-          {failed.length} {failed.length === 1 ? "check has" : "checks have"} failed. This
-          inspection cannot be submitted as a pass — raise a hazard or an action for what you
-          found.
+          {t("exec.failedCount", { count: failed.length })}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save checklist"}
+          {pending ? t("page.saving") : t("page.saveChecklist")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

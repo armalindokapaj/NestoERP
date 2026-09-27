@@ -23,6 +23,7 @@ import {
   assignInvestigatorAction,
 } from "@/lib/actions/hse";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 
 /**
  * Handing a safety record to somebody (PRD #22 §40, §69, §89, §120).
@@ -36,23 +37,11 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
  */
 type Kind = "inspection" | "hazard" | "incident" | "action";
 
-const LABEL: Record<Kind, string> = {
-  inspection: "Reassign inspector",
-  hazard: "Assign",
-  incident: "Assign investigator",
-  action: "Reassign",
-};
-
-const DESCRIPTION: Record<Kind, string> = {
-  inspection: "The inspection becomes theirs to carry out.",
-  hazard: "They own getting the control in.",
-  incident: "Investigating is a named job. Somebody has to be accountable for it.",
-  action: "They carry it out; somebody else verifies it.",
-};
-
 export function AssignControl({ kind, recordId }: { kind: Kind; recordId: string }) {
+  const t = useHseTranslations();
   const router = useRouter();
   const toast = useToast();
+  const serverText = useHseServerText();
   const [open, setOpen] = React.useState(false);
   const [members, setMembers] = React.useState<{ id: string; name: string }[] | null>(null);
 
@@ -86,28 +75,28 @@ export function AssignControl({ kind, recordId }: { kind: Kind; recordId: string
             : await assignHseActionAction(recordId, memberId);
 
     if (result.ok) {
-      toast({ title: result.message ?? "Assigned.", tone: "success" });
+      toast({ title: serverText(result.message) ?? t("assign.assigned"), tone: "success" });
       setOpen(false);
       router.refresh();
       return true;
     }
-    toast({ title: result.error, tone: "danger" });
+    toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
     return false;
   }
 
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        {LABEL[kind]}
+        {t(`assign.label.${kind}`)}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>{LABEL[kind]}</DialogTitle>
-          <DialogDescription>{DESCRIPTION[kind]}</DialogDescription>
+          <DialogTitle>{t(`assign.label.${kind}`)}</DialogTitle>
+          <DialogDescription>{t(`assign.description.${kind}`)}</DialogDescription>
 
           {/* Inside the dialog, so the choice belongs to its guarded close (AUD-03 §5). */}
-          <AssignBody members={members} onAssign={assign} label={LABEL[kind]} />
+          <AssignBody members={members} onAssign={assign} label={t(`assign.label.${kind}`)} />
         </DialogContent>
       </Dialog>
     </>
@@ -130,12 +119,13 @@ function AssignBody({
   onAssign: (memberId: string) => Promise<boolean>;
   label: string;
 }) {
+  const t = useHseTranslations();
   const close = useDialogClose();
   const [memberId, setMemberId] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const running = React.useRef(false);
-  const editor = useUnsavedEditor({ module: "hse", saveKind: "none", workflow: "Assign", label });
+  const editor = useUnsavedEditor({ module: "hse", saveKind: "none", workflow: t("assign.label.hazard"), label });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(memberId !== ""), [memberId, setDirty]);
@@ -167,7 +157,7 @@ function AssignBody({
   return (
     <>
       <div className="space-y-1.5">
-        <Label htmlFor="assign-member">Person</Label>
+        <Label htmlFor="assign-member">{t("workers.person")}</Label>
         <select
           id="assign-member"
           className={selectClass}
@@ -175,7 +165,7 @@ function AssignBody({
           onChange={(event) => setMemberId(event.target.value)}
           disabled={members === null || pending}
         >
-          <option value="">{members === null ? "Loading…" : "Choose somebody"}</option>
+          <option value="">{members === null ? t("assign.loading") : t("assign.chooseSomebody")}</option>
           {(members ?? []).map((member) => (
             <option key={member.id} value={member.id}>
               {member.name}
@@ -188,10 +178,10 @@ function AssignBody({
       <DialogFooter>
         {/* The guarded close, like the X: never a direct setOpen(false) (§5). */}
         <Button variant="secondary" onClick={close} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
         <Button disabled={pending || !memberId} onClick={() => void assign()}>
-          {pending ? "Assigning…" : "Assign"}
+          {pending ? t("assign.assigning") : t("assign.label.hazard")}
         </Button>
       </DialogFooter>
     </>

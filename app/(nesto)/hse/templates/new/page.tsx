@@ -6,12 +6,17 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createTemplateAction } from "@/lib/actions/hse";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New checklist" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.templates") };
+}
 
 /** Building a safety checklist (PRD #22 §43, §45). */
 export default async function NewTemplatePage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.template.create")) redirect("/access-denied");
 
   return (
@@ -19,23 +24,23 @@ export default async function NewTemplatePage() {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Checklists", href: "/hse/templates" },
-          { label: "New" },
+          { label: t("pages.templates.title"), href: "/hse/templates" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New safety checklist</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.newSafetyChecklist")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          What inspectors answer on site. One list means two sites cannot hold the same work to different standards.
+          {t("page.newChecklistIntro")}
         </p>
       </div>
 
       <TemplateForm
         action={createTemplateAction}
         cancelHref="/hse/templates"
-        submitLabel="Create checklist"
-        pendingLabel="Creating…"
+        submitLabel={t("page.createChecklist")}
+        pendingLabel={t("page.creating")}
       />
     </div>
   );

@@ -16,8 +16,9 @@ import type { ChecklistItemDTO } from "@/lib/modules/qaqc/qaqc.types";
 import {
   allowsNotApplicable,
   isVerdictResponse,
-  responseTypeLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "./qaqc-labels";
+import { useQaqcTranslations } from "./qaqc-text";
 
 /**
  * Answering a checklist (PRD #21 §70, §71, §72).
@@ -43,6 +44,7 @@ export function ChecklistExecutor(props: ChecklistExecutorProps) {
 
 function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorProps) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [answers, setAnswers] = React.useState(() =>
@@ -74,10 +76,10 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
     action: (formData: FormData) => saveChecklistAction(inspectionId, formData),
     module: "qaqc",
     saveKind: "save",
-    label: "Checklist",
+    label: t("checklist.label"),
     onCommitted: (result, mode) => {
       if (mode === "normal") {
-        toast({ title: result?.message ?? "Answers saved.", tone: "success" });
+        toast({ title: t("checklist.saved"), tone: "success" });
         router.refresh();
       }
       return true;
@@ -88,8 +90,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
   if (items.length === 0) {
     return (
       <p className="nesto-card p-5 text-table text-fg-subtle">
-        This inspection has no checklist. It was created without a template, so the verdict is
-        recorded from the summary alone.
+        {t("checklist.none")}
       </p>
     );
   }
@@ -119,7 +120,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
                 ) : null}
               </div>
               <span className="shrink-0 text-meta text-fg-subtle">
-                {responseTypeLabels[item.responseType]}
+                {qaqcLabel(t, "responseType", item.responseType)}
               </span>
             </div>
 
@@ -127,7 +128,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
 
             {verdict ? (
               <div className="space-y-1.5">
-                <Label htmlFor={`answer-${index}`}>Result</Label>
+                <Label htmlFor={`answer-${index}`}>{t("checklist.result")}</Label>
                 <select
                   id={`answer-${index}`}
                   name={`answers[${index}][result]`}
@@ -136,18 +137,18 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
                   onChange={(event) => update(item.id, { result: event.target.value })}
                   disabled={readOnly}
                 >
-                  <option value="">Not answered</option>
-                  <option value="PASS">Pass</option>
-                  <option value="FAIL">Fail</option>
+                  <option value="">{t("format.notAnswered")}</option>
+                  <option value="PASS">{qaqcLabel(t, "checklistResult", "PASS")}</option>
+                  <option value="FAIL">{qaqcLabel(t, "checklistResult", "FAIL")}</option>
                   {allowsNotApplicable(item.responseType) ? (
-                    <option value="NA">Not applicable</option>
+                    <option value="NA">{t("checklist.notApplicable")}</option>
                   ) : null}
                 </select>
               </div>
             ) : (
               <div className="space-y-1.5">
                 <Label htmlFor={`answer-${index}`}>
-                  {item.responseType === "NUMBER" ? "Measurement" : "Answer"}
+                  {item.responseType === "NUMBER" ? t("checklist.measurement") : t("checklist.answer")}
                 </Label>
                 <Input
                   id={`answer-${index}`}
@@ -163,7 +164,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
 
             <div className="space-y-1.5">
               <Label htmlFor={`note-${index}`}>
-                Note{needsNote ? <span className="ml-0.5 text-danger-strong">*</span> : null}
+                {t("checklist.note")}{needsNote ? <span className="ml-0.5 text-danger-strong">*</span> : null}
               </Label>
               <Textarea
                 id={`note-${index}`}
@@ -176,15 +177,14 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
               />
               {needsNote && answer.note.trim() === "" ? (
                 <p className="text-meta text-danger-strong">
-                  This check needs a note explaining the failure before the inspection can be
-                  submitted.
+                  {t("checklist.needsNote")}
                 </p>
               ) : null}
             </div>
 
             {item.passCriteriaText ? (
               <p className="text-meta text-fg-subtle">
-                <span className="font-medium text-fg-muted">Passes when:</span>{" "}
+                <span className="font-medium text-fg-muted">{t("detail.passesWhen")}</span>{" "}
                 {item.passCriteriaText}
               </p>
             ) : null}
@@ -207,7 +207,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save answers"}
+          {pending ? t("common.saving") : t("checklist.save")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

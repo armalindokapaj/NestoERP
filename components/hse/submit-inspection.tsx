@@ -11,11 +11,12 @@ import { useToast } from "@/components/ui/toast";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { submitInspectionAction } from "@/lib/actions/hse";
-import { checklistGapLabel } from "./gap-labels";
 import { inspectionResultLabels } from "@/lib/modules/hse/hse.status";
 import type { ChecklistGap } from "@/lib/modules/hse/hse.status";
 import type { HseInspectionResult } from "@prisma/client";
 import { localDay } from "@/components/hr/local-day";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * Handing an inspection in (PRD #22 §51, §49).
@@ -44,15 +45,16 @@ export function SubmitInspection({
   /** The notes the inspection already has: submitting starts from them rather than erasing them (AUD-09 §4, FV-05). */
   summary?: string | null;
 }) {
+  const t = useHseTranslations();
   const ready = gaps.length === 0;
 
   if (!ready) {
     return (
       <section id="submit" className="nesto-card space-y-3 p-5">
-        <h2 className="text-table font-medium text-fg">Not ready to submit</h2>
+        <h2 className="text-table font-medium text-fg">{t("submit.notReady")}</h2>
         <ul className="list-disc space-y-1 pl-5 text-meta text-fg-muted">
           {gaps.map((gap, index) => (
-            <li key={`${gap.kind}-${gap.label}-${index}`}>{checklistGapLabel(gap)}</li>
+            <li key={`${gap.kind}-${gap.label}-${index}`}>{t(`gap.${gap.kind}`, { label: gap.label })}</li>
           ))}
         </ul>
       </section>
@@ -84,7 +86,9 @@ function SubmitInspectionForm({
   versionUpdatedAt?: string;
   summary?: string | null;
 }) {
+  const t = useHseTranslations();
   const toast = useToast();
+  const serverText = useHseServerText();
   const formRef = React.useRef<HTMLFormElement>(null);
 
   /**
@@ -98,10 +102,10 @@ function SubmitInspectionForm({
     action: (formData: FormData) => submitInspectionAction(inspectionId, formData),
     module: "hse",
     saveKind: "none",
-    workflow: "Submit for approval",
-    label: "Submission",
+    workflow: t("submit.submitForApproval"),
+    label: t("submit.submission"),
     onCommitted: (result) => {
-      toast({ title: result?.message ?? "Submitted.", tone: "success" });
+      toast({ title: serverText(result?.message) ?? t("submit.submitted"), tone: "success" });
     },
   });
   const { pending } = save;
@@ -109,7 +113,7 @@ function SubmitInspectionForm({
 
   return (
     <form ref={formRef} onSubmit={save.onSubmit} id="submit" className="nesto-card space-y-4 p-5">
-      <h2 className="text-table font-medium text-fg">Submit this inspection</h2>
+      <h2 className="text-table font-medium text-fg">{t("submit.title")}</h2>
 
       <SaveMessages save={save} />
 
@@ -119,25 +123,24 @@ function SubmitInspectionForm({
 
       {passBlocked ? (
         <p className="rounded-lg border border-warning-border bg-warning-subtle p-3 text-meta text-warning-strong">
-          A required check failed, so this inspection cannot pass. It can still be conditional if
-          the work may continue under a control.
+          {t("submit.passBlocked")}
         </p>
       ) : null}
 
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="result">Overall result</Label>
+          <Label htmlFor="result">{t("submit.overallResult")}</Label>
           <select id="result" name="result" className={selectClass} required>
             {allowedResults.map((value) => (
               <option key={value} value={value}>
-                {inspectionResultLabels[value]}
+                {hseLabel(t, "inspectionResult", value, inspectionResultLabels[value])}
               </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="inspectionDate">Date inspected</Label>
+          <Label htmlFor="inspectionDate">{t("submit.dateInspected")}</Label>
           <Input
             id="inspectionDate"
             name="inspectionDate"
@@ -147,14 +150,14 @@ function SubmitInspectionForm({
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="summary">Summary</Label>
+          <Label htmlFor="summary">{t("inspection.detail.summary")}</Label>
           <Textarea id="summary" name="summary" rows={3} maxLength={4000} defaultValue={summary ?? ""} />
         </div>
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending || Boolean(save.saved)}>
-          {pending ? "Submitting…" : "Submit for approval"}
+          {pending ? t("submit.submitting") : t("submit.submitForApproval")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

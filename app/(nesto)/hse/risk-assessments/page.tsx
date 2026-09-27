@@ -11,8 +11,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Risk assessments" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.riskAssessments.title") };
+}
 
 /** Risk assessments: Structured evaluations of an activity. Approved ones are frozen. */
 export default async function HseRiskAssessmentsPage({
@@ -21,6 +25,7 @@ export default async function HseRiskAssessmentsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.risk.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -35,7 +40,7 @@ export default async function HseRiskAssessmentsPage({
     <ModulePage
       experience={experience}
       activeSection="risk-assessments"
-      description="Structured evaluations of an activity. Approved ones are frozen."
+      description={t("pages.riskAssessments.description")}
       actions={
         <>
           {can(context, "hse.export") ? (
@@ -43,7 +48,7 @@ export default async function HseRiskAssessmentsPage({
           ) : null}
           {can(context, "hse.risk.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/risk-assessments/new">New risk assessment</Link>
+              <Link href="/hse/risk-assessments/new">{t("list.create.risk-assessments")}</Link>
             </Button>
           ) : null}
         </>

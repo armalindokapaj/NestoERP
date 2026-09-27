@@ -1,5 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 
+import { getTranslations } from "@/lib/i18n/server";
 import type { QaqcOverviewDTO } from "@/lib/modules/qaqc/qaqc.types";
 
 /**
@@ -12,67 +13,68 @@ import type { QaqcOverviewDTO } from "@/lib/modules/qaqc/qaqc.types";
  * The pass rate shows "—" rather than 0% when nothing has been decided: a
  * quality metric computed from no decisions is worse than no metric (§193).
  */
-export function QaqcKpiGrid({ overview }: { overview: QaqcOverviewDTO }) {
+export async function QaqcKpiGrid({ overview }: { overview: QaqcOverviewDTO }) {
+  const t = await getTranslations("qaqc");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.inspections) {
     cards.push({
-      label: "Pass rate",
+      label: t("kpi.passRate"),
       value: overview.passRate ? `${overview.passRate.percent}%` : "—",
       hint: overview.passRate
-        ? `${overview.passRate.passed} of ${overview.passRate.total} decided`
-        : "Nothing decided yet",
+        ? t("kpi.decided", { passed: overview.passRate.passed, total: overview.passRate.total })
+        : t("kpi.nothingDecided"),
       href: "/qaqc/reports",
     });
     cards.push({
-      label: "Inspections open",
+      label: t("kpi.inspectionsOpen"),
       value: String(overview.inspectionsInProgress),
-      hint: `${overview.awaitingApproval} awaiting approval`,
+      hint: t("kpi.awaitingApproval", { count: overview.awaitingApproval }),
       href: "/qaqc/inspections?view=open",
     });
   }
 
   if (overview.visible.requests) {
     cards.push({
-      label: "Requests open",
+      label: t("kpi.requestsOpen"),
       value: String(overview.openRequests),
       hint:
         overview.unassignedRequests > 0
-          ? `${overview.unassignedRequests} not yet assigned`
-          : "All assigned",
+          ? t("kpi.notAssigned", { count: overview.unassignedRequests })
+          : t("kpi.allAssigned"),
       href: "/qaqc/requests?view=open",
     });
   }
 
   if (overview.visible.defects) {
     cards.push({
-      label: "Defects open",
+      label: t("kpi.defectsOpen"),
       value: String(overview.openDefects),
       hint:
         overview.criticalDefects > 0
-          ? `${overview.criticalDefects} high or critical`
-          : "None serious",
+          ? t("kpi.serious", { count: overview.criticalDefects })
+          : t("kpi.noneSerious"),
       href: "/qaqc/defects?view=open",
     });
   }
 
   if (overview.visible.ncrs) {
     cards.push({
-      label: "NCRs open",
+      label: t("kpi.ncrsOpen"),
       value: String(overview.openNcrs),
-      hint: overview.overdueNcrs > 0 ? `${overview.overdueNcrs} past their date` : "All on time",
+      hint: overview.overdueNcrs > 0 ? t("kpi.pastDate", { count: overview.overdueNcrs }) : t("kpi.allOnTime"),
       href: "/qaqc/ncrs?view=open",
     });
   }
 
   if (overview.visible.actions) {
     cards.push({
-      label: "Corrective actions",
+      label: t("kpi.correctiveActions"),
       value: String(overview.openActions),
       hint:
         overview.overdueActions > 0
-          ? `${overview.overdueActions} past their date`
-          : "All on time",
+          ? t("kpi.pastDate", { count: overview.overdueActions })
+          : t("kpi.allOnTime"),
       href: "/qaqc/corrective-actions?view=open",
     });
   }
@@ -92,7 +94,7 @@ export function QaqcKpiGrid({ overview }: { overview: QaqcOverviewDTO }) {
 
         return card.href ? (
           <Link
-            key={card.label}
+            key={card.href ?? card.label}
             href={card.href}
             className="nesto-card p-5 transition-colors hover:border-line-strong"
           >

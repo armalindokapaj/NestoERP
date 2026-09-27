@@ -18,7 +18,9 @@ import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
 import { hazardCategoryLabels, hazardClosureGapLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ hazardId: string }> };
 
@@ -29,7 +31,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const hazard = await hazards.getHazard(context, hazardId);
     return { title: hazard.hazardNumber };
   } catch {
-    return { title: "Hazard" };
+    return { title: (await getTranslations("hse"))("record.hazard") };
   }
 }
 
@@ -37,6 +39,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function HazardPage({ params }: Params) {
   const { hazardId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let hazard;
   try {
@@ -52,8 +55,8 @@ export default async function HazardPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("record.hse"), href: "/hse" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber },
         ]}
         title={hazard.title}
@@ -62,23 +65,23 @@ export default async function HazardPage({ params }: Params) {
         badges={
           <>
             <RiskBadge risk={hazard.risk} />
-            {hazard.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            {hazard.overdue ? <Badge tone="danger">{t("record.overdue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Category", value: hazardCategoryLabels[hazard.hazardCategory] },
-          { label: "Project", value: hazard.project?.code ?? "Company-wide" },
+          { label: t("record.category"), value: hseLabel(t, "hazardCategory", hazard.hazardCategory, hazardCategoryLabels[hazard.hazardCategory]) },
+          { label: t("record.project"), value: hazard.project?.code ?? t("record.companyWide") },
           {
-            label: "Assigned to",
+            label: t("record.assignedTo"),
             value: hazard.assignedTo ? (
               <PersonLink memberId={hazard.assignedTo.memberId} name={hazard.assignedTo.fullName} />
             ) : (
-              "Not assigned"
+              t("record.notAssigned")
             ),
           },
           {
-            label: "Due",
-            value: hazard.dueDate ? formatDate(hazard.dueDate) : "No date",
+            label: t("record.due"),
+            value: hazard.dueDate ? formatDate(hazard.dueDate) : t("record.noDate"),
           },
         ]}
         actions={
@@ -92,15 +95,15 @@ export default async function HazardPage({ params }: Params) {
       {/* Named, not hidden behind a disabled button (PRD #22 §73, §341). */}
       {may.canClose && hazard.closureGaps.length > 0 ? (
         <BlockedList
-          title="This hazard is not ready to close"
-          reasons={hazard.closureGaps.map((gap) => hazardClosureGapLabels[gap])}
+          title={t("hazard.detail.notReady")}
+          reasons={hazard.closureGaps.map((gap) => hseLabel(t, "hazardClosureGap", gap, hazardClosureGapLabels[gap]))}
         />
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What was seen</h2>
+            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.whatWasSeen")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {hazard.description}
             </p>
@@ -109,19 +112,19 @@ export default async function HazardPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: hazard.project ? (
                     <Link href={`/projects/${hazard.project.id}`} className="hover:text-accent">
                       {hazard.project.code} — {hazard.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
-                { label: "Where", value: orDash(hazard.locationText) },
-                { label: "Observed", value: formatDate(hazard.observedAt) },
+                { label: t("record.where"), value: orDash(hazard.locationText) },
+                { label: t("record.observed"), value: formatDate(hazard.observedAt) },
                 {
-                  label: "Found on",
+                  label: t("hazard.detail.foundOn"),
                   value: hazard.inspection ? (
                     hazard.inspection.href ? (
                       <Link href={hazard.inspection.href} className="hover:text-accent">
@@ -131,7 +134,7 @@ export default async function HazardPage({ params }: Params) {
                       hazard.inspection.label
                     )
                   ) : (
-                    "Reported directly"
+                    t("hazard.detail.reportedDirectly")
                   ),
                 },
               ]}
@@ -141,79 +144,76 @@ export default async function HazardPage({ params }: Params) {
           {/* Initial and residual side by side: the point of controlling a
               hazard is the difference between them (PRD #22 §71, §315). */}
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Risk</h2>
+            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.risk")}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-md border border-line p-4">
-                <p className="nesto-eyebrow text-fg-subtle">Before controls</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("hazard.detail.beforeControls")}</p>
                 <p className="mt-2 text-page font-semibold tabular-nums text-fg">
                   {hazard.risk.score}
                 </p>
                 <p className="mt-1 text-meta text-fg-muted">
-                  {riskLevelLabels[hazard.risk.level]} · likelihood {hazard.risk.likelihood} ×
-                  severity {hazard.risk.severity}
+                  {t("record.likelihoodTimes", { level: hseLabel(t, "riskLevel", hazard.risk.level, riskLevelLabels[hazard.risk.level]), likelihood: hazard.risk.likelihood, severity: hazard.risk.severity })}
                 </p>
               </div>
 
               <div className="rounded-md border border-line p-4">
-                <p className="nesto-eyebrow text-fg-subtle">After controls</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("hazard.detail.afterControls")}</p>
                 {hazard.residualRisk ? (
                   <>
                     <p className="mt-2 text-page font-semibold tabular-nums text-fg">
                       {hazard.residualRisk.score}
                     </p>
                     <p className="mt-1 text-meta text-fg-muted">
-                      {riskLevelLabels[hazard.residualRisk.level]} · likelihood{" "}
-                      {hazard.residualRisk.likelihood} × severity{" "}
-                      {hazard.residualRisk.severity}
+                      {t("record.likelihoodTimes", { level: hseLabel(t, "riskLevel", hazard.residualRisk.level, riskLevelLabels[hazard.residualRisk.level]), likelihood: hazard.residualRisk.likelihood, severity: hazard.residualRisk.severity })}
                     </p>
                   </>
                 ) : (
-                  <p className="mt-2 text-table text-fg-subtle">Not assessed yet</p>
+                  <p className="mt-2 text-table text-fg-subtle">{t("hazard.detail.notAssessedYet")}</p>
                 )}
               </div>
             </div>
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Controls</h2>
+            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.controls")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
               items={[
-                { label: "Immediate", value: orDash(hazard.immediateControl) },
-                { label: "Ongoing", value: orDash(hazard.controlMeasure) },
+                { label: t("hazard.detail.immediate"), value: orDash(hazard.immediateControl) },
+                { label: t("hazard.detail.ongoing"), value: orDash(hazard.controlMeasure) },
               ]}
             />
           </section>
 
           {hazard.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={hazard.actions}
-                caption={`Actions on ${hazard.hazardNumber}`}
+                caption={t("record.actionsOn", { number: hazard.hazardNumber })}
               />
             </section>
           ) : null}
 
           {hazard.stopWorks.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Stop-work</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.stopWork")}</h2>
               <StopWorkTable
                 records={hazard.stopWorks}
-                caption={`Stop-work from ${hazard.hazardNumber}`}
+                caption={t("hazard.detail.stopWorkFrom", { number: hazard.hazardNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hazard"
                 entityId={hazard.id}
-                emptyDescription="Photographs of the hazard and of the control that went in appear here."
+                emptyDescription={t("hazard.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -221,10 +221,10 @@ export default async function HazardPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Reported by"
+                label={t("record.reportedBy")}
                 value={
                   hazard.reportedBy ? (
                     <PersonLink memberId={hazard.reportedBy.memberId} name={hazard.reportedBy.fullName} />
@@ -233,17 +233,17 @@ export default async function HazardPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Reported" value={formatDateTime(hazard.createdAt)} />
+              <Meta label={t("record.reported")} value={formatDateTime(hazard.createdAt)} />
               {hazard.closedAt ? (
                 <Meta
-                  label="Closed"
+                  label={t("record.closed")}
                   value={
                     <>
                       {formatDateTime(hazard.closedAt)}
                       {hazard.closedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={hazard.closedBy.memberId} name={hazard.closedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={hazard.closedBy.memberId} name={hazard.closedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -251,17 +251,17 @@ export default async function HazardPage({ params }: Params) {
                 />
               ) : null}
               {hazard.closureNote ? (
-                <Meta label="Closure note" value={hazard.closureNote} />
+                <Meta label={t("record.closureNote")} value={hazard.closureNote} />
               ) : null}
               {hazard.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(hazard.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(hazard.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseHazard"

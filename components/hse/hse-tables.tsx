@@ -28,6 +28,9 @@ import type {
   ToolboxSummaryDTO,
 } from "@/lib/modules/hse/hse.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { HseText } from "./hse-text";
 import { PermitClock, PermitStatusBadge, RiskBadge, SeverityBadge } from "./hse-format";
 
 /**
@@ -147,45 +150,46 @@ const STOP_WORK_COLUMNS: Record<string, ColumnMeta> = {
 };
 
 function ProjectCell({ project }: { project: { code: string } | null }) {
-  return project ? <>{project.code}</> : <span className="text-fg-subtle">Company</span>;
+  return project ? <>{project.code}</> : <span className="text-fg-subtle"><HseText k="table.company" /></span>;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Inspections                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function InspectionTable({
+export async function InspectionTable({
   listId,
   sort,
   inspections,
-  caption = "Safety inspections",
+  caption,
 }: ListProps & {
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<InspectionSummaryDTO>[] = [
     {
       key: "inspectionNumber",
-      label: "Inspection",
+      label: t("table.col.inspection"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.inspectionNumber}</span>
           <span className="text-meta text-fg-subtle">
-            {inspectionTypeLabels[row.inspectionType]}
+            {hseLabel(t, "inspectionType", row.inspectionType, inspectionTypeLabels[row.inspectionType])}
           </span>
         </span>
       ),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "assignedInspector",
-      label: "Inspector",
+      label: t("table.col.inspector"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedInspector ? (
@@ -196,17 +200,17 @@ export function InspectionTable({
     },
     {
       key: "scheduledDate",
-      label: "Scheduled",
+      label: t("table.col.scheduled"),
       hideBelow: "lg",
       render: (row) =>
         row.scheduledDate ? formatDate(row.scheduledDate) : <span className="text-fg-subtle">—</span>,
     },
     // Two columns, deliberately: status is where it is, result is what was
     // found (PRD #22 §37, §38).
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "result",
-      label: "Result",
+      label: t("table.col.result"),
       render: (row) =>
         row.result === "NOT_SET" ? (
           <span className="text-fg-subtle">—</span>
@@ -216,7 +220,7 @@ export function InspectionTable({
     },
     {
       key: "failedItemCount",
-      label: "Failed",
+      label: t("table.col.failed"),
       hideBelow: "xl",
       render: (row) =>
         row.failedItemCount > 0 ? (
@@ -231,7 +235,7 @@ export function InspectionTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.inspections")}
       columns={withMeta(columns, sort, INSPECTION_COLUMNS)}
       records={inspections}
       rowKey={(row) => row.id}
@@ -240,15 +244,16 @@ export function InspectionTable({
   );
 }
 
-export function TemplateTable({
+export async function TemplateTable({
   templates,
   listId,
   sort,
 }: ListProps & { templates: TemplateSummaryDTO[] }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<TemplateSummaryDTO>[] = [
     {
       key: "code",
-      label: "Checklist",
+      label: t("table.col.checklist"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -261,28 +266,28 @@ export function TemplateTable({
     },
     {
       key: "inspectionType",
-      label: "Type",
+      label: t("table.col.type"),
       hideBelow: "md",
-      render: (row) => inspectionTypeLabels[row.inspectionType],
+      render: (row) => hseLabel(t, "inspectionType", row.inspectionType, inspectionTypeLabels[row.inspectionType]),
     },
-    { key: "itemCount", label: "Items", hideBelow: "lg", render: (row) => row.itemCount },
+    { key: "itemCount", label: t("table.col.items"), hideBelow: "lg", render: (row) => row.itemCount },
     {
       key: "usageCount",
-      label: "Used",
+      label: t("table.col.used"),
       hideBelow: "lg",
       // How many inspections depend on this version, which is what decides
       // whether editing it versions it (PRD #22 §349).
       render: (row) =>
-        row.usageCount > 0 ? `${row.usageCount}×` : <span className="text-fg-subtle">Not yet</span>,
+        row.usageCount > 0 ? `${row.usageCount}×` : <span className="text-fg-subtle">{t("table.notYet")}</span>,
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Safety checklists"
+      caption={t("table.caption.templates")}
       columns={withMeta(columns, sort, TEMPLATE_COLUMNS)}
       records={templates}
       rowKey={(row) => row.id}
@@ -295,19 +300,20 @@ export function TemplateTable({
 /* Hazards                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function HazardTable({
+export async function HazardTable({
   listId,
   sort,
   hazards,
-  caption = "Hazards",
+  caption,
 }: ListProps & {
   hazards: HazardSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<HazardSummaryDTO>[] = [
     {
       key: "title",
-      label: "Hazard",
+      label: t("table.col.hazard"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -318,44 +324,44 @@ export function HazardTable({
     },
     {
       key: "hazardCategory",
-      label: "Category",
+      label: t("table.col.category"),
       hideBelow: "xl",
-      render: (row) => hazardCategoryLabels[row.hazardCategory],
+      render: (row) => hseLabel(t, "hazardCategory", row.hazardCategory, hazardCategoryLabels[row.hazardCategory]),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
-    { key: "risk", label: "Risk", render: (row) => <RiskBadge risk={row.risk} /> },
+    { key: "risk", label: t("table.col.risk"), render: (row) => <RiskBadge risk={row.risk} /> },
     {
       key: "residualRisk",
-      label: "Residual",
+      label: t("table.col.residual"),
       hideBelow: "xl",
       render: (row) =>
         row.residualRisk ? (
           <span className="text-fg-muted">
-            {riskLevelLabels[row.residualRisk.level]} {row.residualRisk.score}
+            {hseLabel(t, "riskLevel", row.residualRisk.level, riskLevelLabels[row.residualRisk.level])} {row.residualRisk.score}
           </span>
         ) : (
-          <span className="text-fg-subtle">Not assessed</span>
+          <span className="text-fg-subtle">{t("table.notAssessed")}</span>
         ),
     },
     {
       key: "assignedTo",
-      label: "Assigned to",
+      label: t("table.col.assignedTo"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedTo ? (
           <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
         ) : (
-          <span className="text-warning-strong">Unassigned</span>
+          <span className="text-warning-strong">{t("table.unassigned")}</span>
         ),
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.col.due"),
       hideBelow: "lg",
       render: (row) =>
         row.dueDate ? (
@@ -366,14 +372,14 @@ export function HazardTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.hazards")}
       columns={withMeta(columns, sort, HAZARD_COLUMNS)}
       records={hazards}
       rowKey={(row) => row.id}
@@ -386,63 +392,64 @@ export function HazardTable({
 /* Incidents                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export function IncidentTable({
+export async function IncidentTable({
   listId,
   sort,
   incidents,
-  caption = "Incidents",
+  caption,
 }: ListProps & {
   incidents: IncidentSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<IncidentSummaryDTO>[] = [
     {
       key: "title",
-      label: "Incident",
+      label: t("table.col.incident"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.title}</span>
           <span className="text-meta text-fg-subtle">
-            {row.incidentNumber} · {incidentTypeLabels[row.incidentType]}
+            {row.incidentNumber} · {hseLabel(t, "incidentType", row.incidentType, incidentTypeLabels[row.incidentType])}
           </span>
         </span>
       ),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "severity",
-      label: "Severity",
+      label: t("table.col.severity"),
       render: (row) => <SeverityBadge severity={row.severity} />,
     },
     {
       key: "occurredAt",
-      label: "Occurred",
+      label: t("table.col.occurred"),
       hideBelow: "lg",
       render: (row) => formatDate(row.occurredAt),
     },
     {
       key: "injury",
-      label: "Injury",
+      label: t("table.col.injury"),
       hideBelow: "xl",
       // Blank when the reader may not see them, never "No" (PRD #22 §22).
       render: (row) =>
         row.injury === null ? (
           <span className="text-fg-subtle">—</span>
         ) : row.injury.injuryOccurred ? (
-          <Badge tone="danger">Yes</Badge>
+          <Badge tone="danger">{t("table.yes")}</Badge>
         ) : (
-          <span className="text-fg-subtle">No</span>
+          <span className="text-fg-subtle">{t("table.no")}</span>
         ),
     },
     {
       key: "investigator",
-      label: "Investigator",
+      label: t("table.col.investigator"),
       hideBelow: "xl",
       render: (row) =>
         row.investigator ? (
@@ -451,14 +458,14 @@ export function IncidentTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.incidents")}
       columns={withMeta(columns, sort, INCIDENT_COLUMNS)}
       records={incidents}
       rowKey={(row) => row.id}
@@ -471,19 +478,20 @@ export function IncidentTable({
 /* Risk assessments                                                            */
 /* -------------------------------------------------------------------------- */
 
-export function RiskAssessmentTable({
+export async function RiskAssessmentTable({
   listId,
   sort,
   assessments,
-  caption = "Risk assessments",
+  caption,
 }: ListProps & {
   assessments: RiskAssessmentSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<RiskAssessmentSummaryDTO>[] = [
     {
       key: "title",
-      label: "Assessment",
+      label: t("table.col.assessment"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -496,13 +504,13 @@ export function RiskAssessmentTable({
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "highestRisk",
-      label: "Highest risk",
+      label: t("table.col.highestRisk"),
       render: (row) =>
         row.highestRisk ? (
           <Badge
@@ -514,16 +522,16 @@ export function RiskAssessmentTable({
                   : "neutral"
             }
           >
-            {riskLevelLabels[row.highestRisk]}
+            {hseLabel(t, "riskLevel", row.highestRisk, riskLevelLabels[row.highestRisk])}
           </Badge>
         ) : (
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "itemCount", label: "Lines", hideBelow: "xl", render: (row) => row.itemCount },
+    { key: "itemCount", label: t("table.col.lines"), hideBelow: "xl", render: (row) => row.itemCount },
     {
       key: "reviewDate",
-      label: "Review",
+      label: t("table.col.review"),
       hideBelow: "lg",
       render: (row) =>
         row.reviewDate ? (
@@ -536,14 +544,14 @@ export function RiskAssessmentTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.riskAssessments")}
       columns={withMeta(columns, sort, RISK_ASSESSMENT_COLUMNS)}
       records={assessments}
       rowKey={(row) => row.id}
@@ -556,32 +564,33 @@ export function RiskAssessmentTable({
 /* Actions                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function ActionTable({
+export async function ActionTable({
   listId,
   sort,
   actions,
-  caption = "HSE actions",
+  caption,
 }: ListProps & {
   actions: ActionSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<ActionSummaryDTO>[] = [
     {
       key: "title",
-      label: "Action",
+      label: t("table.col.action"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.title}</span>
           <span className="text-meta text-fg-subtle">
-            {row.actionNumber} · {actionTypeLabels[row.actionType]}
+            {row.actionNumber} · {hseLabel(t, "actionType", row.actionType, actionTypeLabels[row.actionType])}
           </span>
         </span>
       ),
     },
     {
       key: "source",
-      label: "Source",
+      label: t("table.col.source"),
       hideBelow: "xl",
       // The reference always; the link only where the reader may follow it
       // (PRD #22 §187).
@@ -595,18 +604,18 @@ export function ActionTable({
             <span>{row.source.label}</span>
           )
         ) : (
-          <span className="text-fg-subtle">Standalone</span>
+          <span className="text-fg-subtle">{t("table.standalone")}</span>
         ),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "priority",
-      label: "Priority",
+      label: t("table.col.priority"),
       hideBelow: "lg",
       render: (row) => (
         <Badge
@@ -618,13 +627,13 @@ export function ActionTable({
                 : "neutral"
           }
         >
-          {priorityLabels[row.priority]}
+          {hseLabel(t, "priority", row.priority, priorityLabels[row.priority])}
         </Badge>
       ),
     },
     {
       key: "assignedTo",
-      label: "Assigned to",
+      label: t("table.col.assignedTo"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedTo ? (
@@ -635,7 +644,7 @@ export function ActionTable({
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.col.due"),
       hideBelow: "lg",
       render: (row) =>
         row.dueDate ? (
@@ -647,14 +656,14 @@ export function ActionTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.actions")}
       columns={withMeta(columns, sort, ACTION_COLUMNS)}
       records={actions}
       rowKey={(row) => row.id}
@@ -667,19 +676,20 @@ export function ActionTable({
 /* Toolbox talks                                                               */
 /* -------------------------------------------------------------------------- */
 
-export function ToolboxTable({
+export async function ToolboxTable({
   listId,
   sort,
   talks,
-  caption = "Toolbox talks",
+  caption,
 }: ListProps & {
   talks: ToolboxSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<ToolboxSummaryDTO>[] = [
     {
       key: "title",
-      label: "Talk",
+      label: t("table.col.talk"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -692,19 +702,19 @@ export function ToolboxTable({
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "talkDate",
-      label: "Date",
+      label: t("table.col.date"),
       hideBelow: "lg",
       render: (row) => formatDate(row.talkDate),
     },
     {
       key: "conductedBy",
-      label: "Conducted by",
+      label: t("table.col.conductedBy"),
       hideBelow: "xl",
       render: (row) =>
         row.conductedBy ? (
@@ -715,17 +725,17 @@ export function ToolboxTable({
     },
     {
       key: "attendedCount",
-      label: "Attended",
+      label: t("table.col.attended"),
       render: (row) => `${row.attendedCount} / ${row.participantCount}`,
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.toolbox")}
       columns={withMeta(columns, sort, TOOLBOX_COLUMNS)}
       records={talks}
       rowKey={(row) => row.id}
@@ -738,34 +748,35 @@ export function ToolboxTable({
 /* Permits                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function PermitTable({
+export async function PermitTable({
   listId,
   sort,
   permits,
-  caption = "Work permits",
+  caption,
 }: ListProps & {
   permits: PermitSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<PermitSummaryDTO>[] = [
     {
       key: "title",
-      label: "Permit",
+      label: t("table.col.permit"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.title}</span>
           <span className="text-meta text-fg-subtle">
-            {row.permitNumber} · {permitTypeLabels[row.permitType]}
+            {row.permitNumber} · {hseLabel(t, "permitType", row.permitType, permitTypeLabels[row.permitType])}
           </span>
         </span>
       ),
     },
-    { key: "project", label: "Project", hideBelow: "md", render: (row) => row.project.code },
-    { key: "locationText", label: "Location", hideBelow: "xl", render: (row) => row.locationText },
+    { key: "project", label: t("table.col.project"), hideBelow: "md", render: (row) => row.project.code },
+    { key: "locationText", label: t("table.col.location"), hideBelow: "xl", render: (row) => row.locationText },
     {
       key: "responsible",
-      label: "Responsible",
+      label: t("table.col.responsible"),
       hideBelow: "xl",
       render: (row) => {
         const person = row.responsible ?? row.requestedBy;
@@ -774,7 +785,7 @@ export function PermitTable({
     },
     {
       key: "validUntil",
-      label: "Valid until",
+      label: t("table.col.validUntil"),
       hideBelow: "lg",
       render: (row) => (
         <span className="flex flex-col">
@@ -787,7 +798,7 @@ export function PermitTable({
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.col.status"),
       render: (row) => (
         <PermitStatusBadge status={row.status} effectiveStatus={row.effectiveStatus} />
       ),
@@ -798,7 +809,7 @@ export function PermitTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.permits")}
       columns={withMeta(columns, sort, PERMIT_COLUMNS)}
       records={permits}
       rowKey={(row) => row.id}
@@ -811,7 +822,7 @@ export function PermitTable({
 /* PPE                                                                         */
 /* -------------------------------------------------------------------------- */
 
-export function PpeTable({
+export async function PpeTable({
   listId,
   sort,
   checks,
@@ -820,17 +831,18 @@ export function PpeTable({
   checks: PpeCheckDTO[];
   canEdit?: boolean;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<PpeCheckDTO>[] = [
     {
       key: "checkNumber",
-      label: "Check",
+      label: t("table.col.check"),
       primary: true,
       render: (row) =>
         canEdit ? (
           <Link href={`/hse/ppe/${row.id}/edit`} className="flex flex-col hover:text-accent">
             <span className="font-medium text-fg">{row.checkNumber}</span>
             <span className="text-meta text-fg-subtle">
-              {row.subject?.fullName ?? row.subjectWorker?.name ?? row.externalSubjectName ?? "Area spot check"}
+              {row.subject?.fullName ?? row.subjectWorker?.name ?? row.externalSubjectName ?? t("table.areaSpotCheck")}
             </span>
           </Link>
         ) : (
@@ -842,7 +854,7 @@ export function PpeTable({
               ) : row.subjectWorker ? (
                 <PersonLink personId={row.subjectWorker.personId} name={row.subjectWorker.name} />
               ) : (
-                row.externalSubjectName ?? "Area spot check"
+                row.externalSubjectName ?? t("table.areaSpotCheck")
               )}
             </span>
           </span>
@@ -850,19 +862,19 @@ export function PpeTable({
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "checkDate",
-      label: "Date",
+      label: t("table.col.date"),
       hideBelow: "lg",
       render: (row) => formatDate(row.checkDate),
     },
     {
       key: "checkedBy",
-      label: "Checked by",
+      label: t("table.col.checkedBy"),
       hideBelow: "xl",
       render: (row) =>
         row.checkedBy ? (
@@ -873,23 +885,23 @@ export function PpeTable({
     },
     {
       key: "failedItems",
-      label: "Failed",
+      label: t("table.col.failed"),
       hideBelow: "lg",
       render: (row) =>
         row.failedItems.length > 0 ? (
           <span className="text-danger-strong">{row.failedItems.join(", ")}</span>
         ) : (
-          <span className="text-fg-subtle">None</span>
+          <span className="text-fg-subtle">{t("table.none")}</span>
         ),
     },
-    { key: "result", label: "Result", render: (row) => <StatusBadge status={row.result} /> },
+    { key: "result", label: t("table.col.result"), render: (row) => <StatusBadge status={row.result} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption="PPE checks"
+      caption={t("table.caption.ppe")}
       columns={withMeta(columns, sort, PPE_COLUMNS)}
       records={checks}
       rowKey={(row) => row.id}
@@ -901,54 +913,55 @@ export function PpeTable({
 /* Environment                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function ObservationTable({
+export async function ObservationTable({
   listId,
   sort,
   observations,
-  caption = "Environmental observations",
+  caption,
 }: ListProps & {
   observations: ObservationSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<ObservationSummaryDTO>[] = [
     {
       key: "title",
-      label: "Observation",
+      label: t("table.col.observation"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="font-medium text-fg">{row.title}</span>
           <span className="text-meta text-fg-subtle">
-            {row.observationNumber} · {environmentalCategoryLabels[row.category]}
+            {row.observationNumber} · {hseLabel(t, "environmentalCategory", row.category, environmentalCategoryLabels[row.category])}
           </span>
         </span>
       ),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.col.project"),
       hideBelow: "md",
       render: (row) => <ProjectCell project={row.project} />,
     },
     {
       key: "severity",
-      label: "Severity",
+      label: t("table.col.severity"),
       render: (row) => <SeverityBadge severity={row.severity} />,
     },
     {
       key: "assignedTo",
-      label: "Assigned to",
+      label: t("table.col.assignedTo"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedTo ? (
           <PersonLink memberId={row.assignedTo.memberId} name={row.assignedTo.fullName} />
         ) : (
-          <span className="text-warning-strong">Unassigned</span>
+          <span className="text-warning-strong">{t("table.unassigned")}</span>
         ),
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.col.due"),
       hideBelow: "lg",
       render: (row) =>
         row.dueDate ? (
@@ -959,14 +972,14 @@ export function ObservationTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: t("table.col.status"), render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   return (
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.observations")}
       columns={withMeta(columns, sort, OBSERVATION_COLUMNS)}
       records={observations}
       rowKey={(row) => row.id}
@@ -979,19 +992,20 @@ export function ObservationTable({
 /* Stop work                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export function StopWorkTable({
+export async function StopWorkTable({
   listId,
   sort,
   records,
-  caption = "Stop-work records",
+  caption,
 }: ListProps & {
   records: StopWorkSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("hse");
   const columns: TableColumn<StopWorkSummaryDTO>[] = [
     {
       key: "title",
-      label: "Stop work",
+      label: t("table.col.stopWork"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -1000,16 +1014,16 @@ export function StopWorkTable({
         </span>
       ),
     },
-    { key: "project", label: "Project", hideBelow: "md", render: (row) => row.project.code },
+    { key: "project", label: t("table.col.project"), hideBelow: "md", render: (row) => row.project.code },
     {
       key: "issuedAt",
-      label: "Issued",
+      label: t("table.col.issued"),
       hideBelow: "lg",
       render: (row) => formatDate(row.issuedAt),
     },
     {
       key: "issuedBy",
-      label: "Issued by",
+      label: t("table.col.issuedBy"),
       hideBelow: "xl",
       render: (row) =>
         row.issuedBy ? (
@@ -1020,19 +1034,19 @@ export function StopWorkTable({
     },
     {
       key: "releasedAt",
-      label: "Released",
+      label: t("table.col.released"),
       hideBelow: "lg",
       render: (row) =>
         row.releasedAt ? formatDate(row.releasedAt) : <span className="text-fg-subtle">—</span>,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.col.status"),
       // ACTIVE reads as danger here and nowhere else: work has been halted
       // (PRD #22 §331).
       render: (row) =>
         row.status === "ACTIVE" ? (
-          <Badge tone="danger">Active</Badge>
+          <Badge tone="danger">{t("table.active")}</Badge>
         ) : (
           <StatusBadge status={row.status} />
         ),
@@ -1043,7 +1057,7 @@ export function StopWorkTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption={caption}
+      caption={caption ?? t("table.caption.stopWork")}
       columns={withMeta(columns, sort, STOP_WORK_COLUMNS)}
       records={records}
       rowKey={(row) => row.id}

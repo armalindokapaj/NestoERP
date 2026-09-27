@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CorrectiveActionForm } from "@/components/qaqc/qaqc-forms";
@@ -9,7 +10,10 @@ import { createActionAction } from "@/lib/actions/qaqc";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 
-export const metadata: Metadata = { title: "New corrective action" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.newCorrectiveAction") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -20,6 +24,7 @@ export default async function NewCorrectiveActionPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.corrective_action.create")) notFound();
 
   const params = await searchParams;
@@ -43,25 +48,24 @@ export default async function NewCorrectiveActionPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Corrective actions", href: "/qaqc/corrective-actions" },
-          { label: "New action" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.correctiveActions"), href: "/qaqc/corrective-actions" },
+          { label: t("crumbs.newAction") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New corrective action</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newCorrectiveAction")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          What will actually be done so the problem does not come back. Whoever carries it out
-          records what they did, and somebody else verifies it.
+          {t("actionPage.newIntro")}
         </p>
       </div>
 
       <CorrectiveActionForm
         action={createActionAction}
         cancelHref={ncrId ? `/qaqc/ncrs/${ncrId}` : "/qaqc/corrective-actions"}
-        submitLabel="Raise action"
-        pendingLabel="Raising…"
+        submitLabel={t("actionPage.raise")}
+        pendingLabel={t("common.raising")}
         parentLabel={parentLabel}
         projects={options.projects.map((project) => ({
           value: project.id,

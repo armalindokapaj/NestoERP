@@ -23,6 +23,8 @@ import {
 import { approvalRecordTypeLabels } from "@/lib/modules/hse/hse.status";
 import type { ApprovalQueueItemDTO } from "@/lib/modules/hse/hse.types";
 import { formatRelativeTime } from "@/lib/utils/format";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * The HSE approval queue (PRD #22 §181, §182).
@@ -35,25 +37,27 @@ import { formatRelativeTime } from "@/lib/utils/format";
  * Decided rows stay, so the queue doubles as the record of who signed what.
  */
 export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
+  const t = useHseTranslations();
   const router = useRouter();
   const toast = useToast();
+  const serverText = useHseServerText();
   const [pending, startTransition] = React.useTransition();
   const [rejecting, setRejecting] = React.useState<ApprovalQueueItemDTO | null>(null);
 
   function approve(item: ApprovalQueueItemDTO) {
     startTransition(async () => {
       const result = await decide(item, "approve", null);
-      report(result, "Approved.");
+      report(result, t("actions.approved"));
     });
   }
 
   function report(result: HseActionResult, success: string) {
     if (result.ok) {
       setRejecting(null);
-      toast({ title: result.message ?? success, tone: "success" });
+      toast({ title: serverText(result.message) ?? success, tone: "success" });
       router.refresh();
     } else {
-      toast({ title: result.error, tone: "danger" });
+      toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
     }
   }
 
@@ -104,7 +108,7 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                   ) : (
                     <span className="text-table font-medium text-fg">{item.reference}</span>
                   )}
-                  <Badge tone="neutral">{approvalRecordTypeLabels[item.recordType]}</Badge>
+                  <Badge tone="neutral">{hseLabel(t, "approvalRecordType", item.recordType, approvalRecordTypeLabels[item.recordType])}</Badge>
                   <StatusBadge status={item.status} />
                   {item.riskLabel ? <Badge tone="warning">{item.riskLabel}</Badge> : null}
                 </p>
@@ -123,7 +127,7 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                 </p>
                 {item.decidedBy ? (
                   <p className="mt-1 text-meta text-fg-subtle">
-                    Decided by <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
+                    Decided {t("record.by")} <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
                     {item.decidedAt ? ` ${formatRelativeTime(item.decidedAt)}` : ""}
                     {item.decisionNote ? ` — ${item.decisionNote}` : ""}
                   </p>
@@ -134,7 +138,7 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                 item.canDecide ? (
                   <div className="flex shrink-0 gap-2">
                     <Button size="sm" onClick={() => approve(item)} disabled={pending}>
-                      {item.recordType === "INCIDENT_CLOSE" ? "Close" : "Approve"}
+                      {item.recordType === "INCIDENT_CLOSE" ? t("page.crumbClose") : t("actions.approve")}
                     </Button>
                     {item.recordType === "INCIDENT_CLOSE" ? null : (
                       <Button
@@ -143,14 +147,14 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                         onClick={() => setRejecting(item)}
                         disabled={pending}
                       >
-                        Send back
+                        {t("actions.sendBack")}
                       </Button>
                     )}
                   </div>
                 ) : (
                   // Wraps inside the card at 320px instead of overflowing it (AUD-04 §3, D-03-05, MW-01).
                   <p className="min-w-0 text-meta text-fg-subtle">
-                    You submitted this — somebody else decides.
+                    {t("approvals.selfSubmitted")}
                   </p>
                 )
               ) : null}
@@ -163,13 +167,13 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
         open={rejecting !== null}
         onOpenChange={(open) => setRejecting(open ? rejecting : null)}
         title={`Send ${rejecting?.reference ?? "this"} back`}
-        label="What needs changing"
-        confirmLabel="Send back"
-        pendingLabel="Sending…"
+        label={t("actions.whatNeedsChanging")}
+        confirmLabel={t("actions.sendBack")}
+        pendingLabel={t("actions.sending")}
         onReject={async (note) => {
           if (!rejecting) return false;
           const result = await decide(rejecting, "reject", note);
-          report(result, "Sent back.");
+          report(result, t("actions.sentBack"));
           return result.ok;
         }}
       />

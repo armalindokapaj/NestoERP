@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { archiveTemplateAction, restoreTemplateAction } from "@/lib/actions/hse";
 import type { TemplateDetailDTO } from "@/lib/modules/hse/hse.types";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 
 /**
  * Retiring and restoring a checklist (PRD #22 §44).
@@ -16,8 +17,10 @@ import type { TemplateDetailDTO } from "@/lib/modules/hse/hse.types";
  * it, because inspections already run against it still point here.
  */
 export function TemplateLifecycle({ template }: { template: TemplateDetailDTO }) {
+  const t = useHseTranslations();
   const router = useRouter();
   const toast = useToast();
+  const serverText = useHseServerText();
   const [pending, startTransition] = React.useTransition();
   const [confirm, setConfirm] = React.useState(false);
 
@@ -28,10 +31,10 @@ export function TemplateLifecycle({ template }: { template: TemplateDetailDTO })
       const result = await work();
       if (result.ok) {
         setConfirm(false);
-        toast({ title: result.message ?? "Saved.", tone: "success" });
+        toast({ title: serverText(result.message) ?? t("forms.saved"), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error ?? "That did not work.", tone: "danger" });
+        toast({ title: serverText(result.error) ?? t("forms.didNotWork"), tone: "danger" });
       }
     });
   }
@@ -40,7 +43,7 @@ export function TemplateLifecycle({ template }: { template: TemplateDetailDTO })
     <>
       {may.canArchive ? (
         <Button variant="ghost" onClick={() => setConfirm(true)} disabled={pending}>
-          Archive
+          {t("actions.archive")}
         </Button>
       ) : null}
 
@@ -50,16 +53,16 @@ export function TemplateLifecycle({ template }: { template: TemplateDetailDTO })
           onClick={() => run(() => restoreTemplateAction(template.id))}
           disabled={pending}
         >
-          Restore
+          {t("forms.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="Archive this checklist"
-        description="It stops being offered for new inspections. Inspections already run against it are untouched."
-        confirmLabel="Archive"
+        title={t("forms.archiveChecklistTitle")}
+        description={t("forms.archiveChecklistDesc")}
+        confirmLabel={t("actions.archive")}
         onConfirm={() => run(() => archiveTemplateAction(template.id))}
       />
     </>

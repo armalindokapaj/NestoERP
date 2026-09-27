@@ -8,14 +8,19 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateTemplateAction } from "@/lib/actions/hse";
 import * as templates from "@/lib/modules/hse/templates/template.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit checklist" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editChecklist") };
+}
 
 type Params = { params: Promise<{ templateId: string }> };
 
 export default async function EditTemplatePage({ params }: Params) {
   const { templateId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.template.update")) notFound();
 
   let template;
@@ -35,14 +40,14 @@ export default async function EditTemplatePage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Checklists", href: "/hse/templates" },
+          { label: t("pages.templates.title"), href: "/hse/templates" },
           { label: template.code, href: `/hse/templates/${templateId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {template.code}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: template.code })}</h1>
       </div>
 
       <TemplateForm
@@ -50,10 +55,10 @@ export default async function EditTemplatePage({ params }: Params) {
         cancelHref={`/hse/templates/${templateId}`}
         submitLabel={
           template.capabilities.wouldVersion
-            ? `Save as version ${template.version + 1}`
-            : "Save checklist"
+            ? t("page.saveAsVersion", { version: template.version + 1 })
+            : t("page.saveChecklist")
         }
-        pendingLabel="Saving…"
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={template.updatedAt}
         usageCount={template.usageCount}
         currentVersion={template.version}

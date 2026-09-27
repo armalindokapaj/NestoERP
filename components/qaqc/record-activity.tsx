@@ -7,6 +7,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
 import * as activity from "@/lib/modules/qaqc/qaqc.activity";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 /**
@@ -36,6 +37,7 @@ export async function QaqcActivityFeed({
   /** Where the whole history lives, linked when the embedded feed is not all of it. */
   moreHref?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const result = await activity.listRecordActivity(context, entityType, entityId, { page, limit: 50 });
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (buildHref && result.pagination.page !== page) redirect(buildHref(result.pagination.page));
@@ -44,8 +46,8 @@ export async function QaqcActivityFeed({
     return (
       <EmptyState
         icon={<History />}
-        title="Nothing recorded yet."
-        description="Changes to this record appear here as they happen."
+        title={t("activity.empty")}
+        description={t("activity.emptyBody")}
       />
     );
   }
@@ -56,7 +58,7 @@ export async function QaqcActivityFeed({
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
           <p className="min-w-0 text-table text-fg">
             <span className="font-medium">
-              {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : "Somebody"}
+              {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("common.somebodyCap")}
             </span>{" "}
             <span className="text-fg-muted">{entry.message ?? entry.action}</span>
           </p>
@@ -83,13 +85,12 @@ export async function QaqcActivityFeed({
     <div className="space-y-2">
       {feed}
       <p className="text-meta text-fg-muted" data-testid="activity-count">
-        Showing the latest <span className="tabular-nums">{result.data.length}</span> of{" "}
-        <span className="tabular-nums">{result.pagination.total}</span> entries.
+        {t("activity.showing", { shown: result.data.length, total: result.pagination.total })}
         {moreHref ? (
           <>
             {" "}
             <Link href={moreHref} className="text-accent hover:underline">
-              See the full history
+              {t("activity.fullHistory")}
             </Link>
           </>
         ) : null}

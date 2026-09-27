@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { InspectionForm } from "@/components/qaqc/qaqc-forms";
@@ -10,12 +11,16 @@ import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service"
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
-export const metadata: Metadata = { title: "Edit inspection" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.editInspection") };
+}
 
 /** Edit an inspection that has not yet started (PRD #21 §66). */
 export default async function EditInspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let inspection;
   try {
@@ -38,15 +43,15 @@ export default async function EditInspectionPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Inspections", href: "/qaqc/inspections" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.inspections"), href: "/qaqc/inspections" },
           { label: inspection.inspectionNumber, href: `/qaqc/inspections/${inspection.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit inspection</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editInspection")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{inspection.inspectionNumber}</p>
       </div>
 
@@ -54,8 +59,8 @@ export default async function EditInspectionPage({ params }: Params) {
         action={action}
         versionUpdatedAt={inspection.updatedAt}
         cancelHref={`/qaqc/inspections/${inspection.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

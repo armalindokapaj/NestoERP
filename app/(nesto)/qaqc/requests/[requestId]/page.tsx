@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -11,10 +12,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as requests from "@/lib/modules/qaqc/requests/request.service";
-import {
-  inspectionTypeLabels,
-  priorityLabels,
-} from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ requestId: string }> };
@@ -26,7 +24,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const request = await requests.getRequest(context, requestId);
     return { title: request.requestNumber };
   } catch {
-    return { title: "Inspection request" };
+    const t = await getTranslations("qaqc");
+    return { title: t("meta.request") };
   }
 }
 
@@ -34,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function RequestPage({ params }: Params) {
   const { requestId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let request;
   try {
@@ -47,8 +47,8 @@ export default async function RequestPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Requests", href: "/qaqc/requests" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.requests"), href: "/qaqc/requests" },
           { label: request.requestNumber },
         ]}
         title={request.title}
@@ -56,61 +56,61 @@ export default async function RequestPage({ params }: Params) {
         status={request.status}
         badges={
           <>
-            <Badge tone="neutral">{inspectionTypeLabels[request.inspectionType]}</Badge>
+            <Badge tone="neutral">{qaqcLabel(t, "inspectionType", request.inspectionType)}</Badge>
             {request.priority === "HIGH" || request.priority === "CRITICAL" ? (
               <Badge tone={request.priority === "CRITICAL" ? "danger" : "warning"}>
-                {priorityLabels[request.priority]}
+                {qaqcLabel(t, "priority", request.priority)}
               </Badge>
             ) : null}
-            {request.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            {request.overdue ? <Badge tone="danger">{t("common.overdue")}</Badge> : null}
           </>
         }
         meta={[
           {
-            label: "Inspector",
+            label: t("detail.inspector"),
             value: request.assignedInspector ? (
               <PersonLink memberId={request.assignedInspector.memberId} name={request.assignedInspector.fullName} />
             ) : (
-              "Not assigned"
+              t("common.notAssigned")
             ),
           },
           {
-            label: "Needed by",
-            value: request.requiredByDate ? formatDate(request.requiredByDate) : "No date",
+            label: t("detail.neededBy"),
+            value: request.requiredByDate ? formatDate(request.requiredByDate) : t("common.noDate"),
           },
-          { label: "Inspections", value: String(request.inspectionCount) },
+          { label: t("detail.inspections"), value: String(request.inspectionCount) },
         ]}
         actions={<RequestActions request={request} />}
       />
 
       {request.status === "OPEN" && !request.assignedInspector ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          Nobody has picked this up yet. Assigning an inspector is what turns a request into work.
+          {t("requestPage.unassignedNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Type", value: inspectionTypeLabels[request.inspectionType] },
-                { label: "Priority", value: priorityLabels[request.priority] },
+                { label: t("detail.type"), value: qaqcLabel(t, "inspectionType", request.inspectionType) },
+                { label: t("detail.priority"), value: qaqcLabel(t, "priority", request.priority) },
                 {
-                  label: "Project",
+                  label: t("detail.project"),
                   value: request.project ? (
                     <Link href={`/projects/${request.project.id}`} className="hover:text-accent">
                       {request.project.code} — {request.project.name}
                     </Link>
                   ) : (
-                    "Not tied to a project"
+                    t("common.notTied")
                   ),
                 },
-                { label: "Where", value: orDash(request.locationText) },
+                { label: t("detail.where"), value: orDash(request.locationText) },
                 {
-                  label: "Delivery",
+                  label: t("detail.delivery"),
                   value: request.source ? (
                     request.source.href ? (
                       <Link href={request.source.href} className="hover:text-accent">
@@ -123,13 +123,13 @@ export default async function RequestPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: "Raised on", value: formatDate(request.requestedDate) },
+                { label: t("detail.raisedOn"), value: formatDate(request.requestedDate) },
               ]}
             />
 
             {request.description ? (
               <div className="mt-6 border-t border-line pt-5">
-                <h3 className="text-table font-semibold text-fg">Detail</h3>
+                <h3 className="text-table font-semibold text-fg">{t("detail.detail")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {request.description}
                 </p>
@@ -138,15 +138,15 @@ export default async function RequestPage({ params }: Params) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Inspections</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.inspections")}</h2>
             {request.inspections.length === 0 ? (
               <p className="nesto-card p-5 text-table text-fg-subtle">
-                No inspection has been carried out against this request yet.
+                {t("requestPage.noInspections")}
               </p>
             ) : (
               <InspectionTable
                 inspections={request.inspections}
-                caption={`Inspections against ${request.requestNumber}`}
+                caption={t("requestPage.inspectionsCaption", { number: request.requestNumber })}
               />
             )}
           </section>
@@ -154,10 +154,10 @@ export default async function RequestPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Raised by"
+                label={t("detail.raisedBy")}
                 value={
                   request.requestedBy ? (
                     <PersonLink memberId={request.requestedBy.memberId} name={request.requestedBy.fullName} />
@@ -166,17 +166,17 @@ export default async function RequestPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(request.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(request.updatedAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(request.createdAt)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(request.updatedAt)} />
               {request.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(request.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(request.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {request.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="InspectionRequest"

@@ -9,14 +9,19 @@ import { requireModule } from "@/lib/context/current-user";
 import { updateIncidentAction } from "@/lib/actions/hse";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
 import { companyZone, instantToWallClock } from "@/lib/modules/hse/hse.time";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit incident" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editIncident") };
+}
 
 type Params = { params: Promise<{ incidentId: string }> };
 
 export default async function EditIncidentPage({ params }: Params) {
   const { incidentId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.incident.update")) notFound();
 
   let incident;
@@ -38,21 +43,21 @@ export default async function EditIncidentPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Incidents", href: "/hse/incidents" },
+          { label: t("pages.incidents.title"), href: "/hse/incidents" },
           { label: incident.incidentNumber, href: `/hse/incidents/${incidentId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {incident.incidentNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: incident.incidentNumber })}</h1>
       </div>
 
       <IncidentForm
         action={update}
         cancelHref={`/hse/incidents/${incidentId}`}
-        submitLabel="Save incident"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveIncident")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={incident.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

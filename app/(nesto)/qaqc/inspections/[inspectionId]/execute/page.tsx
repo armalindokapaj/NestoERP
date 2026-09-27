@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { ChecklistExecutor } from "@/components/qaqc/checklist-executor";
 import { SubmitInspection } from "@/components/qaqc/submit-inspection";
 import { InspectionPageShell, loadInspectionPage } from "../inspection-shell";
 
-export const metadata: Metadata = { title: "Checklist" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.checklist") };
+}
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
@@ -18,6 +22,7 @@ type Params = { params: Promise<{ inspectionId: string }> };
 export default async function ExecuteInspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const { context, inspection } = await loadInspectionPage(inspectionId, "execute");
+  const t = await getTranslations("qaqc");
 
   const editable = inspection.capabilities.canExecute;
 
@@ -27,8 +32,8 @@ export default async function ExecuteInspectionPage({ params }: Params) {
         {!editable ? (
           <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
             {inspection.status === "DRAFT" || inspection.status === "IN_PROGRESS"
-              ? "This inspection is assigned to somebody else."
-              : "This inspection has been submitted, so its answers are fixed."}
+              ? t("inspectionPage.assignedElsewhere")
+              : t("inspectionPage.answersFixed")}
           </p>
         ) : null}
 

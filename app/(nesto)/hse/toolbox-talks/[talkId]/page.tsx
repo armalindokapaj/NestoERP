@@ -12,7 +12,9 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
 import { attendanceLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ talkId: string }> };
 
@@ -23,7 +25,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const talk = await toolbox.getToolboxTalk(context, talkId);
     return { title: talk.talkNumber };
   } catch {
-    return { title: "Toolbox talk" };
+    return { title: (await getTranslations("hse"))("record.toolboxTalk") };
   }
 }
 
@@ -31,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ToolboxTalkPage({ params }: Params) {
   const { talkId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let talk;
   try {
@@ -47,7 +50,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Toolbox talks", href: "/hse/toolbox-talks" },
+          { label: t("pages.toolboxTalks.title"), href: "/hse/toolbox-talks" },
           { label: talk.talkNumber },
         ]}
         title={talk.title}
@@ -55,14 +58,14 @@ export default async function ToolboxTalkPage({ params }: Params) {
         status={talk.status}
         badges={
           <Badge tone="neutral">
-            {talk.attendedCount} of {talk.participantCount} attended
+            {t("toolbox.detail.attendedOf", { attended: talk.attendedCount, total: talk.participantCount })}
           </Badge>
         }
         meta={[
-          { label: "Project", value: talk.project?.code ?? "Company-wide" },
-          { label: "Date", value: formatDate(talk.talkDate) },
+          { label: t("record.project"), value: talk.project?.code ?? t("record.companyWide") },
+          { label: t("toolbox.detail.date"), value: formatDate(talk.talkDate) },
           {
-            label: "Conducted by",
+            label: t("toolbox.detail.conductedBy"),
             value: talk.conductedBy ? (
               <PersonLink memberId={talk.conductedBy.memberId} name={talk.conductedBy.fullName} />
             ) : (
@@ -76,22 +79,22 @@ export default async function ToolboxTalkPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">The talk</h2>
+            <h2 className="text-card font-semibold text-fg">{t("toolbox.detail.theTalk")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: talk.project ? (
                     <Link href={`/projects/${talk.project.id}`} className="hover:text-accent">
                       {talk.project.code} — {talk.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
-                { label: "Where", value: orDash(talk.locationText) },
-                { label: "Topic", value: talk.topic },
+                { label: t("record.where"), value: orDash(talk.locationText) },
+                { label: t("toolbox.detail.topic"), value: talk.topic },
               ]}
             />
             {talk.notes ? (
@@ -102,9 +105,9 @@ export default async function ToolboxTalkPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Who was there</h2>
+            <h2 className="text-card font-semibold text-fg">{t("toolbox.detail.whoWasThere")}</h2>
             {talk.participants.length === 0 ? (
-              <p className="mt-2 text-table text-fg-subtle">Nobody recorded yet.</p>
+              <p className="mt-2 text-table text-fg-subtle">{t("toolbox.detail.nobody")}</p>
             ) : (
               <ul className="mt-3 divide-y divide-line">
                 {talk.participants.map((participant) => (
@@ -121,14 +124,14 @@ export default async function ToolboxTalkPage({ params }: Params) {
                         participant.externalName
                       )}
                       {participant.member ? null : participant.worker ? (
-                        <span className="ml-2 text-meta text-fg-subtle">No NESTO account</span>
+                        <span className="ml-2 text-meta text-fg-subtle">{t("toolbox.detail.noAccount")}</span>
                       ) : (
-                        <span className="ml-2 text-meta text-fg-subtle">External</span>
+                        <span className="ml-2 text-meta text-fg-subtle">{t("toolbox.detail.external")}</span>
                       )}
                     </span>
                     <span className="flex items-center gap-2 text-meta">
                       {participant.signatureRecorded ? (
-                        <span className="text-fg-subtle">Signed</span>
+                        <span className="text-fg-subtle">{t("toolbox.detail.signed")}</span>
                       ) : null}
                       <Badge
                         tone={
@@ -139,7 +142,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
                               : "neutral"
                         }
                       >
-                        {attendanceLabels[participant.attendanceStatus]}
+                        {hseLabel(t, "attendance", participant.attendanceStatus, attendanceLabels[participant.attendanceStatus])}
                       </Badge>
                     </span>
                   </li>
@@ -150,12 +153,12 @@ export default async function ToolboxTalkPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="toolbox_talk"
                 entityId={talk.id}
-                emptyDescription="The signed attendance sheet and any slides appear here."
+                emptyDescription={t("toolbox.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -163,10 +166,10 @@ export default async function ToolboxTalkPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Recorded by"
+                label={t("action.detail.recordedBy")}
                 value={
                   talk.createdBy ? (
                     <PersonLink memberId={talk.createdBy.memberId} name={talk.createdBy.fullName} />
@@ -175,19 +178,19 @@ export default async function ToolboxTalkPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Recorded" value={formatDateTime(talk.createdAt)} />
+              <Meta label={t("toolbox.detail.recorded")} value={formatDateTime(talk.createdAt)} />
               {talk.completedAt ? (
-                <Meta label="Completed" value={formatDateTime(talk.completedAt)} />
+                <Meta label={t("toolbox.detail.completed")} value={formatDateTime(talk.completedAt)} />
               ) : null}
               {talk.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(talk.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(talk.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed context={context} entityType="ToolboxTalk" entityId={talk.id} />
             </section>
           ) : null}

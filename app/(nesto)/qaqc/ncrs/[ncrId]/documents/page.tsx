@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { QaqcRecordDocuments } from "@/components/qaqc/record-documents";
@@ -7,7 +8,10 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 
-export const metadata: Metadata = { title: "Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.documents") };
+}
 
 type Params = { params: Promise<{ ncrId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ ncrId: string }> };
 export default async function NcrDocumentsPage({ params }: Params) {
   const { ncrId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let ncr;
   try {
@@ -30,15 +35,15 @@ export default async function NcrDocumentsPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "NCRs", href: "/qaqc/ncrs" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.ncrs"), href: "/qaqc/ncrs" },
           { label: ncr.ncrNumber, href: `/qaqc/ncrs/${ncr.id}` },
-          { label: "Documents" },
+          { label: t("crumbs.documents") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Documents</h1>
+        <h1 className="text-page font-semibold text-fg">{t("detail.documents")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{ncr.ncrNumber}</p>
       </div>
 
@@ -46,7 +51,7 @@ export default async function NcrDocumentsPage({ params }: Params) {
         context={context}
         entityType="non_conformance_report"
         entityId={ncr.id}
-        emptyDescription="Evidence, supplier correspondence and closure records appear here."
+        emptyDescription={t("documents.ncr")}
       />
     </div>
   );

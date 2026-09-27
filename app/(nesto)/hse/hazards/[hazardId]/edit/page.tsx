@@ -8,14 +8,19 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateHazardAction } from "@/lib/actions/hse";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit hazard" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editHazard") };
+}
 
 type Params = { params: Promise<{ hazardId: string }> };
 
 export default async function EditHazardPage({ params }: Params) {
   const { hazardId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.hazard.update")) notFound();
 
   let hazard;
@@ -36,21 +41,21 @@ export default async function EditHazardPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber, href: `/hse/hazards/${hazardId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {hazard.hazardNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: hazard.hazardNumber })}</h1>
       </div>
 
       <HazardForm
         action={update}
         cancelHref={`/hse/hazards/${hazardId}`}
-        submitLabel="Save hazard"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveHazard")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={hazard.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

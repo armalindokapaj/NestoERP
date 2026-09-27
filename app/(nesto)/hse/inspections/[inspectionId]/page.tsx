@@ -16,7 +16,9 @@ import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 import { inspectionResultLabels, inspectionTypeLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const inspection = await inspections.getInspection(context, inspectionId);
     return { title: inspection.inspectionNumber };
   } catch {
-    return { title: "Inspection" };
+    return { title: (await getTranslations("hse"))("record.inspection") };
   }
 }
 
@@ -35,6 +37,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function InspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let inspection;
   try {
@@ -53,10 +56,10 @@ export default async function InspectionPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
           { label: inspection.inspectionNumber },
         ]}
-        title={inspectionTypeLabels[inspection.inspectionType]}
+        title={hseLabel(t, "inspectionType", inspection.inspectionType, inspectionTypeLabels[inspection.inspectionType])}
         subtitle={inspection.inspectionNumber}
         status={inspection.status}
         badges={
@@ -70,9 +73,9 @@ export default async function InspectionPage({ params }: Params) {
           )
         }
         meta={[
-          { label: "Project", value: inspection.project?.code ?? "Company-wide" },
+          { label: t("record.project"), value: inspection.project?.code ?? t("record.companyWide") },
           {
-            label: "Inspector",
+            label: t("inspection.detail.inspector"),
             value: inspection.assignedInspector ? (
               <PersonLink memberId={inspection.assignedInspector.memberId} name={inspection.assignedInspector.fullName} />
             ) : (
@@ -80,12 +83,12 @@ export default async function InspectionPage({ params }: Params) {
             ),
           },
           {
-            label: "Scheduled",
+            label: t("inspection.detail.scheduled"),
             value: inspection.scheduledDate ? formatDate(inspection.scheduledDate) : "—",
           },
           {
-            label: "Result",
-            value: inspectionResultLabels[inspection.result],
+            label: t("inspection.detail.result"),
+            value: hseLabel(t, "inspectionResult", inspection.result, inspectionResultLabels[inspection.result]),
           },
         ]}
         actions={
@@ -100,7 +103,7 @@ export default async function InspectionPage({ params }: Params) {
 
       {inspection.status === "REJECTED" && inspection.decisionNote ? (
         <p className="rounded-md border border-warning-border bg-warning-subtle px-4 py-3 text-table text-warning-strong">
-          Sent back: {inspection.decisionNote}
+          {t("inspection.detail.sentBack", { note: inspection.decisionNote })}
         </p>
       ) : null}
 
@@ -108,12 +111,10 @@ export default async function InspectionPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
             <div>
-              <h2 className="text-card font-semibold text-fg">Checklist</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.checklist")}</h2>
               {inspection.template ? (
                 <p className="mt-1 text-meta text-fg-subtle">
-                  Copied from {inspection.template.code} — {inspection.template.name}, version{" "}
-                  {inspection.template.version}. Editing that checklist since has not changed
-                  this one.
+                  {t("inspection.detail.copiedFrom", { code: inspection.template.code, name: inspection.template.name, version: inspection.template.version })}
                 </p>
               ) : null}
             </div>
@@ -126,7 +127,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.summary ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Summary</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.summary")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {inspection.summary}
               </p>
@@ -135,32 +136,32 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.hazards.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Hazards found</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.hazardsFound")}</h2>
               <HazardTable
                 hazards={inspection.hazards}
-                caption={`Hazards from ${inspection.inspectionNumber}`}
+                caption={t("inspection.detail.hazardsFrom", { number: inspection.inspectionNumber })}
               />
             </section>
           ) : null}
 
           {inspection.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={inspection.actions}
-                caption={`Actions from ${inspection.inspectionNumber}`}
+                caption={t("inspection.detail.actionsFrom", { number: inspection.inspectionNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hse_inspection"
                 entityId={inspection.id}
-                emptyDescription="Photographs and signed checklists appear here."
+                emptyDescription={t("inspection.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -168,20 +169,20 @@ export default async function InspectionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
               items={[
-                { label: "Where", value: orDash(inspection.locationText) },
+                { label: t("record.where"), value: orDash(inspection.locationText) },
                 {
-                  label: "Inspected",
+                  label: t("inspection.detail.inspected"),
                   value: inspection.inspectionDate
                     ? formatDate(inspection.inspectionDate)
                     : "—",
                 },
                 {
-                  label: "Carried out by",
+                  label: t("inspection.detail.carriedOutBy"),
                   value: inspection.executedBy ? (
                     <PersonLink memberId={inspection.executedBy.memberId} name={inspection.executedBy.fullName} />
                   ) : (
@@ -189,18 +190,18 @@ export default async function InspectionPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Submitted",
+                  label: t("inspection.detail.submitted"),
                   value: inspection.submittedAt ? formatDateTime(inspection.submittedAt) : "—",
                 },
                 {
-                  label: "Approved",
+                  label: t("inspection.detail.approved"),
                   value: inspection.approvedAt ? (
                     <>
                       {formatDate(inspection.approvedAt)}
                       {inspection.approvedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={inspection.approvedBy.memberId} name={inspection.approvedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -209,7 +210,7 @@ export default async function InspectionPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Closed",
+                  label: t("record.closed"),
                   value: inspection.closedAt ? formatDate(inspection.closedAt) : "—",
                 },
               ]}
@@ -218,7 +219,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseInspection"

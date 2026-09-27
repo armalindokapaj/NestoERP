@@ -1,10 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import {
-  checklistResultLabels,
-  inspectionResultLabels,
-  releaseStatusLabels,
-  severityLabels,
-} from "@/lib/modules/qaqc/qaqc.status";
+import { QaqcLabel, QaqcText } from "./qaqc-text";
 import type {
   ChecklistItemResult,
   MaterialReleaseStatus,
@@ -30,7 +25,7 @@ const RESULT_TONES: Record<QualityInspectionResult, StatusTone> = {
 
 export function ResultBadge({ result }: { result: QualityInspectionResult }) {
   if (result === "NOT_SET") return <span className="text-fg-subtle">—</span>;
-  return <Badge tone={RESULT_TONES[result]}>{inspectionResultLabels[result]}</Badge>;
+  return <Badge tone={RESULT_TONES[result]}><QaqcLabel group="inspectionResult" value={result} /></Badge>;
 }
 
 const CHECKLIST_TONES: Record<ChecklistItemResult, StatusTone> = {
@@ -40,8 +35,8 @@ const CHECKLIST_TONES: Record<ChecklistItemResult, StatusTone> = {
 };
 
 export function ChecklistResultBadge({ result }: { result: ChecklistItemResult | null }) {
-  if (!result) return <span className="text-fg-subtle">Not answered</span>;
-  return <Badge tone={CHECKLIST_TONES[result]}>{checklistResultLabels[result]}</Badge>;
+  if (!result) return <span className="text-fg-subtle"><QaqcText k="format.notAnswered" /></span>;
+  return <Badge tone={CHECKLIST_TONES[result]}><QaqcLabel group="checklistResult" value={result} /></Badge>;
 }
 
 const SEVERITY_TONES: Record<QualitySeverity, StatusTone> = {
@@ -52,7 +47,7 @@ const SEVERITY_TONES: Record<QualitySeverity, StatusTone> = {
 };
 
 export function SeverityBadge({ severity }: { severity: QualitySeverity }) {
-  return <Badge tone={SEVERITY_TONES[severity]}>{severityLabels[severity]}</Badge>;
+  return <Badge tone={SEVERITY_TONES[severity]}><QaqcLabel group="severity" value={severity} /></Badge>;
 }
 
 /**
@@ -71,7 +66,7 @@ const RELEASE_TONES: Record<MaterialReleaseStatus, StatusTone> = {
 };
 
 export function ReleaseBadge({ status }: { status: MaterialReleaseStatus }) {
-  return <Badge tone={RELEASE_TONES[status]}>{releaseStatusLabels[status]}</Badge>;
+  return <Badge tone={RELEASE_TONES[status]}><QaqcLabel group="releaseStatus" value={status} /></Badge>;
 }
 
 /** A pass rate, or an honest blank when nothing has been decided (§193). */

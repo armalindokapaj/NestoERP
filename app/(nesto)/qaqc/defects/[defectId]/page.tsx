@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -25,7 +26,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const defect = await defects.getDefect(context, defectId);
     return { title: defect.defectNumber };
   } catch {
-    return { title: "Defect" };
+    const t = await getTranslations("qaqc");
+    return { title: t("meta.defect") };
   }
 }
 
@@ -33,6 +35,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function DefectPage({ params }: Params) {
   const { defectId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let defect;
   try {
@@ -46,8 +49,8 @@ export default async function DefectPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Defects", href: "/qaqc/defects" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.defects"), href: "/qaqc/defects" },
           { label: defect.defectNumber },
         ]}
         title={defect.title}
@@ -56,39 +59,38 @@ export default async function DefectPage({ params }: Params) {
         badges={
           <>
             <SeverityBadge severity={defect.severity} />
-            {defect.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            {defect.overdue ? <Badge tone="danger">{t("common.overdue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Project", value: defect.project.code },
+          { label: t("detail.project"), value: defect.project.code },
           {
-            label: "Assigned to",
+            label: t("detail.assignedTo"),
             value: defect.assignedTo ? (
               <PersonLink memberId={defect.assignedTo.memberId} name={defect.assignedTo.fullName} />
             ) : (
-              "Not assigned"
+              t("common.notAssigned")
             ),
           },
-          { label: "Due", value: defect.dueDate ? formatDate(defect.dueDate) : "No date" },
+          { label: t("detail.due"), value: defect.dueDate ? formatDate(defect.dueDate) : t("common.noDate") },
         ]}
         actions={<DefectActions defect={defect} />}
       />
 
       {defect.status === "RESOLVED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          The fix is recorded and waiting to be confirmed. Whoever recorded it cannot close it —
-          somebody else has to agree it is genuinely done.
+          {t("defectPage.resolvedNote")}
         </p>
       ) : defect.status === "REOPENED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This was resolved once and came back. The earlier fix is still on the record below.
+          {t("defectPage.reopenedNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What is wrong</h2>
+            <h2 className="text-card font-semibold text-fg">{t("defectPage.whatWrong")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {defect.description}
             </p>
@@ -97,16 +99,16 @@ export default async function DefectPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("detail.project"),
                   value: (
                     <Link href={`/projects/${defect.project.id}`} className="hover:text-accent">
                       {defect.project.code} — {defect.project.name}
                     </Link>
                   ),
                 },
-                { label: "Where", value: orDash(defect.locationText) },
+                { label: t("detail.where"), value: orDash(defect.locationText) },
                 {
-                  label: "Found on",
+                  label: t("detail.foundOn"),
                   value: defect.inspection ? (
                     <Link
                       href={`/qaqc/inspections/${defect.inspection.id}`}
@@ -115,7 +117,7 @@ export default async function DefectPage({ params }: Params) {
                       {defect.inspection.inspectionNumber}
                     </Link>
                   ) : (
-                    "Raised directly"
+                    t("common.raisedDirectly")
                   ),
                 },
               ]}
@@ -124,18 +126,18 @@ export default async function DefectPage({ params }: Params) {
 
           {defect.resolutionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">What was done</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {defect.resolutionNote}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                Recorded by{" "}
+                {t("detail.recordedBy")}{" "}
                 {defect.resolvedBy ? (
                   <PersonLink memberId={defect.resolvedBy.memberId} name={defect.resolvedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("common.somebody")
                 )}
-                {defect.resolvedAt ? ` on ${formatDate(defect.resolvedAt)}` : ""}.
+                {defect.resolvedAt ? t("detail.onDate", { date: formatDate(defect.resolvedAt) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -143,34 +145,34 @@ export default async function DefectPage({ params }: Params) {
           {defect.ncrs.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">Escalated to</h2>
+                <h2 className="text-card font-semibold text-fg">{t("defectPage.escalatedTo")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  The defect still has to be fixed. The NCR asks why it happened.
+                  {t("defectPage.escalatedBody")}
                 </p>
               </div>
-              <NcrTable ncrs={defect.ncrs} caption={`NCRs from ${defect.defectNumber}`} />
+              <NcrTable ncrs={defect.ncrs} caption={t("defectPage.ncrsCaption", { number: defect.defectNumber })} />
             </section>
           ) : null}
 
           {defect.correctiveActions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Corrective actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
               <CorrectiveActionTable
                 actions={defect.correctiveActions}
                 showParent={false}
-                caption={`Actions on ${defect.defectNumber}`}
+                caption={t("defectPage.actionsCaption", { number: defect.defectNumber })}
               />
             </section>
           ) : null}
 
           {defect.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="quality_defect"
                 entityId={defect.id}
-                emptyDescription="Photographs of the defect and of the finished repair appear here."
+                emptyDescription={t("documents.defect")}
               />
             </section>
           ) : null}
@@ -178,10 +180,10 @@ export default async function DefectPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Raised by"
+                label={t("detail.raisedBy")}
                 value={
                   defect.createdBy ? (
                     <PersonLink memberId={defect.createdBy.memberId} name={defect.createdBy.fullName} />
@@ -190,17 +192,17 @@ export default async function DefectPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(defect.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(defect.createdAt)} />
               {defect.closedAt ? (
                 <Meta
-                  label="Closed"
+                  label={t("detail.closed")}
                   value={
                     <>
                       {formatDateTime(defect.closedAt)}
                       {defect.closedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={defect.closedBy.memberId} name={defect.closedBy.fullName} />
+                          {t("detail.by")} <PersonLink memberId={defect.closedBy.memberId} name={defect.closedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -208,14 +210,14 @@ export default async function DefectPage({ params }: Params) {
                 />
               ) : null}
               {defect.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(defect.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(defect.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {defect.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="QualityDefect"

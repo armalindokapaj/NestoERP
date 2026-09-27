@@ -8,9 +8,13 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import * as reports from "@/lib/modules/hse/reports/reports.service";
 
-export const metadata: Metadata = { title: "HSE reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.reports.title") };
+}
 
 /**
  * Where the whole of a bounded register lives: the paged list with the same
@@ -40,6 +44,7 @@ export default async function HseReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.report.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -82,11 +87,11 @@ export default async function HseReportsPage({
     <ModulePage
       experience={experience}
       activeSection="reports"
-      description="Safety performance, aggregated under your own access."
+      description={t("pages.reports.description")}
     >
       <div className="space-y-5">
         {/* 44px report chips under touch (AUD-04 §3, D-03-06, MW-19). */}
-        <nav aria-label="Reports" className="flex flex-wrap gap-2">
+        <nav aria-label={t("pages.reports.nav")} className="flex flex-wrap gap-2">
           {available.map((report) => (
             <Link
               key={report.key}
@@ -127,7 +132,7 @@ export default async function HseReportsPage({
 
             {result.rows.length === 0 ? (
               <p className="nesto-card p-5 text-table text-fg-subtle">
-                Nothing to report yet under your access.
+                {t("pages.reports.nothingYet")}
               </p>
             ) : (
               <>
@@ -141,11 +146,10 @@ export default async function HseReportsPage({
                     paged list rather than looking complete (AUD-08 §4, DT-01). */}
                 {result.total !== undefined && result.total > result.rows.length ? (
                   <p className="text-meta text-fg-muted" data-testid="report-truncated">
-                    Showing the first <span className="tabular-nums">{result.rows.length}</span> of{" "}
-                    <span className="tabular-nums">{result.total}</span>.{" "}
+                    {t("pages.reports.showing", { shown: result.rows.length, total: result.total })}{" "}
                     {FULL_LIST[result.key] ? (
                       <Link href={FULL_LIST[result.key]!} className="text-accent hover:underline">
-                        Open the full list
+                        {t("pages.reports.openFullList")}
                       </Link>
                     ) : null}
                   </p>
@@ -155,7 +159,7 @@ export default async function HseReportsPage({
           </section>
         ) : (
           <p className="nesto-card p-5 text-table text-fg-subtle">
-            No reports are available to you.
+            {t("pages.reports.noneAvailable")}
           </p>
         )}
       </div>

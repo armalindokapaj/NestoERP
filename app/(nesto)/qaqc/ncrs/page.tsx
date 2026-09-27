@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -12,7 +13,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "NCRs" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.ncrs") };
+}
 
 /** NCRs: Formal statements that a requirement was not met. They close only once the cause is understood and the fix verified. */
 export default async function QaqcNcrsPage({
@@ -21,6 +25,7 @@ export default async function QaqcNcrsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.ncr.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -35,7 +40,7 @@ export default async function QaqcNcrsPage({
     <ModulePage
       experience={experience}
       activeSection="ncrs"
-      description="Formal statements that a requirement was not met. They close only once the cause is understood and the fix verified."
+      description={t("descriptions.ncrs")}
       actions={
         <>
           {can(context, "qaqc.export") ? (
@@ -43,7 +48,7 @@ export default async function QaqcNcrsPage({
           ) : null}
           {can(context, "qaqc.ncr.create") ? (
             <Button asChild size="sm">
-              <Link href="/qaqc/ncrs/new">New NCR</Link>
+              <Link href="/qaqc/ncrs/new">{t("common.newNcr")}</Link>
             </Button>
           ) : null}
         </>

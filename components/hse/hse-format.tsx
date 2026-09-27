@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { riskLevelLabels, likelihoodLabels, severityLabels as axisLabels } from "@/lib/modules/hse/hse.risk";
 import { severityLabels, permitStatusLabels } from "@/lib/modules/hse/hse.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import type { RiskDTO } from "@/lib/modules/hse/hse.types";
 import type { HsePermitStatus, HseRiskLevel, HseSeverity } from "@prisma/client";
 
@@ -29,17 +31,19 @@ const SEVERITY_TONE: Record<HseSeverity, "default" | "neutral" | "warning" | "da
 };
 
 /** The level and the score together — "High 12", never a bare colour. */
-export function RiskBadge({ risk, showScore = true }: { risk: RiskDTO; showScore?: boolean }) {
+export async function RiskBadge({ risk, showScore = true }: { risk: RiskDTO; showScore?: boolean }) {
+  const t = await getTranslations("hse");
   return (
     <Badge tone={RISK_TONE[risk.level]}>
-      {riskLevelLabels[risk.level]}
+      {hseLabel(t, "riskLevel", risk.level, riskLevelLabels[risk.level])}
       {showScore ? ` ${risk.score}` : ""}
     </Badge>
   );
 }
 
-export function SeverityBadge({ severity }: { severity: HseSeverity }) {
-  return <Badge tone={SEVERITY_TONE[severity]}>{severityLabels[severity]}</Badge>;
+export async function SeverityBadge({ severity }: { severity: HseSeverity }) {
+  const t = await getTranslations("hse");
+  return <Badge tone={SEVERITY_TONE[severity]}>{hseLabel(t, "severity", severity, severityLabels[severity])}</Badge>;
 }
 
 /**
@@ -48,43 +52,45 @@ export function SeverityBadge({ severity }: { severity: HseSeverity }) {
  * When the stored status and the clock disagree, the clock wins and the badge
  * says so — a permit that ran out last night must never read as active.
  */
-export function PermitStatusBadge({
+export async function PermitStatusBadge({
   status,
   effectiveStatus,
 }: {
   status: HsePermitStatus;
   effectiveStatus: HsePermitStatus;
 }) {
+  const t = await getTranslations("hse");
   const lapsed = effectiveStatus !== status && effectiveStatus === "EXPIRED";
 
   return (
     <span className="flex items-center gap-2">
       <Badge tone={effectiveStatus === "ACTIVE" ? "success" : lapsed ? "danger" : "neutral"}>
-        {permitStatusLabels[effectiveStatus]}
+        {hseLabel(t, "permitStatus", effectiveStatus, permitStatusLabels[effectiveStatus])}
       </Badge>
       {lapsed ? (
-        <span className="text-meta text-fg-subtle">was {permitStatusLabels[status]}</span>
+        <span className="text-meta text-fg-subtle">{t("format.was", { status: hseLabel(t, "permitStatus", status, permitStatusLabels[status]) })}</span>
       ) : null}
     </span>
   );
 }
 
 /** How long is left on a permit, in words (PRD #22 §322). */
-export function PermitClock({ hoursRemaining }: { hoursRemaining: number }) {
+export async function PermitClock({ hoursRemaining }: { hoursRemaining: number }) {
+  const t = await getTranslations("hse");
   if (hoursRemaining < 0) {
     const hours = Math.abs(hoursRemaining);
     return (
       <span className="text-danger-strong">
-        Expired {hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`} ago
+        {t("format.expiredAgo", { time: hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d` })}
       </span>
     );
   }
 
   if (hoursRemaining < 24) {
-    return <span className="text-warning-strong">Expires in {hoursRemaining}h</span>;
+    return <span className="text-warning-strong">{t("format.expiresIn", { hours: hoursRemaining })}</span>;
   }
 
-  return <span>{Math.floor(hoursRemaining / 24)} days left</span>;
+  return <span>{t("format.daysLeft", { days: Math.floor(hoursRemaining / 24) })}</span>;
 }
 
 /**
@@ -95,13 +101,14 @@ export function PermitClock({ hoursRemaining }: { hoursRemaining: number }) {
  * accessible label, because a coloured square with a number in it says nothing
  * on its own (PRD #22 §358).
  */
-export function RiskMatrix({
+export async function RiskMatrix({
   cells,
   hrefFor,
 }: {
   cells: { likelihood: number; severity: number; count: number; score: number; level: string }[];
   hrefFor?: (cell: { likelihood: number; severity: number }) => string;
 }) {
+  const t = await getTranslations("hse");
   const axis = [1, 2, 3, 4, 5];
   const at = (likelihood: number, severity: number) =>
     cells.find((cell) => cell.likelihood === likelihood && cell.severity === severity);
@@ -123,21 +130,21 @@ export function RiskMatrix({
    */
   return (
     <div className="space-y-2">
-      <ScrollRegion label="Risk matrix">
+      <ScrollRegion label={t("format.riskMatrix")}>
         <table className="w-full table-fixed border-separate border-spacing-1 text-center text-meta">
           <caption className="sr-only">
-            Open hazards by likelihood and severity, on a five by five matrix
+            {t("format.matrixCaption")}
           </caption>
           <thead>
             <tr>
               <th scope="col" className="w-10 text-left font-normal text-fg-subtle sm:w-28">
                 <span aria-hidden="true" className="sm:hidden">L↓ S→</span>
-                <span className="max-sm:sr-only">Likelihood ↓ / Severity →</span>
+                <span className="max-sm:sr-only">{t("format.matrixAxes")}</span>
               </th>
               {axis.map((severity) => (
                 <th key={severity} scope="col" className="font-medium text-fg-muted">
                   {severity}
-                  <span className="block text-fg-subtle max-sm:sr-only">{axisLabels[severity]}</span>
+                  <span className="block text-fg-subtle max-sm:sr-only">{hseLabel(t, "axisSeverity", severity, axisLabels[severity])}</span>
                 </th>
               ))}
             </tr>
@@ -148,14 +155,14 @@ export function RiskMatrix({
                 <th scope="row" className="text-left font-medium text-fg-muted">
                   {likelihood}
                   <span className="block font-normal text-fg-subtle max-sm:sr-only">
-                    {likelihoodLabels[likelihood]}
+                    {hseLabel(t, "likelihood", likelihood, likelihoodLabels[likelihood])}
                   </span>
                 </th>
                 {axis.map((severity) => {
                   const cell = at(likelihood, severity);
                   if (!cell) return <td key={severity} />;
 
-                  const label = `${cell.count} open ${cell.count === 1 ? "hazard" : "hazards"}, score ${cell.score}, ${riskLevelLabels[cell.level as HseRiskLevel]} risk`;
+                  const label = t("format.cellLabel", { count: cell.count, score: cell.score, level: hseLabel(t, "riskLevel", cell.level, riskLevelLabels[cell.level as HseRiskLevel]) });
                   const body = (
                     <>
                       <span aria-hidden="true" className="flex flex-col py-2">
@@ -185,12 +192,12 @@ export function RiskMatrix({
       </ScrollRegion>
       <dl className="grid grid-cols-1 gap-1 text-meta text-fg-subtle sm:hidden" aria-hidden="true">
         <div>
-          <dt className="inline font-medium text-fg-muted">Likelihood: </dt>
-          <dd className="inline">{axis.map((n) => `${n} ${likelihoodLabels[n]}`).join(" · ")}</dd>
+          <dt className="inline font-medium text-fg-muted">{t("format.likelihood")}</dt>
+          <dd className="inline">{axis.map((n) => `${n} ${hseLabel(t, "likelihood", n, likelihoodLabels[n])}`).join(" · ")}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-fg-muted">Severity: </dt>
-          <dd className="inline">{axis.map((n) => `${n} ${axisLabels[n]}`).join(" · ")}</dd>
+          <dt className="inline font-medium text-fg-muted">{t("format.severity")}</dt>
+          <dd className="inline">{axis.map((n) => `${n} ${hseLabel(t, "axisSeverity", n, axisLabels[n])}`).join(" · ")}</dd>
         </div>
       </dl>
     </div>
@@ -230,7 +237,7 @@ export function BlockedList({
  * Flags only. There is no diagnosis to render because there is none stored —
  * that boundary is the point, not an omission (PRD #22 §22).
  */
-export function InjuryFlags({
+export async function InjuryFlags({
   flags,
 }: {
   flags: {
@@ -242,16 +249,17 @@ export function InjuryFlags({
     environmentalImpact: boolean;
   };
 }) {
+  const t = await getTranslations("hse");
   const set: { label: string; tone: "danger" | "warning" | "neutral" }[] = [];
-  if (flags.injuryOccurred) set.push({ label: "Injury", tone: "danger" });
-  if (flags.lostTime) set.push({ label: "Lost time", tone: "danger" });
-  if (flags.medicalTreatmentRequired) set.push({ label: "Medical treatment", tone: "warning" });
-  if (flags.firstAidRequired) set.push({ label: "First aid", tone: "warning" });
-  if (flags.propertyDamage) set.push({ label: "Property damage", tone: "neutral" });
-  if (flags.environmentalImpact) set.push({ label: "Environmental impact", tone: "neutral" });
+  if (flags.injuryOccurred) set.push({ label: t("format.injury"), tone: "danger" });
+  if (flags.lostTime) set.push({ label: t("format.lostTime"), tone: "danger" });
+  if (flags.medicalTreatmentRequired) set.push({ label: t("format.medicalTreatment"), tone: "warning" });
+  if (flags.firstAidRequired) set.push({ label: t("format.firstAid"), tone: "warning" });
+  if (flags.propertyDamage) set.push({ label: t("format.propertyDamage"), tone: "neutral" });
+  if (flags.environmentalImpact) set.push({ label: t("format.environmentalImpact"), tone: "neutral" });
 
   if (set.length === 0) {
-    return <span className="text-meta text-fg-subtle">No injury or damage recorded</span>;
+    return <span className="text-meta text-fg-subtle">{t("format.noInjury")}</span>;
   }
 
   return (

@@ -8,14 +8,19 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { updateObservationAction } from "@/lib/actions/hse";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit observation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editObservation") };
+}
 
 type Params = { params: Promise<{ observationId: string }> };
 
 export default async function EditObservationPage({ params }: Params) {
   const { observationId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.environment.update")) notFound();
 
   let observation;
@@ -36,23 +41,21 @@ export default async function EditObservationPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Environment", href: "/hse/environment" },
+          { label: t("pages.environment.title"), href: "/hse/environment" },
           { label: observation.observationNumber, href: `/hse/environment/${observationId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">
-          Edit {observation.observationNumber}
-        </h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: observation.observationNumber })}</h1>
       </div>
 
       <ObservationForm
         action={update}
         cancelHref={`/hse/environment/${observationId}`}
-        submitLabel="Save observation"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveObservation")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={observation.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

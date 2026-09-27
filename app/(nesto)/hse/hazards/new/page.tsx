@@ -8,8 +8,12 @@ import { requireModule } from "@/lib/context/current-user";
 import { createHazardAction } from "@/lib/actions/hse";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
 import { companyDays } from "@/lib/core/notifications/company-day";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Report a hazard" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.hazards") };
+}
 
 /**
  * Reporting a hazard (PRD #22 §66, §336).
@@ -24,6 +28,7 @@ export default async function NewHazardPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.hazard.create")) redirect("/access-denied");
 
   const params = await searchParams;
@@ -34,23 +39,23 @@ export default async function NewHazardPage({
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
-          { label: "Report" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
+          { label: t("page.crumbReport") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Report a hazard</h1>
+        <h1 className="text-page font-semibold text-fg">{t("list.create.hazards")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Something on site that could hurt somebody. Say what and where; the score decides how fast it is dealt with.
+          {t("page.hazardIntro")}
         </p>
       </div>
 
       <HazardForm
         action={createHazardAction}
         cancelHref="/hse/hazards"
-        submitLabel="Report hazard"
-        pendingLabel="Reporting…"
+        submitLabel={t("page.reportHazard")}
+        pendingLabel={t("page.reporting")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

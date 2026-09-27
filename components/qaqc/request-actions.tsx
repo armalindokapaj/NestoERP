@@ -12,9 +12,12 @@ import { cancelRequestAction } from "@/lib/actions/qaqc";
 import type { RequestDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 import { AssignControl } from "./assign-control";
 
+import { useQaqcTranslations } from "./qaqc-text";
+
 /** What a reader may do to an inspection request (PRD #21 §44–§48). */
 export function RequestActions({ request }: { request: RequestDetailDTO }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [cancelling, setCancelling] = React.useState(false);
@@ -27,14 +30,14 @@ export function RequestActions({ request }: { request: RequestDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/qaqc/requests/${request.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canStartInspection ? (
         <Button asChild size="sm">
-          <Link href={`/qaqc/inspections/new?requestId=${request.id}`}>Start an inspection</Link>
+          <Link href={`/qaqc/inspections/new?requestId=${request.id}`}>{t("common.startInspection")}</Link>
         </Button>
       ) : null}
 
@@ -42,20 +45,20 @@ export function RequestActions({ request }: { request: RequestDetailDTO }) {
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setCancelling(true)}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       <RejectDialog
         open={cancelling}
         onOpenChange={setCancelling}
-        title={`Cancel ${request.requestNumber}?`}
-        description="The request stays on the record as cancelled. Anything already inspected against it is unaffected."
-        label="Reason"
-        placeholder="Why is it being cancelled?"
-        confirmLabel="Cancel request"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it is being cancelled."
+        title={t("requestActions.cancelTitle", { number: request.requestNumber })}
+        description={t("requestActions.cancelBody")}
+        label={t("common.reason")}
+        placeholder={t("common.whyCancelled")}
+        confirmLabel={t("requestActions.cancelConfirm")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("common.sayCancelled")}
         onReject={async (reason) => {
           let ok = false;
           await new Promise<void>((resolve) => {
@@ -64,7 +67,7 @@ export function RequestActions({ request }: { request: RequestDetailDTO }) {
               if (result.ok) {
                 ok = true;
                 setCancelling(false);
-                toast({ title: "Request cancelled.", tone: "success" });
+                toast({ title: t("requestActions.cancelled"), tone: "success" });
                 router.refresh();
               } else {
                 toast({ title: result.error, tone: "danger" });

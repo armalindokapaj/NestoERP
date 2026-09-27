@@ -23,6 +23,8 @@ import {
 } from "@/lib/modules/hse/hse.risk";
 import type { Option } from "./hse-forms";
 import { localDay } from "@/components/hr/local-day";
+import { useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * A risk assessment, line by line (PRD #22 §101, §104, §318).
@@ -76,13 +78,14 @@ const EMPTY: RiskItemValue = {
 const AXIS = [1, 2, 3, 4, 5];
 
 function Preview({ likelihood, severity }: { likelihood: string; severity: string }) {
+  const t = useHseTranslations();
   if (!likelihood || !severity) {
-    return <span className="text-fg-subtle">Not assessed</span>;
+    return <span className="text-fg-subtle">{t("forms.notAssessed")}</span>;
   }
   const score = Number(likelihood) * Number(severity);
   return (
     <span>
-      <strong className="text-fg">{score}</strong> · {riskLevelLabels[calculateRiskLevel(score)]}
+      <strong className="text-fg">{score}</strong> · {hseLabel(t, "riskLevel", calculateRiskLevel(score), riskLevelLabels[calculateRiskLevel(score)])}
     </span>
   );
 }
@@ -110,6 +113,7 @@ export function RiskAssessmentForm({
   willVersion?: boolean;
   currentVersion?: number;
 }) {
+  const t = useHseTranslations();
   const [items, setItems] = React.useState<RiskItemValue[]>(
     values?.items && values.items.length > 0 ? values.items : [{ ...EMPTY }],
   );
@@ -133,31 +137,29 @@ export function RiskAssessmentForm({
     >
       {willVersion ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This assessment has been approved. Saving creates version {currentVersion + 1} and
-          leaves version {currentVersion} exactly as it is — site work was carried out against
-          it, and a method statement may quote it.
+          {t("forms.willVersion", { next: currentVersion + 1, current: currentVersion })}
         </p>
       ) : null}
 
       <FormSection
-        title="Assessment"
-        description="A structured look at one activity: what could hurt somebody, and what is being done about it."
+        title={t("forms.assessment")}
+        description={t("forms.assessmentIntro")}
       >
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Activity" name="activityType">
+        <Field label={t("risk.detail.activity")} name="activityType">
           <Input
             id="activityType"
             name="activityType"
             defaultValue={values?.activityType ?? ""}
             maxLength={200}
-            placeholder="Steel erection, level 4"
+            placeholder={t("forms.activityPlaceholder")}
           />
         </Field>
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -166,14 +168,14 @@ export function RiskAssessmentForm({
           />
         </Field>
 
-        <Field label="Project" name="projectId">
+        <Field label={t("record.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project — company-wide</option>
+            <option value="">{t("forms.noProject")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -182,14 +184,14 @@ export function RiskAssessmentForm({
           </select>
         </Field>
 
-        <Field label="Owner" name="ownerMemberId">
+        <Field label={t("risk.detail.owner")} name="ownerMemberId">
           <select
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
             defaultValue={values?.ownerMemberId ?? ""}
           >
-            <option value="">Nobody yet</option>
+            <option value="">{t("forms.nobodyYet")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -198,7 +200,7 @@ export function RiskAssessmentForm({
           </select>
         </Field>
 
-        <Field label="Assessed on" name="assessmentDate" required>
+        <Field label={t("forms.assessedOn")} name="assessmentDate" required>
           <Input
             id="assessmentDate"
             name="assessmentDate"
@@ -209,9 +211,9 @@ export function RiskAssessmentForm({
         </Field>
 
         <Field
-          label="Review by"
+          label={t("forms.reviewBy")}
           name="reviewDate"
-          hint="Flagged for attention when it passes. Nothing expires by itself."
+          hint={t("forms.reviewHint")}
         >
           <Input
             id="reviewDate"
@@ -221,7 +223,7 @@ export function RiskAssessmentForm({
           />
         </Field>
 
-        <Field label="Description" name="description" className="sm:col-span-2">
+        <Field label={t("record.description")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -233,7 +235,7 @@ export function RiskAssessmentForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Hazards</h2>
+        <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazards")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           One line per hazard. Score it as it is now, then again as it will be once the extra
           controls are in.
@@ -245,7 +247,7 @@ export function RiskAssessmentForm({
           {items.map((item, index) => (
             <div key={index} className="rounded-md border border-line p-4">
               <div className="flex items-start justify-between gap-3">
-                <p className="nesto-eyebrow text-fg-subtle">Hazard {index + 1}</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("risk.detail.hazardN", { n: index + 1 })}</p>
                 {items.length > 1 ? (
                   <Button
                     type="button"
@@ -256,14 +258,14 @@ export function RiskAssessmentForm({
                     }
                   >
                     <Trash2 aria-hidden="true" />
-                    <span className="sr-only">Remove hazard {index + 1}</span>
+                    <span className="sr-only">{t("forms.removeHazardN", { n: index + 1 })}</span>
                   </Button>
                 ) : null}
               </div>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-4">
                 <div className="space-y-1.5 sm:col-span-4">
-                  <Label htmlFor={`item-hazard-${index}`}>Hazard</Label>
+                  <Label htmlFor={`item-hazard-${index}`}>{t("record.hazard")}</Label>
                   <Textarea
                     id={`item-hazard-${index}`}
                     name={`items[${index}][hazardDescription]`}
@@ -278,7 +280,7 @@ export function RiskAssessmentForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-existing-${index}`}>Controls already in place</Label>
+                  <Label htmlFor={`item-existing-${index}`}>{t("forms.controlsInPlace")}</Label>
                   <Textarea
                     id={`item-existing-${index}`}
                     name={`items[${index}][existingControls]`}
@@ -290,7 +292,7 @@ export function RiskAssessmentForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-additional-${index}`}>Further controls</Label>
+                  <Label htmlFor={`item-additional-${index}`}>{t("risk.detail.furtherControls")}</Label>
                   <Textarea
                     id={`item-additional-${index}`}
                     name={`items[${index}][additionalControls]`}
@@ -304,7 +306,7 @@ export function RiskAssessmentForm({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`item-likelihood-${index}`}>Likelihood</Label>
+                  <Label htmlFor={`item-likelihood-${index}`}>{t("forms.likelihood")}</Label>
                   <select
                     id={`item-likelihood-${index}`}
                     name={`items[${index}][likelihood]`}
@@ -315,14 +317,14 @@ export function RiskAssessmentForm({
                   >
                     {AXIS.map((value) => (
                       <option key={value} value={value}>
-                        {value} — {likelihoodLabels[value]}
+                        {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`item-severity-${index}`}>Severity</Label>
+                  <Label htmlFor={`item-severity-${index}`}>{t("record.severity")}</Label>
                   <select
                     id={`item-severity-${index}`}
                     name={`items[${index}][severity]`}
@@ -333,21 +335,21 @@ export function RiskAssessmentForm({
                   >
                     {AXIS.map((value) => (
                       <option key={value} value={value}>
-                        {value} — {axisLabels[value]}
+                        {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <span className="block text-meta font-medium text-fg-muted">Risk</span>
+                  <span className="block text-meta font-medium text-fg-muted">{t("forms.risk")}</span>
                   <p className="pt-2 text-table" aria-live="polite">
                     <Preview likelihood={item.likelihood} severity={item.severity} />
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`item-res-likelihood-${index}`}>Residual likelihood</Label>
+                  <Label htmlFor={`item-res-likelihood-${index}`}>{t("forms.residualLikelihood")}</Label>
                   <select
                     id={`item-res-likelihood-${index}`}
                     name={`items[${index}][residualLikelihood]`}
@@ -357,17 +359,17 @@ export function RiskAssessmentForm({
                       update(index, { residualLikelihood: event.target.value })
                     }
                   >
-                    <option value="">Not assessed</option>
+                    <option value="">{t("forms.notAssessed")}</option>
                     {AXIS.map((value) => (
                       <option key={value} value={value}>
-                        {value} — {likelihoodLabels[value]}
+                        {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`item-res-severity-${index}`}>Residual severity</Label>
+                  <Label htmlFor={`item-res-severity-${index}`}>{t("forms.residualSeverity")}</Label>
                   <select
                     id={`item-res-severity-${index}`}
                     name={`items[${index}][residualSeverity]`}
@@ -375,10 +377,10 @@ export function RiskAssessmentForm({
                     value={item.residualSeverity ?? ""}
                     onChange={(event) => update(index, { residualSeverity: event.target.value })}
                   >
-                    <option value="">Not assessed</option>
+                    <option value="">{t("forms.notAssessed")}</option>
                     {AXIS.map((value) => (
                       <option key={value} value={value}>
-                        {value} — {axisLabels[value]}
+                        {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
                       </option>
                     ))}
                   </select>
@@ -386,7 +388,7 @@ export function RiskAssessmentForm({
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <span className="block text-meta font-medium text-fg-muted">
-                    Risk after controls
+                    {t("forms.riskAfterControls")}
                   </span>
                   <p className="pt-2 text-table" aria-live="polite">
                     <Preview
@@ -397,7 +399,7 @@ export function RiskAssessmentForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-responsible-${index}`}>Responsible</Label>
+                  <Label htmlFor={`item-responsible-${index}`}>{t("permit.detail.responsible")}</Label>
                   <select
                     id={`item-responsible-${index}`}
                     name={`items[${index}][responsibleMemberId]`}
@@ -407,7 +409,7 @@ export function RiskAssessmentForm({
                       update(index, { responsibleMemberId: event.target.value })
                     }
                   >
-                    <option value="">Nobody yet</option>
+                    <option value="">{t("forms.nobodyYet")}</option>
                     {members.map((member) => (
                       <option key={member.value} value={member.value}>
                         {member.label}
@@ -417,7 +419,7 @@ export function RiskAssessmentForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-due-${index}`}>By when</Label>
+                  <Label htmlFor={`item-due-${index}`}>{t("risk.detail.byWhen")}</Label>
                   <Input
                     id={`item-due-${index}`}
                     name={`items[${index}][dueDate]`}
@@ -439,7 +441,7 @@ export function RiskAssessmentForm({
           onClick={() => setItems((current) => [...current, { ...EMPTY }])}
         >
           <Plus aria-hidden="true" />
-          Add a hazard
+          {t("forms.addHazard")}
         </Button>
       </section>
     </RecordForm>

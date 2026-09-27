@@ -7,8 +7,12 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createHseActionAction } from "@/lib/actions/hse";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New HSE action" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.newHseAction") };
+}
 
 /**
  * Raising a safety action (PRD #22 §119).
@@ -33,6 +37,7 @@ export default async function NewHseActionPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.action.create")) notFound();
 
   const params = await searchParams;
@@ -48,24 +53,23 @@ export default async function NewHseActionPage({
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Actions", href: "/hse/actions" },
-          { label: "New" },
+          { label: t("pages.actions.title"), href: "/hse/actions" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New HSE action</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.newHseAction")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          The obligation, not the work. Somebody carries it out, and somebody else verifies the
-          control is genuinely in.
+          {t("page.actionIntro")}
         </p>
       </div>
 
       <ActionForm
         action={createHseActionAction}
         cancelHref="/hse/actions"
-        submitLabel="Raise action"
-        pendingLabel="Raising…"
+        submitLabel={t("page.raiseAction")}
+        pendingLabel={t("page.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

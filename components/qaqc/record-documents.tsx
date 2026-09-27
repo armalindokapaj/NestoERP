@@ -1,4 +1,5 @@
 import type { UserContext } from "@/lib/context/types";
+import { getTranslations } from "@/lib/i18n/server";
 import { RecordDocuments } from "@/components/documents/record-documents";
 
 /**
@@ -16,13 +17,14 @@ export async function QaqcRecordDocuments({
   entityId: string;
   emptyDescription?: string;
 }) {
+  const t = await getTranslations("qaqc");
   return (
     <RecordDocuments
       context={context}
       entityType={entityType}
       entityId={entityId}
-      emptyTitle="No documents on file."
-      emptyDescription={emptyDescription ?? "Photographs, test certificates and signed records filed against this appear here."}
+      emptyTitle={t("documents.empty")}
+      emptyDescription={emptyDescription ?? t("documents.emptyBody")}
     />
   );
 }

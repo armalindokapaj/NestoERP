@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { RequestForm } from "@/components/qaqc/qaqc-forms";
@@ -12,12 +13,16 @@ import { formatDate } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ requestId: string }> };
 
-export const metadata: Metadata = { title: "Edit request" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.editRequest") };
+}
 
 /** Edit a request that has not yet been picked up (PRD #21 §44). */
 export default async function EditRequestPage({ params }: Params) {
   const { requestId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let request;
   try {
@@ -40,15 +45,15 @@ export default async function EditRequestPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Requests", href: "/qaqc/requests" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.requests"), href: "/qaqc/requests" },
           { label: request.requestNumber, href: `/qaqc/requests/${request.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit request</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editRequest")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{request.title}</p>
       </div>
 
@@ -56,8 +61,8 @@ export default async function EditRequestPage({ params }: Params) {
         action={action}
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/qaqc/requests/${request.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         canAssign={can(context, "qaqc.request.assign")}
         projects={options.projects.map((project) => ({
           value: project.id,

@@ -11,8 +11,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Incidents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.incidents.title") };
+}
 
 /** Incidents: What happened, and what nearly did. A near miss is the same record. */
 export default async function HseIncidentsPage({
@@ -21,6 +25,7 @@ export default async function HseIncidentsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.incident.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -35,7 +40,7 @@ export default async function HseIncidentsPage({
     <ModulePage
       experience={experience}
       activeSection="incidents"
-      description="What happened, and what nearly did. A near miss is the same record."
+      description={t("pages.incidents.description")}
       actions={
         <>
           {can(context, "hse.export") ? (
@@ -43,7 +48,7 @@ export default async function HseIncidentsPage({
           ) : null}
           {can(context, "hse.incident.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/incidents/new">Report an incident</Link>
+              <Link href="/hse/incidents/new">{t("list.create.incidents")}</Link>
             </Button>
           ) : null}
         </>

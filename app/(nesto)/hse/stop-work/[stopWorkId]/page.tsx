@@ -13,7 +13,9 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as stopWork from "@/lib/modules/hse/stop-work/stop-work.service";
 import { stopWorkReleaseGapLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ stopWorkId: string }> };
 
@@ -24,7 +26,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const record = await stopWork.getStopWork(context, stopWorkId);
     return { title: record.stopWorkNumber };
   } catch {
-    return { title: "Stop work" };
+    return { title: (await getTranslations("hse"))("pages.stopWork.title") };
   }
 }
 
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function StopWorkPage({ params }: Params) {
   const { stopWorkId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let record;
   try {
@@ -49,23 +52,23 @@ export default async function StopWorkPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Stop work", href: "/hse/stop-work" },
+          { label: t("pages.stopWork.title"), href: "/hse/stop-work" },
           { label: record.stopWorkNumber },
         ]}
         title={record.title}
         subtitle={record.stopWorkNumber}
         badges={
           record.status === "ACTIVE" ? (
-            <Badge tone="danger">Work is stopped</Badge>
+            <Badge tone="danger">{t("overview.workIsStopped")}</Badge>
           ) : (
-            <Badge tone="neutral">{record.status === "RELEASED" ? "Released" : "Cancelled"}</Badge>
+            <Badge tone="neutral">{record.status === "RELEASED" ? hseLabel(t, "stopWorkStatus", "RELEASED", t("stopWork.detail.releasedHeading")) : hseLabel(t, "stopWorkStatus", "CANCELLED", t("record.cancelled"))}</Badge>
           )
         }
         meta={[
-          { label: "Project", value: record.project.code },
-          { label: "Issued", value: formatDateTime(record.issuedAt) },
+          { label: t("record.project"), value: record.project.code },
+          { label: t("stopWork.detail.issued"), value: formatDateTime(record.issuedAt) },
           {
-            label: "Issued by",
+            label: t("stopWork.detail.issuedBy"),
             value: record.issuedBy ? (
               <PersonLink memberId={record.issuedBy.memberId} name={record.issuedBy.fullName} />
             ) : (
@@ -81,7 +84,7 @@ export default async function StopWorkPage({ params }: Params) {
           role="alert"
           className="rounded-md border border-danger-border bg-danger-subtle px-4 py-3 text-table font-medium text-danger-strong"
         >
-          Work on this is halted until somebody with the authority to release it says otherwise.
+          {t("stopWork.detail.halted")}
         </p>
       ) : null}
 
@@ -89,31 +92,31 @@ export default async function StopWorkPage({ params }: Params) {
           happens twice in one week (PRD #22 §174). */}
       {record.status === "ACTIVE" && blocking.length > 0 ? (
         <BlockedList
-          title="This cannot be released yet"
-          reasons={blocking.map((gap) => stopWorkReleaseGapLabels[gap])}
+          title={t("stopWork.detail.cannotRelease")}
+          reasons={blocking.map((gap) => hseLabel(t, "stopWorkReleaseGap", gap, stopWorkReleaseGapLabels[gap]))}
         />
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Why work stopped</h2>
+            <h2 className="text-card font-semibold text-fg">{t("stopWork.detail.whyStopped")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{record.reason}</p>
 
             <DetailGrid
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: (
                     <Link href={`/projects/${record.project.id}`} className="hover:text-accent">
                       {record.project.code} — {record.project.name}
                     </Link>
                   ),
                 },
-                { label: "Where", value: orDash(record.locationText) },
+                { label: t("record.where"), value: orDash(record.locationText) },
                 {
-                  label: "Hazard",
+                  label: t("record.hazard"),
                   value: record.hazard ? (
                     record.hazard.href ? (
                       <Link href={record.hazard.href} className="hover:text-accent">
@@ -127,7 +130,7 @@ export default async function StopWorkPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Incident",
+                  label: t("record.incident"),
                   value: record.incident ? (
                     record.incident.href ? (
                       <Link href={record.incident.href} className="hover:text-accent">
@@ -146,28 +149,28 @@ export default async function StopWorkPage({ params }: Params) {
 
           {record.releaseReason ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Released</h2>
+              <h2 className="text-card font-semibold text-fg">{t("stopWork.detail.releasedHeading")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {record.releaseReason}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                By{" "}
+                {t("action.detail.byPrefix")}{" "}
                 {record.releasedBy ? (
                   <PersonLink memberId={record.releasedBy.memberId} name={record.releasedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("action.detail.somebody")
                 )}
-                {record.releasedAt ? ` on ${formatDateTime(record.releasedAt)}` : ""}.
+                {record.releasedAt ? t("action.detail.onDate", { date: formatDateTime(record.releasedAt) }) : ""}.
               </p>
             </section>
           ) : null}
 
           {record.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={record.actions}
-                caption={`Actions on ${record.stopWorkNumber}`}
+                caption={t("record.actionsOn", { number: record.stopWorkNumber })}
               />
             </section>
           ) : null}
@@ -175,10 +178,10 @@ export default async function StopWorkPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Issued by"
+                label={t("stopWork.detail.issuedBy")}
                 value={
                   record.issuedBy ? (
                     <PersonLink memberId={record.issuedBy.memberId} name={record.issuedBy.fullName} />
@@ -187,16 +190,16 @@ export default async function StopWorkPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Issued" value={formatDateTime(record.issuedAt)} />
+              <Meta label={t("stopWork.detail.issued")} value={formatDateTime(record.issuedAt)} />
               {record.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(record.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(record.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="StopWorkRecord"

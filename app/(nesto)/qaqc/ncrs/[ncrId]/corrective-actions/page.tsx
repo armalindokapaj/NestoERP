@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Corrective actions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.correctiveActions") };
+}
 
 type Params = { params: Promise<{ ncrId: string }> };
 

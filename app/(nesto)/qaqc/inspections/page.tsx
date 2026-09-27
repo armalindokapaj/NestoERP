@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -12,7 +13,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Inspections" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.inspections") };
+}
 
 /** Inspections: The act of looking, and its verdict. Status says where it is; result says what was found. */
 export default async function QaqcInspectionsPage({
@@ -21,6 +25,7 @@ export default async function QaqcInspectionsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.inspection.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -35,7 +40,7 @@ export default async function QaqcInspectionsPage({
     <ModulePage
       experience={experience}
       activeSection="inspections"
-      description="The act of looking, and its verdict. Status says where it is; result says what was found."
+      description={t("descriptions.inspections")}
       actions={
         <>
           {can(context, "qaqc.export") ? (
@@ -43,7 +48,7 @@ export default async function QaqcInspectionsPage({
           ) : null}
           {can(context, "qaqc.inspection.create") ? (
             <Button asChild size="sm">
-              <Link href="/qaqc/inspections/new">New inspection</Link>
+              <Link href="/qaqc/inspections/new">{t("common.newInspection")}</Link>
             </Button>
           ) : null}
         </>

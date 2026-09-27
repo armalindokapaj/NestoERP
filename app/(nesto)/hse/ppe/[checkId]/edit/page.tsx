@@ -9,10 +9,14 @@ import { updatePpeCheckAction } from "@/lib/actions/hse";
 import { AccessError } from "@/lib/access/guards";
 import * as ppe from "@/lib/modules/hse/ppe/ppe.service";
 import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ checkId: string }> };
 
-export const metadata: Metadata = { title: "Edit PPE check" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editPpeCheck") };
+}
 
 /**
  * Correcting a PPE check (PRD #22 §158, §161).
@@ -25,6 +29,7 @@ export const metadata: Metadata = { title: "Edit PPE check" };
 export default async function EditPpeCheckPage({ params }: Params) {
   const { checkId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.ppe.update")) notFound();
 
   let check;
@@ -47,24 +52,24 @@ export default async function EditPpeCheckPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "PPE", href: "/hse/ppe" },
+          { label: t("page.crumbPpe"), href: "/hse/ppe" },
           { label: check.checkNumber },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {check.checkNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: check.checkNumber })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Correct what was recorded. The check keeps its number and its date.
+          {t("page.ppeEditIntro")}
         </p>
       </div>
 
       <PpeForm
         action={action}
         cancelHref="/hse/ppe"
-        submitLabel="Save check"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveCheck")}
+        pendingLabel={t("page.saving")}
         values={{
           projectId: check.project?.id ?? "",
           checkDate: check.checkDate.slice(0, 10),

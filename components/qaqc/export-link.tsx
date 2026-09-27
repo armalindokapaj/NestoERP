@@ -1,6 +1,7 @@
 "use client";
 
 import { ExportControl } from "@/lib/core/export/export-control";
+import { useQaqcTranslations } from "./qaqc-text";
 import type { QaqcExportType } from "@/lib/modules/qaqc/qaqc.export";
 
 /**
@@ -13,11 +14,12 @@ import type { QaqcExportType } from "@/lib/modules/qaqc/qaqc.export";
  */
 export function QaqcExportLink({
   type,
-  label = "Export CSV",
+  label,
 }: {
   type: QaqcExportType;
   search?: string;
   label?: string;
 }) {
-  return <ExportControl endpoint="/api/qaqc/export" selector={{ param: "kind", value: type }} label={label} testId={`qaqc-export-${type}`} />;
+  const t = useQaqcTranslations();
+  return <ExportControl endpoint="/api/qaqc/export" selector={{ param: "kind", value: type }} label={label ?? t("common.exportCsv")} testId={`qaqc-export-${type}`} />;
 }

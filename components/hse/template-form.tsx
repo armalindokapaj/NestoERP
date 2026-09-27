@@ -24,6 +24,8 @@ import {
   responseTypeLabels,
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
+import { useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * Building a safety checklist (PRD #22 §43, §45, §349).
@@ -85,6 +87,7 @@ export function TemplateForm({
   usageCount?: number;
   currentVersion?: number;
 }) {
+  const t = useHseTranslations();
   const [items, setItems] = React.useState<TemplateItemValue[]>(
     values?.items && values.items.length > 0 ? values.items : [{ ...EMPTY }],
   );
@@ -108,22 +111,19 @@ export function TemplateForm({
     >
       {usageCount > 0 ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          {usageCount} inspection{usageCount === 1 ? " has" : "s have"} already been run against
-          version {currentVersion}. Saving creates version {currentVersion + 1} and leaves the
-          earlier one exactly as it is, so those inspections still read against what they were
-          actually checked with.
+          {t("forms.usageVersion", { count: usageCount, current: currentVersion, next: currentVersion + 1 })}
         </p>
       ) : null}
 
       <FormSection
-        title="Checklist"
-        description="What the company inspects against. One list means two sites cannot quietly hold the same work to different standards."
+        title={t("record.checklist")}
+        description={t("forms.checklistIntro")}
       >
-        <Field label="Code" name="code" required>
+        <Field label={t("forms.code")} name="code" required>
           <Input id="code" name="code" defaultValue={values?.code ?? ""} required maxLength={40} />
         </Field>
 
-        <Field label="Type" name="inspectionType" required>
+        <Field label={t("record.type")} name="inspectionType" required>
           <select
             id="inspectionType"
             name="inspectionType"
@@ -132,17 +132,17 @@ export function TemplateForm({
           >
             {INSPECTION_TYPES.map((type) => (
               <option key={type} value={type}>
-                {inspectionTypeLabels[type]}
+                {hseLabel(t, "inspectionType", type, inspectionTypeLabels[type])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Name" name="name" required className="sm:col-span-2">
+        <Field label={t("forms.name")} name="name" required className="sm:col-span-2">
           <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Description" name="description" className="sm:col-span-2">
+        <Field label={t("record.description")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -154,7 +154,7 @@ export function TemplateForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Checks</h2>
+        <h2 className="text-card font-semibold text-fg">{t("template.detail.checks")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           Each one is a question the inspector answers on site. A check that fails and needs a
           note cannot be left blank when the inspection is submitted.
@@ -166,7 +166,7 @@ export function TemplateForm({
           {items.map((item, index) => (
             <div key={index} className="rounded-md border border-line p-4">
               <div className="flex items-start justify-between gap-3">
-                <p className="nesto-eyebrow text-fg-subtle">Check {index + 1}</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("forms.checkN", { n: index + 1 })}</p>
                 {items.length > 1 ? (
                   <Button
                     type="button"
@@ -177,14 +177,14 @@ export function TemplateForm({
                     }
                   >
                     <Trash2 aria-hidden="true" />
-                    <span className="sr-only">Remove check {index + 1}</span>
+                    <span className="sr-only">{t("forms.removeCheckN", { n: index + 1 })}</span>
                   </Button>
                 ) : null}
               </div>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-6">
                 <div className="space-y-1.5 sm:col-span-1">
-                  <Label htmlFor={`item-code-${index}`}>Ref</Label>
+                  <Label htmlFor={`item-code-${index}`}>{t("forms.ref")}</Label>
                   <Input
                     id={`item-code-${index}`}
                     name={`items[${index}][code]`}
@@ -195,7 +195,7 @@ export function TemplateForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-5">
-                  <Label htmlFor={`item-label-${index}`}>What is checked</Label>
+                  <Label htmlFor={`item-label-${index}`}>{t("forms.whatIsChecked")}</Label>
                   <Input
                     id={`item-label-${index}`}
                     name={`items[${index}][label]`}
@@ -203,12 +203,12 @@ export function TemplateForm({
                     onChange={(event) => update(index, { label: event.target.value })}
                     required
                     maxLength={300}
-                    placeholder="Edge protection is in place and secure"
+                    placeholder={t("forms.checkPlaceholder")}
                   />
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-6">
-                  <Label htmlFor={`item-description-${index}`}>Guidance</Label>
+                  <Label htmlFor={`item-description-${index}`}>{t("forms.guidance")}</Label>
                   <Textarea
                     id={`item-description-${index}`}
                     name={`items[${index}][description]`}
@@ -220,7 +220,7 @@ export function TemplateForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-response-${index}`}>Answer type</Label>
+                  <Label htmlFor={`item-response-${index}`}>{t("forms.answerType")}</Label>
                   <select
                     id={`item-response-${index}`}
                     name={`items[${index}][responseType]`}
@@ -230,14 +230,14 @@ export function TemplateForm({
                   >
                     {RESPONSE_TYPES.map((type) => (
                       <option key={type} value={type}>
-                        {responseTypeLabels[type]}
+                        {hseLabel(t, "responseType", type, responseTypeLabels[type])}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`item-risk-${index}`}>Risk if it fails</Label>
+                  <Label htmlFor={`item-risk-${index}`}>{t("forms.riskIfFails")}</Label>
                   <select
                     id={`item-risk-${index}`}
                     name={`items[${index}][riskIfFailed]`}
@@ -245,10 +245,10 @@ export function TemplateForm({
                     value={item.riskIfFailed ?? ""}
                     onChange={(event) => update(index, { riskIfFailed: event.target.value })}
                   >
-                    <option value="">Not rated</option>
+                    <option value="">{t("forms.notRated")}</option>
                     {SEVERITIES.map((value) => (
                       <option key={value} value={value}>
-                        {severityLabels[value]}
+                        {hseLabel(t, "severity", value, severityLabels[value])}
                       </option>
                     ))}
                   </select>
@@ -268,7 +268,7 @@ export function TemplateForm({
                       htmlFor={`item-required-${index}`}
                       className="text-body font-normal text-fg-muted"
                     >
-                      Must be answered
+                      {t("forms.mustBeAnswered")}
                     </Label>
                   </div>
 
@@ -285,7 +285,7 @@ export function TemplateForm({
                       htmlFor={`item-note-${index}`}
                       className="text-body font-normal text-fg-muted"
                     >
-                      Needs a note if it fails
+                      {t("template.detail.needsNote")}
                     </Label>
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export function TemplateForm({
           onClick={() => setItems((current) => [...current, { ...EMPTY }])}
         >
           <Plus aria-hidden="true" />
-          Add a check
+          {t("forms.addCheck")}
         </Button>
       </section>
     </RecordForm>

@@ -58,6 +58,7 @@ import type {
   ToolboxDetailDTO,
 } from "@/lib/modules/hse/hse.types";
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 
 /**
  * The HSE lifecycle controls (PRD #22 §313–§323).
@@ -77,6 +78,7 @@ import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 function useRunner() {
   const router = useRouter();
   const toast = useToast();
+  const serverText = useHseServerText();
   const [pending, startTransition] = React.useTransition();
 
   function run(
@@ -97,12 +99,12 @@ function useRunner() {
           return;
         }
         if (result.ok) {
-          toast({ title: result.message ?? success, tone: "success" });
+          toast({ title: serverText(result.message) ?? success, tone: "success" });
           onDone?.();
           router.refresh();
           resolve(true);
         } else {
-          toast({ title: result.error, tone: "danger" });
+          toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           resolve(false);
         }
       });
@@ -112,11 +114,12 @@ function useRunner() {
   return { run, pending };
 }
 
-function SelfApprovalNote({ show, what }: { show: boolean; what: string }) {
+function SelfApprovalNote({ show, what }: { show: boolean; what: "inspection" | "closure" | "assessment" | "action" | "permit" }) {
+  const t = useHseTranslations();
   if (!show) return null;
   return (
     <p className="text-meta text-fg-subtle">
-      You {what}, so somebody else signs it off.
+      {t(`actions.selfApproval.${what}`)}
     </p>
   );
 }
@@ -133,6 +136,7 @@ export function InspectionActions({
   /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | "close" | "cancel" | null>(null);
   const may = inspection.capabilities;
@@ -144,64 +148,64 @@ export function InspectionActions({
     <div className="flex flex-wrap items-center gap-2">
       {may.canStart ? (
         <Button
-          onClick={() => run(() => startInspectionAction(inspection.id), "Inspection started.")}
+          onClick={() => run(() => startInspectionAction(inspection.id), t("actions.inspectionStarted"))}
           disabled={pending}
         >
-          {inspection.status === "REJECTED" ? "Pick it back up" : "Start inspection"}
+          {inspection.status === "REJECTED" ? t("actions.pickBackUp") : t("actions.startInspection")}
         </Button>
       ) : null}
 
       {may.canExecute ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/inspections/${inspection.id}/execute`}>Answer the checklist</Link>
+          <Link href={`/hse/inspections/${inspection.id}/execute`}>{t("actions.answerChecklist")}</Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
         <Button asChild>
-          <Link href={`/hse/inspections/${inspection.id}/execute#submit`}>Submit</Link>
+          <Link href={`/hse/inspections/${inspection.id}/execute#submit`}>{t("actions.submit")}</Link>
         </Button>
       ) : null}
 
       {may.canApprove ? (
         <Button
-          onClick={() => run(() => approveInspectionAction(inspection.id, "", cycle), "Approved.")}
+          onClick={() => run(() => approveInspectionAction(inspection.id, "", cycle), t("actions.approved"))}
           disabled={pending}
         >
-          Approve
+          {t("actions.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" onClick={() => setDialog("reject")} disabled={pending}>
-          Send back
+          {t("actions.sendBack")}
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button variant="secondary" onClick={() => setDialog("close")} disabled={pending}>
-          Close out
+          {t("actions.closeOut")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
-      <SelfApprovalNote show={withheld} what="submitted this inspection" />
+      <SelfApprovalNote show={withheld} what="inspection" />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title="Send this inspection back"
-        label="What needs redoing"
-        placeholder="Which checks need looking at again?"
-        confirmLabel="Send back"
-        pendingLabel="Sending…"
+        title={t("actions.sendInspectionBack")}
+        label={t("actions.whatNeedsRedoing")}
+        placeholder={t("actions.whichChecks")}
+        confirmLabel={t("actions.sendBack")}
+        pendingLabel={t("actions.sending")}
         onReject={(reason) =>
-          run(() => rejectInspectionAction(inspection.id, reason, cycle), "Sent back.", () =>
+          run(() => rejectInspectionAction(inspection.id, reason, cycle), t("actions.sentBack"), () =>
             setDialog(null),
           )
         }
@@ -210,34 +214,34 @@ export function InspectionActions({
       <RejectDialog
         open={dialog === "close"}
         onOpenChange={(open) => setDialog(open ? "close" : null)}
-        title="Close this inspection out"
+        title={t("actions.closeInspectionOut")}
         // A FAIL or CONDITIONAL needs a hazard, an action or a written
         // disposition before it closes (PRD #22 §55).
         description={
           inspection.result === "PASS"
-            ? "A passed inspection closes on its own."
-            : "This inspection did not pass. Say how the findings were dealt with, unless a hazard or action already covers them."
+            ? t("actions.passedClosesOwn")
+            : t("actions.notPassed")
         }
-        label="Disposition"
-        placeholder="How were the findings dealt with?"
-        confirmLabel="Close out"
-        pendingLabel="Closing…"
-        emptyMessage="Say how the findings were dealt with."
+        label={t("actions.disposition")}
+        placeholder={t("actions.howDealt")}
+        confirmLabel={t("actions.closeOut")}
+        pendingLabel={t("actions.closing")}
+        emptyMessage={t("actions.sayHowDealt")}
         onReject={(note) =>
-          run(() => closeInspectionAction(inspection.id, note), "Closed.", () => setDialog(null))
+          run(() => closeInspectionAction(inspection.id, note), t("actions.closed"), () => setDialog(null))
         }
       />
 
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this inspection"
-        description="For a duplicate or one raised in error."
-        label="Reason"
-        confirmLabel="Cancel inspection"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelInspectionTitle")}
+        description={t("actions.duplicateOrError")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelInspection")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelInspectionAction(inspection.id, reason), "Cancelled.", () =>
+          run(() => cancelInspectionAction(inspection.id, reason), t("actions.cancelled"), () =>
             setDialog(null),
           )
         }
@@ -251,6 +255,7 @@ export function InspectionActions({
 /* -------------------------------------------------------------------------- */
 
 export function HazardActions({ hazard }: { hazard: HazardDetailDTO }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reopen" | "cancel" | null>(null);
   const may = hazard.capabilities;
@@ -263,69 +268,69 @@ export function HazardActions({ hazard }: { hazard: HazardDetailDTO }) {
     <div className="flex flex-wrap items-center gap-2">
       {may.canAssess ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/hazards/${hazard.id}/assess`}>Reassess risk</Link>
+          <Link href={`/hse/hazards/${hazard.id}/assess`}>{t("page.reassessRisk")}</Link>
         </Button>
       ) : null}
 
       {may.canControl ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/hazards/${hazard.id}/control`}>Record a control</Link>
+          <Link href={`/hse/hazards/${hazard.id}/control`}>{t("page.recordControl")}</Link>
         </Button>
       ) : null}
 
       {may.canRaiseAction ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/actions/new?hazardId=${hazard.id}`}>Raise an action</Link>
+          <Link href={`/hse/actions/new?hazardId=${hazard.id}`}>{t("actions.raiseAction")}</Link>
         </Button>
       ) : null}
 
       {may.canStopWork ? (
         <Button asChild variant="danger">
-          <Link href={`/hse/stop-work/new?hazardId=${hazard.id}`}>Stop work</Link>
+          <Link href={`/hse/stop-work/new?hazardId=${hazard.id}`}>{t("pages.stopWork.title")}</Link>
         </Button>
       ) : null}
 
       {closable ? (
         <Button asChild>
-          <Link href={`/hse/hazards/${hazard.id}/close`}>Close hazard</Link>
+          <Link href={`/hse/hazards/${hazard.id}/close`}>{t("page.closeHazard")}</Link>
         </Button>
       ) : null}
 
       {may.canReopen ? (
         <Button variant="secondary" onClick={() => setDialog("reopen")} disabled={pending}>
-          Reopen
+          {t("actions.reopen")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
       <RejectDialog
         open={dialog === "reopen"}
         onOpenChange={(open) => setDialog(open ? "reopen" : null)}
-        title="Reopen this hazard"
-        description="The control did not hold, or the hazard is back."
-        label="Reason"
-        confirmLabel="Reopen"
-        pendingLabel="Reopening…"
+        title={t("actions.reopenHazardTitle")}
+        description={t("actions.reopenHazardDesc")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.reopen")}
+        pendingLabel={t("actions.reopening")}
         onReject={(reason) =>
-          run(() => reopenHazardAction(hazard.id, reason), "Reopened.", () => setDialog(null))
+          run(() => reopenHazardAction(hazard.id, reason), t("actions.reopened"), () => setDialog(null))
         }
       />
 
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this hazard"
-        description="For a duplicate or one reported in error. It is never deleted."
-        label="Reason"
-        confirmLabel="Cancel hazard"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelHazardTitle")}
+        description={t("actions.reportedInError")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelHazard")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelHazardAction(hazard.id, reason), "Cancelled.", () => setDialog(null))
+          run(() => cancelHazardAction(hazard.id, reason), t("actions.cancelled"), () => setDialog(null))
         }
       />
     </div>
@@ -344,6 +349,7 @@ export function IncidentActions({
   /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<
     "submit-close" | "reopen" | "cancel" | null
@@ -358,73 +364,73 @@ export function IncidentActions({
       {may.canInvestigate && incident.status !== "UNDER_INVESTIGATION" ? (
         <Button
           onClick={() =>
-            run(() => startInvestigationAction(incident.id), "Investigation opened.")
+            run(() => startInvestigationAction(incident.id), t("actions.investigationOpened"))
           }
           disabled={pending}
         >
-          Investigate
+          {t("actions.investigate")}
         </Button>
       ) : null}
 
       {may.canInvestigate ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/incidents/${incident.id}/investigation`}>Investigation</Link>
+          <Link href={`/hse/incidents/${incident.id}/investigation`}>{t("incident.detail.investigation")}</Link>
         </Button>
       ) : null}
 
       {may.canRaiseAction ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/actions/new?incidentId=${incident.id}`}>Raise an action</Link>
+          <Link href={`/hse/actions/new?incidentId=${incident.id}`}>{t("actions.raiseAction")}</Link>
         </Button>
       ) : null}
 
       {may.canStopWork ? (
         <Button asChild variant="danger">
-          <Link href={`/hse/stop-work/new?incidentId=${incident.id}`}>Stop work</Link>
+          <Link href={`/hse/stop-work/new?incidentId=${incident.id}`}>{t("pages.stopWork.title")}</Link>
         </Button>
       ) : null}
 
       {readyToSubmit ? (
         <Button onClick={() => setDialog("submit-close")} disabled={pending}>
-          Put up for closure
+          {t("incident.detail.putUpForClosure")}
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button
-          onClick={() => run(() => closeIncidentAction(incident.id, "", cycle), "Incident closed.")}
+          onClick={() => run(() => closeIncidentAction(incident.id, "", cycle), t("actions.incidentClosed"))}
           disabled={pending}
         >
-          Close incident
+          {t("actions.closeIncident")}
         </Button>
       ) : null}
 
       {may.canReopen ? (
         <Button variant="secondary" onClick={() => setDialog("reopen")} disabled={pending}>
-          Reopen
+          {t("actions.reopen")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
-      <SelfApprovalNote show={withheld} what="put this up for closure" />
+      <SelfApprovalNote show={withheld} what="closure" />
 
       <RejectDialog
         open={dialog === "submit-close"}
         onOpenChange={(open) => setDialog(open ? "submit-close" : null)}
-        title="Put this incident up for closure"
-        description="Somebody else decides. Whoever investigated an incident is the last person who should declare it finished."
-        label="Closure note"
-        placeholder="What was concluded, and what was done about it?"
-        confirmLabel="Put up for closure"
-        pendingLabel="Sending…"
-        emptyMessage="Write a closure note."
+        title={t("actions.putIncidentUp")}
+        description={t("actions.somebodyElseDecides")}
+        label={t("record.closureNote")}
+        placeholder={t("actions.whatConcluded")}
+        confirmLabel={t("incident.detail.putUpForClosure")}
+        pendingLabel={t("actions.sending")}
+        emptyMessage={t("actions.writeClosureNote")}
         onReject={(note) =>
-          run(() => submitIncidentCloseAction(incident.id, note), "Sent for closure.", () =>
+          run(() => submitIncidentCloseAction(incident.id, note), t("actions.sentForClosure"), () =>
             setDialog(null),
           )
         }
@@ -433,12 +439,12 @@ export function IncidentActions({
       <RejectDialog
         open={dialog === "reopen"}
         onOpenChange={(open) => setDialog(open ? "reopen" : null)}
-        title="Reopen this incident"
-        label="Reason"
-        confirmLabel="Reopen"
-        pendingLabel="Reopening…"
+        title={t("actions.reopenIncidentTitle")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.reopen")}
+        pendingLabel={t("actions.reopening")}
         onReject={(reason) =>
-          run(() => reopenIncidentAction(incident.id, reason), "Reopened.", () =>
+          run(() => reopenIncidentAction(incident.id, reason), t("actions.reopened"), () =>
             setDialog(null),
           )
         }
@@ -447,13 +453,13 @@ export function IncidentActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this incident"
-        description="For a duplicate or one reported in error. It is never deleted."
-        label="Reason"
-        confirmLabel="Cancel incident"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelIncidentTitle")}
+        description={t("actions.reportedInError")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelIncident")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelIncidentAction(incident.id, reason), "Cancelled.", () =>
+          run(() => cancelIncidentAction(incident.id, reason), t("actions.cancelled"), () =>
             setDialog(null),
           )
         }
@@ -474,6 +480,7 @@ export function RiskAssessmentActions({
   /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | null>(null);
   const may = assessment.capabilities;
@@ -485,7 +492,7 @@ export function RiskAssessmentActions({
     <div className="flex flex-wrap items-center gap-2">
       {may.canEdit ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/risk-assessments/${assessment.id}/edit`}>Edit</Link>
+          <Link href={`/hse/risk-assessments/${assessment.id}/edit`}>{t("template.detail.edit")}</Link>
         </Button>
       ) : null}
 
@@ -501,54 +508,54 @@ export function RiskAssessmentActions({
       {may.canSubmit ? (
         <Button
           onClick={() =>
-            run(() => submitRiskAssessmentAction(assessment.id), "Sent for approval.")
+            run(() => submitRiskAssessmentAction(assessment.id), t("actions.sentForApproval"))
           }
           disabled={pending}
         >
-          Send for approval
+          {t("actions.sendForApproval")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
         <Button
           onClick={() =>
-            run(() => approveRiskAssessmentAction(assessment.id, "", cycle), "Approved.")
+            run(() => approveRiskAssessmentAction(assessment.id, "", cycle), t("actions.approved"))
           }
           disabled={pending}
         >
-          Approve
+          {t("actions.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" onClick={() => setDialog("reject")} disabled={pending}>
-          Send back
+          {t("actions.sendBack")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button
           variant="ghost"
-          onClick={() => run(() => archiveRiskAssessmentAction(assessment.id), "Archived.")}
+          onClick={() => run(() => archiveRiskAssessmentAction(assessment.id), t("actions.archived"))}
           disabled={pending}
         >
-          Archive
+          {t("actions.archive")}
         </Button>
       ) : null}
 
-      <SelfApprovalNote show={withheld} what="submitted this assessment" />
+      <SelfApprovalNote show={withheld} what="assessment" />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title="Send this assessment back"
-        label="What needs changing"
-        confirmLabel="Send back"
-        pendingLabel="Sending…"
+        title={t("actions.sendAssessmentBack")}
+        label={t("actions.whatNeedsChanging")}
+        confirmLabel={t("actions.sendBack")}
+        pendingLabel={t("actions.sending")}
         onReject={(reason) =>
           run(
             () => rejectRiskAssessmentAction(assessment.id, reason, cycle),
-            "Sent back.",
+            t("actions.sentBack"),
             () => setDialog(null),
           )
         }
@@ -562,6 +569,7 @@ export function RiskAssessmentActions({
 /* -------------------------------------------------------------------------- */
 
 export function HseActionActions({ action }: { action: ActionDetailDTO }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<
     "complete" | "verify" | "reject" | "reopen" | "cancel" | null
@@ -574,54 +582,54 @@ export function HseActionActions({ action }: { action: ActionDetailDTO }) {
     <div className="flex flex-wrap items-center gap-2">
       {may.canComplete ? (
         <Button onClick={() => setDialog("complete")} disabled={pending}>
-          Mark done
+          {t("actions.markDone")}
         </Button>
       ) : null}
 
       {may.canVerify ? (
         <Button onClick={() => setDialog("verify")} disabled={pending}>
-          Verify
+          {t("actions.verify")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" onClick={() => setDialog("reject")} disabled={pending}>
-          Send back
+          {t("actions.sendBack")}
         </Button>
       ) : null}
 
       {may.canCreateTask ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/actions/${action.id}/task`}>Create a task</Link>
+          <Link href={`/hse/actions/${action.id}/task`}>{t("page.createTask")}</Link>
         </Button>
       ) : null}
 
       {may.canReopen ? (
         <Button variant="secondary" onClick={() => setDialog("reopen")} disabled={pending}>
-          Reopen
+          {t("actions.reopen")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
-      <SelfApprovalNote show={withheld} what="completed this action" />
+      <SelfApprovalNote show={withheld} what="action" />
 
       <RejectDialog
         open={dialog === "complete"}
         onOpenChange={(open) => setDialog(open ? "complete" : null)}
-        title="Mark this action done"
-        description="Somebody else verifies it. That is the whole point of the two states."
-        label="What you did"
-        placeholder="What control went in, and where?"
-        confirmLabel="Mark done"
-        pendingLabel="Saving…"
-        emptyMessage="Record what was actually done."
+        title={t("actions.markDoneTitle")}
+        description={t("actions.markDoneDesc")}
+        label={t("actions.whatYouDid")}
+        placeholder={t("actions.whatControl")}
+        confirmLabel={t("actions.markDone")}
+        pendingLabel={t("page.saving")}
+        emptyMessage={t("actions.recordWhatDone")}
         onReject={(note) =>
-          run(() => completeHseActionAction(action.id, note), "Marked done.", () =>
+          run(() => completeHseActionAction(action.id, note), t("actions.markedDone"), () =>
             setDialog(null),
           )
         }
@@ -630,40 +638,40 @@ export function HseActionActions({ action }: { action: ActionDetailDTO }) {
       <RejectDialog
         open={dialog === "verify"}
         onOpenChange={(open) => setDialog(open ? "verify" : null)}
-        title="Verify this action"
-        description="You are confirming the control is genuinely in place."
-        label="Verification note"
-        placeholder="Optional — what you checked."
-        confirmLabel="Verify"
-        pendingLabel="Verifying…"
+        title={t("actions.verifyTitle")}
+        description={t("actions.verifyDesc")}
+        label={t("actions.verificationNote")}
+        placeholder={t("actions.optionalChecked")}
+        confirmLabel={t("actions.verify")}
+        pendingLabel={t("actions.verifying")}
         emptyMessage=""
         onReject={(note) =>
-          run(() => verifyHseActionAction(action.id, note), "Verified.", () => setDialog(null))
+          run(() => verifyHseActionAction(action.id, note), t("actions.verified"), () => setDialog(null))
         }
       />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title="Send this action back"
-        label="What is still wrong"
-        confirmLabel="Send back"
-        pendingLabel="Sending…"
+        title={t("actions.sendActionBack")}
+        label={t("actions.stillWrong")}
+        confirmLabel={t("actions.sendBack")}
+        pendingLabel={t("actions.sending")}
         onReject={(note) =>
-          run(() => rejectHseActionAction(action.id, note), "Sent back.", () => setDialog(null))
+          run(() => rejectHseActionAction(action.id, note), t("actions.sentBack"), () => setDialog(null))
         }
       />
 
       <RejectDialog
         open={dialog === "reopen"}
         onOpenChange={(open) => setDialog(open ? "reopen" : null)}
-        title="Reopen this action"
-        description="The correction did not hold."
-        label="Reason"
-        confirmLabel="Reopen"
-        pendingLabel="Reopening…"
+        title={t("actions.reopenActionTitle")}
+        description={t("actions.correctionDidNotHold")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.reopen")}
+        pendingLabel={t("actions.reopening")}
         onReject={(reason) =>
-          run(() => reopenHseActionAction(action.id, reason), "Reopened.", () =>
+          run(() => reopenHseActionAction(action.id, reason), t("actions.reopened"), () =>
             setDialog(null),
           )
         }
@@ -672,13 +680,13 @@ export function HseActionActions({ action }: { action: ActionDetailDTO }) {
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this action"
-        description="Only if it no longer applies."
-        label="Reason"
-        confirmLabel="Cancel action"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelActionTitle")}
+        description={t("actions.noLongerApplies")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelAction")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelHseActionAction(action.id, reason), "Cancelled.", () =>
+          run(() => cancelHseActionAction(action.id, reason), t("actions.cancelled"), () =>
             setDialog(null),
           )
         }
@@ -699,6 +707,7 @@ export function PermitActions({
   /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | "suspend" | "cancel" | null>(null);
   const [confirm, setConfirm] = React.useState<"activate" | "close" | null>(null);
@@ -716,68 +725,68 @@ export function PermitActions({
     <div className="flex flex-wrap items-center gap-2">
       {may.canSubmit ? (
         <Button
-          onClick={() => run(() => submitPermitAction(permit.id), "Sent for approval.")}
+          onClick={() => run(() => submitPermitAction(permit.id), t("actions.sentForApproval"))}
           disabled={pending}
         >
-          Send for approval
+          {t("actions.sendForApproval")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
         <Button
-          onClick={() => run(() => approvePermitAction(permit.id, "", cycle), "Approved.")}
+          onClick={() => run(() => approvePermitAction(permit.id, "", cycle), t("actions.approved"))}
           disabled={pending}
         >
-          Approve
+          {t("actions.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" onClick={() => setDialog("reject")} disabled={pending}>
-          Refuse
+          {t("actions.refuse")}
         </Button>
       ) : null}
 
       {may.canActivate ? (
         <Button onClick={() => setConfirm("activate")} disabled={pending}>
-          {permit.status === "SUSPENDED" ? "Reactivate" : "Activate"}
+          {permit.status === "SUSPENDED" ? t("actions.reactivate") : t("actions.activate")}
         </Button>
       ) : null}
 
       {may.canSuspend ? (
         <Button variant="secondary" onClick={() => setDialog("suspend")} disabled={pending}>
-          Suspend
+          {t("actions.suspend")}
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button variant="secondary" onClick={() => setConfirm("close")} disabled={pending}>
-          Close
+          {t("page.crumbClose")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
-      <SelfApprovalNote show={withheld} what="raised this permit" />
+      <SelfApprovalNote show={withheld} what="permit" />
 
       {outsideWindow ? (
         <p className="text-meta text-danger-strong">
-          This permit is outside the window it authorises. Close it and raise a new one.
+          {t("actions.outsideWindow")}
         </p>
       ) : null}
 
       <ConfirmDialog
         open={confirm === "activate"}
         onOpenChange={(open) => setConfirm(open ? "activate" : null)}
-        title="Activate this permit"
-        description="The work it authorises may begin, within the validity window and under the controls recorded."
-        confirmLabel="Activate"
+        title={t("actions.activateTitle")}
+        description={t("actions.activateDesc")}
+        confirmLabel={t("actions.activate")}
         onConfirm={async () => {
-          await run(() => activatePermitAction(permit.id), "Permit active.");
+          await run(() => activatePermitAction(permit.id), t("actions.permitActive"));
           setConfirm(null);
         }}
       />
@@ -785,11 +794,11 @@ export function PermitActions({
       <ConfirmDialog
         open={confirm === "close"}
         onOpenChange={(open) => setConfirm(open ? "close" : null)}
-        title="Close this permit"
-        description="The work is finished. A closed permit authorises nothing."
-        confirmLabel="Close permit"
+        title={t("actions.closePermitTitle")}
+        description={t("actions.closePermitDesc")}
+        confirmLabel={t("actions.closePermit")}
         onConfirm={async () => {
-          await run(() => closePermitAction(permit.id), "Permit closed.");
+          await run(() => closePermitAction(permit.id), t("actions.permitClosed"));
           setConfirm(null);
         }}
       />
@@ -797,25 +806,25 @@ export function PermitActions({
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title="Refuse this permit"
-        label="Why"
-        confirmLabel="Refuse"
-        pendingLabel="Refusing…"
+        title={t("actions.refuseTitle")}
+        label={t("forms.why")}
+        confirmLabel={t("actions.refuse")}
+        pendingLabel={t("actions.refusing")}
         onReject={(reason) =>
-          run(() => rejectPermitAction(permit.id, reason, cycle), "Sent back.", () => setDialog(null))
+          run(() => rejectPermitAction(permit.id, reason, cycle), t("actions.sentBack"), () => setDialog(null))
         }
       />
 
       <RejectDialog
         open={dialog === "suspend"}
         onOpenChange={(open) => setDialog(open ? "suspend" : null)}
-        title="Suspend this permit"
-        description="Work under it stops until it is reactivated."
-        label="Why"
-        confirmLabel="Suspend"
-        pendingLabel="Suspending…"
+        title={t("actions.suspendTitle")}
+        description={t("actions.suspendDesc")}
+        label={t("forms.why")}
+        confirmLabel={t("actions.suspend")}
+        pendingLabel={t("actions.suspending")}
         onReject={(reason) =>
-          run(() => suspendPermitAction(permit.id, reason), "Suspended.", () =>
+          run(() => suspendPermitAction(permit.id, reason), t("actions.suspended"), () =>
             setDialog(null),
           )
         }
@@ -824,12 +833,12 @@ export function PermitActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this permit"
-        label="Reason"
-        confirmLabel="Cancel permit"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelPermitTitle")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelPermit")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelPermitAction(permit.id, reason), "Cancelled.", () => setDialog(null))
+          run(() => cancelPermitAction(permit.id, reason), t("actions.cancelled"), () => setDialog(null))
         }
       />
     </div>
@@ -841,6 +850,7 @@ export function PermitActions({
 /* -------------------------------------------------------------------------- */
 
 export function ToolboxActions({ talk }: { talk: ToolboxDetailDTO }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"cancel" | null>(null);
   const [confirm, setConfirm] = React.useState(false);
@@ -850,30 +860,30 @@ export function ToolboxActions({ talk }: { talk: ToolboxDetailDTO }) {
     <div className="flex flex-wrap items-center gap-2">
       {may.canEdit ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/toolbox-talks/${talk.id}/edit`}>Edit</Link>
+          <Link href={`/hse/toolbox-talks/${talk.id}/edit`}>{t("template.detail.edit")}</Link>
         </Button>
       ) : null}
 
       {may.canComplete ? (
         <Button onClick={() => setConfirm(true)} disabled={pending}>
-          Complete
+          {t("actions.complete")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="Complete this toolbox talk"
-        description="The attendance list is fixed once it is completed."
-        confirmLabel="Complete"
+        title={t("actions.completeTalkTitle")}
+        description={t("actions.completeTalkDesc")}
+        confirmLabel={t("actions.complete")}
         onConfirm={async () => {
-          await run(() => completeToolboxTalkAction(talk.id), "Completed.");
+          await run(() => completeToolboxTalkAction(talk.id), t("actions.completed"));
           setConfirm(false);
         }}
       />
@@ -881,12 +891,12 @@ export function ToolboxActions({ talk }: { talk: ToolboxDetailDTO }) {
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this toolbox talk"
-        label="Reason"
-        confirmLabel="Cancel talk"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelTalkTitle")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelTalk")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelToolboxTalkAction(talk.id, reason), "Cancelled.", () =>
+          run(() => cancelToolboxTalkAction(talk.id, reason), t("actions.cancelled"), () =>
             setDialog(null),
           )
         }
@@ -900,6 +910,7 @@ export function ToolboxActions({ talk }: { talk: ToolboxDetailDTO }) {
 /* -------------------------------------------------------------------------- */
 
 export function ObservationActions({ observation }: { observation: ObservationDetailDTO }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"close" | "reopen" | null>(null);
   const may = observation.capabilities;
@@ -908,41 +919,41 @@ export function ObservationActions({ observation }: { observation: ObservationDe
     <div className="flex flex-wrap items-center gap-2">
       {may.canEdit ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/environment/${observation.id}/edit`}>Edit</Link>
+          <Link href={`/hse/environment/${observation.id}/edit`}>{t("template.detail.edit")}</Link>
         </Button>
       ) : null}
 
       {may.canRaiseAction ? (
         <Button asChild variant="secondary">
           <Link href={`/hse/actions/new?environmentalObservationId=${observation.id}`}>
-            Raise an action
+            {t("actions.raiseAction")}
           </Link>
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button onClick={() => setDialog("close")} disabled={pending}>
-          Close out
+          {t("actions.closeOut")}
         </Button>
       ) : null}
 
       {may.canReopen ? (
         <Button variant="secondary" onClick={() => setDialog("reopen")} disabled={pending}>
-          Reopen
+          {t("actions.reopen")}
         </Button>
       ) : null}
 
       <RejectDialog
         open={dialog === "close"}
         onOpenChange={(open) => setDialog(open ? "close" : null)}
-        title="Close this observation"
-        description="Every action raised against it has to be verified first."
-        label="Closure note"
-        confirmLabel="Close"
-        pendingLabel="Closing…"
-        emptyMessage="Write a closure note."
+        title={t("actions.closeObservationTitle")}
+        description={t("actions.closeObservationDesc")}
+        label={t("record.closureNote")}
+        confirmLabel={t("page.crumbClose")}
+        pendingLabel={t("actions.closing")}
+        emptyMessage={t("actions.writeClosureNote")}
         onReject={(note) =>
-          run(() => closeObservationAction(observation.id, note), "Closed.", () =>
+          run(() => closeObservationAction(observation.id, note), t("actions.closed"), () =>
             setDialog(null),
           )
         }
@@ -951,12 +962,12 @@ export function ObservationActions({ observation }: { observation: ObservationDe
       <RejectDialog
         open={dialog === "reopen"}
         onOpenChange={(open) => setDialog(open ? "reopen" : null)}
-        title="Reopen this observation"
-        label="Reason"
-        confirmLabel="Reopen"
-        pendingLabel="Reopening…"
+        title={t("actions.reopenObservationTitle")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.reopen")}
+        pendingLabel={t("actions.reopening")}
         onReject={(reason) =>
-          run(() => reopenObservationAction(observation.id, reason), "Reopened.", () =>
+          run(() => reopenObservationAction(observation.id, reason), t("actions.reopened"), () =>
             setDialog(null),
           )
         }
@@ -970,6 +981,7 @@ export function ObservationActions({ observation }: { observation: ObservationDe
 /* -------------------------------------------------------------------------- */
 
 export function StopWorkActions({ record }: { record: StopWorkDetailDTO }) {
+  const t = useHseTranslations();
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"release" | "cancel" | null>(null);
   const may = record.capabilities;
@@ -982,39 +994,39 @@ export function StopWorkActions({ record }: { record: StopWorkDetailDTO }) {
     <div className="flex flex-wrap items-center gap-2">
       {may.canRaiseAction ? (
         <Button asChild variant="secondary">
-          <Link href={`/hse/actions/new?stopWorkId=${record.id}`}>Raise an action</Link>
+          <Link href={`/hse/actions/new?stopWorkId=${record.id}`}>{t("actions.raiseAction")}</Link>
         </Button>
       ) : null}
 
       {may.canRelease ? (
         <Button onClick={() => setDialog("release")} disabled={pending}>
-          Release work
+          {t("actions.releaseWork")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" onClick={() => setDialog("cancel")} disabled={pending}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
       ) : null}
 
       {blocked ? (
         <p className="text-meta text-warning-strong">
-          This cannot be released while a critical action against it is unverified.
+          {t("actions.cannotRelease")}
         </p>
       ) : null}
 
       <RejectDialog
         open={dialog === "release"}
         onOpenChange={(open) => setDialog(open ? "release" : null)}
-        title="Release this stop-work"
-        description="People go back to the job. Say what changed."
-        label="Why it is safe to resume"
-        confirmLabel="Release"
-        pendingLabel="Releasing…"
-        emptyMessage="Say why it is safe to resume."
+        title={t("actions.releaseTitle")}
+        description={t("actions.releaseDesc")}
+        label={t("actions.whySafe")}
+        confirmLabel={t("actions.release")}
+        pendingLabel={t("actions.releasing")}
+        emptyMessage={t("labels.stopWorkReleaseGap.RELEASE_REASON")}
         onReject={(reason) =>
-          run(() => releaseStopWorkAction(record.id, reason), "Work released.", () =>
+          run(() => releaseStopWorkAction(record.id, reason), t("actions.workReleased"), () =>
             setDialog(null),
           )
         }
@@ -1023,13 +1035,13 @@ export function StopWorkActions({ record }: { record: StopWorkDetailDTO }) {
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title="Cancel this stop-work"
-        description="For one issued in error. Use release when the job is genuinely safe again."
-        label="Reason"
-        confirmLabel="Cancel stop-work"
-        pendingLabel="Cancelling…"
+        title={t("actions.cancelStopWorkTitle")}
+        description={t("actions.cancelStopWorkDesc")}
+        label={t("actions.reason")}
+        confirmLabel={t("actions.cancelStopWork")}
+        pendingLabel={t("actions.cancelling")}
         onReject={(reason) =>
-          run(() => cancelStopWorkAction(record.id, reason), "Cancelled.", () =>
+          run(() => cancelStopWorkAction(record.id, reason), t("actions.cancelled"), () =>
             setDialog(null),
           )
         }

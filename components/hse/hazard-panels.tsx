@@ -27,6 +27,8 @@ import {
   severityLabels as axisLabels,
 } from "@/lib/modules/hse/hse.risk";
 import type { HazardDetailDTO } from "@/lib/modules/hse/hse.types";
+import { useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * The three hazard panels (PRD #22 §67, §70, §73).
@@ -52,14 +54,14 @@ function Preview({
   severity: string;
   emptyLabel: string;
 }) {
+  const t = useHseTranslations();
   if (!likelihood || !severity) {
     return <span className="text-fg-subtle">{emptyLabel}</span>;
   }
   const score = Number(likelihood) * Number(severity);
   return (
     <span>
-      Score <strong className="text-fg">{score}</strong> ·{" "}
-      <strong className="text-fg">{riskLevelLabels[calculateRiskLevel(score)]}</strong>
+      {t("forms.scoreShort", { score, level: hseLabel(t, "riskLevel", calculateRiskLevel(score), riskLevelLabels[calculateRiskLevel(score)]) })}
     </span>
   );
 }
@@ -79,12 +81,13 @@ function AxisPair({
   optional: boolean;
   label: string;
 }) {
+  const t = useHseTranslations();
   const likelihoodName = optional ? "residualLikelihood" : "likelihood";
   const severityName = optional ? "residualSeverity" : "severity";
 
   return (
     <>
-      <Field label={`${label} — likelihood`} name={likelihoodName} required={!optional}>
+      <Field label={t("forms.likelihoodOf", { label })} name={likelihoodName} required={!optional}>
         <select
           id={`${namePrefix}-likelihood`}
           name={likelihoodName}
@@ -93,16 +96,16 @@ function AxisPair({
           onChange={(event) => onChange({ likelihood: event.target.value })}
           required={!optional}
         >
-          {optional ? <option value="">Not assessed</option> : null}
+          {optional ? <option value="">{t("forms.notAssessed")}</option> : null}
           {AXIS.map((value) => (
             <option key={value} value={value}>
-              {value} — {likelihoodLabels[value]}
+              {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
             </option>
           ))}
         </select>
       </Field>
 
-      <Field label={`${label} — severity`} name={severityName} required={!optional}>
+      <Field label={t("forms.severityOf", { label })} name={severityName} required={!optional}>
         <select
           id={`${namePrefix}-severity`}
           name={severityName}
@@ -111,10 +114,10 @@ function AxisPair({
           onChange={(event) => onChange({ severity: event.target.value })}
           required={!optional}
         >
-          {optional ? <option value="">Not assessed</option> : null}
+          {optional ? <option value="">{t("forms.notAssessed")}</option> : null}
           {AXIS.map((value) => (
             <option key={value} value={value}>
-              {value} — {axisLabels[value]}
+              {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
             </option>
           ))}
         </select>
@@ -124,7 +127,7 @@ function AxisPair({
         <Preview
           likelihood={likelihood}
           severity={severity}
-          emptyLabel={optional ? "Not assessed" : "Pick both."}
+          emptyLabel={optional ? t("forms.notAssessed") : t("forms.pickBothShort")}
         />
       </p>
     </>
@@ -132,6 +135,7 @@ function AxisPair({
 }
 
 export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
+  const t = useHseTranslations();
   const [initial, setInitial] = React.useState({
     likelihood: String(hazard.risk.likelihood),
     severity: String(hazard.risk.severity),
@@ -148,14 +152,14 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
       module="hse"
       action={action}
       cancelHref={`/hse/hazards/${hazard.id}`}
-      submitLabel="Save assessment"
-      pendingLabel="Saving…"
+      submitLabel={t("page.saveAssessment")}
+      pendingLabel={t("page.saving")}
       versionUpdatedAt={hazard.updatedAt}
     >
-      <FormSection title="As it stands" description="Before any further control goes in.">
+      <FormSection title={t("forms.asItStands")} description={t("forms.beforeFurther")}>
         <AxisPair
           namePrefix="initial"
-          label="Risk"
+          label={t("forms.risk")}
           likelihood={initial.likelihood}
           severity={initial.severity}
           onChange={(next) => setInitial((current) => ({ ...current, ...next }))}
@@ -164,10 +168,10 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
       </FormSection>
 
       <FormSection
-        title="Controls"
-        description="What is being done about it. A high or critical hazard needs the residual risk assessed before it can close."
+        title={t("hazard.detail.controls")}
+        description={t("forms.assessControlsIntro")}
       >
-        <Field label="Control measure" name="controlMeasure" className="sm:col-span-2">
+        <Field label={t("forms.controlMeasure")} name="controlMeasure" className="sm:col-span-2">
           <Textarea
             id="controlMeasure"
             name="controlMeasure"
@@ -179,7 +183,7 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
 
         <AxisPair
           namePrefix="residual"
-          label="After controls"
+          label={t("hazard.detail.afterControls")}
           likelihood={residual.likelihood}
           severity={residual.severity}
           onChange={(next) => setResidual((current) => ({ ...current, ...next }))}
@@ -191,6 +195,7 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
 }
 
 export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
+  const t = useHseTranslations();
   const action = controlHazardAction.bind(null, hazard.id);
 
   return (
@@ -198,16 +203,16 @@ export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
       module="hse"
       action={action}
       cancelHref={`/hse/hazards/${hazard.id}`}
-      submitLabel="Record control"
-      pendingLabel="Recording…"
+      submitLabel={t("page.recordControl2")}
+      pendingLabel={t("page.recording")}
       // Recorded on a hazard that exists: an ordinary save, not a create (AUD-03 §3).
       saveKind="save"
     >
       <FormSection
-        title="Control"
-        description="Recording a control moves the hazard to Controlled. It stays live until it is closed — a control in place is not the same as a hazard dealt with."
+        title={t("page.crumbControl")}
+        description={t("forms.controlIntro")}
       >
-        <Field label="Immediate control" name="immediateControl" className="sm:col-span-2">
+        <Field label={t("forms.immediateControl")} name="immediateControl" className="sm:col-span-2">
           <Textarea
             id="immediateControl"
             name="immediateControl"
@@ -217,7 +222,7 @@ export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
           />
         </Field>
 
-        <Field label="Control measure" name="controlMeasure" required className="sm:col-span-2">
+        <Field label={t("forms.controlMeasure")} name="controlMeasure" required className="sm:col-span-2">
           <Textarea
             id="controlMeasure"
             name="controlMeasure"
@@ -241,6 +246,7 @@ export function HazardControlForm({ hazard }: { hazard: HazardDetailDTO }) {
  * explicit outcome, and the refusal kept on screen with the note intact.
  */
 export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
+  const t = useHseTranslations();
   const router = useRouter();
   const frozen = useUnsavedFrozen();
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -258,7 +264,7 @@ export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
     action,
     module: "hse",
     saveKind: "none",
-    workflow: "Close hazard",
+    workflow: t("page.closeHazard"),
   });
   const { pending, saved, fieldErrors } = save;
 
@@ -269,17 +275,17 @@ export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
 
         <fieldset disabled={pending || Boolean(saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-5 border-0 p-0">
           <FormSection
-            title="Closure"
-            description="Say what was done and what risk is left. A closed hazard is read-only until somebody reopens it."
+            title={t("forms.closure")}
+            description={t("forms.closureIntro")}
           >
-            <Field label="Closure note" name="closureNote" required className="sm:col-span-2">
+            <Field label={t("record.closureNote")} name="closureNote" required className="sm:col-span-2">
               <Textarea id="closureNote" name="closureNote" rows={4} required maxLength={2000} />
             </Field>
 
             {needsResidual || hazard.residualRisk ? (
               <AxisPair
                 namePrefix="residual"
-                label="Risk after controls"
+                label={t("forms.riskAfterControls")}
                 likelihood={residual.likelihood}
                 severity={residual.severity}
                 onChange={(next) => setResidual((current) => ({ ...current, ...next }))}
@@ -291,10 +297,10 @@ export function HazardCloseForm({ hazard }: { hazard: HazardDetailDTO }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={pending || frozen || Boolean(saved)}>
-            {pending ? "Closing…" : "Close hazard"}
+            {pending ? t("actions.closing") : t("page.closeHazard")}
           </Button>
           <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
-            Cancel
+            {t("actions.cancel")}
           </Button>
           <UnsavedIndicator save={save} />
         </div>
