@@ -110,7 +110,7 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
           <div className="flex flex-wrap items-end gap-3">
             <label className="grid gap-1.5 text-table font-medium text-fg">
               Media type
-              <select value={uploadType} onChange={(event) => setUploadType(event.target.value as "RENDER" | "ANIMATION")} className="h-9 rounded-md border border-line bg-surface px-3 text-body">
+              <select value={uploadType} onChange={(event) => setUploadType(event.target.value as "RENDER" | "ANIMATION")} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11">
                 <option value="RENDER">Render</option>
                 <option value="ANIMATION">Animation</option>
               </select>
@@ -254,8 +254,8 @@ function EditMediaForm({ item, renders, pending, onSave, onClose }: { item: Proj
         <label className="grid gap-1.5 text-table font-medium text-fg">Description<textarea value={description} maxLength={2000} rows={3} onChange={(event) => setDescription(event.target.value)} className="rounded-md border border-line bg-surface px-3 py-2 text-body" /></label>
         {item.type === "ANIMATION" ? (
           <>
-            <label className="grid gap-1.5 text-table font-medium text-fg">Duration in seconds<Input type="number" min={1} max={86400} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-            <label className="grid gap-1.5 text-table font-medium text-fg">Poster image<select value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body"><option value="">No poster</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</select></label>
+            <label className="grid gap-1.5 text-table font-medium text-fg">Duration in seconds<Input type="number" inputMode="numeric" min={1} max={86400} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
+            <label className="grid gap-1.5 text-table font-medium text-fg">Poster image<select value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11"><option value="">No poster</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</select></label>
           </>
         ) : null}
         <label className="flex items-center gap-2 text-table text-fg"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /> Featured on the Project page</label>

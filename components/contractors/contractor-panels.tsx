@@ -68,14 +68,15 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
               </div>
               <div className="mt-3 space-y-1 text-table">
                 {contact.email ? (
-                  <a href={`mailto:${contact.email}`} className="flex items-center gap-2 text-fg underline-offset-4 hover:underline">
-                    <Mail aria-hidden="true" className="size-3.5 text-fg-subtle" />
-                    {contact.email}
+                  // A long address breaks inside the card at 320px; 44px to tap (AUD-04 §3, D-09-13, MW-01).
+                  <a href={`mailto:${contact.email}`} className="flex items-center gap-2 text-fg underline-offset-4 hover:underline touch:min-h-11">
+                    <Mail aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{contact.email}</span>
                   </a>
                 ) : null}
                 {contact.phone ? (
-                  <a href={`tel:${contact.phone}`} className="flex items-center gap-2 text-fg">
-                    <Phone aria-hidden="true" className="size-3.5 text-fg-subtle" />
+                  <a href={`tel:${contact.phone}`} className="flex items-center gap-2 text-fg touch:min-h-11">
+                    <Phone aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />
                     {contact.phone}
                   </a>
                 ) : null}
@@ -171,6 +172,27 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
     }
   }
 
+  /** One requirement's actions, the same on the phone card and in the table row. */
+  const complianceActions = (item: ComplianceItemDTO) => (
+    <div className="flex flex-wrap justify-end gap-1">
+      {item.canManage ? (
+        <Button type="button" size="sm" variant="ghost" onClick={() => void open(item)} data-testid="edit-compliance">
+          {item.status === "EXPIRED" || item.status === "EXPIRING" || item.status === "MISSING" ? "Renew" : "Edit"}
+        </Button>
+      ) : null}
+      {item.canWaive && item.status !== "VALID" ? (
+        <Button type="button" size="sm" variant="ghost" onClick={() => setWaiving(item)} data-testid="waive-compliance">
+          Waive
+        </Button>
+      ) : null}
+      {item.canManage ? (
+        <Button type="button" size="sm" variant="ghost" onClick={() => void archive(item)}>
+          Archive
+        </Button>
+      ) : null}
+    </div>
+  );
+
   return (
     <section className="space-y-4" data-testid="compliance-panel">
       {contractorId ? (
@@ -190,7 +212,39 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
       {items.length === 0 ? (
         <p className="rounded-md border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">No compliance items recorded.</p>
       ) : (
-        <Table>
+        <>
+        {/*
+          * A card per requirement on a phone, with Renew / Waive / Archive on
+          * the card instead of past the right edge of the table (AUD-04 §5, D-09-12, MW-05).
+          */}
+        <ul className="space-y-2 md:hidden" aria-label="Compliance">
+          {items.map((item) => (
+            <li key={item.id} className={cn("space-y-1.5 rounded-lg border border-line bg-surface p-4", highlight === item.id && "bg-accent-soft/40", item.archived && "opacity-60")} data-testid="compliance-card" data-status={item.status}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 font-medium text-fg [overflow-wrap:anywhere]">{item.title}</p>
+                <ReviewBadge status={item.status} label={COMPLIANCE_STATUS_LABELS[item.status]} />
+              </div>
+              <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
+                {[showContractor ? item.contractor.label : null, COMPLIANCE_TYPE_LABELS[item.type], item.issuer, item.referenceNumber].filter(Boolean).join(" · ")}
+              </p>
+              {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">Waived: {item.waivedReason}</p> : null}
+              <p className={cn("text-table tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item)}</p>
+              {item.document ? (
+                <Link href={item.document.href} className="inline-flex items-center text-table text-fg underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">
+                  {item.document.name}
+                </Link>
+              ) : null}
+              {showContractor ? (
+                <Link href={item.contractor.href} className="inline-flex items-center text-table text-accent-strong hover:underline touch:min-h-11">
+                  Open contractor
+                </Link>
+              ) : null}
+              {complianceActions(item)}
+            </li>
+          ))}
+        </ul>
+        <div className="hidden md:block">
+        <Table label="Compliance">
           <TableHead>
             <TableRow>
               <TableHeaderCell scope="col">Requirement</TableHeaderCell>
@@ -233,29 +287,13 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
                     <span className="text-fg-subtle">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    {item.canManage ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => void open(item)} data-testid="edit-compliance">
-                        {item.status === "EXPIRED" || item.status === "EXPIRING" || item.status === "MISSING" ? "Renew" : "Edit"}
-                      </Button>
-                    ) : null}
-                    {item.canWaive && item.status !== "VALID" ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setWaiving(item)} data-testid="waive-compliance">
-                        Waive
-                      </Button>
-                    ) : null}
-                    {item.canManage ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => void archive(item)}>
-                        Archive
-                      </Button>
-                    ) : null}
-                  </div>
-                </TableCell>
+                <TableCell className="text-right">{complianceActions(item)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </div>
+        </>
       )}
 
       {editing && loaded ? (

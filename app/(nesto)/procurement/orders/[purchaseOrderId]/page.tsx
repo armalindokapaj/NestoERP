@@ -10,6 +10,7 @@ import { ProcurementApprovalHistory } from "@/components/procurement/approval-hi
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/procurement/approvals/approval.service";
@@ -119,7 +120,7 @@ export default async function OrderDetailPage({ params }: Params) {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <ScrollRegion label="Order lines and what has arrived" className="hidden md:block">
               <table className="w-full text-table">
                 <caption className="sr-only">Order lines and what has arrived</caption>
                 <thead>
@@ -177,7 +178,40 @@ export default async function OrderDetailPage({ params }: Params) {
                   </tr>
                 </tfoot>
               </table>
-            </div>
+            </ScrollRegion>
+            {/*
+              Phones read each line as quantity × price = total, with the totals
+              under the list, instead of scrolling a five-column table sideways to
+              reach the money (AUD-04 §5, MW-05).
+            */}
+            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label="Order lines and what has arrived" data-testid="order-line-cards">
+              {order.items.map((item) => (
+                <li key={item.id} className="space-y-1 px-5 py-3 text-table">
+                  <p className="break-words text-fg">{item.description}</p>
+                  <p className="tabular-nums text-fg-muted">
+                    {item.quantity} {item.unit} × {money(item.unitPrice)} = <span className="font-medium text-fg">{money(item.totalAmount)}</span>
+                  </p>
+                  <p className="text-meta text-fg-subtle">
+                    Received{" "}
+                    <span className={Number(item.outstandingQuantity) > 0 ? "tabular-nums text-warning-strong" : "tabular-nums text-fg"}>{item.receivedQuantity}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <dl className="space-y-1 border-t border-line px-5 py-3 text-table md:hidden">
+              <div className="flex justify-between gap-3">
+                <dt className="text-fg-muted">Subtotal</dt>
+                <dd className="tabular-nums text-fg">{money(order.subtotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-fg-muted">Tax</dt>
+                <dd className="tabular-nums text-fg">{money(order.taxAmount)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="font-medium text-fg">Total</dt>
+                <dd className="font-semibold tabular-nums text-fg">{money(order.totalAmount)}</dd>
+              </div>
+            </dl>
           </section>
 
           {order.notes ? (

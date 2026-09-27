@@ -152,6 +152,7 @@ export function NumberingSchemeForm({
             id={`${id}-padding`}
             name="padding"
             type="number"
+            inputMode="numeric"
             min={3}
             max={10}
             value={padding}

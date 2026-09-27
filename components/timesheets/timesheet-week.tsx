@@ -3,9 +3,10 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, Pencil, Plus, Send, Stamp } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, MoreHorizontal, Pencil, Plus, Send, Stamp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -32,22 +33,12 @@ import { SummaryFigure, TimesheetStatusBadge, TimesheetWarnings } from "./timesh
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = React.useState(false);
-  React.useEffect(() => {
-    const media = window.matchMedia(query);
-    const update = () => setMatches(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [query]);
-  return matches;
-}
-
 export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { initial: TimesheetWeekDTO; options: TimesheetFormOptions; basePath?: string }) {
   const router = useRouter();
   const toast = useToast();
-  const desktop = useMediaQuery("(min-width: 1024px)");
+  // The shared breakpoint hook (AUD-04 §3, SP-15): it only picks the drawer's
+  // side, which matters once somebody opens it, long after hydration.
+  const desktop = useIsBelow("lg") === false;
   const [week, setWeek] = React.useState(initial);
   const [templates, setTemplates] = React.useState<RowTemplate[]>([]);
   const [cellState, setCellState] = React.useState<Record<string, "saving" | "error">>({});
@@ -367,11 +358,29 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
             </p>
           </div>
           <span className="flex-1" />
+          {/*
+            * Copy last week is reachable below lg too, not only in the desktop
+            * header (AUD-04 §6, D-07-01, MW-08). Only "rows and hours" here:
+            * "rows only" adds empty grid rows, which the day cards do not draw.
+            */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="secondary" size="icon" aria-label="More week actions">
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top">
+              <DropdownMenuItem onSelect={() => void copyLastWeek(true)}>
+                <Copy aria-hidden="true" className="size-4" />
+                Copy last week (rows and hours)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button type="button" variant="secondary" size="icon" onClick={() => setDraft({})} aria-label="Log time">
             <Plus />
           </Button>
           {week.capabilities.canSubmit ? (
-            <Button type="button" onClick={() => void submit(false)} disabled={submitting || !week.id || week.logs.length === 0}>
+            <Button type="button" onClick={() => void submit(false)} disabled={submitting || !week.id || week.logs.length === 0 || pendingSaves}>
               <Send aria-hidden="true" />
               Submit
             </Button>

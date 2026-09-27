@@ -7,6 +7,7 @@ import { ArrowRight, CalendarClock, ChevronDown, PenLine } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -446,7 +447,9 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
         </form>
       ) : (
         <div className="mt-4 space-y-4">
-          <table className="w-full text-table" aria-label="Before and after">
+          {/* Values wrap inside the dialog at 320px; a very long one pans in its own region (AUD-04 §6, D-07-09, MW-10). */}
+          <ScrollRegion label="Before and after">
+          <table className="w-full text-table [overflow-wrap:anywhere]" aria-label="Before and after">
             <thead>
               <tr className="text-left text-meta text-fg-subtle">
                 <th className="pb-2 font-medium">&nbsp;</th>
@@ -472,6 +475,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
               ))}
             </tbody>
           </table>
+          </ScrollRegion>
           <TimingNote timing={timing} effective={effective} />
           {highImpact ? (
             <label className="flex items-start gap-2 text-body text-fg">

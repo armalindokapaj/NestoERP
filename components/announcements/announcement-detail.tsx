@@ -194,7 +194,8 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
 
         {/* On a phone the one thing it asks for stays within reach (§201). */}
         {awaitingAck && caps.canAcknowledge ? (
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:hidden" data-testid="announcement-sticky-ack">
+          // Clear of the home indicator; marked so focus and toasts keep clear of it (AUD-04 §6, D-08-22, MW-19).
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="announcement-sticky-ack" data-sticky-action-bar>
             <Button type="button" className="w-full" disabled={pending === "ack"} onClick={() => void act("ack", () => announcementApi(`${base}/acknowledge`, { body: {} }), "Acknowledged")}>
               I have read this
             </Button>

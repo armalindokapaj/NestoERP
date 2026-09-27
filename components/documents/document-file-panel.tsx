@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, FileWarning, Loader2, ShieldAlert } from "lucide-react";
+import { Download, ExternalLink, FileWarning, Loader2, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,10 +92,21 @@ function DownloadButton({ documentId }: { documentId: string }) {
  * sandbox and `nosniff` come from the storage response itself, so a file that
  * somehow reached here as something else still cannot run (PRD #29 §107,
  * §200).
+ *
+ * What is drawn is only ever something the browser can really show (AUD-04
+ * §5, §8, D-09-01, MW-17), as in the Approvals Center preview. An image is an
+ * `<img>` whose failure is noticed. A PDF is embedded only where the browser
+ * reports an inline PDF viewer and the pointer is fine; phone browsers draw
+ * nothing (Android) or one page (iOS) inside an `<object>` and report
+ * neither, so there the reader gets an explicit "Open in a new tab" (the
+ * preview grant itself) beside the Download button above, never a blank box
+ * that looks loaded. The frame is capped to the viewport's height, so a
+ * landscape phone can still reach what is under it.
  */
 function PreviewFrame({ documentId, name }: { documentId: string; name: string }) {
-  const [grant, setGrant] = React.useState<{ url: string; mimeType: string } | null>(null);
+  const [grant, setGrant] = React.useState<{ url: string; mimeType: string; kind?: "pdf" | "image" } | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -127,24 +138,64 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
 
   if (!grant) {
     return (
-      <div className="flex h-[28rem] items-center justify-center rounded-md border border-line bg-surface-muted">
+      <div className="flex h-[min(28rem,70dvh)] items-center justify-center rounded-md border border-line bg-surface-muted">
         <p className="text-table text-fg-muted">Preparing preview…</p>
       </div>
     );
   }
 
+  const kind = grant.kind ?? (grant.mimeType === "application/pdf" ? "pdf" : grant.mimeType.startsWith("image/") ? "image" : null);
+  // Read only once a grant has arrived, so never during server rendering.
+  const inlinePdf = typeof navigator !== "undefined" && navigator.pdfViewerEnabled === true && window.matchMedia("(pointer: fine)").matches;
+  const open = (
+    <Button asChild variant="secondary" size="sm">
+      <a href={grant.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${name} in a new tab`}>
+        <ExternalLink aria-hidden="true" />
+        Open in a new tab
+      </a>
+    </Button>
+  );
+
+  if (kind === "image" && !imageFailed) {
+    return (
+      <div className="space-y-2">
+        <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
+          {/* A short-lived grant URL: next/image would cache and re-request it. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={grant.url} alt={`Preview of ${name}`} className="mx-auto max-h-[min(28rem,70dvh)] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="document-preview" />
+        </div>
+        {open}
+      </div>
+    );
+  }
+
+  if (kind !== "image" && (kind !== "pdf" || inlinePdf)) {
+    return (
+      <div className="space-y-2">
+        <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
+          <object
+            data={grant.url}
+            type={grant.mimeType}
+            aria-label={`Preview of ${name}`}
+            className="h-[min(28rem,70dvh)] w-full"
+            data-testid="document-preview"
+          >
+            <p className="p-4 text-table text-fg-muted">
+              This file cannot be previewed here. Open it in a new tab or download it instead.
+            </p>
+          </object>
+        </div>
+        {open}
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
-      <object
-        data={grant.url}
-        type={grant.mimeType}
-        aria-label={`Preview of ${name}`}
-        className="h-[28rem] w-full"
-      >
-        <p className="p-4 text-table text-fg-muted">
-          This file cannot be previewed here. Download it instead.
-        </p>
-      </object>
+    <div className="space-y-2 rounded-md border border-line bg-surface-muted px-4 py-3" data-testid="document-preview-fallback">
+      <p className="text-table text-fg-muted">
+        {kind === "image" ? "This image could not be shown here." : "This browser cannot show PDF files inside the page."} Open it in a new tab or download it to read it.
+      </p>
+      {open}
     </div>
   );
 }

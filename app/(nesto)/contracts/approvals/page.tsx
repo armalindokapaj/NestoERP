@@ -90,8 +90,8 @@ function FilterLink({ href, label, active }: { href: string; label: string; acti
       aria-current={active ? "page" : undefined}
       className={
         active
-          ? "rounded-md bg-surface-2 px-3 py-1.5 text-table font-medium text-fg"
-          : "rounded-md px-3 py-1.5 text-table text-fg-muted transition-colors hover:text-fg"
+          ? "inline-flex items-center rounded-md bg-surface-2 px-3 py-1.5 text-table font-medium text-fg touch:min-h-11"
+          : "inline-flex items-center rounded-md px-3 py-1.5 text-table text-fg-muted transition-colors hover:text-fg touch:min-h-11"
       }
     >
       {label}

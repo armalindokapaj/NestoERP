@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { dayLabel, formatMinutes, parseDuration } from "@/lib/modules/timesheets/timesheet.time";
 import { WORK_LOG_TYPE_LABELS, WORK_LOG_TYPES, type TimesheetFormOptions, type TimesheetRowDTO, type TimesheetWeekDTO, type WorkLogType } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
@@ -162,12 +163,18 @@ export function TimesheetGrid({
 }) {
   return (
     <div className="nesto-card overflow-hidden" data-testid="timesheet-grid">
-      <div className="overflow-x-auto">
+      {/*
+        * The week pans inside a labelled region on a narrow screen (the review
+        * page draws the grid at every width), and the Project / task column
+        * stays pinned so each day's figure keeps its row label
+        * (AUD-04 §5, D-07-02, D-07-15, MW-05).
+        */}
+      <ScrollRegion label="Time by project and day">
         <table className="w-full min-w-[860px] border-collapse text-table">
           <caption className="sr-only">Time logged for {week.member.name}, by project and day</caption>
           <thead>
             <tr className="border-b border-line bg-surface-muted/60">
-              <th scope="col" className="w-[28%] px-4 py-2.5 text-left text-meta font-medium text-fg-muted">
+              <th scope="col" className="sticky left-0 z-[1] w-36 bg-surface-muted px-4 py-2.5 text-left text-meta font-medium text-fg-muted lg:w-[28%]">
                 Project / task
               </th>
               {week.days.map((day) => {
@@ -202,7 +209,7 @@ export function TimesheetGrid({
                 const label = rowLabel(row);
                 return (
                   <tr key={row.key} className="group hover:bg-row-hover" data-testid="timesheet-row">
-                    <th scope="row" className="px-4 py-2 text-left font-normal">
+                    <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-2 text-left font-normal group-hover:bg-row-hover">
                       <span className="flex items-center gap-2">
                         <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", row.billableMinutes > 0 ? "bg-accent" : "bg-line-strong")} title={row.billableMinutes > 0 ? "Billable" : "Not billable"} />
                         <span className="min-w-0">
@@ -210,7 +217,7 @@ export function TimesheetGrid({
                           {label.secondary ? <span className="block truncate text-meta text-fg-muted">{label.secondary}</span> : null}
                         </span>
                         {row.template && editable ? (
-                          <button type="button" onClick={() => onRemoveTemplate(row.key)} className="ml-auto rounded p-1 text-fg-subtle opacity-0 hover:bg-hover hover:text-fg group-hover:opacity-100 focus:opacity-100" aria-label={`Remove the empty row ${label.primary}`}>
+                          <button type="button" onClick={() => onRemoveTemplate(row.key)} className="ml-auto rounded p-1 text-fg-subtle opacity-0 hover:bg-hover hover:text-fg group-hover:opacity-100 focus:opacity-100 touch:grid touch:size-11 touch:shrink-0 touch:place-items-center touch:p-0 touch:opacity-100" aria-label={`Remove the empty row ${label.primary}`}>
                             <X className="size-3.5" />
                           </button>
                         ) : null}
@@ -249,7 +256,7 @@ export function TimesheetGrid({
           </tbody>
           <tfoot>
             <tr className="border-t border-line-strong bg-surface-muted/40">
-              <th scope="row" className="px-4 py-2.5 text-left text-meta font-medium text-fg-muted">
+              <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-2.5 text-left text-meta font-medium text-fg-muted">
                 Daily total
               </th>
               {week.days.map((day) => (
@@ -264,7 +271,7 @@ export function TimesheetGrid({
             {week.days.some((day) => day.attendanceMinutes) ? (
               // Attendance beside the time, for comparison only — it never becomes an entry (§98, §99).
               <tr className="bg-surface-muted/40">
-                <th scope="row" className="px-4 pb-2.5 text-left text-meta font-normal text-fg-subtle">
+                <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 pb-2.5 text-left text-meta font-normal text-fg-subtle">
                   Attendance
                 </th>
                 {week.days.map((day) => (
@@ -277,7 +284,7 @@ export function TimesheetGrid({
             ) : null}
           </tfoot>
         </table>
-      </div>
+      </ScrollRegion>
       {editable ? <AddRow options={options} recent={options.recent} existing={new Set(rows.map((row) => row.key))} onAdd={onAddRow} /> : null}
     </div>
   );

@@ -93,7 +93,7 @@ export function ProcurementApprovalQueue({
                 ) : null}
               </div>
 
-              <p className="truncate text-table text-fg">{approval.recordTitle}</p>
+              <p className="text-table text-fg max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate">{approval.recordTitle}</p>
 
               <p className="text-meta text-fg-subtle">
                 {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "Somebody"} · submitted{" "}

@@ -57,7 +57,7 @@ function ConflictBadge({ conflict }: { conflict: BatchConflict | undefined }) {
 export function BulkFloorsDialog({ open, onOpenChange, buildings, initialBuildingId, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; buildings: BuildingNodeDTO[]; initialBuildingId: string; onCreated: (buildingId: string) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <BulkFloorsBody buildings={buildings} initialBuildingId={initialBuildingId} onCreated={onCreated} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
@@ -218,7 +218,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
 export function BulkUnitsDialog({ open, onOpenChange, floor, buildingName, types, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; floor: FloorNodeDTO; buildingName: string; types: UnitTypeOption[]; onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <BulkUnitsBody floor={floor} buildingName={buildingName} types={types} onCreated={onCreated} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
@@ -398,7 +398,7 @@ type CopyRow = { sourceUnitId: string; sourceCode: string; typeName: string; inc
 export function CopyFloorDialog({ open, onOpenChange, projectId, floor, buildings, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; floor: FloorNodeDTO; buildings: BuildingNodeDTO[]; onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <CopyFloorBody projectId={projectId} floor={floor} buildings={buildings} onCreated={onCreated} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>

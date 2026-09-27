@@ -4,6 +4,8 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, ListTree, Lock, MoreHorizontal, Network, Plus, Search, SlidersHorizontal, Unlock } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { ScrollRegion } from "@/components/ui/scroll-region";
+import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -50,18 +52,6 @@ const QUICK: Array<{ key: Quick; label: string }> = [
   { key: "completed", label: "Completed" },
 ];
 
-function useBreakpoint(query: string) {
-  const [matches, setMatches] = React.useState(false);
-  React.useEffect(() => {
-    const media = window.matchMedia(query);
-    const update = () => setMatches(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [query]);
-  return matches;
-}
-
 function matchesQuick(milestone: MilestoneSummaryDTO, quick: Quick, today: string) {
   const closed = milestone.status === "COMPLETED" || milestone.status === "CANCELLED";
   switch (quick) {
@@ -89,8 +79,12 @@ function writeUrl(params: Record<string, string | null>) {
 
 export function PlanningShell({ initial, initialView, initialMilestone, initialQuick }: { initial: ProjectPlanningOverviewDTO; initialView: View | null; initialMilestone: string | null; initialQuick: Quick | null }) {
   const toast = useToast();
-  const mobile = useBreakpoint("(max-width: 767px)");
-  const wide = useBreakpoint("(min-width: 768px)");
+  // One shared breakpoint store (AUD-04 §4, SP-15); false until hydrated, as before.
+  const below = useIsBelow("md");
+  const mobile = below === true;
+  const wide = below === false;
+  // Milestone cards run up to lg: a portrait tablet reads cards, not a 960px table (AUD-04 §5, MW-05).
+  const cards = useIsBelow("lg") === true;
   const [plan, setPlan] = React.useState(initial);
   const [view, setView] = React.useState<View>(initialView ?? "overview");
   const [drawer, setDrawer] = React.useState<{ id: string | null; panel: DrawerPanel }>({ id: initialMilestone, panel: null });
@@ -321,14 +315,14 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       ) : (
         <>
           {/* View tabs */}
-          <nav aria-label="Planning views" className="flex items-center gap-1 overflow-x-auto border-b border-line">
+          <nav aria-label="Planning views" className="flex items-center gap-1 overflow-x-auto overscroll-x-contain border-b border-line">
             {VIEWS.filter((entry) => entry.key !== "timeline" || wide).map((entry) => (
               <button
                 key={entry.key}
                 type="button"
                 onClick={() => chooseView(entry.key)}
                 aria-current={view === entry.key ? "page" : undefined}
-                className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-table font-medium transition-colors", view === entry.key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}
+                className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-table font-medium transition-colors touch:min-h-11", view === entry.key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}
                 data-testid={`planning-view-${entry.key}`}
               >
                 <entry.icon aria-hidden="true" className="size-4" />
@@ -348,7 +342,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 </label>
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick filters">
                   {QUICK.map((entry) => (
-                    <button key={entry.key} type="button" aria-pressed={quick === entry.key} onClick={() => { const next = quick === entry.key ? null : entry.key; setQuick(next); writeUrl({ filter: next }); }} className={cn("rounded-full border px-3 py-1 text-table transition-colors", quick === entry.key ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}>
+                    <button key={entry.key} type="button" aria-pressed={quick === entry.key} onClick={() => { const next = quick === entry.key ? null : entry.key; setQuick(next); writeUrl({ filter: next }); }} className={cn("rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", quick === entry.key ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}>
                       {entry.label}
                     </button>
                   ))}
@@ -573,13 +567,13 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             </>
           ) : null}
 
-          {view === "milestones" ? <MilestoneList phases={plan.phases} milestones={filtered} sort={sort} mobile={mobile} capabilities={caps} filtered={filtering} onOpen={open} onOpenPhase={setPhaseOpen} /> : null}
+          {view === "milestones" ? <MilestoneList phases={plan.phases} milestones={filtered} sort={sort} mobile={cards} capabilities={caps} filtered={filtering} onOpen={open} onOpenPhase={setPhaseOpen} /> : null}
 
           {view === "dependencies" ? (
             /* Dependencies (§268) */
             <section className="nesto-card overflow-hidden" data-testid="dependency-table">
               {plan.dependencies.length ? (
-                <div className="overflow-x-auto">
+                <ScrollRegion label="Milestone dependencies">
                   <table className="w-full min-w-[640px] text-left">
                     <caption className="sr-only">Milestone dependencies</caption>
                     <thead>
@@ -621,7 +615,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                         })}
                     </tbody>
                   </table>
-                </div>
+                </ScrollRegion>
               ) : (
                 <p className="px-4 py-8 text-center text-table text-fg-subtle">No dependencies. Open a milestone and add what it depends on.</p>
               )}

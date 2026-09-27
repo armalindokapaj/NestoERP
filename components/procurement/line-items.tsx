@@ -4,7 +4,7 @@ import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
-import { CellError, DecimalCell, useLineRows, useRowErrors } from "@/components/finance/line-rows";
+import { CellError, DecimalCell, RemovedLineNotice, useLineRows, useRowErrors } from "@/components/finance/line-rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,7 +77,7 @@ export function LineItemsEditor({
 }) {
   const instance = React.useId();
   const empty = React.useCallback((): LineValue => ({ ...EMPTY }), []);
-  const { rows, add, remove, update, atLimit } = useLineRows(initial ?? [], empty, { max: MAX_LINE_ITEMS });
+  const { rows, add, remove, update, atLimit, removed, undo, dismissRemoved } = useLineRows(initial ?? [], empty, { max: MAX_LINE_ITEMS });
   const errors = useRowErrors(
     "items",
     rows.map((row) => row.rowId),
@@ -240,6 +240,9 @@ export function LineItemsEditor({
           );
         })}
       </div>
+
+      {/* A mis-tapped remove on a phone is announced and can be undone, as on finance lines (AUD-04 §6, MW-08). */}
+      <RemovedLineNotice removed={removed} label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>

@@ -5,6 +5,7 @@ import * as React from "react";
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import { instantFromLocal, localDate, localMinutes } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { cn } from "@/lib/utils/cn";
 import { eventsByDay, minutesFromTime, placeTimedEvents, visibleDays } from "./calendar-model";
 import { categoryStyle, EventCard } from "./event-card";
@@ -58,6 +59,7 @@ export function TimeGridView({
   const days = visibleDays(view, date, zone);
   const byDay = React.useMemo(() => eventsByDay(events, days, zone), [events, days, zone]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const lastPointer = React.useRef<string>("mouse");
   const [drag, setDrag] = React.useState<DragState | null>(null);
   const [now, setNow] = React.useState(() => new Date());
   const workStart = minutesFromTime(workingHours.start);
@@ -133,8 +135,25 @@ export function TimeGridView({
 
   const nowMinutes = localMinutes(now, zone);
 
+  const createAt = (day: string, click: React.MouseEvent<HTMLElement>) => {
+    if (!onCreate) return;
+    const rect = click.currentTarget.getBoundingClientRect();
+    const minutes = Math.floor((click.clientY - rect.top) / MINUTE / 30) * 30;
+    onCreate(day, `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`);
+  };
+
+  /*
+   * A week on a phone keeps readable days: each day is at least 4.75rem and the
+   * whole grid — headers, all-day row and hours together — pans sideways inside
+   * a labelled region, while the hours still scroll vertically inside it
+   * (AUD-04 §8, D-08-15, MW-17). From md, and for Day, the columns share the
+   * width as before.
+   */
+  const phoneWeek = days.length > 1 ? "min-w-[calc(56px+7*4.75rem)] md:min-w-0" : "";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col" onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}>
+    <ScrollRegion label={days.length > 1 ? "Week" : "Day"} className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex min-h-0 flex-1 flex-col", phoneWeek)} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}>
       {/* Day headers and the all-day row stay put while hours scroll. */}
       <div className="grid border-b border-line" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }}>
         <div />
@@ -142,7 +161,7 @@ export function TimeGridView({
           const noon = instantFromLocal(day, "12:00", zone);
           const isToday = day === today;
           return (
-            <div key={day} className="flex items-baseline gap-1.5 border-l border-line px-2 py-2">
+            <div key={day} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 border-l border-line px-2 py-2">
               <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-fg-subtle">
                 {new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "short" }).format(noon)}
               </span>
@@ -195,11 +214,14 @@ export function TimeGridView({
                 key={day}
                 data-day-column={day}
                 className={cn("relative border-l border-line", day === today && "bg-accent-soft/20", !working && "bg-surface-muted/50")}
-                onDoubleClick={(click) => {
-                  if (!onCreate) return;
-                  const rect = (click.currentTarget as HTMLElement).getBoundingClientRect();
-                  const minutes = Math.floor((click.clientY - rect.top) / MINUTE / 30) * 30;
-                  onCreate(day, `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`);
+                onPointerDown={(pointer) => {
+                  lastPointer.current = pointer.pointerType;
+                }}
+                onDoubleClick={(click) => createAt(day, click)}
+                onClick={(click) => {
+                  // A finger has no double-click: a tap on an empty slot creates there
+                  // (AUD-04 §8, D-08-16, MW-19). A mouse keeps double-click.
+                  if (lastPointer.current === "touch" && click.target === click.currentTarget) createAt(day, click);
                 }}
               >
                 {/* Hour and half-hour rules, and the hours outside the working day. */}
@@ -240,7 +262,8 @@ export function TimeGridView({
                       {event.resizable ? (
                         <span
                           aria-hidden="true"
-                          className="absolute inset-x-2 bottom-0 h-2 cursor-ns-resize rounded-full opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100"
+                          // Visible on touch, and it takes the drag instead of scrolling (AUD-04 §8, D-08-16).
+                          className="absolute inset-x-2 bottom-0 h-2 cursor-ns-resize touch-none rounded-full opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100 touch:h-3 touch:bg-fg-subtle/40 touch:opacity-100"
                           onPointerDown={(pointer) => beginDrag(pointer, event, day, "resize")}
                         />
                       ) : null}
@@ -279,5 +302,6 @@ export function TimeGridView({
         {drag?.moved ? `Moving ${drag.event.title}` : ""}
       </p>
     </div>
+    </ScrollRegion>
   );
 }

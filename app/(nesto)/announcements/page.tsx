@@ -71,7 +71,7 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
 
       <nav aria-label="Announcement views" className="flex items-center gap-1 overflow-x-auto border-b border-line">
         {tabs.map((key) => (
-          <Link key={key} href={`/announcements${key === "for_me" ? "" : `?tab=${key}`}`} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-table font-medium transition-colors", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")} data-testid={`announcement-tab-${key}`}>
+          <Link key={key} href={`/announcements${key === "for_me" ? "" : `?tab=${key}`}`} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 touch:min-h-11 text-table font-medium transition-colors", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")} data-testid={`announcement-tab-${key}`}>
             {FEED_TAB_LABELS[key]}
             {count(key) ? <span className="rounded-full bg-accent-soft px-1.5 text-micro font-semibold tabular-nums text-accent-strong">{count(key)}</span> : null}
           </Link>

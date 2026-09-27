@@ -302,7 +302,7 @@ export function EventFormDrawer({
 
   return (
     <Drawer open={open} locked={pending} onOpenChange={onOpenChange}>
-      <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", !phone && "sm:max-w-[480px]")} aria-describedby="event-form-description">
+      <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", phone === false && "sm:max-w-[480px]")} aria-describedby="event-form-description">
         {/* Inside the drawer, so its values belong to its guarded close (AUD-03 §5). */}
         <DrawerEditor
           label={mode.kind === "edit" ? "Edit event" : "New event"}
@@ -321,7 +321,7 @@ export function EventFormDrawer({
               </DrawerDescription>
             </div>
             <DrawerClose asChild>
-              <button type="button" aria-label="Close" className="rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg">
+              <button type="button" aria-label="Close" className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
                 <X aria-hidden="true" className="size-4" />
               </button>
             </DrawerClose>

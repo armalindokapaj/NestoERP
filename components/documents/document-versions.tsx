@@ -258,7 +258,8 @@ function VersionRow({
             {version.current ? <Badge tone="neutral">Current</Badge> : null}
             {reviewable ? <Badge tone={state.tone}>{state.label}</Badge> : null}
           </p>
-          <p className="mt-1 truncate text-table text-fg-muted">
+          {/* The whole file name, broken where it must: similar names stay tellable apart on a phone (AUD-04 §5, D-09-03, MW-05). */}
+          <p className="mt-1 text-table text-fg-muted [overflow-wrap:anywhere]">
             {version.fileName ?? "Unnamed file"} · {formatFileSize(version.sizeBytes)}
           </p>
           <p className="text-meta text-fg-subtle">
@@ -640,7 +641,8 @@ function RequestReviewForm({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line">
+        {/* No nested scroller on a short landscape screen: the dialog scrolls once (AUD-04 §6, D-09-04, MW-10). */}
+        <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line [@media(max-height:480px)]:max-h-none">
           {reviewers === null ? (
             <p className="px-3 py-2 text-table text-fg-subtle">Loading…</p>
           ) : reviewers.length === 0 ? (
@@ -649,7 +651,7 @@ function RequestReviewForm({
             reviewers.map((reviewer) => (
               <label
                 key={reviewer.memberId}
-                className="flex cursor-pointer items-center gap-3 px-3 py-2 text-table hover:bg-hover has-[:checked]:bg-hover"
+                className="flex cursor-pointer flex-wrap items-center gap-x-3 px-3 py-2 text-table hover:bg-hover has-[:checked]:bg-hover touch:min-h-11"
               >
                 <input
                   type="radio"

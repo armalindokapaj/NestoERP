@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, ChevronDown, Flag, Link2, MoreHorizontal } from "lucide-react";
 
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -166,7 +167,7 @@ function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (i
 
 function Table({ milestones, onOpen, caption }: { milestones: MilestoneSummaryDTO[]; onOpen: (id: string) => void; caption: string }) {
   return (
-    <div className="overflow-x-auto">
+    <ScrollRegion label={caption}>
       <table className="w-full min-w-[960px] table-fixed text-left">
         <caption className="sr-only">{caption}</caption>
         {/* One set of column widths, so every phase's table lines up with the next. */}
@@ -200,7 +201,7 @@ function Table({ milestones, onOpen, caption }: { milestones: MilestoneSummaryDT
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }
 

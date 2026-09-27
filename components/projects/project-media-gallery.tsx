@@ -78,9 +78,9 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
           <DialogTitle>{current?.title ?? "Project render"}</DialogTitle>
           <DialogDescription>{current?.description ?? `${selected === null ? 0 : selected + 1} of ${items.length}`}</DialogDescription>
           {current ? (
-            <div className="relative mt-4 flex max-h-[75dvh] min-h-64 items-center justify-center overflow-hidden rounded-xl bg-neutral-950">
+            <div className="relative mt-4 flex max-h-[min(75dvh,calc(100dvh-12rem))] min-h-40 sm:min-h-64 items-center justify-center overflow-hidden rounded-xl bg-neutral-950">
               {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, authorized content route. */}
-              <img src={current.contentUrl} alt={current.title} className="max-h-[75dvh] max-w-full object-contain" />
+              <img src={current.contentUrl} alt={current.title} className="max-h-[min(75dvh,calc(100dvh-12rem))] max-w-full object-contain" />
               {items.length > 1 ? (
                 <>
                   <Button type="button" size="icon" variant="secondary" className="absolute left-3" onClick={() => move(-1)} aria-label="Previous render"><ChevronLeft /></Button>
@@ -90,7 +90,11 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
             </div>
           ) : null}
           <DialogFooter className="justify-between">
-            <span className="mr-auto text-meta text-fg-subtle">{selected === null ? "" : `${selected + 1} of ${items.length}`} · Use arrow keys to navigate</span>
+            {/* The image leaves room for the title and footer, so Close stays on screen in landscape (AUD-04 §6, MW-10); the key hint is for keyboards only. */}
+            <span className="mr-auto text-meta text-fg-subtle">
+              {selected === null ? "" : `${selected + 1} of ${items.length}`}
+              <span className="[@media(pointer:coarse)]:hidden"> · Use arrow keys to navigate</span>
+            </span>
             <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>

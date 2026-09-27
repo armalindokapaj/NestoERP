@@ -8,6 +8,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";
 import { useToast } from "@/components/ui/toast";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { changeStageAction } from "@/lib/actions/sales";
@@ -75,6 +76,10 @@ export function PipelineBoard({
         {active ? (
           <div className="mt-4 space-y-3">
             <StageSummary bucket={active} />
+            {/* An empty stage says so on a phone too, as its desktop column does (AUD-04 §5, MW-05). */}
+            {active.opportunities.length === 0 ? (
+              <p className="nesto-card p-4 text-meta text-fg-subtle">No open opportunities in this stage.</p>
+            ) : null}
             {active.opportunities.map((opportunity) => (
               <PipelineCard
                 key={opportunity.id}
@@ -89,7 +94,7 @@ export function PipelineBoard({
       </div>
 
       {/* Desktop: the columns, scrolling horizontally rather than shrinking. */}
-      <div className="hidden gap-4 overflow-x-auto pb-2 lg:flex">
+      <ScrollRegion label="Pipeline stages" className="hidden gap-4 pb-2 lg:flex">
         {stages.map((stage) => (
           <section
             key={stage.stage}
@@ -114,7 +119,7 @@ export function PipelineBoard({
             )}
           </section>
         ))}
-      </div>
+      </ScrollRegion>
     </div>
   );
 }

@@ -120,11 +120,11 @@ export function SupplierForm({
         </Field>
 
         <Field label="Phone" name="phone">
-          <Input id="phone" name="phone" defaultValue={values?.phone ?? ""} maxLength={40} />
+          <Input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={values?.phone ?? ""} maxLength={40} />
         </Field>
 
         <Field label="Website" name="website" className="sm:col-span-2" hint="Starting http:// or https://">
-          <Input id="website" name="website" defaultValue={values?.website ?? ""} />
+          <Input id="website" name="website" inputMode="url" autoComplete="url" defaultValue={values?.website ?? ""} />
         </Field>
       </FormSection>
 
@@ -147,6 +147,7 @@ export function SupplierForm({
             id="paymentTermsDays"
             name="paymentTermsDays"
             type="number"
+            inputMode="numeric"
             min={0}
             max={365}
             defaultValue={values?.paymentTermsDays ?? ""}

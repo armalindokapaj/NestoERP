@@ -155,7 +155,7 @@ function Detail({
   return (
     <div className="min-w-0">
       <dt className="nesto-eyebrow text-fg-subtle">{label}</dt>
-      <dd className="mt-0.5 truncate text-table text-fg">
+      <dd className="mt-0.5 text-table text-fg [overflow-wrap:anywhere]">
         {value === null ? (
           <span className="text-fg-subtle">—</span>
         ) : href ? (

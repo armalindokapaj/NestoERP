@@ -551,7 +551,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                       <div className={cn("group flex items-center rounded-md", selection.buildingId === candidate.id && !selection.floorId ? "bg-hover" : "hover:bg-hover")}>
                         <button
                           type="button"
-                          className="flex size-7 shrink-0 items-center justify-center rounded text-fg-subtle hover:text-fg"
+                          className="flex size-7 shrink-0 items-center justify-center rounded text-fg-subtle hover:text-fg touch:size-11"
                           aria-label={open ? `Collapse ${candidate.name}` : `Expand ${candidate.name}`}
                           aria-expanded={open}
                           onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(candidate.id)) next.delete(candidate.id); else next.add(candidate.id); return next; })}
@@ -564,7 +564,8 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                             {plural(candidate.floorCount, "floor")} · {plural(candidate.unitCount, "unit")}
                           </span>
                         </button>
-                        <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">{buildingMenu(candidate, `Actions for ${candidate.name}`)}</span>
+                        {/* Hover reveals the menu under a mouse; a finger has no hover, so on touch it is always shown (AUD-04 §3, MW-19). */}
+                        <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 touch:opacity-100">{buildingMenu(candidate, `Actions for ${candidate.name}`)}</span>
                       </div>
                       {open ? (
                         <ul className="mb-1 ml-7 border-l border-line pl-1">
@@ -572,7 +573,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                             <li key={level.id}>
                               <button
                                 type="button"
-                                className={cn("flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-table", selection.floorId === level.id ? "bg-accent-soft font-medium text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                                className={cn("flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-table touch:min-h-11", selection.floorId === level.id ? "bg-accent-soft font-medium text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
                                 aria-current={selection.floorId === level.id ? "true" : undefined}
                                 onClick={() => choose({ buildingId: candidate.id, floorId: level.id })}
                                 data-testid="tree-floor"

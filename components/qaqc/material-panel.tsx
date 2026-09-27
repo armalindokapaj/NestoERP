@@ -5,6 +5,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -107,8 +108,10 @@ export function MaterialPanel({
   return (
     <div className="space-y-4">
       {decisions.length > 0 ? (
-        <div className="nesto-card overflow-hidden">
-          <table className="w-full text-table">
+        // Five figures and Remove need ~560px: they pan inside a labelled region
+        // instead of being clipped by the card (AUD-04 §5, D-04-01, MW-05).
+        <ScrollRegion label="Material decisions" className="nesto-card">
+          <table className="w-full min-w-[34rem] text-table">
             <caption className="sr-only">Material decisions on this inspection</caption>
             <thead>
               <tr className="border-b border-line text-left text-meta text-fg-subtle">
@@ -161,7 +164,7 @@ export function MaterialPanel({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       ) : (
         <p className="nesto-card p-5 text-table text-fg-subtle">
           Nothing decided yet. Record how much of each delivered line passed, failed, or passed

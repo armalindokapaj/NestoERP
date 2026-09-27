@@ -10,6 +10,7 @@ import { MilestoneStatusBadge, Variance } from "@/components/project-planning/pl
 import { ReportFilterForm } from "@/components/project-planning/report-filter-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -45,7 +46,38 @@ function ListScope({ shown, total, order }: { shown: number; total: number; orde
 function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; caption: string; empty: string; testId: string }) {
   if (!rows.length) return <p className="px-5 py-4 text-table text-fg-muted">{empty}</p>;
   return (
-    <div className="overflow-x-auto">
+    <>
+      {/* Phones read each milestone as a card carrying every column, instead of panning a 760px table (AUD-04 §5, MW-05). */}
+      <ul className="divide-y divide-line md:hidden" aria-label={caption} data-testid={`${testId}-cards`}>
+        {rows.map((row) => (
+          <li key={row.id} className="space-y-1 px-5 py-3 text-table">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <Link href={row.href} className="min-w-0 break-words font-medium text-fg hover:text-accent-strong">
+                {row.name}
+              </Link>
+              <MilestoneStatusBadge status={row.status} delayed={row.delayed} />
+            </div>
+            <p className="break-words text-meta text-fg-muted">
+              {row.projectName} · {row.phaseName ?? "No phase"}
+              {row.owner ? <> · <PersonLink memberId={row.owner.memberId} name={row.owner.name} /></> : null}
+              {row.critical ? " · Critical" : ""}
+            </p>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-meta">
+              <dt className="text-fg-muted">Baseline</dt>
+              <dd className="tabular-nums text-fg-muted">{dateLabel(row.baselineDate)}</dd>
+              <dt className="text-fg-muted">Forecast</dt>
+              <dd className="tabular-nums">{dateLabel(row.forecastDate)}</dd>
+              <dt className="text-fg-muted">Actual</dt>
+              <dd className="tabular-nums">{dateLabel(row.actualDate)}</dd>
+              <dt className="text-fg-muted">Variance</dt>
+              <dd>
+                <Variance days={row.varianceDays} />
+              </dd>
+            </dl>
+          </li>
+        ))}
+      </ul>
+      <ScrollRegion label={caption} className="hidden md:block">
       <table className="w-full min-w-[760px] border-collapse text-table" data-testid={testId}>
         <caption className="sr-only">{caption}</caption>
         <thead>
@@ -86,7 +118,8 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
           ))}
         </tbody>
       </table>
-    </div>
+      </ScrollRegion>
+    </>
   );
 }
 
@@ -105,6 +138,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
   const [report, settings] = await Promise.all([planningReport(context, query), can(context, "project_planning.settings.manage") ? resolvePlanningSettings(context.companyId) : Promise.resolve(null)]);
   const { totals } = report;
   const maxStatus = Math.max(1, ...report.byStatus.map((row) => row.count));
+  const activeFilters = [query.projectId, query.phaseId, query.status, query.ownerId, query.critical, query.from, query.to].filter((value) => value !== undefined && value !== "").length;
 
   return (
     <ModulePage experience={experience} activeSection="milestones" description="Key dates across your projects: delays, variance against baseline and critical milestones.">
@@ -115,7 +149,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             More milestones match than the report reads at once; these figures cover the first 10,000. Narrow the report to a project or status.
           </p>
         ) : null}
-        <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters">
+        <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters" activeCount={activeFilters}>
           <label className="flex min-w-[13rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">Project</span>
             <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
@@ -218,10 +252,11 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
               ))}
             </ul>
           </section>
-          <section className="nesto-card overflow-x-auto lg:col-span-2" aria-labelledby="portfolio">
+          <section className="nesto-card min-w-0 lg:col-span-2" aria-labelledby="portfolio">
             <h2 id="portfolio" className="px-5 pt-4 text-card font-semibold text-fg">Portfolio</h2>
             <p className="px-5 text-meta text-fg-muted">Each project&apos;s next milestone and its critical delays.</p>
-            <table className="mt-2 w-full min-w-[560px] border-collapse text-table" data-testid="planning-portfolio">
+            <ScrollRegion label="Portfolio" className="mt-2">
+            <table className="w-full min-w-[560px] border-collapse text-table" data-testid="planning-portfolio">
               <thead>
                 <tr className="border-b border-line text-left text-meta text-fg-muted">
                   <th scope="col" className="px-5 py-2 font-medium">Project</th>
@@ -258,6 +293,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                 ))}
               </tbody>
             </table>
+            </ScrollRegion>
             <div className="h-3" />
           </section>
         </div>
@@ -286,9 +322,10 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
 
         {report.byProject.length > 1 || report.byPhase.length ? (
           <div className="grid gap-5 lg:grid-cols-2">
-            <section className="nesto-card overflow-x-auto" aria-labelledby="by-project">
+            <section className="nesto-card min-w-0" aria-labelledby="by-project">
               <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">By project</h2>
-              <table className="mt-2 w-full min-w-[480px] border-collapse text-table">
+              <ScrollRegion label="By project" className="mt-2">
+              <table className="w-full min-w-[480px] border-collapse text-table">
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-muted">
                     <th scope="col" className="px-5 py-2 font-medium">Project</th>
@@ -314,12 +351,14 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                   ))}
                 </tbody>
               </table>
+              </ScrollRegion>
               <div className="h-3" />
             </section>
             {report.byPhase.length ? (
-              <section className="nesto-card overflow-x-auto" aria-labelledby="by-phase">
+              <section className="nesto-card min-w-0" aria-labelledby="by-phase">
                 <h2 id="by-phase" className="px-5 pt-4 text-card font-semibold text-fg">By phase</h2>
-                <table className="mt-2 w-full min-w-[400px] border-collapse text-table">
+                <ScrollRegion label="By phase" className="mt-2">
+                <table className="w-full min-w-[400px] border-collapse text-table">
                   <thead>
                     <tr className="border-b border-line text-left text-meta text-fg-muted">
                       <th scope="col" className="px-5 py-2 font-medium">Phase</th>
@@ -339,6 +378,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                     ))}
                   </tbody>
                 </table>
+                </ScrollRegion>
                 <div className="h-3" />
               </section>
             ) : null}

@@ -72,6 +72,13 @@ async function removeCreated(): Promise<void> {
     await prisma.dailyLog.deleteMany({ where: { id: createdLogId } });
     createdLogId = null;
   }
+  // Their approval cycles first: a pending cycle left without its record is
+  // what verify:workflows reports as APPROVAL_CYCLE_WITHOUT_SOURCE.
+  const hseRecords = [
+    ...(await prisma.hseIncident.findMany({ where: { title: { startsWith: PREFIX } }, select: { id: true } })),
+    ...(await prisma.hseWorkPermit.findMany({ where: { title: { startsWith: PREFIX } }, select: { id: true } })),
+  ].map((row) => row.id);
+  await prisma.hseApproval.deleteMany({ where: { recordId: { in: hseRecords } } });
   await prisma.hseIncident.deleteMany({ where: { title: { startsWith: PREFIX } } });
   await prisma.hseWorkPermit.deleteMany({ where: { title: { startsWith: PREFIX } } });
   await prisma.toolboxTalk.deleteMany({ where: { title: { startsWith: PREFIX } } });

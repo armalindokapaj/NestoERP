@@ -5,6 +5,7 @@ import type {
   ProcurementOverviewDTO,
 } from "@/lib/modules/procurement/procurement.types";
 import { totalsLabel } from "./procurement-format";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 
 /**
  * The Procurement KPI row (PRD #19 §22).
@@ -123,7 +124,7 @@ export function ProcurementCompanyBreakdown({ companies }: { companies: Procurem
   return (
     <section className="nesto-card p-5" data-testid="procurement-company-breakdown">
       <h2 className="text-card font-semibold text-fg">By company</h2>
-      <div className="mt-3 overflow-x-auto">
+      <ScrollRegion label="Procurement figures by company" className="mt-3">
         <table className="w-full text-table">
           <caption className="sr-only">Procurement figures by company</caption>
           <thead>
@@ -147,7 +148,7 @@ export function ProcurementCompanyBreakdown({ companies }: { companies: Procurem
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

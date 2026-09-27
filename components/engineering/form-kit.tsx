@@ -137,7 +137,7 @@ export function FormFields({
                 {...common}
                 type={field.type === "number" ? "number" : field.type}
                 step={field.step}
-                inputMode={field.type === "number" ? "decimal" : undefined}
+                inputMode={field.type === "number" ? "decimal" : field.type === "tel" ? "tel" : undefined}
                 value={String(values[field.name] ?? "")}
                 placeholder={field.placeholder}
                 maxLength={field.type === "number" ? undefined : field.maxLength}

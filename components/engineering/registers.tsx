@@ -22,14 +22,20 @@ import { Due, Person, PriorityMark, Ref, ReviewBadge } from "./engineering-ui";
  * with the number, the status and what is late. Every row opens the record.
  */
 
+/*
+ * AUD-04 §5 (D-09-05, MW-05): a card carries what its table row says — the
+ * project on a cross-project register, contractor, revision, priority, age or
+ * issue date — so a phone reader can tell rows apart. Long numbers and titles
+ * break instead of widening the card.
+ */
 function MobileCard({ href, number, title, status, lines, testId }: { href: string; number: string; title: string; status: React.ReactNode; lines: Array<React.ReactNode>; testId: string }) {
   return (
     <li>
       <Link href={href} className="block rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong" data-testid={testId}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-mono text-meta text-fg-muted">{number}</p>
-            <p className="mt-0.5 text-body font-medium text-fg">{title}</p>
+            <p className="font-mono text-meta text-fg-muted [overflow-wrap:anywhere]">{number}</p>
+            <p className="mt-0.5 text-body font-medium text-fg [overflow-wrap:anywhere]">{title}</p>
           </div>
           <div className="shrink-0">{status}</div>
         </div>
@@ -116,7 +122,7 @@ export function RfiRegister({ items, showProject = false, showAssignee = true, e
             number={row.rfiNumber}
             title={row.subject}
             status={<ReviewBadge status={row.overdue ? "OVERDUE" : row.status} label={row.overdue ? "Overdue" : undefined} />}
-            lines={[row.assignee ? <span key="a">{row.assignee.name}</span> : null, row.dueAt ? <span key="d">Due <Due date={row.dueAt} overdue={row.overdue} /></span> : null, row.contractor ? <span key="c">{row.contractor.label}</span> : null, showProject ? <span key="p">{row.projectName}</span> : null]}
+            lines={[showProject ? <span key="p">{row.projectName}</span> : null, row.priority === "HIGH" || row.priority === "CRITICAL" ? <PriorityMark key="pr" priority={row.priority} /> : null, row.assignee ? <span key="a">{row.assignee.name}</span> : null, row.dueAt ? <span key="d">Due <Due date={row.dueAt} overdue={row.overdue} /></span> : null, row.contractor ? <span key="c">{row.contractor.label}</span> : null, <span key="g" className="tabular-nums">{row.ageDays}d old</span>]}
           />
         ))}
       </ul>
@@ -187,7 +193,7 @@ export function SubmittalRegister({ items, showProject = false, emptyTitle = "No
             number={`${row.submittalNumber}${row.currentRevision ? ` · Rev ${row.currentRevision.code}` : ""}`}
             title={row.title}
             status={<ReviewBadge status={row.status} />}
-            lines={[<span key="t">{SUBMITTAL_TYPE_LABELS[row.submittalType]}</span>, row.reviewer ? <span key="r">{row.reviewer.name}</span> : null, row.dueAt ? <span key="d">Due <Due date={row.dueAt} overdue={row.overdue} /></span> : null]}
+            lines={[showProject ? <span key="p">{row.projectName}</span> : null, <span key="t">{SUBMITTAL_TYPE_LABELS[row.submittalType]}</span>, row.currentRevision ? <span key="v" className="font-mono">Rev {row.currentRevision.code}</span> : null, row.contractor ? <span key="c">{row.contractor.label}</span> : null, row.reviewer ? <span key="r">{row.reviewer.name}</span> : null, row.dueAt ? <span key="d">Due <Due date={row.dueAt} overdue={row.overdue} /></span> : null]}
           />
         ))}
       </ul>
@@ -263,7 +269,7 @@ export function DocumentRegister({ items, drawings = false, showProject = false,
             number={`${row.documentNumber}${row.currentRevision ? ` · Rev ${row.currentRevision.code}` : ""}`}
             title={row.title}
             status={<ReviewBadge status={row.status} />}
-            lines={[<span key="d">{DISCIPLINE_LABELS[row.discipline]}</span>, row.reviewDueAt ? <span key="r">Review <Due date={row.reviewDueAt} overdue={row.overdue} /></span> : null]}
+            lines={[showProject ? <span key="p">{row.projectName}</span> : null, <span key="d">{DISCIPLINE_LABELS[row.discipline]}</span>, row.currentRevision ? <span key="v" className="font-mono">Rev {row.currentRevision.code}</span> : null, row.contractor ? <span key="c">{row.contractor.label}</span> : null, row.reviewer ? <span key="w">Reviewer {row.reviewer.name}</span> : null, row.reviewDueAt ? <span key="r">Review <Due date={row.reviewDueAt} overdue={row.overdue} /></span> : null]}
           />
         ))}
       </ul>
@@ -327,7 +333,7 @@ export function TransmittalRegister({ items, showProject = false }: { items: Tra
       </div>
       <ul className="space-y-2 md:hidden">
         {items.map((row) => (
-          <MobileCard key={row.id} testId="transmittal-card" href={row.href} number={row.transmittalNumber} title={row.subject ?? TRANSMITTAL_PURPOSE_LABELS[row.purpose]} status={<ReviewBadge status={row.status} />} lines={[<span key="d">{TRANSMITTAL_DIRECTION_LABELS[row.direction]}</span>, <span key="n">{row.itemCount} documents</span>]} />
+          <MobileCard key={row.id} testId="transmittal-card" href={row.href} number={row.transmittalNumber} title={row.subject ?? TRANSMITTAL_PURPOSE_LABELS[row.purpose]} status={<ReviewBadge status={row.status} />} lines={[showProject ? <span key="p">{row.projectName}</span> : null, <span key="d">{TRANSMITTAL_DIRECTION_LABELS[row.direction]}</span>, <span key="n">{row.itemCount} documents</span>, row.contractor ? <span key="c">{row.contractor.label}</span> : null, <span key="i">{row.issuedAt ? <>Issued <Due date={row.issuedAt} /></> : "Not issued"}</span>]} />
         ))}
       </ul>
     </>

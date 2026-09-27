@@ -149,7 +149,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
                 <Link
                   href={`${base}${section.suffix}`}
                   aria-current={current ? "page" : undefined}
-                  className={cn("inline-flex h-9 items-center rounded-md px-3 text-table font-medium transition-colors", current ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                  className={cn("inline-flex h-9 items-center rounded-md px-3 text-table font-medium transition-colors touch:h-11", current ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
                 >
                   {section.label}
                 </Link>

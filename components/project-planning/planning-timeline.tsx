@@ -97,6 +97,7 @@ export function PlanningTimeline({
   showPhasesWithoutMatches?: boolean;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const noteId = React.useId();
   const [viewport, setViewport] = React.useState({ top: 0, height: 600 });
   const [hover, setHover] = React.useState<{ milestone: MilestoneSummaryDTO; x: number; y: number } | null>(null);
 
@@ -180,14 +181,23 @@ export function PlanningTimeline({
         <span className="flex-1" />
         <div role="group" aria-label="Zoom" className="flex rounded-md border border-line p-0.5">
           {(["week", "month", "quarter"] as const).map((level) => (
-            <button key={level} type="button" onClick={() => onZoom(level)} aria-pressed={zoom === level} className={cn("rounded px-2.5 py-1 text-meta font-medium capitalize transition-colors", zoom === level ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:text-fg")}>
+            <button key={level} type="button" onClick={() => onZoom(level)} aria-pressed={zoom === level} className={cn("rounded px-2.5 py-1 text-meta font-medium capitalize transition-colors touch:min-h-11 touch:px-3", zoom === level ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:text-fg")}>
               {level}
             </button>
           ))}
         </div>
       </div>
 
-      <div ref={scrollRef} className="relative max-h-[70vh] overflow-auto overscroll-contain" tabIndex={-1}>
+      {/*
+        The chart pans in both directions: it is a named, focusable region so arrow
+        keys reach dates outside the view without a mouse or a swipe. The bars are
+        drawn for the eye; the Milestones view lists every date as text (AUD-04 §5,
+        MW-17).
+      */}
+      <p id={noteId} className="sr-only">
+        Scroll with the arrow keys. The Milestones view lists every phase and milestone date as text.
+      </p>
+      <div ref={scrollRef} role="region" aria-label="Plan timeline" aria-describedby={noteId} className="relative max-h-[70vh] overflow-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" tabIndex={0}>
         <div className="relative" style={{ width: LEFT + width, height: heightPx }}>
           {/* Header */}
           <div className="sticky top-0 z-20 flex border-b border-line bg-surface" style={{ height: HEADER, width: LEFT + width }}>

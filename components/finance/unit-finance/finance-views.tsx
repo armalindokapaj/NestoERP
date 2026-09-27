@@ -12,7 +12,7 @@ export function FinanceViews({ projectId, active, both }: { projectId: string; a
   return (
     <nav aria-label="Finance views" className="flex gap-1">
       {views.map((view) => (
-        <Link key={view.key} href={view.href} aria-current={view.key === active ? "page" : undefined} className={cn("inline-flex h-8 items-center rounded-md px-3 text-table font-medium", view.key === active ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
+        <Link key={view.key} href={view.href} aria-current={view.key === active ? "page" : undefined} className={cn("inline-flex h-8 items-center rounded-md px-3 text-table font-medium touch:h-11", view.key === active ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
           {view.label}
         </Link>
       ))}

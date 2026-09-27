@@ -107,7 +107,7 @@ export function WarehousePageShell({
                   href={`/inventory/warehouses/${warehouse.id}${entry.suffix}`}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
                     isActive
                       ? "border-accent text-fg"
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",

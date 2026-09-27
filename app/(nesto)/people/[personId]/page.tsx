@@ -146,7 +146,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
                 href={key === "overview" ? `/people/${profile.personId}` : `/people/${profile.personId}?tab=${key}`}
                 aria-current={key === tab ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
+                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
                   key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >

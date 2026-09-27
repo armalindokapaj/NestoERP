@@ -30,7 +30,8 @@ const RANGES = [
   ["custom", "Custom"],
 ] as const;
 
-const selectClass = "h-9 rounded-md border border-line bg-surface px-2.5 text-table text-fg outline-none focus:border-accent";
+// 44px under touch; the 16px phone font comes from globals.css (AUD-04 §3, D-01-15, MW-06).
+const selectClass = "h-9 max-w-full rounded-md border border-line bg-surface px-2.5 text-table text-fg outline-none focus:border-accent touch:h-11";
 
 /**
  * My Work (Fast Re-entry §10-§12, §59-§67, §77-§79, §135-§142, §160-§169).
@@ -121,6 +122,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
 
   const enabled = tab === "favorites" ? favoritesEnabled : recentEnabled;
   const filtered = Boolean(query.companyId || query.module || query.projectId || query.q || (query.range && query.range !== "all"));
+  const moreFilters = [query.companyId, query.module, query.projectId, query.range && query.range !== "all" ? query.range : null].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
@@ -143,6 +145,19 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
           <span className="text-meta text-fg-muted">Search</span>
           <input name="q" defaultValue={query.q ?? ""} maxLength={200} placeholder={tab === "favorites" ? "Search favorites" : "Search recent work"} className={cn(selectClass, "w-full")} />
         </label>
+        {/*
+          Below sm the narrowing filters fold behind "More filters (N)", open
+          when one is set. CSS only: they stay in this GET form either way, and
+          from sm up the wrapper is display: contents (AUD-04 §5, D-01-15, MW-06).
+        */}
+        <input id="my-work-more-filters" type="checkbox" className="peer sr-only" defaultChecked={moreFilters > 0} />
+        <label
+          htmlFor="my-work-more-filters"
+          className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-body font-medium text-fg peer-focus-visible:ring-2 peer-focus-visible:ring-ring sm:hidden"
+        >
+          More filters{moreFilters > 0 ? ` (${moreFilters})` : ""}
+        </label>
+        <div className="max-sm:hidden max-sm:w-full max-sm:peer-checked:grid max-sm:peer-checked:gap-2 sm:contents [&_select]:max-sm:w-full [&_input]:max-sm:w-full">
         {initial.facets.companies.length > 1 ? (
           <label className="flex flex-col gap-1">
             <span className="text-meta text-fg-muted">Company</span>
@@ -170,7 +185,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
         {initial.facets.projects.length > 0 ? (
           <label className="flex flex-col gap-1">
             <span className="text-meta text-fg-muted">Project</span>
-            <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "max-w-[14rem]")}>
+            <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "sm:max-w-[14rem]")}>
               <option value="">All projects</option>
               {initial.facets.projects.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -206,11 +221,12 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
             ) : null}
           </>
         ) : null}
+        </div>
         <Button type="submit" variant="secondary" size="sm">
           Apply
         </Button>
         {filtered ? (
-          <Link href={href({ companyId: undefined, module: undefined, projectId: undefined, q: undefined, range: undefined, from: undefined, to: undefined })} className="pb-2 text-meta font-medium text-accent-strong hover:underline">
+          <Link href={href({ companyId: undefined, module: undefined, projectId: undefined, q: undefined, range: undefined, from: undefined, to: undefined })} className="inline-flex items-center pb-2 text-meta font-medium text-accent-strong hover:underline touch:min-h-11 touch:pb-0">
             Reset
           </Link>
         ) : null}
@@ -248,7 +264,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
             {items.map((item) => {
               const Icon = ENTITY_ICON[item.entityType as NavigableType] ?? Boxes;
               return (
-                <li key={`${item.entityType}:${item.entityId}`} className="grid grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-3 px-4 py-2.5 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_7rem_2.25rem]" data-testid={tab === "favorites" ? "favorite-row" : "recent-row"}>
+                <li key={`${item.entityType}:${item.entityId}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_7rem_auto]" data-testid={tab === "favorites" ? "favorite-row" : "recent-row"}>
                   <a
                     href={item.href}
                     onClick={(event) => {
@@ -262,8 +278,11 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                     <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
                     <span className="min-w-0">
                       <span className="block truncate text-table font-medium text-fg hover:text-accent-strong">{item.title}</span>
-                      <span className="block truncate text-meta text-fg-muted md:hidden">{[item.company?.name, moduleLabel(item.moduleKey), item.project?.name].filter(Boolean).join(" · ")}</span>
-                      {item.subtitle ? <span className="hidden truncate text-meta text-fg-muted md:block">{item.subtitle}</span> : null}
+                      {/* Phones keep the subtitle and the when, not only company · module · project (AUD-04 §5, D-01-14, MW-05). */}
+                      {item.subtitle ? <span className="block truncate text-meta text-fg-muted">{item.subtitle}</span> : null}
+                      <span className="block truncate text-meta text-fg-muted md:hidden">
+                        {[item.company?.name, moduleLabel(item.moduleKey), item.project?.name, now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now)) : null].filter(Boolean).join(" · ")}
+                      </span>
                     </span>
                   </a>
                   <span className="hidden min-w-0 md:block">{item.company ? <CompanyTag name={item.company.name} /> : null}</span>

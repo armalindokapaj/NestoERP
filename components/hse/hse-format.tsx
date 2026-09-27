@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { riskLevelLabels, likelihoodLabels, severityLabels as axisLabels } from "@/lib/modules/hse/hse.risk";
 import { severityLabels, permitStatusLabels } from "@/lib/modules/hse/hse.status";
 import type { RiskDTO } from "@/lib/modules/hse/hse.types";
@@ -112,62 +113,86 @@ export function RiskMatrix({
     CRITICAL: "bg-danger-subtle text-danger-strong",
   };
 
+  /*
+   * AUD-04 §3, §8 (D-03-01, D-03-02, MW-17, MW-19). The matrix fits the card at
+   * 320px: fixed columns, axis numbers only on a phone with the words in a
+   * legend under it, so the High/Critical corner is never off-screen. It stays
+   * inside a labelled scroll region as a fallback for very large text. Every
+   * cell carries its full reading as text (sr-only), linked or not: an
+   * aria-label on a plain span is not announced.
+   */
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] border-separate border-spacing-1 text-center text-meta">
-        <caption className="sr-only">
-          Open hazards by likelihood and severity, on a five by five matrix
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col" className="w-28 text-left font-normal text-fg-subtle">
-              Likelihood ↓ / Severity →
-            </th>
-            {axis.map((severity) => (
-              <th key={severity} scope="col" className="font-medium text-fg-muted">
-                {severity}
-                <span className="block text-fg-subtle">{axisLabels[severity]}</span>
+    <div className="space-y-2">
+      <ScrollRegion label="Risk matrix">
+        <table className="w-full table-fixed border-separate border-spacing-1 text-center text-meta">
+          <caption className="sr-only">
+            Open hazards by likelihood and severity, on a five by five matrix
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" className="w-10 text-left font-normal text-fg-subtle sm:w-28">
+                <span aria-hidden="true" className="sm:hidden">L↓ S→</span>
+                <span className="max-sm:sr-only">Likelihood ↓ / Severity →</span>
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {[...axis].reverse().map((likelihood) => (
-            <tr key={likelihood}>
-              <th scope="row" className="text-left font-medium text-fg-muted">
-                {likelihood}
-                <span className="block font-normal text-fg-subtle">
-                  {likelihoodLabels[likelihood]}
-                </span>
-              </th>
-              {axis.map((severity) => {
-                const cell = at(likelihood, severity);
-                if (!cell) return <td key={severity} />;
-
-                const label = `${cell.count} open ${cell.count === 1 ? "hazard" : "hazards"}, score ${cell.score}, ${riskLevelLabels[cell.level as HseRiskLevel]} risk`;
-                const body = (
-                  <span className="flex flex-col py-2">
-                    <span className="text-body font-semibold">{cell.count || "—"}</span>
-                    <span className="text-meta">{cell.score}</span>
-                  </span>
-                );
-
-                return (
-                  <td key={severity} className={`rounded ${tone[cell.level]}`}>
-                    {hrefFor && cell.count > 0 ? (
-                      <a href={hrefFor(cell)} aria-label={label} className="block">
-                        {body}
-                      </a>
-                    ) : (
-                      <span aria-label={label}>{body}</span>
-                    )}
-                  </td>
-                );
-              })}
+              {axis.map((severity) => (
+                <th key={severity} scope="col" className="font-medium text-fg-muted">
+                  {severity}
+                  <span className="block text-fg-subtle max-sm:sr-only">{axisLabels[severity]}</span>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {[...axis].reverse().map((likelihood) => (
+              <tr key={likelihood}>
+                <th scope="row" className="text-left font-medium text-fg-muted">
+                  {likelihood}
+                  <span className="block font-normal text-fg-subtle max-sm:sr-only">
+                    {likelihoodLabels[likelihood]}
+                  </span>
+                </th>
+                {axis.map((severity) => {
+                  const cell = at(likelihood, severity);
+                  if (!cell) return <td key={severity} />;
+
+                  const label = `${cell.count} open ${cell.count === 1 ? "hazard" : "hazards"}, score ${cell.score}, ${riskLevelLabels[cell.level as HseRiskLevel]} risk`;
+                  const body = (
+                    <>
+                      <span aria-hidden="true" className="flex flex-col py-2">
+                        <span className="text-body font-semibold">{cell.count || "—"}</span>
+                        <span className="text-meta">{cell.score}</span>
+                      </span>
+                      <span className="sr-only">{label}</span>
+                    </>
+                  );
+
+                  return (
+                    <td key={severity} className={`rounded ${tone[cell.level]}`}>
+                      {hrefFor && cell.count > 0 ? (
+                        <a href={hrefFor(cell)} className="block">
+                          {body}
+                        </a>
+                      ) : (
+                        body
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollRegion>
+      <dl className="grid grid-cols-1 gap-1 text-meta text-fg-subtle sm:hidden" aria-hidden="true">
+        <div>
+          <dt className="inline font-medium text-fg-muted">Likelihood: </dt>
+          <dd className="inline">{axis.map((n) => `${n} ${likelihoodLabels[n]}`).join(" · ")}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-fg-muted">Severity: </dt>
+          <dd className="inline">{axis.map((n) => `${n} ${axisLabels[n]}`).join(" · ")}</dd>
+        </div>
+      </dl>
     </div>
   );
 }

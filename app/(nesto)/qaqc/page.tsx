@@ -154,7 +154,7 @@ function AttentionPanel({
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+          className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong touch:min-h-11"
         >
           View all
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -167,9 +167,10 @@ function AttentionPanel({
         <ul className="mt-4 space-y-3">
           {rows.map((row) => (
             <li key={row.id} className="min-w-0">
+              {/* The whole "DEF-… — title" wraps to two lines instead of losing the title (AUD-04 §3, D-04-03/04). */}
               <Link
                 href={row.href}
-                className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                className="line-clamp-2 text-table font-medium text-fg transition-colors [overflow-wrap:anywhere] hover:text-accent"
               >
                 {row.title}
               </Link>

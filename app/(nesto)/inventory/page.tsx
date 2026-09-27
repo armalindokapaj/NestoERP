@@ -158,7 +158,7 @@ function AttentionPanel({
             <li key={row.id} className="min-w-0">
               <Link
                 href={row.href}
-                className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
               >
                 {row.title}
               </Link>

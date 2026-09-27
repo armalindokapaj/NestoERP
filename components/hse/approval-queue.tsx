@@ -148,7 +148,8 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                     )}
                   </div>
                 ) : (
-                  <p className="shrink-0 text-meta text-fg-subtle">
+                  // Wraps inside the card at 320px instead of overflowing it (AUD-04 §3, D-03-05, MW-01).
+                  <p className="min-w-0 text-meta text-fg-subtle">
                     You submitted this — somebody else decides.
                   </p>
                 )

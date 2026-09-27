@@ -176,7 +176,7 @@ export function RevisionPanel({
                   {revision.file ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-table">
                       <FileText aria-hidden="true" className="size-4 text-fg-subtle" />
-                      <Link href={revision.file.href} className="text-fg underline-offset-4 hover:underline" data-testid="revision-file">
+                      <Link href={revision.file.href} className="min-w-0 text-fg underline-offset-4 [overflow-wrap:anywhere] hover:underline" data-testid="revision-file">
                         {revision.file.name}
                       </Link>
                       {revision.file.versionNumber ? <span className="text-fg-subtle">v{revision.file.versionNumber}</span> : null}

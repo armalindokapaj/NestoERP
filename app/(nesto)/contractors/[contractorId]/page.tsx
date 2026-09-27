@@ -89,7 +89,15 @@ export default async function ContractorOverviewPage({ params }: Params) {
           {address ? <p className="mt-4 border-t border-line pt-4 text-table text-fg-muted">{address}</p> : null}
         </Panel>
         <Panel title="Primary contact">
-          <Facts columns={2} items={[{ label: "Name", value: contractor.primaryContactName }, { label: "Email", value: contractor.primaryContactEmail }, { label: "Phone", value: contractor.primaryContactPhone }]} />
+          {/* Tap to write or call, as on the Contacts tab (AUD-04 §3, D-09-14, MW-19). */}
+          <Facts
+            columns={2}
+            items={[
+              { label: "Name", value: contractor.primaryContactName },
+              { label: "Email", value: contractor.primaryContactEmail ? <a href={`mailto:${contractor.primaryContactEmail}`} className="inline-flex items-center underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">{contractor.primaryContactEmail}</a> : null },
+              { label: "Phone", value: contractor.primaryContactPhone ? <a href={`tel:${contractor.primaryContactPhone}`} className="inline-flex items-center underline-offset-4 hover:underline touch:min-h-11">{contractor.primaryContactPhone}</a> : null },
+            ]}
+          />
         </Panel>
         {contractor.notes || contractor.statusReason ? (
           <Panel title="Notes">

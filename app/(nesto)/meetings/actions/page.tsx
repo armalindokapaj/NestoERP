@@ -57,7 +57,7 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
   // A page past the end (an action done, a narrower view) moves once to the last real page (AUD-08 §4, DT-05).
   if (result.pagination.page !== query.page) redirect(link(result.pagination.page > 1 ? { page: String(result.pagination.page) } : {}));
   const chip = (active: boolean) =>
-    cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <ModulePage

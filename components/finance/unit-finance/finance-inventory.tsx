@@ -160,7 +160,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                 data-testid="finance-quick-filter"
                 data-status={status || "ALL"}
                 onClick={() => setFilter({ financialStatus: status })}
-                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {status ? UNIT_FINANCIAL_STATUS_LABELS[status] : "All"}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>
@@ -236,7 +236,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
           {active ? <p className="mb-2 text-table text-fg-muted">{plural(list.total, "unit")}</p> : null}
           <div className="hidden lg:block">
-            <Table data-testid="finance-table">
+            <Table label="Unit finance" data-testid="finance-table">
               <TableHead>
                 <tr>
                   <TableHeaderCell>Unit</TableHeaderCell>

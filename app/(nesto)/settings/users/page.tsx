@@ -34,7 +34,7 @@ export default async function UsersSettingsPage() {
       />
 
       <div className="nesto-card overflow-hidden">
-        <Table>
+        <Table label={t("sections.users.label")}>
           <TableHead>
             <tr>
               <TableHeaderCell>{t("users.user")}</TableHeaderCell>
@@ -54,6 +54,8 @@ export default async function UsersSettingsPage() {
                     variant="name-avatar"
                     className="gap-2.5"
                   />
+                  {/* Below md the e-mail column is hidden; the address stays, under the name (AUD-04 §5, D-07-07, MW-05). */}
+                  <span className="mt-0.5 block text-meta text-fg-muted [overflow-wrap:anywhere] md:hidden">{member.email}</span>
                 </TableCell>
                 <TableCell className="hidden text-fg-muted md:table-cell">{member.email}</TableCell>
                 <TableCell className="text-fg-muted">{member.roleName}</TableCell>

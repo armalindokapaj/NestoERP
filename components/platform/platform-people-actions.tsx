@@ -17,7 +17,7 @@ const personFields: FormField[] = [
   { name: "preferredName", label: "Preferred name", type: "text" },
   { name: "jobTitle", label: "Job title", type: "text" },
   { name: "workEmail", label: "Work email", type: "email" },
-  { name: "workPhone", label: "Work phone", type: "text" },
+  { name: "workPhone", label: "Work phone", type: "tel" },
   { name: "lifecycleStatus", label: "Lifecycle", type: "select", required: true, options: lifecycleOptions },
   { name: "reason", label: "Reason", type: "textarea", required: true },
 ];

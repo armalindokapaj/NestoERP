@@ -7,6 +7,7 @@ import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { useToast } from "@/components/ui/toast";
 import {
   disqualifyQuoteAction,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/actions/procurement";
 import type { QuoteComparisonDTO } from "@/lib/modules/procurement/procurement.types";
 import { quoteStatusLabels } from "@/lib/modules/procurement/procurement.status";
+import { cn } from "@/lib/utils/cn";
 import { formatAmount } from "./procurement-format";
 
 /**
@@ -79,6 +81,44 @@ export function QuoteComparison({
     );
   }
 
+  // The row's decisions, shared by the phone card and the table row.
+  function rowActions(row: (typeof rows)[number]) {
+    return (
+      <>
+        {canDisqualify && row.status === "RECEIVED" ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => setDisqualifying(row.quoteId)}
+          >
+            Disqualify
+          </Button>
+        ) : null}
+        {canSelect && row.status === "RECEIVED" ? (
+          <Button
+            size="sm"
+            disabled={pending}
+            onClick={() => setSelecting(row.quoteId)}
+          >
+            Select
+          </Button>
+        ) : null}
+        {/*
+          * The selected quote is the one that becomes an
+          * order. Drafting it here carries the supplier, the
+          * prices and the lines across rather than asking
+          * somebody to retype what was quoted (PRD #19 §98).
+          */}
+        {canSelect && row.status === "SELECTED" ? (
+          <Button size="sm" disabled={pending} onClick={() => draft(row.quoteId)}>
+            Draft order
+          </Button>
+        ) : null}
+      </>
+    );
+  }
+
   const lowest = rows.find((row) => row.isLowest);
 
   return (
@@ -92,14 +132,15 @@ export function QuoteComparison({
         </p>
       ) : null}
 
-      <div className="nesto-card overflow-x-auto">
+      <ScrollRegion label={`Supplier quotes for enquiry ${rfq.rfqNumber}`} className="nesto-card hidden md:block">
         <table className="w-full text-table">
           <caption className="sr-only">
             Supplier quotes for enquiry {rfq.rfqNumber}, compared line by line
           </caption>
           <thead>
             <tr className="border-b border-line text-left text-meta text-fg-subtle">
-              <th scope="col" className="px-5 py-3 font-medium">Supplier</th>
+              {/* The supplier column stays put while the prices pan beside it. */}
+              <th scope="col" className="sticky left-0 z-[1] bg-surface px-5 py-3 font-medium">Supplier</th>
               {canCompare
                 ? items.map((item) => (
                     <th key={item.id} scope="col" className="px-5 py-3 text-right font-medium">
@@ -123,7 +164,7 @@ export function QuoteComparison({
               const excluded = row.status === "DISQUALIFIED";
               return (
                 <tr key={row.quoteId} className={excluded ? "opacity-60" : undefined}>
-                  <th scope="row" className="px-5 py-3 text-left font-medium text-fg">
+                  <th scope="row" className="sticky left-0 z-[1] bg-surface px-5 py-3 text-left font-medium text-fg">
                     {row.supplier.name}
                     {row.isLowest ? (
                       <span className="ml-2 align-middle">
@@ -170,38 +211,7 @@ export function QuoteComparison({
 
                   {canSelect || canDisqualify ? (
                     <td className="px-5 py-3">
-                      <div className="flex justify-end gap-2">
-                        {canDisqualify && row.status === "RECEIVED" ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => setDisqualifying(row.quoteId)}
-                          >
-                            Disqualify
-                          </Button>
-                        ) : null}
-                        {canSelect && row.status === "RECEIVED" ? (
-                          <Button
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => setSelecting(row.quoteId)}
-                          >
-                            Select
-                          </Button>
-                        ) : null}
-                        {/*
-                          * The selected quote is the one that becomes an
-                          * order. Drafting it here carries the supplier, the
-                          * prices and the lines across rather than asking
-                          * somebody to retype what was quoted (PRD #19 §98).
-                          */}
-                        {canSelect && row.status === "SELECTED" ? (
-                          <Button size="sm" disabled={pending} onClick={() => draft(row.quoteId)}>
-                            Draft order
-                          </Button>
-                        ) : null}
-                      </div>
+                      <div className="flex justify-end gap-2">{rowActions(row)}</div>
                     </td>
                   ) : null}
                 </tr>
@@ -209,7 +219,56 @@ export function QuoteComparison({
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
+
+      {/*
+        Phones get one card per supplier (after the table in source, so a
+        desktop reader's first match is the table) — name, total, lead time, status and the
+        decision buttons in view, the per-line prices a tap away — instead of a
+        matrix whose actions sit off-screen to the right (AUD-04 §5, MW-05).
+      */}
+      <ul className="space-y-2 md:hidden" aria-label={`Supplier quotes for enquiry ${rfq.rfqNumber}`} data-testid="quote-cards">
+        {rows.map((row) => {
+          const excluded = row.status === "DISQUALIFIED";
+          return (
+            <li key={row.quoteId} className={cn("nesto-card space-y-2 p-4 text-table", excluded && "opacity-60")} data-testid="quote-card">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 break-words font-medium text-fg">{row.supplier.name}</span>
+                {row.isLowest ? <Badge tone="success">Lowest</Badge> : null}
+                <span className="ml-auto">
+                  <Badge tone={row.status === "SELECTED" ? "success" : row.status === "DISQUALIFIED" ? "danger" : "neutral"}>{quoteStatusLabels[row.status]}</Badge>
+                </span>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {canCompare ? (
+                  <>
+                    <dt className="text-fg-subtle">Total</dt>
+                    <dd className="text-right font-medium tabular-nums text-fg">{row.pricing ? formatAmount(row.pricing.totalAmount, row.pricing.currency) : "—"}</dd>
+                  </>
+                ) : null}
+                <dt className="text-fg-subtle">Lead time</dt>
+                <dd className="text-right tabular-nums text-fg-muted">{row.leadTimeDays === null ? "—" : `${row.leadTimeDays} days`}</dd>
+              </dl>
+              {canCompare && items.length ? (
+                <details className="rounded-md border border-line">
+                  <summary className="cursor-pointer px-3 py-2 text-fg-muted touch:min-h-11 touch:content-center">Prices by line ({items.length})</summary>
+                  <dl className="space-y-1 border-t border-line px-3 py-2">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex items-baseline justify-between gap-3">
+                        <dt className="min-w-0 break-words text-fg-muted">
+                          {item.description} <span className="text-fg-subtle">· {item.quantity} {item.unit}</span>
+                        </dt>
+                        <dd className="shrink-0 tabular-nums text-fg">{row.itemTotals[item.id] && row.pricing ? formatAmount(row.itemTotals[item.id]!, row.pricing.currency) : "—"}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              ) : null}
+              {canSelect || canDisqualify ? <div className="flex flex-wrap justify-end gap-2 empty:hidden">{rowActions(row)}</div> : null}
+            </li>
+          );
+        })}
+      </ul>
 
       <ConfirmDialog
         open={selecting !== null}

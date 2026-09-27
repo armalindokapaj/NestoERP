@@ -62,6 +62,8 @@ export default async function PeoplePage({ searchParams }: Props) {
   const filtered = Boolean(query.q || query.company || query.department || query.title || query.location || query.project || query.manager || query.role || query.view || query.status === "all");
   // The directory's views (E-08 §11): everybody, or the reader's own company, department or project colleagues.
   const inGroup = context.workspace.scopeType === "GROUP";
+  // How many of the folded phone filters are set (AUD-04 §5, D-07-12).
+  const moreFilters = [query.company, query.department, query.role, query.title, query.location].filter(Boolean).length;
   // In the Group workspace there is no "my company", department or project — those belong to the
   // session's company — so only the whole directory is offered; in a company workspace "everyone"
   // already is the company (Workspace Context §46).
@@ -98,8 +100,8 @@ export default async function PeoplePage({ searchParams }: Props) {
               aria-current={query.view === view.key ? "page" : undefined}
               className={
                 query.view === view.key
-                  ? "rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-table font-medium text-accent-strong"
-                  : "rounded-full border border-line px-3 py-1 text-table text-fg-muted hover:border-line-strong hover:text-fg"
+                  ? "inline-flex items-center rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-table font-medium text-accent-strong touch:min-h-11"
+                  : "inline-flex items-center rounded-full border border-line px-3 py-1 text-table text-fg-muted hover:border-line-strong hover:text-fg touch:min-h-11"
               }
             >
               {view.label}
@@ -111,6 +113,21 @@ export default async function PeoplePage({ searchParams }: Props) {
             Search
             <Input name="q" type="search" defaultValue={query.q ?? ""} placeholder="Name, title, email or phone" />
           </label>
+          {/*
+            Below sm the five narrowing filters fold behind "More filters (N)",
+            open when one is set, so the first person is not seven rows down.
+            CSS only: the fields stay in this GET form (and submit) either way,
+            and from sm up the wrapper is display: contents, so the grid is as
+            before (AUD-04 §5, D-07-12, MW-06).
+          */}
+          <input id="people-more-filters" type="checkbox" className="peer sr-only" defaultChecked={moreFilters > 0} />
+          <label
+            htmlFor="people-more-filters"
+            className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 text-body font-medium text-fg peer-focus-visible:ring-2 peer-focus-visible:ring-ring sm:hidden"
+          >
+            More filters{moreFilters > 0 ? ` (${moreFilters})` : ""}
+          </label>
+          <div className="max-sm:hidden max-sm:peer-checked:grid max-sm:peer-checked:gap-3 sm:contents">
           {/*
             The workspace is the default, not a wall: a company workspace opens on
             its own company and "Every company" widens to the group's directory,
@@ -157,6 +174,7 @@ export default async function PeoplePage({ searchParams }: Props) {
             Place
             <Input name="location" defaultValue={query.location ?? ""} placeholder="Office or site" />
           </label>
+          </div>
           <div className="flex items-end gap-2">
             {directory.canIncludeInactive ? (
               <label className="flex h-10 items-center gap-2 whitespace-nowrap text-meta text-fg-muted">

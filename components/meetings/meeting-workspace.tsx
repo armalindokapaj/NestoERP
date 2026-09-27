@@ -134,6 +134,13 @@ export function MeetingWorkspace({
   const zone = meeting.timezone;
   const live = meeting.status === "IN_PROGRESS";
   const inFocus = live && focus;
+  /*
+   * The phone's sticky bar, only when it has a control: Schedule joins it (an
+   * organizer on a phone could not send the invitations), and "meeting mode
+   * with action rights" no longer draws an empty bar — Add action lives in the
+   * actions pane (AUD-04 §6, D-08-19, D-08-20, MW-08).
+   */
+  const stickyBar = caps.canSchedule || caps.canStart || caps.canComplete || caps.canRespond;
 
   const change = React.useCallback((detail: MeetingDetailDTO) => setMeeting(detail), []);
 
@@ -216,7 +223,7 @@ export function MeetingWorkspace({
             }
           }}
           className={cn(
-            "h-8 rounded-md px-3 text-table font-medium transition-colors",
+            "h-8 rounded-md px-3 text-table font-medium transition-colors touch:h-11",
             meeting.myResponse === response
               ? response === "ACCEPTED"
                 ? "bg-success-soft text-success-strong"
@@ -290,7 +297,7 @@ export function MeetingWorkspace({
   );
 
   return (
-    <div className={cn("space-y-5", (caps.canRespond || caps.canStart || caps.canComplete || caps.canCreateAction) && "pb-20 md:pb-0")} data-testid="meeting-workspace">
+    <div className={cn("space-y-5", stickyBar && "pb-20 md:pb-0")} data-testid="meeting-workspace">
       <header className="space-y-4">
         <Breadcrumbs items={breadcrumbs} />
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -386,7 +393,7 @@ export function MeetingWorkspace({
                   aria-controls={`meeting-panel-${key}`}
                   onClick={() => selectTab(key)}
                   className={cn(
-                    "-mb-px shrink-0 border-b-2 px-3 py-2.5 text-table font-medium transition-colors",
+                    "-mb-px shrink-0 border-b-2 px-3 py-2.5 text-table font-medium transition-colors touch:min-h-11",
                     tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
                   )}
                 >
@@ -524,8 +531,13 @@ export function MeetingWorkspace({
       </UnsavedScope>
 
       {/* Sticky actions on a phone, only the ones this reader may take (PRD #40 §126). */}
-      {caps.canStart || caps.canComplete || caps.canRespond || (inFocus && caps.canCreateAction) ? (
+      {stickyBar ? (
         <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="meeting-sticky-actions" data-sticky-action-bar>
+          {caps.canSchedule ? (
+            <Button type="button" className="flex-1" onClick={() => void command("schedule", `/api/meetings/${meeting.id}/schedule`, {}, "Meeting scheduled — invitations sent")} disabled={pending !== null}>
+              {pending === "schedule" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />} Schedule
+            </Button>
+          ) : null}
           {caps.canStart ? (
             <Button type="button" className="flex-1" onClick={() => void command("start", `/api/meetings/${meeting.id}/start`, {}, "Meeting started")} disabled={pending !== null}>
               <Play aria-hidden="true" /> Start

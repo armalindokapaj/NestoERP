@@ -145,14 +145,15 @@ export function EmployeeImport({ template }: { template: string }) {
       {batch ? (
         <section className="nesto-card p-0" data-testid="import-preview">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-            <div>
-              <h2 className="text-card font-semibold text-fg">{batch.fileName}</h2>
+            <div className="min-w-0">
+              {/* An unspaced file name breaks instead of widening the card (AUD-04 §3, D-07-16, MW-01). */}
+              <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{batch.fileName}</h2>
               <p className="text-meta text-fg-subtle" data-testid="import-summary">
                 {batch.rowCount} rows · {batch.validCount} ready · {batch.errorCount} with errors · {batch.warningCount} to check
                 {batch.ignoredColumns.length ? ` · not read: ${batch.ignoredColumns.join(", ")}` : ""}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="ghost" size="sm" onClick={() => void discard()} disabled={pending !== null}>
                 Set aside
               </Button>
@@ -161,14 +162,14 @@ export function EmployeeImport({ template }: { template: string }) {
               </Button>
             </div>
           </div>
-          <nav aria-label="Rows to show" className="flex gap-1.5 px-5 py-2.5">
+          <nav aria-label="Rows to show" className="flex flex-wrap gap-1.5 px-5 py-2.5">
             {FILTERS.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setFilter(value)}
                 aria-pressed={filter === value}
-                className={cn("rounded-full border px-3 py-1 text-table", filter === value ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:text-fg")}
+                className={cn("inline-flex items-center rounded-full border px-3 py-1 text-table touch:min-h-11", filter === value ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:text-fg")}
               >
                 {value === "all" ? "All rows" : value === "errors" ? "Errors" : "To check"}
               </button>

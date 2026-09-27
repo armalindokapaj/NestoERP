@@ -5,6 +5,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
@@ -232,7 +233,8 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
         </div>
         <Input type="search" placeholder="Find a person…" value={filter} onChange={(change) => setFilter(change.target.value)} className="h-9 w-56" aria-label="Find a person" />
       </div>
-      <div className="mt-3 overflow-x-auto">
+      {/* A labelled, keyboard-reachable scroll region (AUD-04 §5, D-07-15, MW-19). */}
+      <ScrollRegion label="Approvers" className="mt-3">
         <table className="w-full min-w-[640px] border-collapse text-table" data-testid="approver-assignments">
           <thead>
             <tr className="border-y border-line text-left text-meta text-fg-muted">
@@ -282,7 +284,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

@@ -14,6 +14,7 @@ import { rfqStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import type { CompanyRef, CurrencyTotal } from "@/lib/modules/procurement/procurement.types";
 import { totalsLabel } from "@/components/procurement/procurement-format";
 import type { RFQStatus } from "@prisma/client";
+import { ScrollRegion } from "@/components/ui/scroll-region";
 
 export const metadata: Metadata = { title: "Procurement reports" };
 
@@ -70,7 +71,8 @@ export default async function ReportsPage() {
             {reports.deliveryPerformance.length === 0 ? (
               <p className="mt-4 text-table text-fg-subtle">Nothing delivered against a date yet.</p>
             ) : (
-              <table className="mt-4 w-full text-table">
+              <ScrollRegion label="On-time delivery by supplier" className="mt-4">
+              <table className="w-full text-table">
                 <caption className="sr-only">On-time delivery by supplier</caption>
                 <thead>
                   <tr className="text-left text-meta text-fg-subtle">
@@ -83,7 +85,7 @@ export default async function ReportsPage() {
                 <tbody className="divide-y divide-line">
                   {reports.deliveryPerformance.map((row) => (
                     <tr key={row.supplier.id}>
-                      <td className="py-2 text-fg">{row.supplier.name}</td>
+                      <td className="min-w-[8rem] py-2 pr-3 text-fg [overflow-wrap:anywhere]">{row.supplier.name}</td>
                       {group ? (
                         <td className="py-2">{row.company ? <CompanyTag name={row.company.name} /> : null}</td>
                       ) : null}
@@ -97,6 +99,7 @@ export default async function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+              </ScrollRegion>
             )}
           </section>
 
@@ -141,7 +144,7 @@ function SpendPanel({
           {rows.slice(0, 8).map((row) => (
             <div key={row.key} className="flex items-baseline justify-between gap-3">
               <dt className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-table text-fg-muted">
-                <span className="min-w-0 truncate">{row.label}</span>
+                <span className="min-w-0 break-words">{row.label}</span>
                 {showCompany && row.company ? <CompanyTag name={row.company.name} /> : null}
                 <span className="text-meta text-fg-subtle">
                   {row.count} order{row.count === 1 ? "" : "s"}

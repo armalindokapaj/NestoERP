@@ -28,7 +28,8 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
         >
           <Icon className="size-4" />
         </span>
-        <p className="min-w-0 truncate text-table font-medium text-fg-muted">
+        {/* Two lines, not an ellipsis: a 2-up phone grid leaves ~90px for "Open Quality Items" (AUD-04 §4, MW-01). */}
+        <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">
           {kpi.definition.label}
         </p>
       </div>

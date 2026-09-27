@@ -110,7 +110,8 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                 ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center gap-3">
+              {/* Amount and decision wrap under the record on a phone instead of pushing the row sideways (AUD-04 §4, MW-01). */}
+              <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-3">
                 <Money
                   amount={approval.record.amount}
                   currency={approval.record.currency}
@@ -118,7 +119,7 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                 />
 
                 {approval.canDecide ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" onClick={() => approve(approval)} disabled={rowBusy}>
                       <ThumbsUp aria-hidden="true" />
                       {rowBusy ? "Working…" : "Approve"}

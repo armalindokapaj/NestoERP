@@ -36,7 +36,7 @@ export default async function OpportunitiesPage({
       experience={experience}
       activeSection="opportunities"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {!grouped && can(context, "sales.export") ? <SalesExportLink type="opportunities" /> : null}
           {!grouped && can(context, "sales.opportunity.create") ? (
             <Button asChild size="sm">

@@ -39,7 +39,7 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
     <div className="space-y-3">
       <nav aria-label="Request views" className="flex gap-1">
         {(["open", "closed"] as const).map((key) => (
-          <Link key={key} href={key === "open" ? "/contracts/requests" : "/contracts/requests?view=closed"} aria-current={view === key ? "page" : undefined} className={cn("inline-flex h-8 items-center rounded-md px-3 text-table font-medium", view === key ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
+          <Link key={key} href={key === "open" ? "/contracts/requests" : "/contracts/requests?view=closed"} aria-current={view === key ? "page" : undefined} className={cn("inline-flex h-8 items-center rounded-md px-3 text-table font-medium touch:h-11", view === key ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
             {key === "open" ? "Waiting" : "Answered"}
           </Link>
         ))}

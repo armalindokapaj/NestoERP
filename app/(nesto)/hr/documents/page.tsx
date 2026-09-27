@@ -54,7 +54,7 @@ export default async function HrDocumentsPage({
   const lists = await getCredentialWorklist(context, requested);
   const showing = lists && requested && lists.view === requested ? lists : null;
   const chip = (active: boolean) =>
-    cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <ModulePage

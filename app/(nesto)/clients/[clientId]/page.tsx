@@ -193,7 +193,7 @@ export default async function ClientOverviewPage({ params }: Params) {
                   {client.primaryContact.email ? (
                     <a
                       href={`mailto:${client.primaryContact.email}`}
-                      className="block text-meta text-fg-muted hover:text-accent"
+                      className="block text-meta text-fg-muted hover:text-accent [overflow-wrap:anywhere]"
                     >
                       {client.primaryContact.email}
                     </a>
@@ -201,7 +201,7 @@ export default async function ClientOverviewPage({ params }: Params) {
                   {client.primaryContact.phone ? (
                     <a
                       href={`tel:${client.primaryContact.phone}`}
-                      className="block text-meta text-fg-muted hover:text-accent"
+                      className="block text-meta text-fg-muted hover:text-accent [overflow-wrap:anywhere]"
                     >
                       {client.primaryContact.phone}
                     </a>
