@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { listEmployeeActivity } from "@/lib/modules/hr/hr.activity";
 import { formatDateTime, orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
@@ -17,7 +18,10 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Employee activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employeeActivity") };
+}
 
 /**
  * One employee's HR history (PRD #16 §136–§138).
@@ -40,10 +44,11 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (activity.pagination.page !== page) redirect(listPageRedirect(`/hr/employees/${employeeId}/activity`, query, activity.pagination.page));
 
+  const t = await getTranslations("hr");
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Activity")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.activity"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
@@ -58,8 +63,8 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No HR activity recorded yet."
-          description="Employment changes, leave decisions and pay records are listed here. Role and access changes belong to Team."
+          title={t("activity.emptyTitle")}
+          description={t("activity.emptyDescription")}
         />
       ) : (
         <>
@@ -67,7 +72,7 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  <span className="font-medium">{entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : "Someone"}</span>{" "}
+                  <span className="font-medium">{entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("activity.someone")}</span>{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>

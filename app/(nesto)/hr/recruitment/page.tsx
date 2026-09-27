@@ -16,11 +16,15 @@ import { recruitmentFormOptions } from "@/lib/modules/hr/recruitment/candidate.o
 import { CANDIDATE_STATUSES, candidateListQuerySchema } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { listCandidates } from "@/lib/modules/hr/recruitment/candidate.service";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
-import { statusLabel } from "@/lib/utils/status";
+import { StatusText } from "@/components/i18n/common-text";
+import { getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "Recruitment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.recruitment") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -51,6 +55,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
     const search = next.toString();
     return search ? `/hr/recruitment?${search}` : "/hr/recruitment";
   };
+  const t = await getTranslations("hr");
   const chip = (active: boolean) =>
     cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
@@ -58,47 +63,47 @@ export default async function RecruitmentPage({ searchParams }: Props) {
     <ModulePage
       experience={resolveModuleExperience(context, "hr")}
       activeSection="recruitment"
-      title="Recruitment"
-      description="The people you are recruiting. A candidate is a person before any login; hiring and the NESTO account follow from the same record."
+      title={t("meta.recruitment")}
+      description={t("recruitment.description")}
       actions={choices ? <NewCandidateButton choices={choices} defaultCompanyId={context.companyId} /> : null}
     >
       <div className="space-y-4">
-        <nav aria-label="Candidate status" className="flex flex-wrap gap-2">
+        <nav aria-label={t("recruitment.statusNav")} className="flex flex-wrap gap-2">
           <Link href={chipHref()} className={chip(!query.status)}>
-            All
+            {t("recruitment.all")}
           </Link>
           {CANDIDATE_STATUSES.map((status) => (
             <Link key={status} href={chipHref(status)} className={chip(query.status === status)}>
-              {statusLabel(status)}
+              <StatusText status={status} />
             </Link>
           ))}
         </nav>
 
         {/* The service always searched name and work email; the page now offers it (AUD-08 §3). */}
-        <ListToolbar searchParam="q" searchPlaceholder="Search name or work email…" />
+        <ListToolbar searchParam="q" searchPlaceholder={t("recruitment.searchPlaceholder")} />
 
         {list.data.length === 0 ? (
           query.q || query.status ? (
             <EmptyState
-              title="No candidates match these filters."
-              description="Adjust or clear the filters to see more."
-              action={{ label: "Clear filters", href: "/hr/recruitment" }}
+              title={t("recruitment.noMatchTitle")}
+              description={t("common.adjustFilters")}
+              action={{ label: t("common.clearFilters"), href: "/hr/recruitment" }}
             />
           ) : (
-            <EmptyState title="No candidates here" description="Candidates HR adds appear here, with where they are being recruited to." />
+            <EmptyState title={t("recruitment.emptyTitle")} description={t("recruitment.emptyDescription")} />
           )
         ) : (
           <section className="nesto-card p-0">
-            <Table flush aria-label="Candidates">
+            <Table flush aria-label={t("recruitment.candidates")}>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Candidate</TableHeaderCell>
-                  <TableHeaderCell>Company</TableHeaderCell>
-                  <TableHeaderCell>Department</TableHeaderCell>
-                  <TableHeaderCell>Role</TableHeaderCell>
-                  <TableHeaderCell>Stage</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Updated</TableHeaderCell>
+                  <TableHeaderCell>{t("recruitment.candidate")}</TableHeaderCell>
+                  <TableHeaderCell>{t("recruitment.company")}</TableHeaderCell>
+                  <TableHeaderCell>{t("columns.department")}</TableHeaderCell>
+                  <TableHeaderCell>{t("employee.role")}</TableHeaderCell>
+                  <TableHeaderCell>{t("recruitment.stage")}</TableHeaderCell>
+                  <TableHeaderCell>{t("columns.status")}</TableHeaderCell>
+                  <TableHeaderCell>{t("recruitment.updated")}</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>

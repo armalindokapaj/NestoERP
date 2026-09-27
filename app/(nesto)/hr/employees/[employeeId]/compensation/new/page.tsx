@@ -6,10 +6,14 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { recordCompensationAction } from "@/lib/actions/hr";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
 import { employeeBreadcrumbs, loadEmployee } from "../../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
-export const metadata: Metadata = { title: "Record compensation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.recordCompensation") };
+}
 
 /**
  * Record a new pay level (PRD #16 §65).
@@ -25,6 +29,7 @@ export default async function NewCompensationPage({ params }: Params) {
   if (!employee.capabilities.canEditCompensation) notFound();
 
   const history = await compensation.listCompensation(context, employeeId);
+  const t = await getTranslations("hr");
   const current = history.find((record) => record.isCurrent) ?? null;
 
   async function action(formData: FormData) {
@@ -35,8 +40,8 @@ export default async function NewCompensationPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Record compensation")}
-        title={`Compensation for ${employee.name.fullName}`}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("meta.recordCompensation"))}
+        title={t("compensation.titleFor", { name: employee.name.fullName })}
         status={employee.employmentStatus}
       />
 

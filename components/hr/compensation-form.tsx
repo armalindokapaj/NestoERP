@@ -12,13 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { PAY_TYPES } from "@/lib/modules/hr/hr.schema";
 import { localDay } from "./local-day";
+import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
 
-const PAY_TYPE_LABELS: Record<(typeof PAY_TYPES)[number], string> = {
-  SALARY: "Salary",
-  HOURLY: "Hourly",
-  DAILY: "Daily",
-  OTHER: "Other",
-};
 
 /**
  * Record a new pay level (PRD #16 §60, §65, §321).
@@ -38,19 +33,21 @@ export function CompensationForm({
   currentAmount?: { baseAmount: string; currency: string; payType: string } | null;
   cancelHref: string;
 }) {
+  const t = useHrTranslations();
+  const translatedAction = useHrFormAction(action);
   return (
     <RecordForm
-      action={action}
+      action={translatedAction}
       cancelHref={cancelHref}
-      submitLabel="Record compensation"
-      pendingLabel="Recording…"
+      submitLabel={t("meta.recordCompensation")}
+      pendingLabel={t("attendance.recording")}
       module="hr"
     >
       <FormSection
-        title="New pay record"
-        description="The record currently open is closed the day before this one starts."
+        title={t("compensation.newRecord")}
+        description={t("compensation.newRecordDescription")}
       >
-        <Field label="Pay type" name="payType" required>
+        <Field label={t("compensation.payType")} name="payType" required>
           <select
             id="payType"
             name="payType"
@@ -59,13 +56,13 @@ export function CompensationForm({
           >
             {PAY_TYPES.map((type) => (
               <option key={type} value={type}>
-                {PAY_TYPE_LABELS[type]}
+                {hrLabel(t, "payType", type)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("compensation.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -81,19 +78,19 @@ export function CompensationForm({
         </Field>
 
         <Field
-          label="Base amount"
+          label={t("compensation.baseAmount")}
           name="baseAmount"
           required
           hint={
             currentAmount
-              ? `Currently ${currentAmount.baseAmount} ${currentAmount.currency}.`
-              : "Gross, per the pay type above."
+              ? t("compensation.currently", { amount: currentAmount.baseAmount, currency: currentAmount.currency })
+              : t("compensation.grossHint")
           }
         >
           <Input id="baseAmount" name="baseAmount" inputMode="decimal" required placeholder="0.00" />
         </Field>
 
-        <Field label="Effective from" name="effectiveFrom" required>
+        <Field label={t("compensation.effectiveFrom")} name="effectiveFrom" required>
           <Input
             id="effectiveFrom"
             name="effectiveFrom"
@@ -104,10 +101,10 @@ export function CompensationForm({
         </Field>
 
         <Field
-          label="Notes"
+          label={t("attendance.notes")}
           name="notes"
           className="sm:col-span-2"
-          hint="Why the level changed. Never repeated in the activity trail."
+          hint={t("compensation.notesHint")}
         >
           <Textarea id="notes" name="notes" rows={3} maxLength={2000} />
         </Field>

@@ -3,6 +3,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { cn } from "@/lib/utils/cn";
+import { useHrTranslations } from "./hr-text";
 
 /**
  * Tabs on an employment record (PRD #16 §45).
@@ -35,12 +36,13 @@ export function EmployeeTabs({
   active: EmployeeTabKey;
   show: Partial<Record<EmployeeTabKey, boolean>>;
 }) {
+  const t = useHrTranslations();
   const visible = TABS.filter(
     (tab) => tab.key === "overview" || tab.key === "employment" || show[tab.key],
   );
 
   return (
-    <nav aria-label="Employee sections" className="border-b border-line">
+    <nav aria-label={t("tabs.sections")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -56,7 +58,7 @@ export function EmployeeTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(`tabs.${tab.key}`)}
               </Link>
             </li>
           );

@@ -11,8 +11,12 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { AttendanceList } from "./attendance-list";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.attendance") };
+}
 
 /** Attendance days (PRD #16 §97). */
 export default async function AttendancePage({
@@ -28,6 +32,7 @@ export default async function AttendancePage({
 
   const experience = resolveModuleExperience(context, "hr");
   const params = await searchParams;
+  const t = await getTranslations("hr");
 
   return (
     <ModulePage
@@ -38,7 +43,7 @@ export default async function AttendancePage({
           {can(context, "hr.export") ? <HrExportLink type="attendance" /> : null}
           {can(context, "hr.attendance.create") || can(context, "hr.self.attendance") ? (
             <Button asChild size="sm">
-              <Link href="/hr/attendance/new">Record a day</Link>
+              <Link href="/hr/attendance/new">{t("attendance.recordDay")}</Link>
             </Button>
           ) : null}
         </div>

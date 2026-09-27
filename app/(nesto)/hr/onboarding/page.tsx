@@ -9,8 +9,12 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listProgress } from "@/lib/modules/hr/employees/progress.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Onboarding" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.onboarding") };
+}
 
 /**
  * Employment readiness for people joining (PRD #16 §116–§121).
@@ -25,21 +29,22 @@ export default async function OnboardingPage() {
 
   const experience = resolveModuleExperience(context, "hr");
   const rows = await listProgress(context, "onboarding");
+  const t = await getTranslations("hr");
 
   return (
     <ModulePage experience={experience} activeSection="onboarding">
       {rows.length === 0 ? (
         <EmptyState
           icon={<UserRoundPlus />}
-          title="No employees currently onboarding."
-          description="People who are joining, or whose onboarding is still open, appear here."
+          title={t("progress.onboardingEmptyTitle")}
+          description={t("progress.onboardingEmptyDescription")}
         />
       ) : (
         <ProgressTable
           rows={rows}
           total={rows.total}
           kind="onboarding"
-          dateLabel="Starts"
+          dateLabel={t("progress.starts")}
           canManage={can(context, "hr.onboarding.manage")}
         />
       )}

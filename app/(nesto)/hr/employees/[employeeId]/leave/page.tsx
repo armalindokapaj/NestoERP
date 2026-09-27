@@ -14,6 +14,7 @@ import { leaveListQuerySchema } from "@/lib/modules/hr/hr.schema";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 import { Pagination } from "@/components/data/pagination";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
@@ -22,7 +23,10 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Employee leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employeeLeave") };
+}
 
 /**
  * One employee's leave and balances (PRD #16 §79, §217).
@@ -51,10 +55,11 @@ export default async function EmployeeLeaveTabPage({ params, searchParams }: Par
   // Every request is reachable page by page — the tab used to stop silently at 25 (AUD-08 §4, DT-05).
   if (requests.pagination.page !== query.page) redirect(listPageRedirect(basePath, search, requests.pagination.page));
 
+  const t = await getTranslations("hr");
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Leave")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.leave"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
@@ -81,8 +86,8 @@ export default async function EmployeeLeaveTabPage({ params, searchParams }: Par
       {requests.data.length === 0 ? (
         <EmptyState
           icon={<CalendarDays />}
-          title="No leave requests."
-          description="Requests filed by or for this employee appear here."
+          title={t("leave.noRequests")}
+          description={t("leave.employeeEmptyDescription")}
         />
       ) : (
         <>

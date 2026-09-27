@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { leaveLifecycleAction, rejectLeaveAction, type LeaveAction } from "@/lib/actions/hr";
 import type { LeaveRequestDTO } from "@/lib/modules/hr/hr.types";
+import { useHrServerText, useHrTranslations } from "./hr-text";
 
 /**
  * Actions on a leave request (PRD #16 §86–§89).
@@ -20,6 +21,8 @@ import type { LeaveRequestDTO } from "@/lib/modules/hr/hr.types";
  * sees Approve on their own leave (PRD #16 §194).
  */
 export function LeaveActions({ request }: { request: LeaveRequestDTO }) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -38,7 +41,7 @@ export function LeaveActions({ request }: { request: LeaveRequestDTO }) {
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -49,65 +52,65 @@ export function LeaveActions({ request }: { request: LeaveRequestDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/hr/leave/${request.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
-        <Button size="sm" onClick={() => run("submit", "Leave request submitted.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("submit", t("leaveActions.submitted"))} disabled={pending}>
           <Send aria-hidden="true" />
-          {pending ? "Working…" : "Submit for approval"}
+          {pending ? t("common.working") : t("leaveActions.submit")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
-        <Button size="sm" onClick={() => run("approve", "Leave approved.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("approve", t("leaveActions.approved"))} disabled={pending}>
           <ThumbsUp aria-hidden="true" />
-          {pending ? "Working…" : "Approve"}
+          {pending ? t("common.working") : t("leaveActions.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" onClick={() => setRejecting(true)} disabled={pending}>
           <ThumbsDown aria-hidden="true" />
-          Reject
+          {t("leaveActions.reject")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" onClick={() => setCancelling(true)} disabled={pending}>
           <Ban aria-hidden="true" />
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={cancelling}
         onOpenChange={setCancelling}
-        title="Cancel this leave request?"
+        title={t("leaveActions.cancelTitle")}
         description={
           request.status === "APPROVED"
-            ? "The days go back to the balance and the attendance days written from this leave are removed."
-            : "The request stops standing. It stays visible with its history."
+            ? t("leaveActions.cancelApproved")
+            : t("leaveActions.cancelOther")
         }
-        confirmLabel="Cancel leave"
+        confirmLabel={t("leaveActions.cancelLeave")}
         pending={pending}
-        onConfirm={() => run("cancel", "Leave cancelled.")}
+        onConfirm={() => run("cancel", t("leaveActions.cancelled"))}
       />
 
       <RejectDialog
         open={rejecting}
         onOpenChange={setRejecting}
-        title="Reject this leave request?"
+        title={t("leaveActions.rejectTitle")}
         onReject={async (reason) => {
           const result = await rejectLeaveAction(request.id, reason, request.submittedAt);
           if (result.ok) {
-            toast({ title: "Leave rejected." });
+            toast({ title: t("leaveActions.rejected") });
             setRejecting(false);
             router.refresh();
           } else {
-            toast({ title: result.error, tone: "danger" });
+            toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           }
           return result.ok;
         }}

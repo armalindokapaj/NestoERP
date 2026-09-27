@@ -10,8 +10,12 @@ import { requireModule } from "@/lib/context/current-user";
 import { leaveYearOf, today } from "@/lib/modules/hr/hr.calendar";
 import { listEmployees } from "@/lib/modules/hr/employees/employee.service";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Request leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("leave.requestLeave") };
+}
 
 /**
  * Request leave (PRD #16 §75, §191).
@@ -26,6 +30,7 @@ export default async function NewLeavePage() {
   if (!forOthers && !can(context, "hr.self.leave")) redirect("/access-denied");
 
   const year = leaveYearOf(today());
+  const t = await getTranslations("hr");
 
   const [employees, balances] = await Promise.all([
     forOthers && can(context, "hr.employee.view")
@@ -51,12 +56,12 @@ export default async function NewLeavePage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "HR", href: "/hr" },
-          { label: "Leave", href: "/hr/leave" },
-          { label: "Request leave" },
+          { label: t("meta.hr"), href: "/hr" },
+          { label: t("meta.leave"), href: "/hr/leave" },
+          { label: t("leave.requestLeave") },
         ]}
-        title="Request leave"
-        subtitle="Saved as a draft. Submit it when you are ready for a decision."
+        title={t("leave.requestLeave")}
+        subtitle={t("leave.newSubtitle")}
       />
 
       {balances.length > 0 ? <LeaveBalanceCard balances={balances} year={year} /> : null}
@@ -67,13 +72,13 @@ export default async function NewLeavePage() {
           employees
             ? employees.data.map((employee) => ({
                 value: employee.id,
-                label: employee.accountStatus === "NO_ACCOUNT" ? `${employee.name.fullName} (no NESTO account)` : employee.name.fullName,
+                label: employee.accountStatus === "NO_ACCOUNT" ? t("leave.noAccountName", { name: employee.name.fullName }) : employee.name.fullName,
               }))
             : undefined
         }
         cancelHref="/hr/leave"
-        submitLabel="Create request"
-        pendingLabel="Creating…"
+        submitLabel={t("leave.createRequest")}
+        pendingLabel={t("common.creating")}
       />
     </div>
   );

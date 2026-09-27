@@ -10,7 +10,9 @@ import type { UserContext } from "@/lib/context/types";
 import { parseEmployeeQuery } from "@/lib/modules/hr/hr.query";
 import { ACCOUNT_STATUSES } from "@/lib/modules/hr/hr.person";
 import { EMPLOYEE_SORT_KEYS, EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
-import { accountStatusLabels, employmentStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
+import { employmentStatusLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { employeeFilterOptions } from "@/lib/modules/hr/employees/employee.repository";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
@@ -32,6 +34,7 @@ export async function EmployeesList({
   searchParams: SearchParams;
 }) {
   const query = parseEmployeeQuery(searchParams);
+  const t = await getTranslations("hr");
 
   const [result, options] = await Promise.all([
     employees.listEmployees(context, query),
@@ -52,20 +55,20 @@ export async function EmployeesList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
-      options: Object.entries(employmentStatusLabels).map(([value, label]) => ({ value, label })),
+      label: t("columns.status"),
+      options: Object.keys(employmentStatusLabels).map((value) => ({ value, label: hrLabel(t, "employmentStatus", value) })),
     },
     {
       param: "employmentType",
-      label: "Type",
+      label: t("columns.type"),
       options: EMPLOYMENT_TYPES.map((value) => ({
         value,
-        label: employmentTypeLabels[value],
+        label: hrLabel(t, "employmentType", value),
       })),
     },
     {
       param: "departmentId",
-      label: "Department",
+      label: t("columns.department"),
       options: options.departments.map((department) => ({
         value: department.id,
         label: department.name,
@@ -73,22 +76,22 @@ export async function EmployeesList({
     },
     {
       param: "managerMemberId",
-      label: "Manager",
+      label: t("columns.manager"),
       options: options.managers.map((manager) => ({ value: manager.id, label: manager.name })),
     },
     // Employment is not access: most site workers have no login, and HR finds them by that (E-04 §19).
     {
       param: "accountStatus",
-      label: "NESTO account",
-      options: ACCOUNT_STATUSES.map((value) => ({ value, label: accountStatusLabels[value] })),
+      label: t("columns.nestoAccount"),
+      options: ACCOUNT_STATUSES.map((value) => ({ value, label: hrLabel(t, "accountStatus", value) })),
     },
     {
       param: "workerCategory",
-      label: "Category",
-      options: WORKER_CATEGORIES.map((value) => ({ value, label: workerCategoryLabels[value] })),
+      label: t("columns.category"),
+      options: WORKER_CATEGORIES.map((value) => ({ value, label: hrLabel(t, "workerCategory", value) })),
     },
     ...(options.trades.length > 0
-      ? [{ param: "tradeId", label: "Trade", options: options.trades.map((trade) => ({ value: trade.id, label: trade.name })) }]
+      ? [{ param: "tradeId", label: t("columns.trade"), options: options.trades.map((trade) => ({ value: trade.id, label: trade.name })) }]
       : []),
   ];
 
@@ -99,15 +102,15 @@ export async function EmployeesList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search name, email, number or job title…"
+        searchPlaceholder={t("employees.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "start-desc", label: "Recently started" },
-          { value: "start-asc", label: "Longest serving" },
-          { value: "department-asc", label: "Department" },
-          { value: "status-asc", label: "Status" },
+          { value: "name-asc", label: t("employees.sort.nameAsc") },
+          { value: "name-desc", label: t("employees.sort.nameDesc") },
+          { value: "start-desc", label: t("employees.sort.startDesc") },
+          { value: "start-asc", label: t("employees.sort.startAsc") },
+          { value: "department-asc", label: t("columns.department") },
+          { value: "status-asc", label: t("columns.status") },
         ]}
       />
 
@@ -115,18 +118,18 @@ export async function EmployeesList({
         hasFilters ? (
           <EmptyState
             icon={<UserRoundCog />}
-            title="No HR records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/hr/employees" }}
+            title={t("employees.noMatchTitle")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/hr/employees" }}
           />
         ) : (
           <EmptyState
             icon={<UserRoundCog />}
-            title="No employee profiles yet."
-            description="Add the people the company employs, whether or not they will ever sign in to NESTO."
+            title={t("employees.emptyTitle")}
+            description={t("employees.emptyDescription")}
             action={
               can(context, "hr.employee.create_profile")
-                ? { label: "Add employment record", href: "/hr/employees/new" }
+                ? { label: t("employees.addRecord"), href: "/hr/employees/new" }
                 : undefined
             }
           />

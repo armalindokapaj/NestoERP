@@ -9,10 +9,14 @@ import { Button } from "@/components/ui/button";
 import * as compensation from "@/lib/modules/hr/compensation/compensation.service";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
-export const metadata: Metadata = { title: "Compensation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.compensation") };
+}
 
 /**
  * Pay for one employee (PRD #16 §58, §240).
@@ -29,18 +33,19 @@ export default async function CompensationTabPage({ params }: Params) {
   if (!employee.capabilities.canViewCompensation) notFound();
 
   const records = await compensation.listCompensation(context, employeeId);
+  const t = await getTranslations("hr");
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Compensation")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.compensation"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
         actions={
           employee.capabilities.canEditCompensation ? (
             <Button asChild size="sm">
-              <Link href={`/hr/employees/${employeeId}/compensation/new`}>Record compensation</Link>
+              <Link href={`/hr/employees/${employeeId}/compensation/new`}>{t("meta.recordCompensation")}</Link>
             </Button>
           ) : null
         }
@@ -53,8 +58,7 @@ export default async function CompensationTabPage({ params }: Params) {
       />
 
       <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-        Confidential. Amounts are never written into the activity trail, and are not part of any
-        employee list or export without this permission.
+        {t("compensation.confidential")}
       </p>
 
       <CompensationHistory records={records} />

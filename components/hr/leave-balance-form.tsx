@@ -13,7 +13,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { setLeaveBalanceAction } from "@/lib/actions/hr";
 import { LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
-import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -36,20 +36,20 @@ export function LeaveBalanceForm({
   employeeName: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const t = useHrTranslations();
 
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <SlidersHorizontal aria-hidden="true" />
-        Set entitlement
+        {t("balanceForm.set")}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogTitle>Leave entitlement</DialogTitle>
+          <DialogTitle>{t("balanceForm.title")}</DialogTitle>
           <DialogDescription>
-            {employeeName}&rsquo;s entitlement for a leave year. Days already used are calculated
-            from approved leave and cannot be typed here.
+            {t("balanceForm.description", { name: employeeName })}
           </DialogDescription>
 
           {/* Inside the dialog, so its guarded close asks about the entries (AUD-03 §5). */}
@@ -66,6 +66,8 @@ export function LeaveBalanceForm({
  * every value. Closing after a committed save needs no question — it is clean.
  */
 function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; year: number; onDone: () => void }) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const toast = useToast();
   const close = useDialogClose();
@@ -75,9 +77,9 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
     action: (formData: FormData) => setLeaveBalanceAction(employeeId, formData),
     module: "hr",
     saveKind: "save",
-    label: "Leave entitlement",
+    label: t("balanceForm.title"),
     onCommitted: (result, mode) => {
-      toast({ title: result?.message ?? "Leave balance saved.", tone: "success" });
+      toast({ title: serverText(result?.message) ?? t("server.leaveBalanceSaved"), tone: "success" });
       if (mode === "normal") onDone();
       router.refresh();
       return true;
@@ -91,18 +93,18 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 border-0 p-0">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="balance-leaveType">Leave type</Label>
+          <Label htmlFor="balance-leaveType">{t("reports.leaveType")}</Label>
           <select id="balance-leaveType" name="leaveType" className={selectClass} defaultValue="ANNUAL">
             {LEAVE_TYPES.map((type) => (
               <option key={type} value={type}>
-                {leaveTypeLabels[type]}
+                {hrLabel(t, "leaveType", type)}
               </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="balance-year">Year</Label>
+          <Label htmlFor="balance-year">{t("balanceForm.year")}</Label>
           <Input
             id="balance-year"
             name="year"
@@ -113,7 +115,7 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="balance-entitledDays">Entitled days</Label>
+          <Label htmlFor="balance-entitledDays">{t("balanceForm.entitledDays")}</Label>
           <Input
             id="balance-entitledDays"
             name="entitledDays"
@@ -124,7 +126,7 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="balance-adjustmentDays">Adjustment</Label>
+          <Label htmlFor="balance-adjustmentDays">{t("balanceForm.adjustment")}</Label>
           <Input
             id="balance-adjustmentDays"
             name="adjustmentDays"
@@ -132,7 +134,7 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
             placeholder="0"
           />
           <p className="text-meta text-fg-subtle">
-            Carry-over or a correction. Can be negative.
+            {t("balanceForm.adjustmentHint")}
           </p>
         </div>
       </div>
@@ -142,10 +144,10 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
       <div className="flex flex-wrap items-center justify-end gap-2">
         <UnsavedIndicator save={save} className="mr-auto" />
         <Button type="button" variant="secondary" onClick={close} disabled={pending}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save entitlement"}
+          {pending ? t("common.saving") : t("balanceForm.save")}
         </Button>
       </div>
     </form>

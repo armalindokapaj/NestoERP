@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import { progressAction } from "@/lib/actions/hr";
-import { progressStatusLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
 import type { HrProgressStatus } from "@prisma/client";
 
 /**
@@ -36,6 +36,8 @@ export function ProgressActions({
   current: HrProgressStatus;
   name: string;
 }) {
+  const t = useHrTranslations();
+  const serverText = useHrServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -45,14 +47,12 @@ export function ProgressActions({
       const result = await progressAction(employeeId, kind, status);
       if (result.ok) {
         toast({
-          title: `${kind === "onboarding" ? "Onboarding" : "Offboarding"} ${progressStatusLabels[
-            status
-          ].toLowerCase()}.`,
+          title: t("progressActions.done", { kind: kind === "onboarding" ? t("meta.onboarding") : t("meta.offboarding"), status: hrLabel(t, "progressStatus", status).toLowerCase() }),
           tone: "success",
         });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -60,15 +60,15 @@ export function ProgressActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" disabled={pending} aria-label={`${kind} status for ${name}`}>
-          {progressStatusLabels[current]}
+        <Button variant="secondary" size="sm" disabled={pending} aria-label={t("progressActions.label", { kind: kind === "onboarding" ? t("meta.onboarding") : t("meta.offboarding"), name })}>
+          {hrLabel(t, "progressStatus", current)}
           <ChevronDown aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {CHOICES.filter((status) => status !== current).map((status) => (
           <DropdownMenuItem key={status} onSelect={() => set(status)}>
-            {progressStatusLabels[status]}
+            {hrLabel(t, "progressStatus", status)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

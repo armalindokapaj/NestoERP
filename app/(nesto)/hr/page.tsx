@@ -11,12 +11,16 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { leaveYearOf, today } from "@/lib/modules/hr/hr.calendar";
 import { leaveListQuerySchema } from "@/lib/modules/hr/hr.schema";
-import { employmentTypeLabels } from "@/lib/modules/hr/hr.status";
 import { attentionList, getHrOverview } from "@/lib/modules/hr/overview/overview.service";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { formatDate } from "@/lib/utils/format";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "HR" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.hr") };
+}
 
 /**
  * The HR overview (PRD #16 §21–§24).
@@ -32,6 +36,7 @@ export default async function HrOverviewPage() {
   const experience = resolveModuleExperience(context, "hr");
 
   const overview = await getHrOverview(context);
+  const t = await getTranslations("hr");
 
   const [attention, myBalances, myLeave] = await Promise.all([
     overview.visible.employees ? attentionList(context) : null,
@@ -55,27 +60,27 @@ export default async function HrOverviewPage() {
   const cards = [
     ...(overview.visible.employees
       ? [
-          { label: "Active employees", value: overview.headcount, href: "/hr/employees?status=ACTIVE,ON_LEAVE" },
-          { label: "Starting soon", value: overview.startingSoon, href: "/hr/employees?status=PLANNED" },
-          { label: "Ending soon", value: overview.endingSoon, href: "/hr/reports?report=ending-soon" },
+          { label: t("overview.activeEmployees"), value: overview.headcount, href: "/hr/employees?status=ACTIVE,ON_LEAVE" },
+          { label: t("overview.startingSoon"), value: overview.startingSoon, href: "/hr/employees?status=PLANNED" },
+          { label: t("overview.endingSoon"), value: overview.endingSoon, href: "/hr/reports?report=ending-soon" },
         ]
       : []),
     ...(overview.visible.leave
       ? [
-          { label: "On leave today", value: overview.onLeaveToday, href: "/hr/leave?status=APPROVED" },
-          { label: "Pending leave", value: overview.pendingLeave, href: "/hr/leave?status=PENDING" },
+          { label: t("overview.onLeaveToday"), value: overview.onLeaveToday, href: "/hr/leave?status=APPROVED" },
+          { label: t("overview.pendingLeave"), value: overview.pendingLeave, href: "/hr/leave?status=PENDING" },
         ]
       : []),
     ...(overview.visible.onboarding
       ? [
-          { label: "In onboarding", value: overview.onboardingInProgress, href: "/hr/onboarding" },
-          { label: "In offboarding", value: overview.offboardingInProgress, href: "/hr/offboarding" },
+          { label: t("overview.inOnboarding"), value: overview.onboardingInProgress, href: "/hr/onboarding" },
+          { label: t("overview.inOffboarding"), value: overview.offboardingInProgress, href: "/hr/offboarding" },
         ]
       : []),
     ...(overview.visible.attendance
       ? [
           {
-            label: "Attendance exceptions",
+            label: t("overview.attendanceExceptions"),
             value: overview.attendanceExceptions,
             href: "/hr/attendance?exceptions=1",
           },
@@ -92,7 +97,7 @@ export default async function HrOverviewPage() {
       actions={
         can(context, "hr.leave.create") || can(context, "hr.self.leave") ? (
           <Button asChild size="sm">
-            <Link href="/hr/leave/new">Request leave</Link>
+            <Link href="/hr/leave/new">{t("leave.requestLeave")}</Link>
           </Button>
         ) : null
       }
@@ -116,8 +121,8 @@ export default async function HrOverviewPage() {
         {nothingVisible ? (
           <EmptyState
             icon={<UserRoundCog />}
-            title="Nothing in your HR view."
-            description="Your access covers your own records rather than company people data."
+            title={t("overview.nothingTitle")}
+            description={t("overview.nothingDescription")}
           />
         ) : null}
 
@@ -126,19 +131,19 @@ export default async function HrOverviewPage() {
             <LeaveBalanceCard
               balances={myBalances}
               year={leaveYearOf(today())}
-              title="My leave balance"
+              title={t("overview.myLeaveBalance")}
             />
           ) : null}
 
           {myLeave && myLeave.data.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">My leave</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.myLeave")}</h2>
                 <Link
                   href="/hr/leave?mine=1"
                   className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                 >
-                  All mine
+                  {t("overview.allMine")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
                 </Link>
               </div>
@@ -151,7 +156,7 @@ export default async function HrOverviewPage() {
                     >
                       {formatDate(request.startDate)} — {formatDate(request.endDate)}
                     </Link>
-                    <span className="shrink-0 text-meta text-fg-subtle">{request.status}</span>
+                    <span className="shrink-0 text-meta text-fg-subtle">{hrLabel(t, "leaveStatus", request.status)}</span>
                   </li>
                 ))}
               </ul>
@@ -161,19 +166,19 @@ export default async function HrOverviewPage() {
           {overview.visible.employees && overview.byEmploymentType.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Headcount by type</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.headcountByType")}</h2>
                 <Link
                   href="/hr/reports?report=headcount"
                   className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                 >
-                  Headcount
+                  {t("overview.headcount")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
                 </Link>
               </div>
               <dl className="mt-4 divide-y divide-line">
                 {overview.byEmploymentType.map((row) => (
                   <div key={row.type} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                    <dt className="text-table text-fg-muted">{employmentTypeLabels[row.type]}</dt>
+                    <dt className="text-table text-fg-muted">{hrLabel(t, "employmentType", row.type)}</dt>
                     <dd className="text-table font-semibold tabular-nums text-fg">{row.count}</dd>
                   </div>
                 ))}
@@ -185,18 +190,18 @@ export default async function HrOverviewPage() {
         {attention ? (
           <div className="grid gap-4 lg:grid-cols-3">
             <AttentionPanel
-              title="Starting soon"
-              emptyLabel="Nobody joining in the next 30 days."
+              title={t("overview.startingSoon")}
+              emptyLabel={t("overview.startingEmpty")}
               rows={attention.starting}
             />
             <AttentionPanel
-              title="Employment ending"
-              emptyLabel="No end dates in the next 30 days."
+              title={t("overview.employmentEnding")}
+              emptyLabel={t("overview.endingEmpty")}
               rows={attention.ending}
             />
             <AttentionPanel
-              title="Probation ending"
-              emptyLabel="No probation periods ending soon."
+              title={t("overview.probationEnding")}
+              emptyLabel={t("overview.probationEmpty")}
               rows={attention.probation}
             />
           </div>

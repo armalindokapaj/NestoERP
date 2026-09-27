@@ -1,5 +1,6 @@
 import type { UserContext } from "@/lib/context/types";
 import { RecordDocuments } from "@/components/documents/record-documents";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * This module's record documents, through the shared section (PRD #38 §55).
@@ -18,14 +19,15 @@ export async function HrRecordDocuments({
   canAttach: boolean;
   emptyDescription?: string;
 }) {
+  const t = await getTranslations("hr");
   return (
     <RecordDocuments
       context={context}
       entityType={entityType}
       entityId={entityId}
       canAttach={canAttach}
-      emptyTitle="No documents on file."
-      emptyDescription={emptyDescription ?? "Contracts, certificates and supporting files filed against this record appear here."}
+      emptyTitle={t("documents.noneOnFile")}
+      emptyDescription={emptyDescription ?? t("documents.noneOnFileDescription")}
     />
   );
 }

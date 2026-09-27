@@ -1,5 +1,6 @@
 import type { LeaveBalanceDTO } from "@/lib/modules/hr/hr.types";
-import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hrLabel } from "./hr-labels";
 import { formatDays } from "./hr-format";
 
 /**
@@ -9,24 +10,25 @@ import { formatDays } from "./hr-format";
  * counted but never refused for running out, so they are shown as days taken
  * rather than as a remaining figure (PRD #16 §85).
  */
-export function LeaveBalanceCard({
+export async function LeaveBalanceCard({
   balances,
   year,
-  title = "Leave balance",
+  title,
 }: {
   balances: LeaveBalanceDTO[];
   year: number;
   title?: string;
 }) {
+  const t = await getTranslations("hr");
   return (
     <section className="nesto-card p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="text-card font-semibold text-fg">{title ?? t("balance.title")}</h2>
         <span className="text-meta text-fg-subtle">{year}</span>
       </div>
 
       {balances.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">No entitlement set for this year.</p>
+        <p className="mt-4 text-table text-fg-subtle">{t("balance.none")}</p>
       ) : (
         <dl className="mt-4 divide-y divide-line">
           {balances.map((balance) => (
@@ -35,7 +37,7 @@ export function LeaveBalanceCard({
               className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0"
             >
               <dt className="min-w-0 text-table text-fg-muted">
-                {leaveTypeLabels[balance.leaveType]}
+                {hrLabel(t, "leaveType", balance.leaveType)}
               </dt>
               <dd className="shrink-0 text-right">
                 {balance.tracked ? (
@@ -45,12 +47,12 @@ export function LeaveBalanceCard({
                     </span>
                     <span className="text-meta text-fg-subtle">
                       {" "}
-                      of {formatDays(balance.entitledDays)} days left
+                      {t("balance.ofDaysLeft", { days: formatDays(balance.entitledDays) })}
                     </span>
                   </>
                 ) : (
                   <span className="text-table tabular-nums text-fg-muted">
-                    {formatDays(balance.usedDays)} days taken
+                    {t("balance.daysTaken", { days: formatDays(balance.usedDays) })}
                   </span>
                 )}
               </dd>

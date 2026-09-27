@@ -13,12 +13,16 @@ import { updateAttendanceAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
-import { attendanceSourceLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ attendanceId: string }> };
 
-export const metadata: Metadata = { title: "Attendance day" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.attendanceDay") };
+}
 
 /**
  * One attendance day (PRD #16 §111, §113).
@@ -47,40 +51,40 @@ export default async function AttendanceDetailPage({ params }: Params) {
     return committed(`/hr/attendance/${attendanceId}`);
   }
 
+  const t = await getTranslations("hr");
   return (
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "HR", href: "/hr" },
-          { label: "Attendance", href: "/hr/attendance" },
+          { label: t("meta.hr"), href: "/hr" },
+          { label: t("meta.attendance"), href: "/hr/attendance" },
           { label: `${record.employee.fullName} — ${formatDate(record.date)}` },
         ]}
         title={formatDate(record.date)}
         subtitle={record.employee.fullName}
         status={record.status}
-        badges={record.isException ? <Badge tone="warning">Needs a look</Badge> : null}
+        badges={record.isException ? <Badge tone="warning">{t("attendance.needsLook")}</Badge> : null}
         meta={[
-          { label: "Check in", value: formatTimeOfDay(record.checkIn) },
-          { label: "Check out", value: formatTimeOfDay(record.checkOut) },
-          { label: "Worked", value: formatWorkedMinutes(record.workedMinutes) },
+          { label: t("attendance.checkIn"), value: formatTimeOfDay(record.checkIn) },
+          { label: t("attendance.checkOut"), value: formatTimeOfDay(record.checkOut) },
+          { label: t("attendance.worked"), value: formatWorkedMinutes(record.workedMinutes) },
         ]}
       />
 
       {record.systemGenerated ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Written from approved leave. Overriding it needs the attendance permission — cancelling
-          the leave removes it automatically.
+          {t("attendance.systemNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Details</h2>
+          <h2 className="text-card font-semibold text-fg">{t("leave.details")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
               {
-                label: "Employee",
+                label: t("columns.employee"),
                 value: can(context, "hr.employee.view") ? (
                   <Link
                     href={`/hr/employees/${record.employee.employeeId}`}
@@ -92,8 +96,8 @@ export default async function AttendanceDetailPage({ params }: Params) {
                   <PersonLink employeeId={record.employee.employeeId} name={record.employee.fullName} />
                 ),
               },
-              { label: "Source", value: attendanceSourceLabels[record.source] },
-              { label: "Notes", value: orDash(record.notes) },
+              { label: t("attendance.source"), value: hrLabel(t, "attendanceSource", record.source) },
+              { label: t("attendance.notes"), value: orDash(record.notes) },
             ]}
           />
         </section>
@@ -116,8 +120,8 @@ export default async function AttendanceDetailPage({ params }: Params) {
               }}
               versionUpdatedAt={record.updatedAt}
               cancelHref="/hr/attendance"
-              submitLabel="Save day"
-              pendingLabel="Saving…"
+              submitLabel={t("attendance.saveDay")}
+              pendingLabel={t("common.saving")}
             />
           </div>
         ) : null}

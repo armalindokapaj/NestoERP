@@ -6,7 +6,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import type { CredentialWorkItemDTO, CredentialWorklistDTO } from "@/lib/modules/hr/credentials/credential.types";
-import { VERIFICATION_LABELS } from "@/lib/modules/hr/documents/employee-document.types";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translator";
+import { hrLabel } from "./hr-labels";
 import { formatDate } from "@/lib/utils/format";
 
 /**
@@ -16,39 +18,34 @@ import { formatDate } from "@/lib/utils/format";
  * ones the server found this reader may act on.
  */
 
-const EMPTY: Record<CredentialWorklistDTO["view"], { title: string; description: string }> = {
-  verify: { title: "Nothing waiting to be verified", description: "Documents and qualifications added for people you look after appear here until somebody checks them." },
-  expiring: { title: "Nothing runs out in the next 30 days", description: "Licences, permits and certificates appear here a month before their date." },
-  expired: { title: "Nothing has run out", description: "A current document or qualification past its date appears here until it is renewed or put away." },
-};
-
-function When({ item, view }: { item: CredentialWorkItemDTO; view: CredentialWorklistDTO["view"] }) {
-  if (view === "verify") return <span className="whitespace-nowrap text-fg-muted">added {formatDate(item.createdAt)}</span>;
+function When({ item, view, t }: { item: CredentialWorkItemDTO; view: CredentialWorklistDTO["view"]; t: Translate<"hr"> }) {
+  if (view === "verify") return <span className="whitespace-nowrap text-fg-muted">{t("worklist.added", { date: formatDate(item.createdAt) })}</span>;
   if (!item.expiryDate || item.daysToExpiry === null) return <span className="text-fg-subtle">—</span>;
   const overdue = item.daysToExpiry < 0;
   return (
     <span className={overdue ? "whitespace-nowrap text-danger-strong" : "whitespace-nowrap text-warning-strong"}>
       {formatDate(item.expiryDate)}
-      <span className="block text-meta">{overdue ? `${-item.daysToExpiry} days ago` : item.daysToExpiry === 0 ? "today" : `in ${item.daysToExpiry} days`}</span>
+      <span className="block text-meta">{overdue ? t("worklist.daysAgo", { count: -item.daysToExpiry }) : item.daysToExpiry === 0 ? t("worklist.today") : t("worklist.inDays", { count: item.daysToExpiry })}</span>
     </span>
   );
 }
 
-export function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
+export async function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
+  const t = await getTranslations("hr");
   if (data.items.length === 0) {
-    return <EmptyState icon={<ShieldCheck />} title={EMPTY[data.view].title} description={EMPTY[data.view].description} />;
+    return <EmptyState icon={<ShieldCheck />} title={t(`worklist.empty.${data.view}.title`)} description={t(`worklist.empty.${data.view}.description`)} />;
   }
   return (
     <div className="space-y-3" data-testid="credential-worklist" data-view={data.view}>
       <div className="nesto-card hidden p-0 md:block">
-        <Table aria-label="Worklist">
+        <Table aria-label={t("worklist.label")}>
           <TableHead>
             <TableRow>
-              <TableHeaderCell>Person</TableHeaderCell>
-              <TableHeaderCell>What</TableHeaderCell>
-              <TableHeaderCell>Issuer</TableHeaderCell>
-              <TableHeaderCell>{data.view === "verify" ? "Waiting since" : "Expires"}</TableHeaderCell>
-              <TableHeaderCell>Verification</TableHeaderCell>
+              <TableHeaderCell>{t("recruitment.person")}</TableHeaderCell>
+              <TableHeaderCell>{t("worklist.what")}</TableHeaderCell>
+              <TableHeaderCell>{t("worklist.issuer")}</TableHeaderCell>
+              <TableHeaderCell>{data.view === "verify" ? t("worklist.waitingSince") : t("worklist.expires")}</TableHeaderCell>
+              <TableHeaderCell>{t("worklist.verification")}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -65,10 +62,10 @@ export function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
                 </TableCell>
                 <TableCell>{item.issuer ?? "—"}</TableCell>
                 <TableCell>
-                  <When item={item} view={data.view} />
+                  <When item={item} view={data.view} t={t} />
                 </TableCell>
                 <TableCell>
-                  <Badge tone={item.verificationStatus === "VERIFIED" ? "success" : item.verificationStatus === "UNVERIFIED" ? "info" : "warning"}>{VERIFICATION_LABELS[item.verificationStatus]}</Badge>
+                  <Badge tone={item.verificationStatus === "VERIFIED" ? "success" : item.verificationStatus === "UNVERIFIED" ? "info" : "warning"}>{hrLabel(t, "verification", item.verificationStatus)}</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -76,7 +73,7 @@ export function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
         </Table>
       </div>
 
-      <ul className="space-y-2 md:hidden" aria-label="Worklist">
+      <ul className="space-y-2 md:hidden" aria-label={t("worklist.label")}>
         {data.items.map((item) => (
           <li key={`${item.kind}:${item.id}`} data-testid="worklist-card">
             <Link href={item.href} className="nesto-card block space-y-1 p-3 hover:border-line-strong">
@@ -85,15 +82,15 @@ export function CredentialWorklist({ data }: { data: CredentialWorklistDTO }) {
                 {item.personName} · {item.kindLabel}
               </span>
               <span className="flex flex-wrap items-center gap-2 text-meta">
-                <When item={item} view={data.view} />
-                <Badge tone={item.verificationStatus === "VERIFIED" ? "success" : item.verificationStatus === "UNVERIFIED" ? "info" : "warning"}>{VERIFICATION_LABELS[item.verificationStatus]}</Badge>
+                <When item={item} view={data.view} t={t} />
+                <Badge tone={item.verificationStatus === "VERIFIED" ? "success" : item.verificationStatus === "UNVERIFIED" ? "info" : "warning"}>{hrLabel(t, "verification", item.verificationStatus)}</Badge>
               </span>
             </Link>
           </li>
         ))}
       </ul>
 
-      {data.truncated ? <p className="text-meta text-fg-subtle">Showing the first {data.items.length} of {data.counts[data.view]}. Work through these and the rest follow.</p> : null}
+      {data.truncated ? <p className="text-meta text-fg-subtle">{t("worklist.truncated", { shown: data.items.length, total: data.counts[data.view] })}</p> : null}
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
-import { accountStatusLabels, employmentTypeLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hrLabel } from "./hr-labels";
 import type { EmployeeSummaryDTO } from "@/lib/modules/hr/hr.types";
 import { formatDate, orDash } from "@/lib/utils/format";
 
@@ -13,20 +14,21 @@ import { formatDate, orDash } from "@/lib/utils/format";
  * an employee DTO at all, so no column here could show it even by accident
  * (PRD #16 §40, §169).
  */
-export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
+export async function EmployeeTable({ employees, listId = "hr.employees", sort }: {
   employees: EmployeeSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("hr");
   const columns: TableColumn<EmployeeSummaryDTO>[] = [
     {
       key: "employee",
       id: "employee",
       mandatory: true,
       sortKey: sort ? "name" : undefined,
-      label: "Employee",
+      label: t("columns.employee"),
       primary: true,
       render: (employee) => (
         <span className="min-w-0">
@@ -40,18 +42,18 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
     {
       key: "work",
       id: "work",
-      label: "Category · trade",
+      label: t("columns.categoryTrade"),
       hideBelow: "lg",
       render: (employee) => (
         <span className="text-fg-muted">
-          {[employee.workerCategory ? workerCategoryLabels[employee.workerCategory] : null, employee.trade?.name].filter(Boolean).join(" · ") || "—"}
+          {[employee.workerCategory ? hrLabel(t, "workerCategory", employee.workerCategory) : null, employee.trade?.name].filter(Boolean).join(" · ") || "—"}
         </span>
       ),
     },
     {
       key: "employeeNumber",
       id: "employeeNumber",
-      label: "Employee no.",
+      label: t("columns.employeeNo"),
       hideBelow: "xl",
       render: (employee) => (
         <span className="text-fg-muted tabular-nums">{orDash(employee.employeeNumber)}</span>
@@ -60,7 +62,7 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
     {
       key: "department",
       id: "department",
-      label: "Department",
+      label: t("columns.department"),
       hideBelow: "lg",
       render: (employee) => (
         <span className="text-fg-muted">{orDash(employee.department?.name)}</span>
@@ -69,7 +71,7 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
     {
       key: "manager",
       id: "manager",
-      label: "Manager",
+      label: t("columns.manager"),
       hideBelow: "xl",
       render: (employee) => (
         <span className="text-fg-muted">
@@ -80,10 +82,10 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
     {
       key: "employmentType",
       id: "employmentType",
-      label: "Type",
+      label: t("columns.type"),
       hideBelow: "md",
       render: (employee) => (
-        <span className="text-fg-muted">{employmentTypeLabels[employee.employmentType]}</span>
+        <span className="text-fg-muted">{hrLabel(t, "employmentType", employee.employmentType)}</span>
       ),
     },
     {
@@ -91,18 +93,18 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (employee) => <StatusBadge status={employee.employmentStatus} />,
     },
     {
       key: "account",
       id: "account",
       valueType: "status",
-      label: "NESTO account",
+      label: t("columns.nestoAccount"),
       hideBelow: "md",
       render: (employee) => (
         <span className={employee.accountStatus === "HAS_ACCOUNT" ? "text-fg-muted" : "text-fg-subtle"}>
-          {employee.accountStatus === "HAS_ACCOUNT" ? "Yes" : accountStatusLabels[employee.accountStatus]}
+          {employee.accountStatus === "HAS_ACCOUNT" ? t("common.yes") : hrLabel(t, "accountStatus", employee.accountStatus)}
         </span>
       ),
     },
@@ -111,7 +113,7 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
       id: "startDate",
       valueType: "date",
       sortKey: sort ? "start" : undefined,
-      label: "Started",
+      label: t("columns.started"),
       hideBelow: "lg",
       render: (employee) => (
         <span className="text-fg-muted">
@@ -125,7 +127,7 @@ export function EmployeeTable({ employees, listId = "hr.employees", sort }: {
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Employees"
+      caption={t("meta.employees")}
       columns={columns}
       records={employees}
       rowKey={(employee) => employee.id}

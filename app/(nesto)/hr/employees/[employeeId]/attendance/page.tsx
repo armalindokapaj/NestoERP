@@ -11,6 +11,7 @@ import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { parseAttendanceQuery } from "@/lib/modules/hr/hr.query";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type Params = {
@@ -18,7 +19,10 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Employee attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employeeAttendance") };
+}
 
 /** One employee's attendance days (PRD #16 §97, §114). */
 export default async function EmployeeAttendanceTabPage({ params, searchParams }: Params) {
@@ -35,10 +39,11 @@ export default async function EmployeeAttendanceTabPage({ params, searchParams }
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, search, result.pagination.page));
 
+  const t = await getTranslations("hr");
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Attendance")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.attendance"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
@@ -53,8 +58,8 @@ export default async function EmployeeAttendanceTabPage({ params, searchParams }
       {result.data.length === 0 ? (
         <EmptyState
           icon={<CalendarCheck />}
-          title="No attendance records for this period."
-          description="Days recorded by HR, by this employee, or written from approved leave appear here."
+          title={t("attendance.emptyPeriodTitle")}
+          description={t("attendance.employeeEmptyDescription")}
         />
       ) : (
         <>

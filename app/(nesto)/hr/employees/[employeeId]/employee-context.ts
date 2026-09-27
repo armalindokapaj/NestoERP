@@ -6,6 +6,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as employees from "@/lib/modules/hr/employees/employee.service";
+import { getTranslations } from "@/lib/i18n/server";
 import type { EmployeeDetailDTO } from "@/lib/modules/hr/hr.types";
 
 /**
@@ -35,10 +36,11 @@ export const loadEmployee = cache(async function loadEmployee(
   }
 });
 
-export function employeeBreadcrumbs(employee: EmployeeDetailDTO, trailing?: string): Crumb[] {
+export async function employeeBreadcrumbs(employee: EmployeeDetailDTO, trailing?: string): Promise<Crumb[]> {
+  const t = await getTranslations("hr");
   const crumbs: Crumb[] = [
-    { label: "HR", href: "/hr" },
-    { label: "Employees", href: "/hr/employees" },
+    { label: t("meta.hr"), href: "/hr" },
+    { label: t("meta.employees"), href: "/hr/employees" },
     trailing
       ? { label: employee.name.fullName, href: `/hr/employees/${employee.id}` }
       : { label: employee.name.fullName },

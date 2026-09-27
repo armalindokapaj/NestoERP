@@ -7,6 +7,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useHrTranslations } from "./hr-text";
 
 /**
  * A date window over a list (PRD #16 §94, §144).
@@ -17,12 +18,13 @@ import { Label } from "@/components/ui/label";
  * overlap rather than a containment.
  */
 export function DateRangeFilter({
-  label = "Dates",
+  label,
   basePath,
 }: {
   label?: string;
   basePath: string;
 }) {
+  const t = useHrTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = React.useTransition();
@@ -46,7 +48,7 @@ export function DateRangeFilter({
     <div className="flex flex-wrap items-end gap-2" data-pending={pending}>
       <div className="space-y-1">
         <Label htmlFor="filter-from" className="text-meta text-fg-subtle">
-          {label} from
+          {t("dateRange.from", { label: label ?? t("dateRange.dates") })}
         </Label>
         <Input
           id="filter-from"
@@ -58,7 +60,7 @@ export function DateRangeFilter({
       </div>
       <div className="space-y-1">
         <Label htmlFor="filter-to" className="text-meta text-fg-subtle">
-          to
+          {t("reports.to")}
         </Label>
         <Input
           id="filter-to"
@@ -70,7 +72,7 @@ export function DateRangeFilter({
       </div>
       {from || to ? (
         <Button variant="ghost" size="sm" onClick={() => apply({ from: "", to: "" })}>
-          Clear dates
+          {t("dateRange.clear")}
         </Button>
       ) : null}
     </div>

@@ -9,15 +9,18 @@ import { DetailGrid, RecordContextHeader } from "@/components/modules/record-hea
 import { PersonLink, membershipHref } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
-import { workLocationTypeLabels } from "@/lib/modules/hr/employment/employment.labels";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
-import { accountStatusLabels, employmentStatusLabels, employmentTypeLabels, progressStatusLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
-export const metadata: Metadata = { title: "Employment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employment") };
+}
 
 /**
  * The employment tab (PRD #16 §49, §57; E-03 §54, §160, §163).
@@ -34,11 +37,12 @@ export default async function EmploymentTabPage({ params }: Params) {
 
   if (!can(context, "hr.employment.view")) notFound();
   const options = await employmentChangeOptions(context, employeeId);
+  const t = await getTranslations("hr");
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Employment")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.employment"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}
@@ -49,65 +53,64 @@ export default async function EmploymentTabPage({ params }: Params) {
 
       <section className="nesto-card p-5" aria-labelledby="current-assignment">
         <h2 id="current-assignment" className="text-card font-semibold text-fg">
-          Current assignment
+          {t("employment.currentAssignment")}
         </h2>
         <DetailGrid
           className="mt-4"
           columns={3}
           items={[
-            { label: "Employing company", value: context.company.name },
-            { label: "Department", value: orDash(employee.department?.name) },
-            { label: "Job title", value: orDash(employee.jobTitle) },
+            { label: t("employment.employingCompany"), value: context.company.name },
+            { label: t("columns.department"), value: orDash(employee.department?.name) },
+            { label: t("fields.jobTitle"), value: orDash(employee.jobTitle) },
             {
-              label: "Manager",
+              label: t("columns.manager"),
               value: employee.manager ? <PersonLink memberId={employee.manager.memberId} name={employee.manager.fullName} /> : "—",
             },
             {
-              label: "Work location",
-              value: orDash([employee.workLocationType ? workLocationTypeLabels[employee.workLocationType] : null, employee.workLocation].filter(Boolean).join(", ")),
+              label: t("fields.workLocation"),
+              value: orDash([employee.workLocationType ? hrLabel(t, "workLocationType", employee.workLocationType) : null, employee.workLocation].filter(Boolean).join(", ")),
             },
-            { label: "Employment type", value: employmentTypeLabels[employee.employmentType] },
-            { label: "Status", value: employmentStatusLabels[employee.employmentStatus] },
-            { label: employee.employmentStatus === "PLANNED" ? "Planned start" : "Start date", value: employee.startDate ? formatDate(employee.startDate) : "—" },
-            { label: employee.employmentStatus === "ENDED" ? "Last day" : "Planned end", value: employee.endDate ? formatDate(employee.endDate) : "—" },
+            { label: t("fields.employmentType"), value: hrLabel(t, "employmentType", employee.employmentType) },
+            { label: t("columns.status"), value: hrLabel(t, "employmentStatus", employee.employmentStatus) },
+            { label: employee.employmentStatus === "PLANNED" ? t("fields.plannedStart") : t("fields.startDate"), value: employee.startDate ? formatDate(employee.startDate) : "—" },
+            { label: employee.employmentStatus === "ENDED" ? t("progress.lastDay") : t("fields.plannedEnd"), value: employee.endDate ? formatDate(employee.endDate) : "—" },
           ]}
         />
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Terms</h2>
+        <h2 className="text-card font-semibold text-fg">{t("employment.terms")}</h2>
         <DetailGrid
           className="mt-4"
           columns={3}
           items={[
-            { label: "Employee number", value: orDash(employee.employeeNumber) },
-            { label: "Probation ends", value: employee.probationEndDate ? formatDate(employee.probationEndDate) : "—" },
-            { label: "Weekly hours", value: orDash(employee.weeklyHours) },
-            { label: "Onboarding", value: progressStatusLabels[employee.onboardingStatus] },
-            { label: "Offboarding", value: progressStatusLabels[employee.offboardingStatus] },
+            { label: t("fields.employeeNumber"), value: orDash(employee.employeeNumber) },
+            { label: t("fields.probationEnds"), value: employee.probationEndDate ? formatDate(employee.probationEndDate) : "—" },
+            { label: t("fields.weeklyHours"), value: orDash(employee.weeklyHours) },
+            { label: t("meta.onboarding"), value: hrLabel(t, "progressStatus", employee.onboardingStatus) },
+            { label: t("meta.offboarding"), value: hrLabel(t, "progressStatus", employee.offboardingStatus) },
           ]}
         />
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Access in NESTO</h2>
+        <h2 className="text-card font-semibold text-fg">{t("employment.accessInNesto")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
-          The NESTO role decides what somebody can do here; the job title does not. A promotion never changes it, and
-          ending employment never removes access — both are Team decisions.
+          {t("employment.accessNote")}
         </p>
         <DetailGrid
           className="mt-4"
           columns={3}
           items={[
-            { label: "NESTO account", value: accountStatusLabels[employee.accountStatus] },
-            { label: "Access role", value: orDash(employee.role?.name) },
-            { label: "Company access", value: orDash(employee.membershipStatus) },
+            { label: t("columns.nestoAccount"), value: hrLabel(t, "accountStatus", employee.accountStatus) },
+            { label: t("employment.accessRole"), value: orDash(employee.role?.name) },
+            { label: t("employment.companyAccess"), value: employee.membershipStatus ? hrLabel(t, "membershipStatus", employee.membershipStatus) : "—" },
           ]}
         />
         {employee.memberId ? (
           <div className="mt-4 border-t border-line pt-4">
             <Link href={membershipHref(employee.memberId)} className="text-table text-accent-strong hover:underline">
-              Open team membership
+              {t("employment.openMembership")}
             </Link>
           </div>
         ) : null}
@@ -116,11 +119,11 @@ export default async function EmploymentTabPage({ params }: Params) {
       {employee.capabilities.canViewHistory ? (
         <p className="flex items-center gap-2 text-meta text-fg-subtle">
           <History aria-hidden="true" className="size-3.5" />
-          Every change, from its date, is in the{" "}
+          {t("employment.everyChange")}{" "}
           <Link href={`/hr/employees/${employee.id}/history`} className="text-accent-strong hover:underline">
-            employment history
+            {t("employee.employmentHistory")}
           </Link>
-          .
+          {t("employee.fullStop")}
         </p>
       ) : null}
     </div>

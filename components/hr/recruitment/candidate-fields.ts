@@ -1,5 +1,6 @@
 import type { FormField } from "@/components/engineering/form-kit";
 import type { RecruitmentOptionsDTO } from "@/lib/modules/hr/recruitment/candidate.options";
+import type { Translate } from "@/lib/i18n/translator";
 
 const options = (items: Array<{ id: string; label: string }>) => items.map((item) => ({ value: item.id, label: item.label }));
 
@@ -25,23 +26,23 @@ export function withinCompany(payload: Record<string, unknown>, choices: Recruit
   };
 }
 
-export function candidateFields(choices: RecruitmentOptionsDTO, companyId: string): FormField[] {
+export function candidateFields(t: Translate<"hr">, choices: RecruitmentOptionsDTO, companyId: string): FormField[] {
   const inCompany = (item: { companyId: string }) => item.companyId === companyId;
   return [
-    { name: "firstName", label: "First name", type: "text", required: true },
-    { name: "lastName", label: "Last name", type: "text", required: true },
-    { name: "workEmail", label: "Work email", type: "email", hint: "The approved address. It is contact data, not the login." },
-    { name: "workPhone", label: "Work phone", type: "text" },
-    { name: "personalEmail", label: "Personal email", type: "email" },
-    { name: "personalPhone", label: "Personal phone", type: "text" },
-    { name: "city", label: "City", type: "text" },
-    { name: "country", label: "Country", type: "text" },
-    { name: "targetCompanyId", label: "Company", type: "select", required: true, options: options(choices.companies) },
-    { name: "targetDepartmentId", label: "Department", type: "select", options: options(choices.departments.filter(inCompany)), emptyLabel: "Not decided yet", hint: "Departments of the chosen company. One of another company is cleared when you save." },
-    { name: "targetRoleKey", label: "Role", type: "select", options: options(choices.roles), emptyLabel: "Not decided yet" },
-    { name: "targetJobTitle", label: "Job title", type: "text" },
-    { name: "hiringManagerUserId", label: "Hiring manager", type: "select", options: options(choices.managers.filter(inCompany)), emptyLabel: "Nobody yet", hint: "People of the chosen company." },
-    { name: "interviewStage", label: "Interview stage", type: "text", placeholder: "Second interview" },
-    { name: "notes", label: "Notes", type: "textarea", wide: true, rows: 3, hint: "Only people who manage candidates read these." },
+    { name: "firstName", label: t("employmentForm.firstName"), type: "text", required: true },
+    { name: "lastName", label: t("employmentForm.lastName"), type: "text", required: true },
+    { name: "workEmail", label: t("employee.workEmail"), type: "email", hint: t("candidateFields.workEmailHint") },
+    { name: "workPhone", label: t("recruitment.workPhone"), type: "text" },
+    { name: "personalEmail", label: t("recruitment.personalEmail"), type: "email" },
+    { name: "personalPhone", label: t("recruitment.personalPhone"), type: "text" },
+    { name: "city", label: t("recruitment.city"), type: "text" },
+    { name: "country", label: t("candidateFields.country"), type: "text" },
+    { name: "targetCompanyId", label: t("recruitment.company"), type: "select", required: true, options: options(choices.companies) },
+    { name: "targetDepartmentId", label: t("columns.department"), type: "select", options: options(choices.departments.filter(inCompany)), emptyLabel: t("candidateFields.notDecided"), hint: t("candidateFields.departmentHint") },
+    { name: "targetRoleKey", label: t("employee.role"), type: "select", options: options(choices.roles), emptyLabel: t("candidateFields.notDecided") },
+    { name: "targetJobTitle", label: t("fields.jobTitle"), type: "text" },
+    { name: "hiringManagerUserId", label: t("recruitment.hiringManager"), type: "select", options: options(choices.managers.filter(inCompany)), emptyLabel: t("candidateFields.nobodyYet"), hint: t("candidateFields.managerHint") },
+    { name: "interviewStage", label: t("recruitment.interviewStage"), type: "text", placeholder: t("candidateFields.stagePlaceholder") },
+    { name: "notes", label: t("attendance.notes"), type: "textarea", wide: true, rows: 3, hint: t("candidateFields.notesHint") },
   ];
 }

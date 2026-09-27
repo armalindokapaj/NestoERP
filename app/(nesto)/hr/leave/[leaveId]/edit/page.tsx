@@ -5,10 +5,14 @@ import { LeaveForm } from "@/components/hr/leave-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { updateLeaveAction } from "@/lib/actions/hr";
 import { leaveBreadcrumbs, leaveLabel, loadLeave } from "../leave-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ leaveId: string }> };
 
-export const metadata: Metadata = { title: "Edit leave request" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.editLeaveRequest") };
+}
 
 /**
  * Edit a leave request (PRD #16 §192).
@@ -21,6 +25,7 @@ export default async function EditLeavePage({ params }: Params) {
   const { request } = await loadLeave(leaveId);
 
   if (!request.capabilities.canEdit) redirect(`/hr/leave/${leaveId}`);
+  const t = await getTranslations("hr");
 
   async function action(formData: FormData) {
     "use server";
@@ -30,8 +35,8 @@ export default async function EditLeavePage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={leaveBreadcrumbs(request, "Edit")}
-        title={`Edit ${leaveLabel(request)}`}
+        breadcrumbs={await leaveBreadcrumbs(request, t("common.edit"))}
+        title={t("leave.editTitle", { label: leaveLabel(t, request) })}
         status={request.status}
       />
 
@@ -48,8 +53,8 @@ export default async function EditLeavePage({ params }: Params) {
         }}
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/hr/leave/${leaveId}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
       />
     </div>
   );

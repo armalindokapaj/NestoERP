@@ -4,9 +4,10 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { ProgressKind, ProgressRow } from "@/lib/modules/hr/employees/progress.service";
 import { formatDate, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /** The onboarding and offboarding lists (PRD #16 §120, §125). */
-export function ProgressTable({
+export async function ProgressTable({
   rows,
   kind,
   dateLabel,
@@ -20,26 +21,28 @@ export function ProgressTable({
   /** Every open record, when the worklist shows only the first of them (AUD-08 §4). */
   total?: number;
 }) {
+  const t = await getTranslations("hr");
+  const kindLabel = kind === "onboarding" ? t("meta.onboarding") : t("meta.offboarding");
   const columns: TableColumn<ProgressRow>[] = [
     {
       key: "employee",
       id: "employee",
       mandatory: true,
-      label: "Employee",
+      label: t("columns.employee"),
       primary: true,
       render: (row) => <span className="min-w-0 truncate">{row.fullName}</span>,
     },
     {
       key: "department",
       id: "department",
-      label: "Department",
+      label: t("columns.department"),
       hideBelow: "lg",
       render: (row) => <span className="text-fg-muted">{orDash(row.department)}</span>,
     },
     {
       key: "manager",
       id: "manager",
-      label: "Manager",
+      label: t("columns.manager"),
       hideBelow: "xl",
       render: (row) => <span className="text-fg-muted">{row.manager ? <PersonLink memberId={row.managerMemberId} name={row.manager} /> : "—"}</span>,
     },
@@ -56,7 +59,7 @@ export function ProgressTable({
       key: "employmentStatus",
       id: "employmentStatus",
       valueType: "status",
-      label: "Employment",
+      label: t("columns.employment"),
       hideBelow: "md",
       render: (row) => <StatusBadge status={row.employmentStatus} />,
     },
@@ -65,7 +68,7 @@ export function ProgressTable({
       id: "progress",
       mandatory: true,
       valueType: "status",
-      label: kind === "onboarding" ? "Onboarding" : "Offboarding",
+      label: kindLabel,
       render: (row) => <StatusBadge status={row.progress} />,
     },
   ];
@@ -74,12 +77,12 @@ export function ProgressTable({
     <>
       {total !== undefined && total > rows.length ? (
         <p className="text-meta text-fg-subtle" data-testid="progress-scope">
-          The first {rows.length} of {total}, soonest first.
+          {t("progress.scope", { shown: rows.length, total })}
         </p>
       ) : null}
       <DataTable
         listId={`hr.${kind}`}
-        caption={kind === "onboarding" ? "Onboarding" : "Offboarding"}
+        caption={kindLabel}
         columns={columns}
         records={rows}
         rowKey={(row) => row.employeeId}

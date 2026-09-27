@@ -11,8 +11,12 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { LeaveList } from "./leave-list";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.leave") };
+}
 
 /**
  * Leave requests (PRD #16 §73).
@@ -34,6 +38,7 @@ export default async function LeavePage({
 
   const experience = resolveModuleExperience(context, "hr");
   const params = await searchParams;
+  const t = await getTranslations("hr");
 
   return (
     <ModulePage
@@ -44,7 +49,7 @@ export default async function LeavePage({
           {can(context, "hr.export") ? <HrExportLink type="leave" /> : null}
           {can(context, "hr.leave.create") || can(context, "hr.self.leave") ? (
             <Button asChild size="sm">
-              <Link href="/hr/leave/new">Request leave</Link>
+              <Link href="/hr/leave/new">{t("leave.requestLeave")}</Link>
             </Button>
           ) : null}
         </div>

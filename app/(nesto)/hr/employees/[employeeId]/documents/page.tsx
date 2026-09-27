@@ -8,10 +8,14 @@ import { AccessError } from "@/lib/access/guards";
 import { listEmployeeDocuments } from "@/lib/modules/hr/documents/employee-document.service";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ employeeId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Employee documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hr");
+  return { title: t("meta.employeeDocuments") };
+}
 
 /**
  * The employment file (PRD #16 §133, §135; E-02 §94-§99).
@@ -32,10 +36,11 @@ export default async function EmployeeDocumentsTabPage({ params, searchParams }:
     throw error;
   });
 
+  const t = await getTranslations("hr");
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={employeeBreadcrumbs(employee, "Documents")}
+        breadcrumbs={await employeeBreadcrumbs(employee, t("tabs.documents"))}
         title={employee.name.fullName}
         subtitle={orDash(employee.jobTitle)}
         status={employee.employmentStatus}

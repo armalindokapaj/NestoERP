@@ -12,7 +12,8 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseLeaveQuery } from "@/lib/modules/hr/hr.query";
 import { LEAVE_SORT_KEYS, LEAVE_STATUSES, LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
-import { leaveStatusLabels, leaveTypeLabels } from "@/lib/modules/hr/hr.status";
+import { hrLabel } from "@/components/hr/hr-labels";
+import { getTranslations } from "@/lib/i18n/server";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
@@ -28,6 +29,7 @@ export async function LeaveList({
 }) {
   const query = parseLeaveQuery(searchParams);
   const result = await leave.listLeave(context, query);
+  const t = await getTranslations("hr");
 
   const seesOthers = can(context, "hr.leave.view");
   const mineOnly = query.mine;
@@ -39,13 +41,13 @@ export async function LeaveList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
-      options: LEAVE_STATUSES.map((value) => ({ value, label: leaveStatusLabels[value] })),
+      label: t("columns.status"),
+      options: LEAVE_STATUSES.map((value) => ({ value, label: hrLabel(t, "leaveStatus", value) })),
     },
     {
       param: "leaveType",
-      label: "Type",
-      options: LEAVE_TYPES.map((value) => ({ value, label: leaveTypeLabels[value] })),
+      label: t("columns.type"),
+      options: LEAVE_TYPES.map((value) => ({ value, label: hrLabel(t, "leaveType", value) })),
     },
   ];
 
@@ -57,20 +59,20 @@ export async function LeaveList({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <ListToolbar
-          searchPlaceholder="Search employee…"
+          searchPlaceholder={t("common.searchEmployee")}
           filters={filters}
           sortOptions={[
-            { value: "start-desc", label: "Latest first" },
-            { value: "start-asc", label: "Earliest first" },
-            { value: "created-desc", label: "Recently requested" },
-            { value: "days-desc", label: "Longest first" },
+            { value: "start-desc", label: t("leave.sort.latest") },
+            { value: "start-asc", label: t("leave.sort.earliest") },
+            { value: "created-desc", label: t("leave.sort.recent") },
+            { value: "days-desc", label: t("leave.sort.longest") },
           ]}
           className="flex-1"
         />
         {seesOthers ? (
           <Button asChild variant={mineOnly ? "primary" : "secondary"} size="sm">
             <Link href={mineOnly ? "/hr/leave" : "/hr/leave?mine=1"}>
-              {mineOnly ? "All leave" : "Only mine"}
+              {mineOnly ? t("leave.allLeave") : t("leave.onlyMine")}
             </Link>
           </Button>
         ) : null}
@@ -78,28 +80,28 @@ export async function LeaveList({
 
       {/* A date window over the list, which is what V0.1 requires instead of a
           calendar view (PRD #16 §94). */}
-      <DateRangeFilter label="Off" basePath="/hr/leave" />
+      <DateRangeFilter label={t("leave.off")} basePath="/hr/leave" />
 
       {result.data.length === 0 ? (
         hasFilters ? (
           <EmptyState
             icon={<CalendarDays />}
-            title="No HR records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/hr/leave" }}
+            title={t("employees.noMatchTitle")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/hr/leave" }}
           />
         ) : (
           <EmptyState
             icon={<CalendarDays />}
-            title="No leave requests."
+            title={t("leave.noRequests")}
             description={
               seesOthers
-                ? "Requests from people in your view appear here."
-                : "Leave you request appears here."
+                ? t("leave.emptyOthers")
+                : t("leave.emptySelf")
             }
             action={
               can(context, "hr.leave.create") || can(context, "hr.self.leave")
-                ? { label: "Request leave", href: "/hr/leave/new" }
+                ? { label: t("leave.requestLeave"), href: "/hr/leave/new" }
                 : undefined
             }
           />
