@@ -4,6 +4,8 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "lucide-react";
 
+import { UploadQueueList } from "@/components/documents/document-uploader";
+import { acceptedTypesText, uploadAccept } from "@/components/documents/upload-client";
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,24 @@ import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log
  * view, with a large preview; delivery tickets, sketches and reports below.
  * Files go through the canonical upload pipeline against the log, and a JPEG
  * has its location metadata removed in the browser before it is sent.
+ *
+ * Every chosen file keeps its own row until it is in the gallery (AUD-04 §6,
+ * MW-14, MW-18, J-D3, D-08-09): waiting, uploading, being checked, or failed —
+ * a failure stays on screen with Retry and Remove instead of passing as a
+ * toast, and a file of a kind the log does not take says which kinds it
+ * does. Photos/Files is the ordinary picker; the camera is an extra button on
+ * a phone, never the only way in.
  */
+
+/**
+ * What a log's evidence may be, from the registry the server enforces: photos,
+ * PDFs, Word and spreadsheet files. The picker, the hint and the pre-check read
+ * the same groups, so a file of any other kind is refused before it is sent,
+ * with the kinds it could have been.
+ */
+const EVIDENCE_GROUPS = ["image", "pdf", "office", "spreadsheet"] as const;
+/** `image/*` as well, so a phone offers its photo library, not only its files. */
+const EVIDENCE_ACCEPT = `image/*,${uploadAccept(EVIDENCE_GROUPS)}`;
 
 function Thumbnail({ item, onOpen }: { item: EvidenceDTO; onOpen: () => void }) {
   const ref = React.useRef<HTMLButtonElement>(null);
@@ -86,7 +105,6 @@ export function EvidenceGallery({
   zone: string;
   onChanged: () => Promise<void>;
 }) {
-  const toast = useToast();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const cameraRef = React.useRef<HTMLInputElement>(null);
   const [viewing, setViewing] = React.useState<EvidenceDTO | null>(null);
@@ -96,6 +114,7 @@ export function EvidenceGallery({
   const itemsRef = React.useRef<Array<{ documentId: string | null; file: File }>>([]);
   const queue = useUploadQueue({
     parent: { context: "record", entityType: "daily_log", entityId: dailyLogId },
+    groups: EVIDENCE_GROUPS,
     onUploaded: (documentId) => {
       // An image is a site photo until somebody says otherwise; anything else starts as "other".
       const file = itemsRef.current.find((item) => item.documentId === documentId)?.file;
@@ -114,24 +133,35 @@ export function EvidenceGallery({
   const { setPendingUploads } = uploads;
   React.useEffect(() => setPendingUploads(uploading.length > 0), [uploading.length, setPendingUploads]);
 
+  // A photo whose location data could not be removed is not sent at all; it
+  // is named here, never dropped without a word (AUD-04 §6, MW-18).
+  const [unprepared, setUnprepared] = React.useState<string[]>([]);
+
   async function choose(files: FileList | null) {
+    // A cancelled picker chooses nothing, and nothing changes.
     if (!files?.length) return;
+    const failed: string[] = [];
     const prepared = await Promise.all(
       [...files].map(async (file) => {
         if (file.type !== "image/jpeg" && !/\.jpe?g$/i.test(file.name)) return file;
-        const bytes = stripJpegMetadata(new Uint8Array(await file.arrayBuffer()));
-        return new File([bytes.slice().buffer as ArrayBuffer], file.name, { type: "image/jpeg", lastModified: file.lastModified });
+        try {
+          const bytes = stripJpegMetadata(new Uint8Array(await file.arrayBuffer()));
+          return new File([bytes.slice().buffer as ArrayBuffer], file.name, { type: "image/jpeg", lastModified: file.lastModified });
+        } catch {
+          failed.push(file.name);
+          return null;
+        }
       }),
     );
-    queue.enqueue(prepared, (file) => ({ name: file.name }));
+    setUnprepared(failed);
+    const ready = prepared.filter((file): file is File => file !== null);
+    if (ready.length) queue.enqueue(ready, (file) => ({ name: file.name }));
   }
 
-  React.useEffect(() => {
-    const failed = queue.items.find((item) => item.status === "failed" && item.error);
-    if (failed) toast({ title: failed.error ?? "The file could not be uploaded.", tone: "danger" });
-    // Report each failure once, as it happens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue.items.filter((item) => item.status === "failed").length]);
+  // A row leaves once its file is in the gallery: until then it is the only
+  // proof of where the file stands (a preview is not; §6).
+  const inGallery = new Set(evidence.map((item) => item.documentId));
+  const rows = queue.items.filter((item) => !(item.status === "done" && item.documentId && inGallery.has(item.documentId)));
 
   React.useEffect(() => {
     if (!viewing?.previewHref) {
@@ -156,7 +186,7 @@ export function EvidenceGallery({
       {canUpload ? (
         <div className="flex flex-wrap items-center gap-2">
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Take a photo" onChange={(event) => void choose(event.target.files).finally(() => (event.target.value = ""))} />
-          <input ref={inputRef} type="file" multiple accept="image/*,application/pdf,.docx,.xlsx" className="sr-only" aria-label="Add photos or files" data-testid="evidence-input" onChange={(event) => void choose(event.target.files).finally(() => (event.target.value = ""))} />
+          <input ref={inputRef} type="file" multiple accept={EVIDENCE_ACCEPT} className="sr-only" aria-label="Add photos or files" data-testid="evidence-input" onChange={(event) => void choose(event.target.files).finally(() => (event.target.value = ""))} />
           <Button type="button" size="sm" onClick={() => cameraRef.current?.click()} className="sm:hidden">
             <Camera aria-hidden="true" />
             Take photo
@@ -170,8 +200,26 @@ export function EvidenceGallery({
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> Uploading {uploading.length}…
             </span>
           ) : null}
-          <span className="text-meta text-fg-subtle">Location data is removed from photos before upload.</span>
+          <p className="w-full text-meta text-fg-subtle" data-testid="evidence-accepted-types">
+            Accepted: {acceptedTypesText(EVIDENCE_GROUPS)}. Location data is removed from photos before upload.
+          </p>
         </div>
+      ) : null}
+
+      {unprepared.length ? (
+        <p role="alert" className="text-meta text-danger-strong" data-testid="evidence-unprepared">
+          Not uploaded: {unprepared.join(", ")}. The photo&apos;s location data could not be removed, so it was not sent. Choose it again, or export it as a new JPEG first.
+        </p>
+      ) : null}
+
+      {rows.length ? (
+        <UploadQueueList
+          items={rows}
+          onRetry={(item) => void queue.retry(item.id)}
+          onRecheck={(item) => void queue.recheck(item.id)}
+          onCancel={(item) => void queue.cancel(item.id)}
+          onClear={(id) => queue.clear(id)}
+        />
       ) : null}
 
       {photos.length === 0 && others.length === 0 ? <p className="text-table text-fg-muted">No photos or files on this log yet.</p> : null}
@@ -214,10 +262,11 @@ export function EvidenceGallery({
         <DialogContent className="max-w-4xl">
           <DialogTitle>{viewing?.caption ?? viewing?.name}</DialogTitle>
           <DialogDescription>{[viewing ? DOCUMENT_CATEGORY_LABELS[viewing.category] : null, time(viewing?.takenAt ?? null), viewing?.uploadedBy].filter(Boolean).join(" · ")}</DialogDescription>
-          <div className="mt-4 flex min-h-[40vh] items-center justify-center overflow-hidden rounded-lg bg-surface-muted">
+          {/* Sized to the dynamic viewport, so the footer stays reachable on a phone on its side (AUD-04 §6, MW-10, D-08-10). */}
+          <div className="mt-4 flex min-h-[30dvh] items-center justify-center overflow-hidden rounded-lg bg-surface-muted">
             {viewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={viewUrl} alt={viewing?.caption ?? viewing?.name ?? "Photo"} className="max-h-[70vh] w-auto object-contain" />
+              <img src={viewUrl} alt={viewing?.caption ?? viewing?.name ?? "Photo"} className="max-h-[55dvh] w-auto object-contain" />
             ) : (
               <Loader2 className="size-6 animate-spin text-fg-subtle" aria-hidden="true" />
             )}

@@ -15,6 +15,7 @@ import {
   ListChecks,
   Lock,
   MessageSquareWarning,
+  MoreHorizontal,
   NotebookPen,
   Pencil,
   Plus,
@@ -36,8 +37,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { belowQuery } from "@/components/ui/use-breakpoint";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { dateLabel, formatDuration, longDateLabel } from "@/lib/modules/daily-logs/daily-log.time";
 import {
   DELAY_CATEGORY_LABELS,
@@ -84,28 +87,27 @@ const SECTION_ICON: Record<SectionKey, typeof Users> = {
   instructions: MessageSquareWarning,
 };
 
-function useMobile() {
-  const [mobile, setMobile] = React.useState(false);
-  React.useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)");
-    const update = () => setMobile(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  return mobile;
-}
+/**
+ * Whether the entry editor opens as a bottom sheet: read once, when it opens
+ * (AUD-04 §3, MW-16, SP-15). The choice then holds until it closes, so turning
+ * the phone or resizing across 768px while typing never swaps the sheet for a
+ * dialog underneath the person. Nothing else here needs a breakpoint in
+ * JavaScript: collapsed sections and the sticky bar are CSS.
+ */
+const opensAsSheet = () => typeof window !== "undefined" && window.matchMedia(belowQuery("md")).matches;
 
 function EntryLine({ primary, secondary, meta, onEdit, testId }: { primary: React.ReactNode; secondary?: React.ReactNode; meta?: React.ReactNode; onEdit?: () => void; testId: string }) {
+  // The edit control names its entry, not just "Edit entry" (AUD-04 §5, J-D4).
+  const name = typeof primary === "string" && primary ? primary : null;
   return (
     <li className="flex items-start gap-3 py-2.5" data-testid={testId}>
       <span className="min-w-0 flex-1">
-        <span className="block text-table font-medium text-fg">{primary}</span>
-        {secondary ? <span className="block text-meta text-fg-muted">{secondary}</span> : null}
+        <span className="block break-words text-table font-medium text-fg">{primary}</span>
+        {secondary ? <span className="block break-words text-meta text-fg-muted">{secondary}</span> : null}
       </span>
       {meta ? <span className="shrink-0 text-table tabular-nums text-fg">{meta}</span> : null}
       {onEdit ? (
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit} aria-label="Edit entry">
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit} aria-label={name ? `Edit ${name}` : "Edit entry"}>
           <Pencil />
         </Button>
       ) : null}
@@ -124,10 +126,11 @@ const joinedNodes = (...parts: React.ReactNode[]) => {
 export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string; favorite?: React.ReactNode }) {
   const router = useRouter();
   const toast = useToast();
-  const mobile = useMobile();
   const [log, setLog] = React.useState(initial);
   const [options, setOptions] = React.useState<EntryOptions | null>(null);
   const [dialog, setDialog] = React.useState<{ section: SectionKey; entryId?: string } | null>(null);
+  // Kept after the editor closes too, so its closing animation is the one it opened with.
+  const [sheet, setSheet] = React.useState(false);
   const [saving, setSaving] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [open, setOpen] = React.useState<Record<string, boolean>>({});
   const [action, setAction] = React.useState<"return" | "void" | "correction" | "task" | "link-task" | "link-record" | null>(null);
@@ -157,16 +160,25 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     return data;
   }, [base, options]);
 
+  // One step at a time: a second tap before the first re-render is not a second request (AUD-04 §6, MW-15).
+  const stepping = React.useRef(false);
+
   /** A step that changes the log, answering what happened to it (AUD-03 §6). */
   async function perform(label: string, work: () => Promise<unknown>, success?: string): Promise<SaveOutcome> {
+    if (stepping.current) return { kind: "unknown" };
+    stepping.current = true;
     setPending(true);
     try {
       await work();
     } catch (error) {
-      toast({ title: failureMessage(error, `${label} failed.`), tone: "danger" });
-      if (isFailure(error) && (error.status === 409 || error.detailCode === "DAILY_LOG_STALE")) void refresh();
+      const outcome = dailyLogFailureOutcome(error);
+      // No answer is not a refusal: the step may have happened. Never "try
+      // again" blindly — show the log as it now stands (AUD-03 §6, AUD-04 §6).
+      toast({ title: failureMessage(error, `${label} failed.`), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : undefined, tone: "danger" });
+      if (outcome.kind === "unknown" || (isFailure(error) && (error.status === 409 || error.detailCode === "DAILY_LOG_STALE"))) void refresh().catch(() => undefined);
+      stepping.current = false;
       setPending(false);
-      return dailyLogFailureOutcome(error);
+      return outcome;
     }
     // The step went through; reading the log back is not part of it.
     try {
@@ -176,6 +188,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     }
     if (success) toast({ title: success, tone: "success" });
     router.refresh();
+    stepping.current = false;
     setPending(false);
     return { kind: "committed" };
   }
@@ -185,6 +198,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
   }
 
   async function openEntry(section: SectionKey, entryId?: string) {
+    setSheet(opensAsSheet());
     setDialog({ section, entryId });
     void loadOptions().catch(() => undefined);
   }
@@ -262,25 +276,35 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     { key: "tasks", label: "Tasks", count: log.tasks.length },
     { key: "history", label: "History" },
   ];
-  const isOpen = (key: string) => (mobile ? Boolean(open[key]) : true);
   const toggle = (key: string) => setOpen((current) => ({ ...current, [key]: !current[key] }));
 
+  /*
+   * Sections fold on a phone and are always open from md (PRD #43 §150). The
+   * fold is CSS, not a JavaScript breakpoint (AUD-04 §3, §8, SP-15, D-08-07):
+   * the first paint is already right for the width — no expanded-then-collapsed
+   * jump after hydration — and crossing 768px keeps every section's contents
+   * and whatever is typed in them. The toggle is a phone-only control laid
+   * over the header, so a desktop reader never meets a "collapsed" section
+   * they can see.
+   */
   const sectionShell = (key: Rail, title: string, icon: React.ReactNode, body: React.ReactNode, actions?: React.ReactNode, count?: number) => (
     <section id={`section-${key}`} aria-labelledby={`title-${key}`} className="nesto-card scroll-mt-24 px-4 py-3 sm:px-5 sm:py-4" data-testid={`section-${key}`}>
-      <header className="flex items-center gap-2">
-        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left md:pointer-events-none" onClick={() => toggle(key)} aria-expanded={isOpen(key)}>
-          <span className="text-fg-subtle" aria-hidden="true">
-            {icon}
-          </span>
-          <h2 id={`title-${key}`} className="text-card font-semibold text-fg">
-            {title}
-          </h2>
-          {count !== undefined ? <span className="rounded-full bg-hover px-1.5 text-micro font-medium tabular-nums text-fg-muted">{count}</span> : null}
-          <ChevronDown className={cn("ml-auto size-4 text-fg-subtle transition-transform md:hidden", isOpen(key) && "rotate-180")} aria-hidden="true" />
-        </button>
-        {actions}
+      <header className="relative flex min-h-11 items-center gap-2 md:min-h-0">
+        <span className="text-fg-subtle" aria-hidden="true">
+          {icon}
+        </span>
+        <h2 id={`title-${key}`} className="min-w-0 text-card font-semibold text-fg">
+          {title}
+        </h2>
+        {count !== undefined ? <span className="rounded-full bg-hover px-1.5 text-micro font-medium tabular-nums text-fg-muted">{count}</span> : null}
+        <span className="flex-1" />
+        <ChevronDown className={cn("size-4 text-fg-subtle transition-transform motion-reduce:transition-none md:hidden", open[key] && "rotate-180")} aria-hidden="true" />
+        <button type="button" className="absolute inset-0 rounded-md md:hidden" onClick={() => toggle(key)} aria-expanded={Boolean(open[key])} aria-controls={`body-${key}`} aria-labelledby={`title-${key}`} />
+        {actions ? <div className="relative flex items-center gap-1">{actions}</div> : null}
       </header>
-      {isOpen(key) ? <div className="mt-2">{body}</div> : null}
+      <div id={`body-${key}`} className={cn("mt-2", !open[key] && "hidden md:block")}>
+        {body}
+      </div>
     </section>
   );
 
@@ -457,8 +481,41 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     </>
   );
 
+  /*
+   * The phone's sticky bar (PRD #43 §151, §154; AUD-04 §4, §7, MW-14): every
+   * step the header offers from md is reachable here too — the first step in
+   * the bar, the rest (Return, Add correction, a second step) in its labelled
+   * More menu. It renders for anyone with a step to take, and the page keeps
+   * room for it whenever it renders, so it never covers the last section
+   * (J-D1, J-D2, D-08-05, D-08-06).
+   */
+  const steps: Array<{ key: string; label: string; run: () => void; variant?: "secondary" }> = [
+    ...(caps.canSubmit ? [{ key: "submit", label: "Submit log", run: () => void transition("submit", "Submitting", "Daily log submitted") }] : []),
+    ...(caps.canReview ? [{ key: "review", label: "Mark reviewed", run: () => void transition("review", "Reviewing", "Daily log reviewed") }] : []),
+    ...(caps.canLock ? [{ key: "lock", label: "Lock", run: () => void transition("lock", "Locking", "Daily log locked") }] : []),
+    ...(caps.canReturn ? [{ key: "return", label: "Return for correction", run: () => setAction("return"), variant: "secondary" as const }] : []),
+    ...(caps.canCorrect ? [{ key: "correction", label: "Add correction", run: () => setAction("correction"), variant: "secondary" as const }] : []),
+  ];
+  // The first forward step is the bar's own button; Return and Add correction are never it when a forward step exists.
+  const barStep = steps.find((step) => !step.variant) ?? (editable ? undefined : steps[0]);
+  const moreSteps = steps.filter((step) => step !== barStep);
+  const stickyBar = editable || steps.length > 0;
+  /*
+   * A dialog chosen from a bar menu opens once the menu has finished closing
+   * (as task actions do since AUD-03): a menu still animating out would take
+   * the dialog's first Escape, and its focus return would pull focus off it.
+   */
+  const afterMenu = React.useRef<(() => void) | null>(null);
+  const openAfterMenu = (event: Event) => {
+    const chosen = afterMenu.current;
+    if (!chosen) return;
+    afterMenu.current = null;
+    event.preventDefault();
+    chosen();
+  };
+
   return (
-    <div className={cn("space-y-4", editable && "pb-24 md:pb-0")} data-testid="daily-log-workspace">
+    <div className={cn("space-y-4", stickyBar && "pb-[calc(6rem_+_env(safe-area-inset-bottom))] md:pb-0")} data-testid="daily-log-workspace">
       {/* Header (§146) */}
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -718,40 +775,47 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       </div>
 
       {/* Sticky actions on a phone (§151, §154) */}
-      {editable || caps.canReview || caps.canLock ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="daily-log-sticky-actions">
+      {stickyBar ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-3 backdrop-blur md:hidden" data-testid="daily-log-sticky-actions" data-sticky-action-bar>
           {editable ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="secondary" className="flex-1">
+                <Button type="button" variant="secondary" className="min-w-0 flex-1">
                   <Plus aria-hidden="true" /> Add
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top">
+              <DropdownMenuContent align="start" side="top" onCloseAutoFocus={openAfterMenu}>
                 {SECTION_KEYS.filter((key) => caps.sections[key]).map((key) => (
-                  <DropdownMenuItem key={key} onSelect={() => void openEntry(key)}>
+                  <DropdownMenuItem key={key} onSelect={() => (afterMenu.current = () => void openEntry(key))}>
                     {SECTION_LABELS[key]}
                   </DropdownMenuItem>
                 ))}
-                {caps.canUploadEvidence ? <DropdownMenuItem onSelect={() => { setOpen((current) => ({ ...current, evidence: true })); document.getElementById("section-evidence")?.scrollIntoView(); }}>Photo</DropdownMenuItem> : null}
-                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => setAction("task")}>Task</DropdownMenuItem> : null}
+                {caps.canUploadEvidence ? <DropdownMenuItem onSelect={() => { setOpen((current) => ({ ...current, evidence: true })); requestAnimationFrame(() => document.getElementById("section-evidence")?.scrollIntoView({ block: "start" })); }}>Photo</DropdownMenuItem> : null}
+                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => (afterMenu.current = () => setAction("task"))}>Task</DropdownMenuItem> : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
-          {caps.canSubmit ? (
-            <Button type="button" className="flex-1" disabled={pending} onClick={() => void transition("submit", "Submitting", "Daily log submitted")}>
-              <Send aria-hidden="true" /> Submit log
+          {barStep ? (
+            <Button type="button" variant={barStep.variant ?? "primary"} className="min-w-0 flex-1" disabled={pending} aria-busy={pending || undefined} onClick={barStep.run}>
+              {barStep.key === "submit" ? <Send aria-hidden="true" /> : null}
+              <span className="truncate">{barStep.label}</span>
             </Button>
           ) : null}
-          {caps.canReview ? (
-            <Button type="button" className="flex-1" disabled={pending} onClick={() => void transition("review", "Reviewing", "Daily log reviewed")}>
-              Mark reviewed
-            </Button>
-          ) : null}
-          {caps.canLock ? (
-            <Button type="button" className="flex-1" disabled={pending} onClick={() => void transition("lock", "Locking", "Daily log locked")}>
-              Lock
-            </Button>
+          {moreSteps.length ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="secondary" disabled={pending} aria-label="More log actions">
+                  <MoreHorizontal aria-hidden="true" /> More
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" onCloseAutoFocus={openAfterMenu}>
+                {moreSteps.map((step) => (
+                  <DropdownMenuItem key={step.key} onSelect={() => (step.variant ? (afterMenu.current = step.run) : step.run())}>
+                    {step.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </div>
       ) : null}
@@ -763,7 +827,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         initial={dialog && dialogEntry ? valuesFromEntry(dialog.section, dialogEntry) : dialog?.section === "workforce" ? { headcount: "" } : dialog?.section === "equipment" ? { quantity: 1 } : {}}
         editing={Boolean(dialogEntry)}
         options={options}
-        mobile={mobile}
+        mobile={sheet}
         onSave={saveEntry}
         onRemove={dialogEntry ? removeEntry : undefined}
       />

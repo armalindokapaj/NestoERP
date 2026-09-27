@@ -10,6 +10,7 @@ import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
 import { UnsavedScope } from "@/components/unsaved/use-unsaved";
+import { useMediaQuery } from "@/components/ui/use-breakpoint";
 import { unsaved } from "@/lib/unsaved/coordinator";
 import type {
   ApprovalDecision,
@@ -22,6 +23,7 @@ import type {
 } from "@/lib/modules/approvals/approvals.types";
 import { cn } from "@/lib/utils/cn";
 import { ApprovalDetailView } from "./approval-detail";
+import { ApprovalDraftProvider } from "./approval-drafts";
 import { activeFilterCount, EMPTY_FILTERS, FilterChips, FilterDrawer, type ApprovalFilters } from "./approval-filters";
 import { ApprovalList, ListSkeleton, type Density } from "./approval-list";
 import { approvalsApi, failureMessage, isFailure, newIdempotencyKey } from "./approvals-api";
@@ -108,18 +110,6 @@ function toParams(state: ApprovalsState, extra: { approval?: string | null; pane
 /** The editors of the approval under review — its decision note, a reason, its discussion. */
 const DETAIL_SCOPE = "approval-detail";
 
-function useIsDesktop(): boolean {
-  const [desktop, setDesktop] = React.useState(false);
-  React.useEffect(() => {
-    const query = window.matchMedia("(min-width: 1024px)");
-    const update = () => setDesktop(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return desktop;
-}
-
 export function ApprovalsShell({
   initialState,
   initial,
@@ -144,7 +134,15 @@ export function ApprovalsShell({
   // does destroy the review in place asks first, below.
   const router = useRouter();
   const toast = useToast();
-  const desktop = useIsDesktop();
+  // The review is a side panel from 1024px and a full-screen sheet below it.
+  // `undefined` until the browser has answered: neither is drawn then, so a
+  // desktop link no longer flashes the sheet first (AUD-04 SP-15, D-08-03).
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  // What is typed into the review, kept while it moves between the panel and
+  // the sheet on a rotation (AUD-04 MW-16); forgotten with the selection.
+  const drafts = React.useRef(new Map<string, unknown>()).current;
+  // A second tap lands before the disabled bar renders: dropped, never sent (MW-15).
+  const deciding = React.useRef(false);
 
   const [state, setState] = React.useState(initialState);
   const [data, setData] = React.useState(initial);
@@ -297,6 +295,7 @@ export function ApprovalsShell({
 
   function applySelect(item: UnifiedApprovalItem | null) {
     const id = item?.id ?? null;
+    if (id !== selectedId) drafts.clear();
     setSelectedId(id);
     setDetailFailure(null);
     attemptKey.current = null;
@@ -324,7 +323,8 @@ export function ApprovalsShell({
   }
 
   async function decide(decision: ApprovalDecision, note: string | null): Promise<boolean> {
-    if (!detail || pending) return false;
+    if (!detail || pending || deciding.current) return false;
+    deciding.current = true;
     const item = detail.item;
     const path = decision === "APPROVE" ? "approve" : decision === "REJECT" ? "reject" : "return";
     attemptKey.current ??= newIdempotencyKey();
@@ -373,6 +373,7 @@ export function ApprovalsShell({
       toast({ title: failureMessage(failure, "The decision could not be recorded."), tone: "danger" });
       return false;
     } finally {
+      deciding.current = false;
       setPending(null);
     }
   }
@@ -396,9 +397,10 @@ export function ApprovalsShell({
       : partial
         ? { title: "Nothing to show from the sources that loaded.", body: `${unavailableNames} could not be loaded, so there may be approvals this list cannot show yet.` }
         : EMPTY[state.tab];
-  const sheetOpen = !group && !desktop && selectedId !== null;
+  const sheetOpen = !group && desktop === false && selectedId !== null;
 
   return (
+    <ApprovalDraftProvider store={drafts}>
     <div className="flex flex-col gap-5" data-testid="approvals-center">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
@@ -471,7 +473,7 @@ export function ApprovalsShell({
                 else void unsaved.requestDeparture(intent).then((approval) => (approval?.run(apply) ? approval.release() : undefined));
               }}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-table font-medium transition-colors",
+                "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-table font-medium transition-colors touch:h-11",
                 active ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
               )}
             >
@@ -502,7 +504,7 @@ export function ApprovalsShell({
         </label>
         <select
           id="approvals-sort"
-          className="h-10 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none"
+          className="h-10 min-w-0 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none touch:h-11"
           value={state.sort}
           onChange={(event) => update({ sort: event.target.value as ApprovalSort })}
         >
@@ -515,7 +517,7 @@ export function ApprovalsShell({
         {state.tab === "returned" ? (
           <select
             aria-label="Returned by or to me"
-            className="h-10 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none"
+            className="h-10 min-w-0 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none touch:h-11"
             value={state.returned}
             onChange={(event) => update({ returned: event.target.value as ApprovalsState["returned"] })}
           >
@@ -632,16 +634,16 @@ export function ApprovalsShell({
         )}
       </div>
 
-      {/* Guarded: closing the sheet asks about the note or reason inside it (AUD-03 §5); once approved, the selection goes. */}
+      {/* Guarded: closing the sheet asks about the note or reason inside it (AUD-03 §5); once approved, the selection goes. Clear of the notch and rounded corners (AUD-04 §3). */}
       <GuardedRoot open={sheetOpen} onOpenChange={(open) => (open ? null : applySelect(null))}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Content
-            className="fixed inset-0 z-[55] flex flex-col bg-surface outline-none data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)]"
+            className="fixed inset-0 z-[55] flex flex-col bg-surface pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] outline-none data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)]"
             aria-describedby={undefined}
             data-testid="approval-sheet"
           >
             <DialogPrimitive.Title className="sr-only">{detail?.item.title ?? "Approval"}</DialogPrimitive.Title>
-            {!desktop ? (
+            {desktop === false ? (
               <UnsavedScope id={DETAIL_SCOPE}>
                 <ApprovalDetailView
                   detail={detail}
@@ -681,6 +683,7 @@ export function ApprovalsShell({
         />
       )}
     </div>
+    </ApprovalDraftProvider>
   );
 }
 

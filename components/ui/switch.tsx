@@ -13,7 +13,9 @@ export function Switch({
   return (
     <SwitchPrimitive.Root
       className={cn(
-        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors",
+        "peer relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors",
+        // 44×44 hit area under touch, the track unchanged (AUD-04 §3, MW-19).
+        "touch:after:absolute touch:after:-inset-x-1 touch:after:-inset-y-3 touch:after:content-['']",
         "data-[state=checked]:bg-accent data-[state=unchecked]:bg-line-strong",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,

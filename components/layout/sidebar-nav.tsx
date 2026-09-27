@@ -46,7 +46,8 @@ function NavItem({
       data-pending={pending || undefined}
       className={cn(
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
-        dense ? "py-2.5" : "py-2.5",
+        // 44px rows in the drawer and under touch (AUD-04 §4, MW-02); the mouse rail is unchanged.
+        dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
         active ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >

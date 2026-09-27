@@ -7,7 +7,8 @@ export function Input({ className, type, ...props }: React.ComponentProps<"input
     <input
       type={type}
       className={cn(
-        "h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg",
+        // 44px tall under touch (AUD-04 §3); the 16px phone font is one rule in globals.css.
+        "h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg touch:h-11",
         "placeholder:text-fg-subtle",
         "transition-colors focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/25",
         "disabled:cursor-not-allowed disabled:opacity-60",

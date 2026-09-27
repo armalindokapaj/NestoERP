@@ -21,6 +21,12 @@ export type ColumnMeta = {
   valueType?: ColumnValueType;
   /** A server-approved sort stem (`name` for `name-asc` / `name-desc`). */
   sortKey?: string;
+  /**
+   * The breakpoint below which the table hides the column by default — set
+   * only where it still applies (never on a figure column; AUD-04 §5,
+   * `lib/tables/visibility.ts`).
+   */
+  hideBelow?: "md" | "lg" | "xl";
 };
 
 /**

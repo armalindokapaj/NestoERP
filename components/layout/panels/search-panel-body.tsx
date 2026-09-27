@@ -226,7 +226,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
                       aria-selected={selected}
                       onMouseMove={() => setActive(position)}
                       onClick={() => void openResult(option)}
-                      className={cn("group flex cursor-pointer items-center gap-3 rounded-md px-2 py-2", selected ? "bg-hover" : "hover:bg-hover")}
+                      className={cn("group flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 touch:min-h-11", selected ? "bg-hover" : "hover:bg-hover")}
                     >
                       <Icon aria-hidden="true" className={cn("size-4 shrink-0", option.kind === "favorite" ? "fill-warning text-warning" : "text-fg-subtle")} />
                       <span className="min-w-0 flex-1">
@@ -244,7 +244,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
                           }}
                           aria-label={starred ? "Remove from favorites" : "Add to favorites"}
                           aria-pressed={starred}
-                          className={cn("grid size-6 shrink-0 place-items-center rounded hover:bg-surface", starred ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100")}
+                          className={cn("grid size-6 shrink-0 place-items-center rounded hover:bg-surface touch:size-11", starred ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100")}
                           data-testid="search-result-star"
                         >
                           <Star aria-hidden="true" className={cn("size-3.5", starred ? "fill-warning text-warning" : "text-fg-subtle")} />

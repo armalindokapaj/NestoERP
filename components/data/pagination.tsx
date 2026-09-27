@@ -78,8 +78,9 @@ export function Pagination({
     return <div className={cn("flex flex-wrap items-center justify-between gap-3 pt-1", className)}>{count}{sizes}</div>;
   }
 
+  // 44px under a touch layout or pointer (AUD-04 §3, SP-04); desktop keeps h-9.
   const linkClass =
-    "inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg";
+    "inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg touch:h-11";
 
   return (
     <nav

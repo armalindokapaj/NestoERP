@@ -113,9 +113,13 @@ export async function AppShell({
                 {/* The banner's height is reserved and stands in for the top padding,
                     so a late banner moves nothing under a pointer (SHELL-03). */}
                 <BannerSlot />
+                {/* Focusable by script only (tabIndex -1): the navigation drawer hands
+                    focus here after a navigation (AUD-04 §4, MW-02). The gutters
+                    include the safe-area insets, which viewport-fit=cover makes real. */}
                 <main
                   id="nesto-main"
-                  className="mx-auto w-full max-w-[1600px] px-4 pb-6 md:px-6 md:pb-8 xl:px-8"
+                  tabIndex={-1}
+                  className="mx-auto w-full min-w-0 max-w-[1600px] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] outline-none md:pb-8 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
                 >
                   {/* Keyed by the workspace: a switch made in place remounts the page, so
                       no client state of the old workspace outlives it (OW §33). */}

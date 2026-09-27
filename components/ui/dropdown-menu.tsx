@@ -18,7 +18,9 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-56 overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-lg shadow-black/5",
+          // z-65: above the dialogs and sheets a menu can be opened from (AUD-04 §6;
+          // ladder in globals.css). A long menu scrolls inside the room Radix measured.
+          "z-[65] max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto overflow-x-hidden rounded-lg border border-line bg-surface p-1 shadow-lg shadow-black/5",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className,
         )}
@@ -40,7 +42,8 @@ export function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-variant={variant}
       className={cn(
-        "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-body text-fg outline-none",
+        // 44px rows under touch (AUD-04 §3, MW-19); desktop rows unchanged.
+        "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-body text-fg outline-none touch:min-h-11",
         "focus:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-muted",
         variant === "destructive" && "text-danger-strong focus:bg-danger-soft [&_svg]:text-danger-strong",

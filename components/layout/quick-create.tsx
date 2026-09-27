@@ -502,7 +502,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3"
+        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11"
         data-testid="quick-create-button"
         {...warm}
       >
@@ -517,7 +517,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-xl border-t border-line bg-surface shadow-xl outline-none sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(34rem,80vh)] sm:w-80 sm:rounded-lg sm:border"
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-xl outline-none sm:absolute sm:pb-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(34rem,80vh)] sm:w-80 sm:rounded-lg sm:border"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >
@@ -552,7 +552,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
             <>
               <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 <h2 id={headingId} className="text-card font-semibold text-fg">{t("quickCreate.create")}</h2>
-                <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover">
+                <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
                   <X aria-hidden="true" className="size-4" />
                 </button>
               </div>

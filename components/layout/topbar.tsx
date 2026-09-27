@@ -29,6 +29,13 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * signed in, so its position is the same for every role, and it only gives up
  * width once the account cluster leaves it less than 420px (PRD #3 §18). Held
  * by roles/topbar-search-position.spec.ts.
+ *
+ * At 320px every control is a 44px target (AUD-04 §4, MW-02): the icons sit
+ * edge to edge on a phone (hit areas adjacent, never overlapping), the account
+ * chevron gives way, and the development user switcher — the one control a
+ * phone's bar has no room for — moves into the navigation drawer's foot, still
+ * labelled and one tap away. The gutters include the safe-area insets, so a
+ * phone on its side keeps the controls clear of the notch.
  */
 export async function Topbar({
   context,
@@ -47,9 +54,19 @@ export async function Topbar({
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line px-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:px-6 xl:px-8">
+    <header data-shell-region className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MobileHeader navigation={navigation} isDemo={context.parentGroup.isDemo} />
+        <MobileHeader
+          navigation={navigation}
+          isDemo={context.parentGroup.isDemo}
+          drawerFooter={
+            isDevMode ? (
+              <Suspense fallback={null}>
+                <DevUserSwitcher variant="drawer" />
+              </Suspense>
+            ) : null
+          }
+        />
 
         {/* The navigation collapse control sits out here rather than in the
             sidebar: the rail header has one slot and the organization's mark
@@ -64,13 +81,16 @@ export async function Topbar({
         </div>
       </div>
 
-      <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
+      <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1 md:gap-2">
         {/* Development only: signs in as another demo user (C-01 §15). Streamed,
-            so reading the roster never holds up the page. */}
+            so reading the roster never holds up the page. Below sm it lives in
+            the navigation drawer instead (AUD-04 §4). */}
         {isDevMode ? (
-          <Suspense fallback={null}>
-            <DevUserSwitcher />
-          </Suspense>
+          <div className="contents max-sm:hidden">
+            <Suspense fallback={null}>
+              <DevUserSwitcher />
+            </Suspense>
+          </div>
         ) : null}
         {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
         {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).

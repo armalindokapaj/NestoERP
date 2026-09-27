@@ -14,6 +14,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { SECTION_LABELS, type SectionKey } from "@/lib/modules/daily-logs/daily-log.types";
+import { parseDecimalInput, type DecimalRule } from "@/lib/forms/decimal";
 import { cn } from "@/lib/utils/cn";
 import { dailyLogFailureOutcome, failureMessage, isFailure } from "./daily-log-api";
 import { SECTION_FIELDS, SECTION_NOUNS, type FieldDef, type OptionSource } from "./entry-fields";
@@ -22,6 +23,10 @@ import { SECTION_FIELDS, SECTION_NOUNS, type FieldDef, type OptionSource } from 
  * One form for every section's entries (PRD #43 §149, §151, §156, §160, §216):
  * a centred dialog on a desktop, a bottom sheet on a phone. The server decides;
  * a field it refuses is marked with its message, and a conflict says to reload.
+ *
+ * `mobile` is decided by the workspace when the editor opens and held until it
+ * closes (AUD-04 §3, MW-16): rotating the phone mid-entry keeps the same sheet,
+ * its focus and its keyboard. The values live here either way.
  */
 
 export type EntryOptions = Record<OptionSource, Array<{ id: string; label: string }>>;
@@ -54,6 +59,8 @@ export function EntryDialog({
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [unresolved, setUnresolved] = React.useState(false);
+  // Removing a saved entry asks once more, in place (AUD-04 §6): it is not undone by Cancel.
+  const [confirmRemove, setConfirmRemove] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
@@ -62,6 +69,7 @@ export function EntryDialog({
       setErrors({});
       setFormError(null);
       setUnresolved(false);
+      setConfirmRemove(false);
     }
     // Only when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,16 +85,26 @@ export function EntryDialog({
     if (pending) return { kind: "unknown" };
     if (unsaved.frozen) return { kind: "refused" };
     const found: Record<string, string> = {};
+    const sent = { ...values };
     for (const field of fields) {
       const value = values[field.name];
-      if (field.required && (value === undefined || value === null || String(value).trim() === "")) found[field.name] = "Required.";
+      const blank = value === undefined || value === null || String(value).trim() === "";
+      if (field.required && blank) found[field.name] = "Required.";
+      // A decimal is read by the shared parser (AUD-09 §4): "12,5" is 12.5, and
+      // an ambiguous or malformed figure is refused here with its reason
+      // rather than sent as something else (AUD-04 §6, MW-09).
+      if (field.type === "number" && !blank) {
+        const parsed = parseDecimalInput(String(value), decimalRuleFor(field));
+        if (parsed.ok) sent[field.name] = parsed.value;
+        else found[field.name] = parsed.message;
+      }
     }
     setErrors(found);
     if (Object.keys(found).length) return { kind: "invalid" };
     setPending(true);
     setFormError(null);
     try {
-      await onSave(values);
+      await onSave(sent);
       // Clean before it stops saving, then closed.
       setBaseline(values);
       setUnresolved(false);
@@ -112,15 +130,21 @@ export function EntryDialog({
   }
 
   async function remove() {
-    if (!onRemove) return;
+    if (!onRemove || pending) return;
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      return;
+    }
     setPending(true);
     try {
       await onRemove();
       onOpenChange(false);
     } catch (error) {
-      setFormError(failureMessage(error));
+      const outcome = dailyLogFailureOutcome(error);
+      setFormError(outcome.kind === "unknown" ? `${failureMessage(error)} ${OUTCOME_COPY.unknown}` : failureMessage(error));
     } finally {
       setPending(false);
+      setConfirmRemove(false);
     }
   }
 
@@ -138,11 +162,12 @@ export function EntryDialog({
           {formError}
         </p>
       ) : null}
-      <div className={cn("flex items-center gap-2", mobile ? "sticky bottom-0 border-t border-line bg-surface px-5 py-3" : "mt-6")}>
+      {/* The sheet's actions stay above the home indicator (AUD-04 §3, §6, D-08-12). */}
+      <div className={cn("flex flex-wrap items-center gap-2", mobile ? "sticky bottom-0 border-t border-line bg-surface px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3" : "mt-6")}>
         {editing && onRemove ? (
-          <Button type="button" variant="ghost" size="sm" onClick={() => void remove()} disabled={pending} className="text-danger-strong hover:text-danger-strong">
+          <Button type="button" variant={confirmRemove ? "danger" : "ghost"} size="sm" onClick={() => void remove()} disabled={pending} className={confirmRemove ? undefined : "text-danger-strong hover:text-danger-strong"} aria-live="polite">
             <Trash2 aria-hidden="true" />
-            Remove
+            {confirmRemove ? "Confirm remove" : "Remove"}
           </Button>
         ) : null}
         <span className="flex-1" />
@@ -182,6 +207,22 @@ export function EntryDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * The syntax a section's decimal field accepts: the shared rule's separators,
+ * a minus only where the field's range goes below zero, and the range the
+ * server applies. Precision is left to the server's own schema.
+ */
+function decimalRuleFor(field: FieldDef): DecimalRule {
+  return {
+    label: field.label,
+    scale: 4,
+    maxIntegerDigits: 9,
+    allowNegative: field.min !== undefined && field.min < 0,
+    min: field.min !== undefined ? String(field.min) : undefined,
+    max: field.max !== undefined ? String(field.max) : undefined,
+  };
 }
 
 /** The entry's registration with the unsaved-work coordinator (AUD-03 §3); the form keeps its values. */
@@ -245,16 +286,24 @@ function Field({ field, value, error, options, onChange }: { field: FieldDef; va
           {field.label}
         </label>
       );
-    default:
+    default: {
+      // A decimal is typed as text and read by the shared parser when it is
+      // sent (`numberOrRaw`), so 12,5 means twelve and a half and nothing is
+      // silently dropped by a number input that cannot read it. A field that
+      // can be negative (temperature) gets the full keyboard: a phone's
+      // decimal pad has no minus key (AUD-04 §6, MW-09, D-08-08).
+      const decimal = field.type === "number";
+      const signed = decimal && field.min !== undefined && field.min < 0;
       control = (
         <Input
           id={id}
           className="mt-1.5"
-          type={field.type === "integer" || field.type === "number" ? "number" : field.type}
-          inputMode={field.type === "integer" ? "numeric" : field.type === "number" ? "decimal" : undefined}
-          min={field.min}
-          max={field.max}
-          step={field.type === "integer" ? "1" : field.step}
+          type={field.type === "integer" ? "number" : decimal ? "text" : field.type}
+          inputMode={field.type === "integer" ? "numeric" : signed ? "text" : decimal ? "decimal" : undefined}
+          autoComplete={decimal ? "off" : undefined}
+          min={decimal ? undefined : field.min}
+          max={decimal ? undefined : field.max}
+          step={field.type === "integer" ? "1" : decimal ? undefined : field.step}
           placeholder={field.placeholder}
           value={text}
           onChange={(event) => onChange(event.target.value)}
@@ -262,6 +311,7 @@ function Field({ field, value, error, options, onChange }: { field: FieldDef; va
           aria-describedby={described}
         />
       );
+    }
   }
   return (
     <div className={cn(field.wide && "sm:col-span-2")}>

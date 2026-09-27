@@ -24,7 +24,12 @@ export async function approvalsApi<T>(url: string, init?: { method?: string; bod
       cache: "no-store",
     });
   } catch {
-    throw { status: 0, code: "NETWORK", message: "Check your connection and try again. Nothing was decided.", fields: {} } satisfies ApprovalsApiFailure;
+    // A request that got no answer may still have been recorded: a decision is
+    // never reported as "nothing decided" on a lost connection. Trying again
+    // reuses the attempt's idempotency key, so it cannot be recorded twice
+    // (PRD #41 §123; AUD-04 §6, MW-15).
+    const message = init?.body === undefined ? "Check your connection and try again." : "We couldn't confirm whether this was recorded. Check your connection and try again; it will not be recorded twice.";
+    throw { status: 0, code: "NETWORK", message, fields: {} } satisfies ApprovalsApiFailure;
   }
   const json = (await response.json().catch(() => null)) as { data?: T; error?: { code: string; message?: string; details?: Record<string, unknown> } } | null;
   if (!response.ok) {

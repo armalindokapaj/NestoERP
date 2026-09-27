@@ -5,13 +5,24 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
-import { SlidersHorizontal, X } from "lucide-react";
+import { X } from "lucide-react";
 
+import { FilterChips } from "@/components/data/filter-chips";
+import { FilterSheet } from "@/components/data/filter-sheet";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { SearchField } from "@/components/ui/search-field";
+import {
+  appliedDraftQuery,
+  appliedFilterValue,
+  filterChips,
+  removeFilterQuery,
+  type FilterConfig,
+  type FilterDraft,
+  type FilterOption,
+} from "@/lib/tables/filter-draft";
 import { applyListChange, clearListFilters, queryHref, sameQuery } from "@/lib/tables/list-url";
-import { cn } from "@/lib/utils/cn";
+
+export type { FilterConfig, FilterOption } from "@/lib/tables/filter-draft";
 
 /**
  * List search, filters and sort (PRD #7 §17, §24, §25, §27).
@@ -37,15 +48,19 @@ import { cn } from "@/lib/utils/cn";
  *   parser actually used), and a URL value no option offers is not shown as
  *   chosen. Navigation is a transition, and App Router renders only the latest
  *   one, so an older response never replaces a newer query's rows.
+ *
+ * Phones (AUD-04 §5, MW-06, MW-16), below `md`; the inline controls from `md`
+ * up are unchanged:
+ * - Search stays immediate (Enter, or leaving the box with a changed value).
+ * - Sort is its own labelled select beside Filters, applied at once — it is
+ *   not a filter, and it is marked so a table's own phone Sort steps aside.
+ * - Filters open a staged sheet (`FilterSheet`: Apply / Cancel / Clear), and
+ *   the applied filters show under the toolbar as removable chips with Clear
+ *   all (`FilterChips`). The badge and the chips count the same thing: the
+ *   filters actually applied, plus other list keys set on the page.
+ * - Everything is one tree whose layout CSS switches, so turning the phone
+ *   keeps the typed search, an open sheet and its draft, and sends nothing.
  */
-export type FilterOption = { value: string; label: string };
-
-export type FilterConfig = {
-  /** Query-string parameter this filter writes. */
-  param: string;
-  label: string;
-  options: FilterOption[];
-};
 
 export function ListToolbar({
   searchPlaceholder = "Search…",
@@ -73,8 +88,8 @@ export function ListToolbar({
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
-  const [open, setOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  const controlId = React.useId();
 
   const current = React.useCallback(
     (param: string) => searchParams.get(param) ?? "",
@@ -122,33 +137,40 @@ export function ListToolbar({
 
   /** What a select shows: the applied value when the server gave one, else a URL value an option offers. */
   function selected(param: string, options: FilterOption[], allowEmpty: boolean): string {
-    const offered = (value: string | undefined): value is string =>
-      value !== undefined && ((allowEmpty && value === "") || options.some((option) => option.value === value));
-    const fromServer = applied?.[param];
-    if (offered(fromServer)) return fromServer;
-    const fromUrl = current(param);
-    if (offered(fromUrl)) return fromUrl;
-    return allowEmpty ? "" : (options[0]?.value ?? "");
+    return appliedFilterValue(options, applied?.[param], current(param), allowEmpty);
   }
+  const appliedValue = (filter: FilterConfig) => selected(filter.param, filter.options, true);
 
-  const activeFilters =
-    filters.filter((filter) => current(filter.param) !== "").length +
-    extraFilterParams.filter((param) => current(param) !== "").length;
-  const hasActive = activeFilters > 0 || urlSearch !== "";
+  // The chips and the badge count what is applied: a URL value no option
+  // offers was not applied by the server, so it is neither.
+  const chips = filterChips(filters, appliedValue);
+  const extraActive = extraFilterParams.filter((param) => current(param) !== "").length;
+  const activeFilters = chips.length + extraActive;
+  const hasActive =
+    urlSearch !== "" || extraActive > 0 || filters.some((filter) => current(filter.param) !== "");
 
   function clearAll() {
     const keys = [...filters.map((filter) => filter.param), ...extraFilterParams, searchParam];
     navigate(clearListFilters(searchParams.toString(), keys, pageParam));
   }
 
+  function applyDraft(draft: FilterDraft) {
+    navigate(appliedDraftQuery(searchParams.toString(), filters, draft, pageParam));
+  }
+
+  function removeChip(param: string) {
+    navigate(removeFilterQuery(searchParams.toString(), param, pageParam));
+  }
+
   const selectClass =
-    "h-10 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
+    "h-10 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 touch:min-h-11";
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)} data-pending={pending}>
+    <div className={className} data-pending={pending}>
+    <div className="flex flex-wrap items-center gap-2">
       <form
         role="search"
-        className="min-w-0 flex-1 md:max-w-xs"
+        className="min-w-0 flex-1 max-md:basis-full md:max-w-xs"
         onSubmit={(event) => {
           event.preventDefault();
           submitSearch();
@@ -207,87 +229,35 @@ export function ListToolbar({
         ) : null}
       </div>
 
-      {filters.length > 0 || sortOptions.length > 0 ? (
-        <Drawer open={open} onOpenChange={setOpen}>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg md:hidden"
+      {/* Phone Sort: labelled, applied at once, showing the applied order. */}
+      {sortOptions.length > 0 ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:hidden" data-list-sort-control>
+          <label htmlFor={`${controlId}-sort`} className="shrink-0 text-table font-medium text-fg-subtle">
+            Sort
+          </label>
+          <select
+            id={`${controlId}-sort`}
+            className="h-11 min-w-0 flex-1 rounded-md border border-line bg-surface px-3 text-base font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
+            value={selected(sortParam, sortOptions, false)}
+            onChange={(event) => apply(sortParam, event.target.value)}
           >
-            <SlidersHorizontal aria-hidden="true" className="size-4" />
-            Filters
-            {activeFilters > 0 ? (
-              <span className="rounded-full bg-accent px-1.5 text-micro text-accent-fg tabular-nums">
-                {activeFilters}
-              </span>
-            ) : null}
-          </button>
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
-          <DrawerContent side="bottom">
-            <DrawerTitle className="border-b border-line px-4 py-3 text-card font-semibold text-fg">
-              Filters
-            </DrawerTitle>
-            <div className="flex flex-col gap-3 p-4">
-              {filters.map((filter) => (
-                <div key={filter.param} className="flex flex-col gap-1.5">
-                  {/* An explicit label rather than a wrapping one: a select
-                      inside a <label> takes its option text into its accessible
-                      name, which turns "Status" into "StatusAllDraftActive…". */}
-                  <label
-                    htmlFor={`sheet-${filter.param}`}
-                    className="text-table font-medium text-fg"
-                  >
-                    {filter.label}
-                  </label>
-                  <select
-                    id={`sheet-${filter.param}`}
-                    className={cn(selectClass, "w-full")}
-                    value={selected(filter.param, filter.options, true)}
-                    onChange={(event) => apply(filter.param, event.target.value)}
-                  >
-                    <option value="">All</option>
-                    {filter.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+      {filters.length > 0 ? (
+        <FilterSheet filters={filters} applied={appliedValue} activeCount={activeFilters} onApply={applyDraft} />
+      ) : null}
+    </div>
 
-              {sortOptions.length > 0 ? (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="sheet-sort" className="text-table font-medium text-fg">
-                    Sort
-                  </label>
-                  <select
-                    id="sheet-sort"
-                    className={cn(selectClass, "w-full")}
-                    value={selected(sortParam, sortOptions, false)}
-                    onChange={(event) => apply(sortParam, event.target.value)}
-                  >
-                    {sortOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
-              <div className="flex gap-2 pt-1">
-                {hasActive ? (
-                  <Button variant="secondary" className="flex-1" onClick={clearAll}>
-                    Clear filters
-                  </Button>
-                ) : null}
-                <Button className="flex-1" onClick={() => setOpen(false)}>
-                  Done
-                </Button>
-              </div>
-            </div>
-          </DrawerContent>
-        </Drawer>
+      {/* Phone: what is applied, each removable, and Clear all. */}
+      {hasActive ? (
+        <FilterChips chips={chips} onRemove={removeChip} onClearAll={clearAll} className="mt-1 md:hidden" />
       ) : null}
     </div>
   );

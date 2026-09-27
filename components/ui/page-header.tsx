@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils/cn";
 /**
  * Page and section headers (design spec §7, §59).
  * One heading per level, so nothing on the page competes with the title.
+ *
+ * The action group keeps its width while it fits and wraps inside the page
+ * when it does not: `max-w-full` caps a group that is wider than the screen, so
+ * three or four buttons at 320px go onto a second row rather than scrolling the
+ * page sideways. Every action stays on screen (AUD-04 §3, SP-13, MW-01).
  */
+export const headerActionsClass = "flex max-w-full shrink-0 flex-wrap items-center gap-2";
 
 export function PageHeader({
   title,
@@ -21,10 +27,10 @@ export function PageHeader({
   return (
     <div className={cn("flex flex-wrap items-start justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h1 className="text-page font-semibold text-fg">{title}</h1>
+        <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
         {description ? <p className="mt-1.5 text-body text-fg-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? <div className={headerActionsClass}>{actions}</div> : null}
     </div>
   );
 }
@@ -43,10 +49,10 @@ export function SectionHeader({
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{title}</h2>
         {description ? <p className="mt-0.5 text-table text-fg-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? <div className={headerActionsClass}>{actions}</div> : null}
     </div>
   );
 }

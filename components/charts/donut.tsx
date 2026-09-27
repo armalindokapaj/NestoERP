@@ -100,7 +100,8 @@ export function Donut({
               className="size-2 shrink-0 rounded-full"
               style={{ backgroundColor: segment.color }}
             />
-            <span className="min-w-0 flex-1 truncate text-fg-muted">{segment.label}</span>
+            {/* Wraps rather than truncating: the legend is the chart's text alternative (AUD-04 §5, SP-14). */}
+            <span className="min-w-0 flex-1 text-fg-muted [overflow-wrap:anywhere]">{segment.label}</span>
             <span className="shrink-0 font-semibold tabular-nums text-fg">{segment.value}</span>
           </li>
         ))}

@@ -166,7 +166,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("dialogTitle")}
-        className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg md:hidden"
+        className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg md:hidden touch:size-11"
         data-testid="mobile-search-trigger"
       >
         <Search aria-hidden="true" className="size-5" />
@@ -186,8 +186,10 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="top-[12%] max-w-xl translate-y-0 p-0 max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:flex max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:flex-col max-sm:rounded-none">
-          <div className="border-b border-line p-3">
+        {/* Full screen on a phone: the dialog's viewport cap does not apply there, and the
+            header keeps clear of the 44px close control (AUD-04 §6). */}
+        <DialogContent className="top-[12%] max-w-xl translate-y-0 p-0 max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:flex max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:flex-col max-sm:overflow-hidden max-sm:rounded-none max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]" closeClassName="touch:top-[calc(env(safe-area-inset-top)+0.375rem)]">
+          <div className="border-b border-line p-3 touch:pr-14">
             <DialogTitle className="sr-only">{t("dialogTitle")}</DialogTitle>
             <div className="relative">
               {state.status === "loading" ? (
@@ -209,7 +211,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
                 maxLength={200}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => keyHandler.current?.(event)}
-                className="h-10 w-full rounded-md border border-line bg-surface pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent"
+                className="h-10 w-full rounded-md border border-line bg-surface pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent touch:h-11"
                 data-testid="search-input"
               />
             </div>

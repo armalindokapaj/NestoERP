@@ -17,12 +17,17 @@ const buttonVariants = cva(
         danger: "bg-danger text-white hover:opacity-90",
         link: "text-accent-strong underline-offset-4 hover:underline",
       },
+      /*
+       * Touch (AUD-04 §3, MW-19): every size is at least 44×44 under `touch:`
+       * — below lg, or on a coarse pointer — while a desktop mouse keeps the
+       * dense 32/36px controls (MW-21). Icons stay 16px inside the larger box.
+       */
       size: {
-        sm: "h-8 px-3 text-table [&_svg]:size-4",
-        md: "h-9 px-4 text-body [&_svg]:size-4",
-        lg: "h-11 px-5 text-body [&_svg]:size-4",
-        icon: "size-9 [&_svg]:size-4",
-        "icon-sm": "size-8 [&_svg]:size-4",
+        sm: "h-8 px-3 text-table [&_svg]:size-4 touch:h-11 touch:min-w-11",
+        md: "h-9 px-4 text-body [&_svg]:size-4 touch:h-11 touch:min-w-11",
+        lg: "h-11 px-5 text-body [&_svg]:size-4 touch:min-w-11",
+        icon: "size-9 [&_svg]:size-4 touch:size-11",
+        "icon-sm": "size-8 [&_svg]:size-4 touch:size-11",
       },
     },
     defaultVariants: {

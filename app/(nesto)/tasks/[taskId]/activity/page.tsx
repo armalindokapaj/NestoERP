@@ -60,7 +60,8 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
           <ol className="nesto-card divide-y divide-line">
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
-                <p className="text-table text-fg">
+                {/* Messages quote titles and reasons: they wrap, never widen the page (AUD-04 §3, MW-01). */}
+                <p className="text-table text-fg [overflow-wrap:anywhere]">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>

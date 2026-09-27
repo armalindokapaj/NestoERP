@@ -3699,3 +3699,51 @@ No migrations. No selection-based bulk action exists in any module. Every list r
 - **Other limits:**
   - Leading-zero codes stay text in the file, but a spreadsheet may still show them as numbers unless the column is imported as Text.
   - The Export control's sentences are not yet in `lib/i18n/messages`.
+
+## 47. AUD-04 — Mobile workflows
+
+AUD-04 makes phones and tablets work end to end without new workflows, permissions or APIs. The per-surface inventory is [coverage-manifest.md](mobile/coverage-manifest.md) (427 surfaces).
+- **The survey found 156 confirmed defects:** 17 in shared components and 139 module-specific, plus 110 untested risks.
+- **The PRD was wrong about one thing:** it describes `components/ui/dialog.tsx` as already mobile-safe. It was not: there was no height cap, no internal scroll, and a 24px close control.
+
+This section is written in two parts, following the PRD's delivery split. Part 1 covers the shared foundation, lists, and the four critical journeys. Part 2 covers the remaining module surfaces.
+
+### 47.1 Part 1: shared foundation, lists, critical journeys
+
+| Before | Now |
+| --- | --- |
+| Every button size was 32–36px, and checkbox, radio and switch controls were 16–20px | A `touch:` variant (below 1024px or on a coarse pointer, so it follows input capability, not the user agent) gives 44px targets. Checkboxes and switches get invisible hit areas. Desktop with a mouse keeps its density |
+| Inputs were 14px, so iOS zoomed in on focus | 16px below 768px. Zoom stays enabled. `viewportFit: cover`, so the safe-area paddings take effect |
+| Dialogs had no height cap or scroll, and footers went off-screen in landscape or with the keyboard open. Menus opened *behind* dialogs (z-50 against z-60) | Dialogs are capped at the viewport with one scroll region, safe areas and a 44px close. Drawers pad by the safe areas. A documented z-index ladder puts menus, selects and popovers above dialogs |
+| Header action groups could not wrap, and pages overflowed at 320–390px | Page, module and record header actions wrap. Long codes and titles break. Tab strips scroll |
+| Shell: 32–36px drawer and top-bar controls, hover-only star, no focus move after navigation | 44px controls. The drawer opens at the active module and focuses main after navigation, while unsaved-work prompts keep the editor. At 320px the top bar fits, and the demo user switcher moves into the drawer below 640px (still development/demo only; the production guard now also covers renderings with props) |
+| Lists on phones: tiny card links; sort only via table headers, which are hidden on phones; tablets hid amount columns with no way back; filters applied on every change | Whole-card links with an actions row. A labelled Sort select. Money and number columns are never hidden by width; other width-hidden columns can be re-shown from Columns. A staged filter sheet (Apply/Cancel/Clear) with an applied-count badge and removable chips |
+| Tasks: five header actions overflowed; a double tap sent two commands | The next step is visible, with the rest in a "More task actions" menu, laid out by CSS. Pending labels. A second tap is dropped |
+| Approvals: Approve went off-screen; there was no "Add note" on phones; the amount filter silently turned "1,5" into 15; PDFs could be blank on phones; rotation lost typed notes and reasons | A phone decision layout and Add note at every size. The amount filter uses AUD-09's decimal parser and refuses ambiguous input. A PDF is embedded only where an inline viewer exists, otherwise an explicit Open/Download. A draft store keeps note and reason across the 1024px breakpoint. Stale decisions are refused inside the open dialog |
+| Expenses and invoice lines: number fields about 80px wide at 640–767px; a silent one-tap line removal; the stored 4-decimal price visible only on hover | Stacked labelled line cards below 1024px, removal with Undo, and the exact price shown. Unconfirmed outcomes are reported as unconfirmed. The receipt path (Documents tab after saving, the existing behaviour) is linked from the expense |
+| Daily logs: reviewers could not Return or add a correction on phones; the sticky bar covered content; a failed photo only showed a toast; no minus sign on iOS; rotation swapped the editor | The sticky bar has a "More" menu with Return and Add correction, and bottom space is reserved for every role. Every upload keeps a row (waiting, uploading, failed, with Retry and Remove). HEIC is refused up front, and the camera is optional. Signed decimals use the full keyboard and the shared parser. The entry editor keeps its form until closed |
+
+A shared hook, `components/ui/use-breakpoint.ts`, replaces the local media-query copies in approvals and daily logs. `tests/e2e/responsive/geometry.ts` provides:
+- overflow checks;
+- 44px touch-target checks, which include overlap detection;
+- in-viewport checks;
+- 16px input checks;
+- 200% text zoom.
+
+`playwright.config.ts` adds the `aud04-*` projects for 320, 360 and 390 phones, 768 and 820 tablets, 844×390 and 1024×768 landscape, and 1280 and 1440 desktop. Their `testMatch` is limited to `responsive/aud04-*`.
+
+**Evidence (part 1):**
+- tsc is clean. eslint is clean on 97 changed files.
+- Gates: `verify:authorization`, `ownership`, `state`, `workers` and `production-guards`, `security:matrix` (regenerated) and `access-manifest` all pass.
+- A production `next build` passes.
+- Vitest on `nesto_a6b`, covering `tests/unit` and the `tests/api` folders for tables, tasks, approvals, finance, daily logs, documents, meetings and timesheets:
+  - 2,073 of 2,076 pass.
+  - The failures were the two pre-existing ones (3D viewer shell, telemetry budget) and the AUD-09 form manifest, which needed a row for the new filter sheet. It now passes.
+- E2E specs written for the final pass: `tests/e2e/responsive/aud04-{shell,primitives,lists,tasks,expenses}.spec.ts`, plus the extended `approvals-mobile` and `daily-logs-mobile`.
+- **Not yet done:** real-device checks (keyboard, file picker, safe areas, swipe; MW-18, MW-22) and the throttled performance comparison.
+
+**Open decisions (part 1):**
+- Finance registers keep cards on phones, with a table from 768px.
+- Header actions wrap rather than collapsing into a generic "More" menu.
+- Tasks: Reopen takes no reason (existing behaviour).
+- A comment typed in the approval discussion is still lost across the 1024px breakpoint (`components/collaboration`).

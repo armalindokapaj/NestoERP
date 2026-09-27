@@ -78,7 +78,7 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        className="relative grid size-9 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover"
+        className="relative grid size-9 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover touch:size-11"
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}
         {...warm}
@@ -97,7 +97,7 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
           id={panelId}
           role="dialog"
           aria-label={t("title")}
-          className="fixed inset-0 z-50 flex flex-col bg-surface sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(36rem,80vh)] sm:w-[min(26rem,calc(100vw-1.5rem))] sm:rounded-lg sm:border sm:border-line sm:shadow-lg"
+          className="fixed inset-0 z-50 flex flex-col bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:absolute sm:pb-0 sm:pt-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(36rem,80vh)] sm:w-[min(26rem,calc(100vw-1.5rem))] sm:rounded-lg sm:border sm:border-line sm:shadow-lg"
           data-testid="activity-panel"
         >
           {Body ? (
@@ -106,7 +106,7 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
             <>
               <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
-                <button type="button" onClick={() => close(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover">
+                <button type="button" onClick={() => close(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
                   <X aria-hidden="true" className="size-4" />
                 </button>
               </div>

@@ -17,7 +17,7 @@ import {
 } from "@/lib/modules/finance/finance.decimal";
 import { MONEY_RULE, RATE_RULE, TAX_RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
-import { CellError, DecimalCell, useLineRows, useRowErrors } from "./line-rows";
+import { CellError, DecimalCell, RemovedLineNotice, useLineRows, useRowErrors } from "./line-rows";
 
 /**
  * The priced line-item editor (PRD #15 §322, PRD #17 §409; AUD-09 §7, FV-16).
@@ -37,6 +37,13 @@ import { CellError, DecimalCell, useLineRows, useRowErrors } from "./line-rows";
  * server's own order (line subtotal rounded, tax on the rounded subtotal): what
  * is shown agrees with what will be stored, but the server recalculates every
  * figure before anything is stored (PRD #15 §52, AUD-01).
+ *
+ * Below the desktop width each line is a stacked, labelled card (AUD-04 §5,
+ * MW-08, D-02-04): "Line N" and its remove control on top, the description
+ * full width, then quantity, unit price, tax and the line's total two or four
+ * to a row — wide enough to show a 4-decimal price or a 7-digit amount. The
+ * twelve-column row returns at `lg`, where a column is wide enough for it.
+ * Removing a line is announced and can be undone (D-02-06).
  */
 
 export type PricedLineValue = {
@@ -70,7 +77,7 @@ export function PricedLineItems({
     () => ({ ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate }),
     [defaultTaxRate],
   );
-  const { rows, add, remove, update, atLimit } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
+  const { rows, add, remove, update, atLimit, removed, undo, dismissRemoved } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
   const errors = useRowErrors(
     "lineItems",
     rows.map((row) => row.rowId),
@@ -109,15 +116,37 @@ export function PricedLineItems({
       {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
       <CellError id={listErrorId} message={errors.list} />
 
+      <RemovedLineNotice removed={removed} label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
+
       <ul className="mt-4 space-y-3">
         {rows.map((row, index) => {
           const rowErrors = errors.forRow(row.rowId);
           const base = `${instance}-${row.rowId}`;
           const preview = previews[index];
+          const lineTotal = preview ? formatAmount(preview.totalAmount, currency) : "—";
+          const removeButton = () => (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+              // The last line is never removable: a priced document with
+              // no lines has no total, and the server refuses it anyway.
+              disabled={rows.length === 1}
+              onClick={() => remove(row.rowId)}
+            >
+              <Trash2 />
+            </Button>
+          );
           return (
             <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
-              <div className="grid gap-3 sm:grid-cols-12">
-                <div className="space-y-1.5 sm:col-span-5">
+              {/* The row's own header below lg: which line this is, and its remove control beside it. */}
+              <div className="mb-2 flex items-center justify-between gap-2 lg:hidden">
+                <span className="text-table font-medium text-fg">Line {index + 1}</span>
+                {removeButton()}
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12">
+                <div className="col-span-2 space-y-1.5 md:col-span-4 lg:col-span-5">
                   <Label htmlFor={`${base}-description`}>Description</Label>
                   <Input
                     id={`${base}-description`}
@@ -133,7 +162,7 @@ export function PricedLineItems({
                 </div>
 
                 <DecimalCell
-                  className="sm:col-span-2"
+                  className="min-w-0 lg:col-span-2"
                   id={`${base}-quantity`}
                   name={`lineItems.${index}.quantity`}
                   label="Quantity"
@@ -145,7 +174,7 @@ export function PricedLineItems({
                 />
 
                 <DecimalCell
-                  className="sm:col-span-2"
+                  className="min-w-0 lg:col-span-2"
                   id={`${base}-unitPrice`}
                   name={`lineItems.${index}.unitPrice`}
                   label="Unit price"
@@ -157,7 +186,7 @@ export function PricedLineItems({
                 />
 
                 <DecimalCell
-                  className="sm:col-span-2"
+                  className="min-w-0 lg:col-span-2"
                   id={`${base}-taxRate`}
                   name={`lineItems.${index}.taxRate`}
                   label="Tax"
@@ -169,25 +198,20 @@ export function PricedLineItems({
                   onChange={(value) => change(row.rowId, "taxRate", value)}
                 />
 
-                <div className="flex items-end sm:col-span-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
-                    // The last line is never removable: a priced document with
-                    // no lines has no total, and the server refuses it anyway.
-                    disabled={rows.length === 1}
-                    onClick={() => remove(row.rowId)}
-                  >
-                    <Trash2 />
-                  </Button>
+                {/* Below lg the line total takes the fourth cell, labelled, beside what it adds up. */}
+                <div className="min-w-0 space-y-1.5 lg:hidden">
+                  <p className="text-table font-medium text-fg">Line total</p>
+                  <p className="flex h-10 items-center text-table tabular-nums text-fg" data-testid="line-total">
+                    <span className="sr-only">Preview: </span>
+                    {lineTotal}
+                  </p>
                 </div>
+
+                <div className="hidden items-end lg:col-span-1 lg:flex">{removeButton()}</div>
               </div>
 
-              <p className="mt-2 text-right text-meta text-fg-subtle">
-                Line total (preview){" "}
-                {preview ? formatAmount(preview.totalAmount, currency) : "—"}
+              <p className="mt-2 hidden text-right text-meta text-fg-subtle lg:block">
+                Line total (preview) {lineTotal}
               </p>
             </li>
           );
@@ -243,7 +267,7 @@ export function BudgetLineItems({
     (): BudgetLineValue => ({ category: "SUBCONTRACTOR", description: "", plannedAmount: "0" }),
     [],
   );
-  const { rows, add, remove, update, atLimit } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
+  const { rows, add, remove, update, atLimit, removed, undo, dismissRemoved } = useLineRows(defaultLines ?? [], empty, { max: MAX_LINE_ITEMS });
   const errors = useRowErrors(
     "lineItems",
     rows.map((row) => row.rowId),
@@ -275,12 +299,31 @@ export function BudgetLineItems({
       {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A budget can have at most {MAX_LINE_ITEMS} lines.</p> : null}
       <CellError id={listErrorId} message={errors.list} />
 
+      <RemovedLineNotice removed={removed} noun="Budget line" label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
+
       <ul className="mt-4 space-y-3">
         {rows.map((row, index) => {
           const rowErrors = errors.forRow(row.rowId);
           const base = `${instance}-${row.rowId}`;
+          const removeButton = () => (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove budget line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+              disabled={rows.length === 1}
+              onClick={() => remove(row.rowId)}
+            >
+              <Trash2 />
+            </Button>
+          );
           return (
             <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
+              {/* On a phone the remove control sits in the line's header, not alone under its last field (AUD-04 §5, D-02-06). */}
+              <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+                <span className="text-table font-medium text-fg">Line {index + 1}</span>
+                {removeButton()}
+              </div>
               <div className="grid gap-3 sm:grid-cols-12">
                 <div className="space-y-1.5 sm:col-span-3">
                   <Label htmlFor={`${base}-category`}>Category</Label>
@@ -329,18 +372,7 @@ export function BudgetLineItems({
                   onChange={(value) => change(row.rowId, "plannedAmount", value)}
                 />
 
-                <div className="flex items-end sm:col-span-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove budget line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
-                    disabled={rows.length === 1}
-                    onClick={() => remove(row.rowId)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
+                <div className="hidden items-end sm:col-span-1 sm:flex">{removeButton()}</div>
               </div>
             </li>
           );

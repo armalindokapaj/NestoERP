@@ -99,8 +99,9 @@ export function FieldErrorProvider({
   return <FieldErrorContext.Provider value={value}>{children}</FieldErrorContext.Provider>;
 }
 
+/** Native selects across the forms: 44px under touch; the 16px phone font is one rule in globals.css (AUD-04 §3, §6). */
 export const selectClass =
-  "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger";
+  "h-10 touch:h-11 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger";
 
 /**
  * One labelled field (AUD-09 §3, FV-02). The control inside keeps the markup

@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import type { FinanceActionResult } from "@/lib/actions/finance";
 import type { RecordCapabilities } from "@/lib/modules/finance/finance.types";
+import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { RejectDialog } from "./reject-dialog";
 
 /**
@@ -60,19 +61,40 @@ export function FinanceRecordActions({
   const [pending, startTransition] = React.useTransition();
   const [confirming, setConfirming] = React.useState<null | "cancel" | "archive" | "close">(null);
   const [rejecting, setRejecting] = React.useState(false);
+  /** The step on its way: its button says so, and no second step starts (AUD-04 §6, MW-15). */
+  const [running, setRunning] = React.useState<string | null>(null);
+  const inFlight = React.useRef(false);
 
   function run(action: string, success: string) {
+    // A second tap before the first re-render is the same request, not another one.
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setRunning(action);
     startTransition(async () => {
-      const result = await lifecycle(action);
-      setConfirming(null);
-      if (result.ok) {
-        toast({ title: success, tone: "success" });
+      try {
+        const result = await lifecycle(action);
+        setConfirming(null);
+        if (result.ok) {
+          toast({ title: success, tone: "success" });
+          router.refresh();
+        } else {
+          toast({ title: result.error, tone: "danger" });
+        }
+      } catch {
+        // No answer: the step may or may not have happened. Say so, never
+        // retry it, and show the record as it now stands (AUD-03 §6, AUD-04 §6).
+        setConfirming(null);
+        toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
         router.refresh();
-      } else {
-        toast({ title: result.error, tone: "danger" });
+      } finally {
+        inFlight.current = false;
+        setRunning(null);
       }
     });
   }
+
+  const busy = pending || running !== null;
+  const buttonText = (action: string, idle: string, working: string) => (running === action ? working : idle);
 
   return (
     <>
@@ -86,16 +108,16 @@ export function FinanceRecordActions({
       ) : null}
 
       {capabilities.canSubmit ? (
-        <Button size="sm" onClick={() => run("submit", "Submitted for approval.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("submit", "Submitted for approval.")} disabled={busy} aria-busy={running === "submit" || undefined}>
           <Send aria-hidden="true" />
-          {pending ? "Working…" : "Submit for approval"}
+          {buttonText("submit", "Submit for approval", "Submitting…")}
         </Button>
       ) : null}
 
       {capabilities.canApprove ? (
-        <Button size="sm" onClick={() => run("approve", `${LABELS[kind]} approved.`)} disabled={pending}>
+        <Button size="sm" onClick={() => run("approve", `${LABELS[kind]} approved.`)} disabled={busy} aria-busy={running === "approve" || undefined}>
           <ThumbsUp aria-hidden="true" />
-          {pending ? "Working…" : "Approve"}
+          {buttonText("approve", "Approve", "Approving…")}
         </Button>
       ) : null}
 
@@ -104,7 +126,7 @@ export function FinanceRecordActions({
           variant="secondary"
           size="sm"
           onClick={() => setRejecting(true)}
-          disabled={pending}
+          disabled={busy}
         >
           <ThumbsDown aria-hidden="true" />
           Reject
@@ -112,16 +134,16 @@ export function FinanceRecordActions({
       ) : null}
 
       {capabilities.canMarkSent ? (
-        <Button size="sm" onClick={() => run("mark-sent", "Marked as sent.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("mark-sent", "Marked as sent.")} disabled={busy} aria-busy={running === "mark-sent" || undefined}>
           <SendHorizontal aria-hidden="true" />
-          {pending ? "Working…" : "Mark as sent"}
+          {buttonText("mark-sent", "Mark as sent", "Marking as sent…")}
         </Button>
       ) : null}
 
       {capabilities.canRestore ? (
-        <Button size="sm" onClick={() => run("restore", `${LABELS[kind]} restored.`)} disabled={pending}>
+        <Button size="sm" onClick={() => run("restore", `${LABELS[kind]} restored.`)} disabled={busy} aria-busy={running === "restore" || undefined}>
           <ArchiveRestore aria-hidden="true" />
-          {pending ? "Restoring…" : "Restore"}
+          {buttonText("restore", "Restore", "Restoring…")}
         </Button>
       ) : null}
 
@@ -189,7 +211,7 @@ export function FinanceRecordActions({
         confirmLabel={
           confirming === "close" ? "Close" : confirming === "cancel" ? "Cancel it" : "Archive"
         }
-        pending={pending}
+        pending={busy}
         onConfirm={() => {
           if (confirming === "close") run("close", "Commitment closed.");
           else if (confirming === "cancel") run("cancel", `${LABELS[kind]} cancelled.`);

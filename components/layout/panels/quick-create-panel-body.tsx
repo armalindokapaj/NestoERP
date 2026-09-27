@@ -89,7 +89,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
           onMouseMove={() => setActive(position)}
           disabled={launching !== null}
           aria-busy={launching === action.key || undefined}
-          className={cn("flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-table text-fg outline-none", position === active ? "bg-hover" : "hover:bg-hover", "focus-visible:ring-2 focus-visible:ring-accent")}
+          className={cn("flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-table text-fg outline-none touch:min-h-11", position === active ? "bg-hover" : "hover:bg-hover", "focus-visible:ring-2 focus-visible:ring-accent")}
           data-testid={`quick-create-${action.key}`}
         >
           <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
@@ -112,7 +112,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
   ) : null;
 
   const retryButton = (
-    <button type="button" onClick={loadMenu} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line px-3 text-table font-medium text-fg hover:bg-hover" data-testid="quick-create-retry">
+    <button type="button" onClick={loadMenu} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line px-3 text-table font-medium text-fg hover:bg-hover touch:h-11" data-testid="quick-create-retry">
       <RefreshCw aria-hidden="true" className="size-3.5" />
       {t("quickCreate.retry")}
     </button>
@@ -179,7 +179,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 }}
                 placeholder="Search actions…"
                 aria-controls={`${panelId}-list`}
-                className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-table text-fg outline-none focus:border-accent"
+                className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-table text-fg outline-none focus:border-accent touch:h-11"
               />
             </label>
           </div>
@@ -214,7 +214,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 Create {step.action.label}
               </button>
             )}
-            <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover">
+            <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
               <X aria-hidden="true" className="size-4" />
             </button>
           </div>
@@ -231,7 +231,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             >
               <label className="block space-y-1">
                 <span className="text-meta font-medium text-fg">Company</span>
-                <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent" data-testid="quick-create-company" required>
+                <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent touch:h-11" data-testid="quick-create-company" required>
                   <option value="">Choose a company…</option>
                   {step.action.companies?.map((entry) => (
                     <option key={entry.id} value={entry.id}>
@@ -241,7 +241,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 </select>
               </label>
               <p className="text-meta text-fg-muted">The {step.action.label.toLowerCase()} belongs to the company you choose. Opening it enters that company.</p>
-              <button type="submit" disabled={!company || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
+              <button type="submit" disabled={!company || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
                 {launching ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
                 Continue
               </button>
@@ -276,7 +276,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 ) : projects.items.length === 0 ? (
                   <span className="block text-table text-fg-muted">{t("quickCreate.noProjects")}</span>
                 ) : (
-                  <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent" data-testid="quick-create-project" required>
+                  <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-line bg-surface px-2 text-table text-fg outline-none focus:border-accent touch:h-11" data-testid="quick-create-project" required>
                     <option value="">Choose a project…</option>
                     {projects.items.map((entry) => (
                       <option key={entry.id} value={entry.id}>
@@ -286,7 +286,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                   </select>
                 )}
               </label>
-              <button type="submit" disabled={!project || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
+              <button type="submit" disabled={!project || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
                 {launching ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
                 Continue
               </button>

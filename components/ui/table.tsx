@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -8,14 +9,28 @@ import { cn } from "@/lib/utils/cn";
  * Flat, minimal separators, no vertical rules. The header sticks while the
  * body scrolls, and wide tables scroll horizontally inside their own container
  * rather than pushing the page sideways (§79).
+ *
+ * That container is a labelled region, focusable while there is something to
+ * scroll, so the sideways scroll works from the keyboard and is announced
+ * (AUD-04 §5, SP-02). Name it after the records (`label="Invoices"`); an
+ * unnamed table falls back to its own `aria-label`, then a generic name.
+ *
+ * Because the container scrolls, the sticky header sticks within it — or
+ * within a caller's own bounded vertical scroller — and never to the page, so
+ * it cannot slide under the sticky top bar.
  */
 export function Table({
   className,
   flush = false,
+  label,
   ...props
-}: React.ComponentProps<"table"> & { flush?: boolean }) {
+}: React.ComponentProps<"table"> & {
+  flush?: boolean;
+  /** The scroll region's accessible name. */
+  label?: string;
+}) {
   return (
-    <div className="w-full overflow-x-auto">
+    <ScrollRegion label={label ?? props["aria-label"] ?? "Table"}>
       <table
         className={cn(
           "w-full border-collapse text-table",
@@ -27,7 +42,7 @@ export function Table({
         )}
         {...props}
       />
-    </div>
+    </ScrollRegion>
   );
 }
 

@@ -25,7 +25,8 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-[60] rounded-md bg-graphite px-2.5 py-1.5 text-micro font-medium text-graphite-fg shadow-menu",
+          // Just above the floating layers it may label (AUD-04 §6; ladder in globals.css).
+          "z-[66] rounded-md bg-graphite px-2.5 py-1.5 text-micro font-medium text-graphite-fg shadow-menu",
           "data-[state=delayed-open]:animate-[nesto-fade-in_150ms_var(--nesto-ease)]",
           className,
         )}

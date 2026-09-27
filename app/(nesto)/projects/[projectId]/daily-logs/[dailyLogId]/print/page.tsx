@@ -50,8 +50,9 @@ export default async function DailyLogPrintPage({ params }: Params) {
 
   return (
     <article className="mx-auto max-w-3xl space-y-4 bg-surface p-6 print:p-0" data-testid="daily-log-print">
-      <header className="flex items-start justify-between gap-4">
-        <div>
+      {/* Wraps on a phone: the Print button drops under a long project name (AUD-04 §3, MW-01). */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 break-words">
           <p className="text-meta text-fg-muted">{company?.name}</p>
           <h1 className="text-page font-semibold text-fg">Daily log · {log.project.name}</h1>
           <p className="text-body text-fg">{longDateLabel(log.workDate)}</p>

@@ -112,8 +112,9 @@ export default async function InvoiceDetailPage({ params }: Params) {
         <section className="nesto-card p-5 lg:col-span-2">
           <h2 className="text-card font-semibold text-fg">Line items</h2>
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-table">
+          {/* A labelled, keyboard-scrollable region: five figures a line do not fit a phone (AUD-04 §5, D-02-10). */}
+          <div className="mt-4 overflow-x-auto" role="region" aria-label="Invoice line items" tabIndex={0}>
+            <table className="w-full min-w-[32rem] text-table">
               <caption className="sr-only">Invoice line items</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
                 <tr>
@@ -141,12 +142,9 @@ export default async function InvoiceDetailPage({ params }: Params) {
                     <td className="py-2.5 text-right tabular-nums text-fg-muted">
                       {line.quantity}
                     </td>
-                    <td className="py-2.5 text-right">
-                      <Money
-                        amount={line.unitPrice}
-                        currency={invoice.currency}
-                        className="text-fg-muted"
-                      />
+                    <td className="py-2.5 text-right tabular-nums text-fg-muted">
+                      {/* The stored price, to its four decimals, on screen — not only in a hover title (AUD-04 §5, MW-09, D-02-05). */}
+                      {unitPriceLabel(line.unitPrice, invoice.currency)}
                     </td>
                     <td className="py-2.5 text-right tabular-nums text-fg-muted">
                       {line.taxRate}%
@@ -264,4 +262,22 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
       <dd>{children}</dd>
     </div>
   );
+}
+
+/**
+ * A unit price as stored: up to four decimals (`Decimal(18, 4)`), at least two.
+ * The decimal string goes to `Intl` as a string, so no float rounds it
+ * (AUD-01); money totals keep `formatAmount`'s two decimals.
+ */
+function unitPriceLabel(amount: string, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    }).format(amount as unknown as number);
+  } catch {
+    return `${amount} ${currency}`;
+  }
 }

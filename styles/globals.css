@@ -116,6 +116,39 @@
   --breakpoint-2xl: 1440px;
 }
 
+/*
+ * Touch hit areas (AUD-04 §3, MW-19). `touch:` applies where a finger is the
+ * likely pointer: below the shell's lg breakpoint (the drawer layout), or on a
+ * coarse primary pointer at any width (a tablet in landscape). A desktop with a
+ * mouse at 1024px and up matches neither and keeps today's density (MW-21).
+ * Primitives use it to grow the hit area to 44px, preferring padding, min
+ * sizes or an invisible pseudo-element over a bigger visible icon.
+ */
+@custom-variant touch {
+  @media (max-width: 1023.98px) {
+    @slot;
+  }
+  @media (pointer: coarse) {
+    @slot;
+  }
+}
+
+/*
+ * Stacking order (AUD-04 §6, MW-10). One ladder, so a menu opened inside a
+ * dialog or a sheet is never drawn underneath it:
+ *
+ *   10  sticky table headers inside their own scroll region
+ *   30  top bar, sticky page action bars
+ *   50  drawers and bottom sheets, the top bar's own panels
+ *   55  full-screen record sheets (approvals)
+ *   60  dialogs
+ *   65  floating layers: dropdown menus, selects, popovers — above every
+ *       surface they can be opened from
+ *   66  tooltips
+ *   70  toasts
+ *   80+ the unsaved-work prompt (AUD-03), above everything it asks about
+ */
+
 @layer base {
   * {
     border-color: var(--nesto-border);
@@ -123,6 +156,34 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /*
+     * Focus and scrolling land clear of the sticky top bar (56px, 64px from md)
+     * and of a sticky bottom action bar where one is mounted, so an invalid
+     * field or an error-summary link is never focused underneath them
+     * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
+     */
+    scroll-padding-top: calc(3.5rem + 1rem);
+    scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
+  }
+
+  @media (min-width: 768px) {
+    html {
+      scroll-padding-top: calc(4rem + 1rem);
+    }
+  }
+
+  /*
+   * A sticky or fixed bottom action bar marks itself `data-sticky-action-bar`;
+   * while one is on the page, focus scrolling and toasts keep clear of it.
+   */
+  html:has([data-sticky-action-bar]) {
+    --nesto-bottom-reserve: 5.5rem;
+  }
+
+  @media (min-width: 768px) {
+    html:has([data-sticky-action-bar]) {
+      --nesto-bottom-reserve: 0px;
+    }
   }
 
   body {
@@ -468,6 +529,22 @@
   from {
     opacity: 0;
     transform: translateY(10px);
+  }
+}
+
+/*
+ * Phone text inputs are at least 16px (AUD-04 §3, MW-19): below that iOS
+ * Safari zooms the page on focus and the layout jumps. Unlayered on purpose —
+ * it outranks the `text-body`/`text-table` utilities of every control,
+ * including hand-rolled ones that bypass the primitives — and only below md,
+ * so tablet and desktop density is unchanged. Controls already drawn larger
+ * (text-card and up) keep their size. Zoom itself stays enabled.
+ */
+@media (max-width: 767.98px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="image"]):not([class*="text-section"], [class*="text-page"], [class*="text-display"], [class*="text-hero"]),
+  select,
+  textarea:not([class*="text-section"], [class*="text-page"], [class*="text-display"]) {
+    font-size: 16px;
   }
 }
 
