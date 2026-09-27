@@ -17,7 +17,16 @@ const signedAssetSchema = z.object({
 
 export const project3DBootstrapSchema = z.object({
   schemaVersion: z.literal(PROJECT_3D_SCHEMA_VERSION),
-  project: z.object({ id: z.string().min(1), name: z.string().min(1) }),
+  project: z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    // The immersive viewer's identity and More menu (Rozaris port). The company
+    // is the reader's own; its phone and email are what the contact buttons dial.
+    code: z.string().min(1),
+    status: z.enum(["PENDING", "ACTIVE", "FINISHED", "ARCHIVED"]),
+    city: z.string().nullable(),
+    company: z.object({ id: z.string().min(1), name: z.string().min(1), phone: z.string().nullable(), email: z.string().nullable() }),
+  }),
   release: z.object({ id: z.string().min(1), number: z.number().int().positive(), publishedAt: z.string().datetime() }),
   experience: z.record(z.string(), z.unknown()),
   models: z.array(
@@ -52,10 +61,24 @@ export const project3DBootstrapSchema = z.object({
     rooms: z.number().int().nullable(),
     bedrooms: z.number().int().nullable(),
     bathrooms: z.number().int().nullable(),
+    orientation: z.string().nullable(),
     commercial: z.object({ askingPrice: z.string().nullable(), currency: z.string().nullable(), pricePerSqm: z.string().nullable() }).nullable(),
     salesPlan: z.object({ documentId: z.string().min(1), name: z.string().min(1), href: z.string().min(1) }).nullable(),
     media: z.array(z.object({ id: z.string().min(1), category: z.string().min(1), caption: z.string().nullable(), isPrimary: z.boolean(), thumbnailHref: z.string().min(1) })),
   })),
+  // The project's planning phases as the viewer's construction timeline; null
+  // when the reader may not open the plan (project_planning.view).
+  construction: z.object({
+    progressPercent: z.number().min(0).max(100),
+    stages: z.array(z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      order: z.number().int(),
+      status: z.enum(["done", "active", "upcoming"]),
+      progressPercent: z.number().min(0).max(100),
+      endDate: z.string().nullable(),
+    })),
+  }).nullable(),
   capabilities: z.object({ mapbox: z.boolean(), unitDetails: z.boolean(), commercial: z.boolean(), files: z.boolean() }),
 });
 

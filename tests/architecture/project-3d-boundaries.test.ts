@@ -20,8 +20,10 @@ describe("Project 3D bundle boundaries", () => {
   it("keeps Company viewer code out of Platform authoring and processing modules", () => {
     const roots = [
       "components/3d/company",
+      "components/3d/viewer",
       "lib/3d/company",
-      "app/(nesto)/projects/[projectId]/3d",
+      "lib/3d/viewer",
+      "app/(project-viewer)",
       "app/api/projects/[projectId]/3d",
     ];
     const forbidden = [
@@ -56,6 +58,18 @@ describe("Project 3D bundle boundaries", () => {
       .filter((dependency) => forbidden.some((pattern) => pattern.test(dependency)))
       .map((dependency) => `${file} -> ${dependency}`));
     expect(violations).toEqual([]);
+  });
+
+  it("mounts the Company viewer full screen, outside the application shell, behind the project doors", () => {
+    const group = "app/(project-viewer)";
+    const route = `${group}/projects/[projectId]/3d`;
+    // One page owns /projects/[projectId]/3d, and it is not inside the shell's group.
+    expect(sourceFiles(group).filter((file) => file.endsWith("page.tsx"))).toEqual([path.join(route, "page.tsx")]);
+    expect(sourceFiles("app/(nesto)/projects/[projectId]").some((file) => file.includes(`${path.sep}3d${path.sep}`))).toBe(false);
+    expect(readFileSync(`${group}/layout.tsx`, "utf8")).toContain("requireUserContext()");
+    const page = readFileSync(`${route}/page.tsx`, "utf8");
+    expect(page).toContain("loadProject(");
+    expect(page).toContain("hasActiveProject3DViewer(");
   });
 
   it("guards the Platform page tree at its root layout", () => {

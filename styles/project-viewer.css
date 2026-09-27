@@ -1,0 +1,302 @@
+/*
+ * The Project viewer's look (the Rozaris 3D viewer, ported as-is).
+ *
+ * The viewer's markup keeps Rozaris' Tailwind classes, so this file supplies
+ * what they need and NESTO's theme does not: the brand and radius tokens as
+ * new names, and — only inside [data-project-viewer] — Rozaris' neutral scale,
+ * status colours, faces and shadows over NESTO's. Nothing here changes a NESTO
+ * page: every override is scoped to the viewer's frame.
+ */
+
+@theme {
+  --color-brand-50: #f0eeff;
+  --color-brand-100: #e4dffe;
+  --color-brand-200: #cbc0fd;
+  --color-brand-300: #a794fa;
+  --color-brand-400: #8973f8;
+  --color-brand-500: #6b55f5;
+  --color-brand-600: #5c46e8;
+  --color-brand-700: #4b39c4;
+  --color-brand-800: #3b2d9c;
+  --color-brand-900: #2e2377;
+  --color-neutral-0: #ffffff;
+  --color-sold: #9a9aa3;
+  --color-listing-new-dev: #8b5cf6;
+  --radius-panel: 12px;
+  --radius-card: 8px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+  --font-numeric: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-project-viewer] {
+  /* Rozaris' neutral scale (Tailwind's neutral utilities read these). */
+  --color-neutral-50: #f7f7f8;
+  --color-neutral-100: #f2f2f4;
+  --color-neutral-200: #e1e1e6;
+  --color-neutral-300: #c9c9d0;
+  --color-neutral-400: #adadb5;
+  --color-neutral-500: #8b8b95;
+  --color-neutral-600: #666670;
+  --color-neutral-700: #4d4d57;
+  --color-neutral-800: #303038;
+  --color-neutral-900: #17171c;
+  /* NESTO maps these utilities onto its own tokens; the viewer uses Rozaris'. */
+  --nesto-success: #23845e;
+  --nesto-warning: #a66a12;
+  --nesto-danger: #c84545;
+  --font-geist-sans: var(--font-nunito-sans);
+  --font-nesto-serif: var(--font-nunito-sans);
+  --shadow-1: 0 2px 8px rgba(17, 17, 24, 0.06);
+  --shadow-2: 0 8px 24px rgba(17, 17, 24, 0.1);
+  --shadow-3: 0 18px 48px rgba(17, 17, 24, 0.14);
+  background: var(--color-neutral-900);
+  color: #ffffff;
+  font-family: var(--font-nunito-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html:has([data-project-viewer]),
+body:has([data-project-viewer]) {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+
+@layer utilities {
+  .h-viewport {
+    height: 100dvh;
+  }
+}
+
+@supports not (height: 1dvh) {
+  .h-viewport {
+    height: 100vh;
+  }
+  html:has([data-project-viewer]),
+  body:has([data-project-viewer]) {
+    height: 100vh;
+    min-height: 100vh;
+  }
+}
+
+[data-project-viewer] .font-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-project-viewer] :focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.glass-panel-dark {
+  background: color-mix(in srgb, var(--color-neutral-900) 96%, transparent);
+  border: 1px solid color-mix(in srgb, white 12%, transparent);
+}
+
+.viewer-glass {
+  background: #0c0e12;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-1);
+}
+
+@keyframes rz-viewer-loading-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.viewer-loading-bar {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.viewer-loading-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.55);
+  animation: rz-viewer-loading-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes rz-more-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.viewer-dropdown-in {
+  animation: rz-more-menu-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer-loading-bar::after {
+    animation: none;
+    transform: translateX(75%);
+  }
+  .viewer-dropdown-in {
+    animation: none;
+  }
+  [data-project-viewer] *,
+  [data-project-viewer] *::before,
+  [data-project-viewer] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-project-viewer] .scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-project-viewer] .scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 999px;
+}
+[data-project-viewer] .scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-project-viewer] .scroll-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-project-viewer] .scroll-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Range inputs (the unit search's price/area sliders). */
+.rz-range-thumb {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  transform: translateY(-50%);
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+.rz-range-thumb::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  background: transparent;
+  height: 20px;
+}
+.rz-range-thumb::-moz-range-track {
+  background: transparent;
+  height: 20px;
+  border: none;
+}
+.rz-range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: white;
+  border: 2px solid var(--color-brand-500);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+  margin-top: 1px;
+}
+.rz-range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: white;
+  border: 2px solid var(--color-brand-500);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+.rz-range-thumb:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+.rz-range-thumb:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+.rz-range-thumb:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+.rz-range-thumb:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+.rz-range-single {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  transform: translateY(-50%);
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: none;
+}
+.rz-range-single::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  background: transparent;
+  height: 28px;
+}
+.rz-range-single::-moz-range-track {
+  background: transparent;
+  height: 28px;
+  border: none;
+}
+.rz-range-single::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: white;
+  border: 2px solid var(--color-brand-500);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+  margin-top: 6px;
+}
+.rz-range-single::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: white;
+  border: 2px solid var(--color-brand-500);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+.rz-range-single:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+.rz-range-single:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+.rz-range-single:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+.rz-range-single:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+.rz-range-single:disabled {
+  pointer-events: none;
+}
