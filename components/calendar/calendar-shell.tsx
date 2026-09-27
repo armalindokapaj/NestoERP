@@ -22,6 +22,7 @@ import { TimeGridView } from "./time-grid-view";
 import { EMPTY_FILTERS, readPreferences, useCalendarData, writePreferences, type CalendarFilterState } from "./use-calendar-data";
 import { belowQuery } from "@/components/ui/use-breakpoint";
 import { useIsPhone } from "./use-is-phone";
+import { englishCalendar, useCalendarTranslations, useDayWords } from "./calendar-text";
 import { HelpEntry } from "@/components/help/help-entry";
 
 /**
@@ -32,6 +33,7 @@ import { HelpEntry } from "@/components/help/help-entry";
  * Agenda.
  */
 
+// Labels stay here in English; the tabs read the reader's words by key.
 const VIEWS: Array<{ key: CalendarView; label: string }> = [
   { key: "month", label: "Month" },
   { key: "week", label: "Week" },
@@ -58,6 +60,8 @@ export function CalendarShell({
   // `undefined` until the browser answers (AUD-04 §3, SP-15); treated as "not a phone" for behaviour.
   const phone = useIsPhone() === true;
   const toast = useToast();
+  const t = useCalendarTranslations();
+  const words = useDayWords();
   const zone = initial.timezone;
   const today = todayIn(zone);
 
@@ -180,13 +184,13 @@ export function CalendarShell({
     if (!result?.ok) {
       patchEvents(event.sourceId, (row) => ({ ...row, ...before }));
       const json = await result?.json().catch(() => null);
-      toast({ title: json?.error?.message ?? "The event could not be moved.", tone: "danger" });
+      toast({ title: json?.error?.message ?? t("shell.moveFailed"), tone: "danger" });
       return;
     }
     const json = (await result.json()) as { conflicts: Array<{ fullName: string }> };
     toast({
-      title: "Event moved",
-      description: json.conflicts.length ? `${json.conflicts.map((row) => row.fullName).join(", ")} ${json.conflicts.length === 1 ? "is" : "are"} busy then.` : undefined,
+      title: t("shell.moved"),
+      description: json.conflicts.length ? t("shell.busyThen", { names: json.conflicts.map((row) => row.fullName).join(", "), count: json.conflicts.length }) : undefined,
       tone: json.conflicts.length ? "warning" : "success",
     });
     reload();
@@ -210,29 +214,29 @@ export function CalendarShell({
   const newMenu = canCreate ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size={phone ? "icon" : "md"} aria-label="New">
+        <Button size={phone ? "icon" : "md"} aria-label={t("shell.new")}>
           <CalendarPlus aria-hidden="true" />
-          {phone ? null : "New"}
+          {phone ? null : t("shell.new")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Create</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "PERSONAL_EVENT")}>Personal event</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "TEAM_EVENT")}>Team event</DropdownMenuItem>
+        <DropdownMenuLabel>{t("shell.create")}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "PERSONAL_EVENT")}>{t("labels.eventType.PERSONAL_EVENT")}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "TEAM_EVENT")}>{t("labels.eventType.TEAM_EVENT")}</DropdownMenuItem>
         {response.capabilities.canCreateCompanyEvent ? (
           <>
-            <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "COMPANY_EVENT")}>Company event</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "COMPANY_HOLIDAY")}>Company holiday</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "COMPANY_EVENT")}>{t("labels.eventType.COMPANY_EVENT")}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => startCreate(undefined, undefined, "COMPANY_HOLIDAY")}>{t("labels.eventType.COMPANY_HOLIDAY")}</DropdownMenuItem>
           </>
         ) : null}
         {/* Tasks and meetings are created in their own modules, with their own rules (PRD #39 §35, PRD #40 §9). */}
         {response.capabilities.canCreateMeeting ? (
           <DropdownMenuItem asChild>
-            <Link href={`/meetings/new?date=${date}`}>Meeting</Link>
+            <Link href={`/meetings/new?date=${date}`}>{t("shell.meeting")}</Link>
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
-          <Link href="/tasks/new">Task</Link>
+          <Link href="/tasks/new">{t("shell.task")}</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -250,25 +254,25 @@ export function CalendarShell({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">Calendar</p>
+          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
           <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" aria-live="polite">
-            {periodLabel(view, date, zone)}
+            {periodLabel(view, date, zone, words.locale)}
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <HelpEntry moduleKey="calendar" moduleLabel="Calendar" />
-          <Button variant="secondary" size="sm" onClick={() => setDate(today)} aria-label="Go to today">
-            Today
+          <HelpEntry moduleKey="calendar" moduleLabel={t("title")} />
+          <Button variant="secondary" size="sm" onClick={() => setDate(today)} aria-label={t("shell.goToToday")}>
+            {t("shell.today")}
           </Button>
           <div className="flex">
-            <Button variant="ghost" size="icon-sm" aria-label="Previous period" onClick={() => setDate(step(view, date, -1))}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("shell.previousPeriod")} onClick={() => setDate(step(view, date, -1))}>
               <ChevronLeft aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Next period" onClick={() => setDate(step(view, date, 1))}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("shell.nextPeriod")} onClick={() => setDate(step(view, date, 1))}>
               <ChevronRight aria-hidden="true" />
             </Button>
           </div>
-          <div role="tablist" aria-label="Calendar view" className="inline-flex rounded-lg border border-line bg-surface-muted p-0.5">
+          <div role="tablist" aria-label={t("shell.viewLabel")} className="inline-flex rounded-lg border border-line bg-surface-muted p-0.5">
             {VIEWS.map((option) => (
               <button
                 key={option.key}
@@ -282,11 +286,11 @@ export function CalendarShell({
                   view === option.key ? "bg-surface text-fg shadow-card" : "text-fg-muted hover:text-fg",
                 )}
               >
-                {option.label}
+                {t(`views.${option.key}`)}
               </button>
             ))}
           </div>
-          <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFilterSheet(true)} aria-label={filtersActive ? "Filters, some applied" : "Filters"}>
+          <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFilterSheet(true)} aria-label={filtersActive ? t("shell.filtersApplied") : t("shell.filters")}>
             <SlidersHorizontal aria-hidden="true" />
             {filtersActive ? <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" /> : null}
           </Button>
@@ -296,10 +300,10 @@ export function CalendarShell({
 
       {error || partial ? (
         <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-table text-warning-strong">
-          {error ?? "Some calendar items could not be loaded."}
+          {!error || error === englishCalendar("loadFailed") ? t("loadFailed") : error}
           <Button variant="ghost" size="sm" onClick={reload}>
             <RotateCw aria-hidden="true" />
-            Retry
+            {t("shell.retry")}
           </Button>
         </div>
       ) : null}
@@ -307,7 +311,7 @@ export function CalendarShell({
       {response.meta.truncated ? (
         // A bounded read is said out loud, never shown as the whole period (AUD-08 §4, DT-05).
         <p role="status" data-testid="calendar-truncated" className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-table text-warning-strong">
-          Not every item in this period is shown: there are more than the calendar loads at once. Narrow the filters or choose a shorter view.
+          {t("truncated")}
         </p>
       ) : null}
 
@@ -317,12 +321,12 @@ export function CalendarShell({
             "hidden shrink-0 flex-col gap-6 overflow-y-auto transition-[width] duration-200 ease-nesto motion-reduce:transition-none lg:flex",
             collapsed ? "w-10" : "w-[288px]",
           )}
-          aria-label="Calendar filters"
+          aria-label={t("shell.sidebarLabel")}
         >
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? "Show calendar sidebar" : "Hide calendar sidebar"}
+            aria-label={collapsed ? t("shell.showSidebar") : t("shell.hideSidebar")}
             aria-expanded={!collapsed}
             className="grid size-8 place-items-center self-start rounded-md text-fg-subtle outline-none hover:bg-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
           >
@@ -380,7 +384,7 @@ export function CalendarShell({
           )}
           {!loading && events.length === 0 && view !== "agenda" && !(view === "month" && phone) ? (
             <p className="pointer-events-none absolute inset-x-0 top-1/3 text-center text-body text-fg-muted" data-testid="calendar-empty">
-              Nothing scheduled for this period.
+              {t("nothingInPeriod")}
             </p>
           ) : null}
         </main>
@@ -388,8 +392,8 @@ export function CalendarShell({
 
       <Drawer open={filterSheet} onOpenChange={setFilterSheet}>
         <DrawerContent side="bottom" className="bg-surface px-5 pb-8 pt-5">
-          <DrawerTitle className="text-card font-semibold text-fg">Filters</DrawerTitle>
-          <DrawerDescription className="mb-4 text-table text-fg-muted">Only what you can already see is filtered.</DrawerDescription>
+          <DrawerTitle className="text-card font-semibold text-fg">{t("shell.filters")}</DrawerTitle>
+          <DrawerDescription className="mb-4 text-table text-fg-muted">{t("shell.filtersNote")}</DrawerDescription>
           <MiniCalendar date={date} zone={zone} today={today} busyDays={busyDays} onSelect={(value) => { setDate(value); setFilterSheet(false); }} />
           <div className="mt-6">
             <CalendarFilters filters={filters} onChange={setFilters} projects={projectsForFilter} />
@@ -427,7 +431,7 @@ export function CalendarShell({
         onOpenChange={(open) => (open ? null : setForm(null))}
         onSaved={(_saved, conflicts) => {
           if (conflicts.length > 0) {
-            toast({ title: "Saved with conflicts", description: `${conflicts.map((row) => row.fullName).join(", ")} ${conflicts.length === 1 ? "is" : "are"} already busy then.`, tone: "warning" });
+            toast({ title: t("shell.savedWithConflicts"), description: t("shell.alreadyBusy", { names: conflicts.map((row) => row.fullName).join(", "), count: conflicts.length }), tone: "warning" });
           }
           reload();
         }}

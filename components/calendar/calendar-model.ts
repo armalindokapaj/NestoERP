@@ -102,29 +102,46 @@ export function step(view: CalendarView, date: string, direction: 1 | -1): strin
   return addLocalDays(date, direction);
 }
 
-const monthFormat = (zone: string) => new Intl.DateTimeFormat("en-GB", { timeZone: zone, month: "long", year: "numeric" });
-const shortFormat = (zone: string) => new Intl.DateTimeFormat("en-GB", { timeZone: zone, day: "numeric", month: "short" });
+/** The words a day heading uses, and the Intl locale dates are written in. */
+export type DayWords = { locale: string; today: string; tomorrow: string; yesterday: string };
 
-export function periodLabel(view: CalendarView, date: string, zone: string): string {
+const ENGLISH_DAYS: DayWords = { locale: "en-GB", today: "Today", tomorrow: "Tomorrow", yesterday: "Yesterday" };
+
+/** The Intl locale for a reader's language: English keeps its British dates. */
+export function intlLocale(locale: string): string {
+  return locale === "en" ? "en-GB" : locale;
+}
+
+/** Monday-first weekday names in the given locale ("Mon", or "M" when narrow). */
+export function weekdayNames(locale: string, width: "short" | "narrow"): string[] {
+  const format = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: width });
+  // 1 January 2024 was a Monday.
+  return Array.from({ length: 7 }, (_, index) => format.format(new Date(Date.UTC(2024, 0, 1 + index, 12))));
+}
+
+const monthFormat = (zone: string, locale: string) => new Intl.DateTimeFormat(locale, { timeZone: zone, month: "long", year: "numeric" });
+const shortFormat = (zone: string, locale: string) => new Intl.DateTimeFormat(locale, { timeZone: zone, day: "numeric", month: "short" });
+
+export function periodLabel(view: CalendarView, date: string, zone: string, locale = "en-GB"): string {
   const noon = (value: string) => instantFromLocal(value, "12:00", zone);
-  if (view === "month") return monthFormat(zone).format(noon(date));
+  if (view === "month") return monthFormat(zone, locale).format(noon(date));
   if (view === "day") {
-    return new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(noon(date));
+    return new Intl.DateTimeFormat(locale, { timeZone: zone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(noon(date));
   }
   const days = visibleDays(view, date, zone);
   const first = noon(days[0]);
   const last = noon(days.at(-1)!);
   const sameMonth = days[0].slice(0, 7) === days.at(-1)!.slice(0, 7);
   return sameMonth
-    ? `${new Intl.DateTimeFormat("en-GB", { timeZone: zone, day: "numeric" }).format(first)}–${shortFormat(zone).format(last)} ${days[0].slice(0, 4)}`
-    : `${shortFormat(zone).format(first)} – ${shortFormat(zone).format(last)} ${days.at(-1)!.slice(0, 4)}`;
+    ? `${new Intl.DateTimeFormat(locale, { timeZone: zone, day: "numeric" }).format(first)}–${shortFormat(zone, locale).format(last)} ${days[0].slice(0, 4)}`
+    : `${shortFormat(zone, locale).format(first)} – ${shortFormat(zone, locale).format(last)} ${days.at(-1)!.slice(0, 4)}`;
 }
 
-export function dayHeading(date: string, zone: string, today: string): string {
-  if (date === today) return "Today";
-  if (date === addLocalDays(today, 1)) return "Tomorrow";
-  if (date === addLocalDays(today, -1)) return "Yesterday";
-  return new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "long", day: "numeric", month: "long" }).format(instantFromLocal(date, "12:00", zone));
+export function dayHeading(date: string, zone: string, today: string, words: DayWords = ENGLISH_DAYS): string {
+  if (date === today) return words.today;
+  if (date === addLocalDays(today, 1)) return words.tomorrow;
+  if (date === addLocalDays(today, -1)) return words.yesterday;
+  return new Intl.DateTimeFormat(words.locale, { timeZone: zone, weekday: "long", day: "numeric", month: "long" }).format(instantFromLocal(date, "12:00", zone));
 }
 
 export function todayIn(zone: string): string {

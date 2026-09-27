@@ -13,11 +13,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { memberActor } from "@/lib/modules/organization/departments/department.actor";
 import { listGroupDepartments } from "@/lib/modules/organization/departments/department.query";
 import type { GroupDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
 
-export const metadata: Metadata = { title: "Departments" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("organization"))("common.departments") };
+}
 
 type Props = { searchParams: Promise<{ inactive?: string }> };
 
@@ -36,12 +39,13 @@ export default async function DepartmentsPage({ searchParams }: Props) {
   const showInactive = configures && (await searchParams).inactive === "1";
   const departments = await listGroupDepartments(memberActor(context), { status: showInactive ? "ALL" : "ACTIVE" });
 
+  const t = await getTranslations("organization");
   const columns: TableColumn<GroupDepartmentDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
-      label: "Department",
+      label: t("common.department"),
       primary: true,
       render: (department) => (
         <Link href={`/organization/departments/${encodeURIComponent(department.id)}`} className="font-medium text-fg hover:text-accent-strong hover:underline">
@@ -49,24 +53,24 @@ export default async function DepartmentsPage({ searchParams }: Props) {
         </Link>
       ),
     },
-    { key: "code", label: "Code", render: (department) => <span className="font-mono text-meta text-fg-muted">{department.code}</span> },
-    { key: "head", label: "Group head", render: (department) => (department.groupHead ? <PersonLink personId={department.groupHead.personId} name={department.groupHead.name} /> : <span className="text-fg-subtle">No head</span>) },
-    { key: "companies", label: "Active companies", align: "right", render: (department) => <span className="tabular-nums">{department.activeCompanyCount}</span> },
-    { key: "members", label: "People", align: "right", hideBelow: "lg", render: (department) => <span className="tabular-nums">{department.memberCount}</span> },
-    { key: "status", label: "Status", render: (department) => <StatusBadge status={department.status} /> },
+    { key: "code", label: t("departments.code"), render: (department) => <span className="font-mono text-meta text-fg-muted">{department.code}</span> },
+    { key: "head", label: t("departments.groupHead"), render: (department) => (department.groupHead ? <PersonLink personId={department.groupHead.personId} name={department.groupHead.name} /> : <span className="text-fg-subtle">{t("departments.noHead")}</span>) },
+    { key: "companies", label: t("departments.activeCompanies"), align: "right", render: (department) => <span className="tabular-nums">{department.activeCompanyCount}</span> },
+    { key: "members", label: t("common.people"), align: "right", hideBelow: "lg", render: (department) => <span className="tabular-nums">{department.memberCount}</span> },
+    { key: "status", label: t("common.status"), render: (department) => <StatusBadge status={department.status} /> },
   ];
 
   return (
     <ModulePage
       experience={resolveModuleExperience(context, "organization")}
       activeSection="departments"
-      title="Departments"
-      description={`Every department of ${context.parentGroup.name}, defined once and activated in the companies that need it.`}
+      title={t("common.departments")}
+      description={t("departments.description", { group: context.parentGroup.name })}
       actions={
         configures ? (
           <div className="flex items-center gap-2">
             <Button asChild variant="secondary" size="sm">
-              <Link href={showInactive ? "/organization/departments" : "/organization/departments?inactive=1"}>{showInactive ? "Hide inactive" : "Show inactive"}</Link>
+              <Link href={showInactive ? "/organization/departments" : "/organization/departments?inactive=1"}>{showInactive ? t("departments.hideInactive") : t("departments.showInactive")}</Link>
             </Button>
             <NewDepartmentButton api={ORGANIZATION_API} />
           </div>
@@ -76,11 +80,11 @@ export default async function DepartmentsPage({ searchParams }: Props) {
       {departments.length === 0 ? (
         <EmptyState
           icon={<Network />}
-          title="No Group Departments have been created yet."
-          description={configures ? "Create the group's first department, then activate it in the companies that need it." : "The group's departments are set up by its Owner and Group IT."}
+          title={t("common.noGroupDepartments")}
+          description={configures ? t("departments.emptyConfigures") : t("departments.emptyReads")}
         />
       ) : (
-        <DataTable listId="organization.departments" caption="Group departments" columns={columns} records={departments} rowKey={(department) => department.id} />
+        <DataTable listId="organization.departments" caption={t("departments.caption")} columns={columns} records={departments} rowKey={(department) => department.id} />
       )}
     </ModulePage>
   );

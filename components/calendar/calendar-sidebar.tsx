@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarCategory } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
-import { addMonths, CATEGORY_META, dayHeading, FILTER_CATEGORIES, visibleDays } from "./calendar-model";
+import { addMonths, CATEGORY_META, dayHeading, FILTER_CATEGORIES, visibleDays, weekdayNames } from "./calendar-model";
+import { calendarLabel, useCalendarTranslations, useDayWords } from "./calendar-text";
 import type { CalendarFilterState } from "./use-calendar-data";
 
 /**
@@ -31,24 +32,26 @@ export function MiniCalendar({
 }) {
   const [month, setMonth] = React.useState(date.slice(0, 7) + "-01");
   React.useEffect(() => setMonth(date.slice(0, 7) + "-01"), [date]);
+  const t = useCalendarTranslations();
+  const words = useDayWords();
   const days = visibleDays("month", month, zone);
-  const label = new Intl.DateTimeFormat("en-GB", { timeZone: zone, month: "long", year: "numeric" }).format(instantFromLocal(month, "12:00", zone));
+  const label = new Intl.DateTimeFormat(words.locale, { timeZone: zone, month: "long", year: "numeric" }).format(instantFromLocal(month, "12:00", zone));
 
   return (
     <div className="select-none">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-table font-semibold text-fg">{label}</span>
         <div className="flex gap-0.5">
-          <button type="button" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
+          <button type="button" aria-label={t("sidebar.previousMonth")} onClick={() => setMonth(addMonths(month, -1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
             <ChevronLeft aria-hidden="true" className="size-4" />
           </button>
-          <button type="button" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
+          <button type="button" aria-label={t("sidebar.nextMonth")} onClick={() => setMonth(addMonths(month, 1))} className="grid size-7 place-items-center rounded-md text-fg-muted outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring touch:size-11">
             <ChevronRight aria-hidden="true" className="size-4" />
           </button>
         </div>
       </div>
       <div className="grid grid-cols-7 text-center" role="grid" aria-label={label}>
-        {["M", "T", "W", "T", "F", "S", "S"].map((weekday, index) => (
+        {weekdayNames(words.locale, "narrow").map((weekday, index) => (
           <span key={index} className="py-1 text-micro font-medium text-fg-subtle">
             {weekday}
           </span>
@@ -58,7 +61,7 @@ export function MiniCalendar({
             key={day}
             type="button"
             onClick={() => onSelect(day)}
-            aria-label={dayHeading(day, zone, today)}
+            aria-label={dayHeading(day, zone, today, words)}
             aria-current={day === date ? "date" : undefined}
             className={cn(
               "relative mx-auto grid size-8 place-items-center rounded-full text-meta tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
@@ -84,6 +87,7 @@ export function CalendarFilters({
   onChange: (filters: CalendarFilterState) => void;
   projects: Array<{ id: string; name: string }>;
 }) {
+  const t = useCalendarTranslations();
   const toggleCategory = (category: CalendarCategory, checked: boolean) => {
     const all = filters.categories.length === 0 ? FILTER_CATEGORIES : filters.categories;
     const next = checked ? [...new Set([...all, category])] : all.filter((value) => value !== category);
@@ -98,14 +102,14 @@ export function CalendarFilters({
     <div className="flex flex-col gap-6">
       <label className="flex items-center justify-between gap-3">
         <span>
-          <span className="block text-table font-medium text-fg">My calendar</span>
-          <span className="block text-meta text-fg-subtle">Only what is assigned to me or I am on</span>
+          <span className="block text-table font-medium text-fg">{t("sidebar.myCalendar")}</span>
+          <span className="block text-meta text-fg-subtle">{t("sidebar.myCalendarHint")}</span>
         </span>
-        <Switch checked={filters.myOnly} onCheckedChange={(checked) => onChange({ ...filters, myOnly: checked })} aria-label="My calendar" />
+        <Switch checked={filters.myOnly} onCheckedChange={(checked) => onChange({ ...filters, myOnly: checked })} aria-label={t("sidebar.myCalendar")} />
       </label>
 
       <fieldset>
-        <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Categories</legend>
+        <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.categories")}</legend>
         <div className="flex flex-col gap-1">
           {FILTER_CATEGORIES.map((category) => {
             const meta = CATEGORY_META[category];
@@ -116,7 +120,7 @@ export function CalendarFilters({
                 <Checkbox id={id} checked={checked} onCheckedChange={(value) => toggleCategory(category, value === true)} />
                 <span aria-hidden="true" className="size-2 rounded-full" style={{ background: meta.token }} />
                 <meta.icon aria-hidden="true" className="size-3.5 text-fg-subtle" />
-                <span className="text-table text-fg">{meta.label}</span>
+                <span className="text-table text-fg">{calendarLabel(t, "category", category, meta.label)}</span>
               </label>
             );
           })}
@@ -125,7 +129,7 @@ export function CalendarFilters({
 
       {projects.length > 0 ? (
         <fieldset>
-          <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Projects</legend>
+          <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.projects")}</legend>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
             {projects.map((project) => {
               const id = `calendar-project-${project.id}`;
@@ -139,7 +143,7 @@ export function CalendarFilters({
           </div>
           {filters.projectIds.length > 0 ? (
             <button type="button" onClick={() => onChange({ ...filters, projectIds: [] })} className="mt-2 text-meta font-medium text-accent-strong hover:underline">
-              Show all projects
+              {t("sidebar.showAllProjects")}
             </button>
           ) : null}
         </fieldset>

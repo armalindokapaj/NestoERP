@@ -11,6 +11,7 @@ import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_META, dayHeading, eventDays, eventsByDay, visibleDays } from "./calendar-model";
 import { categoryStyle } from "./event-card";
+import { calendarLabel, useCalendarTranslations, useDayWords } from "./calendar-text";
 
 /**
  * Agenda (PRD #39 §27): the phone's first view and the desktop's list. Days are
@@ -32,6 +33,8 @@ export function AgendaView({
   onOpen: (event: CalendarEventDTO) => void;
   onCreate?: () => void;
 }) {
+  const t = useCalendarTranslations();
+  const words = useDayWords();
   const days = visibleDays("agenda", date, zone);
   const byDay = React.useMemo(() => {
     // A multi-day all-day item is listed once, on its first day in view, with
@@ -56,11 +59,11 @@ export function AgendaView({
   if (shown.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center" data-testid="calendar-empty">
-        <p className="text-card font-medium text-fg">Nothing scheduled for this period.</p>
+        <p className="text-card font-medium text-fg">{t("nothingInPeriod")}</p>
         {onCreate ? (
           <Button variant="secondary" size="sm" onClick={onCreate}>
             <CalendarPlus aria-hidden="true" />
-            Create event
+            {t("agenda.createEvent")}
           </Button>
         ) : null}
       </div>
@@ -72,13 +75,13 @@ export function AgendaView({
       {shown.map((day) => {
         const list = byDay.get(day) ?? [];
         return (
-          <section key={day} aria-label={dayHeading(day, zone, today)} className="border-b border-line py-4 last:border-b-0">
+          <section key={day} aria-label={dayHeading(day, zone, today, words)} className="border-b border-line py-4 last:border-b-0">
             {/* The page heading is the h1; day sections follow it directly (AUD-11 §3). */}
             <h2 className={cn("mb-2 px-2 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
-              {dayHeading(day, zone, today)}
+              {dayHeading(day, zone, today, words)}
             </h2>
             {list.length === 0 ? (
-              <p className="px-2 text-table text-fg-muted">Nothing scheduled.</p>
+              <p className="px-2 text-table text-fg-muted">{t("nothingScheduled")}</p>
             ) : (
               <ul className="flex flex-col">
                 {list.map((event) => {
@@ -97,9 +100,9 @@ export function AgendaView({
                       >
                         <span className="pt-0.5 text-meta leading-5 text-fg-muted tabular-nums">
                           {event.allDay && eventDays(event, zone).length > 1
-                            ? `Until ${new Intl.DateTimeFormat("en-GB", { timeZone: zone, day: "numeric", month: "short" }).format(new Date(new Date(event.endsAt ?? event.startsAt).getTime() - 1))}`
+                            ? t("agenda.until", { date: new Intl.DateTimeFormat(words.locale, { timeZone: zone, day: "numeric", month: "short" }).format(new Date(new Date(event.endsAt ?? event.startsAt).getTime() - 1)) })
                             : event.allDay || continues
-                              ? "All day"
+                              ? t("allDay")
                               : formatClock(start, zone)}
                           {!event.allDay && !continues && event.endsAt ? (
                             <span className="block text-fg-subtle">{formatClock(new Date(event.endsAt), zone)}</span>
@@ -110,17 +113,17 @@ export function AgendaView({
                             {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0 text-[var(--cal)]" /> : null}
                             <span className="truncate text-body font-medium text-fg">{event.title}</span>
                             {event.status === "OVERDUE" ? (
-                              <Badge tone="warning" className="shrink-0 px-1.5 py-0">Overdue</Badge>
+                              <Badge tone="warning" className="shrink-0 px-1.5 py-0">{t("overdue")}</Badge>
                             ) : null}
                             {event.severity === "critical" ? (
-                              <Badge tone="danger" className="shrink-0 px-1.5 py-0">Critical</Badge>
+                              <Badge tone="danger" className="shrink-0 px-1.5 py-0">{t("critical")}</Badge>
                             ) : null}
                           </span>
                           {event.privacyMode !== "BUSY_ONLY" ? (
                             <span className="truncate text-meta text-fg-muted">
                               {[event.project ? event.project.name : event.subtitle, event.participants?.[0]?.name, event.location]
                                 .filter(Boolean)
-                                .join(" · ") || CATEGORY_META[event.category].label}
+                                .join(" · ") || calendarLabel(t, "category", event.category, CATEGORY_META[event.category].label)}
                             </span>
                           ) : null}
                         </span>

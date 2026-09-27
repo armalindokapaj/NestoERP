@@ -10,6 +10,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import type { ProvisionResultDTO, ProvisioningDetailDTO } from "@/lib/modules/organization/provisioning/provisioning.service";
 import { formatDateTime } from "@/lib/utils/format";
+import { useOrganizationTranslations } from "./organization-text";
 
 type Open = "approve" | "reject" | "return" | "start" | "provision" | "cancel" | null;
 
@@ -21,6 +22,7 @@ type Open = "approve" | "reject" | "return" | "start" | "provision" | "cancel" |
  */
 export function ProvisioningActions({ request }: { request: ProvisioningDetailDTO }) {
   const { pending, run } = useCommand();
+  const t = useOrganizationTranslations();
   const [open, setOpen] = React.useState<Open>(null);
   const [created, setCreated] = React.useState<ProvisionResultDTO | null>(null);
   const base = `/api/organization/user-provisioning-requests/${request.id}`;
@@ -32,104 +34,104 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
     <div className="flex flex-wrap items-center gap-2" data-testid="provisioning-actions">
       {actions.canProvision ? (
         <Button size="sm" onClick={() => setOpen("provision")}>
-          {request.existingAccount ? "Add company to account" : "Create account"}
+          {request.existingAccount ? t("actions.addCompanyToAccount") : t("actions.createAccount")}
         </Button>
       ) : null}
       {actions.canApprove ? (
         <Button size="sm" onClick={() => setOpen("approve")}>
-          Approve
+          {t("actions.approve")}
         </Button>
       ) : null}
       {actions.canStart ? (
         <Button size="sm" variant="secondary" onClick={() => setOpen("start")}>
-          Mark in progress
+          {t("actions.markInProgress")}
         </Button>
       ) : null}
       {actions.canSubmit ? (
-        <Button size="sm" variant="secondary" onClick={() => void run("submit", () => engineeringApi(`/api/hr/user-provisioning-requests/${request.id}/submit`, { body: {} }), "Request submitted.")} disabled={pending === "submit"}>
-          Submit
+        <Button size="sm" variant="secondary" onClick={() => void run("submit", () => engineeringApi(`/api/hr/user-provisioning-requests/${request.id}/submit`, { body: {} }), t("actions.submitted"))} disabled={pending === "submit"}>
+          {t("actions.submit")}
         </Button>
       ) : null}
       {actions.canReturn ? (
         <Button size="sm" variant="secondary" onClick={() => setOpen("return")}>
-          Return to HR
+          {t("actions.returnToHr")}
         </Button>
       ) : null}
       {actions.canReject ? (
         <Button size="sm" variant="secondary" onClick={() => setOpen("reject")}>
-          Reject
+          {t("actions.reject")}
         </Button>
       ) : null}
       {actions.canCancel ? (
         <Button size="sm" variant="ghost" onClick={() => setOpen("cancel")}>
-          Cancel request
+          {t("actions.cancelRequest")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={open === "approve"}
         onOpenChange={close}
-        title={`Approve a NESTO account for ${name}?`}
-        description={`Group IT can then create it, as ${request.role.label} in ${request.department.name}, ${request.company.name}.`}
-        confirmLabel="Approve"
+        title={t("actions.approveTitle", { name })}
+        description={t("actions.approveDescription", { role: request.role.label, department: request.department.name, company: request.company.name })}
+        confirmLabel={t("actions.approve")}
         destructive={false}
         pending={pending === "approve"}
-        onConfirm={() => void run("approve", () => engineeringApi(`${base}/approve`, { body: {} }), "Request approved.", () => setOpen(null))}
+        onConfirm={() => void run("approve", () => engineeringApi(`${base}/approve`, { body: {} }), t("actions.approved"), () => setOpen(null))}
       />
       <ConfirmDialog
         open={open === "start"}
         onOpenChange={close}
-        title="Mark this request in progress?"
-        description="Shows HR that Group IT has taken it on."
-        confirmLabel="Mark in progress"
+        title={t("actions.startTitle")}
+        description={t("actions.startDescription")}
+        confirmLabel={t("actions.markInProgress")}
         destructive={false}
         pending={pending === "start"}
-        onConfirm={() => void run("start", () => engineeringApi(`${base}/start`, { body: {} }), "Request in progress.", () => setOpen(null))}
+        onConfirm={() => void run("start", () => engineeringApi(`${base}/start`, { body: {} }), t("actions.started"), () => setOpen(null))}
       />
       <ConfirmDialog
         open={open === "cancel"}
         onOpenChange={close}
-        title="Cancel this request?"
-        description="No account is created. HR can raise a new request later."
-        confirmLabel="Cancel request"
-        cancelLabel="Keep it"
+        title={t("actions.cancelTitle")}
+        description={t("actions.cancelDescription")}
+        confirmLabel={t("actions.cancelRequest")}
+        cancelLabel={t("actions.keepIt")}
         pending={pending === "cancel"}
-        onConfirm={() => void run("cancel", () => engineeringApi(`${base}/cancel`, { body: {} }), "Request cancelled.", () => setOpen(null))}
+        onConfirm={() => void run("cancel", () => engineeringApi(`${base}/cancel`, { body: {} }), t("actions.cancelled"), () => setOpen(null))}
       />
       <ReasonDialog
         open={open === "return"}
         onOpenChange={close}
-        title="Return this request to HR?"
-        description="Say what needs to change in the HR record. It comes back as a new request for approval."
-        label="What needs to change"
-        confirmLabel="Return to HR"
+        title={t("actions.returnTitle")}
+        description={t("actions.returnDescription")}
+        label={t("actions.returnLabel")}
+        confirmLabel={t("actions.returnToHr")}
         onConfirm={async (payload) => {
           await engineeringApi(`${base}/return`, { body: payload });
-          await run("return", async () => null, "Request returned to HR.");
+          await run("return", async () => null, t("actions.returnedDone"));
         }}
       />
       <ReasonDialog
         open={open === "reject"}
         onOpenChange={close}
-        title={`Reject the account request for ${name}?`}
-        confirmLabel="Reject"
+        title={t("actions.rejectTitle", { name })}
+        confirmLabel={t("actions.reject")}
         destructive
         onConfirm={async (payload) => {
           await engineeringApi(`${base}/reject`, { body: payload });
-          await run("reject", async () => null, "Request rejected.");
+          await run("reject", async () => null, t("actions.rejectedDone"));
         }}
       />
       <FormDialog
         open={open === "provision"}
         onOpenChange={close}
-        title={request.existingAccount ? `Add ${request.company.name} to ${name}'s account` : `Create ${name}'s NESTO account`}
+        title={request.existingAccount ? t("actions.addCompanyTitle", { company: request.company.name, name }) : t("actions.createTitle", { name })}
         description={
           request.existingAccount
-            ? `${name} already signs in as ${request.existingAccount.username}. They gain a membership in ${request.company.name}; no new credentials are issued.`
-            : "Everything about the person comes from HR. You choose the username; the password is temporary and must be changed at first sign-in."
+            ? t("actions.existingDescription", { name, username: request.existingAccount.username, company: request.company.name })
+            : t("actions.createDescription")
         }
-        fields={request.existingAccount ? [] : [{ name: "username", label: "Username", type: "text", placeholder: request.requestedUsername ?? request.suggestedUsername, hint: "Leave blank to use the one shown." }]}
-        submitLabel={request.existingAccount ? "Add company" : "Create account"}
+        fields={request.existingAccount ? [] : [{ name: "username", label: t("actions.username"), type: "text", placeholder: request.requestedUsername ?? request.suggestedUsername, hint: t("actions.usernameHint") }]}
+        submitLabel={request.existingAccount ? t("actions.addCompany") : t("actions.createAccount")}
         // Provisioning is the request's workflow step, and its credentials are
         // shown once: never run from the unsaved-changes prompt (AUD-03 §3).
         saveKind="none"
@@ -137,35 +139,35 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
         onSubmit={async (payload) => {
           const result = await engineeringApi<ProvisionResultDTO>(`${base}/provision`, { body: payload });
           setCreated(result);
-          await run("provision", async () => null, result.newAccount ? "Account created." : "Company added to the account.");
+          await run("provision", async () => null, result.newAccount ? t("actions.accountCreated") : t("actions.companyAdded"));
         }}
       />
 
       <Dialog open={created !== null && created.temporaryPassword !== null} onOpenChange={(next) => !next && setCreated(null)}>
         <DialogContent className="max-w-md" data-testid="provisioned-credentials">
-          <DialogTitle>Account created</DialogTitle>
-          <DialogDescription>Give these to {name} securely. The temporary password is not shown again.</DialogDescription>
+          <DialogTitle>{t("actions.createdTitle")}</DialogTitle>
+          <DialogDescription>{t("actions.createdDescription", { name })}</DialogDescription>
           {created?.temporaryPassword ? (
             <dl className="mt-4 space-y-3">
               <div>
-                <dt className="text-meta text-fg-subtle">Username</dt>
+                <dt className="text-meta text-fg-subtle">{t("actions.username")}</dt>
                 <dd className="flex items-center gap-2 font-mono text-body text-fg" data-testid="provisioned-username">
                   {created.username}
-                  <CopyButton value={created.username} label="Copy username" />
+                  <CopyButton value={created.username} label={t("actions.copyUsername")} />
                 </dd>
               </div>
               <div>
-                <dt className="text-meta text-fg-subtle">Temporary password</dt>
+                <dt className="text-meta text-fg-subtle">{t("actions.temporaryPassword")}</dt>
                 <dd className="flex items-center gap-2 font-mono text-body text-fg" data-testid="provisioned-password">
                   {created.temporaryPassword}
-                  <CopyButton value={created.temporaryPassword} label="Copy password" />
+                  <CopyButton value={created.temporaryPassword} label={t("actions.copyPassword")} />
                 </dd>
               </div>
-              {created.expiresAt ? <p className="text-meta text-fg-muted">Expires {formatDateTime(created.expiresAt)}.</p> : null}
+              {created.expiresAt ? <p className="text-meta text-fg-muted">{t("actions.expires", { date: formatDateTime(created.expiresAt) })}</p> : null}
             </dl>
           ) : null}
           <DialogFooter>
-            <Button onClick={() => setCreated(null)}>Done</Button>
+            <Button onClick={() => setCreated(null)}>{t("actions.done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

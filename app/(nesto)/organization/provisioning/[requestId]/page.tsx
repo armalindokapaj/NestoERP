@@ -8,11 +8,14 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { getProvisioningRequest } from "@/lib/modules/organization/provisioning/provisioning.service";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { statusLabel } from "@/lib/utils/status";
 
-export const metadata: Metadata = { title: "Account request" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("organization"))("provisioning.requestMetaTitle") };
+}
 
 type Props = { params: Promise<{ requestId: string }> };
 
@@ -38,11 +41,12 @@ export default async function ProvisioningRequestPage({ params }: Props) {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   });
+  const t = await getTranslations("organization");
   const when = (value: string | null) => (value ? formatDateTime(value) : null);
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: "Organization", href: "/organization" }, { label: "User provisioning", href: "/organization/provisioning" }, { label: request.person.name }]} />
+      <Breadcrumbs items={[{ label: t("common.organization"), href: "/organization" }, { label: t("provisioning.title"), href: "/organization/provisioning" }, { label: request.person.name }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-page font-semibold text-fg">{request.person.name}</h1>
@@ -58,60 +62,60 @@ export default async function ProvisioningRequestPage({ params }: Props) {
 
       {request.returnReason && request.status === "DRAFT" ? (
         <p role="status" className="rounded-md border border-warning/30 bg-warning-soft px-4 py-3 text-table text-warning-strong">
-          Returned to HR: {request.returnReason}
+          {t("provisioning.returned", { reason: request.returnReason })}
         </p>
       ) : null}
       {request.rejectionReason && request.status === "REJECTED" ? (
         <p role="status" className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong">
-          Rejected: {request.rejectionReason}
+          {t("provisioning.rejected", { reason: request.rejectionReason })}
         </p>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="nesto-card p-5" aria-labelledby="request-hr">
           <h2 id="request-hr" className="text-card font-semibold text-fg">
-            From HR
+            {t("provisioning.fromHr")}
           </h2>
-          <p className="mt-1 text-meta text-fg-subtle">Read-only here. Anything wrong goes back to HR.</p>
+          <p className="mt-1 text-meta text-fg-subtle">{t("provisioning.readOnly")}</p>
           <dl className="mt-3" data-testid="request-hr-truth">
-            <Row label="First name" value={request.hrTruth.firstName} />
-            <Row label="Last name" value={request.hrTruth.lastName} />
-            <Row label="Work email" value={request.hrTruth.workEmail} />
-            <Row label="Work phone" value={request.hrTruth.workPhone} />
-            <Row label="Company" value={request.company.name} />
-            <Row label="Department" value={request.department.name} />
-            <Row label="Role" value={request.role.label} />
-            <Row label="Job title" value={request.jobTitle} />
-            <Row label="Manager" value={request.hrTruth.manager ? <PersonLink userId={request.hrTruth.manager.userId} name={request.hrTruth.manager.name} /> : null} />
-            <Row label="Employee number" value={request.hrTruth.employeeNumber} />
-            <Row label="Employment" value={request.hrTruth.employmentStatus ? statusLabel(request.hrTruth.employmentStatus) : null} />
+            <Row label={t("provisioning.firstName")} value={request.hrTruth.firstName} />
+            <Row label={t("provisioning.lastName")} value={request.hrTruth.lastName} />
+            <Row label={t("provisioning.workEmail")} value={request.hrTruth.workEmail} />
+            <Row label={t("provisioning.workPhone")} value={request.hrTruth.workPhone} />
+            <Row label={t("common.company")} value={request.company.name} />
+            <Row label={t("common.department")} value={request.department.name} />
+            <Row label={t("common.role")} value={request.role.label} />
+            <Row label={t("provisioning.jobTitle")} value={request.jobTitle} />
+            <Row label={t("common.manager")} value={request.hrTruth.manager ? <PersonLink userId={request.hrTruth.manager.userId} name={request.hrTruth.manager.name} /> : null} />
+            <Row label={t("provisioning.employeeNumber")} value={request.hrTruth.employeeNumber} />
+            <Row label={t("provisioning.employment")} value={request.hrTruth.employmentStatus ? statusLabel(request.hrTruth.employmentStatus) : null} />
           </dl>
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="request-account">
           <h2 id="request-account" className="text-card font-semibold text-fg">
-            Account
+            {t("provisioning.account")}
           </h2>
           <dl className="mt-3" data-testid="request-account">
             {request.provisionedUser ? (
-              <Row label="Username" value={<span className="font-mono">{request.provisionedUser.username}</span>} />
+              <Row label={t("provisioning.username")} value={<span className="font-mono">{request.provisionedUser.username}</span>} />
             ) : request.existingAccount ? (
-              <Row label="Existing login" value={<span className="font-mono">{request.existingAccount.username}</span>} />
+              <Row label={t("provisioning.existingLogin")} value={<span className="font-mono">{request.existingAccount.username}</span>} />
             ) : (
-              <Row label="Username" value={<span className="font-mono">{request.requestedUsername ?? request.suggestedUsername}</span>} />
+              <Row label={t("provisioning.username")} value={<span className="font-mono">{request.requestedUsername ?? request.suggestedUsername}</span>} />
             )}
-            <Row label="Needed from" value={request.requestedActivationDate ? formatDate(request.requestedActivationDate) : null} />
-            <Row label="Notes" value={request.notes} />
+            <Row label={t("provisioning.neededFrom")} value={request.requestedActivationDate ? formatDate(request.requestedActivationDate) : null} />
+            <Row label={t("provisioning.notes")} value={request.notes} />
           </dl>
         </section>
 
         <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="request-history">
           <h2 id="request-history" className="text-card font-semibold text-fg">
-            History
+            {t("provisioning.history")}
           </h2>
           <dl className="mt-3" data-testid="request-history">
             <Row
-              label="Requested by"
+              label={t("provisioning.requestedBy")}
               value={
                 request.requestedBy ? (
                   <>
@@ -122,7 +126,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
               }
             />
             <Row
-              label="Approved by"
+              label={t("provisioning.approvedBy")}
               value={
                 request.approvedBy ? (
                   <>
@@ -131,9 +135,9 @@ export default async function ProvisioningRequestPage({ params }: Props) {
                 ) : null
               }
             />
-            {request.returnedAt ? <Row label="Returned" value={when(request.returnedAt)} /> : null}
+            {request.returnedAt ? <Row label={t("provisioning.returnedAt")} value={when(request.returnedAt)} /> : null}
             <Row
-              label="Created by"
+              label={t("provisioning.createdBy")}
               value={
                 request.provisionedBy ? (
                   <>

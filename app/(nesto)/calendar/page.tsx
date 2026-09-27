@@ -9,8 +9,11 @@ import { getCalendar } from "@/lib/modules/calendar/calendar.query";
 import { calendarSettings } from "@/lib/modules/calendar/calendar.service";
 import { isLocalDate } from "@/lib/modules/calendar/calendar.time";
 import { redirect } from "next/navigation";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Calendar" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("calendar"))("title") };
+}
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
