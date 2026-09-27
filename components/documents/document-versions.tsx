@@ -34,6 +34,8 @@ import type {
 } from "@/lib/modules/documents/versions/version.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { startDownload } from "@/lib/navigation/start-download";
+import type { Translate } from "@/lib/i18n/translator";
+import { documentsLabel, uploadErrorText, useDocumentsTranslations } from "./documents-text";
 
 /**
  * Version history and review (PRD #38 §56-§63, §67, §68).
@@ -88,43 +90,38 @@ function useDialogInput(dirty: boolean, workflow: string, label: string) {
   return editor;
 }
 
-function failureText(error: unknown): string {
+function failureText(t: Translate<"documents">, error: unknown): string {
   const failure = error as Partial<Failure>;
-  if (failure?.status === 404) return "This document or version is no longer available.";
-  return failure?.message || "Something went wrong.";
+  if (failure?.status === 404) return t("uploadErrors.gone");
+  return failure?.message ? uploadErrorText(t, failure.message) : t("uploadErrors.generic");
 }
 
-const REVIEW_STATE: Record<DocumentVersionDTO["reviewState"], { label: string; tone: "default" | "info" | "success" | "danger" | "warning" }> = {
-  DRAFT: { label: "Draft", tone: "default" },
-  IN_REVIEW: { label: "In review", tone: "info" },
-  APPROVED: { label: "Approved", tone: "success" },
-  REJECTED: { label: "Rejected", tone: "danger" },
-  SUPERSEDED: { label: "Superseded", tone: "warning" },
+// Labels are keyed by the stored value (labels.reviewState, labels.reviewStatus).
+const REVIEW_STATE: Record<DocumentVersionDTO["reviewState"], { tone: "default" | "info" | "success" | "danger" | "warning" }> = {
+  DRAFT: { tone: "default" },
+  IN_REVIEW: { tone: "info" },
+  APPROVED: { tone: "success" },
+  REJECTED: { tone: "danger" },
+  SUPERSEDED: { tone: "warning" },
 };
 
-const REVIEW_STATUS: Record<DocumentReviewDTO["status"], string> = {
-  PENDING: "Waiting for a decision",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CANCELLED: "Cancelled",
-};
-
-function storageNote(status: DocumentVersionDTO["storageStatus"]): string | null {
+function storageNote(t: Translate<"documents">, status: DocumentVersionDTO["storageStatus"]): string | null {
   switch (status) {
     case "AVAILABLE":
     case "ARCHIVED":
       return null;
     case "REJECTED":
-      return "This file was rejected and cannot be downloaded.";
+      return t("versions.rejectedNote");
     case "FAILED":
-      return "This upload did not complete.";
+      return t("versions.failedNote");
     default:
-      return "Being checked — it becomes the current version once verified.";
+      return t("versions.checkingNote");
   }
 }
 
 export function DocumentVersions({ documentId }: { documentId: string }) {
   const router = useRouter();
+  const t = useDocumentsTranslations();
   const [history, setHistory] = React.useState<VersionHistoryDTO | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = React.useState(false);
@@ -136,9 +133,9 @@ export function DocumentVersions({ documentId }: { documentId: string }) {
       setHistory(await api<VersionHistoryDTO>(`/api/documents/${documentId}/versions`));
       setError(null);
     } catch (failure) {
-      setError(failureText(failure));
+      setError(failureText(t, failure));
     }
-  }, [documentId]);
+  }, [documentId, t]);
 
   React.useEffect(() => {
     void load();
@@ -174,12 +171,12 @@ export function DocumentVersions({ documentId }: { documentId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="document-versions-heading" className="flex items-center gap-2 text-card font-semibold text-fg">
           <History aria-hidden="true" className="size-4 text-fg-subtle" />
-          Versions
+          {t("versions.heading")}
         </h2>
         {history?.capabilities.canUploadVersion ? (
           <Button size="sm" variant="secondary" onClick={() => setUploadOpen(true)}>
             <Upload aria-hidden="true" />
-            Upload new version
+            {t("versions.uploadNew")}
           </Button>
         ) : null}
       </div>
@@ -188,15 +185,15 @@ export function DocumentVersions({ documentId }: { documentId: string }) {
         <div className="mt-4 flex flex-wrap items-center gap-3 text-table text-danger-strong" role="alert">
           {error}
           <Button size="sm" variant="ghost" onClick={() => void load()}>
-            Try again
+            {t("versions.tryAgain")}
           </Button>
         </div>
       ) : !history ? (
         <p className="mt-4 flex items-center gap-2 text-table text-fg-subtle">
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" /> Loading versions…
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" /> {t("versions.loading")}
         </p>
       ) : history.versions.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">No versions recorded yet.</p>
+        <p className="mt-4 text-table text-fg-subtle">{t("versions.none")}</p>
       ) : (
         <ol className="mt-4 divide-y divide-line">
           {history.versions.map((version) => (
@@ -246,24 +243,25 @@ function VersionRow({
   onRequestReview: () => void;
   onDecide: (review: DocumentReviewDTO, outcome: "approve" | "reject") => void;
 }) {
+  const t = useDocumentsTranslations();
   const state = REVIEW_STATE[version.reviewState];
-  const note = storageNote(version.storageStatus);
+  const note = storageNote(t, version.storageStatus);
 
   return (
     <li className="py-4 first:pt-0 last:pb-0" data-testid={`document-version-${version.versionNumber}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-body font-medium text-fg">
-            Version {version.versionNumber}
-            {version.current ? <Badge tone="neutral">Current</Badge> : null}
-            {reviewable ? <Badge tone={state.tone}>{state.label}</Badge> : null}
+            {t("versions.version", { number: version.versionNumber })}
+            {version.current ? <Badge tone="neutral">{t("versions.current")}</Badge> : null}
+            {reviewable ? <Badge tone={state.tone}>{documentsLabel(t, "reviewState", version.reviewState)}</Badge> : null}
           </p>
           {/* The whole file name, broken where it must: similar names stay tellable apart on a phone (AUD-04 §5, D-09-03, MW-05). */}
           <p className="mt-1 text-table text-fg-muted [overflow-wrap:anywhere]">
-            {version.fileName ?? "Unnamed file"} · {formatFileSize(version.sizeBytes)}
+            {version.fileName ?? t("versions.unnamed")} · {formatFileSize(version.sizeBytes)}
           </p>
           <p className="text-meta text-fg-subtle">
-            {version.uploadedBy ? <PersonLink memberId={version.uploadedBy.memberId} name={version.uploadedBy.fullName} /> : "Someone"} · {formatDateTime(version.createdAt)}
+            {version.uploadedBy ? <PersonLink memberId={version.uploadedBy.memberId} name={version.uploadedBy.fullName} /> : t("versions.someone")} · {formatDateTime(version.createdAt)}
           </p>
           {version.changeNote ? (
             <p className="mt-2 whitespace-pre-wrap text-table text-fg">{version.changeNote}</p>
@@ -278,7 +276,7 @@ function VersionRow({
           {version.capabilities.canRequestReview ? (
             <Button size="sm" variant="ghost" onClick={onRequestReview}>
               <Send aria-hidden="true" />
-              Request review
+              {t("versions.requestReview")}
             </Button>
           ) : null}
         </div>
@@ -291,26 +289,26 @@ function VersionRow({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-fg">
                   <PersonLink memberId={review.reviewer.memberId} name={review.reviewer.fullName} />
-                  <span className="text-fg-muted"> · {REVIEW_STATUS[review.status]}</span>
+                  <span className="text-fg-muted"> · {documentsLabel(t, "reviewStatus", review.status)}</span>
                 </p>
                 {review.canDecide ? (
                   <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => onDecide(review, "reject")}>
                       <X aria-hidden="true" />
-                      Reject
+                      {t("versions.reject")}
                     </Button>
                     <Button size="sm" onClick={() => onDecide(review, "approve")}>
                       <Check aria-hidden="true" />
-                      Approve
+                      {t("versions.approve")}
                     </Button>
                   </div>
                 ) : null}
               </div>
               <p className="text-meta text-fg-subtle">
-                Requested by <PersonLink memberId={review.requestedBy.memberId} name={review.requestedBy.fullName} /> · {formatDateTime(review.requestedAt)}
-                {review.decidedAt ? ` · decided ${formatDateTime(review.decidedAt)}` : ""}
+                {t("versions.requestedBy")} <PersonLink memberId={review.requestedBy.memberId} name={review.requestedBy.fullName} /> · {formatDateTime(review.requestedAt)}
+                {review.decidedAt ? t("versions.decided", { date: formatDateTime(review.decidedAt) }) : ""}
               </p>
-              {review.dueDate && review.status === "PENDING" ? <p className="text-meta text-fg-subtle">Decision needed by {review.dueDate}</p> : null}
+              {review.dueDate && review.status === "PENDING" ? <p className="text-meta text-fg-subtle">{t("versions.neededBy", { date: review.dueDate })}</p> : null}
               {review.requestNote ? <p className="mt-1 whitespace-pre-wrap text-fg-muted">“{review.requestNote}”</p> : null}
               {review.decisionNote ? <p className="mt-1 whitespace-pre-wrap text-fg">{review.decisionNote}</p> : null}
             </li>
@@ -323,6 +321,7 @@ function VersionRow({
 
 function VersionDownload({ documentId, versionId, versionNumber }: { documentId: string; versionId: string; versionNumber: number }) {
   const toast = useToast();
+  const t = useDocumentsTranslations();
   const [pending, setPending] = React.useState(false);
 
   async function download() {
@@ -331,16 +330,16 @@ function VersionDownload({ documentId, versionId, versionNumber }: { documentId:
       const grant = await api<{ url: string }>(`/api/documents/${documentId}/versions/${versionId}/download`, { method: "POST" });
       startDownload(grant.url);
     } catch (failure) {
-      toast({ title: failureText(failure), tone: "danger" });
+      toast({ title: failureText(t, failure), tone: "danger" });
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <Button size="sm" variant="ghost" onClick={download} disabled={pending} aria-label={`Download version ${versionNumber}`}>
+    <Button size="sm" variant="ghost" onClick={download} disabled={pending} aria-label={t("versions.downloadVersion", { number: versionNumber })}>
       {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Download aria-hidden="true" />}
-      Download
+      {t("versions.download")}
     </Button>
   );
 }
@@ -357,13 +356,12 @@ function UploadVersionDialog({
   onUploaded: () => Promise<void>;
 }) {
   const [busy, setBusy] = React.useState(false);
+  const t = useDocumentsTranslations();
   return (
     <Dialog open={open} locked={busy} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>Upload new version</DialogTitle>
-        <DialogDescription>
-          The current version stays in place until the new file has been checked.
-        </DialogDescription>
+        <DialogTitle>{t("versions.uploadNew")}</DialogTitle>
+        <DialogDescription>{t("versions.uploadIntro")}</DialogDescription>
         {/* Mounted per opening: a fresh file, note and idempotency key each time. */}
         <UploadVersionForm documentId={documentId} onBusy={setBusy} onUploaded={onUploaded} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -383,6 +381,7 @@ function UploadVersionForm({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const t = useDocumentsTranslations();
   const [file, setFile] = React.useState<File | null>(null);
   const [changeNote, setChangeNote] = React.useState("");
   const [progress, setProgress] = React.useState<number | null>(null);
@@ -406,12 +405,12 @@ function UploadVersionForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!file) {
-      setError("Choose a file first.");
+      setError(t("versions.chooseFirst"));
       return;
     }
     const check = precheckFile(file);
     if (!check.ok) {
-      setError(check.message);
+      setError(uploadErrorText(t, check.message));
       return;
     }
     setError(null);
@@ -447,7 +446,7 @@ function UploadVersionForm({
         }
       }
       toast({
-        title: status === "AVAILABLE" ? "New version uploaded" : "Upload received — the file is being checked",
+        title: status === "AVAILABLE" ? t("versions.uploaded") : t("versions.received"),
         tone: "success",
       });
       editor.setUnresolved(false);
@@ -457,7 +456,7 @@ function UploadVersionForm({
       await onUploaded();
     } catch (failure) {
       editor.setUnresolved(unconfirmed(failure));
-      setError(failureText(failure));
+      setError(failureText(t, failure));
     } finally {
       setProgress(null);
     }
@@ -467,7 +466,7 @@ function UploadVersionForm({
     <form className="mt-4 space-y-4" onSubmit={submit}>
       <div className="space-y-1.5">
         <Label htmlFor="version-file">
-          File<span className="text-danger-strong"> *</span>
+          {t("versions.file")}<span className="text-danger-strong"> *</span>
         </Label>
         <Input
           id="version-file"
@@ -485,11 +484,11 @@ function UploadVersionForm({
         {/* Before choosing: what is accepted and how large, from the registry
             the server enforces (AUD-09 §8). */}
         <p id="version-file-hint" className="text-meta text-fg-subtle">
-          Required. {acceptedTypesText()}; up to {megabytes(DEFAULT_UPLOAD_MAX_BYTES)} MB. Checked by its contents before it becomes current.
+          {t("versions.fileHint", { types: acceptedTypesText(), max: megabytes(DEFAULT_UPLOAD_MAX_BYTES) })}
         </p>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="version-note">What changed</Label>
+        <Label htmlFor="version-note">{t("versions.whatChanged")}</Label>
         <Textarea
           id="version-note"
           rows={3}
@@ -497,12 +496,12 @@ function UploadVersionForm({
           disabled={busy}
           value={changeNote}
           onChange={(event) => setChangeNote(event.target.value)}
-          placeholder="Optional — for example, “Updated after client comments”."
+          placeholder={t("versions.whatChangedPlaceholder")}
         />
       </div>
       {progress !== null ? (
         <div aria-live="polite" className="text-table text-fg-muted">
-          Uploading… {progress}%
+          {t("versions.uploadingProgress", { progress })}
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover">
             <div className="h-full bg-accent transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} />
           </div>
@@ -516,12 +515,12 @@ function UploadVersionForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={busy}>
-            Cancel
+            {t("versions.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={busy || !file}>
           {busy ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
-          Upload
+          {t("versions.upload")}
         </Button>
       </DialogFooter>
     </form>
@@ -542,13 +541,12 @@ function RequestReviewDialog({
   onRequested: () => Promise<void>;
 }) {
   const [pending, setPending] = React.useState(false);
+  const t = useDocumentsTranslations();
   return (
     <Dialog open={version !== null} locked={pending} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>Request review{version ? ` of version ${version.versionNumber}` : ""}</DialogTitle>
-        <DialogDescription>
-          Only people who can open this document and decide reviews are listed.
-        </DialogDescription>
+        <DialogTitle>{version ? t("versions.reviewTitleOf", { number: version.versionNumber }) : t("versions.reviewTitle")}</DialogTitle>
+        <DialogDescription>{t("versions.reviewIntro")}</DialogDescription>
         {version ? <RequestReviewForm documentId={documentId} version={version} onPending={setPending} onRequested={onRequested} onDone={() => onOpenChange(false)} /> : null}
       </DialogContent>
     </Dialog>
@@ -569,6 +567,7 @@ function RequestReviewForm({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const t = useDocumentsTranslations();
   const [query, setQuery] = React.useState("");
   const [reviewers, setReviewers] = React.useState<Reviewer[] | null>(null);
   const [selected, setSelected] = React.useState<string>("");
@@ -594,7 +593,7 @@ function RequestReviewForm({
       } catch (failure) {
         if (!cancelled) {
           setReviewers([]);
-          setError(failureText(failure));
+          setError(failureText(t, failure));
         }
       }
     }, 250);
@@ -602,12 +601,12 @@ function RequestReviewForm({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, documentId]);
+  }, [query, documentId, t]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!selected) {
-      setError("Choose a reviewer.");
+      setError(t("versions.chooseReviewer"));
       return;
     }
     setPending(true);
@@ -617,7 +616,7 @@ function RequestReviewForm({
         method: "POST",
         body: JSON.stringify({ reviewerMemberId: selected, note: note.trim() || undefined, dueDate: dueDate || undefined }),
       });
-      toast({ title: "Review requested", tone: "success" });
+      toast({ title: t("versions.reviewRequested"), tone: "success" });
       editor.setUnresolved(false);
       editor.setDirty(false);
       onPending(false);
@@ -625,7 +624,7 @@ function RequestReviewForm({
       await onRequested();
     } catch (failure) {
       editor.setUnresolved(unconfirmed(failure));
-      setError(failureText(failure));
+      setError(failureText(t, failure));
     } finally {
       setPending(false);
     }
@@ -634,19 +633,19 @@ function RequestReviewForm({
   return (
     <form className="mt-4 space-y-4" onSubmit={submit}>
       <div className="space-y-1.5">
-        <Label htmlFor="reviewer-search">Reviewer</Label>
+        <Label htmlFor="reviewer-search">{t("versions.reviewer")}</Label>
         <Input
           id="reviewer-search"
-          placeholder="Search by name"
+          placeholder={t("versions.searchName")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
         {/* No nested scroller on a short landscape screen: the dialog scrolls once (AUD-04 §6, D-09-04, MW-10). */}
-        <div role="radiogroup" aria-label="Eligible reviewers" className="max-h-52 overflow-y-auto rounded-md border border-line [@media(max-height:480px)]:max-h-none">
+        <div role="radiogroup" aria-label={t("versions.eligible")} className="max-h-52 overflow-y-auto rounded-md border border-line [@media(max-height:480px)]:max-h-none">
           {reviewers === null ? (
-            <p className="px-3 py-2 text-table text-fg-subtle">Loading…</p>
+            <p className="px-3 py-2 text-table text-fg-subtle">{t("versions.loadingShort")}</p>
           ) : reviewers.length === 0 ? (
-            <p className="px-3 py-2 text-table text-fg-subtle">Nobody else can review this document.</p>
+            <p className="px-3 py-2 text-table text-fg-subtle">{t("versions.nobody")}</p>
           ) : (
             reviewers.map((reviewer) => (
               <label
@@ -668,13 +667,13 @@ function RequestReviewForm({
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="review-due">Decision needed by</Label>
+        <Label htmlFor="review-due">{t("versions.neededByLabel")}</Label>
         <Input id="review-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-        <p className="text-meta text-fg-subtle">Optional. A date puts the review on both calendars.</p>
+        <p className="text-meta text-fg-subtle">{t("versions.dueHint")}</p>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="review-note">Note</Label>
-        <Textarea id="review-note" rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional" />
+        <Label htmlFor="review-note">{t("versions.note")}</Label>
+        <Textarea id="review-note" rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("versions.optional")} />
       </div>
       {error ? (
         <p role="alert" className="text-table text-danger-strong">
@@ -684,12 +683,12 @@ function RequestReviewForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("versions.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending || !selected}>
           {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />}
-          Send for review
+          {t("versions.send")}
         </Button>
       </DialogFooter>
     </form>
@@ -707,14 +706,15 @@ function DecisionDialog({
 }) {
   const [pending, setPending] = React.useState(false);
   const rejecting = decision?.outcome === "reject";
+  const t = useDocumentsTranslations();
   return (
     <Dialog open={decision !== null} locked={pending} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>{rejecting ? "Reject this version" : "Approve this version"}</DialogTitle>
+        <DialogTitle>{rejecting ? t("versions.rejectTitle") : t("versions.approveTitle")}</DialogTitle>
         <DialogDescription>
           {rejecting
-            ? "The person who asked will see your note."
-            : "Approving makes this the approved version and supersedes any earlier approval."}
+            ? t("versions.rejectIntro")
+            : t("versions.approveIntro")}
         </DialogDescription>
         {decision ? <DecisionForm decision={decision} onPending={setPending} onDecided={onDecided} onDone={() => onOpenChange(false)} /> : null}
       </DialogContent>
@@ -734,6 +734,7 @@ function DecisionForm({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const t = useDocumentsTranslations();
   const [note, setNote] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -748,7 +749,7 @@ function DecisionForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (rejecting && note.trim().length === 0) {
-      setError("Say what needs to change before rejecting.");
+      setError(t("versions.sayWhat"));
       return;
     }
     setPending(true);
@@ -758,7 +759,7 @@ function DecisionForm({
         method: "POST",
         body: JSON.stringify({ note: note.trim() || undefined }),
       });
-      toast({ title: rejecting ? "Version rejected" : "Version approved", tone: "success" });
+      toast({ title: rejecting ? t("versions.rejectedToast") : t("versions.approvedToast"), tone: "success" });
       editor.setUnresolved(false);
       editor.setDirty(false);
       onPending(false);
@@ -766,7 +767,7 @@ function DecisionForm({
       await onDecided();
     } catch (failure) {
       editor.setUnresolved(unconfirmed(failure));
-      setError(failureText(failure));
+      setError(failureText(t, failure));
     } finally {
       setPending(false);
     }
@@ -775,14 +776,14 @@ function DecisionForm({
   return (
     <form className="mt-4 space-y-4" onSubmit={submit}>
       <div className="space-y-1.5">
-        <Label htmlFor="decision-note">{rejecting ? "What needs to change" : "Note"}</Label>
+        <Label htmlFor="decision-note">{rejecting ? t("versions.whatNeedsChange") : t("versions.note")}</Label>
         <Textarea
           id="decision-note"
           rows={3}
           maxLength={1000}
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder={rejecting ? "Required" : "Optional"}
+          placeholder={rejecting ? t("versions.required") : t("versions.optional")}
         />
       </div>
       {error ? (
@@ -793,12 +794,12 @@ function DecisionForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("versions.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" variant={rejecting ? "danger" : "primary"} disabled={pending}>
           {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : rejecting ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
-          {rejecting ? "Reject" : "Approve"}
+          {rejecting ? t("versions.reject") : t("versions.approve")}
         </Button>
       </DialogFooter>
     </form>

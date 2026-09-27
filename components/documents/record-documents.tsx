@@ -10,6 +10,7 @@ import { recordDefinition } from "@/lib/core/records/record.registry";
 import { canAttachToDocumentParent } from "@/lib/modules/documents/document.parent-access";
 import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The documents section of a business record (PRD #38 §52, §55).
@@ -29,8 +30,8 @@ export async function RecordDocuments({
   entityType,
   entityId,
   canAttach = true,
-  emptyTitle = "No documents on file.",
-  emptyDescription = "Files attached to this record appear here.",
+  emptyTitle,
+  emptyDescription,
   title,
 }: {
   context: UserContext;
@@ -55,6 +56,7 @@ export async function RecordDocuments({
     (capability.view.every((permission) => can(context, permission)) ||
       Boolean(capability.self && can(context, capability.self.permission) && (await capability.self.isSelf(context, entityId))));
   if (!mayRead) return null;
+  const t = await getTranslations("documents");
 
   if (title) {
     return (
@@ -94,9 +96,9 @@ export async function RecordDocuments({
     return (
       <EmptyState
         icon={<Files />}
-        title={emptyTitle}
-        description={emptyDescription}
-        action={attachable ? { label: "Add document", href: uploadHref } : undefined}
+        title={emptyTitle ?? t("record.emptyTitle")}
+        description={emptyDescription ?? t("record.emptyDescription")}
+        action={attachable ? { label: t("record.addDocument"), href: uploadHref } : undefined}
       />
     );
   }
@@ -106,7 +108,7 @@ export async function RecordDocuments({
       {attachable ? (
         <div className="flex justify-end">
           <Button asChild size="sm">
-            <Link href={uploadHref}>Add document</Link>
+            <Link href={uploadHref}>{t("record.addDocument")}</Link>
           </Button>
         </div>
       ) : null}
@@ -115,12 +117,12 @@ export async function RecordDocuments({
       <p className="text-table text-fg-muted" data-testid="pagination-count">
         {result.pagination.total > result.data.length ? (
           <>
-            Showing the first <span className="tabular-nums">{result.data.length}</span> of{" "}
-            <span className="tabular-nums">{result.pagination.total}</span> documents.
+            {t("record.showingFirstBefore")} <span className="tabular-nums">{result.data.length}</span> {t("record.showingFirstOf")}{" "}
+            <span className="tabular-nums">{result.pagination.total}</span> {t("record.showingFirstAfter")}
           </>
         ) : (
           <>
-            <span className="tabular-nums">{result.pagination.total}</span> {result.pagination.total === 1 ? "document" : "documents"}
+            <span className="tabular-nums">{result.pagination.total}</span> {result.pagination.total === 1 ? t("record.one") : t("record.many")}
           </>
         )}
       </p>
