@@ -9,11 +9,12 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import { isRecordType } from "@/lib/core/records/record.types";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { buildReceiptScopeWhere as buildInventoryReceiptScopeWhere } from "@/lib/modules/inventory/inventory.scope";
 import { buildOrderScopeWhere, buildReceiptScopeWhere as buildGoodsReceiptScopeWhere } from "@/lib/modules/procurement/procurement.scope";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
-import { createTaskFromContext } from "@/lib/modules/tasks/task.service";
+import { createTaskFromContextIn } from "@/lib/modules/tasks/task.service";
 import { canEditSection, isEditable, RECORD } from "./daily-log.permissions";
 import type { createTaskFromLogSchema, evidenceMetaSchema, linkTaskSchema, recordLinkSchema } from "./daily-log.schema";
 import { assertTask } from "./daily-log.entries";
@@ -74,9 +75,17 @@ export async function unlinkTask(context: UserContext, dailyLogId: string, linkI
 }
 
 /**
- * A follow-up task raised from the log (§61, §70-§73): created by the task
- * service with the log as its trusted parent and the log's project, then
- * linked — and pointed at from the delay or instruction it answers.
+ * A follow-up task raised from the log (§61, §70-§73, AUD-10 §3, §7): created
+ * by the task service with the log as its trusted parent and the log's
+ * project, linked, and pointed at from the delay, instruction or activity it
+ * answers — all in one transaction, so a failure anywhere leaves no task
+ * nobody links to (CW-12).
+ *
+ * An entry points at one task. The entry's pointer is claimed with a
+ * conditional write that only succeeds while it is empty, so two clicks at
+ * once create one task: the loser's task rolls back and it answers, like a
+ * retry, with the task the entry already has — when the caller may open it,
+ * and without its name when they may not (CW-13).
  */
 export async function createTaskFromLog(context: UserContext, dailyLogId: string, input: z.infer<typeof createTaskFromLogSchema>) {
   const log = await findReadableLog(context, dailyLogId);
@@ -84,45 +93,91 @@ export async function createTaskFromLog(context: UserContext, dailyLogId: string
   assertEditable(log);
   if (input.source && !canEditSection(context, log.status, input.source.section)) throw new AccessError("FORBIDDEN", "You cannot change that entry.", { code: "DAILY_LOG_SECTION_FORBIDDEN" });
 
-  if (input.source) {
-    const exists =
-      input.source.section === "delays"
-        ? await prisma.dailyLogDelayEntry.count({ where: { id: input.source.entryId, dailyLogId: log.id } })
-        : input.source.section === "instructions"
-          ? await prisma.dailyLogInstructionEntry.count({ where: { id: input.source.entryId, dailyLogId: log.id } })
-          : await prisma.dailyLogWorkActivity.count({ where: { id: input.source.entryId, dailyLogId: log.id } });
-    if (!exists) throw fail("DAILY_LOG_ENTRY_NOT_FOUND", "That entry could not be found.", "NOT_FOUND");
+  const source = input.source ? ENTRY_TABLES[input.source.section] : null;
+  if (input.source && source) {
+    const entry = await source.read(input.source.entryId, log.id);
+    if (!entry) throw fail("DAILY_LOG_ENTRY_NOT_FOUND", "That entry could not be found.", "NOT_FOUND");
+    if (entry.linkedTaskId) return existingEntryTask(context, log, entry.linkedTaskId);
   }
 
-  const task = await createTaskFromContext(context, {
-    ...createTaskSchema.parse({
-      title: input.title,
-      description: input.description ?? undefined,
-      projectId: log.projectId,
-      assigneeMemberId: input.assigneeMemberId ?? undefined,
-      status: "TODO",
-      priority: input.priority,
-      dueDate: input.dueDate ?? undefined,
-    }),
-    parentType: RECORD,
-    parentId: log.id,
-  });
-
   const linkType = input.source?.section === "delays" ? "DELAY_ACTION" : input.source?.section === "instructions" ? "INSTRUCTION_ACTION" : input.linkType;
-  const version = await prisma.$transaction(async (tx) => {
-    const next = await touchLog(tx, log.id);
-    await tx.dailyLogTaskLink.upsert({
-      where: { dailyLogId_taskId: { dailyLogId: log.id, taskId: task.id } },
-      create: { companyId: context.companyId, dailyLogId: log.id, taskId: task.id, linkType, createdByMemberId: context.membershipId },
-      update: { linkType },
-    });
-    if (input.source?.section === "delays") await tx.dailyLogDelayEntry.update({ where: { id: input.source.entryId }, data: { linkedTaskId: task.id } });
-    if (input.source?.section === "instructions") await tx.dailyLogInstructionEntry.update({ where: { id: input.source.entryId }, data: { linkedTaskId: task.id } });
-    if (input.source?.section === "activities") await tx.dailyLogWorkActivity.update({ where: { id: input.source.entryId }, data: { linkedTaskId: task.id } });
-    await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_TASK_CREATED, entity: { type: RECORD, id: log.id }, after: { taskId: task.id, linkType, section: input.source?.section ?? null, entryId: input.source?.entryId ?? null } }, { tx });
-    return next;
-  });
-  return { taskId: task.id, href: `/tasks/${task.id}`, version };
+  try {
+    return await runInTransaction(
+      "dailylogs.task.create",
+      async (tx) => {
+        // The log first: a submitted or locked log refuses before any task is written.
+        const version = await touchLog(tx, log.id);
+        const task = await createTaskFromContextIn(tx, context, {
+          ...createTaskSchema.parse({
+            title: input.title,
+            description: input.description ?? undefined,
+            projectId: log.projectId,
+            assigneeMemberId: input.assigneeMemberId ?? undefined,
+            status: "TODO",
+            priority: input.priority,
+            dueDate: input.dueDate ?? undefined,
+          }),
+          parentType: RECORD,
+          parentId: log.id,
+        });
+        await tx.dailyLogTaskLink.upsert({
+          where: { dailyLogId_taskId: { dailyLogId: log.id, taskId: task.id } },
+          create: { companyId: context.companyId, dailyLogId: log.id, taskId: task.id, linkType, createdByMemberId: context.membershipId },
+          update: { linkType },
+        });
+        if (input.source && source) {
+          const claimed = await source.claim(tx, input.source.entryId, log.id, task.id);
+          if (claimed === 0) throw new EntryTaskLost();
+        }
+        await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_TASK_CREATED, entity: { type: RECORD, id: log.id }, after: { taskId: task.id, linkType, section: input.source?.section ?? null, entryId: input.source?.entryId ?? null } }, { tx });
+        return { taskId: task.id, href: `/tasks/${task.id}`, version, created: true };
+      },
+      { actor: context },
+    );
+  } catch (error) {
+    if (!(error instanceof EntryTaskLost) || !input.source || !source) throw error;
+    const entry = await source.read(input.source.entryId, log.id);
+    if (entry?.linkedTaskId) return existingEntryTask(context, log, entry.linkedTaskId);
+    throw fail("DAILY_LOG_ENTRY_NOT_FOUND", "That entry could not be found.", "NOT_FOUND");
+  }
+}
+
+/** The claim on an entry's task pointer was lost to a concurrent click; rolls the new task back. */
+class EntryTaskLost extends AccessError {
+  constructor() {
+    super("CONFLICT", "That entry was given a task at the same moment.", { code: "DAILY_LOG_ENTRY_HAS_TASK" });
+  }
+}
+
+/** The entries that point at one task, read and claimed alike — only while the pointer is empty. */
+const ENTRY_TABLES = {
+  delays: {
+    read: (id: string, dailyLogId: string) => prisma.dailyLogDelayEntry.findFirst({ where: { id, dailyLogId }, select: { linkedTaskId: true } }),
+    claim: async (tx: Prisma.TransactionClient, id: string, dailyLogId: string, taskId: string) => (await tx.dailyLogDelayEntry.updateMany({ where: { id, dailyLogId, linkedTaskId: null }, data: { linkedTaskId: taskId } })).count,
+  },
+  instructions: {
+    read: (id: string, dailyLogId: string) => prisma.dailyLogInstructionEntry.findFirst({ where: { id, dailyLogId }, select: { linkedTaskId: true } }),
+    claim: async (tx: Prisma.TransactionClient, id: string, dailyLogId: string, taskId: string) => (await tx.dailyLogInstructionEntry.updateMany({ where: { id, dailyLogId, linkedTaskId: null }, data: { linkedTaskId: taskId } })).count,
+  },
+  activities: {
+    read: (id: string, dailyLogId: string) => prisma.dailyLogWorkActivity.findFirst({ where: { id, dailyLogId }, select: { linkedTaskId: true } }),
+    claim: async (tx: Prisma.TransactionClient, id: string, dailyLogId: string, taskId: string) => (await tx.dailyLogWorkActivity.updateMany({ where: { id, dailyLogId, linkedTaskId: null }, data: { linkedTaskId: taskId } })).count,
+  },
+} as const;
+
+/**
+ * An entry that already has its task: that task, when the caller may open it
+ * — the retry of a finished click, not a second task (AUD-10 §5, CW-13). The
+ * log's version is the current one: nothing changed.
+ */
+async function existingEntryTask(context: UserContext, log: ReadableLog, taskId: string) {
+  const readable =
+    canAccessModule(context, "tasks") && can(context, "task.view")
+      ? await prisma.task.findFirst({ where: { AND: [buildTaskScopeWhere(context), { id: taskId }] }, select: { id: true } })
+      : null;
+  if (!readable) throw fail("DAILY_LOG_ENTRY_HAS_TASK", "That entry already has a task.", "CONFLICT");
+  const current = await prisma.dailyLog.findUniqueOrThrow({ where: { id: log.id }, select: { version: true } });
+  return { taskId, href: `/tasks/${taskId}`, version: current.version, created: false };
 }
 
 /* -------------------------------------------------------------------------- */

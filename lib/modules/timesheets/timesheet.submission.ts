@@ -184,7 +184,8 @@ async function decide(context: UserContext, timesheetId: string, outcome: Outcom
 
   const label = weekLabel(dateOf(week.periodStart));
   await prisma.$transaction(async (tx) => {
-    const cycle = await tx.timesheetApproval.findFirst({ where: { recordId: week.id, status: "PENDING" }, orderBy: { submittedAt: "desc" }, select: { id: true, submittedByMemberId: true } });
+    // The company's own cycle, newest first (AUD-10 §4, A11): never a row matched by record id alone.
+    const cycle = await tx.timesheetApproval.findFirst({ where: { companyId: context.companyId, recordId: week.id, status: "PENDING" }, orderBy: [{ submittedAt: "desc" }, { id: "desc" }], select: { id: true, submittedByMemberId: true } });
     if (!cycle) throw fail("TIMESHEET_ALREADY_DECIDED", "This week is not waiting for a decision.");
     const steps = await loadApprovalSteps(PROVIDER_KEY, cycle.id, tx);
     const step = currentStepOf(steps);

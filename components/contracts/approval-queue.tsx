@@ -29,6 +29,10 @@ import { commercialLabel } from "./contract-format";
  * which already accounts for the self-approval rule, so somebody looking at
  * their own submission sees the record but no buttons. The services enforce it
  * again regardless (PRD #18 §116).
+ *
+ * Each row is one approval cycle and its decision names it: a row left open
+ * while the record was resubmitted cannot decide the new cycle (AUD-10 §4,
+ * CW-05).
  */
 export function ContractApprovalQueue({ approvals }: { approvals: ContractApprovalDTO[] }) {
   const router = useRouter();
@@ -44,8 +48,8 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
     startTransition(async () => {
       const result =
         approval.recordType === "CONTRACT"
-          ? await contractLifecycleAction(approval.recordId, "approve")
-          : await amendmentLifecycleAction(approval.contractId, approval.recordId, "approve");
+          ? await contractLifecycleAction(approval.recordId, "approve", undefined, { approvalId: approval.id })
+          : await amendmentLifecycleAction(approval.contractId, approval.recordId, "approve", undefined, { approvalId: approval.id });
 
       setPendingId(null);
       if (result.ok) {
@@ -140,8 +144,8 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
           if (!rejecting) return false;
           const result =
             rejecting.recordType === "CONTRACT"
-              ? await rejectContractAction(rejecting.recordId, reason)
-              : await rejectAmendmentAction(rejecting.contractId, rejecting.recordId, reason);
+              ? await rejectContractAction(rejecting.recordId, reason, { approvalId: rejecting.id })
+              : await rejectAmendmentAction(rejecting.contractId, rejecting.recordId, reason, { approvalId: rejecting.id });
 
           if (result.ok) {
             setRejecting(null);

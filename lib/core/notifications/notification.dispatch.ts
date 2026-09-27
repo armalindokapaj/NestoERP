@@ -14,7 +14,7 @@ import { markFailuresRetried, recordJobFailure } from "@/lib/core/jobs/job.failu
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { runWithRequestScope } from "@/lib/core/observability/request-scope";
-import { newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
+import { currentRequestContext, newCorrelationId, newRequestId, runWithRequestContext } from "@/lib/core/observability/request-context";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { sendMail } from "@/lib/mail";
 import type { MailTemplateKey } from "@/lib/mail/mail.types";
@@ -395,8 +395,14 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
           projectId: event.projectId,
           actorMemberId: event.actorMemberId,
           dedupeKey,
-          // Where in the record it points — only an id, never content (Activity Center §43).
-          ...(typeof payload.commentId === "string" ? { metadataJson: { commentId: payload.commentId } } : {}),
+          // The workflow's one id, carried from the command through its outbox
+          // event and this worker attempt onto the row the recipient reads
+          // (AUD-10 §8, gap 9). An id, never content.
+          correlationId: currentRequestContext()?.correlationId ?? row.correlationId,
+          // Where in the record it points — only ids, never content: the comment
+          // (Activity Center §43), and which approval source the link opens where
+          // the record type alone is ambiguous (AUD-10 §4, A7).
+          ...linkMetadata(payload),
         },
         select: { id: true },
       });
@@ -466,4 +472,12 @@ async function sendNotificationEmails(
     }
   }
   return sent;
+}
+
+/** The ids a notification's link needs, and nothing else. */
+function linkMetadata(payload: Record<string, unknown>): { metadataJson?: Prisma.InputJsonValue } {
+  const metadata: Record<string, string> = {};
+  if (typeof payload.commentId === "string") metadata.commentId = payload.commentId;
+  if (typeof payload.providerKey === "string" && /^[a-z_]{1,32}$/.test(payload.providerKey)) metadata.providerKey = payload.providerKey;
+  return Object.keys(metadata).length > 0 ? { metadataJson: metadata } : {};
 }

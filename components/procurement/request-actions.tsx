@@ -16,6 +16,7 @@ import {
   type ProcurementActionResult,
   type RequestLifecycleAction,
 } from "@/lib/actions/procurement";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { RequestDetailDTO } from "@/lib/modules/procurement/procurement.types";
 
 /**
@@ -26,7 +27,14 @@ import type { RequestDetailDTO } from "@/lib/modules/procurement/procurement.typ
  * control still tells them the action exists and that they were refused it
  * (PRD #5 §32).
  */
-export function RequestActions({ request }: { request: RequestDetailDTO }) {
+export function RequestActions({
+  request,
+  cycle,
+}: {
+  request: RequestDetailDTO;
+  /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -46,7 +54,7 @@ export function RequestActions({ request }: { request: RequestDetailDTO }) {
 
   function run(action: RequestLifecycleAction, success: string) {
     startTransition(async () => {
-      handle(await requestLifecycleAction(request.id, action), success);
+      handle(await requestLifecycleAction(request.id, action, undefined, cycle), success);
     });
   }
 
@@ -114,7 +122,7 @@ export function RequestActions({ request }: { request: RequestDetailDTO }) {
         onOpenChange={(open) => !open && setDialog("none")}
         title={`Reject ${request.requestNumber}?`}
         onReject={async (reason) => {
-          const result = await rejectRequestAction(request.id, reason);
+          const result = await rejectRequestAction(request.id, reason, cycle);
           handle(result, "Request rejected.");
           return result.ok;
         }}

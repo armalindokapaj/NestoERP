@@ -17,6 +17,7 @@ import { renewalTypeLabels } from "@/lib/modules/contracts/contracts/contract.st
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 import { contractBreadcrumbs, contractContext } from "./contract-context";
 import { ContractTabs } from "./contract-tabs";
+import { pendingCycle } from "@/lib/modules/contracts/approvals/approval.service";
 
 type Params = { params: Promise<{ contractId: string }> };
 
@@ -44,6 +45,8 @@ export default async function ContractOverviewPage({ params }: Params) {
   const { context, contract } = await contractContext(contractId);
 
   const may = contract.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "CONTRACT", contract.id) : null;
   const value = commercialLabel(contract.commercial);
   const readOnly =
     contract.archivedAt !== null ||
@@ -99,7 +102,7 @@ export default async function ContractOverviewPage({ params }: Params) {
         actions={
           <>
             <RecordFavorite context={context} entityType="contract" entityId={contract.id} />
-            <ContractActions contract={contract} />
+            <ContractActions contract={contract} cycle={cycle} />
           </>
         }
       />

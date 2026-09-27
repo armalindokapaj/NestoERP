@@ -11,6 +11,7 @@ import {
   askSources,
   countsOf,
   getApprovalCounts,
+  type CountsResult,
   isUnfilteredWaiting,
   listApprovals,
   readQueue,
@@ -62,20 +63,27 @@ function sourcesOf(contexts: UserContext[], registry: ApprovalProviderRegistry, 
   });
 }
 
-/** Each company's own figures and their sum, so the header and the breakdown can never disagree. */
-function countsByCompany(companies: ApprovalCompany[], items: UnifiedApprovalItem[], saturated: Set<string>): ApprovalCounts {
-  const byCompany: ApprovalCompanyCounts[] = companies.map((company) => ({
-    company,
-    ...countsOf(
+/**
+ * Each company's own figures and their sum, so the header and the breakdown can
+ * never disagree. A company with a source that could not be read is partial, and
+ * so is the sum: the header names what is missing instead of totalling it as
+ * nothing (AUD-10 §4, CW-03).
+ */
+function countsByCompany(companies: ApprovalCompany[], items: UnifiedApprovalItem[], saturated: Set<string>, failed: ApprovalProviderSummary[]): ApprovalCounts {
+  const byCompany: ApprovalCompanyCounts[] = companies.map((company) => {
+    const { waiting, overdue, critical, capped } = countsOf(
       items.filter((item) => item.company?.id === company.id),
       saturated.has(company.id),
-    ),
-  }));
+    );
+    return { company, waiting, overdue, critical, capped, partial: failed.some((source) => source.company?.id === company.id) };
+  });
   return {
     waiting: byCompany.reduce((sum, row) => sum + row.waiting, 0),
     overdue: byCompany.reduce((sum, row) => sum + row.overdue, 0),
     critical: byCompany.reduce((sum, row) => sum + row.critical, 0),
     capped: byCompany.some((row) => row.capped),
+    partial: failed.length > 0,
+    unavailable: failed,
     byCompany,
   };
 }
@@ -84,9 +92,9 @@ function saturatedCompanies(sources: Source[], saturated: boolean[]): Set<string
   return new Set(sources.flatMap((source, index) => (saturated[index] && source.company ? [source.company.id] : [])));
 }
 
-const NO_COUNTS: ApprovalCounts = { waiting: 0, overdue: 0, critical: 0, capped: false, byCompany: [] };
+const NO_COUNTS: ApprovalCounts = { waiting: 0, overdue: 0, critical: 0, capped: false, partial: false, unavailable: [], byCompany: [] };
 
-async function groupCounts(contexts: UserContext[], registry: ApprovalProviderRegistry, now: Date): Promise<ApprovalCounts & { failedProviders: ApprovalProviderSummary[] }> {
+async function groupCounts(contexts: UserContext[], registry: ApprovalProviderRegistry, now: Date): Promise<CountsResult> {
   const sources = sourcesOf(contexts, registry, []);
   const { items, failed } = await askSources(sources, waitingQuery(now));
   return {
@@ -97,19 +105,19 @@ async function groupCounts(contexts: UserContext[], registry: ApprovalProviderRe
         sources,
         items.map((rows) => rows.length >= WINDOW),
       ),
+      failed,
     ),
     failedProviders: failed,
   };
 }
 
+const withoutAlias = ({ failedProviders: _failed, ...counts }: CountsResult): ApprovalCounts => counts;
+
 /**
  * What waits on this person, per company and in all (§33). A company workspace
  * answers exactly as before.
  */
-export async function getApprovalCountsForWorkspace(
-  session: UserContext,
-  options: Options = {},
-): Promise<ApprovalCounts & { failedProviders: ApprovalProviderSummary[] }> {
+export async function getApprovalCountsForWorkspace(session: UserContext, options: Options = {}): Promise<CountsResult> {
   if (!inGroupWorkspace(session)) return getApprovalCounts(session, options);
   const contexts = await readableContexts(session);
   if (contexts.length === 0) return { ...NO_COUNTS, failedProviders: [] };
@@ -142,7 +150,10 @@ export async function listApprovalsForWorkspace(session: UserContext, query: App
   };
   const empty = { items: [], nextCursor: null, failedProviders: [], windowed: false };
   if (contexts.length === 0) return { ...base, ...empty, counts: NO_COUNTS };
-  if (query.tab === "history" && !canViewHistory) return { ...base, ...empty, counts: await groupCounts(contexts, registry, now) };
+  if (query.tab === "history" && !canViewHistory) {
+    const counts = await groupCounts(contexts, registry, now);
+    return { ...base, ...empty, counts: withoutAlias(counts), failedProviders: counts.unavailable };
+  }
 
   // The company filter can only choose among the companies already readable; the history tab
   // is each company's own grant, so a company that withholds it contributes nothing to it.
@@ -155,8 +166,8 @@ export async function listApprovalsForWorkspace(session: UserContext, query: App
   // whichever company the list is narrowed to: reuse this read when it was exactly that.
   const counts =
     isUnfilteredWaiting(query) && !query.company
-      ? countsByCompany(companies, read.items, saturatedCompanies(sources, read.saturated))
-      : await groupCounts(contexts, registry, now);
+      ? countsByCompany(companies, read.items, saturatedCompanies(sources, read.saturated), read.failed)
+      : withoutAlias(await groupCounts(contexts, registry, now));
 
   incrementCounter(Metric.APPROVALS_QUEUE, { tab: query.tab });
   incrementCounter(Metric.APPROVALS_QUEUE_DURATION_MS, { tab: query.tab }, Date.now() - started);

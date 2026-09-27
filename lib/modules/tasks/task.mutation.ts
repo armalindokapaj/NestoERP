@@ -35,7 +35,8 @@ import { canTransitionTaskStatus, isTaskArchived, REOPEN_STATUSES } from "./task
  *   4. writes with `id`, `companyId`, the expected version and the locked
  *      status in the `where`, incrementing the version once;
  *   5. writes the activity, the notification events, the linked meeting
- *      action and the new assignee's subscription with the same client, so a
+ *      action (status, owner, due date and its completion history — AUD-10
+ *      §5) and the new assignee's subscription with the same client, so a
  *      failure in any of them rolls the version back too.
  *
  * Lock order, everywhere a task is changed: the actor's `company_members` row
@@ -371,11 +372,12 @@ async function apply(
   const meetingIds: string[] = [];
   if (plan.syncMeeting) {
     const synced = await syncActionFromTask(tx, {
-      companyId: context.companyId,
+      actor: context,
       taskId,
       status: after.status,
-      actorMemberId: context.membershipId,
       ...(after.assigneeMemberId !== locked.assigneeMemberId ? { assigneeMemberId: after.assigneeMemberId } : {}),
+      // The due date is the task's too; the action follows it (AUD-10 §5, CW-11).
+      ...(!sameValue(after.dueDate, locked.dueDate) ? { dueDate: after.dueDate } : {}),
     });
     if (synced) meetingIds.push(synced.meetingId);
   }
@@ -591,10 +593,11 @@ async function planEdit(tx: Tx, context: UserContext, locked: LockedTask, fields
   if (changedFields.length === 0) return null;
 
   const assigneeChanged = assigneeMemberId !== locked.assigneeMemberId;
+  const dueChanged = !sameValue(next.dueDate, locked.dueDate);
   return {
     data: next,
     after: next,
-    syncMeeting: statusChanged || assigneeChanged,
+    syncMeeting: statusChanged || assigneeChanged || dueChanged,
     record: async (tx, change) => {
       const { before, after, version } = change;
       await recordActivity(tx, context, {

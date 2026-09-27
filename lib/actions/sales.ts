@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { DuplicateLeadError } from "@/lib/modules/sales/leads/lead.service";
@@ -43,7 +44,8 @@ import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
 
 export type SalesActionResult =
   | { ok: true; id?: string; message?: string; redirectTo?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]>; duplicates?: LeadDuplicateMatch[] };
+  /** `code`: the refusal's stable code, e.g. APPROVAL_SOURCE_CHANGED (AUD-10 §4). */
+  | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]>; duplicates?: LeadDuplicateMatch[] };
 
 function revalidateSales(recordPath?: string) {
   revalidatePath("/sales", "layout");
@@ -57,7 +59,10 @@ function toResult(error: unknown): SalesActionResult {
   if (error instanceof DuplicateLeadError) {
     return { ok: false, error: error.message, duplicates: error.matches };
   }
-  if (error instanceof AccessError) return { ok: false, error: error.message };
+  if (error instanceof AccessError) {
+    const details = error.details as { code?: string } | undefined;
+    return { ok: false, error: error.message, code: details?.code ?? error.code };
+  }
 
   console.error("[sales] action failed", error);
   return { ok: false, error: "We couldn't save your changes. Please try again." };
@@ -453,16 +458,22 @@ export type ProposalLifecycleAction =
   | "archive"
   | "restore";
 
+/**
+ * `cycle` is the approval cycle the page displayed: approving and rejecting
+ * name it, and the service refuses a missing or replaced one inside its
+ * transaction (AUD-10 §4, CW-02, CW-05). Other steps ignore it.
+ */
 export async function proposalLifecycleAction(
   proposalId: string,
   action: ProposalLifecycleAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<SalesActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await proposals.submitProposal(context, proposalId);
-    else if (action === "approve") await proposals.approveProposal(context, proposalId, note ?? null);
+    else if (action === "approve") await proposals.approveProposal(context, proposalId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "mark-sent") await proposals.markProposalSent(context, proposalId);
     else if (action === "accept") await proposals.acceptProposal(context, proposalId);
     else if (action === "decline") await proposals.declineProposal(context, proposalId, note ?? null);
@@ -481,6 +492,7 @@ export async function proposalLifecycleAction(
 export async function rejectProposalAction(
   proposalId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<SalesActionResult> {
   const context = await requireCompanyContext();
 
@@ -488,7 +500,7 @@ export async function rejectProposalAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await proposals.rejectProposal(context, proposalId, parsed.data.note);
+    await proposals.rejectProposal(context, proposalId, parsed.data.note, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }

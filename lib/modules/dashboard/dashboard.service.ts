@@ -51,6 +51,7 @@ import { prisma } from "@/lib/database/prisma";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
 import { loadRecentActivity } from "./dashboard.activity";
 import {
+  countText,
   groupActiveProjects,
   groupActivity,
   groupApprovals,
@@ -213,7 +214,7 @@ function groupReader(context: UserContext, companies: readonly UserContext[]): {
 export async function loadPlannedKpi(context: UserContext, definition: (typeof kpis)[string]): Promise<ResolvedKpi | null> {
   const value = await loadKpi(context, definition.key).catch(() => null);
   if (value === NOT_FOR_READER) return null;
-  if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint, breakdown: value.breakdown };
+  if (value !== null && typeof value === "object") return { definition, value: value.value, hint: value.hint, breakdown: value.breakdown, ...(value.incomplete ? { incomplete: true } : {}) };
   return { definition, value: value ?? "—" };
 }
 
@@ -321,7 +322,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
       );
 
     case "approvalCount":
-      return String((await loadApprovals(context)).length);
+      return approvalCountFigure(context);
 
     case "clientCount":
       return String(
@@ -577,7 +578,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "groupAttention":
       return { kind: "alerts", items: await groupAttention(context, loadAlerts) };
     case "groupApprovals":
-      return { kind: "list", items: await groupApprovals(context) };
+      return { kind: "list", ...(await groupApprovals(context)) };
     case "groupTasks":
       return { kind: "list", items: await groupTasks(context) };
 
@@ -599,12 +600,13 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       return { kind: "alerts", items: await loadAlerts(context) };
 
     case "pendingApprovals":
-      return { kind: "approvals", items: await loadApprovals(context) };
+      return { kind: "approvals", ...(await loadApprovals(context)) };
 
     case "approvalBottlenecks": {
       const { listApprovals } = await import("@/lib/modules/approvals/approvals.service");
       const { approvalQuerySchema } = await import("@/lib/modules/approvals/approvals.schema");
       const result = await listApprovals(context, approvalQuerySchema.parse({ tab: "history", status: "PENDING", sort: "oldest", limit: 100 }));
+      const incomplete = incompleteNote(result.failedProviders);
       const now = Date.now();
       const bySource = new Map<string, { label: string; count: number; oldest: number; overdue: number }>();
       for (const item of result.items) {
@@ -616,6 +618,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
       }
       return {
         kind: "breakdown",
+        ...(incomplete ? { incomplete } : {}),
         items: [...bySource.entries()]
           .sort((a, b) => b[1].oldest - a[1].oldest)
           .map(([key, entry]) => ({
@@ -1763,17 +1766,42 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
 }
 
 /**
+ * "Finance and HR could not be loaded, so this may be incomplete." — the words a
+ * widget shows when an approval source failed, instead of an empty state or a
+ * total that leaves it out silently (AUD-10 §4, CW-03). Undefined when nothing failed.
+ */
+function incompleteNote(failed: Array<{ label: string; company?: { name: string } }>): string | undefined {
+  if (failed.length === 0) return undefined;
+  const names = [...new Set(failed.map((source) => (source.company ? `${source.label} (${source.company.name})` : source.label)))];
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${list} could not be loaded, so this may be incomplete.`;
+}
+
+/**
+ * The "approvals waiting" figure: the Approvals Center's own count, not the length
+ * of a five-row widget list. A source that could not be read makes it "at least"
+ * ("3+", or "—" when nothing else was counted) with the missing source named —
+ * never a zero standing in for a failure (AUD-10 §4, CW-03).
+ */
+async function approvalCountFigure(context: UserContext): Promise<GroupFigure> {
+  const { getApprovalCounts } = await import("@/lib/modules/approvals/approvals.service");
+  const counts = await getApprovalCounts(context);
+  if (counts.partial) return { value: countText(counts.waiting, true), hint: incompleteNote(counts.unavailable), incomplete: true };
+  return { value: `${counts.waiting}${counts.capped ? "+" : ""}` };
+}
+
+/**
  * Pending approvals, gathered only from the modules where this user actually
  * holds the approve permission (PRD #4 §64).
  */
-async function loadApprovals(context: UserContext): Promise<WidgetApproval[]> {
+async function loadApprovals(context: UserContext): Promise<{ items: WidgetApproval[]; incomplete?: string }> {
   // The Approvals Center's own queue, so the widget never offers a decision
   // the Center would withhold (PRD #41 §97).
   const { listApprovals } = await import("@/lib/modules/approvals/approvals.service");
   const { approvalQuerySchema } = await import("@/lib/modules/approvals/approvals.schema");
   const { DUE_STATE_LABELS } = await import("@/lib/modules/approvals/approvals.types");
   const result = await listApprovals(context, approvalQuerySchema.parse({ tab: "waiting", limit: 5 }));
-  return result.items.map((item) => ({
+  const items = result.items.map((item) => ({
     id: item.id,
     title: item.title,
     subtitle: [
@@ -1786,6 +1814,9 @@ async function loadApprovals(context: UserContext): Promise<WidgetApproval[]> {
       .join(" · "),
     href: `/approvals?approval=${encodeURIComponent(item.id)}`,
   }));
+  // The list's own failures and the header's: either leaves the widget short of what waits.
+  const incomplete = incompleteNote([...result.failedProviders, ...result.counts.unavailable.filter((source) => !result.failedProviders.some((failed) => failed.key === source.key))]);
+  return incomplete ? { items, incomplete } : { items };
 }
 
 /* -------------------------------------------------------------------------- */

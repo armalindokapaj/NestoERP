@@ -36,7 +36,8 @@ import {
 
 export type HrActionResult =
   | { ok: true; id?: string; message?: string; redirectTo?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]>; duplicates?: ProbableDuplicate[] };
+  /** `code`: the refusal's stable code, e.g. APPROVAL_SOURCE_CHANGED (AUD-10 §4). */
+  | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]>; duplicates?: ProbableDuplicate[] };
 
 function revalidateHr(employeeId?: string) {
   revalidatePath("/hr", "layout");
@@ -50,7 +51,7 @@ function toResult(error: unknown): HrActionResult {
     // The people a new employee might already be, for HR to choose from (E-04 §92, §176).
     const details = error.details as { code?: string; candidates?: ProbableDuplicate[] } | undefined;
     if (details?.code === "PROBABLE_DUPLICATE") return { ok: false, error: error.message, duplicates: details.candidates ?? [] };
-    return { ok: false, error: error.message };
+    return { ok: false, error: error.message, code: details?.code ?? error.code };
   }
   console.error("[hr] action failed", error);
   return { ok: false, error: "We couldn't save your changes. Please try again." };
@@ -259,16 +260,22 @@ export async function updateLeaveAction(
 
 export type LeaveAction = "submit" | "approve" | "cancel";
 
+/**
+ * `submittedAt` is the submission the page displayed: a decision names it, and
+ * HR refuses one made on a submission that has since been replaced
+ * (AUD-10 §4, A2, CW-05).
+ */
 export async function leaveLifecycleAction(
   leaveId: string,
   action: LeaveAction,
   note?: string,
+  submittedAt?: string | null,
 ): Promise<HrActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await leave.submitLeave(context, leaveId);
-    else if (action === "approve") await leave.approveLeave(context, leaveId, note ?? null);
+    else if (action === "approve") await leave.approveLeave(context, leaveId, note ?? null, leave.leaveSubmissionFrom(submittedAt));
     else await leave.cancelLeave(context, leaveId);
   } catch (error) {
     return toResult(error);
@@ -281,11 +288,12 @@ export async function leaveLifecycleAction(
 export async function rejectLeaveAction(
   leaveId: string,
   reason: string,
+  submittedAt?: string | null,
 ): Promise<HrActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await leave.rejectLeave(context, leaveId, reason);
+    await leave.rejectLeave(context, leaveId, reason, leave.leaveSubmissionFrom(submittedAt));
   } catch (error) {
     return toResult(error);
   }

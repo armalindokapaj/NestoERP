@@ -80,11 +80,19 @@ export type WidgetProjectCard = {
   coverUrl: string | null;
 };
 
+/**
+ * What a widget could not read, in a sentence ("Finance could not be loaded, so
+ * this list may be incomplete."): shown above its rows, and in place of the
+ * empty message — a list with a source missing is never "nothing waiting"
+ * (AUD-10 §4, CW-03).
+ */
+export type WidgetIncomplete = { incomplete?: string };
+
 export type WidgetPayload =
-  | { kind: "list"; items: WidgetListItem[] }
-  | { kind: "breakdown"; items: WidgetBreakdownItem[]; total?: string }
+  | ({ kind: "list"; items: WidgetListItem[] } & WidgetIncomplete)
+  | ({ kind: "breakdown"; items: WidgetBreakdownItem[]; total?: string } & WidgetIncomplete)
   | { kind: "alerts"; items: WidgetAlert[] }
-  | { kind: "approvals"; items: WidgetApproval[] }
+  | ({ kind: "approvals"; items: WidgetApproval[] } & WidgetIncomplete)
   | { kind: "activity"; items: WidgetActivityItem[] }
   | { kind: "progress"; items: WidgetBreakdownItem[] }
   | { kind: "projects"; items: WidgetProjectCard[] }
@@ -100,7 +108,9 @@ export type ResolvedKpi = {
   value: string;
   hint?: string;
   /** A group total with each company's own figure beside it, for "view by company" (Workspace Context §73). */
-  breakdown?: Array<{ companyId: string; company: string; value: number }>;
+  breakdown?: Array<{ companyId: string; company: string; value: number; incomplete?: boolean }>;
+  /** The figure is what could be read, and some of it could not (AUD-10 §4): shown as "at least". */
+  incomplete?: boolean;
 };
 
 export type ResolvedDashboard = {

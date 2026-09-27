@@ -20,6 +20,7 @@ import {
   type AmendmentLifecycleAction,
   type ContractActionResult,
 } from "@/lib/actions/contracts";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ContractAmendmentDTO } from "@/lib/modules/contracts/contract.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
@@ -33,9 +34,12 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 export function AmendmentActions({
   contractId,
   amendment,
+  cycle,
 }: {
   contractId: string;
   amendment: ContractAmendmentDTO;
+  /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -58,7 +62,7 @@ export function AmendmentActions({
 
   function run(action: AmendmentLifecycleAction, success: string) {
     startTransition(async () => {
-      handle(await amendmentLifecycleAction(contractId, amendment.id, action), success);
+      handle(await amendmentLifecycleAction(contractId, amendment.id, action, undefined, cycle), success);
     });
   }
 
@@ -142,7 +146,7 @@ export function AmendmentActions({
         title={`Reject ${amendment.amendmentNumber}?`}
         description="The amendment goes back to its author with your reason attached."
         onReject={async (reason) => {
-          const result = await rejectAmendmentAction(contractId, amendment.id, reason);
+          const result = await rejectAmendmentAction(contractId, amendment.id, reason, cycle);
           handle(result, "Amendment rejected.");
           return result.ok;
         }}

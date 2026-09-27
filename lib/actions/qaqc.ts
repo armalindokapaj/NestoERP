@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
@@ -51,7 +52,7 @@ function revalidateQaqc(recordPath?: string) {
 function toResult(error: unknown): QaqcActionResult {
   if (error instanceof AccessError) {
     const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code };
+    return { ok: false, error: error.message, code: details?.code ?? error.code };
   }
 
   console.error("[qaqc] action failed", error);
@@ -350,18 +351,24 @@ export async function submitInspectionAction(
 
 export type InspectionDecision = "approve" | "reject" | "close" | "cancel" | "rework" | "reopen";
 
+/**
+ * `cycle` is the approval cycle the page displayed: approving and rejecting
+ * name it, and the service refuses a missing or replaced one inside its
+ * transaction (AUD-10 §4, CW-02, CW-05). Other steps ignore it.
+ */
 export async function inspectionLifecycleAction(
   inspectionId: string,
   action: InspectionDecision,
   note: string | null,
+  cycle?: PendingCycle | null,
 ): Promise<QaqcActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    if (action === "approve") await inspections.approveInspection(context, inspectionId, note);
+    if (action === "approve") await inspections.approveInspection(context, inspectionId, note, approvalGuardFrom(cycle));
     else if (action === "reject") {
       if (!note?.trim()) return { ok: false, error: "Say why it is being rejected." };
-      await inspections.rejectInspection(context, inspectionId, note);
+      await inspections.rejectInspection(context, inspectionId, note, approvalGuardFrom(cycle));
     } else if (action === "close") {
       await inspections.closeInspection(context, inspectionId, note);
     } else if (action === "cancel") {
@@ -654,20 +661,22 @@ export type NcrDecision =
   | "reopen"
   | "cancel";
 
+/** `cycle` as for inspections: the closure approval the page displayed (AUD-10 §4, CW-05). */
 export async function ncrLifecycleAction(
   ncrId: string,
   action: NcrDecision,
   note: string | null,
+  cycle?: PendingCycle | null,
 ): Promise<QaqcActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "open") await ncrs.openNcr(context, ncrId);
     else if (action === "submit") await ncrs.submitNcr(context, ncrId);
-    else if (action === "approve") await ncrs.approveNcr(context, ncrId, note);
+    else if (action === "approve") await ncrs.approveNcr(context, ncrId, note, approvalGuardFrom(cycle));
     else if (action === "reject") {
       if (!note?.trim()) return { ok: false, error: "Say why the closure is being rejected." };
-      await ncrs.rejectNcr(context, ncrId, note);
+      await ncrs.rejectNcr(context, ncrId, note, approvalGuardFrom(cycle));
     } else if (action === "close") {
       await ncrs.closeNcr(context, ncrId, note);
     } else if (action === "reopen") {

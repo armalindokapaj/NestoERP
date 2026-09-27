@@ -16,7 +16,7 @@ import {
   memberNames,
   notFound,
   personOrUnknown,
-  translateSourceError,
+  translateDecisionError,
   type ApprovalProvider,
   type ProviderDetail,
   type ProviderItem,
@@ -122,8 +122,30 @@ export type RecordAdapter = {
   canView(context: UserContext): boolean;
   canApprove(context: UserContext): boolean;
   canReject(context: UserContext): boolean;
+  /**
+   * Returning for revision, where the module grants it separately from
+   * rejecting (AUD-10 §4, A11). Absent: the same as `canReject`.
+   */
+  canReturn?(context: UserContext): boolean;
+  /**
+   * The module checks these grants even for a chain's designated approver or
+   * their delegate (timesheets: `timesheet.approve`/`.reject`/`.return`), so
+   * the Center offers only the decisions the module would accept (AUD-10 §4, A11).
+   * Absent: in a chain, the step alone decides who may act.
+   */
+  grantsApplyInChain?: boolean;
   /** The grant that lets a submitter decide their own, where the module has one. */
   selfPermission: Permission | null;
+  /**
+   * Members the module bars from deciding a record beyond its submitter — who
+   * carried out an inspection, who requested a permit — keyed by record id and
+   * read in one query for the whole page (AUD-10 §4, A8, CW-23). Lifted, like
+   * self-approval, by `selfPermission`. The Center neither lists these records
+   * as waiting for them nor counts them.
+   */
+  excludedDeciders?(companyId: string, recordIds: string[]): Promise<Map<string, string[]>>;
+  /** Why an excluded member cannot decide it, in their words. */
+  excludedReason?: string;
   /** Why this type needs approval at all, when a record says nothing more specific. */
   reason: string;
   /** Record ids matching the filters, inside the reader's scope; bounded. */
@@ -227,6 +249,21 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
 
   type Eligibility = { eligible: boolean; onBehalfOf: string | null; blocked: string | null };
 
+  const mayReturn = (context: UserContext, adapter: RecordAdapter): boolean => (adapter.canReturn ? adapter.canReturn(context) : adapter.canReject(context));
+  const anyGrant = (context: UserContext, adapter: RecordAdapter): boolean => adapter.canApprove(context) || adapter.canReject(context) || mayReturn(context, adapter);
+
+  /** Each type's barred deciders for the pending rows on this page: one query per type, never per row (CW-23). */
+  async function excludedFor(context: UserContext, rows: CycleRow[]): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    for (const type of new Set(rows.filter((row) => row.status === "PENDING").map((row) => row.recordType))) {
+      const adapter = adapterFor(type);
+      if (!adapter?.excludedDeciders) continue;
+      const ids = [...new Set(rows.filter((row) => row.recordType === type && row.status === "PENDING").map((row) => row.recordId))];
+      for (const [id, members] of await adapter.excludedDeciders(context.companyId, ids)) result.set(`${type}:${id}`, members);
+    }
+    return result;
+  }
+
   async function eligibilityFor(
     context: UserContext,
     rows: CycleRow[],
@@ -234,6 +271,7 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
   ): Promise<Map<string, Eligibility>> {
     const result = new Map<string, Eligibility>();
     let delegations: ActiveDelegation[] | undefined;
+    const excluded = await excludedFor(context, rows);
     for (const row of rows) {
       const adapter = adapterFor(row.recordType);
       if (!adapter || row.status !== "PENDING") continue;
@@ -250,6 +288,10 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
           canReadAs: config.chain.canReadAs(row.recordId),
           delegations,
         });
+        if (verdict.eligible && adapter.grantsApplyInChain && !anyGrant(context, adapter)) {
+          result.set(row.id, { eligible: false, onBehalfOf: null, blocked: "Your role cannot decide this, so it waits for somebody who can." });
+          continue;
+        }
         result.set(
           row.id,
           verdict.eligible
@@ -275,7 +317,12 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         result.set(row.id, { eligible: false, onBehalfOf: null, blocked: "You requested this, so somebody else decides it." });
         continue;
       }
-      const able = adapter.canApprove(context) || adapter.canReject(context);
+      // The module's own separation of duties, not only "who submitted it" (AUD-10 §4, A8).
+      if (excluded.get(`${row.recordType}:${row.recordId}`)?.includes(context.membershipId) && !selfAllowed(context, adapter)) {
+        result.set(row.id, { eligible: false, onBehalfOf: null, blocked: adapter.excludedReason ?? "You are named on this record, so somebody else decides it." });
+        continue;
+      }
+      const able = anyGrant(context, adapter);
       result.set(row.id, { eligible: able, onBehalfOf: null, blocked: able ? null : "Waiting for an approver." });
     }
     return result;
@@ -338,9 +385,10 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         totalSteps: sequence ? steps.length : null,
         stepLabel: sequence ? (current?.label ?? null) : null,
         href: fact.href,
-        canApprove: able && (inChain || adapter.canApprove(context)),
-        canReject: able && Boolean(adapter.reject) && (inChain || adapter.canReject(context)),
-        canReturn: able && Boolean(adapter.returnForRevision) && (inChain || adapter.canReject(context)),
+        // In a chain the step decides who acts; where the module also checks the grant, so does the Center (A11).
+        canApprove: able && (inChain && !adapter.grantsApplyInChain ? true : adapter.canApprove(context)),
+        canReject: able && Boolean(adapter.reject) && (inChain && !adapter.grantsApplyInChain ? true : adapter.canReject(context)),
+        canReturn: able && Boolean(adapter.returnForRevision) && (inChain && !adapter.grantsApplyInChain ? true : mayReturn(context, adapter)),
         requiresStrongConfirmation: Boolean(fact.requiresStrongConfirmation),
         blockedReason: pending && !able ? (verdict?.blocked ?? null) : null,
         onBehalfOf: able && verdict?.onBehalfOf ? personOrUnknown(names, verdict.onBehalfOf) : null,
@@ -354,7 +402,7 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
   function waitingTypes(context: UserContext): string[] {
     return types.filter((type) => {
       const adapter = config.records[type];
-      return adapter.canApprove(context) || adapter.canReject(context) || Boolean(config.chain);
+      return anyGrant(context, adapter) || Boolean(config.chain);
     });
   }
 
@@ -473,7 +521,8 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
       decidedAStep ||
       adapter.canView(context) ||
       item.canApprove ||
-      item.canReject;
+      item.canReject ||
+      item.canReturn;
     if (!mayOpen) return null;
 
     const fact = built.facts.get(`${row.recordType}:${row.recordId}`)!;
@@ -587,6 +636,9 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
     if (steps.length === 0 && row.submittedByMemberId === context.membershipId && !selfAllowed(context, adapter)) {
       throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "You requested this, so somebody else has to decide it.", "FORBIDDEN");
     }
+    if (steps.length === 0 && !selfAllowed(context, adapter) && (await excludedFor(context, [row])).get(`${row.recordType}:${row.recordId}`)?.includes(context.membershipId)) {
+      throw approvalError("APPROVAL_SEPARATION_OF_DUTIES", adapter.excludedReason ?? "You are named on this record, so somebody else has to decide it.", "FORBIDDEN");
+    }
 
     const guard: ApprovalGuard = { approvalId: row.id, ...(current ? { stepNumber: current.stepNumber } : {}) };
     try {
@@ -599,7 +651,12 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         await adapter.returnForRevision(context, row.recordId, input.note ?? "", guard);
       }
     } catch (error) {
-      translateSourceError(error);
+      await translateDecisionError(error, async () => {
+        const after = await config.table().findFirst({ where: { id: row.id, companyId: context.companyId }, select: CYCLE_SELECT });
+        if (!after) return null;
+        const newer = after.status === "PENDING" ? 0 : await config.table().count({ where: { companyId: context.companyId, recordType: row.recordType, recordId: row.recordId, status: "PENDING" } });
+        return { status: after.status, decidedByMemberId: after.decidedByMemberId, newerPending: newer > 0 };
+      });
     }
 
     if (decision === "APPROVE" && steps.length > 0) {

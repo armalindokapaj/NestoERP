@@ -43,6 +43,7 @@ import {
   toolboxSchema,
 } from "@/lib/modules/hse/hse.schema";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * HSE authorisation and lifecycle tests (PRD #22 §387–§419).
@@ -682,7 +683,7 @@ describe("safety inspections (PRD #22 §37, §38, §47, §49, §51)", () => {
 
     expect(detail.capabilities.canApprove).toBe(false);
     await expect(
-      inspections.approveInspection(hse, SEED.pendingFail, null),
+      inspections.approveInspection(hse, SEED.pendingFail, null, await shownCycle("hse", SEED.pendingFail)),
     ).rejects.toThrow(AccessError);
   });
 
@@ -690,7 +691,7 @@ describe("safety inspections (PRD #22 §37, §38, §47, §49, §51)", () => {
     await rememberDecision("inspection", SEED.pendingPass, "INSPECTION");
     const owner = await loginAs("OWNER");
 
-    await inspections.approveInspection(owner, SEED.pendingPass, "Checked.");
+    await inspections.approveInspection(owner, SEED.pendingPass, "Checked.", await shownCycle("hse", SEED.pendingPass));
     const after = await inspections.getInspection(owner, SEED.pendingPass);
 
     expect(after.status).toBe("APPROVED");
@@ -717,7 +718,7 @@ describe("safety inspections (PRD #22 §37, §38, §47, §49, §51)", () => {
     );
 
     const owner = await loginAs("OWNER");
-    await inspections.approveInspection(owner, inspection.id, null);
+    await inspections.approveInspection(owner, inspection.id, null, await shownCycle("hse", inspection.id));
 
     await expect(
       inspections.closeInspection(owner, inspection.id, null),
@@ -986,7 +987,7 @@ describe("incidents and near misses (PRD #22 §82, §95, §363)", () => {
     expect(detail.status).toBe("PENDING_CLOSE");
     expect(detail.capabilities.canClose).toBe(false);
     await expect(
-      incidents.closeIncident(hse, SEED.pendingCloseIncident, null),
+      incidents.closeIncident(hse, SEED.pendingCloseIncident, null, await shownCycle("hse", SEED.pendingCloseIncident)),
     ).rejects.toThrow(AccessError);
   });
 
@@ -1193,7 +1194,7 @@ describe("work permits (PRD #22 §147, §149, §150, §151)", () => {
 
     await permits.submitPermit(context, permit.id);
     const owner = await loginAs("OWNER");
-    await permits.approvePermit(owner, permit.id, null);
+    await permits.approvePermit(owner, permit.id, null, await shownCycle("hse", permit.id));
 
     await expect(permits.activatePermit(owner, permit.id)).rejects.toThrow(AccessError);
   });
@@ -1217,7 +1218,7 @@ describe("work permits (PRD #22 §147, §149, §150, §151)", () => {
 
     const detail = await permits.getPermit(context, permit.id);
     expect(detail.capabilities.canApprove).toBe(false);
-    await expect(permits.approvePermit(context, permit.id, null)).rejects.toThrow(AccessError);
+    await expect(permits.approvePermit(context, permit.id, null, await shownCycle("hse", permit.id))).rejects.toThrow(AccessError);
   });
 
   it("goes the whole way: submit, approve, activate, suspend, reactivate, close", async () => {
@@ -1238,7 +1239,7 @@ describe("work permits (PRD #22 §147, §149, §150, §151)", () => {
     created.permits.push(permit.id);
 
     await permits.submitPermit(context, permit.id);
-    await permits.approvePermit(owner, permit.id, "Approved.");
+    await permits.approvePermit(owner, permit.id, "Approved.", await shownCycle("hse", permit.id));
     await permits.activatePermit(owner, permit.id);
     expect((await permits.getPermit(owner, permit.id)).status).toBe("ACTIVE");
 
@@ -1399,7 +1400,7 @@ describe("risk assessments (PRD #22 §107, §112, §359)", () => {
     expect(detail.status).toBe("PENDING_APPROVAL");
     expect(detail.capabilities.canApprove).toBe(false);
     await expect(
-      risk.approveRiskAssessment(context, SEED.pendingAssessment, null),
+      risk.approveRiskAssessment(context, SEED.pendingAssessment, null, await shownCycle("hse", SEED.pendingAssessment)),
     ).rejects.toThrow(AccessError);
   });
 });
@@ -1695,9 +1696,9 @@ describe("the approval queue (PRD #22 §181, §182, §184)", () => {
     await rememberDecision("inspection", SEED.pendingPass, "INSPECTION");
     const owner = await loginAs("OWNER");
 
-    await inspections.approveInspection(owner, SEED.pendingPass, "First.");
+    await inspections.approveInspection(owner, SEED.pendingPass, "First.", await shownCycle("hse", SEED.pendingPass));
     await expect(
-      inspections.approveInspection(owner, SEED.pendingPass, "Second."),
+      inspections.approveInspection(owner, SEED.pendingPass, "Second.", await shownCycle("hse", SEED.pendingPass)),
     ).rejects.toThrow(AccessError);
   });
 

@@ -8,8 +8,9 @@ type Params = { params: Promise<{ leaveId: string }> };
 export async function POST(request: Request, { params }: Params) {
   const { leaveId } = await params;
   return withContext(async (context) => {
-    const input = leaveRejectionSchema.parse(await readJson(request));
-    await leave.rejectLeave(context, leaveId, input.note);
+    const body = await readJson(request);
+    const input = leaveRejectionSchema.parse(body);
+    await leave.rejectLeave(context, leaveId, input.note, leave.leaveSubmissionFrom(body.submittedAt));
     return new Response(null, { status: 204 });
   });
 }

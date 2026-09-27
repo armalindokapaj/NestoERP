@@ -430,6 +430,11 @@ export const CASCADE_EXCEPTIONS: Array<{ from: string; to: string; reason: strin
     reason: "Project media rows are presentation links, not file history. A removed Project takes its links, while each canonical Document remains protected independently.",
   },
   {
+    from: "DailyLogDocumentLink.document",
+    to: "Document",
+    reason: "Caption, category and time for a file whose parent is the daily log itself (AUD-10 §3, gap 13). Presentation metadata, not history: only a placeholder that never finished uploading is ever hard-deleted, and a referenced one is marked FAILED by the cleanup rather than removed. The Document and its versions keep their own protections.",
+  },
+  {
     from: "Session.membership",
     to: "CompanyMember",
     reason: "A membership that no longer exists must not leave a session that still carries its access. This is the cascade doing the right thing, and the only reason it never fires is that a membership is deactivated rather than deleted (PRD #14 §242).",

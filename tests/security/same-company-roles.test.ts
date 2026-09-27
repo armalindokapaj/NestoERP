@@ -259,6 +259,12 @@ describe("an Engineer forging writes outside their authority (RP-09)", () => {
 /* -------------------------------------------------------------------------- */
 
 type ActorKey = keyof typeof actors;
+/** The pending finance cycle a page shows, which every decision now names (AUD-10 §4, A1). */
+async function pendingFinanceCycle(id: string): Promise<Record<string, unknown>> {
+  const cycle = await prisma.financeApproval.findFirstOrThrow({ where: { recordId: id, status: "PENDING" }, select: { id: true } });
+  return { approvalId: cycle.id };
+}
+
 type Step = { method: HttpMethod; suffix: string; seed?: (id: string, created: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown> };
 
 type RouteProbe = {
@@ -325,7 +331,7 @@ const ROUTE_PROBES: RouteProbe[] = [
     authorized: "owner",
     deniedCreate: ["viewer", "engineer"],
     deniedItem: ["viewer", "engineer"],
-    positive: [{ method: "POST", suffix: "/submit" }, { method: "POST", suffix: "/approve" }],
+    positive: [{ method: "POST", suffix: "/submit" }, { method: "POST", suffix: "/approve", seed: pendingFinanceCycle }],
   },
   {
     name: "expense",
@@ -337,7 +343,7 @@ const ROUTE_PROBES: RouteProbe[] = [
     authorized: "owner",
     deniedCreate: ["viewer", "engineer"],
     deniedItem: ["viewer", "engineer"],
-    positive: [{ method: "POST", suffix: "/submit" }, { method: "POST", suffix: "/approve" }],
+    positive: [{ method: "POST", suffix: "/submit" }, { method: "POST", suffix: "/approve", seed: pendingFinanceCycle }],
   },
   {
     name: "contract",
@@ -575,15 +581,17 @@ describe("self-service stops at the self (RP-09)", () => {
       // Deciding is hr.leave.approve: not the person who asked, not a reader of HR (CEO: hr V/C), not the Viewer.
       const approve = await routeHandlers("/api/hr/leave/[leaveId]/approve");
       const pending = await rowText("leave_requests", leaveId);
+      // The submission the page showed (AUD-10 A2): without it every decision is 428, which would hide whether a refusal was about access.
+      const shown = { submittedAt: (await prisma.leaveRequest.findUniqueOrThrow({ where: { id: leaveId }, select: { submittedAt: true } })).submittedAt!.toISOString() };
       for (const key of ["engineer", "ceo", "viewer"] as const) {
         actAs(actors[key]);
-        const outcome = await callRoute(approve.POST!, "POST", `/api/hr/leave/${leaveId}/approve`, params, {});
+        const outcome = await callRoute(approve.POST!, "POST", `/api/hr/leave/${leaveId}/approve`, params, shown);
         expect(notARefusal(outcome), `${key}: ${JSON.stringify(outcome.body)}`).toBeNull();
       }
       expect(await rowText("leave_requests", leaveId)).toBe(pending);
 
       actAs(actors.hr);
-      const decided = await callRoute(approve.POST!, "POST", `/api/hr/leave/${leaveId}/approve`, params, {});
+      const decided = await callRoute(approve.POST!, "POST", `/api/hr/leave/${leaveId}/approve`, params, shown);
       expect(decided.status, JSON.stringify(decided.body)).toBeLessThan(300);
       expect((await prisma.leaveRequest.findUniqueOrThrow({ where: { id: leaveId } })).status).toBe("APPROVED");
     } finally {

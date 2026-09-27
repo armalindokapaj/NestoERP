@@ -169,10 +169,21 @@ export async function groupIdentity(context: UserContext): Promise<GroupIdentity
   return { ...group, activeCompanies: count("ACTIVE"), suspendedCompanies: count("SUSPENDED") };
 }
 
-export type GroupFigure = { value: string; hint?: string; breakdown?: GroupCount[] };
+export type GroupFigure = { value: string; hint?: string; breakdown?: GroupCount[]; incomplete?: boolean };
 
-/** One company's figure, kept beside a group total so it can be drilled into (Workspace Context §73, §74). */
-export type GroupCount = { companyId: string; company: string; value: number };
+/**
+ * One company's figure, kept beside a group total so it can be drilled into
+ * (Workspace Context §73, §74). `incomplete`: part of it could not be read, so
+ * `value` is what could — never a stand-in zero (AUD-10 §4, CW-03); `missing`
+ * names what was not read.
+ */
+export type GroupCount = { companyId: string; company: string; value: number; incomplete?: boolean; missing?: string[] };
+
+/** "7", "7+" when some of it could not be read, "—" when none of it could be counted. */
+export function countText(value: number, incomplete: boolean | undefined): string {
+  if (!incomplete) return String(value);
+  return value > 0 ? `${value}+` : "—";
+}
 
 /**
  * A count summed across the companies the reader may read it in (§72, §73).
@@ -193,10 +204,17 @@ export function groupFigureOfCounts(rows: GroupCount[], unit?: string): GroupFig
   if (rows.length === 0) return null;
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const shown = rows.filter((row) => row.value > 0).sort((a, b) => b.value - a.value || a.company.localeCompare(b.company));
+  const missing = rows.filter((row) => row.incomplete);
+  const breakdown = rows.slice().sort((a, b) => b.value - a.value || a.company.localeCompare(b.company));
+  // A company that could not be (fully) read makes the total "at least", and the hint says whose (AUD-10 §4).
+  if (missing.length > 0) {
+    const where = missing.map((row) => (row.missing?.length ? `${row.company} (${row.missing.join(", ")})` : row.company)).join(", ");
+    return { value: countText(total, true), hint: `Incomplete: ${where} could not be loaded.`, breakdown, incomplete: true };
+  }
   return {
     value: String(total),
     hint: shown.length ? shown.slice(0, 3).map((row) => `${row.company} ${row.value}`).join(" · ") + (shown.length > 3 ? ` · +${shown.length - 3} more` : "") : unit,
-    breakdown: rows.slice().sort((a, b) => b.value - a.value || a.company.localeCompare(b.company)),
+    breakdown,
   };
 }
 
@@ -225,12 +243,29 @@ export async function groupOverdueTasks(context: UserContext): Promise<GroupFigu
   return groupFigureOfCounts(await groupCounts(context, { module: "tasks", permission: "task.view" }, async (company) => (await taskCounts(company)).overdue));
 }
 
-/** §33: what waits for a decision, per company and in total — each company's own Approvals Center answer. */
+/**
+ * §33: what waits for a decision, per company and in total — each company's own
+ * Approvals Center answer. A company whose count failed, or one of whose sources
+ * could not be read, is incomplete, not zero: the total becomes "at least" and
+ * says which company and source are missing (AUD-10 §4, CW-03).
+ */
 export async function groupPendingApprovals(context: UserContext): Promise<GroupFigure | null> {
   if (!seesGroup(context)) return null;
   const { getApprovalCounts } = await import("@/lib/modules/approvals/approvals.service");
-  const rows = await groupCounts(context, { module: "approvals", permission: "dashboard.view" }, async (company) => (await getApprovalCounts(company).catch(() => ({ waiting: 0 }))).waiting);
-  return groupFigureOfCounts(rows);
+  const rows = (await companyContexts(context)).filter(({ context: company }) => isModuleEnabled(company, "approvals") && can(company, "dashboard.view"));
+  const counted = await Promise.all(
+    rows.map(async ({ name, context: company }): Promise<GroupCount> => {
+      try {
+        const counts = await getApprovalCounts(company);
+        return { companyId: company.companyId, company: name, value: counts.waiting, incomplete: counts.partial, missing: counts.unavailable.map((source) => source.label) };
+      } catch (error) {
+        // No Center there for this reader is nothing waiting on them; anything else is a count that failed.
+        if (error instanceof AccessError) return { companyId: company.companyId, company: name, value: 0 };
+        return { companyId: company.companyId, company: name, value: 0, incomplete: true, missing: ["Approvals"] };
+      }
+    }),
+  );
+  return groupFigureOfCounts(counted);
 }
 
 /** §19: tasks by company — open, overdue and blocked — each company one row that enters it (§74). */
@@ -252,11 +287,19 @@ export async function groupTasks(context: UserContext): Promise<WidgetListItem[]
 }
 
 /** §33, §73: approvals waiting in each company, each row entering it. */
-export async function groupApprovals(context: UserContext): Promise<WidgetListItem[]> {
+export async function groupApprovals(context: UserContext): Promise<{ items: WidgetListItem[]; incomplete?: string }> {
   const figure = await groupPendingApprovals(context);
-  return (figure?.breakdown ?? [])
-    .filter((row) => row.value > 0)
-    .map((row) => ({ id: row.companyId, title: row.company, meta: `${row.value} waiting`, companyId: row.companyId, href: "/approvals" }));
+  const items = (figure?.breakdown ?? [])
+    .filter((row) => row.value > 0 || row.incomplete)
+    .map((row) => ({
+      id: row.companyId,
+      title: row.company,
+      meta: row.incomplete ? `${countText(row.value, true)} waiting · incomplete` : `${row.value} waiting`,
+      ...(row.incomplete && row.missing?.length ? { subtitle: `${row.missing.join(", ")} could not be loaded` } : {}),
+      companyId: row.companyId,
+      href: "/approvals",
+    }));
+  return figure?.incomplete ? { items, incomplete: `${figure.hint} The total may be higher.` } : { items };
 }
 
 const PRIORITY_RANK: Record<WidgetAlert["priority"], number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };

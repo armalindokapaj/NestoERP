@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
@@ -59,7 +60,7 @@ function revalidateProcurement(recordPath?: string) {
 function toResult(error: unknown): ProcurementActionResult {
   if (error instanceof AccessError) {
     const details = error.details as { code?: string; lines?: unknown } | undefined;
-    return { ok: false, error: error.message, code: details?.code, details: details?.lines };
+    return { ok: false, error: error.message, code: details?.code ?? error.code, details: details?.lines };
   }
 
   console.error("[procurement] action failed", error);
@@ -220,16 +221,24 @@ export type RequestLifecycleAction =
   | "archive"
   | "restore";
 
+/**
+ * `cycle` is the approval cycle — and, on a chained order, the step — the page
+ * displayed: approving and rejecting name it, and the service refuses a
+ * missing or replaced one inside its transaction, so a stale page cannot
+ * decide a resubmission or the next step of a chain (AUD-10 §4, CW-02, CW-04,
+ * CW-05). Other steps ignore it.
+ */
 export async function requestLifecycleAction(
   requestId: string,
   action: RequestLifecycleAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await requests.submitRequest(context, requestId);
-    else if (action === "approve") await requests.approveRequest(context, requestId, note ?? null);
+    else if (action === "approve") await requests.approveRequest(context, requestId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "start-sourcing") await requests.startSourcing(context, requestId);
     else if (action === "archive") await requests.archiveRequest(context, requestId);
     else await requests.restoreRequest(context, requestId);
@@ -244,6 +253,7 @@ export async function requestLifecycleAction(
 export async function rejectRequestAction(
   requestId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
@@ -251,7 +261,7 @@ export async function rejectRequestAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await requests.rejectRequest(context, requestId, parsed.data.note);
+    await requests.rejectRequest(context, requestId, parsed.data.note, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -487,12 +497,13 @@ export async function orderLifecycleAction(
   orderId: string,
   action: OrderLifecycleAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await orders.submitOrder(context, orderId);
-    else if (action === "approve") await orders.approveOrder(context, orderId, note ?? null);
+    else if (action === "approve") await orders.approveOrder(context, orderId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "issue") await orders.issueOrder(context, orderId);
     else if (action === "close") await orders.closeOrder(context, orderId, note ?? null);
     else if (action === "archive") await orders.archiveOrder(context, orderId);
@@ -508,6 +519,7 @@ export async function orderLifecycleAction(
 export async function rejectOrderAction(
   orderId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
 
@@ -515,7 +527,7 @@ export async function rejectOrderAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await orders.rejectOrder(context, orderId, parsed.data.note);
+    await orders.rejectOrder(context, orderId, parsed.data.note, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -593,29 +605,36 @@ export async function voidReceiptAction(
 /* Approvals                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** The queue decides on either record type through one action (PRD #19 §152). */
+/**
+ * The queue decides on either record type through one action (PRD #19 §152).
+ * `cycle` is the row's own approval (and the chain step it showed), so a row
+ * left open while the record moved on cannot decide what replaced it
+ * (AUD-10 §4, CW-04, CW-05).
+ */
 export async function decideApprovalAction(
   recordType: "PURCHASE_REQUEST" | "PURCHASE_ORDER",
   recordId: string,
   decision: "approve" | "reject",
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<ProcurementActionResult> {
   const context = await requireCompanyContext();
+  const guard = approvalGuardFrom(cycle);
 
   try {
     if (recordType === "PURCHASE_REQUEST") {
-      if (decision === "approve") await requests.approveRequest(context, recordId, note ?? null);
+      if (decision === "approve") await requests.approveRequest(context, recordId, note ?? null, guard);
       else {
         const parsed = procurementReasonSchema.safeParse({ note });
         if (!parsed.success) return invalid(parsed.error);
-        await requests.rejectRequest(context, recordId, parsed.data.note);
+        await requests.rejectRequest(context, recordId, parsed.data.note, guard);
       }
     } else if (decision === "approve") {
-      await orders.approveOrder(context, recordId, note ?? null);
+      await orders.approveOrder(context, recordId, note ?? null, guard);
     } else {
       const parsed = procurementReasonSchema.safeParse({ note });
       if (!parsed.success) return invalid(parsed.error);
-      await orders.rejectOrder(context, recordId, parsed.data.note);
+      await orders.rejectOrder(context, recordId, parsed.data.note, guard);
     }
   } catch (error) {
     return toResult(error);

@@ -10,6 +10,7 @@ import {
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
@@ -275,7 +276,10 @@ export async function cancelObligation(
  *
  * The canonical Task service does the writing, so the task appears in `/tasks`
  * like any other and obeys the Tasks module's own permissions. Legal contributes
- * the context that points back here.
+ * the context that points back here. The task is written in a transaction that
+ * first re-reads the actor and share-locks the obligation, still open: one
+ * completed or cancelled in the meantime gets no new work, and a close that
+ * arrives later waits for this commit (AUD-10 §7, CW-12).
  */
 export async function createTaskForObligation(
   context: UserContext,
@@ -290,29 +294,37 @@ export async function createTaskForObligation(
   // has nothing left to do, and the record page offers no button for it
   // (PRD #18 §154, PRD #47 §85).
   if (obligation.status !== "OPEN") {
-    throw stateDenied(`This obligation is already ${obligation.status.toLowerCase()}.`);
+    throw stateDenied(`This obligation is already ${obligation.status.toLowerCase()}.`, { code: "OBLIGATION_CLOSED" });
   }
   const contract = await prisma.contract.findUnique({
     where: { id: obligation.contractId },
     select: { projectId: true },
   });
 
-  const task = await tasks.createTask(
-    context,
-    {
-      title: input.title,
-      description: input.description,
-      projectId: contract?.projectId ?? undefined,
-      assigneeMemberId: input.assigneeMemberId,
-      startDate: undefined,
-      dueDate: input.dueDate,
-      status: "TODO",
-      priority: "MEDIUM",
-    },
-    { moduleKey: MODULE, entityType: "obligation", entityId: obligationId },
-  );
+  return runInTransaction(
+    "contracts.obligation.task.create",
+    async (tx) => {
+      const [locked] = await tx.$queryRaw<Array<{ status: string }>>`
+        SELECT "status"::text AS "status" FROM "contract_obligations" WHERE "id" = ${obligationId} AND "companyId" = ${context.companyId} FOR SHARE`;
+      if (!locked) throw new AccessError("NOT_FOUND");
+      if (locked.status !== "OPEN") throw stateDenied(`This obligation is already ${locked.status.toLowerCase()}.`, { code: "OBLIGATION_CLOSED" });
 
-  return { id: task.id };
+      const task = await tasks.createTaskFromContextIn(tx, context, {
+        title: input.title,
+        description: input.description,
+        projectId: contract?.projectId ?? undefined,
+        assigneeMemberId: input.assigneeMemberId,
+        startDate: undefined,
+        dueDate: input.dueDate,
+        status: "TODO",
+        priority: "MEDIUM",
+        parentType: "obligation",
+        parentId: obligationId,
+      });
+      return { id: task.id };
+    },
+    { actor: context },
+  );
 }
 
 /* -------------------------------------------------------------------------- */

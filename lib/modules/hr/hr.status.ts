@@ -79,7 +79,10 @@ const LEAVE_TRANSITIONS: Record<LeaveRequestStatus, LeaveRequestStatus[]> = {
   // Approved leave can still be cancelled, but only by somebody with the
   // grant — and cancelling gives the days back (PRD #16 §89, §93).
   APPROVED: ["CANCELLED"],
-  REJECTED: ["DRAFT", "CANCELLED"],
+  // Corrected and sent again (`isLeaveSubmittable`, `submitLeave`): straight
+  // back to PENDING as a new submission with its own `submittedAt`. Missing
+  // here, the resubmission every screen offers was refused (AUD-10 §4, CW-05).
+  REJECTED: ["DRAFT", "PENDING", "CANCELLED"],
   CANCELLED: [],
 };
 

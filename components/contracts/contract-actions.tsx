@@ -38,6 +38,7 @@ import {
   type ContractActionResult,
   type ContractLifecycleAction,
 } from "@/lib/actions/contracts";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
@@ -51,7 +52,14 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
  * Only actions the server has already said are available render at all — the
  * capabilities are a UX hint, and the service re-checks every one (PRD #7 §55).
  */
-export function ContractActions({ contract }: { contract: ContractDetailDTO }) {
+export function ContractActions({
+  contract,
+  cycle,
+}: {
+  contract: ContractDetailDTO;
+  /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -74,7 +82,7 @@ export function ContractActions({ contract }: { contract: ContractDetailDTO }) {
 
   function run(action: ContractLifecycleAction, success: string) {
     startTransition(async () => {
-      handle(await contractLifecycleAction(contract.id, action), success);
+      handle(await contractLifecycleAction(contract.id, action, undefined, cycle), success);
     });
   }
 
@@ -232,7 +240,7 @@ export function ContractActions({ contract }: { contract: ContractDetailDTO }) {
         description="The contract returns to review with your reason attached, so whoever drafted it knows what to change."
         placeholder="What needs to change before this can be approved?"
         onReject={async (reason) => {
-          const result = await rejectContractAction(contract.id, reason);
+          const result = await rejectContractAction(contract.id, reason, cycle);
           handle(result, "Contract rejected.");
           return result.ok;
         }}

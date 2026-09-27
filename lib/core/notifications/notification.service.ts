@@ -260,7 +260,8 @@ export async function openNotification(context: UserContext, id: string): Promis
   // An approval opens in the Approvals Center's review drawer first, with the
   // record one link away (PRD #41 §42); the Center re-checks access itself.
   if (APPROVAL_EVENTS.has(notification.eventType) && can(context, "approvals.view")) {
-    return { href: approvalLink(record.type, record.id) };
+    const providerKey = (notification.metadataJson as { providerKey?: unknown } | null)?.providerKey;
+    return { href: approvalLink(record.type, record.id, typeof providerKey === "string" ? providerKey : null) };
   }
   // A mention lands on its comment; the record page scrolls to it (Activity Center §43).
   const commentId = (notification.metadataJson as { commentId?: unknown } | null)?.commentId;
@@ -276,8 +277,14 @@ const APPROVAL_EVENTS = new Set<string>([
   "DOCUMENT_REVIEW_REQUESTED",
 ]);
 
-export function approvalLink(recordType: string, recordId: string): string {
-  return `/approvals?record=${encodeURIComponent(`${recordType}:${recordId}`)}`;
+/**
+ * The Center's link for a record. `providerKey` names the source where one
+ * record type has two (a unit's publishing and its sale, AUD-10 §4, A7); the
+ * Center validates it and otherwise ranks the cycles itself.
+ */
+export function approvalLink(recordType: string, recordId: string, providerKey?: string | null): string {
+  const base = `/approvals?record=${encodeURIComponent(`${recordType}:${recordId}`)}`;
+  return providerKey ? `${base}&provider=${encodeURIComponent(providerKey)}` : base;
 }
 
 /**

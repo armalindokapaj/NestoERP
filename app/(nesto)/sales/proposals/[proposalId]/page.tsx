@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { formatAmount } from "@/components/sales/sales-format";
 import { formatDate } from "@/lib/utils/format";
+import { pendingCycle } from "@/lib/modules/sales/approvals/approval.service";
 import { proposalContext } from "./proposal-context";
 
 export const metadata: Metadata = { title: "Proposal" };
@@ -32,6 +33,11 @@ type Params = { params: Promise<{ proposalId: string }> };
 export default async function ProposalPage({ params }: Params) {
   const { proposalId } = await params;
   const { context, proposal } = await proposalContext(proposalId);
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle =
+    proposal.capabilities.canApprove || proposal.capabilities.canReject
+      ? await pendingCycle(context, "PROPOSAL", proposal.id)
+      : null;
 
   return (
     <div className="space-y-5">
@@ -79,7 +85,7 @@ export default async function ProposalPage({ params }: Params) {
             value: proposal.validUntil ? formatDate(proposal.validUntil) : "—",
           },
         ]}
-        actions={<ProposalActions proposal={proposal} />}
+        actions={<ProposalActions proposal={proposal} cycle={cycle} />}
       />
 
       <section className="nesto-card overflow-hidden">

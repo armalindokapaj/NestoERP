@@ -11,7 +11,7 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { businessDateString } from "@/lib/modules/finance/finance.fields";
 import { toAmountString, toRateString } from "@/lib/modules/finance/finance.money";
 import * as approvals from "../approvals/approval.service";
-import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { loadMemberRef } from "../sales.dto";
 import { buildOpportunityScopeWhere } from "../sales.scope";
 import type { ProposalDetailDTO, ProposalSummaryDTO } from "../sales.types";
@@ -290,7 +290,7 @@ export async function approveProposal(
   context: UserContext,
   proposalId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "PROPOSAL");
@@ -319,9 +319,11 @@ export async function rejectProposal(
   context: UserContext,
   proposalId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(reason);
   approvals.assertCanReject(context, "PROPOSAL");
 
   const existing = assertFound(await repository.findProposalInScope(context, proposalId));
@@ -352,9 +354,11 @@ export async function returnProposal(
   context: UserContext,
   proposalId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(reason);
   approvals.assertCanReject(context, "PROPOSAL");
 
   const existing = assertFound(await repository.findProposalInScope(context, proposalId));

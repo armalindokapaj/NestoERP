@@ -12,6 +12,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/procurement/approvals/approval.service";
 import * as requests from "@/lib/modules/procurement/requests/request.service";
 import {
   categoryLabels,
@@ -53,6 +54,11 @@ export default async function RequestDetailPage({ params }: Params) {
     throw error;
   }
 
+  // The cycle (and chain step) the decision controls act on; they name it back (AUD-10 §4, CW-04, CW-05).
+  const cycle =
+    request.capabilities.canApprove || request.capabilities.canReject
+      ? await pendingCycle(context, "PURCHASE_REQUEST", request.id)
+      : null;
   const currency = request.currency;
   const money = (value: string) => (currency ? formatAmount(value, currency) : value);
 
@@ -90,7 +96,7 @@ export default async function RequestDetailPage({ params }: Params) {
         actions={
           <>
             <RecordFavorite context={context} entityType="purchase_request" entityId={request.id} />
-            <RequestActions request={request} />
+            <RequestActions request={request} cycle={cycle} />
           </>
         }
       />

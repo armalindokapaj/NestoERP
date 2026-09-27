@@ -28,7 +28,8 @@ import { canMarkUnitSold, moneyText } from "./unit-sales.rules";
  */
 
 type Tx = Prisma.TransactionClient;
-const RECORD = { moduleKey: "projects", recordType: "project_unit", noun: "Unit sale" } as const;
+// Audited under the Center source that owns the cycle, not unit publishing's (AUD-10 §4, A7).
+const RECORD = { moduleKey: "projects", providerKey: "unit_sales", recordType: "project_unit", noun: "Unit sale" } as const;
 
 export async function pendingSaleApproval(client: Tx | typeof prisma, companyId: string, unitId: string) {
   return client.unitSaleApproval.findFirst({ where: { companyId, recordType: "UNIT", recordId: unitId, status: "PENDING" }, orderBy: { submittedAt: "desc" }, select: { id: true, reservationId: true, submittedByMemberId: true, submittedAt: true } });

@@ -370,7 +370,7 @@ export async function approveCommitment(
   context: UserContext,
   commitmentId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "COMMITMENT");
@@ -398,7 +398,7 @@ export async function rejectCommitment(
   context: UserContext,
   commitmentId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "COMMITMENT");
@@ -432,7 +432,7 @@ export async function returnCommitment(
   context: UserContext,
   commitmentId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "COMMITMENT");

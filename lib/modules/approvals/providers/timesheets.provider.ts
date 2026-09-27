@@ -79,8 +79,13 @@ export const timesheetApprovalProvider = createCycleProvider({
       noun: "Timesheet",
       // Beyond their own, a team reader sees their people's approval history.
       canView: (context) => can(context, "timesheet.team.view"),
+      // Each decision is its own grant in the timesheet service, checked for the
+      // designated approver and their delegate alike (timesheet.submission decide;
+      // AUD-10 §4, A11): a return-only approver is offered Return, never Reject.
       canApprove: (context) => can(context, "timesheet.approve"),
-      canReject: (context) => can(context, "timesheet.reject") || can(context, "timesheet.return"),
+      canReject: (context) => can(context, "timesheet.reject"),
+      canReturn: (context) => can(context, "timesheet.return"),
+      grantsApplyInChain: true,
       selfPermission: null,
       reason: "A week's time is approved before it counts in project reporting.",
       async match(context, filters) {

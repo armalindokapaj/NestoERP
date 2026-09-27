@@ -590,7 +590,7 @@ export async function approveContract(
   context: UserContext,
   contractId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "CONTRACT");
@@ -618,7 +618,7 @@ export async function rejectContract(
   context: UserContext,
   contractId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "CONTRACT");
@@ -655,7 +655,7 @@ export async function returnContractForRevision(
   context: UserContext,
   contractId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "CONTRACT");

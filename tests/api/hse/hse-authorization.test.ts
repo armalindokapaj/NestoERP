@@ -22,6 +22,7 @@ import {
   stopWorkSchema,
 } from "@/lib/modules/hse/hse.schema";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * HSE authorisation and company isolation (PRD #47 §20, §51, §62, §85).
@@ -503,7 +504,7 @@ describe("changes that need more than update (PRD #47 §85)", () => {
     const detail = await permits.getPermit(hse, permit.id);
     expect(detail.capabilities.canApprove).toBe(false);
 
-    const error = await refusal(permits.approvePermit(hse, permit.id, null));
+    const error = await refusal(permits.approvePermit(hse, permit.id, null, await shownCycle("hse", permit.id)));
     expect(error.code).toBe("FORBIDDEN");
   });
 

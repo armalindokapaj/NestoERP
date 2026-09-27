@@ -16,6 +16,7 @@ import {
   type OrderLifecycleAction,
   type ProcurementActionResult,
 } from "@/lib/actions/procurement";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { OrderDetailDTO } from "@/lib/modules/procurement/procurement.types";
 
 /**
@@ -25,7 +26,18 @@ import type { OrderDetailDTO } from "@/lib/modules/procurement/procurement.types
  * button that carries a confirmation of what it means rather than the one that
  * issues the paperwork afterwards (PRD #19 §116).
  */
-export function OrderActions({ order }: { order: OrderDetailDTO }) {
+export function OrderActions({
+  order,
+  cycle,
+}: {
+  order: OrderDetailDTO;
+  /**
+   * The approval cycle on screen, with the chain step it showed; approve and
+   * reject name both back, so this page cannot decide a later step
+   * (AUD-10 §4, CW-04, CW-05).
+   */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -47,7 +59,7 @@ export function OrderActions({ order }: { order: OrderDetailDTO }) {
 
   function run(action: OrderLifecycleAction, success: string) {
     startTransition(async () => {
-      handle(await orderLifecycleAction(order.id, action), success);
+      handle(await orderLifecycleAction(order.id, action, undefined, cycle), success);
     });
   }
 
@@ -132,7 +144,7 @@ export function OrderActions({ order }: { order: OrderDetailDTO }) {
         onOpenChange={(open) => !open && setDialog("none")}
         title={`Reject ${order.poNumber}?`}
         onReject={async (reason) => {
-          const result = await rejectOrderAction(order.id, reason);
+          const result = await rejectOrderAction(order.id, reason, cycle);
           handle(result, "Order rejected.");
           return result.ok;
         }}

@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
+import { APPROVAL_CYCLE_REQUIRED, APPROVAL_SOURCE_CHANGED, requireDecisionNote } from "@/lib/core/approvals/approval-guard";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import {
@@ -376,18 +377,21 @@ export async function approveLeave(
   context: UserContext,
   leaveId: string,
   note: string | null,
+  submission: LeaveSubmission | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hr.leave.approve");
+  const submittedAt = requireSubmission(submission);
 
   const existing = await requireLeave(context, leaveId);
   assertNotSelfApproval(context, existing);
-
-  if (existing.status !== "PENDING") {
-    throw new AccessError("CONFLICT", "This request is not waiting for a decision.");
-  }
+  assertDecidable(existing, submittedAt);
 
   await prisma.$transaction(async (tx) => {
+    // First, before anything is written: the submission decided is the one the
+    // approver saw, read under the row lock (AUD-10 §4, A2).
+    await lockSubmission(tx, existing, submittedAt);
+
     await assertNoOverlap(
       tx,
       existing.employeeProfileId,
@@ -460,18 +464,21 @@ export async function rejectLeave(
   context: UserContext,
   leaveId: string,
   note: string,
+  submission: LeaveSubmission | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hr.leave.reject");
+  const submittedAt = requireSubmission(submission);
+  // The reject dialog asks why; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(note, "Say why the leave is being rejected.");
 
   const existing = await requireLeave(context, leaveId);
   assertNotSelfApproval(context, existing);
-
-  if (existing.status !== "PENDING") {
-    throw new AccessError("CONFLICT", "This request is not waiting for a decision.");
-  }
+  assertDecidable(existing, submittedAt);
 
   await prisma.$transaction(async (tx) => {
+    await lockSubmission(tx, existing, submittedAt);
+
     await moveStatus(tx, existing, "REJECTED", {
       rejectedByMemberId: context.membershipId,
       rejectedAt: new Date(),
@@ -577,6 +584,81 @@ export async function cancelLeave(context: UserContext, leaveId: string): Promis
       metadata: { employmentId: existing.employeeProfileId, memberId: existing.employeeProfile.companyMemberId } as Prisma.InputJsonValue,
     });
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Which submission a decision is on (AUD-10 §4, A2, CW-05)                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The submission a leave decision was made on.
+ *
+ * HR keeps no cycle table: the request is its own approval, and each
+ * submission stamps `submittedAt`. A PENDING request cannot be edited, so the
+ * only way its content changes is rejected → edited → resubmitted, which
+ * stamps a new `submittedAt`. Naming the stamp therefore names the cycle, and a
+ * page opened before a reject/resubmit cannot approve the new dates (the ABA
+ * the status alone could not see). The Approvals Center's version for a leave
+ * item is this stamp in epoch milliseconds, so both surfaces pass the same
+ * precondition.
+ */
+export type LeaveSubmission = { submittedAt?: Date | string | number | null };
+
+/** Reads the stamp from what a page, route or the Center sent; anything unreadable is absent. */
+export function leaveSubmissionFrom(value: unknown): LeaveSubmission | undefined {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : { submittedAt: value };
+  if (typeof value === "number") return Number.isSafeInteger(value) && value > 0 ? { submittedAt: new Date(value) } : undefined;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : { submittedAt: parsed };
+  }
+  return undefined;
+}
+
+/** The Center's version for a leave item: its submission stamp. */
+export function leaveSubmissionVersion(submittedAt: Date): number {
+  return submittedAt.getTime();
+}
+
+function requireSubmission(submission: LeaveSubmission | undefined): Date {
+  const parsed = leaveSubmissionFrom(submission?.submittedAt);
+  if (!parsed?.submittedAt) {
+    throw new AccessError("PRECONDITION_REQUIRED", "This decision did not say which submission it was made on. Reload the page and decide the request you can see.", {
+      code: APPROVAL_CYCLE_REQUIRED,
+    });
+  }
+  return parsed.submittedAt as Date;
+}
+
+function sourceChanged(): AccessError {
+  return new AccessError("CONFLICT", "This leave request was resubmitted since you opened it. Reload the page to review the latest version.", {
+    code: APPROVAL_SOURCE_CHANGED,
+  });
+}
+
+/** The early answer, from the read outside the transaction; `lockSubmission` is the guarantee. */
+function assertDecidable(existing: LeaveRow, submittedAt: Date): void {
+  if (existing.status === "PENDING" && existing.submittedAt?.getTime() !== submittedAt.getTime()) throw sourceChanged();
+  if (existing.status !== "PENDING") {
+    // Resubmitted and waiting again is a new cycle; anything else was decided or withdrawn.
+    throw new AccessError("CONFLICT", "This request is not waiting for a decision.", { code: "APPROVAL_ALREADY_DECIDED" });
+  }
+}
+
+/**
+ * Locks the request and checks, inside the deciding transaction, that it is
+ * still PENDING on the submission the approver saw. A concurrent decision
+ * waits here and then finds it decided; a stale page finds a new stamp.
+ */
+async function lockSubmission(tx: Prisma.TransactionClient, existing: LeaveRow, submittedAt: Date): Promise<void> {
+  const [row] = await tx.$queryRaw<Array<{ status: LeaveRequestStatus; submittedAt: Date | null }>>`
+    SELECT status, "submittedAt" FROM leave_requests
+    WHERE id = ${existing.id} AND "companyId" = ${existing.companyId}
+    FOR UPDATE`;
+  if (!row || row.status !== "PENDING") {
+    throw new AccessError("CONFLICT", "This request has already been decided.", { code: "APPROVAL_ALREADY_DECIDED" });
+  }
+  if (row.submittedAt?.getTime() !== submittedAt.getTime()) throw sourceChanged();
 }
 
 /* -------------------------------------------------------------------------- */

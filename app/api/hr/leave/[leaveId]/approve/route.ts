@@ -13,8 +13,10 @@ type Params = { params: Promise<{ leaveId: string }> };
 export async function POST(request: Request, { params }: Params) {
   const { leaveId } = await params;
   return withContext(async (context) => {
-    const input = leaveDecisionSchema.parse(await readJson(request).catch(() => ({})));
-    await leave.approveLeave(context, leaveId, input.note ?? null);
+    const body = await readJson(request).catch((): Record<string, unknown> => ({}));
+    const input = leaveDecisionSchema.parse(body);
+    // The submission the caller decided: `submittedAt` as it read it (AUD-10 §4, A2).
+    await leave.approveLeave(context, leaveId, input.note ?? null, leave.leaveSubmissionFrom(body.submittedAt));
     return new Response(null, { status: 204 });
   });
 }

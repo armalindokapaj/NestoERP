@@ -33,6 +33,7 @@ import {
 } from "@/lib/modules/sales/proposals/proposal.schema";
 import type { UserContext } from "@/lib/context/types";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * Sales authorisation and lifecycle tests (PRD #17 §315–§342, §358, §359).
@@ -1294,7 +1295,7 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
     const proposal = await newProposal(owner, opportunity.id);
 
     await proposals.submitProposal(owner, proposal.id);
-    await proposals.approveProposal(owner, proposal.id, "Fine.");
+    await proposals.approveProposal(owner, proposal.id, "Fine.", await shownCycle("sales", proposal.id));
 
     expect((await proposals.getProposal(owner, proposal.id)).status).toBe("APPROVED");
   });
@@ -1302,7 +1303,7 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
   it("refuses approval to the role that quotes the price (PRD #17 §19)", async () => {
     const { sales, proposal } = await submitted();
 
-    await expect(proposals.approveProposal(sales, proposal.id, null)).rejects.toMatchObject({
+    await expect(proposals.approveProposal(sales, proposal.id, null, await shownCycle("sales", proposal.id))).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
   });
@@ -1311,8 +1312,8 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
     const { proposal } = await submitted();
     const ceo = await loginAs("CEO");
 
-    await proposals.approveProposal(ceo, proposal.id, null);
-    await expect(proposals.approveProposal(ceo, proposal.id, null)).rejects.toMatchObject({
+    await proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id));
+    await expect(proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id))).rejects.toMatchObject({
       code: "CONFLICT",
     });
   });
@@ -1321,7 +1322,7 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
     const { sales, proposal } = await submitted();
     const ceo = await loginAs("CEO");
 
-    await proposals.rejectProposal(ceo, proposal.id, "Too far above their budget.");
+    await proposals.rejectProposal(ceo, proposal.id, "Too far above their budget.", await shownCycle("sales", proposal.id));
 
     const rejected = await proposals.getProposal(sales, proposal.id);
     expect(rejected.status).toBe("REJECTED");
@@ -1343,7 +1344,7 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
     });
 
     const ceo = await loginAs("CEO");
-    await proposals.approveProposal(ceo, proposal.id, null);
+    await proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id));
     await proposals.markProposalSent(sales, proposal.id);
 
     const sent = await proposals.getProposal(sales, proposal.id);
@@ -1360,7 +1361,7 @@ describe("proposal outcome (PRD #17 §331, §332)", () => {
     const proposal = await newProposal(sales, opportunity.id);
 
     await proposals.submitProposal(sales, proposal.id);
-    await proposals.approveProposal(ceo, proposal.id, null);
+    await proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id));
     await proposals.markProposalSent(sales, proposal.id);
 
     return { sales, opportunity, proposal };
@@ -1388,7 +1389,7 @@ describe("proposal outcome (PRD #17 §331, §332)", () => {
 
     const second = await newProposal(sales, opportunity.id);
     await proposals.submitProposal(sales, second.id);
-    await proposals.approveProposal(ceo, second.id, null);
+    await proposals.approveProposal(ceo, second.id, null, await shownCycle("sales", second.id));
     await proposals.markProposalSent(sales, second.id);
 
     await expect(proposals.acceptProposal(sales, second.id)).rejects.toMatchObject({
@@ -1838,8 +1839,8 @@ describe("concurrency (PRD #17 §255–§258)", () => {
     await proposals.submitProposal(sales, proposal.id);
 
     const results = await Promise.allSettled([
-      proposals.approveProposal(ceo, proposal.id, null),
-      proposals.rejectProposal(owner, proposal.id, "No."),
+      proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id)),
+      proposals.rejectProposal(owner, proposal.id, "No.", await shownCycle("sales", proposal.id)),
     ]);
 
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
@@ -1865,7 +1866,7 @@ describe("concurrency (PRD #17 §255–§258)", () => {
     for (let index = 0; index < 2; index += 1) {
       const proposal = await newProposal(sales, opportunity.id);
       await proposals.submitProposal(sales, proposal.id);
-      await proposals.approveProposal(ceo, proposal.id, null);
+      await proposals.approveProposal(ceo, proposal.id, null, await shownCycle("sales", proposal.id));
       await proposals.markProposalSent(sales, proposal.id);
       ids.push(proposal.id);
     }
@@ -1977,7 +1978,7 @@ describe("seed fixtures (PRD #17 §301–§313)", () => {
     await remember("proposal", pending.recordId);
     touchedApprovals.push({ id: pending.id });
 
-    await proposals.approveProposal(ceo, pending.recordId, `${TEST_PREFIX} approved`);
+    await proposals.approveProposal(ceo, pending.recordId, `${TEST_PREFIX} approved`, await shownCycle("sales", pending.recordId));
     expect((await proposals.getProposal(ceo, pending.recordId)).status).toBe("APPROVED");
   });
 });

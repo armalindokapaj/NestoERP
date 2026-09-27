@@ -643,7 +643,7 @@ export async function closeIncident(
   context: UserContext,
   incidentId: string,
   decisionNote: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   assertPermission(context, "hse.incident.close");

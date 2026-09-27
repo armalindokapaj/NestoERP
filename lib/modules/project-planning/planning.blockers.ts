@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type { z } from "zod";
 
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
@@ -5,10 +6,11 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
-import { createTaskFromContext } from "@/lib/modules/tasks/task.service";
+import { createTaskFromContextIn } from "@/lib/modules/tasks/task.service";
 import { notifyMilestone, settleMilestoneAttention } from "./planning.attention";
 import { businessInstant } from "./planning.dates";
 import { ACTIVITY_ENTITY, MODULE, planningOpen, readableMilestoneWhere, RECORD } from "./planning.permissions";
@@ -38,6 +40,13 @@ async function findReadableBlocker(context: UserContext, blockerId: string) {
   return blocker;
 }
 
+/**
+ * A blocker, and — asked to — the task that works it off, in one transaction
+ * (AUD-10 §7, CW-12): the task service writes the task with its own rules
+ * inside this transaction, so a blocker that fails to save leaves no task
+ * behind, and a task that is refused leaves no blocker. The actor and the
+ * milestone are re-read at the commit boundary.
+ */
 export async function createBlocker(context: UserContext, milestoneId: string, input: z.infer<typeof createBlockerSchema>): Promise<{ id: string; taskId: string | null }> {
   const milestone = await findReadableMilestone(context, milestoneId);
   assertPermission(context, "project_planning.blockers.manage");
@@ -45,37 +54,53 @@ export async function createBlocker(context: UserContext, milestoneId: string, i
   if (milestone.archivedAt) throw fail("MILESTONE_ARCHIVED", "That milestone is archived.", "CONFLICT");
   await assertAssignable(context.companyId, milestone.projectId, input.ownerMemberId);
 
-  // The task service re-authorises everything about the task itself (§155, §233).
-  const task = input.createTask
-    ? await createTaskFromContext(context, {
-        ...createTaskSchema.parse({ title: input.title, description: input.description ?? undefined, projectId: milestone.projectId, assigneeMemberId: input.ownerMemberId ?? undefined, status: "TODO", priority: TASK_PRIORITY[input.severity], dueDate: input.dueDate ?? undefined }),
-        parentType: RECORD,
-        parentId: milestone.id,
-      })
-    : null;
+  return runInTransaction(
+    "planning.blocker.create",
+    async (tx) => {
+      await assertMilestoneLive(tx, context, milestone.id);
+      // The task service re-authorises everything about the task itself (§155, §233).
+      const task = input.createTask
+        ? await createTaskFromContextIn(tx, context, {
+            ...createTaskSchema.parse({ title: input.title, description: input.description ?? undefined, projectId: milestone.projectId, assigneeMemberId: input.ownerMemberId ?? undefined, status: "TODO", priority: TASK_PRIORITY[input.severity], dueDate: input.dueDate ?? undefined }),
+            parentType: RECORD,
+            parentId: milestone.id,
+          })
+        : null;
 
-  const blocker = await prisma.$transaction(async (tx) => {
-    const created = await tx.projectMilestoneBlocker.create({
-      data: { companyId: context.companyId, milestoneId: milestone.id, title: input.title, description: input.description, severity: input.severity, ownerMemberId: input.ownerMemberId, dueDate: input.dueDate ? businessInstant(input.dueDate) : null, linkedTaskId: task?.id ?? null, createdByMemberId: context.membershipId },
-      select: { id: true },
-    });
-    if (task) {
-      await tx.projectMilestoneTaskLink.upsert({
-        where: { milestoneId_taskId: { milestoneId: milestone.id, taskId: task.id } },
-        create: { companyId: context.companyId, milestoneId: milestone.id, taskId: task.id, linkType: "BLOCKS", createdByMemberId: context.membershipId },
-        update: {},
+      const created = await tx.projectMilestoneBlocker.create({
+        data: { companyId: context.companyId, milestoneId: milestone.id, title: input.title, description: input.description, severity: input.severity, ownerMemberId: input.ownerMemberId, dueDate: input.dueDate ? businessInstant(input.dueDate) : null, linkedTaskId: task?.id ?? null, createdByMemberId: context.membershipId },
+        select: { id: true },
       });
-    }
-    if (input.severity === "CRITICAL") {
-      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: milestone.id, action: "MILESTONE_CRITICAL_BLOCKER", message: `added a critical blocker to ${milestone.name}`, metadata: { note: input.title } });
-    }
-    await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_BLOCKER_CREATED, entity: { type: RECORD, id: milestone.id, label: milestone.name }, projectId: milestone.projectId, after: { blockerId: created.id, severity: input.severity, ownerMemberId: input.ownerMemberId, dueDate: input.dueDate, taskId: task?.id ?? null } }, { tx });
-    if (input.ownerMemberId) {
-      await notifyMilestone(tx, { eventType: NotificationEvent.MILESTONE_BLOCKER_ASSIGNED, milestone, projectName: milestone.project.name, actorMemberId: context.membershipId, memberIds: [input.ownerMemberId], payload: { actorName: context.fullName, blockerTitle: input.title, severity: input.severity, blockerId: created.id } });
-    }
-    return created;
-  });
-  return { id: blocker.id, taskId: task?.id ?? null };
+      if (task) {
+        await tx.projectMilestoneTaskLink.upsert({
+          where: { milestoneId_taskId: { milestoneId: milestone.id, taskId: task.id } },
+          create: { companyId: context.companyId, milestoneId: milestone.id, taskId: task.id, linkType: "BLOCKS", createdByMemberId: context.membershipId },
+          update: {},
+        });
+      }
+      if (input.severity === "CRITICAL") {
+        await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: milestone.id, action: "MILESTONE_CRITICAL_BLOCKER", message: `added a critical blocker to ${milestone.name}`, metadata: { note: input.title } });
+      }
+      await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_BLOCKER_CREATED, entity: { type: RECORD, id: milestone.id, label: milestone.name }, projectId: milestone.projectId, after: { blockerId: created.id, severity: input.severity, ownerMemberId: input.ownerMemberId, dueDate: input.dueDate, taskId: task?.id ?? null } }, { tx });
+      if (input.ownerMemberId) {
+        await notifyMilestone(tx, { eventType: NotificationEvent.MILESTONE_BLOCKER_ASSIGNED, milestone, projectName: milestone.project.name, actorMemberId: context.membershipId, memberIds: [input.ownerMemberId], payload: { actorName: context.fullName, blockerTitle: input.title, severity: input.severity, blockerId: created.id } });
+      }
+      return { id: created.id, taskId: task?.id ?? null };
+    },
+    { actor: context },
+  );
+}
+
+/**
+ * The milestone, share-locked and still live, inside the transaction that
+ * adds work to it: an archive that commits first refuses the write; one that
+ * arrives later waits for it (AUD-10 §7).
+ */
+export async function assertMilestoneLive(tx: Prisma.TransactionClient, context: UserContext, milestoneId: string): Promise<void> {
+  const rows = await tx.$queryRaw<Array<{ archivedAt: Date | null }>>`
+    SELECT "archivedAt" FROM "project_milestones" WHERE "id" = ${milestoneId} AND "companyId" = ${context.companyId} FOR SHARE`;
+  if (!rows[0]) throw fail("MILESTONE_NOT_FOUND", "That milestone could not be found.", "NOT_FOUND");
+  if (rows[0].archivedAt) throw fail("MILESTONE_ARCHIVED", "That milestone is archived.", "CONFLICT");
 }
 
 export async function updateBlocker(context: UserContext, blockerId: string, input: z.infer<typeof updateBlockerSchema>): Promise<void> {

@@ -22,6 +22,10 @@ import { formatRelativeTime } from "@/lib/utils/format";
  * so the queue never offers a button that is certain to fail. The row still
  * appears — they need to see that it is waiting on somebody — with a line
  * saying why they cannot act on it.
+ *
+ * Each row is one approval cycle and its decision names it: a row left open
+ * while the record was resubmitted cannot decide the new cycle (AUD-10 §4,
+ * CW-05).
  */
 export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }) {
   const router = useRouter();
@@ -37,8 +41,8 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
       startTransition(async () => {
         const result =
           approval.recordType === "INSPECTION"
-            ? await inspectionLifecycleAction(approval.recordId, action, note)
-            : await ncrLifecycleAction(approval.recordId, action, note);
+            ? await inspectionLifecycleAction(approval.recordId, action, note, { approvalId: approval.id })
+            : await ncrLifecycleAction(approval.recordId, action, note, { approvalId: approval.id });
 
         if (result.ok) {
           setDeciding(null);

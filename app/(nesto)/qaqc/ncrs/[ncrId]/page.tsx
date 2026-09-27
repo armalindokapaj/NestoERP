@@ -15,6 +15,7 @@ import { RecordTasks } from "@/components/tasks/record-tasks";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 import { ncrCategoryLabels } from "@/lib/modules/qaqc/qaqc.status";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
@@ -52,6 +53,8 @@ export default async function NcrPage({ params }: Params) {
   }
 
   const live = ncr.status !== "CLOSED" && ncr.status !== "CANCELLED";
+  // The closure approval the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = ncr.capabilities.canApprove || ncr.capabilities.canReject ? await pendingCycle(context, "NCR", ncr.id) : null;
 
   return (
     <div className="space-y-5">
@@ -86,7 +89,7 @@ export default async function NcrPage({ params }: Params) {
         actions={
           <>
             <RecordFavorite context={context} entityType="non_conformance_report" entityId={ncr.id} />
-            <NcrActions ncr={ncr} />
+            <NcrActions ncr={ncr} cycle={cycle} />
           </>
         }
       />

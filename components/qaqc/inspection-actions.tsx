@@ -13,6 +13,7 @@ import {
   inspectionLifecycleAction,
   type InspectionDecision,
 } from "@/lib/actions/qaqc";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 
 /**
@@ -25,7 +26,14 @@ import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
  * Close is offered only when the follow-up rule is satisfied, so the button
  * never fails for a reason the page could have explained (§85, §86).
  */
-export function InspectionActions({ inspection }: { inspection: InspectionDetailDTO }) {
+export function InspectionActions({
+  inspection,
+  cycle,
+}: {
+  inspection: InspectionDetailDTO;
+  /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -36,7 +44,7 @@ export function InspectionActions({ inspection }: { inspection: InspectionDetail
   function run(action: InspectionDecision, note: string | null, success: string) {
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
-        const result = await inspectionLifecycleAction(inspection.id, action, note);
+        const result = await inspectionLifecycleAction(inspection.id, action, note, cycle);
         if (result.ok) {
           setDialog(null);
           toast({ title: success, tone: "success" });

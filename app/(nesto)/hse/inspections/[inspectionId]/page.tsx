@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 import { inspectionResultLabels, inspectionTypeLabels } from "@/lib/modules/hse/hse.status";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
@@ -44,6 +45,8 @@ export default async function InspectionPage({ params }: Params) {
   }
 
   const may = inspection.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "INSPECTION", inspection.id) : null;
 
   return (
     <div className="space-y-5">
@@ -90,7 +93,7 @@ export default async function InspectionPage({ params }: Params) {
             {may.canAssign ? (
               <AssignControl kind="inspection" recordId={inspection.id} />
             ) : null}
-            <InspectionActions inspection={inspection} />
+            <InspectionActions inspection={inspection} cycle={cycle} />
           </div>
         }
       />

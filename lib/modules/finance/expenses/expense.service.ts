@@ -344,7 +344,7 @@ export async function approveExpense(
   context: UserContext,
   expenseId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "EXPENSE");
@@ -389,7 +389,7 @@ export async function rejectExpense(
   context: UserContext,
   expenseId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "EXPENSE");
@@ -435,7 +435,7 @@ export async function returnExpense(
   context: UserContext,
   expenseId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "EXPENSE");

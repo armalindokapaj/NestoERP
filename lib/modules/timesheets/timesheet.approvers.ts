@@ -167,7 +167,7 @@ export async function setApprover(context: UserContext, input: { memberId: strin
     for (const week of waiting) {
       await prisma.$transaction(async (tx) => {
         await tx.timesheet.update({ where: { id: week.id }, data: { approverMemberId: effective.memberId, version: { increment: 1 } } });
-        const cycles = await tx.timesheetApproval.findMany({ where: { recordId: week.id, status: "PENDING" }, select: { id: true } });
+        const cycles = await tx.timesheetApproval.findMany({ where: { companyId: context.companyId, recordId: week.id, status: "PENDING" }, select: { id: true } });
         for (const cycle of cycles) {
           await tx.timesheetApproval.update({ where: { id: cycle.id }, data: { approverMemberId: effective.memberId } });
           await reassignOpenSteps(tx, "timesheets", cycle.id, effective.memberId);

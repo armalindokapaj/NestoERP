@@ -185,7 +185,7 @@ async function projectReadable(context: UserContext, projectId: string): Promise
 }
 
 /** Tasks among these ids the reader can open, in one query. */
-async function readableTaskIds(context: UserContext, taskIds: string[]): Promise<Set<string>> {
+export async function readableTaskIds(context: UserContext, taskIds: string[]): Promise<Set<string>> {
   if (taskIds.length === 0 || !canAccessModule(context, "tasks") || !can(context, "task.view")) return new Set();
   const rows = await prisma.task.findMany({ where: { AND: [buildTaskScopeWhere(context), { id: { in: taskIds } }] }, select: { id: true } });
   return new Set(rows.map((row) => row.id));
@@ -231,6 +231,7 @@ export function actionDTO(
       // A linked action follows its task; its owner may move an unlinked one along.
       canChangeStatus: !linked && (input.canManage || owner),
       canConvertToTask: input.canConvert && !linked && row.status !== "CANCELLED" && row.status !== "DONE",
+      followsTask: linked,
     },
   };
 }

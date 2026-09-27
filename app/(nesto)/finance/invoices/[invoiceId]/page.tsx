@@ -12,6 +12,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
+import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "./invoice-context";
 import { FinanceRecordTabs } from "./record-tabs";
@@ -47,6 +48,8 @@ export default async function InvoiceDetailPage({ params }: Params) {
   const { context, invoice } = await loadInvoice(invoiceId);
 
   const may = invoice.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "INVOICE", invoice.id) : null;
 
   return (
     <div className="space-y-5">
@@ -80,6 +83,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
               invoiceId={invoice.id}
               invoiceNumber={invoice.invoiceNumber}
               capabilities={may}
+              cycle={cycle}
             />
           </>
         }

@@ -167,28 +167,35 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
   );
 }
 
+/*
+ * Each row is one approval cycle, and its decision names that cycle: a row
+ * left open while the record was rejected and resubmitted cannot decide the
+ * new submission (AUD-10 §4, CW-02, CW-05).
+ */
 function decide(approval: FinanceApprovalDTO, action: "approve") {
+  const cycle = { approvalId: approval.id };
   switch (approval.recordType) {
     case "INVOICE":
-      return invoiceLifecycleAction(approval.recordId, action);
+      return invoiceLifecycleAction(approval.recordId, action, undefined, cycle);
     case "EXPENSE":
-      return expenseLifecycleAction(approval.recordId, action);
+      return expenseLifecycleAction(approval.recordId, action, undefined, cycle);
     case "BUDGET":
-      return budgetLifecycleAction(approval.recordId, action);
+      return budgetLifecycleAction(approval.recordId, action, undefined, cycle);
     case "COMMITMENT":
-      return commitmentLifecycleAction(approval.recordId, action);
+      return commitmentLifecycleAction(approval.recordId, action, undefined, cycle);
   }
 }
 
 function rejectFor(approval: FinanceApprovalDTO, reason: string) {
+  const cycle = { approvalId: approval.id };
   switch (approval.recordType) {
     case "INVOICE":
-      return rejectInvoiceAction(approval.recordId, reason);
+      return rejectInvoiceAction(approval.recordId, reason, cycle);
     case "EXPENSE":
-      return rejectExpenseAction(approval.recordId, reason);
+      return rejectExpenseAction(approval.recordId, reason, cycle);
     case "BUDGET":
-      return rejectBudgetAction(approval.recordId, reason);
+      return rejectBudgetAction(approval.recordId, reason, cycle);
     case "COMMITMENT":
-      return rejectCommitmentAction(approval.recordId, reason);
+      return rejectCommitmentAction(approval.recordId, reason, cycle);
   }
 }

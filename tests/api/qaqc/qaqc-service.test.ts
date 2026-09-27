@@ -31,6 +31,7 @@ import {
   templateSchema,
 } from "@/lib/modules/qaqc/qaqc.schema";
 import { cleanupSessions, loginAs, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * QA/QC authorisation and lifecycle tests (PRD #21 §420–§440).
@@ -474,7 +475,7 @@ describe("inspections (PRD #21 §63–§88)", () => {
       submitInspectionSchema.parse({ result: "FAIL" }),
     );
     await trackApproval("INSPECTION", inspection.id);
-    await inspections.approveInspection(owner, inspection.id, null);
+    await inspections.approveInspection(owner, inspection.id, null, await shownCycle("qaqc", inspection.id));
 
     await expect(
       inspections.closeInspection(owner, inspection.id, null),
@@ -502,7 +503,7 @@ describe("inspections (PRD #21 §63–§88)", () => {
       submitInspectionSchema.parse({ result: "PASS" }),
     );
     await trackApproval("INSPECTION", inspection.id);
-    await inspections.approveInspection(owner, inspection.id, null);
+    await inspections.approveInspection(owner, inspection.id, null, await shownCycle("qaqc", inspection.id));
     await inspections.closeInspection(owner, inspection.id, null);
 
     const after = await inspections.getInspection(owner, inspection.id);
@@ -521,7 +522,7 @@ describe("inspections (PRD #21 §63–§88)", () => {
       submitInspectionSchema.parse({ result: "PASS" }),
     );
     await trackApproval("INSPECTION", inspection.id);
-    await inspections.rejectInspection(owner, inspection.id, "Measurements not recorded.");
+    await inspections.rejectInspection(owner, inspection.id, "Measurements not recorded.", await shownCycle("qaqc", inspection.id));
 
     const rejected = await inspections.getInspection(context, inspection.id);
     expect(rejected.status).toBe("REJECTED");
@@ -607,7 +608,7 @@ describe("separation of duties (PRD #21 §165, §119, §147)", () => {
     await trackApproval("INSPECTION", inspection.id);
 
     await expect(
-      inspections.approveInspection(context, inspection.id, null),
+      inspections.approveInspection(context, inspection.id, null, await shownCycle("qaqc", inspection.id)),
     ).rejects.toMatchObject({ details: { code: "SELF_APPROVAL" } });
   });
 
@@ -751,7 +752,7 @@ describe("NCR closure (PRD #21 §136, §137)", () => {
     await ncrs.submitNcr(context, ncr.id);
     await trackApproval("NCR", ncr.id);
 
-    await ncrs.approveNcr(owner, ncr.id, null);
+    await ncrs.approveNcr(owner, ncr.id, null, await shownCycle("qaqc", ncr.id));
     await ncrs.closeNcr(owner, ncr.id, null);
 
     expect((await ncrs.getNcr(owner, ncr.id)).status).toBe("CLOSED");

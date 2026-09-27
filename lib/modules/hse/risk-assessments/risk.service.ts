@@ -13,7 +13,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
-import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { assessResidualRisk, assessRisk, residualRiskExceedsInitial } from "../hse.risk";
@@ -511,7 +511,7 @@ export async function approveRiskAssessment(
   context: UserContext,
   assessmentId: string,
   decisionNote: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "RISK_ASSESSMENT");
@@ -530,14 +530,14 @@ export async function approveRiskAssessment(
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
-    await tx.hseRiskAssessment.update({
-      where: { id: assessmentId },
-      data: {
-        status: "APPROVED",
-        approvedAt: new Date(),
-        approvedByMemberId: context.membershipId,
-        updatedByMemberId: context.membershipId,
-      },
+    // Conditional on the status read, like every other HSE decision: an
+    // assessment withdrawn or decided meanwhile is not approved over the top
+    // of that (AUD-10 §4, A12).
+    await moveDecidedAssessment(tx, assessmentId, {
+      status: "APPROVED",
+      approvedAt: new Date(),
+      approvedByMemberId: context.membershipId,
+      updatedByMemberId: context.membershipId,
     });
 
     await recordActivity(tx, context, {
@@ -554,9 +554,11 @@ export async function rejectRiskAssessment(
   context: UserContext,
   assessmentId: string,
   decisionNote: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(decisionNote);
   approvals.assertCanReject(context, "RISK_ASSESSMENT");
 
   const existing = await requireAssessment(context, assessmentId);
@@ -575,10 +577,7 @@ export async function rejectRiskAssessment(
 
     // Back to DRAFT rather than a REJECTED state: the assessor picks it up and
     // carries on, which is what a rejection means here (PRD #22 §103).
-    await tx.hseRiskAssessment.update({
-      where: { id: assessmentId },
-      data: { status: "DRAFT", submittedAt: null, updatedByMemberId: context.membershipId },
-    });
+    await moveDecidedAssessment(tx, assessmentId, { status: "DRAFT", submittedAt: null, updatedByMemberId: context.membershipId });
 
     await recordActivity(tx, context, {
       module: MODULE,
@@ -588,6 +587,26 @@ export async function rejectRiskAssessment(
       message: `sent risk assessment ${existing.assessmentNumber} back`,
     });
   });
+}
+
+/**
+ * A decision's write to the assessment, conditional on it still waiting for
+ * the decision (AUD-10 §4, A12). The approval row is already settled once by
+ * its own conditional update; this keeps the assessment from being moved when
+ * it left PENDING_APPROVAL by any other road.
+ */
+async function moveDecidedAssessment(
+  tx: Prisma.TransactionClient,
+  assessmentId: string,
+  data: Prisma.HseRiskAssessmentUpdateManyMutationInput,
+): Promise<void> {
+  const moved = await tx.hseRiskAssessment.updateMany({
+    where: { id: assessmentId, status: "PENDING_APPROVAL" },
+    data,
+  });
+  if (moved.count === 0) {
+    throw new AccessError("CONFLICT", "That decision has already been made.", { code: "ALREADY_DECIDED" });
+  }
 }
 
 export async function archiveRiskAssessment(

@@ -10,6 +10,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate } from "@/lib/utils/format";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "./budget-context";
 import { FinanceRecordTabs } from "../../invoices/[invoiceId]/record-tabs";
@@ -35,9 +36,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  */
 export default async function BudgetDetailPage({ params }: Params) {
   const { budgetId } = await params;
-  const { budget } = await loadBudget(budgetId);
+  const { context, budget } = await loadBudget(budgetId);
 
   const may = budget.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "BUDGET", budget.id) : null;
 
   return (
     <div className="space-y-5">
@@ -62,7 +65,7 @@ export default async function BudgetDetailPage({ params }: Params) {
           },
         ]}
         actions={
-          <BudgetActions budgetId={budget.id} label={budgetLabel(budget)} capabilities={may} />
+          <BudgetActions budgetId={budget.id} label={budgetLabel(budget)} capabilities={may} cycle={cycle} />
         }
       />
 

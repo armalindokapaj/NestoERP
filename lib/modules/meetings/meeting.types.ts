@@ -299,8 +299,21 @@ export type MeetingActionItemDTO = {
   completedAt: string | null;
   /** The linked Task, named only to a reader who can open it (PRD #40 §198). */
   task: { id: string; title: string; status: string; href: string | null } | null;
-  capabilities: { canEdit: boolean; canChangeStatus: boolean; canConvertToTask: boolean };
+  /**
+   * A linked action's status, owner and due date belong to its Task and are
+   * shown read-only here (AUD-10 §5, CW-11); `canEdit` covers its title and notes.
+   */
+  capabilities: { canEdit: boolean; canChangeStatus: boolean; canConvertToTask: boolean; followsTask: boolean };
 };
+
+/**
+ * What adding an action with "Create a task" did about the task (AUD-10 §7).
+ * The action is committed either way; `created: false` says the task was not,
+ * and why, so nobody is told "nothing was saved" about an action that was.
+ */
+export type ActionTaskHandoff = { created: true; taskId: string } | { created: false; code: string; message: string };
+
+export type ActionCreatedDTO = MeetingDetailDTO & { taskHandoff: ActionTaskHandoff | null };
 
 export type MeetingCapabilities = {
   canEdit: boolean;

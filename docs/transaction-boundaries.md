@@ -156,3 +156,34 @@ interpolate comes from Prisma's own DMMF — never from a request.
 - `concurrency.test.ts` — ten simultaneous number allocations produce ten
   distinct numbers; a rolled-back allocation does not consume one; two
   concurrent transitions settle once; a business failure is not retried.
+
+## AUD-10: cross-module workflows
+
+Per AUD-10 §6–§8. The per-link contracts — what commits together, which event
+follows, which key stops a replay — are in
+[`docs/integration/workflow-matrix.md`](integration/workflow-matrix.md), which a
+test holds to the approval and record registries.
+
+- **Optional audit inside a transaction is a SAVEPOINT.** PostgreSQL aborts a
+  transaction at its first failed statement, so catching an optional audit's
+  error was not enough: every later statement of the business write failed.
+  `recordAuditEvent` now wraps an optional insert made on a transaction client
+  in its own savepoint and rolls back to it on failure; a `required` policy
+  still fails the operation (`tests/integration/delivery/optional-audit.test.ts`).
+- **One correlation id end to end.** The request's `correlationId` is written
+  on the activity row, the outbox row, the audit row, the worker's
+  `job_failures` rows and the delivered `Notification`.
+- **Delivery never writes the business record.** A late, duplicated or
+  reordered outbox event cannot regress it; a crash after the claim, or after
+  the notifications were written, re-delivers without a second row per
+  recipient; a FAILED event is inspected on its row and in `job_failures` and
+  sent round again by an operator without repeating the command
+  (`tests/integration/delivery/outbox-delivery.test.ts`).
+- **Placeholder cleanup reads its references from the catalog.** Every foreign
+  key to `documents` (plus the unconstrained references) keeps a referenced
+  placeholder: it is marked FAILED, never deleted, and the sweep never breaks
+  on a Restrict key.
+- **Checking afterwards.** `verify:workflows`
+  (`lib/core/integrity/workflow-consistency.ts`) reads the data in one READ
+  ONLY transaction and reports, by id and code only, where a cross-module
+  invariant does not hold. It repairs nothing.

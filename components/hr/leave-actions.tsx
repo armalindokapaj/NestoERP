@@ -30,7 +30,9 @@ export function LeaveActions({ request }: { request: LeaveRequestDTO }) {
 
   function run(action: LeaveAction, success: string) {
     startTransition(async () => {
-      const result = await leaveLifecycleAction(request.id, action);
+      // A decision names the submission on screen, so a request rejected and
+      // resubmitted meanwhile is not approved from this page (AUD-10 §4, A2).
+      const result = await leaveLifecycleAction(request.id, action, undefined, request.submittedAt);
       setCancelling(false);
       if (result.ok) {
         toast({ title: success, tone: "success" });
@@ -99,7 +101,7 @@ export function LeaveActions({ request }: { request: LeaveRequestDTO }) {
         onOpenChange={setRejecting}
         title="Reject this leave request?"
         onReject={async (reason) => {
-          const result = await rejectLeaveAction(request.id, reason);
+          const result = await rejectLeaveAction(request.id, reason, request.submittedAt);
           if (result.ok) {
             toast({ title: "Leave rejected." });
             setRejecting(false);

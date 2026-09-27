@@ -34,7 +34,8 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
       </div>
 
       <p className="mt-3 text-page font-semibold tabular-nums text-fg md:mt-4">{kpi.value}</p>
-      {kpi.hint ? <p className="mt-1 text-meta text-fg-subtle">{kpi.hint}</p> : null}
+      {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
+      {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{kpi.hint}</p> : null}
     </>
   );
 
@@ -63,7 +64,9 @@ export function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
                 ) : (
                   <span className="truncate text-fg-muted">{row.company}</span>
                 )}
-                <span className="shrink-0 font-medium tabular-nums text-fg">{row.value}</span>
+                <span className="shrink-0 font-medium tabular-nums text-fg" title={row.incomplete ? "Part of this could not be loaded" : undefined}>
+                  {row.incomplete ? (row.value > 0 ? `${row.value}+` : "—") : row.value}
+                </span>
               </li>
             ))}
           </ul>

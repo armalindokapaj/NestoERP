@@ -1,7 +1,7 @@
 import { Prisma, type FinanceApprovalRecordType } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
-import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import {
   notifyApprovalDecided,
   notifyApprovalRequested,
@@ -161,21 +161,46 @@ export async function requirePendingApproval(
   context: UserContext,
   type: FinanceApprovalRecordType,
   recordId: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ) {
-  const approval = await tx.financeApproval.findFirst({
-    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
-    orderBy: { submittedAt: "desc" },
-    select: { id: true, submittedByMemberId: true },
-  });
+  requireDecisionGuard(guard);
+  // Newest first, and never one of two at random (AUD-10 §4, A6).
+  const approval = singlePending(
+    await tx.financeApproval.findMany({
+      where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+      orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+      take: 2,
+      select: { id: true, submittedByMemberId: true },
+    }),
+  );
 
   if (!approval) {
     throw new AccessError("CONFLICT", "This record is not waiting for a decision.", { code: "APPROVAL_ALREADY_DECIDED" });
   }
   // The Approvals Center reviewed one cycle; a resubmission since is a different one (PRD #41 §187).
-  assertApprovalGuard(guard, approval);
+  assertDecisionGuard(guard, approval);
 
   return approval;
+}
+
+/**
+ * The cycle a source page puts its decision controls against (AUD-10 §4,
+ * CW-02, CW-05): the page names it back when somebody decides, and the
+ * decision is refused if it is no longer the pending one. Ids only — whether
+ * this reader may decide is the record's capabilities' business.
+ */
+export async function pendingCycle(
+  context: UserContext,
+  type: FinanceApprovalRecordType,
+  recordId: string,
+): Promise<PendingCycle | null> {
+  const row = await prisma.financeApproval.findFirst({
+    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+    orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true },
+  });
+  if (!row) return null;
+  return { approvalId: row.id };
 }
 
 /**

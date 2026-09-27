@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
@@ -43,7 +44,8 @@ import {
 
 export type FinanceActionResult =
   | { ok: true; id?: string; message?: string; redirectTo?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+  /** `code`: the refusal's stable code, e.g. APPROVAL_SOURCE_CHANGED (AUD-10 §4). */
+  | { ok: false; error: string; code?: string; fieldErrors?: Record<string, string[]> };
 
 function revalidateFinance(path?: string) {
   revalidatePath("/finance", "layout");
@@ -53,7 +55,10 @@ function revalidateFinance(path?: string) {
 }
 
 function toResult(error: unknown): FinanceActionResult {
-  if (error instanceof AccessError) return { ok: false, error: error.message };
+  if (error instanceof AccessError) {
+    const details = error.details as { code?: string } | undefined;
+    return { ok: false, error: error.message, code: details?.code ?? error.code };
+  }
   console.error("[finance] action failed", error);
   return { ok: false, error: "We couldn't save your changes. Please try again." };
 }
@@ -176,6 +181,13 @@ export async function updateInvoiceAction(
   return committed(`/finance/invoices/${invoiceId}`);
 }
 
+/*
+ * Decisions name the approval cycle the page displayed (`cycle`), so a record
+ * rejected and resubmitted since cannot be decided from the stale page: the
+ * service refuses a missing cycle (428 APPROVAL_CYCLE_REQUIRED) and a replaced
+ * one (409 APPROVAL_SOURCE_CHANGED) inside its transaction (AUD-10 §4, CW-02,
+ * CW-05). Other lifecycle steps ignore it.
+ */
 export type InvoiceAction =
   | "submit"
   | "approve"
@@ -188,12 +200,13 @@ export async function invoiceLifecycleAction(
   invoiceId: string,
   action: InvoiceAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await invoices.submitInvoice(context, invoiceId);
-    else if (action === "approve") await invoices.approveInvoice(context, invoiceId, note ?? null);
+    else if (action === "approve") await invoices.approveInvoice(context, invoiceId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "mark-sent") await invoices.markInvoiceSent(context, invoiceId);
     else if (action === "cancel") await invoices.cancelInvoice(context, invoiceId);
     else if (action === "archive") await invoices.archiveInvoice(context, invoiceId);
@@ -209,11 +222,12 @@ export async function invoiceLifecycleAction(
 export async function rejectInvoiceAction(
   invoiceId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await invoices.rejectInvoice(context, invoiceId, reason);
+    await invoices.rejectInvoice(context, invoiceId, reason, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -268,12 +282,13 @@ export async function expenseLifecycleAction(
   expenseId: string,
   action: ExpenseAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await expenses.submitExpense(context, expenseId);
-    else if (action === "approve") await expenses.approveExpense(context, expenseId, note ?? null);
+    else if (action === "approve") await expenses.approveExpense(context, expenseId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "cancel") await expenses.cancelExpense(context, expenseId);
     else if (action === "archive") await expenses.archiveExpense(context, expenseId);
     else await expenses.restoreExpense(context, expenseId);
@@ -288,11 +303,12 @@ export async function expenseLifecycleAction(
 export async function rejectExpenseAction(
   expenseId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await expenses.rejectExpense(context, expenseId, reason);
+    await expenses.rejectExpense(context, expenseId, reason, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -355,12 +371,13 @@ export async function budgetLifecycleAction(
   budgetId: string,
   action: BudgetAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await budgets.submitBudget(context, budgetId);
-    else if (action === "approve") await budgets.approveBudget(context, budgetId, note ?? null);
+    else if (action === "approve") await budgets.approveBudget(context, budgetId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "archive") await budgets.archiveBudget(context, budgetId);
     else await budgets.restoreBudget(context, budgetId);
   } catch (error) {
@@ -374,11 +391,12 @@ export async function budgetLifecycleAction(
 export async function rejectBudgetAction(
   budgetId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await budgets.rejectBudget(context, budgetId, reason);
+    await budgets.rejectBudget(context, budgetId, reason, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -453,13 +471,14 @@ export async function commitmentLifecycleAction(
   commitmentId: string,
   action: CommitmentAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit") await commitments.submitCommitment(context, commitmentId);
     else if (action === "approve")
-      await commitments.approveCommitment(context, commitmentId, note ?? null);
+      await commitments.approveCommitment(context, commitmentId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "close") await commitments.closeCommitment(context, commitmentId);
     else if (action === "cancel") await commitments.cancelCommitment(context, commitmentId);
     else if (action === "archive") await commitments.archiveCommitment(context, commitmentId);
@@ -475,11 +494,12 @@ export async function commitmentLifecycleAction(
 export async function rejectCommitmentAction(
   commitmentId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<FinanceActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await commitments.rejectCommitment(context, commitmentId, reason);
+    await commitments.rejectCommitment(context, commitmentId, reason, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }

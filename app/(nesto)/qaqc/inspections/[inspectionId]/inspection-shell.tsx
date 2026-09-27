@@ -11,6 +11,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
 import { inspectionTypeLabels } from "@/lib/modules/qaqc/qaqc.status";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
@@ -60,7 +61,7 @@ export const loadInspectionPage = cache(async function loadInspectionPage(
   return { context, inspection };
 });
 
-export function InspectionPageShell({
+export async function InspectionPageShell({
   context,
   inspection,
   tab,
@@ -71,6 +72,11 @@ export function InspectionPageShell({
   tab: InspectionTabKey;
   children: React.ReactNode;
 }) {
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle =
+    inspection.capabilities.canApprove || inspection.capabilities.canReject
+      ? await pendingCycle(context, "INSPECTION", inspection.id)
+      : null;
   const show: Record<InspectionTabKey, boolean> = {
     overview: true,
     execute: inspection.checklist.length > 0 || inspection.capabilities.canExecute,
@@ -119,7 +125,7 @@ export function InspectionPageShell({
         actions={
           <>
             <RecordFavorite context={context} entityType="quality_inspection" entityId={inspection.id} />
-            <InspectionActions inspection={inspection} />
+            <InspectionActions inspection={inspection} cycle={cycle} />
           </>
         }
       />

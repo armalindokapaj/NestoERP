@@ -11,6 +11,8 @@ export type ProjectWorkItem = {
   key: "tasks" | "approvals" | "meetings" | "documents";
   label: string;
   count: number;
+  /** Some of what feeds `count` could not be read: it is a lower bound, never a complete total (AUD-10 §4, A3). */
+  partial?: boolean;
   href: string;
 };
 
@@ -36,8 +38,10 @@ export async function projectMyWork(context: UserContext, projectId: string): Pr
 
   if (canAccessModule(context, "approvals") && can(context, "approvals.view")) {
     items.push(listApprovals(context, approvalQuerySchema.parse({ tab: "waiting", projectId, limit: 100 }))
-      .then((result) => ({ key: "approvals" as const, label: "Approvals pending", count: result.items.length, href: `/approvals?projectId=${encodeURIComponent(projectId)}` }))
-      .catch(() => null));
+      // A source that could not be read makes the figure "at least", and a
+      // failed read shows no figure, never a zero (AUD-10 §4, A3).
+      .then((result) => ({ key: "approvals" as const, label: "Approvals pending", count: result.items.length, partial: result.failedProviders.length > 0, href: `/approvals?projectId=${encodeURIComponent(projectId)}` }))
+      .catch(() => ({ key: "approvals" as const, label: "Approvals pending", count: 0, partial: true, href: `/approvals?projectId=${encodeURIComponent(projectId)}` })));
   }
 
   if (canAccessModule(context, "meetings") && can(context, "meeting.view")) {

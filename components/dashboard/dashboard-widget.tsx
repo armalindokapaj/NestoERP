@@ -53,6 +53,8 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
 
   const isEmpty =
     payload.kind !== "error" && "items" in payload && payload.items.length === 0;
+  // A source that could not be read: said above the rows, and never shown as "nothing here" (AUD-10 §4, CW-03).
+  const incomplete = "incomplete" in payload ? payload.incomplete : undefined;
 
   return (
     <section
@@ -91,10 +93,16 @@ export function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidg
           <p className="text-table text-fg-muted">
             Unable to load this section. Refresh the page to try again.
           </p>
-        ) : isEmpty ? (
-          <p className="text-table text-fg-subtle">{definition.emptyMessage}</p>
         ) : (
-          <WidgetBody payload={payload} />
+          <>
+            {incomplete ? (
+              <p role="status" className="mb-3 flex items-start gap-2 text-meta text-warning-strong" data-testid="widget-incomplete">
+                <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+                <span>{incomplete}</span>
+              </p>
+            ) : null}
+            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{definition.emptyMessage}</p>) : <WidgetBody payload={payload} />}
+          </>
         )}
       </div>
     </section>

@@ -21,6 +21,7 @@ import {
   ENTITY,
   getMeeting,
   MODULE,
+  readableTaskIds,
   RECORD,
   requireReadableMeeting,
   todayInZone,
@@ -28,7 +29,7 @@ import {
 } from "./meeting.repository";
 import type { ActionListQuery } from "./meeting.schema";
 import { requireMembers } from "./meeting.service";
-import type { MeetingDetailDTO, MyActionItemDTO } from "./meeting.types";
+import type { ActionCreatedDTO, ActionTaskHandoff, MeetingDetailDTO, MyActionItemDTO } from "./meeting.types";
 
 /**
  * Action items (PRD #40 §53-§62, §106, §107, §168, §213).
@@ -64,60 +65,116 @@ function findAction(meeting: MeetingDetailRow, actionId: string) {
   return action;
 }
 
+/**
+ * Adds an action, and — asked to — hands it to a Task in the same transaction
+ * (AUD-10 §5, §7).
+ *
+ * The action, its history and either the task (with its link) or the owner's
+ * notice commit together. A hand-off the Task service refuses — an assignee
+ * off the project team, a permission the person lacks — is rolled back to a
+ * savepoint, so the action still commits with the owner's own notice, and the
+ * answer says so: "the action was added; the task was not, because …". It is
+ * never an error that suggests nothing was saved, and there is no second
+ * transaction for the notice to go missing in. Anything else — a database
+ * failure, the actor's access revoked — rolls the whole command back.
+ */
 export async function createActionItem(
   context: UserContext,
   meetingId: string,
   input: { title: string; description: string | null; ownerMemberId?: string | null; dueDate?: string | null; createTask: boolean },
-): Promise<MeetingDetailDTO> {
+): Promise<ActionCreatedDTO> {
   const meeting = await requireReadableMeeting(context, meetingId);
   if (meeting.minutesStatus === "FINAL") throw new AccessError("CONFLICT", "These minutes are final. Reopen them to add an action.", { code: "MINUTES_FINAL" });
   if (!canCreateAction(context, meeting)) throw new AccessError("FORBIDDEN", "You cannot add actions to this meeting.");
   if (input.createTask && !canConvertToTask(context, meeting)) throw new AccessError("FORBIDDEN", "You cannot create tasks from this meeting.");
   const ownerMemberId = (await requireOwner(context, input.ownerMemberId)) ?? null;
+  const projectId = input.createTask ? await taskProjectOf(context, meeting) : undefined;
 
-  const action = await prisma.$transaction(async (tx) => {
-    const created = await tx.meetingActionItem.create({
-      data: {
-        companyId: context.companyId,
-        meetingId,
-        title: input.title,
-        description: input.description,
-        ownerMemberId,
-        dueAt: dueAt(input.dueDate) ?? null,
-        createdByMemberId: context.membershipId,
-      },
-      select: { id: true, title: true, ownerMemberId: true },
-    });
-    await recordUserAction(
-      context,
-      { actionKey: AuditAction.MEETING_ACTION_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { ownerMemberId, hasDueDate: Boolean(input.dueDate) } },
-      { tx },
-    );
-    await recordActivity(tx, context, {
-      module: MODULE,
-      entityType: ENTITY,
-      entityId: meetingId,
-      action: "MEETING_ACTION_CREATED",
-      message: ownerMemberId ? "assigned an action" : "added an action",
-      metadata: { actionId: created.id },
-    });
-    // With a task on the way, the task's own assignment notice tells the owner once.
-    if (!input.createTask) await notifyActionAssigned(tx, context, meeting, created);
-    return created;
-  });
+  const taskHandoff = await runInTransaction(
+    "meetings.action.create",
+    async (tx): Promise<ActionTaskHandoff | null> => {
+      const created = await tx.meetingActionItem.create({
+        data: {
+          companyId: context.companyId,
+          meetingId,
+          title: input.title,
+          description: input.description,
+          ownerMemberId,
+          dueAt: dueAt(input.dueDate) ?? null,
+          createdByMemberId: context.membershipId,
+        },
+        select: { id: true, title: true, description: true, status: true, ownerMemberId: true, dueAt: true },
+      });
+      await recordUserAction(
+        context,
+        { actionKey: AuditAction.MEETING_ACTION_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { ownerMemberId, hasDueDate: Boolean(input.dueDate) } },
+        { tx },
+      );
+      await recordActivity(tx, context, {
+        module: MODULE,
+        entityType: ENTITY,
+        entityId: meetingId,
+        action: "MEETING_ACTION_CREATED",
+        message: ownerMemberId ? "assigned an action" : "added an action",
+        metadata: { actionId: created.id },
+      });
+      if (!input.createTask) {
+        await notifyActionAssigned(tx, context, meeting, created);
+        return null;
+      }
 
-  if (input.createTask) {
-    try {
-      await convertActionToTask(context, meetingId, action.id);
-    } catch (error) {
-      // The action stands; the owner still hears about it, and the hand-off can be retried.
-      await prisma.$transaction((tx) => notifyActionAssigned(tx, context, meeting, action));
-      throw error;
-    }
-  }
-  return getMeeting(context, meetingId);
+      await tx.$executeRawUnsafe("SAVEPOINT meeting_action_handoff");
+      try {
+        const taskId = await handOffIn(tx, context, meeting, created, projectId);
+        await tx.$executeRawUnsafe("RELEASE SAVEPOINT meeting_action_handoff");
+        // With a task, the task's own assignment notice tells the owner once (PRD #40 §62).
+        return { created: true, taskId };
+      } catch (error) {
+        if (!(error instanceof AccessError) || error instanceof ConversionLost) throw error;
+        await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT meeting_action_handoff");
+        // No task, so the owner hears about the action itself — in this transaction.
+        await notifyActionAssigned(tx, context, meeting, created);
+        const code = (error.details as { code?: unknown } | undefined)?.code;
+        return { created: false, code: typeof code === "string" ? code : error.code, message: error.message };
+      }
+    },
+    { actor: context },
+  );
+
+  if (taskHandoff?.created) incrementCounter(Metric.MEETING_ACTION_TASK_CREATE);
+  return { ...(await getMeeting(context, meetingId)), taskHandoff };
 }
 
+/** The action row as a change must see it: locked, in this company and meeting (AUD-10 §5, CW-11). */
+type LockedAction = { id: string; title: string; status: MeetingActionItemStatus; ownerMemberId: string | null; dueAt: Date | null; completedAt: Date | null; linkedTaskId: string | null };
+
+async function lockAction(tx: Prisma.TransactionClient, context: UserContext, meetingId: string, actionId: string): Promise<LockedAction> {
+  const rows = await tx.$queryRaw<LockedAction[]>`
+    SELECT "id", "title", "status", "ownerMemberId", "dueAt", "completedAt", "linkedTaskId"
+    FROM "meeting_action_items"
+    WHERE "id" = ${actionId} AND "companyId" = ${context.companyId} AND "meetingId" = ${meetingId}
+    FOR UPDATE`;
+  if (!rows[0]) throw new AccessError("NOT_FOUND");
+  return rows[0];
+}
+
+const followsTask = () => new AccessError("CONFLICT", "This action follows its task. Update the task instead.", { code: "ACTION_FOLLOWS_TASK" });
+
+function sameInstant(a: Date | null, b: Date | null): boolean {
+  return (a?.getTime() ?? null) === (b?.getTime() ?? null);
+}
+
+/**
+ * Edits an action, or moves a standalone one along (PRD #40 §59, AUD-10 §5).
+ *
+ * Decided on the row as locked inside the transaction, not on the page read
+ * before it: two people completing the same action at once write it once, and
+ * only the one who moved it records the completion and tells the organizer
+ * (AUD-10 CW-09). A linked action's status, owner and due date belong to its
+ * Task — changing them here is refused with ACTION_FOLLOWS_TASK, so the action
+ * cannot drift from the task, or bypass the task's own assignee and project
+ * rules (AUD-10 CW-11). Sending the value it already has is not a change.
+ */
 export async function updateActionItem(
   context: UserContext,
   meetingId: string,
@@ -137,39 +194,48 @@ export async function updateActionItem(
     if (!manage) throw new AccessError("FORBIDDEN", "You cannot change this action.");
     if (meeting.minutesStatus === "FINAL") throw new AccessError("CONFLICT", "These minutes are final. Reopen them to change an action.", { code: "MINUTES_FINAL" });
   }
-  if (input.status !== undefined && input.status !== action.status) {
-    if (action.linkedTaskId) {
-      throw new AccessError("CONFLICT", "This action follows its task. Update the task instead.", { code: "ACTION_FOLLOWS_TASK" });
-    }
-    // The owner may move their own action along; anyone else needs to manage actions.
-    if (!manage && !(action.ownerMemberId === context.membershipId && meetingsOpen(context) && meeting.status !== "CANCELLED")) {
-      throw new AccessError("FORBIDDEN", "You cannot change this action.");
-    }
-  }
+  const nextDue = dueAt(input.dueDate);
   const ownerMemberId = await requireOwner(context, input.ownerMemberId);
-  const reassigned = ownerMemberId !== undefined && ownerMemberId !== action.ownerMemberId;
-  const completed = input.status === "DONE" && action.status !== "DONE";
 
-  await prisma.$transaction(async (tx) => {
-    await tx.meetingActionItem.update({
-      where: { id: actionId },
-      data: {
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(ownerMemberId !== undefined ? { ownerMemberId } : {}),
-        ...(input.dueDate !== undefined ? { dueAt: dueAt(input.dueDate) } : {}),
-        ...(input.status !== undefined ? { status: input.status, completedAt: input.status === "DONE" ? (action.completedAt ?? new Date()) : null } : {}),
-      },
-    });
-    if (reassigned) await notifyActionAssigned(tx, context, meeting, { id: actionId, title: input.title ?? action.title, ownerMemberId: ownerMemberId ?? null });
-    if (completed) {
-      await recordActivity(tx, context, { module: MODULE, entityType: ENTITY, entityId: meetingId, action: "MEETING_ACTION_COMPLETED", message: "completed an action", metadata: { actionId } });
-      await notifyActionCompleted(tx, context, meeting, { id: actionId, title: action.title });
-    }
-    if (input.status === "DONE" || input.status === "CANCELLED" || input.dueDate !== undefined) {
-      await resolveAttentionForRecord(tx, context.companyId, RECORD, meetingId, ["MEETING_ACTION_OVERDUE"]);
-    }
-  });
+  await runInTransaction(
+    "meetings.action.update",
+    async (tx) => {
+      const locked = await lockAction(tx, context, meetingId, actionId);
+      if (!manage && locked.ownerMemberId !== context.membershipId) throw new AccessError("FORBIDDEN", "You cannot change this action.");
+
+      const statusChange = input.status !== undefined && input.status !== locked.status;
+      const ownerChange = ownerMemberId !== undefined && ownerMemberId !== locked.ownerMemberId;
+      const dueChange = nextDue !== undefined && !sameInstant(nextDue, locked.dueAt);
+      if (locked.linkedTaskId && (statusChange || ownerChange || dueChange)) throw followsTask();
+      if (statusChange) {
+        // The owner may move their own action along; anyone else needs to manage actions.
+        if (!manage && !(locked.ownerMemberId === context.membershipId && meetingsOpen(context) && meeting.status !== "CANCELLED")) {
+          throw new AccessError("FORBIDDEN", "You cannot change this action.");
+        }
+      }
+      const completed = input.status === "DONE" && locked.status !== "DONE";
+
+      await tx.meetingActionItem.updateMany({
+        where: { id: actionId, companyId: context.companyId, meetingId },
+        data: {
+          ...(input.title !== undefined ? { title: input.title } : {}),
+          ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(ownerChange ? { ownerMemberId } : {}),
+          ...(dueChange ? { dueAt: nextDue } : {}),
+          ...(statusChange ? { status: input.status, completedAt: input.status === "DONE" ? (locked.completedAt ?? new Date()) : null } : {}),
+        },
+      });
+      if (ownerChange) await notifyActionAssigned(tx, context, meeting, { id: actionId, title: input.title ?? locked.title, ownerMemberId: ownerMemberId ?? null });
+      if (completed) {
+        await recordActivity(tx, context, { module: MODULE, entityType: ENTITY, entityId: meetingId, action: "MEETING_ACTION_COMPLETED", message: "completed an action", metadata: { actionId } });
+        await notifyActionCompleted(tx, context, meeting, { id: actionId, title: locked.title });
+      }
+      if (statusChange && (input.status === "DONE" || input.status === "CANCELLED") || dueChange) {
+        await resolveAttentionForRecord(tx, context.companyId, RECORD, meetingId, ["MEETING_ACTION_OVERDUE"]);
+      }
+    },
+    { actor: context },
+  );
   return getMeeting(context, meetingId);
 }
 
@@ -177,56 +243,126 @@ export async function completeActionItem(context: UserContext, meetingId: string
   return updateActionItem(context, meetingId, actionId, { status: "DONE" });
 }
 
+/** The meeting's project, when the caller can put work on it. */
+async function taskProjectOf(context: UserContext, meeting: MeetingDetailRow): Promise<string | undefined> {
+  return meeting.projectId && canAccessModule(context, "projects") && (await canAccessProject(context, meeting.projectId)) ? meeting.projectId : undefined;
+}
+
 /**
- * Action → Task (PRD #40 §56-§61, §180). One task per action, ever.
- *
- * The task and the link commit together (PRD #48 §145): the link is claimed
- * with a conditional write, and the loser of a race rolls the transaction back
- * — so a task no action points at is never created in the first place, rather
- * than created and then archived (PRD #48 §22, §146). Meetings does not write
- * the task itself; Tasks owns that row and is given this transaction to write
- * it in (PRD #48 §75).
+ * The action's claim was lost inside the transaction: somebody linked,
+ * closed, reassigned or re-dated it at the same moment. Thrown to roll the
+ * new task back; the caller then answers from the action as it now is.
  */
-export async function convertActionToTask(context: UserContext, meetingId: string, actionId: string): Promise<MeetingDetailDTO> {
+class ConversionLost extends AccessError {
+  constructor() {
+    super("CONFLICT", "This action changed while its task was being created. Nothing was saved; try again.", { code: "ACTION_CHANGED" });
+  }
+}
+
+/**
+ * The task for an action, and the link to it, in the caller's transaction
+ * (PRD #48 §145, AUD-10 §5, CW-07).
+ *
+ * Tasks writes the task with its own rules; the link is then claimed with a
+ * conditional write on everything the task was copied from — still unlinked,
+ * still in the status, owner and due date read — so a concurrent conversion,
+ * cancellation, completion or reassignment makes this one roll back rather
+ * than link a task built from a stale action. The action row is locked last,
+ * after the task, in AUD-02's lock order.
+ */
+async function handOffIn(
+  tx: Prisma.TransactionClient,
+  context: UserContext,
+  meeting: MeetingDetailRow,
+  action: { id: string; title: string; description: string | null; status: MeetingActionItemStatus; ownerMemberId: string | null; dueAt: Date | null },
+  projectId: string | undefined,
+): Promise<string> {
+  const created = await createTaskFromContextIn(tx, context, {
+    title: action.title.length >= 2 ? action.title : `${action.title} (action)`,
+    description: action.description ?? undefined,
+    projectId,
+    assigneeMemberId: action.ownerMemberId ?? undefined,
+    status: action.status === "IN_PROGRESS" ? "IN_PROGRESS" : "TODO",
+    priority: "MEDIUM",
+    dueDate: action.dueAt ?? undefined,
+    startDate: undefined,
+    parentType: RECORD,
+    parentId: meeting.id,
+  });
+
+  const claimed = await tx.meetingActionItem.updateMany({
+    where: {
+      id: action.id,
+      companyId: context.companyId,
+      meetingId: meeting.id,
+      linkedTaskId: null,
+      status: { in: OPEN, equals: action.status },
+      ownerMemberId: action.ownerMemberId,
+      dueAt: action.dueAt,
+    },
+    data: { linkedTaskId: created.id },
+  });
+  if (claimed.count === 0) throw new ConversionLost();
+
+  await recordUserAction(
+    context,
+    { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, entity: { type: ENTITY, id: meeting.id }, projectId: meeting.projectId, metadata: { actionId: action.id, taskId: created.id } },
+    { tx },
+  );
+  return created.id;
+}
+
+export type ActionConversion = { meeting: MeetingDetailDTO; taskId: string; created: boolean };
+
+/**
+ * An action that already has its task (AUD-10 §5, CW-07): the retry of a
+ * finished conversion answers with that task when the caller may open it —
+ * the same canonical task, not a second one and not an error. Somebody who
+ * may not open it is told only that the action has a task, never its name.
+ */
+async function existingConversion(context: UserContext, meetingId: string, taskId: string): Promise<ActionConversion> {
+  if (!(await readableTaskIds(context, [taskId])).has(taskId)) {
+    throw new AccessError("CONFLICT", "This action already has a task.", { code: "ACTION_ALREADY_CONVERTED" });
+  }
+  return { meeting: await getMeeting(context, meetingId), taskId, created: false };
+}
+
+const actionClosed = () => new AccessError("CONFLICT", "Only an open action can become a task.", { code: "ACTION_CLOSED" });
+
+/**
+ * Action → Task (PRD #40 §56-§61, §180, AUD-10 §5). One task per action, ever.
+ *
+ * The task and the link commit together (PRD #48 §145): the loser of a race
+ * rolls its task back — so a task no action points at is never created in the
+ * first place (PRD #48 §22, §146) — and then answers like a retry: the
+ * winner's task, when the caller may open it (CW-07). The actor is re-read at
+ * the commit boundary (AUD-06 RP-16), and the action's state is rechecked in
+ * the claim itself, so a cancelled or completed action never gets a task.
+ */
+export async function convertActionToTask(context: UserContext, meetingId: string, actionId: string): Promise<ActionConversion> {
   const meeting = await requireReadableMeeting(context, meetingId);
   const action = findAction(meeting, actionId);
   if (!canConvertToTask(context, meeting)) throw new AccessError("FORBIDDEN", "You cannot create tasks from this meeting.");
-  if (action.linkedTaskId) throw new AccessError("CONFLICT", "This action already has a task.", { code: "ACTION_ALREADY_CONVERTED" });
-  if (action.status === "DONE" || action.status === "CANCELLED") {
-    throw new AccessError("CONFLICT", "Only an open action can become a task.", { code: "ACTION_CLOSED" });
+  if (action.linkedTaskId) return existingConversion(context, meetingId, action.linkedTaskId);
+  if (action.status === "DONE" || action.status === "CANCELLED") throw actionClosed();
+
+  const projectId = await taskProjectOf(context, meeting);
+  let taskId: string;
+  try {
+    taskId = await runInTransaction("meetings.action.to_task", (tx) => handOffIn(tx, context, meeting, action, projectId), { actor: context });
+  } catch (error) {
+    if (!(error instanceof ConversionLost)) throw error;
+    const now = await prisma.meetingActionItem.findFirst({ where: { id: actionId, companyId: context.companyId, meetingId }, select: { status: true, linkedTaskId: true } });
+    if (!now) throw new AccessError("NOT_FOUND");
+    if (now.linkedTaskId) return existingConversion(context, meetingId, now.linkedTaskId);
+    if (now.status === "DONE" || now.status === "CANCELLED") throw actionClosed();
+    throw error;
   }
-
-  // The meeting's project, when the caller can put work on it.
-  const projectId = meeting.projectId && canAccessModule(context, "projects") && (await canAccessProject(context, meeting.projectId)) ? meeting.projectId : undefined;
-
-  await runInTransaction("meetings.action.to_task", async (tx) => {
-    const created = await createTaskFromContextIn(tx, context, {
-      title: action.title.length >= 2 ? action.title : `${action.title} (action)`,
-      description: action.description ?? undefined,
-      projectId,
-      assigneeMemberId: action.ownerMemberId ?? undefined,
-      status: action.status === "IN_PROGRESS" ? "IN_PROGRESS" : "TODO",
-      priority: "MEDIUM",
-      dueDate: action.dueAt ?? undefined,
-      startDate: undefined,
-      parentType: RECORD,
-      parentId: meetingId,
-    });
-
-    const result = await tx.meetingActionItem.updateMany({ where: { id: actionId, linkedTaskId: null }, data: { linkedTaskId: created.id } });
-    if (result.count === 0) throw new AccessError("CONFLICT", "This action already has a task.", { code: "ACTION_ALREADY_CONVERTED" });
-
-    await recordUserAction(
-      context,
-      { actionKey: AuditAction.MEETING_ACTION_TASK_CREATED, entity: { type: ENTITY, id: meetingId }, projectId: meeting.projectId, metadata: { actionId, taskId: created.id } },
-      { tx },
-    );
-  });
 
   // The task's watchers — its creator and assignee — were subscribed by the
   // task door inside the same transaction (PRD #38 §33, AUD-02 §8).
   incrementCounter(Metric.MEETING_ACTION_TASK_CREATE);
-  return getMeeting(context, meetingId);
+  return { meeting: await getMeeting(context, meetingId), taskId, created: true };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,4 +1,4 @@
-import type { DocumentStorageStatus } from "@prisma/client";
+import { Prisma, type DocumentStorageStatus, type PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import { logger } from "@/lib/core/observability/logger";
@@ -143,22 +143,23 @@ export async function runStorageCleanup(
        * already points at — a draft revision, a compliance item's evidence — is
        * marked FAILED instead, so the trail survives and that record is not
        * broken, or silently emptied, from under it (PRD #29 §132, §133).
-       * Asked in the delete itself, so a reference is never the wedge that stops
-       * every session after it.
+       *
+       * "Points at" is every table that references a document, read from the
+       * database's own foreign keys rather than a hand-kept list (AUD-10 §6,
+       * gap 14): the list this replaced named four link tables and missed the
+       * rest, so a placeholder a unit, an employment or a project's media
+       * pointed at broke the delete on a Restrict key — the sweep counted a
+       * failure and the placeholder was neither removed nor marked, run after
+       * run — and one a SET NULL key pointed at would have been deleted from
+       * under its record. The document row is locked first: a reference
+       * written concurrently takes a key-share lock on it, so it is either
+       * committed and seen here, or waits until this decision has committed.
        */
       const decision = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "documents" WHERE "id" = ${session.documentId} FOR UPDATE`;
         const history = await tx.activity.count({ where: { entityType: "Document", entityId: session.documentId } });
-        if (history === 0) {
-          const removed = await tx.document.deleteMany({
-            where: {
-              id: session.documentId,
-              storageStatus: { in: IN_FLIGHT },
-              engineeringRevisions: { none: {} },
-              submittalRevisions: { none: {} },
-              transmittalItems: { none: {} },
-              contractorComplianceItems: { none: {} },
-            },
-          });
+        if (history === 0 && !(await documentIsReferenced(tx, session.documentId))) {
+          const removed = await tx.document.deleteMany({ where: { id: session.documentId, storageStatus: { in: IN_FLIGHT } } });
           if (removed.count > 0) return "REMOVED";
         }
         const failed = await tx.document.updateMany({
@@ -251,19 +252,74 @@ async function keyIsServed(storageKey: string): Promise<boolean> {
 
 /** What the removal above would decide, read without deciding it — for a dry run. */
 async function placeholderRemovable(documentId: string): Promise<boolean> {
-  const [history, removable] = await Promise.all([
+  const [history, referenced] = await Promise.all([
     prisma.activity.count({ where: { entityType: "Document", entityId: documentId } }),
-    prisma.document.count({
-      where: {
-        id: documentId,
-        engineeringRevisions: { none: {} },
-        submittalRevisions: { none: {} },
-        transmittalItems: { none: {} },
-        contractorComplianceItems: { none: {} },
-      },
-    }),
+    documentIsReferenced(prisma, documentId),
   ]);
-  return history === 0 && removable > 0;
+  return history === 0 && !referenced;
+}
+
+/** The document's own parts, which go with it: its versions and its upload sessions. */
+const OWN_PARTS = new Set(["document_versions", "document_upload_sessions"]);
+
+/**
+ * References the database holds no foreign key for (AUD-10 gap 13): a daily
+ * log's evidence and a unit publication's frozen snapshot name documents by id.
+ * Checked only where the column exists, so a later migration that adds the key
+ * — or drops the table — leaves this list harmless.
+ */
+const UNCONSTRAINED_REFERENCES: ReadonlyArray<{ table: string; column: string }> = [
+  { table: "daily_log_document_links", column: "documentId" },
+  { table: "unit_publications", column: "salesPlanDocumentId" },
+  { table: "unit_publications", column: "primaryMediaDocumentId" },
+];
+
+let referenceColumns: Promise<Array<{ table: string; column: string }>> | null = null;
+
+/**
+ * Every column outside the document's own parts that names a document id: each
+ * foreign key to `documents`, whatever its delete rule, plus the unconstrained
+ * references above. Read once per process from the catalog.
+ */
+export function documentReferenceColumns(client: PrismaClient | Prisma.TransactionClient = prisma): Promise<Array<{ table: string; column: string }>> {
+  referenceColumns ??= (async () => {
+    const constrained = await client.$queryRaw<Array<{ table: string; column: string }>>`
+      SELECT child.relname AS "table", a.attname AS "column"
+      FROM pg_constraint c
+      JOIN pg_class child ON child.oid = c.conrelid
+      CROSS JOIN LATERAL unnest(c.conkey, c.confkey) AS k(child_attnum, parent_attnum)
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.child_attnum
+      JOIN pg_attribute p ON p.attrelid = c.confrelid AND p.attnum = k.parent_attnum
+      WHERE c.contype = 'f' AND c.confrelid = 'documents'::regclass AND p.attname = 'id'`;
+    const existing = await client.$queryRaw<Array<{ table: string; column: string }>>`
+      SELECT table_name AS "table", column_name AS "column" FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND (table_name, column_name) IN (${Prisma.join(UNCONSTRAINED_REFERENCES.map((ref) => Prisma.sql`(${ref.table}, ${ref.column})`))})`;
+    const seen = new Set<string>();
+    return [...constrained, ...existing].filter((ref) => {
+      const key = `${ref.table}.${ref.column}`;
+      if (OWN_PARTS.has(ref.table) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => `${a.table}.${a.column}`.localeCompare(`${b.table}.${b.column}`));
+  })().catch((error) => {
+    referenceColumns = null;
+    throw error;
+  });
+  return referenceColumns;
+}
+
+const quoteIdentifier = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
+
+/** Whether any record other than the document's own parts names this document. One statement. */
+export async function documentIsReferenced(client: PrismaClient | Prisma.TransactionClient, documentId: string): Promise<boolean> {
+  const columns = await documentReferenceColumns(client);
+  if (columns.length === 0) return false;
+  const probes = columns.map(
+    (ref) => Prisma.sql`EXISTS (SELECT 1 FROM ${Prisma.raw(quoteIdentifier(ref.table))} WHERE ${Prisma.raw(quoteIdentifier(ref.column))} = ${documentId})`,
+  );
+  const [row] = await client.$queryRaw<Array<{ referenced: boolean }>>`SELECT (${Prisma.join(probes, " OR ")}) AS "referenced"`;
+  return row?.referenced === true;
 }
 
 /**

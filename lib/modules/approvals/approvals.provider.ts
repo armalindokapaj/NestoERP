@@ -115,7 +115,11 @@ export function dateRange(query: Pick<ProviderQuery, "from" | "to">): { gte?: Da
   };
 }
 
-export function approvalError(code: string, message: string, status: "CONFLICT" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_ERROR" = "CONFLICT"): AccessError {
+export function approvalError(
+  code: string,
+  message: string,
+  status: "CONFLICT" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_ERROR" | "TEMPORARILY_UNAVAILABLE" = "CONFLICT",
+): AccessError {
   return new AccessError(status, message, { code });
 }
 
@@ -131,9 +135,37 @@ export const providerUnavailable = (message = "This approval's module is not ava
   new AccessError("NOT_FOUND", message, { code: "APPROVAL_PROVIDER_UNAVAILABLE" }, "MODULE_DISABLED");
 
 /**
+ * The module codes that mean exactly "this cycle is no longer pending" — and
+ * nothing else (AUD-10 §4, A9). A module conflict that is not one of these (a
+ * sale whose reservation ended, a record another change moved on) is reported as
+ * what it is, never re-worded into "already decided".
+ */
+export const ALREADY_DECIDED_CODES: ReadonlySet<string> = new Set([
+  "APPROVAL_DECIDED",
+  "APPROVAL_ALREADY_DECIDED",
+  "NO_PENDING_APPROVAL",
+  "NOT_PENDING",
+  "TIMESHEET_ALREADY_DECIDED",
+]);
+
+/** A module conflict the Center passes on in the module's own words, under one stable code when it had none. */
+export const SOURCE_CONFLICT = "APPROVAL_SOURCE_CONFLICT";
+
+function passOnConflict(error: AccessError, detailCode: string | undefined): never {
+  if (detailCode) throw error;
+  throw new AccessError("CONFLICT", error.message, { ...((error.details as object | undefined) ?? {}), code: SOURCE_CONFLICT }, error.reason);
+}
+
+/**
  * Translates what a module's service refused into the Center's error
  * vocabulary (§193, §194), keeping the module's own words where they are the
  * clearer answer.
+ *
+ * A conflict becomes "already decided" only for the module codes that say so
+ * (AUD-10 §4, A9): a conflict without a code, or with any other code, is the
+ * module's own answer and is passed on — never guessed from its wording. A
+ * provider that can re-read the cycle uses `translateDecisionError`, which asks
+ * the database instead of the message.
  */
 export function translateSourceError(error: unknown): never {
   if (error instanceof AccessError) {
@@ -144,16 +176,48 @@ export function translateSourceError(error: unknown): never {
       throw approvalError(detailCode?.startsWith("APPROVAL_") ? detailCode : "APPROVAL_FORBIDDEN", error.message === "You do not have permission to perform this action." ? "You cannot decide this approval." : error.message, "FORBIDDEN");
     }
     if (error.code === "CONFLICT") {
-      if (detailCode === "APPROVAL_SOURCE_CHANGED") throw error;
-      if (!detailCode || ["APPROVAL_DECIDED", "NO_PENDING_APPROVAL", "APPROVAL_ALREADY_DECIDED"].includes(detailCode) || /already|not waiting|no decision/i.test(error.message)) {
-        throw approvalError("APPROVAL_ALREADY_DECIDED", "This approval was already decided.");
-      }
-      throw error;
+      if (detailCode && ALREADY_DECIDED_CODES.has(detailCode)) throw approvalError("APPROVAL_ALREADY_DECIDED", "This approval was already decided.");
+      passOnConflict(error, detailCode);
     }
     if (error.code === "NOT_FOUND") throw approvalError("APPROVAL_NOT_FOUND", "You no longer have access to this approval.", "NOT_FOUND");
     if (error.code === "MODULE_UNAVAILABLE") throw providerUnavailable("This approval's module is switched off.");
   }
   throw error;
+}
+
+/**
+ * The cycle's state after a module refused a decision, read from the module's
+ * own approval row rather than inferred from the refusal's wording (AUD-10 §4, A9).
+ */
+export type CycleAfterRefusal = { status: string; decidedByMemberId: string | null; newerPending: boolean } | null;
+
+/**
+ * `translateSourceError` for a provider that can re-read its cycle.
+ *
+ * A module conflict without an "already decided" code is checked against the
+ * row: if the cycle is still pending, the conflict is the module's own and is
+ * passed on (a stale reservation, a record that moved); if it closed meanwhile,
+ * the truthful answer is that it was decided — or, when a newer cycle is
+ * pending, that the request was resubmitted.
+ */
+export async function translateDecisionError(error: unknown, reread: () => Promise<CycleAfterRefusal>): Promise<never> {
+  if (error instanceof AccessError && error.code === "CONFLICT") {
+    const detailCode = (error.details as { code?: string } | undefined)?.code;
+    // The guard's own answers are already exact (resubmitted, moved step, ambiguous).
+    if (detailCode?.startsWith("APPROVAL_") && !ALREADY_DECIDED_CODES.has(detailCode)) throw error;
+    const after = await reread();
+    if (after && after.status !== "PENDING") {
+      if (after.newerPending) throw approvalError("APPROVAL_SOURCE_CHANGED", "This request was resubmitted since you opened it. Review the latest version.");
+      throw approvalError("APPROVAL_ALREADY_DECIDED", "This approval was already decided.");
+    }
+    // Still pending, yet the module says what the reviewer saw was decided: a step of it was,
+    // and the cycle moved on to the next one.
+    if (after && detailCode && ALREADY_DECIDED_CODES.has(detailCode)) {
+      throw approvalError("APPROVAL_SOURCE_CHANGED", "This approval moved on since you opened it. Review the latest version.");
+    }
+    passOnConflict(error, detailCode);
+  }
+  translateSourceError(error);
 }
 
 /** Names for the members an approval list mentions, in one query. */

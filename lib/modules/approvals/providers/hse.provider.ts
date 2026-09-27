@@ -37,6 +37,12 @@ export const hseApprovalProvider = createCycleProvider({
       canApprove: (context) => hseApprovals.canApproveType(context, "INSPECTION"),
       canReject: (context) => hseApprovals.canRejectType(context, "INSPECTION"),
       selfPermission: "hse.approval.self",
+      // HSE bars whoever carried the inspection out, as well as its submitter (inspection.service approve/reject; AUD-10 A8).
+      async excludedDeciders(companyId, ids) {
+        const rows = await prisma.hseInspection.findMany({ where: { companyId, id: { in: ids }, executedByMemberId: { not: null } }, select: { id: true, executedByMemberId: true } });
+        return new Map(rows.map((row) => [row.id, [row.executedByMemberId!]]));
+      },
+      excludedReason: "You carried out this inspection, so somebody else decides it.",
       reason: "A submitted safety inspection is approved before its findings are final.",
       async match(context, filters) {
         if (excludesAmountFilter(filters)) return [];
@@ -157,6 +163,12 @@ export const hseApprovalProvider = createCycleProvider({
       canApprove: (context) => hseApprovals.canApproveType(context, "WORK_PERMIT"),
       canReject: (context) => hseApprovals.canRejectType(context, "WORK_PERMIT"),
       selfPermission: "hse.approval.self",
+      // HSE bars whoever requested the permit, as well as its submitter (permit.service approve/reject; AUD-10 A8).
+      async excludedDeciders(companyId, ids) {
+        const rows = await prisma.hseWorkPermit.findMany({ where: { companyId, id: { in: ids } }, select: { id: true, requestedByMemberId: true } });
+        return new Map(rows.flatMap((row): Array<[string, string[]]> => (row.requestedByMemberId ? [[row.id, [row.requestedByMemberId]]] : [])));
+      },
+      excludedReason: "You requested this permit, so somebody else decides it.",
       reason: "Hazardous work starts only under an approved permit.",
       async match(context, filters) {
         if (excludesAmountFilter(filters)) return [];

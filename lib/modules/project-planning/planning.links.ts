@@ -7,11 +7,13 @@ import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
 import { readableDailyLogWhere } from "@/lib/modules/daily-logs/daily-log.permissions";
 import { readableMeetingWhere } from "@/lib/modules/meetings/meeting.permissions";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
-import { createTaskFromContext } from "@/lib/modules/tasks/task.service";
+import { createTaskFromContextIn } from "@/lib/modules/tasks/task.service";
+import { assertMilestoneLive } from "./planning.blockers";
 import { dateLabel, dateOf } from "./planning.dates";
 import { wouldCreateCycle } from "./planning.graph";
 import { RECORD, RECORD_LINK_TYPE } from "./planning.permissions";
@@ -67,21 +69,34 @@ export async function unlinkTask(context: UserContext, milestoneId: string, task
   if (!removed.count) throw fail("MILESTONE_LINK_NOT_FOUND", "That task is not linked to this milestone.", "NOT_FOUND");
 }
 
-/** `+ Create Task` (§55): the task service creates it with the milestone as parent, then it is linked. */
+/**
+ * `+ Create Task` (§55): the task service creates it with the milestone as
+ * parent, and it is linked — in one transaction (AUD-10 §7, CW-12), so a link
+ * that fails to save leaves no unlinked task behind. The actor and the
+ * milestone are re-read at the commit boundary.
+ */
 export async function createTaskFromMilestone(context: UserContext, milestoneId: string, input: z.infer<typeof createTaskFromMilestoneSchema>): Promise<{ taskId: string; href: string }> {
   const milestone = await findReadableMilestone(context, milestoneId);
   assertEditable(context, milestone);
-  const task = await createTaskFromContext(context, {
-    ...createTaskSchema.parse({ title: input.title, description: input.description ?? undefined, projectId: milestone.projectId, assigneeMemberId: input.assigneeMemberId ?? undefined, status: "TODO", priority: input.priority, dueDate: input.dueDate ?? undefined }),
-    parentType: RECORD,
-    parentId: milestone.id,
-  });
-  await prisma.projectMilestoneTaskLink.upsert({
-    where: { milestoneId_taskId: { milestoneId: milestone.id, taskId: task.id } },
-    create: { companyId: context.companyId, milestoneId: milestone.id, taskId: task.id, linkType: input.linkType, createdByMemberId: context.membershipId },
-    update: { linkType: input.linkType },
-  });
-  return { taskId: task.id, href: `/tasks/${task.id}` };
+  return runInTransaction(
+    "planning.milestone.task.create",
+    async (tx) => {
+      await assertMilestoneLive(tx, context, milestone.id);
+      const task = await createTaskFromContextIn(tx, context, {
+        ...createTaskSchema.parse({ title: input.title, description: input.description ?? undefined, projectId: milestone.projectId, assigneeMemberId: input.assigneeMemberId ?? undefined, status: "TODO", priority: input.priority, dueDate: input.dueDate ?? undefined }),
+        parentType: RECORD,
+        parentId: milestone.id,
+      });
+      await tx.projectMilestoneTaskLink.upsert({
+        where: { milestoneId_taskId: { milestoneId: milestone.id, taskId: task.id } },
+        create: { companyId: context.companyId, milestoneId: milestone.id, taskId: task.id, linkType: input.linkType, createdByMemberId: context.membershipId },
+        update: { linkType: input.linkType },
+      });
+      await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_UPDATED, entity: { type: RECORD, id: milestone.id, label: milestone.name }, projectId: milestone.projectId, after: { taskId: task.id, linkType: input.linkType } }, { tx });
+      return { taskId: task.id, href: `/tasks/${task.id}` };
+    },
+    { actor: context },
+  );
 }
 
 /* -------------------------------------------------------------------------- */

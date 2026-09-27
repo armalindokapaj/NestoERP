@@ -20,6 +20,7 @@ import {
 } from "@/lib/modules/contracts/contracts/contract.schema";
 import { obligationListQuerySchema } from "@/lib/modules/contracts/obligations/obligation.schema";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, demoEmail, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * Legal / Contracts authorisation and lifecycle tests (PRD #18 §419–§450).
@@ -522,7 +523,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
   it("blocks self-approval (PRD #18 §116, §423)", async () => {
     // contract_012's approval was submitted by Legal in the seed.
     const legal = await legalFor(SEED.pendingApproval);
-    await expect(contracts.approveContract(legal, SEED.pendingApproval, null)).rejects.toBeInstanceOf(
+    await expect(contracts.approveContract(legal, SEED.pendingApproval, null, await shownCycle("contracts", SEED.pendingApproval))).rejects.toBeInstanceOf(
       AccessError,
     );
   });
@@ -548,11 +549,11 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
     await rememberContract(SEED.pendingApproval);
     touchedApprovals.push({ id: "contract_approval_001" });
 
-    await contracts.approveContract(ceo, SEED.pendingApproval, "Agreed.");
+    await contracts.approveContract(ceo, SEED.pendingApproval, "Agreed.", await shownCycle("contracts", SEED.pendingApproval));
     expect((await contracts.getContract(ceo, SEED.pendingApproval)).status).toBe("APPROVED");
 
     // A second decision on a settled cycle is refused rather than recorded twice.
-    await expect(contracts.approveContract(ceo, SEED.pendingApproval, null)).rejects.toBeInstanceOf(
+    await expect(contracts.approveContract(ceo, SEED.pendingApproval, null, await shownCycle("contracts", SEED.pendingApproval))).rejects.toBeInstanceOf(
       AccessError,
     );
   });
@@ -566,7 +567,7 @@ describe("contract lifecycle (PRD #18 §108–§135, §422–§427)", () => {
     expect(contractReasonSchema.safeParse({ note: "" }).success).toBe(false);
     expect(contractReasonSchema.safeParse({ note: "  " }).success).toBe(false);
 
-    await contracts.rejectContract(ceo, SEED.pendingApproval2, "Liability cap is unacceptable.");
+    await contracts.rejectContract(ceo, SEED.pendingApproval2, "Liability cap is unacceptable.", await shownCycle("contracts", SEED.pendingApproval2));
     const rejected = await contracts.getContract(ceo, SEED.pendingApproval2);
     // Back to review rather than to draft: a rejected approval does not undo
     // the reviewer's work (PRD #18 §114).
@@ -850,7 +851,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
     created.amendments.push(amendment.id);
 
     await amendments.submitAmendment(legal, amendment.id);
-    await amendments.approveAmendment(ceo, amendment.id, "Agreed.");
+    await amendments.approveAmendment(ceo, amendment.id, "Agreed.", await shownCycle("contracts", amendment.id));
     await amendments.markAmendmentSent(legal, amendment.id);
     await amendments.markAmendmentSigned(legal, amendment.id, { signedDate: new Date() });
     await amendments.activateAmendment(legal, amendment.id);
@@ -886,7 +887,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
     created.amendments.push(amendment.id);
 
     await amendments.submitAmendment(legal, amendment.id);
-    await amendments.approveAmendment(ceo, amendment.id, null);
+    await amendments.approveAmendment(ceo, amendment.id, null, await shownCycle("contracts", amendment.id));
     await amendments.markAmendmentSent(legal, amendment.id);
     await amendments.markAmendmentSigned(legal, amendment.id, { signedDate: new Date() });
     await amendments.activateAmendment(legal, amendment.id);
@@ -907,7 +908,7 @@ describe("contract amendments (PRD #18 §159–§180, §432–§435)", () => {
     created.amendments.push(amendment.id);
 
     await amendments.submitAmendment(legal, amendment.id);
-    await expect(amendments.approveAmendment(legal, amendment.id, null)).rejects.toBeInstanceOf(
+    await expect(amendments.approveAmendment(legal, amendment.id, null, await shownCycle("contracts", amendment.id))).rejects.toBeInstanceOf(
       AccessError,
     );
   });

@@ -482,7 +482,7 @@ export async function approveBudget(
   context: UserContext,
   budgetId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "BUDGET");
@@ -490,6 +490,15 @@ export async function approveBudget(
   const existing = await requireBudget(context, budgetId);
 
   await prisma.$transaction(async (tx) => {
+    // One approval per project at a time (AUD-10 §4, A12). Two versions of a
+    // project's budget approved at the same moment would otherwise each stand
+    // the other down from a snapshot that cannot see it, and the second would
+    // hit `project_budget_one_current` as a raw unique violation. Serialised,
+    // the later approval sees the earlier one's current budget and replaces it.
+    // An advisory lock rather than the project row, so this takes no part in
+    // the task/project lock order (AUD-02 §5).
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`project_budget_current:${existing.projectId}`}))`;
+
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
     approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
 
@@ -552,7 +561,7 @@ export async function rejectBudget(
   context: UserContext,
   budgetId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "BUDGET");
@@ -586,7 +595,7 @@ export async function returnBudget(
   context: UserContext,
   budgetId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "BUDGET");

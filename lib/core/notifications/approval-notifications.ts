@@ -29,13 +29,19 @@ type ApprovalRecord = {
   noun: string;
   /** The module's approval row — the cycle (PRD #41 §52). */
   approvalId?: string;
+  /**
+   * The Approvals Center source that owns the cycle, where the module alone does
+   * not say: Projects decides both a unit's publishing ("projects") and its sale
+   * ("unit_sales") on the same record type (AUD-10 §4, A7).
+   */
+  providerKey?: string;
 };
 
 /** The Approvals Center provider that presents a module's approvals. */
 const PROVIDER_FOR_MODULE: Partial<Record<ModuleKey, string>> = { contracts: "legal" };
 
-function providerKeyFor(moduleKey: ModuleKey): string {
-  return PROVIDER_FOR_MODULE[moduleKey] ?? moduleKey;
+function providerKeyFor(record: Pick<ApprovalRecord, "moduleKey" | "providerKey">): string {
+  return record.providerKey ?? PROVIDER_FOR_MODULE[record.moduleKey] ?? record.moduleKey;
 }
 
 /** Conditions an open approval raises; a decision ends all of them at once (PRD #41 §227). */
@@ -81,6 +87,8 @@ export async function notifyApprovalRequested(
       ...(record.step ? { stepLabel: record.step.label, stepNumber: record.step.number, totalSteps: record.step.total } : {}),
       ...(record.recipientMemberIds?.length ? { recipientMemberIds: record.recipientMemberIds } : {}),
       ...(record.excludeMemberIds?.length ? { excludeMemberIds: record.excludeMemberIds } : {}),
+      // Which Center source the link opens, where the record type alone is ambiguous (AUD-10 A7).
+      ...(record.providerKey ? { providerKey: record.providerKey } : {}),
     },
   });
 
@@ -93,7 +101,7 @@ export async function notifyApprovalRequested(
       entity: { type: record.recordType, id: record.recordId, label: record.noun },
       after: {
         approvalId: record.approvalId,
-        providerKey: providerKeyFor(record.moduleKey),
+        providerKey: providerKeyFor(record),
         sourceType: record.recordType,
         ...(later ? { step: record.step!.number, stepLabel: record.step!.label } : { steps: record.step?.total ?? 1 }),
       },
@@ -151,7 +159,7 @@ export async function notifyApprovalDecided(
       entity: { type: record.recordType, id: record.recordId, label: record.noun },
       after: {
         approvalId: record.approvalId ?? null,
-        providerKey: providerKeyFor(record.moduleKey),
+        providerKey: providerKeyFor(record),
         sourceType: record.recordType,
         decision: record.decision,
         hasNote: Boolean(record.note?.trim()),
@@ -178,7 +186,7 @@ export async function recordApprovalStepApproved(
       entity: { type: record.recordType, id: record.recordId, label: record.noun },
       after: {
         approvalId: record.approvalId ?? null,
-        providerKey: providerKeyFor(record.moduleKey),
+        providerKey: providerKeyFor(record),
         sourceType: record.recordType,
         step: record.step,
         stepLabel: record.stepLabel,
@@ -203,7 +211,7 @@ export async function recordApprovalCancelled(
     {
       actionKey: AuditAction.APPROVAL_CANCELLED,
       entity: { type: record.recordType, id: record.recordId, label: record.noun },
-      after: { providerKey: providerKeyFor(record.moduleKey), sourceType: record.recordType, count: record.count },
+      after: { providerKey: providerKeyFor(record), sourceType: record.recordType, count: record.count },
     },
     { tx },
   );

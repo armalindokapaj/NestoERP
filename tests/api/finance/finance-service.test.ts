@@ -23,6 +23,7 @@ import {
   parsePaymentQuery,
 } from "@/lib/modules/finance/finance.query";
 import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * Finance authorisation, money and lifecycle tests (PRD #15 §340–§368).
@@ -324,12 +325,12 @@ describe("invoice lifecycle (PRD #15 §343, §344, §346)", () => {
     createdInvoices.push(invoice.id);
 
     // Approval before submission is refused: there is nothing pending.
-    await expectError(invoices.approveInvoice(owner, invoice.id, null), "CONFLICT");
+    await expectError(invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id)), "CONFLICT");
     // Marking a draft as sent skips the whole workflow.
     await expectError(invoices.markInvoiceSent(owner, invoice.id), "VALIDATION_ERROR");
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, "Checked.");
+    await invoices.approveInvoice(owner, invoice.id, "Checked.", await shownCycle("finance", invoice.id));
     await invoices.markInvoiceSent(owner, invoice.id);
 
     const after = await invoices.getInvoice(owner, invoice.id);
@@ -345,7 +346,7 @@ describe("invoice lifecycle (PRD #15 §343, §344, §346)", () => {
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
 
     await expectError(
       invoices.updateInvoice(finance, invoice.id, {
@@ -364,9 +365,9 @@ describe("invoice lifecycle (PRD #15 §343, §344, §346)", () => {
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.rejectInvoice(owner, invoice.id, "The valuation is not agreed.");
+    await invoices.rejectInvoice(owner, invoice.id, "The valuation is not agreed.", await shownCycle("finance", invoice.id));
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
 
     const after = await invoices.getInvoice(owner, invoice.id);
     expect(after.status).toBe("APPROVED");
@@ -401,7 +402,7 @@ describe("approval authority (PRD #15 §18, §19)", () => {
 
     // MANAGE is the top rung of the ladder, and it still does not include
     // approval: the role that raises every invoice does not sign them off.
-    await expectError(invoices.approveInvoice(finance, invoice.id, null), "FORBIDDEN");
+    await expectError(invoices.approveInvoice(finance, invoice.id, null, await shownCycle("finance", invoice.id)), "FORBIDDEN");
     expect(finance.permissions).not.toContain("finance.invoice.approve");
   });
 
@@ -439,7 +440,7 @@ describe("approval authority (PRD #15 §18, §19)", () => {
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(owner, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
 
     const after = await invoices.getInvoice(owner, invoice.id);
     expect(after.status).toBe("APPROVED");
@@ -466,8 +467,8 @@ describe("approval authority (PRD #15 §18, §19)", () => {
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
-    await expectError(invoices.approveInvoice(owner, invoice.id, null), "CONFLICT");
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
+    await expectError(invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id)), "CONFLICT");
   });
 });
 
@@ -493,7 +494,7 @@ describe("payments (PRD #15 §79, §83, §84)", () => {
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
     await invoices.markInvoiceSent(owner, invoice.id);
 
     return invoice;
@@ -780,7 +781,7 @@ describe("budgets (PRD #15 §109–§117)", () => {
     createdBudgets.push(revisionId);
 
     await budgets.submitBudget(finance, revisionId);
-    await budgets.approveBudget(owner, revisionId, null);
+    await budgets.approveBudget(owner, revisionId, null, await shownCycle("finance", revisionId));
 
     const current = await prisma.projectBudget.findMany({
       where: { projectId: "project_c", isCurrent: true },
@@ -895,7 +896,7 @@ describe("commitments (PRD #15 §351)", () => {
     expect(afterDraft.openCommitments).toBe(before.openCommitments);
 
     await commitments.submitCommitment(owner, commitment.id);
-    await commitments.approveCommitment(owner, commitment.id, null);
+    await commitments.approveCommitment(owner, commitment.id, null, await shownCycle("finance", commitment.id));
 
     const afterApproval = await budgets.getProjectFinanceSummary(owner, "project_a");
     expect(Number.parseFloat(afterApproval.openCommitments)).toBeCloseTo(
@@ -1097,7 +1098,7 @@ describe("finance transitions bind the status they were read in (PRD #49 §64)",
     createdInvoices.push(invoice.id);
 
     await invoices.submitInvoice(finance, invoice.id);
-    await invoices.approveInvoice(owner, invoice.id, null);
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
     await invoices.markInvoiceSent(owner, invoice.id);
     const first = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
 
@@ -1123,7 +1124,7 @@ describe("finance transitions bind the status they were read in (PRD #49 §64)",
     createdCommitments.push(commitment.id);
 
     await commitments.submitCommitment(owner, commitment.id);
-    await commitments.approveCommitment(owner, commitment.id, null);
+    await commitments.approveCommitment(owner, commitment.id, null, await shownCycle("finance", commitment.id));
     await commitments.closeCommitment(owner, commitment.id);
     await commitments.closeCommitment(owner, commitment.id);
 

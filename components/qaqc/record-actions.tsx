@@ -26,6 +26,7 @@ import type {
   DefectDetailDTO,
   NcrDetailDTO,
 } from "@/lib/modules/qaqc/qaqc.types";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 
 /* -------------------------------------------------------------------------- */
 /* Defects                                                                     */
@@ -169,7 +170,14 @@ export function DefectActions({ defect }: { defect: DefectDetailDTO }) {
  * the page says which requirement is missing — rather than offering a control
  * that would be refused (§136).
  */
-export function NcrActions({ ncr }: { ncr: NcrDetailDTO }) {
+export function NcrActions({
+  ncr,
+  cycle,
+}: {
+  ncr: NcrDetailDTO;
+  /** The closure approval on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -180,7 +188,7 @@ export function NcrActions({ ncr }: { ncr: NcrDetailDTO }) {
   function run(action: NcrDecision, note: string | null, success: string) {
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
-        const result = await ncrLifecycleAction(ncr.id, action, note);
+        const result = await ncrLifecycleAction(ncr.id, action, note, cycle);
         if (result.ok) {
           setDialog(null);
           toast({ title: success, tone: "success" });

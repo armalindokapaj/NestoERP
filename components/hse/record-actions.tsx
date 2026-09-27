@@ -57,6 +57,7 @@ import type {
   StopWorkDetailDTO,
   ToolboxDetailDTO,
 } from "@/lib/modules/hse/hse.types";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 
 /**
  * The HSE lifecycle controls (PRD #22 §313–§323).
@@ -124,7 +125,14 @@ function SelfApprovalNote({ show, what }: { show: boolean; what: string }) {
 /* Inspection                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function InspectionActions({ inspection }: { inspection: InspectionDetailDTO }) {
+export function InspectionActions({
+  inspection,
+  cycle,
+}: {
+  inspection: InspectionDetailDTO;
+  /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | "close" | "cancel" | null>(null);
   const may = inspection.capabilities;
@@ -157,7 +165,7 @@ export function InspectionActions({ inspection }: { inspection: InspectionDetail
 
       {may.canApprove ? (
         <Button
-          onClick={() => run(() => approveInspectionAction(inspection.id, ""), "Approved.")}
+          onClick={() => run(() => approveInspectionAction(inspection.id, "", cycle), "Approved.")}
           disabled={pending}
         >
           Approve
@@ -193,7 +201,7 @@ export function InspectionActions({ inspection }: { inspection: InspectionDetail
         confirmLabel="Send back"
         pendingLabel="Sending…"
         onReject={(reason) =>
-          run(() => rejectInspectionAction(inspection.id, reason), "Sent back.", () =>
+          run(() => rejectInspectionAction(inspection.id, reason, cycle), "Sent back.", () =>
             setDialog(null),
           )
         }
@@ -328,7 +336,14 @@ export function HazardActions({ hazard }: { hazard: HazardDetailDTO }) {
 /* Incident                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export function IncidentActions({ incident }: { incident: IncidentDetailDTO }) {
+export function IncidentActions({
+  incident,
+  cycle,
+}: {
+  incident: IncidentDetailDTO;
+  /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<
     "submit-close" | "reopen" | "cancel" | null
@@ -377,7 +392,7 @@ export function IncidentActions({ incident }: { incident: IncidentDetailDTO }) {
 
       {may.canClose ? (
         <Button
-          onClick={() => run(() => closeIncidentAction(incident.id, ""), "Incident closed.")}
+          onClick={() => run(() => closeIncidentAction(incident.id, "", cycle), "Incident closed.")}
           disabled={pending}
         >
           Close incident
@@ -453,8 +468,11 @@ export function IncidentActions({ incident }: { incident: IncidentDetailDTO }) {
 
 export function RiskAssessmentActions({
   assessment,
+  cycle,
 }: {
   assessment: RiskAssessmentDetailDTO;
+  /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
 }) {
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | null>(null);
@@ -494,7 +512,7 @@ export function RiskAssessmentActions({
       {may.canApprove ? (
         <Button
           onClick={() =>
-            run(() => approveRiskAssessmentAction(assessment.id, ""), "Approved.")
+            run(() => approveRiskAssessmentAction(assessment.id, "", cycle), "Approved.")
           }
           disabled={pending}
         >
@@ -529,7 +547,7 @@ export function RiskAssessmentActions({
         pendingLabel="Sending…"
         onReject={(reason) =>
           run(
-            () => rejectRiskAssessmentAction(assessment.id, reason),
+            () => rejectRiskAssessmentAction(assessment.id, reason, cycle),
             "Sent back.",
             () => setDialog(null),
           )
@@ -673,7 +691,14 @@ export function HseActionActions({ action }: { action: ActionDetailDTO }) {
 /* Permit                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export function PermitActions({ permit }: { permit: PermitDetailDTO }) {
+export function PermitActions({
+  permit,
+  cycle,
+}: {
+  permit: PermitDetailDTO;
+  /** The approval cycle on screen; its decision controls name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const { run, pending } = useRunner();
   const [dialog, setDialog] = React.useState<"reject" | "suspend" | "cancel" | null>(null);
   const [confirm, setConfirm] = React.useState<"activate" | "close" | null>(null);
@@ -700,7 +725,7 @@ export function PermitActions({ permit }: { permit: PermitDetailDTO }) {
 
       {may.canApprove ? (
         <Button
-          onClick={() => run(() => approvePermitAction(permit.id, ""), "Approved.")}
+          onClick={() => run(() => approvePermitAction(permit.id, "", cycle), "Approved.")}
           disabled={pending}
         >
           Approve
@@ -777,7 +802,7 @@ export function PermitActions({ permit }: { permit: PermitDetailDTO }) {
         confirmLabel="Refuse"
         pendingLabel="Refusing…"
         onReject={(reason) =>
-          run(() => rejectPermitAction(permit.id, reason), "Sent back.", () => setDialog(null))
+          run(() => rejectPermitAction(permit.id, reason, cycle), "Sent back.", () => setDialog(null))
         }
       />
 
