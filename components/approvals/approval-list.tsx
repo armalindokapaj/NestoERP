@@ -7,7 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { ApprovalTab, UnifiedApprovalItem } from "@/lib/modules/approvals/approvals.types";
+import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
+import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 import { DueBadge, formatMoney, PriorityBadge, relativeText, SourceIcon, StatusBadge, waitingText } from "./approval-ui";
 
 /**
@@ -42,6 +44,7 @@ export function ApprovalList({
   group?: boolean;
 }) {
   const refs = React.useRef(new Map<string, HTMLButtonElement>());
+  const t = useApprovalsTranslations();
 
   function onKeyDown(event: React.KeyboardEvent, index: number) {
     const next = event.key === "ArrowDown" || event.key === "j" ? index + 1 : event.key === "ArrowUp" || event.key === "k" ? index - 1 : null;
@@ -53,7 +56,7 @@ export function ApprovalList({
   }
 
   return (
-    <ul className="divide-y divide-line" aria-label="Approvals" data-testid="approval-list">
+    <ul className="divide-y divide-line" aria-label={t("list.label")} data-testid="approval-list">
       {items.map((item, index) => {
         if (group) return <GroupRow key={`${item.company?.id ?? ""}:${item.id}`} item={item} tab={tab} density={density} />;
         const selected = item.id === selectedId;
@@ -95,6 +98,7 @@ export function ApprovalList({
  * opens the source record. Both go through the enter-company step (§31).
  */
 function GroupRow({ item, tab, density }: { item: UnifiedApprovalItem; tab: ApprovalTab; density: Density }) {
+  const t = useApprovalsTranslations();
   const company = item.company;
   const review = `/approvals?approval=${encodeURIComponent(item.id)}`;
   const title = company ? (
@@ -132,7 +136,7 @@ function GroupRow({ item, tab, density }: { item: UnifiedApprovalItem; tab: Appr
                 href={item.href}
                 className="relative z-10 font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline"
               >
-                Open record
+                {t("list.openRecord")}
               </CompanyRecordLink>
             ) : null
           }
@@ -160,15 +164,17 @@ function RowMain({
   /** A link after the meta line, in the Group workspace. */
   extra?: React.ReactNode;
 }) {
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   const amount = formatMoney(item.amount);
   return (
     <span className="min-w-0 flex-1">
       <span className={lead ? "flex flex-wrap items-center gap-x-2 gap-y-1" : "flex items-center gap-2"}>
         {lead}
-        <span className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{item.sourceLabel}</span>
+        <span className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{word(item.sourceLabel)}</span>
         {item.totalSteps ? (
           <span className="text-micro text-fg-subtle">
-            · Step {item.currentStep} of {item.totalSteps}
+            · {t("list.step", { current: item.currentStep ?? "", total: item.totalSteps })}
           </span>
         ) : null}
       </span>
@@ -181,10 +187,10 @@ function RowMain({
             {item.project ? <span className="truncate">{item.project.name}</span> : null}
             {!amount && !item.project && item.subtitle ? <span className="truncate">{item.subtitle}</span> : null}
           </span>
-          <span className="mt-1 block text-meta text-fg-subtle">{rowMeta(item, tab)}</span>
+          <span className="mt-1 block text-meta text-fg-subtle">{rowMeta(item, tab, t)}</span>
         </>
       ) : (
-        <span className="mt-0.5 block truncate text-meta text-fg-subtle">{[amount, item.project?.name, rowMeta(item, tab)].filter(Boolean).join(" · ")}</span>
+        <span className="mt-0.5 block truncate text-meta text-fg-subtle">{[amount, item.project?.name, rowMeta(item, tab, t)].filter(Boolean).join(" · ")}</span>
       )}
       {extra ? <span className="mt-1 block text-meta">{extra}</span> : null}
     </span>
@@ -201,24 +207,27 @@ function RowBadges({ item, tab }: { item: UnifiedApprovalItem; tab: ApprovalTab 
   );
 }
 
-function rowMeta(item: UnifiedApprovalItem, tab: ApprovalTab): string {
+function rowMeta(item: UnifiedApprovalItem, tab: ApprovalTab, t: Translate<"approvals">): string {
+  const now = new Date();
+  const requestedBy = t("list.requestedBy", { name: item.requester.name });
   if (tab === "waiting") {
-    return `Requested by ${item.requester.name} · ${waitingText(item.requestedAt)}${item.onBehalfOf ? ` · for ${item.onBehalfOf.name}` : ""}`;
+    return `${requestedBy} · ${waitingText(item.requestedAt, now, t)}${item.onBehalfOf ? ` · ${t("list.forPerson", { name: item.onBehalfOf.name })}` : ""}`;
   }
   if ((tab === "approved" || tab === "rejected" || tab === "returned") && item.sortAt) {
-    return `Requested by ${item.requester.name} · decided ${relativeText(item.sortAt)}`;
+    return `${requestedBy} · ${t("list.decided", { when: relativeText(item.sortAt, now, t) })}`;
   }
   if (tab === "requested") {
     return item.status === "PENDING"
-      ? `${item.stepLabel ? `With ${item.stepLabel} · ` : ""}${waitingText(item.requestedAt)}`
-      : `${item.decidedBy ? `${item.decidedBy.name} · ` : ""}${item.decidedAt ? relativeText(item.decidedAt) : ""}`;
+      ? `${item.stepLabel ? `${t("list.withStep", { step: item.stepLabel })} · ` : ""}${waitingText(item.requestedAt, now, t)}`
+      : `${item.decidedBy ? `${item.decidedBy.name} · ` : ""}${item.decidedAt ? relativeText(item.decidedAt, now, t) : ""}`;
   }
-  return `Requested by ${item.requester.name} · ${relativeText(item.requestedAt)}`;
+  return `${requestedBy} · ${relativeText(item.requestedAt, now, t)}`;
 }
 
 export function ListSkeleton({ rows = 6 }: { rows?: number }) {
+  const t = useApprovalsTranslations();
   return (
-    <ul className="divide-y divide-line" aria-busy="true" aria-label="Loading approvals">
+    <ul className="divide-y divide-line" aria-busy="true" aria-label={t("list.loading")}>
       {Array.from({ length: rows }, (_, index) => (
         <li key={index} className="flex gap-3 px-5 py-4">
           <Skeleton className="hidden size-9 rounded-lg sm:block" />

@@ -20,6 +20,7 @@ import type {
 import { cn } from "@/lib/utils/cn";
 import { DecisionBar } from "./approval-decision";
 import { useApprovalDraft } from "./approval-drafts";
+import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 import { DueBadge, formatMoney, formatStamp, PersonMark, PlainText, PriorityBadge, SourceIcon, StatusBadge, waitingText } from "./approval-ui";
 
 /**
@@ -51,6 +52,8 @@ export function ApprovalDetailView({
   onClose: () => void;
   variant: "panel" | "sheet";
 }) {
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
@@ -74,7 +77,7 @@ export function ApprovalDetailView({
             </p>
             {variant === "sheet" ? (
               <Button type="button" variant="secondary" onClick={onClose}>
-                Back to the list
+                {t("detail.backToList")}
               </Button>
             ) : null}
           </>
@@ -83,8 +86,8 @@ export function ApprovalDetailView({
             <span className="flex size-12 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
               <FileText aria-hidden="true" className="size-5" />
             </span>
-            <p className="text-body font-medium text-fg">Select an approval to review it</p>
-            <p className="max-w-xs text-table text-fg-muted">What it is, why it needs a decision, its documents and who has decided so far appear here.</p>
+            <p className="text-body font-medium text-fg">{t("detail.selectTitle")}</p>
+            <p className="max-w-xs text-table text-fg-muted">{t("detail.selectBody")}</p>
           </>
         )}
       </div>
@@ -102,17 +105,17 @@ export function ApprovalDetailView({
             {variant === "sheet" ? (
               <Button type="button" variant="ghost" size="sm" className="-ml-2" onClick={onClose}>
                 <ArrowLeft aria-hidden="true" />
-                Approvals
+                {t("title")}
               </Button>
             ) : (
-              <span className="text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">Review</span>
+              <span className="text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("detail.review")}</span>
             )}
             <div className="flex items-center gap-1">
-              <Button type="button" variant="ghost" size="icon-sm" onClick={onReload} aria-label="Reload this approval">
+              <Button type="button" variant="ghost" size="icon-sm" onClick={onReload} aria-label={t("detail.reload")}>
                 <RotateCw aria-hidden="true" className={cn(loading && "animate-spin")} />
               </Button>
               {variant === "panel" ? (
-                <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close review">
+                <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("detail.close")}>
                   <X aria-hidden="true" />
                 </Button>
               ) : null}
@@ -121,7 +124,7 @@ export function ApprovalDetailView({
           <div className="flex items-start gap-3">
             <SourceIcon provider={item.providerKey} className="mt-0.5" />
             <div className="min-w-0 flex-1">
-              <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{item.sourceLabel} approval</p>
+              <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("detail.sourceApproval", { source: word(item.sourceLabel) })}</p>
               <h2 className="mt-1 text-section font-semibold leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
                 {item.title}
               </h2>
@@ -149,7 +152,7 @@ export function ApprovalDetailView({
             <DueBadge item={item} />
             {item.totalSteps ? (
               <Badge tone="neutral">
-                Step {item.currentStep} of {item.totalSteps}
+                {t("detail.step", { current: item.currentStep ?? "", total: item.totalSteps })}
                 {item.stepLabel && item.status === "PENDING" ? ` · ${item.stepLabel}` : ""}
               </Badge>
             ) : null}
@@ -157,14 +160,14 @@ export function ApprovalDetailView({
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-fg-muted">
             <PersonMark name={item.requester.name} />
             <span>
-              Requested by <PersonLink memberId={item.requester.memberId} name={item.requester.name} />
+              {t("detail.requestedBy")} <PersonLink memberId={item.requester.memberId} name={item.requester.name} />
             </span>
             <span aria-hidden="true">·</span>
             <time dateTime={item.requestedAt}>{formatStamp(item.requestedAt)}</time>
             {item.status === "PENDING" ? (
               <>
                 <span aria-hidden="true">·</span>
-                <span>{waitingText(item.requestedAt)}</span>
+                <span>{waitingText(item.requestedAt, new Date(), t)}</span>
               </>
             ) : null}
           </p>
@@ -176,11 +179,11 @@ export function ApprovalDetailView({
               <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
               <div className="min-w-0 flex-1">
                 <p className="text-table font-medium text-fg">{failure.message}</p>
-                {failure.stale ? <p className="mt-0.5 text-meta text-fg-muted">Nothing was decided. Reload to see where it stands now.</p> : null}
+                {failure.stale ? <p className="mt-0.5 text-meta text-fg-muted">{t("detail.staleHint")}</p> : null}
               </div>
               {failure.stale ? (
                 <Button type="button" size="sm" variant="secondary" onClick={onReload}>
-                  Reload
+                  {t("detail.reloadButton")}
                 </Button>
               ) : null}
             </div>
@@ -188,13 +191,14 @@ export function ApprovalDetailView({
 
           {item.onBehalfOf ? (
             <Callout icon={<UserRoundCheck aria-hidden="true" className="size-4" />}>
-              You are standing in for <PersonLink memberId={item.onBehalfOf.memberId} name={item.onBehalfOf.name} />. Your decision is recorded as yours, on their behalf.
+              {t("detail.standingIn")} <PersonLink memberId={item.onBehalfOf.memberId} name={item.onBehalfOf.name} />
+              {t("detail.standingInRest")}
             </Callout>
           ) : null}
 
           {detail.reason ? (
             <section aria-labelledby="why-heading">
-              <SectionHeading id="why-heading">Why approval is needed</SectionHeading>
+              <SectionHeading id="why-heading">{t("detail.why")}</SectionHeading>
               <p className="mt-2 text-body leading-relaxed text-fg-muted">{detail.reason}</p>
             </section>
           ) : null}
@@ -202,7 +206,7 @@ export function ApprovalDetailView({
           {detail.warnings.length > 0 ? <Warnings warnings={detail.warnings} /> : null}
 
           <section aria-labelledby="summary-heading">
-            <SectionHeading id="summary-heading">Summary</SectionHeading>
+            <SectionHeading id="summary-heading">{t("detail.summary")}</SectionHeading>
             {/* One column on the narrowest phones, so a long amount, IBAN or reference is not squeezed into 140px (AUD-04 §5, MW-05). */}
             <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-muted/40 p-4 min-[400px]:grid-cols-2">
               {detail.summary.map((field) => (
@@ -265,22 +269,23 @@ function Callout({ icon, children }: { icon: React.ReactNode; children: React.Re
   );
 }
 
-const WARNING_STYLE: Record<ApprovalWarning["severity"], { box: string; icon: React.ReactNode; label: string }> = {
-  CRITICAL: { box: "border-danger/40 bg-danger-soft", icon: <CircleAlert aria-hidden="true" className="size-4 text-danger-strong" />, label: "Critical" },
-  WARNING: { box: "border-warning/40 bg-warning-soft", icon: <TriangleAlert aria-hidden="true" className="size-4 text-warning-strong" />, label: "Warning" },
-  INFO: { box: "border-line bg-surface-muted", icon: <Info aria-hidden="true" className="size-4 text-fg-subtle" />, label: "Note" },
+const WARNING_STYLE: Record<ApprovalWarning["severity"], { box: string; icon: React.ReactNode; label: "warningCritical" | "warningWarning" | "warningNote" }> = {
+  CRITICAL: { box: "border-danger/40 bg-danger-soft", icon: <CircleAlert aria-hidden="true" className="size-4 text-danger-strong" />, label: "warningCritical" },
+  WARNING: { box: "border-warning/40 bg-warning-soft", icon: <TriangleAlert aria-hidden="true" className="size-4 text-warning-strong" />, label: "warningWarning" },
+  INFO: { box: "border-line bg-surface-muted", icon: <Info aria-hidden="true" className="size-4 text-fg-subtle" />, label: "warningNote" },
 };
 
 function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
+  const t = useApprovalsTranslations();
   return (
-    <section aria-label="Warnings" className="space-y-2" data-testid="approval-warnings">
+    <section aria-label={t("detail.warnings")} className="space-y-2" data-testid="approval-warnings">
       {warnings.map((warning) => {
         const style = WARNING_STYLE[warning.severity];
         return (
           <div key={warning.code} className={cn("flex items-start gap-3 rounded-xl border px-4 py-2.5", style.box)}>
             <span className="mt-0.5">{style.icon}</span>
             <p className="text-table text-fg">
-              <span className="sr-only">{style.label}: </span>
+              <span className="sr-only">{t(`detail.${style.label}`)}: </span>
               {warning.message}
             </p>
           </div>
@@ -290,22 +295,13 @@ function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
   );
 }
 
-const STEP_TEXT: Record<ApprovalStepDTO["status"], string> = {
-  PENDING: "Pending",
-  WAITING: "Waiting",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  RETURNED: "Returned",
-  SKIPPED: "Skipped",
-  CANCELLED: "Not reached",
-};
-
 function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprovalDetail["chainMode"] }) {
+  const t = useApprovalsTranslations();
   const parallel = mode === "PARALLEL";
   return (
     <section aria-labelledby="steps-heading">
-      <SectionHeading id="steps-heading" trailing={<span className="text-meta text-fg-subtle">{parallel ? "Every reviewer must approve" : "In order"}</span>}>
-        {parallel ? "Reviewers" : "Approval chain"}
+      <SectionHeading id="steps-heading" trailing={<span className="text-meta text-fg-subtle">{parallel ? t("detail.everyReviewer") : t("detail.inOrder")}</span>}>
+        {parallel ? t("detail.reviewers") : t("detail.chain")}
       </SectionHeading>
       <ol className="mt-2 divide-y divide-line rounded-xl border border-line" data-testid="approval-steps">
         {steps.map((step) => (
@@ -336,7 +332,7 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
                   <PersonLink memberId={step.decidedByMemberId} name={step.decidedBy} />
                   {step.onBehalfOf ? (
                     <>
-                      {" for "}
+                      {t("detail.for")}
                       <PersonLink memberId={step.onBehalfOfMemberId} name={step.onBehalfOf} />
                     </>
                   ) : null}{" "}
@@ -345,7 +341,7 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
               ) : null}
             </span>
             <span className={cn("text-meta font-medium", step.status === "PENDING" ? "text-accent-strong" : step.status === "APPROVED" ? "text-success-strong" : "text-fg-subtle")}>
-              {STEP_TEXT[step.status]}
+              {t(`stepStatus.${step.status}`)}
             </span>
           </li>
         ))}
@@ -355,22 +351,23 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
 }
 
 function Documents({ documents, available }: { documents: UnifiedApprovalDocumentRef[]; available: boolean }) {
+  const t = useApprovalsTranslations();
   const [previewing, setPreviewing] = useApprovalDraft<string | null>("documents:previewing", null);
   if (!available) {
     return (
       <section aria-labelledby="documents-heading">
-        <SectionHeading id="documents-heading">Supporting documents</SectionHeading>
-        <p className="mt-2 text-table text-fg-subtle">Open the record to see its files, if you have access to them.</p>
+        <SectionHeading id="documents-heading">{t("detail.documents")}</SectionHeading>
+        <p className="mt-2 text-table text-fg-subtle">{t("detail.documentsHidden")}</p>
       </section>
     );
   }
   return (
     <section aria-labelledby="documents-heading">
       <SectionHeading id="documents-heading" trailing={<span className="text-meta tabular-nums text-fg-subtle">{documents.length}</span>}>
-        Supporting documents
+        {t("detail.documents")}
       </SectionHeading>
       {documents.length === 0 ? (
-        <p className="mt-2 text-table text-fg-subtle">No documents on this record.</p>
+        <p className="mt-2 text-table text-fg-subtle">{t("detail.noDocuments")}</p>
       ) : (
         <ul className="mt-2 divide-y divide-line rounded-xl border border-line" data-testid="approval-documents">
           {documents.map((document) => (
@@ -390,13 +387,13 @@ function Documents({ documents, available }: { documents: UnifiedApprovalDocumen
                     size="sm"
                     onClick={() => setPreviewing(previewing === document.id ? null : document.id)}
                     aria-expanded={previewing === document.id}
-                    aria-label={`${previewing === document.id ? "Hide preview of" : "Preview"} ${document.name}`}
+                    aria-label={previewing === document.id ? t("detail.hidePreviewOf", { name: document.name }) : t("detail.previewOf", { name: document.name })}
                   >
                     {previewing === document.id ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                    {previewing === document.id ? "Hide" : "Preview"}
+                    {previewing === document.id ? t("detail.hide") : t("detail.preview")}
                   </Button>
                 ) : null}
-                <Button asChild variant="ghost" size="icon-sm" aria-label={`Open ${document.name}`}>
+                <Button asChild variant="ghost" size="icon-sm" aria-label={t("detail.openName", { name: document.name })}>
                   <Link href={document.href}>
                     <ArrowUpRight aria-hidden="true" />
                   </Link>
@@ -426,6 +423,7 @@ function Documents({ documents, available }: { documents: UnifiedApprovalDocumen
  * preview as well.
  */
 function Preview({ documentId, name }: { documentId: string; name: string }) {
+  const t = useApprovalsTranslations();
   const [grant, setGrant] = React.useState<{ url: string; mimeType: string; kind?: "pdf" | "image" } | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [imageFailed, setImageFailed] = React.useState(false);
@@ -449,7 +447,7 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
   if (failed) {
     return (
       <div className="mt-2 space-y-2 rounded-md bg-surface-muted px-3 py-2" data-testid="approval-preview-fallback">
-        <p className="text-meta text-fg-muted">Preview unavailable. Open the document instead.</p>
+        <p className="text-meta text-fg-muted">{t("detail.previewUnavailable")}</p>
         <PreviewLinks name={name} download={download} />
       </div>
     );
@@ -466,7 +464,7 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
         <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
           {/* A short-lived grant URL: next/image would cache and re-request it. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={grant.url} alt={`Preview of ${name}`} className="mx-auto max-h-[26rem] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="approval-preview" />
+          <img src={grant.url} alt={t("detail.previewImage", { name })} className="mx-auto max-h-[26rem] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="approval-preview" />
         </div>
         <PreviewLinks name={name} open={grant.url} download={download} />
       </div>
@@ -476,8 +474,8 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
     return (
       <div className="mt-2 space-y-2">
         <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
-          <object data={grant.url} type={grant.mimeType} aria-label={`Preview of ${name}`} className="h-[26rem] w-full" data-testid="approval-preview">
-            <p className="p-4 text-table text-fg-muted">This file cannot be previewed here.</p>
+          <object data={grant.url} type={grant.mimeType} aria-label={t("detail.previewImage", { name })} className="h-[26rem] w-full" data-testid="approval-preview">
+            <p className="p-4 text-table text-fg-muted">{t("detail.cannotPreview")}</p>
           </object>
         </div>
         <PreviewLinks name={name} open={grant.url} download={download} />
@@ -487,7 +485,7 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
   return (
     <div className="mt-2 space-y-2 rounded-md border border-line bg-surface-muted px-3 py-3" data-testid="approval-preview-fallback">
       <p className="text-table text-fg-muted">
-        {kind === "image" ? "This image could not be shown here." : "This browser cannot show PDF files inside the page."} Open it in a new tab or download it to read it.
+        {kind === "image" ? t("detail.imageNotShown") : t("detail.pdfNotShown")} {t("detail.openOrDownload")}
       </p>
       <PreviewLinks name={name} open={grant.url} download={download} />
     </div>
@@ -495,20 +493,21 @@ function Preview({ documentId, name }: { documentId: string; name: string }) {
 }
 
 function PreviewLinks({ name, open, download }: { name: string; open?: string; download: string }) {
+  const t = useApprovalsTranslations();
   return (
     <div className="flex flex-wrap gap-2">
       {open ? (
         <Button asChild variant="secondary" size="sm">
-          <a href={open} target="_blank" rel="noopener noreferrer" aria-label={`Open ${name} in a new tab`}>
+          <a href={open} target="_blank" rel="noopener noreferrer" aria-label={t("detail.openNewTab", { name })}>
             <ExternalLink aria-hidden="true" />
-            Open
+            {t("detail.open")}
           </a>
         </Button>
       ) : null}
       <Button asChild variant="secondary" size="sm">
-        <a href={download} download aria-label={`Download ${name}`}>
+        <a href={download} download aria-label={t("detail.downloadName", { name })}>
           <Download aria-hidden="true" />
-          Download
+          {t("detail.download")}
         </a>
       </Button>
     </div>
@@ -524,11 +523,12 @@ const TONE_DOT: Record<UnifiedApprovalHistoryEntry["tone"], string> = {
 };
 
 function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
+  const t = useApprovalsTranslations();
   return (
     <section aria-labelledby="history-heading">
-      <SectionHeading id="history-heading">Approval history</SectionHeading>
+      <SectionHeading id="history-heading">{t("detail.history")}</SectionHeading>
       {entries.length === 0 ? (
-        <p className="mt-2 text-table text-fg-subtle">No history yet.</p>
+        <p className="mt-2 text-table text-fg-subtle">{t("detail.noHistory")}</p>
       ) : (
         <ol className="relative mt-3 space-y-4 pl-5 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-line" data-testid="approval-history">
           {entries.map((entry) => (
@@ -541,7 +541,7 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
                     <PersonLink memberId={entry.actor.memberId} name={entry.actor.name} />
                     {entry.onBehalfOf ? (
                       <>
-                        {", for "}
+                        {t("detail.forComma")}
                         <PersonLink memberId={entry.onBehalfOf.memberId} name={entry.onBehalfOf.name} />
                       </>
                     ) : null}
@@ -562,6 +562,7 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
 
 function Discussion({ parentType, parentId }: { parentType: string; parentId: string }) {
   // Kept open across a rotation between the panel and the sheet (AUD-04 MW-16).
+  const t = useApprovalsTranslations();
   const [open, setOpen] = useApprovalDraft(`discussion:${parentType}:${parentId}`, false);
   return (
     <section aria-labelledby="discussion-heading" className="rounded-xl border border-line">
@@ -574,15 +575,15 @@ function Discussion({ parentType, parentId }: { parentType: string; parentId: st
         <span className="flex items-center gap-2">
           <MessageSquare aria-hidden="true" className="size-4 text-fg-subtle" />
           <span id="discussion-heading" className="text-table font-medium text-fg">
-            Questions and discussion
+            {t("detail.discussion")}
           </span>
         </span>
-        <span className="text-meta text-fg-subtle">{open ? "Hide" : "Show"}</span>
+        <span className="text-meta text-fg-subtle">{open ? t("detail.hide") : t("detail.show")}</span>
       </button>
       {open ? (
         <div className="border-t border-line px-4 py-3">
-          <p className="mb-3 text-meta text-fg-subtle">On the record itself, so everyone working on it sees the same conversation. Decision notes stay in the history above.</p>
-          <CollaborationPanel parentType={parentType} parentId={parentId} title="Discussion" />
+          <p className="mb-3 text-meta text-fg-subtle">{t("detail.discussionNote")}</p>
+          <CollaborationPanel parentType={parentType} parentId={parentId} title={t("detail.discussionTitle")} />
         </div>
       ) : null}
     </section>
@@ -590,12 +591,13 @@ function Discussion({ parentType, parentId }: { parentType: string; parentId: st
 }
 
 function DetailSkeleton({ variant, onClose }: { variant: "panel" | "sheet"; onClose: () => void }) {
+  const t = useApprovalsTranslations();
   return (
-    <div className="space-y-5 px-5 py-5 sm:px-6" role="status" aria-busy="true" aria-label="Loading approval">
+    <div className="space-y-5 px-5 py-5 sm:px-6" role="status" aria-busy="true" aria-label={t("detail.loading")}>
       {variant === "sheet" ? (
         <Button type="button" variant="ghost" size="sm" className="-ml-2" onClick={onClose}>
           <ArrowLeft aria-hidden="true" />
-          Approvals
+          {t("title")}
         </Button>
       ) : null}
       <div className="flex gap-3">

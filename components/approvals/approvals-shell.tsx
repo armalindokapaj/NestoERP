@@ -31,6 +31,7 @@ import { activeFilterCount, EMPTY_FILTERS, FilterChips, FilterDrawer, type Appro
 import { ApprovalList, ListSkeleton, type Density } from "./approval-list";
 import { approvalsApi, approvalsFailureOutcome, failureMessage, isFailure, newIdempotencyKey } from "./approvals-api";
 import { DelegationDialog } from "./delegation-dialog";
+import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 import { HelpEntry } from "@/components/help/help-entry";
 
 /**
@@ -68,15 +69,6 @@ const SORTS: Array<{ key: ApprovalSort; label: string }> = [
 ];
 
 const DEFAULT_SORT: Record<ApprovalTab, ApprovalSort> = { waiting: "urgency", requested: "newest", approved: "newest", rejected: "newest", returned: "newest", history: "newest" };
-
-const EMPTY: Record<ApprovalTab, { title: string; body: string }> = {
-  waiting: { title: "You’re all caught up.", body: "No approvals require your decision." },
-  requested: { title: "No approval requests yet.", body: "What you submit for approval, anywhere in NESTO, is tracked here." },
-  approved: { title: "Nothing approved yet.", body: "Approvals you give appear here." },
-  rejected: { title: "Nothing rejected.", body: "Requests you reject appear here, with your reason." },
-  returned: { title: "Nothing returned.", body: "Requests returned for revision, by you or to you, appear here." },
-  history: { title: "No approvals match.", body: "Try a wider date range or fewer filters." },
-};
 
 export type ApprovalsState = {
   tab: ApprovalTab;
@@ -138,6 +130,9 @@ export function ApprovalsShell({
   // does destroy the review in place asks first, below.
   const router = useRouter();
   const toast = useToast();
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
+  const fail = (failure: unknown, fallback: string) => word(failureMessage(failure, fallback));
   // The review is a side panel from 1024px and a full-screen sheet below it.
   // `undefined` until the browser has answered: neither is drawn then, so a
   // desktop link no longer flashes the sheet first (AUD-04 SP-15, D-08-03).
@@ -159,7 +154,7 @@ export function ApprovalsShell({
   const [selectedId, setSelectedId] = React.useState<string | null>(initialSelection);
   const [detail, setDetail] = React.useState<UnifiedApprovalDetail | null>(initialDetail);
   const [detailLoading, setDetailLoading] = React.useState(false);
-  const [detailFailure, setDetailFailure] = React.useState<{ message: string; stale: boolean } | null>(initialDetailError ? { message: initialDetailError, stale: false } : null);
+  const [detailFailure, setDetailFailure] = React.useState<{ message: string; stale: boolean } | null>(initialDetailError ? { message: word(initialDetailError), stale: false } : null);
   const [pending, setPending] = React.useState<ApprovalDecision | null>(null);
   const attemptKey = React.useRef<string | null>(null);
 
@@ -220,11 +215,12 @@ export function ApprovalsShell({
       setCursor(result.nextCursor);
       return result;
     } catch (failure) {
-      if (ticket.current() && !isAborted(failure)) setListError(failureMessage(failure, "Approvals could not be loaded."));
+      if (ticket.current() && !isAborted(failure)) setListError(fail(failure, "Approvals could not be loaded."));
       return null;
     } finally {
       if (ticket.current()) setListLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listRead, moreRead]);
 
   /*
@@ -267,11 +263,12 @@ export function ApprovalsShell({
     } catch (failure) {
       if (!ticket.current() || isAborted(failure)) return null;
       setDetail(null);
-      setDetailFailure({ message: failureMessage(failure, "This approval could not be opened."), stale: false });
+      setDetailFailure({ message: fail(failure, "This approval could not be opened."), stale: false });
       return null;
     } finally {
       if (ticket.current()) setDetailLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRead]);
 
   function update(patch: Partial<ApprovalsState>) {
@@ -344,7 +341,7 @@ export function ApprovalsShell({
       setItems((current) => [...current, ...result.items.filter((item) => !current.some((row) => row.id === item.id))]);
       setCursor(result.nextCursor);
     } catch (failure) {
-      if (ticket.current() && !isAborted(failure)) toast({ title: failureMessage(failure, "More approvals could not be loaded."), tone: "danger" });
+      if (ticket.current() && !isAborted(failure)) toast({ title: fail(failure, "More approvals could not be loaded."), tone: "danger" });
     } finally {
       setLoadingMore(false);
     }
@@ -365,18 +362,19 @@ export function ApprovalsShell({
       });
       attemptKey.current = null;
       const next = result.item;
+      const source = word(item.sourceLabel);
       toast({
         title:
           result.outcome === "STEP_APPROVED"
             ? next?.stepLabel
-              ? `Step approved — now with ${next.stepLabel}`
-              : "Step approved"
+              ? t("shell.stepApprovedWith", { step: next.stepLabel })
+              : t("shell.stepApproved")
             : result.outcome === "APPROVED"
-              ? `${item.sourceLabel} approved`
+              ? t("shell.approvedToast", { source })
               : result.outcome === "REJECTED"
-                ? `${item.sourceLabel} rejected`
-                : `${item.sourceLabel} returned for revision`,
-        description: result.alreadyApplied ? "It had already been recorded." : `${item.requester.name} is told.`,
+                ? t("shell.rejectedToast", { source })
+                : t("shell.returnedToast", { source }),
+        description: result.alreadyApplied ? t("shell.alreadyRecorded") : t("shell.requesterTold", { name: item.requester.name }),
         tone: "success",
       });
       const index = items.findIndex((row) => row.id === item.id);
@@ -400,8 +398,8 @@ export function ApprovalsShell({
       if (!unconfirmed) attemptKey.current = null;
       const code = isFailure(failure) ? failure.detailCode : undefined;
       const stale = code === "APPROVAL_ALREADY_DECIDED" || code === "APPROVAL_SOURCE_CHANGED";
-      setDetailFailure({ message: failureMessage(failure, "The decision could not be recorded."), stale });
-      toast({ title: failureMessage(failure, "The decision could not be recorded."), tone: "danger" });
+      setDetailFailure({ message: fail(failure, "The decision could not be recorded."), stale });
+      toast({ title: fail(failure, "The decision could not be recorded."), tone: "danger" });
       return false;
     } finally {
       deciding.current = false;
@@ -418,16 +416,16 @@ export function ApprovalsShell({
     (source, index, all) => all.findIndex((other) => other.key === source.key && other.company?.id === source.company?.id) === index,
   );
   const partial = Boolean(counts.partial) || unavailable.length > 0;
-  const unavailableNames = unavailable.map((provider) => (provider.company ? `${provider.label} (${provider.company.name})` : provider.label)).join(", ");
+  const unavailableNames = unavailable.map((provider) => (provider.company ? `${word(provider.label)} (${provider.company.name})` : word(provider.label))).join(", ");
   const waitingText = partial ? (counts.waiting > 0 ? `${counts.waiting}+` : "?") : `${counts.waiting}${counts.capped ? "+" : ""}`;
   const filterCount = activeFilterCount(state.filters);
   const visibleTabs = TABS.filter((tab) => tab.key !== "history" || data.canViewHistory);
   const empty =
     group && data.companies?.length === 0
-      ? { title: "No accessible data for this module.", body: "None of your companies offers approvals to you." }
+      ? { title: t("empty.groupNone.title"), body: t("empty.groupNone.body") }
       : partial
-        ? { title: "Nothing to show from the sources that loaded.", body: `${unavailableNames} could not be loaded, so there may be approvals this list cannot show yet.` }
-        : EMPTY[state.tab];
+        ? { title: t("empty.partial.title"), body: t("empty.partial.body", { names: unavailableNames }) }
+        : { title: t(`empty.${state.tab}.title`), body: t(`empty.${state.tab}.body`) };
   const sheetOpen = !group && desktop === false && selectedId !== null;
 
   return (
@@ -435,25 +433,25 @@ export function ApprovalsShell({
     <div className="flex flex-col gap-5" data-testid="approvals-center">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">Approvals</p>
+          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
           <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
             {partial
               ? counts.waiting > 0
-                ? `At least ${counts.waiting} waiting for you`
-                : "Some approvals could not be loaded"
+                ? t("shell.atLeastWaiting", { count: counts.waiting })
+                : t("shell.someNotLoaded")
               : counts.waiting === 0
-                ? "You’re all caught up"
-                : `${counts.waiting}${counts.capped ? "+" : ""} waiting for you`}
+                ? t("shell.allCaughtUp")
+                : t("shell.waiting", { count: `${counts.waiting}${counts.capped ? "+" : ""}` })}
           </h1>
           <p className="mt-1 flex flex-wrap gap-x-3 text-table text-fg-muted">
-            {counts.overdue > 0 ? <span className="font-medium text-danger-strong">{counts.overdue} overdue</span> : null}
-            {counts.critical > 0 ? <span className="font-medium text-warning-strong">{counts.critical} critical</span> : null}
+            {counts.overdue > 0 ? <span className="font-medium text-danger-strong">{t("shell.overdue", { count: counts.overdue })}</span> : null}
+            {counts.critical > 0 ? <span className="font-medium text-warning-strong">{t("shell.critical", { count: counts.critical })}</span> : null}
             {partial ? (
               <span className="font-medium text-warning-strong" data-testid="approvals-incomplete">
-                The total is incomplete: {unavailableNames} could not be loaded.
+                {t("shell.incomplete", { names: unavailableNames })}
               </span>
             ) : counts.overdue === 0 && counts.critical === 0 ? (
-              <span>{group ? "Every decision waiting in the companies you work in, in one place." : "Every decision from every module you work in, in one place."}</span>
+              <span>{group ? t("shell.groupLead") : t("shell.lead")}</span>
             ) : null}
           </p>
           {group && byCompany.length > 0 ? (
@@ -462,13 +460,13 @@ export function ApprovalsShell({
             </p>
           ) : null}
           {/* The queue is the high-confusion point of first use (AUD-05 §7, UX-15). */}
-          <WhatIsThis id="approvals.queue" title="The approvals queue" className="mt-2">
+          <WhatIsThis id="approvals.queue" title={t("shell.helpTitle")} className="mt-2">
             <p>
               {group
-                ? "Decisions waiting for you in each company you work in. Open one in its company to decide it; the Group view only counts and lists them."
-                : "Every request that needs your decision, from every module you work in. “Waiting for me” is yours to decide now; the other tabs show what you asked for and what was already decided."}
+                ? t("shell.helpGroup")
+                : t("shell.helpCompany")}
             </p>
-            <p>The decision buttons on an approval are the action: Approve, Reject or Return for revision. You never see them on a request you submitted yourself.</p>
+            <p>{t("shell.helpActions")}</p>
           </WhatIsThis>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -483,14 +481,14 @@ export function ApprovalsShell({
               }}
             >
               <UserRoundCog aria-hidden="true" />
-              Delegation
+              {t("shell.delegation")}
             </Button>
           )}
-          <HelpEntry moduleKey="approvals" moduleLabel="Approvals" />
+          <HelpEntry moduleKey="approvals" moduleLabel={t("title")} />
         </div>
       </header>
 
-      <div role="tablist" aria-label="Approval views" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+      <div role="tablist" aria-label={t("shell.views")} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
         {visibleTabs.map((tab) => {
           const active = tab.key === state.tab;
           return (
@@ -520,12 +518,12 @@ export function ApprovalsShell({
                 active ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
               )}
             >
-              {tab.label}
+              {t(`tabs.${tab.key}`)}
               {tab.key === "waiting" && (counts.waiting > 0 || partial) ? (
                 <span className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}>
                   {/* A span's aria-label is not read; the partial count is spoken as text (AUD-11 §5, AV-06). */}
                   <span aria-hidden={partial ? true : undefined}>{waitingText}</span>
-                  {partial ? <span className="sr-only">{`${counts.waiting > 0 ? `At least ${counts.waiting}` : "An unknown number"}, some sources could not be loaded`}</span> : null}
+                  {partial ? <span className="sr-only">{t("shell.partialCount", { count: counts.waiting > 0 ? t("shell.atLeast", { count: counts.waiting }) : t("shell.unknownNumber") })}</span> : null}
                 </span>
               ) : null}
             </button>
@@ -536,13 +534,13 @@ export function ApprovalsShell({
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
           className="min-w-0 flex-1 sm:max-w-sm"
-          placeholder="Search number, title, requester, project"
-          aria-label="Search approvals"
+          placeholder={t("shell.searchPlaceholder")}
+          aria-label={t("shell.searchLabel")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
         <label className="sr-only" htmlFor="approvals-sort">
-          Sort
+          {t("shell.sort")}
         </label>
         <select
           id="approvals-sort"
@@ -552,34 +550,34 @@ export function ApprovalsShell({
         >
           {SORTS.map((sort) => (
             <option key={sort.key} value={sort.key}>
-              {sort.label}
+              {t(`sorts.${sort.key}`)}
             </option>
           ))}
         </select>
         {state.tab === "returned" ? (
           <select
-            aria-label="Returned by or to me"
+            aria-label={t("shell.returnedFilter")}
             className="h-10 min-w-0 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none touch:h-11"
             value={state.returned}
             onChange={(event) => update({ returned: event.target.value as ApprovalsState["returned"] })}
           >
-            <option value="all">By me or to me</option>
-            <option value="by">Returned by me</option>
-            <option value="to">Returned to me</option>
+            <option value="all">{t("shell.returnedAll")}</option>
+            <option value="by">{t("shell.returnedBy")}</option>
+            <option value="to">{t("shell.returnedTo")}</option>
           </select>
         ) : null}
-        <Button type="button" variant="secondary" onClick={() => setFiltersOpen(true)} aria-label={filterCount ? `Filters, ${filterCount} active` : "Filters"}>
+        <Button type="button" variant="secondary" onClick={() => setFiltersOpen(true)} aria-label={filterCount ? t("shell.filtersActive", { count: filterCount }) : t("shell.filters")}>
           <SlidersHorizontal aria-hidden="true" />
-          Filters
+          {t("shell.filters")}
           {filterCount > 0 ? <span className="rounded-full bg-primary px-1.5 text-micro tabular-nums text-primary-fg">{filterCount}</span> : null}
         </Button>
-        <div className="hidden items-center rounded-md border border-line p-0.5 sm:flex" role="group" aria-label="Row density">
+        <div className="hidden items-center rounded-md border border-line p-0.5 sm:flex" role="group" aria-label={t("shell.density")}>
           {(["comfortable", "compact"] as const).map((value) => (
             <button
               key={value}
               type="button"
               aria-pressed={density === value}
-              aria-label={value === "comfortable" ? "Comfortable rows" : "Compact rows"}
+              aria-label={value === "comfortable" ? t("shell.comfortable") : t("shell.compact")}
               onClick={() => {
                 setDensity(value);
                 try {
@@ -609,10 +607,10 @@ export function ApprovalsShell({
         <div role="status" className="flex flex-wrap items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3" data-testid="approvals-unavailable">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
           <p className="min-w-0 flex-1 text-table text-fg">
-            Some approval sources could not be loaded: {unavailableNames}. Their items are not shown, so the list and the total are incomplete.
+            {t("shell.unavailable", { names: unavailableNames })}
           </p>
           <Button type="button" variant="secondary" size="sm" onClick={() => void loadList(state)} disabled={listLoading}>
-            Try again
+            {t("shell.tryAgain")}
           </Button>
         </div>
       ) : null}
@@ -623,7 +621,7 @@ export function ApprovalsShell({
             <div className="px-6 py-10 text-center" role="alert">
               <p className="text-body font-medium text-fg">{listError}</p>
               <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => void loadList(state)}>
-                Try again
+                {t("shell.tryAgain")}
               </Button>
             </div>
           ) : listLoading && items.length === 0 ? (
@@ -633,8 +631,8 @@ export function ApprovalsShell({
               <span className="flex size-12 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
                 {filterCount || state.q ? <ListFilter aria-hidden="true" className="size-5" /> : <Inbox aria-hidden="true" className="size-5" />}
               </span>
-              <p className="mt-3 text-body font-semibold text-fg">{filterCount || state.q ? "Nothing matches these filters." : empty.title}</p>
-              <p className="mt-1 max-w-sm text-table text-fg-muted">{filterCount || state.q ? "Remove a filter or search for something else." : empty.body}</p>
+              <p className="mt-3 text-body font-semibold text-fg">{filterCount || state.q ? t("empty.filtered.title") : empty.title}</p>
+              <p className="mt-1 max-w-sm text-table text-fg-muted">{filterCount || state.q ? t("empty.filtered.body") : empty.body}</p>
               {filterCount || state.q ? (
                 // No results offers the way back to the queue, never "create" (AUD-05 §6, UX-11).
                 <Button
@@ -647,7 +645,7 @@ export function ApprovalsShell({
                     update({ filters: EMPTY_FILTERS, q: "" });
                   }}
                 >
-                  Clear filters
+                  {t("shell.clearFilters")}
                 </Button>
               ) : null}
             </div>
@@ -658,10 +656,10 @@ export function ApprovalsShell({
                 <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3">
                   {cursor ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => void loadMore()} disabled={loadingMore}>
-                      {loadingMore ? "Loading…" : "Show more"}
+                      {loadingMore ? t("shell.loading") : t("shell.showMore")}
                     </Button>
                   ) : null}
-                  {data.windowed ? <p className="text-meta text-fg-subtle">Showing the most recent approvals from each source. Narrow the dates to reach older ones.</p> : null}
+                  {data.windowed ? <p className="text-meta text-fg-subtle">{t("shell.windowed")}</p> : null}
                 </div>
               ) : null}
             </div>
@@ -670,7 +668,7 @@ export function ApprovalsShell({
 
         {group ? null : (
           <aside
-            aria-label="Approval review"
+            aria-label={t("shell.review")}
             className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
           >
             {desktop ? (
@@ -699,7 +697,7 @@ export function ApprovalsShell({
             aria-describedby={undefined}
             data-testid="approval-sheet"
           >
-            <DialogPrimitive.Title className="sr-only">{detail?.item.title ?? "Approval"}</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="sr-only">{detail?.item.title ?? t("shell.approval")}</DialogPrimitive.Title>
             {desktop === false ? (
               <UnsavedScope id={DETAIL_SCOPE}>
                 <ApprovalDetailView
