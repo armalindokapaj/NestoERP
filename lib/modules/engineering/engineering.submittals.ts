@@ -12,6 +12,7 @@ import { transitionFor } from "@/lib/core/state/machine";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { loadEngineeringProject, projectEngineeringOptions, type ProjectEngineeringOptions } from "./engineering.documents";
 import { linkableTypesFor, listLinks, tasksFromRecord } from "./engineering.links";
 import { notifyEngineering } from "./engineering.notify";
@@ -27,10 +28,12 @@ import {
   dateOf,
   fail,
   isOverdue,
+  LIST_SNAPSHOT,
   people,
   personOf,
   projectArchived,
   projectNumber,
+  REGISTER_PAGE_SIZE,
   resolveProjectContext,
   withNumber,
 } from "./engineering.shared";
@@ -123,11 +126,19 @@ async function toRows(context: UserContext, rows: SubmittalRow[]): Promise<Submi
   }));
 }
 
+/**
+ * One register page (AUD-08 §3, §4): authorized scope, then the section
+ * (`projectId`, `drawings`/`types`) and the filters, then the order — due date ascending with undated submittals last, then submittal number; the id breaks ties
+ * (DT-04) — then the page, all in the database. Rows and total share one
+ * snapshot (DT-06); `page` is the request clamped to the last real page, so a
+ * page past the end moves there once (DT-05). A project id outside the
+ * reader's reach is refused like a missing one (DT-22).
+ */
 export async function listSubmittals(context: UserContext, query: SubmittalListQuery): Promise<{ items: SubmittalRowDTO[]; total: number; page: number; pageSize: number }> {
   assertModule(context, MODULE);
   if (!engineeringOpen(context, "submittal.view")) throw new AccessError("FORBIDDEN", "You cannot open submittals.");
   if (query.projectId) await loadEngineeringProject(context, query.projectId, "submittal.view");
-  const pageSize = 50;
+  const pageSize = REGISTER_PAGE_SIZE;
   const { today } = await companyToday(context.companyId);
   const filters: Prisma.TechnicalSubmittalWhereInput[] = [readableSubmittalWhere(context)];
   if (query.projectId) filters.push({ projectId: query.projectId });
@@ -142,11 +153,11 @@ export async function listSubmittals(context: UserContext, query: SubmittalListQ
   if (query.overdue) filters.push({ status: { in: SUBMITTAL_IN_REVIEW }, dueAt: { lt: new Date(`${today}T00:00:00.000Z`) } });
   if (query.q) filters.push({ OR: [{ submittalNumber: { contains: query.q, mode: "insensitive" } }, { title: { contains: query.q, mode: "insensitive" } }, { manufacturer: { contains: query.q, mode: "insensitive" } }, { productName: { contains: query.q, mode: "insensitive" } }] });
   const where = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.technicalSubmittal.findMany({ where, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { submittalNumber: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: SUBMITTAL_SELECT }),
-    prisma.technicalSubmittal.count({ where }),
-  ]);
-  return { items: await toRows(context, rows), total, page: query.page, pageSize };
+  const [rows, total] = await prisma.$transaction(
+    [prisma.technicalSubmittal.findMany({ where, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { submittalNumber: "asc" }, { id: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: SUBMITTAL_SELECT }), prisma.technicalSubmittal.count({ where })],
+    LIST_SNAPSHOT,
+  );
+  return { items: await toRows(context, rows), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 async function findReadableSubmittal(context: UserContext, id: string): Promise<SubmittalRow> {

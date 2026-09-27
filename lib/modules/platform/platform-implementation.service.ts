@@ -142,16 +142,16 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
         _count: { select: { memberships: { where: { status: "ACTIVE" } }, departments: { where: { status: "ACTIVE", groupDepartmentId: { not: null } } } } },
         projects: { where: { archivedAt: null }, select: { id: true, code: true, name: true, projectManagerMemberId: true }, orderBy: { name: "asc" } },
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
     prisma.companyMember.findMany({
       where: { company: { parentGroupId: group.id }, status: "ACTIVE" },
       select: { companyId: true, role: { select: { key: true, name: true } }, company: { select: { name: true } }, user: { select: { id: true, firstName: true, lastName: true, username: true, mustChangePassword: true } } },
-      orderBy: [{ user: { lastName: "asc" } }, { company: { name: "asc" } }],
+      orderBy: [{ user: { lastName: "asc" } }, { company: { name: "asc" } }, { id: "asc" }],
     }),
     prisma.groupDepartment.findMany({
       where: { parentGroupId: group.id, status: "ACTIVE" },
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
       select: {
         id: true,
         code: true,

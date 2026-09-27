@@ -48,7 +48,9 @@ export default async function QaqcWorkPage({
         <QaqcListSection
           context={context}
           kind="inspections"
-          searchParams={{ ...params, type: "WORK" }}
+          searchParams={params}
+          basePath="/qaqc/work"
+          fixed={{ type: "WORK" }}
         />
       </Suspense>
     </ModulePage>

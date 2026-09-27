@@ -24,10 +24,20 @@ export const activityQuerySchema = z.object({
 
 export type ActivityQuery = z.infer<typeof activityQuerySchema>;
 
+/**
+ * The query as the service reads it. `from`/`to` are calendar days; the
+ * service turns them into instants in the reader's company zone (`fromDay`,
+ * `toDay`), so the range does not depend on the server's own time zone
+ * (AUD-08 §3: timestamp ranges use the configured zone, inclusive days). The
+ * `from`/`to` instants kept here are UTC-midnight fallbacks for callers that
+ * pass no day.
+ */
 export function activityFilters(input: ActivityQuery) {
   return {
     ...input,
-    from: input.from ? new Date(`${input.from}T00:00:00`) : null,
-    to: input.to ? new Date(`${input.to}T23:59:59.999`) : null,
+    from: input.from ? new Date(`${input.from}T00:00:00.000Z`) : null,
+    to: input.to ? new Date(`${input.to}T23:59:59.999Z`) : null,
+    fromDay: input.from ?? null,
+    toDay: input.to ?? null,
   };
 }

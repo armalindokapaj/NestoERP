@@ -14,6 +14,8 @@ export function RfqTable({
   const columns: TableColumn<RfqSummaryDTO>[] = [
     {
       key: "rfqNumber",
+      id: "rfqNumber",
+      mandatory: true,
       label: "Enquiry",
       primary: true,
       render: (row) => (
@@ -25,12 +27,15 @@ export function RfqTable({
     },
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "xl",
       render: (row) => row.project?.code ?? <span className="text-fg-subtle">Company</span>,
     },
     {
       key: "responses",
+      id: "responses",
+      valueType: "number",
       label: "Responses",
       align: "right",
       render: (row) => (
@@ -41,11 +46,16 @@ export function RfqTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "responseDueDate",
+      id: "responseDueDate",
+      valueType: "date",
       label: "Responses by",
       hideBelow: "md",
       render: (row) =>
@@ -62,6 +72,7 @@ export function RfqTable({
 
   return (
     <DataTable
+      listId="procurement.rfqs"
       columns={columns}
       records={rfqs}
       rowKey={(row) => row.id}

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import type { CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Document review deadlines (PRD #39 §61). A pending review with a due date
@@ -17,7 +17,7 @@ export const documentProvider: CalendarProvider = {
   async getEvents(input) {
     const { context } = input;
     const readable = await buildDocumentAccessWhere(context);
-    const reviews = await prisma.documentReview.findMany({
+    const reviews = await sourceRows(input, prisma.documentReview.findMany({
       where: {
         companyId: context.companyId,
         status: "PENDING",
@@ -26,7 +26,7 @@ export const documentProvider: CalendarProvider = {
       },
       take: SOURCE_LIMIT,
       select: { id: true, documentId: true, dueAt: true, reviewerMemberId: true, version: { select: { versionNumber: true } } },
-    });
+    }));
     if (reviews.length === 0) return [];
 
     const documents = await prisma.document.findMany({

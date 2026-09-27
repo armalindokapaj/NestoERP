@@ -73,7 +73,8 @@ export async function listTeamTimesheets(context: UserContext, query: z.infer<ty
           : {},
       ],
     },
-    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }],
+    // Name, then member id: which people fall past TEAM_LIMIT is the same on every read (AUD-08 §4, DT-04).
+    orderBy: [{ user: { firstName: "asc" } }, { user: { lastName: "asc" } }, { id: "asc" }],
     take: TEAM_LIMIT + 1,
     select: {
       id: true,
@@ -143,7 +144,13 @@ export async function listTeamTimesheets(context: UserContext, query: z.infer<ty
   if (query.approverMemberId) rows = rows.filter((row) => row.approver?.memberId === query.approverMemberId);
   for (const row of rows) counts[row.status] += 1;
   if (query.status) rows = rows.filter((row) => row.status === query.status);
-  rows.sort((a, b) => TEAM_ORDER[a.status] - TEAM_ORDER[b.status] || (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "") || a.member.name.localeCompare(b.member.name));
+  /*
+   * Status, waiting longest first, name, then member id — a total order (AUD-08 §4, DT-04).
+   * Status and approver are derived per week, so they are filtered here, over the
+   * people read; when that read is `truncated` the counts and these filters cover
+   * the first TEAM_LIMIT people only, and the page says so (AUD-08 §4, DT-05).
+   */
+  rows.sort((a, b) => TEAM_ORDER[a.status] - TEAM_ORDER[b.status] || (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "") || a.member.name.localeCompare(b.member.name) || (a.member.memberId < b.member.memberId ? -1 : a.member.memberId > b.member.memberId ? 1 : 0));
 
   const departments = new Map<string, string>();
   for (const member of visible) if (member.department) departments.set(member.department.id, member.department.name);
@@ -176,7 +183,7 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
 
   const projects = await prisma.project.findMany({
     where: { AND: [buildProjectScopeWhere(context), { workLogs: { some: {} } }] },
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     take: 300,
     select: { id: true, name: true, code: true },
   });
@@ -211,7 +218,8 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
     prisma.workLog.aggregate({ where: { AND: [where, { overtimeFlag: true }] }, _sum: { minutes: true } }),
     prisma.workLog.findMany({
       where,
-      orderBy: [{ workDate: "desc" }, { createdAt: "desc" }],
+      // Newest day, newest entry, then id: the ENTRY_LIMIT cut is the same on every read (AUD-08 §4, DT-04).
+      orderBy: [{ workDate: "desc" }, { createdAt: "desc" }, { id: "asc" }],
       take: ENTRY_LIMIT + 1,
       select: {
         id: true, workDate: true, workType: true, minutes: true, description: true, billable: true, overtimeFlag: true, updatedAt: true,
@@ -301,12 +309,14 @@ export async function projectTimeSummary(context: UserContext, query: z.infer<ty
     approvedOnly: query.include === "approved",
     billable: query.billable,
     totals: { totalMinutes: total, billableMinutes: billable, nonBillableMinutes: total - billable, overtimeFlaggedMinutes: flagged._sum.minutes ?? 0 },
-    byProject: [...byProject.values()].sort((a, b) => b.minutes - a.minutes),
-    byMember: [...byMember.values()].sort((a, b) => b.minutes - a.minutes),
+    byProject: [...byProject.values()].sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name) || a.projectId.localeCompare(b.projectId)),
+    byMember: [...byMember.values()].sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name) || a.memberId.localeCompare(b.memberId)),
+    // The top 50 tasks by hours; `byTaskCount` is how many tasks there were, so a shortened list is labelled as such (AUD-08 §4).
     byTask: byTaskRaw
       .map((row) => ({ taskId: row.taskId, title: row.taskId ? (taskById.get(row.taskId) ?? NEUTRAL_TASK) : "No task", minutes: row._sum.minutes ?? 0 }))
-      .sort((a, b) => b.minutes - a.minutes)
+      .sort((a, b) => b.minutes - a.minutes || (a.taskId ?? "").localeCompare(b.taskId ?? ""))
       .slice(0, 50),
+    byTaskCount: byTaskRaw.length,
     byWeek: [...byWeek.values()].sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
     entries,
     entriesTruncated: entryRows.length > ENTRY_LIMIT,

@@ -1,6 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
@@ -37,7 +37,114 @@ import { PermitClock, PermitStatusBadge, RiskBadge, SeverityBadge } from "./hse-
  * because they answer different questions and the reader needs both (§37, §38).
  * A hazard row carries its risk as a level *and* a score, because "High" alone
  * does not tell you whether it is a 10 or a 16.
+ *
+ * Column metadata (AUD-08 §5): each table's identity column (the primary) and
+ * its status stay visible; every other column may be hidden in the Columns
+ * control when a page names the list (`listId`). Header sorts appear only where
+ * a page passes `sort` — the server-parsed sort of the rows on screen — and
+ * only on columns whose order is one of the list's allowlisted sorts. Record
+ * child tables (an incident's actions) pass neither and render as before.
  */
+
+/** Presentation props every HSE table takes (AUD-08 §5). */
+type ListProps = {
+  /** `hse.<list>` or `projects.hse-<list>`: turns on the Columns control. */
+  listId?: string;
+  /** The applied sort and the list's allowlist; header sorts only when given. */
+  sort?: TableSortConfig;
+};
+
+type ColumnMeta = Pick<TableColumn<unknown>, "mandatory" | "valueType" | "defaultHidden" | "sortKey">;
+
+/**
+ * Lays each column's presentation metadata over its definition by key
+ * (AUD-08 §5): a stable id (the key), the mandatory flag, the value type and —
+ * only when the page passed a sort — the allowlisted sort stem. Keeping it in
+ * one table per list keeps the render functions free of preference plumbing.
+ */
+function withMeta<T>(
+  columns: TableColumn<T>[],
+  sort: TableSortConfig | undefined,
+  meta: Record<string, ColumnMeta>,
+): TableColumn<T>[] {
+  return columns.map((column) => {
+    const extra = meta[column.key];
+    if (!extra) return { ...column, id: column.key };
+    const { sortKey, ...rest } = extra;
+    return { ...column, id: column.key, ...rest, ...(sort && sortKey ? { sortKey } : {}) };
+  });
+}
+
+const STATUS: ColumnMeta = { mandatory: true, valueType: "status" };
+
+const INSPECTION_COLUMNS: Record<string, ColumnMeta> = {
+  inspectionNumber: { sortKey: "number" },
+  scheduledDate: { valueType: "date", sortKey: "scheduled" },
+  status: STATUS,
+  result: STATUS,
+  failedItemCount: { valueType: "number" },
+};
+
+const TEMPLATE_COLUMNS: Record<string, ColumnMeta> = {
+  code: { sortKey: "name" },
+  itemCount: { valueType: "number" },
+  usageCount: { valueType: "number" },
+  status: STATUS,
+};
+
+const HAZARD_COLUMNS: Record<string, ColumnMeta> = {
+  risk: { valueType: "number", sortKey: "risk" },
+  dueDate: { valueType: "date", sortKey: "due" },
+  status: STATUS,
+};
+
+const INCIDENT_COLUMNS: Record<string, ColumnMeta> = {
+  severity: { valueType: "status", sortKey: "severity" },
+  occurredAt: { valueType: "date", sortKey: "occurred" },
+  status: STATUS,
+};
+
+const RISK_ASSESSMENT_COLUMNS: Record<string, ColumnMeta> = {
+  highestRisk: { valueType: "status" },
+  itemCount: { valueType: "number" },
+  reviewDate: { valueType: "date", sortKey: "review" },
+  status: STATUS,
+};
+
+const ACTION_COLUMNS: Record<string, ColumnMeta> = {
+  priority: { valueType: "status", sortKey: "priority" },
+  dueDate: { valueType: "date", sortKey: "due" },
+  status: STATUS,
+};
+
+const TOOLBOX_COLUMNS: Record<string, ColumnMeta> = {
+  talkDate: { valueType: "date", sortKey: "date" },
+  attendedCount: { valueType: "number" },
+  status: STATUS,
+};
+
+const PERMIT_COLUMNS: Record<string, ColumnMeta> = {
+  validUntil: { valueType: "datetime", sortKey: "expiry" },
+  status: STATUS,
+};
+
+const PPE_COLUMNS: Record<string, ColumnMeta> = {
+  checkNumber: { sortKey: "number" },
+  checkDate: { valueType: "date", sortKey: "recent" },
+  result: STATUS,
+};
+
+const OBSERVATION_COLUMNS: Record<string, ColumnMeta> = {
+  severity: { valueType: "status" },
+  dueDate: { valueType: "date" },
+  status: STATUS,
+};
+
+const STOP_WORK_COLUMNS: Record<string, ColumnMeta> = {
+  issuedAt: { valueType: "date", sortKey: "issued" },
+  releasedAt: { valueType: "date" },
+  status: STATUS,
+};
 
 function ProjectCell({ project }: { project: { code: string } | null }) {
   return project ? <>{project.code}</> : <span className="text-fg-subtle">Company</span>;
@@ -48,9 +155,11 @@ function ProjectCell({ project }: { project: { code: string } | null }) {
 /* -------------------------------------------------------------------------- */
 
 export function InspectionTable({
+  listId,
+  sort,
   inspections,
   caption = "Safety inspections",
-}: {
+}: ListProps & {
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
@@ -120,8 +229,10 @@ export function InspectionTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, INSPECTION_COLUMNS)}
       records={inspections}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/inspections/${row.id}`}
@@ -129,7 +240,11 @@ export function InspectionTable({
   );
 }
 
-export function TemplateTable({ templates }: { templates: TemplateSummaryDTO[] }) {
+export function TemplateTable({
+  templates,
+  listId,
+  sort,
+}: ListProps & { templates: TemplateSummaryDTO[] }) {
   const columns: TableColumn<TemplateSummaryDTO>[] = [
     {
       key: "code",
@@ -165,8 +280,10 @@ export function TemplateTable({ templates }: { templates: TemplateSummaryDTO[] }
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Safety checklists"
-      columns={columns}
+      columns={withMeta(columns, sort, TEMPLATE_COLUMNS)}
       records={templates}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/templates/${row.id}`}
@@ -179,9 +296,11 @@ export function TemplateTable({ templates }: { templates: TemplateSummaryDTO[] }
 /* -------------------------------------------------------------------------- */
 
 export function HazardTable({
+  listId,
+  sort,
   hazards,
   caption = "Hazards",
-}: {
+}: ListProps & {
   hazards: HazardSummaryDTO[];
   caption?: string;
 }) {
@@ -252,8 +371,10 @@ export function HazardTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, HAZARD_COLUMNS)}
       records={hazards}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/hazards/${row.id}`}
@@ -266,9 +387,11 @@ export function HazardTable({
 /* -------------------------------------------------------------------------- */
 
 export function IncidentTable({
+  listId,
+  sort,
   incidents,
   caption = "Incidents",
-}: {
+}: ListProps & {
   incidents: IncidentSummaryDTO[];
   caption?: string;
 }) {
@@ -333,8 +456,10 @@ export function IncidentTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, INCIDENT_COLUMNS)}
       records={incidents}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/incidents/${row.id}`}
@@ -347,9 +472,11 @@ export function IncidentTable({
 /* -------------------------------------------------------------------------- */
 
 export function RiskAssessmentTable({
+  listId,
+  sort,
   assessments,
   caption = "Risk assessments",
-}: {
+}: ListProps & {
   assessments: RiskAssessmentSummaryDTO[];
   caption?: string;
 }) {
@@ -414,8 +541,10 @@ export function RiskAssessmentTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, RISK_ASSESSMENT_COLUMNS)}
       records={assessments}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/risk-assessments/${row.id}`}
@@ -428,9 +557,11 @@ export function RiskAssessmentTable({
 /* -------------------------------------------------------------------------- */
 
 export function ActionTable({
+  listId,
+  sort,
   actions,
   caption = "HSE actions",
-}: {
+}: ListProps & {
   actions: ActionSummaryDTO[];
   caption?: string;
 }) {
@@ -521,8 +652,10 @@ export function ActionTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, ACTION_COLUMNS)}
       records={actions}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/actions/${row.id}`}
@@ -535,9 +668,11 @@ export function ActionTable({
 /* -------------------------------------------------------------------------- */
 
 export function ToolboxTable({
+  listId,
+  sort,
   talks,
   caption = "Toolbox talks",
-}: {
+}: ListProps & {
   talks: ToolboxSummaryDTO[];
   caption?: string;
 }) {
@@ -588,8 +723,10 @@ export function ToolboxTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, TOOLBOX_COLUMNS)}
       records={talks}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/toolbox-talks/${row.id}`}
@@ -602,9 +739,11 @@ export function ToolboxTable({
 /* -------------------------------------------------------------------------- */
 
 export function PermitTable({
+  listId,
+  sort,
   permits,
   caption = "Work permits",
-}: {
+}: ListProps & {
   permits: PermitSummaryDTO[];
   caption?: string;
 }) {
@@ -657,8 +796,10 @@ export function PermitTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, PERMIT_COLUMNS)}
       records={permits}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/permits/${row.id}`}
@@ -671,9 +812,11 @@ export function PermitTable({
 /* -------------------------------------------------------------------------- */
 
 export function PpeTable({
+  listId,
+  sort,
   checks,
   canEdit = false,
-}: {
+}: ListProps & {
   checks: PpeCheckDTO[];
   canEdit?: boolean;
 }) {
@@ -743,7 +886,14 @@ export function PpeTable({
   ];
 
   return (
-    <DataTable caption="PPE checks" columns={columns} records={checks} rowKey={(row) => row.id} />
+    <DataTable
+      listId={listId}
+      sort={sort}
+      caption="PPE checks"
+      columns={withMeta(columns, sort, PPE_COLUMNS)}
+      records={checks}
+      rowKey={(row) => row.id}
+    />
   );
 }
 
@@ -752,9 +902,11 @@ export function PpeTable({
 /* -------------------------------------------------------------------------- */
 
 export function ObservationTable({
+  listId,
+  sort,
   observations,
   caption = "Environmental observations",
-}: {
+}: ListProps & {
   observations: ObservationSummaryDTO[];
   caption?: string;
 }) {
@@ -812,8 +964,10 @@ export function ObservationTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, OBSERVATION_COLUMNS)}
       records={observations}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/environment/${row.id}`}
@@ -826,9 +980,11 @@ export function ObservationTable({
 /* -------------------------------------------------------------------------- */
 
 export function StopWorkTable({
+  listId,
+  sort,
   records,
   caption = "Stop-work records",
-}: {
+}: ListProps & {
   records: StopWorkSummaryDTO[];
   caption?: string;
 }) {
@@ -885,8 +1041,10 @@ export function StopWorkTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption={caption}
-      columns={columns}
+      columns={withMeta(columns, sort, STOP_WORK_COLUMNS)}
       records={records}
       rowKey={(row) => row.id}
       rowHref={(row) => `/hse/stop-work/${row.id}`}

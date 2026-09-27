@@ -10,6 +10,7 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { SearchField } from "@/components/ui/search-field";
+import { applyListChange, clearListFilters, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -22,6 +23,20 @@ import { cn } from "@/lib/utils/cn";
  *
  * On mobile the filters move into a sheet rather than crowding the header
  * (PRD #7 §88).
+ *
+ * AUD-08 §3 (DT-05, DT-20):
+ * - changing search, a filter or the sort returns to page 1;
+ * - Clear removes only this list's filter and search keys (plus any
+ *   `extraFilterParams` the page filters by elsewhere) and keeps the section,
+ *   sort, page size and every unrelated key;
+ * - a change that yields the same query does nothing, so tabbing through an
+ *   unchanged search box neither refetches nor throws the reader off page 3,
+ *   and a submit followed by its own blur sends one request, not two;
+ * - the controls show the applied state: `applied` carries the values the
+ *   server parsed for the rows on screen (an invalid URL value shows what the
+ *   parser actually used), and a URL value no option offers is not shown as
+ *   chosen. Navigation is a transition, and App Router renders only the latest
+ *   one, so an older response never replaces a newer query's rows.
  */
 export type FilterOption = { value: string; label: string };
 
@@ -38,6 +53,9 @@ export function ListToolbar({
   filters = [],
   sortOptions = [],
   sortParam = "sort",
+  pageParam = "page",
+  extraFilterParams = [],
+  applied,
   className,
 }: {
   searchPlaceholder?: string;
@@ -45,6 +63,11 @@ export function ListToolbar({
   filters?: FilterConfig[];
   sortOptions?: FilterOption[];
   sortParam?: string;
+  pageParam?: string;
+  /** Other query keys this list filters by (date ranges, chips) that Clear also removes. */
+  extraFilterParams?: readonly string[];
+  /** The effective values the server parsed, by param — the canonical applied state (AUD-08 §3). */
+  applied?: Readonly<Record<string, string | undefined>>;
   className?: string;
 }) {
   const router = useRouter();
@@ -58,36 +81,64 @@ export function ListToolbar({
     [searchParams],
   );
 
-  const apply = React.useCallback(
-    (param: string, value: string) => {
-      const next = new URLSearchParams(searchParams.toString());
-      if (value) next.set(param, value);
-      else next.delete(param);
-      // Any change to the result set returns to the first page, otherwise the
-      // reader lands on an empty page 3 of a shorter list.
-      next.delete("page");
-      const query = next.toString();
+  // The last query this toolbar asked for, so a repeat of it while it is still
+  // on its way is not sent twice.
+  const lastPushed = React.useRef<string | null>(null);
+
+  const navigate = React.useCallback(
+    (query: string) => {
+      const now = searchParams.toString();
+      if (sameQuery(now, query)) return;
+      if (pending && lastPushed.current !== null && sameQuery(lastPushed.current, query)) return;
+      lastPushed.current = query;
+      const href = queryHref(query);
       // A query change is a navigation too: it is marked until the new query commits (NAV-01 N05).
-      feedback?.begin(query ? `?${query}` : "?", "record");
-      startTransition(() => router.push(query ? `?${query}` : "?", { scroll: false }));
+      feedback?.begin(href, "record");
+      startTransition(() => router.push(href, { scroll: false }));
     },
-    [router, searchParams, feedback],
+    [router, searchParams, feedback, pending],
   );
 
-  const [searchValue, setSearchValue] = React.useState(current(searchParam));
-  React.useEffect(() => setSearchValue(current(searchParam)), [current, searchParam]);
+  const apply = React.useCallback(
+    (param: string, value: string) => {
+      // Any change to the result set returns to the first page, otherwise the
+      // reader lands on an empty page 3 of a shorter list.
+      navigate(applyListChange(searchParams.toString(), { [param]: value }, pageParam));
+    },
+    [navigate, searchParams, pageParam],
+  );
 
-  const activeFilters = filters.filter((filter) => current(filter.param) !== "").length;
-  const hasActive = activeFilters > 0 || current(searchParam) !== "";
+  // The box follows the URL when the URL's search changes (Back, Clear, a
+  // link) — not on every other query change, which would overwrite typing.
+  const urlSearch = current(searchParam);
+  const [searchValue, setSearchValue] = React.useState(urlSearch);
+  React.useEffect(() => setSearchValue(urlSearch), [urlSearch]);
+
+  function submitSearch() {
+    const value = searchValue.trim();
+    if (value === urlSearch) return;
+    apply(searchParam, value);
+  }
+
+  /** What a select shows: the applied value when the server gave one, else a URL value an option offers. */
+  function selected(param: string, options: FilterOption[], allowEmpty: boolean): string {
+    const offered = (value: string | undefined): value is string =>
+      value !== undefined && ((allowEmpty && value === "") || options.some((option) => option.value === value));
+    const fromServer = applied?.[param];
+    if (offered(fromServer)) return fromServer;
+    const fromUrl = current(param);
+    if (offered(fromUrl)) return fromUrl;
+    return allowEmpty ? "" : (options[0]?.value ?? "");
+  }
+
+  const activeFilters =
+    filters.filter((filter) => current(filter.param) !== "").length +
+    extraFilterParams.filter((param) => current(param) !== "").length;
+  const hasActive = activeFilters > 0 || urlSearch !== "";
 
   function clearAll() {
-    const next = new URLSearchParams(searchParams.toString());
-    for (const filter of filters) next.delete(filter.param);
-    next.delete(searchParam);
-    next.delete("page");
-    const query = next.toString();
-    feedback?.begin(query ? `?${query}` : "?", "record");
-    startTransition(() => router.push(query ? `?${query}` : "?", { scroll: false }));
+    const keys = [...filters.map((filter) => filter.param), ...extraFilterParams, searchParam];
+    navigate(clearListFilters(searchParams.toString(), keys, pageParam));
   }
 
   const selectClass =
@@ -100,7 +151,7 @@ export function ListToolbar({
         className="min-w-0 flex-1 md:max-w-xs"
         onSubmit={(event) => {
           event.preventDefault();
-          apply(searchParam, searchValue.trim());
+          submitSearch();
         }}
       >
         <SearchField
@@ -109,7 +160,7 @@ export function ListToolbar({
           aria-label={searchPlaceholder}
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
-          onBlur={() => apply(searchParam, searchValue.trim())}
+          onBlur={submitSearch}
         />
       </form>
 
@@ -121,7 +172,7 @@ export function ListToolbar({
             key={filter.param}
             aria-label={filter.label}
             className={selectClass}
-            value={current(filter.param)}
+            value={selected(filter.param, filter.options, true)}
             onChange={(event) => apply(filter.param, event.target.value)}
           >
             <option value="">{filter.label}</option>
@@ -137,7 +188,7 @@ export function ListToolbar({
           <select
             aria-label="Sort"
             className={selectClass}
-            value={current(sortParam)}
+            value={selected(sortParam, sortOptions, false)}
             onChange={(event) => apply(sortParam, event.target.value)}
           >
             {sortOptions.map((option) => (
@@ -191,7 +242,7 @@ export function ListToolbar({
                   <select
                     id={`sheet-${filter.param}`}
                     className={cn(selectClass, "w-full")}
-                    value={current(filter.param)}
+                    value={selected(filter.param, filter.options, true)}
                     onChange={(event) => apply(filter.param, event.target.value)}
                   >
                     <option value="">All</option>
@@ -212,7 +263,7 @@ export function ListToolbar({
                   <select
                     id="sheet-sort"
                     className={cn(selectClass, "w-full")}
-                    value={current(sortParam)}
+                    value={selected(sortParam, sortOptions, false)}
                     onChange={(event) => apply(sortParam, event.target.value)}
                   >
                     {sortOptions.map((option) => (

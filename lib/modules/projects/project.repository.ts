@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
@@ -15,16 +15,25 @@ import type { ProjectListQuery, ProjectSortKey } from "./project.schema";
  * left it to the caller would be one refactor away from leaking.
  */
 
+/**
+ * The allowlisted sorts (AUD-08 §4, DT-04). Each ends in the project id, so
+ * equal names, dates or statuses keep one order across pages. Projects without
+ * a start or end date sort last. Priority and status compare the enums'
+ * declared order, never their labels.
+ */
 const SORT_ORDER: Record<ProjectSortKey, Prisma.ProjectOrderByWithRelationInput[]> = {
-  "updated-desc": [{ updatedAt: "desc" }],
-  "created-desc": [{ createdAt: "desc" }],
-  "name-asc": [{ name: "asc" }],
-  "name-desc": [{ name: "desc" }],
-  "start-asc": [{ startDate: { sort: "asc", nulls: "last" } }],
-  "end-asc": [{ endDate: { sort: "asc", nulls: "last" } }],
-  "priority-desc": [{ priority: "desc" }, { updatedAt: "desc" }],
-  "status-asc": [{ status: "asc" }, { updatedAt: "desc" }],
+  "updated-desc": [{ updatedAt: "desc" }, { id: "asc" }],
+  "created-desc": [{ createdAt: "desc" }, { id: "asc" }],
+  "name-asc": [{ name: "asc" }, { id: "asc" }],
+  "name-desc": [{ name: "desc" }, { id: "asc" }],
+  "start-asc": [{ startDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+  "end-asc": [{ endDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+  "priority-desc": [{ priority: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
+  "status-asc": [{ status: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
 };
+
+/** A page and its total from one snapshot (AUD-08 §4, DT-06). */
+const SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
 
 /** Columns every list row needs — and nothing more (PRD #10 §160). */
 const SUMMARY_SELECT = {
@@ -96,10 +105,11 @@ export function buildProjectListWhere(
   return { AND: filters };
 }
 
+/** Rows and count share one predicate and one snapshot; the database slices (AUD-08 §3, §4). */
 export async function listProjects(context: UserContext, query: ProjectListQuery) {
   const where = buildProjectListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total] = await prisma.$transaction([
     prisma.project.findMany({
       where,
       select: SUMMARY_SELECT,
@@ -108,7 +118,7 @@ export async function listProjects(context: UserContext, query: ProjectListQuery
       take: query.limit,
     }),
     prisma.project.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }
@@ -217,7 +227,7 @@ export async function projectTaskSummary(context: UserContext, projectId: string
 export async function listProjectMembers(projectId: string) {
   return prisma.projectMember.findMany({
     where: { projectId },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
       companyMemberId: true,
@@ -252,10 +262,11 @@ export async function listProjectActivity(
     ],
   };
 
-  const [rows, total] = await Promise.all([
+  // Newest first, id as tie-breaker, page and total from one snapshot (DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction([
     prisma.activity.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: skipFor(options.page, options.limit),
       take: options.limit,
       select: {
@@ -268,7 +279,7 @@ export async function listProjectActivity(
       },
     }),
     prisma.activity.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }

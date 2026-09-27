@@ -2,8 +2,10 @@ import { firstValue } from "@/lib/modules/shared/list-query";
 import { FILE_TYPE_GROUPS } from "./document.files";
 import {
   DOCUMENT_CONTEXT_FILTERS,
+  DOCUMENT_DATE_PRESETS,
   DOCUMENT_SORT_KEYS,
   documentListQuerySchema,
+  type DocumentDatePreset,
   type DocumentListQuery,
   type DocumentSortKey,
 } from "./document.schema";
@@ -30,28 +32,6 @@ function list(value: string | undefined, allowed: readonly string[]): string[] |
     .map((entry) => entry.trim().toLowerCase())
     .filter((entry) => allowed.includes(entry));
   return values.length > 0 ? values : undefined;
-}
-
-/** Date presets offered by the toolbar (PRD #13 §83). */
-function dateFrom(value: string | undefined): Date | undefined {
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-
-  switch (value) {
-    case "today":
-      return start;
-    case "7d":
-      start.setDate(start.getDate() - 7);
-      return start;
-    case "30d":
-      start.setDate(start.getDate() - 30);
-      return start;
-    case "year":
-      return new Date(now.getFullYear(), 0, 1);
-    default:
-      return undefined;
-  }
 }
 
 export type DocumentQueryDefaults = Partial<
@@ -81,7 +61,10 @@ export function parseDocumentListQuery(
     clientId: read(params, "clientId") || undefined,
     uploadedByMemberId: read(params, "uploadedBy") || undefined,
     companyId: read(params, "company") || undefined,
-    dateFrom: dateFrom(preset) ?? read(params, "dateFrom") ?? undefined,
+    // A preset is resolved by the repository against the company's calendar
+    // day; it replaces an explicit `dateFrom` as it always has (AUD-08 §3).
+    datePreset: (DOCUMENT_DATE_PRESETS as readonly string[]).includes(preset ?? "") ? (preset as DocumentDatePreset) : undefined,
+    dateFrom: (DOCUMENT_DATE_PRESETS as readonly string[]).includes(preset ?? "") ? undefined : read(params, "dateFrom") || undefined,
     dateTo: read(params, "dateTo") || undefined,
     page: Number.isFinite(page) && page > 0 ? page : 1,
     limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 25,

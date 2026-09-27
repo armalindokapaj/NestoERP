@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { redirect } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -11,8 +12,9 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { parseAttendanceQuery } from "@/lib/modules/hr/hr.query";
-import { ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
+import { ATTENDANCE_SORT_KEYS, ATTENDANCE_STATUSES } from "@/lib/modules/hr/hr.schema";
 import { attendanceStatusLabels } from "@/lib/modules/hr/hr.status";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -58,15 +60,9 @@ export async function AttendanceList({
     return search ? `/hr/attendance?${search}` : "/hr/attendance";
   }
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/hr/attendance?${search}` : "/hr/attendance";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/hr/attendance", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/hr/attendance", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -122,7 +118,7 @@ export async function AttendanceList({
         )
       ) : (
         <>
-          <AttendanceTable records={result.data} showEmployee={seesOthers && !query.mine} />
+          <AttendanceTable records={result.data} showEmployee={seesOthers && !query.mine} sort={{ value: query.sort, keys: ATTENDANCE_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

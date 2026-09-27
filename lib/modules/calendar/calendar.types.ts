@@ -91,6 +91,12 @@ export type CalendarProviderContext = {
   filters: CalendarFilters;
   /** The company's IANA zone: all-day dates are read in it (PRD #39 §73). */
   timezone: string;
+  /**
+   * Called when one of the provider's reads stopped at SOURCE_LIMIT, so the
+   * aggregator can say the range is incomplete instead of presenting the
+   * bounded read as every event (AUD-08 §4, DT-05: no silent truncation).
+   */
+  reportCapped?: () => void;
 };
 
 export type CalendarProvider = {
@@ -111,7 +117,10 @@ export type CalendarResponse = {
   meta: {
     providerCounts: Record<string, number>;
     partialFailureProviders?: string[];
+    /** Some events in the range were left out: the merged list passed MAX_EVENTS, or a source read stopped at its limit (AUD-08 §4). */
     truncated?: boolean;
+    /** The sources whose own read stopped at SOURCE_LIMIT. */
+    cappedProviders?: string[];
   };
   capabilities: {
     canCreate: boolean;

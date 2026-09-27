@@ -21,17 +21,22 @@ export function ContractTable({
   showClient = true,
   showProject = true,
   caption = "Contracts",
+  listId = "contracts.list",
 }: {
   contracts: ContractSummaryDTO[];
   showClient?: boolean;
   showProject?: boolean;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
 }) {
   const showValue = contracts.some((row) => row.commercial !== null);
 
   const columns: TableColumn<ContractSummaryDTO>[] = [
     {
       key: "contractNumber",
+      id: "contractNumber",
+      mandatory: true,
       label: "Contract",
       primary: true,
       render: (row) => (
@@ -43,6 +48,7 @@ export function ContractTable({
     },
     {
       key: "type",
+      id: "type",
       label: "Type",
       hideBelow: "xl",
       render: (row) => contractTypeLabels[row.contractType],
@@ -51,6 +57,7 @@ export function ContractTable({
       ? [
           {
             key: "client",
+            id: "client",
             label: "Client / counterparty",
             hideBelow: "md" as const,
             render: (row: ContractSummaryDTO) =>
@@ -63,6 +70,7 @@ export function ContractTable({
       ? [
           {
             key: "project",
+            id: "project",
             label: "Project",
             hideBelow: "xl" as const,
             render: (row: ContractSummaryDTO) =>
@@ -72,6 +80,7 @@ export function ContractTable({
       : []),
     {
       key: "owner",
+      id: "owner",
       label: "Owner",
       hideBelow: "xl",
       render: (row) => (
@@ -83,11 +92,16 @@ export function ContractTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.attention.effectiveStatus} />,
     },
     {
       key: "expiry",
+      id: "expiry",
+      valueType: "date",
       label: "Expiry",
       hideBelow: "lg",
       render: (row) =>
@@ -111,6 +125,8 @@ export function ContractTable({
   if (showValue) {
     columns.splice(columns.length - 2, 0, {
       key: "value",
+      id: "value",
+      valueType: "money",
       label: "Value",
       align: "right",
       render: (row) => (
@@ -121,6 +137,7 @@ export function ContractTable({
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={contracts}
       rowKey={(row) => row.id}

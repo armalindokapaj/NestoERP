@@ -163,6 +163,8 @@ export default async function ProjectFinancePage({ params }: Params) {
           title="Budget versions"
           href={`/finance/budgets?projectId=${project.id}`}
           linkLabel="All budgets"
+          shown={budgetList.data.length}
+          total={budgetList.pagination.total}
         >
           <ul className="divide-y divide-line">
             {budgetList.data.map((budget) => (
@@ -187,8 +189,10 @@ export default async function ProjectFinancePage({ params }: Params) {
           title="Open commitments"
           href={`/finance/commitments?projectId=${project.id}&open=1`}
           linkLabel="All commitments"
+          shown={commitmentList.data.length}
+          total={commitmentList.pagination.total}
         >
-          <CommitmentTable commitments={commitmentList.data} />
+          <CommitmentTable commitments={commitmentList.data} listId="projects.finance.commitments" />
         </Panel>
       ) : null}
 
@@ -197,8 +201,10 @@ export default async function ProjectFinancePage({ params }: Params) {
           title="Expenses"
           href={`/finance/expenses?projectId=${project.id}`}
           linkLabel="All expenses"
+          shown={expenseList.data.length}
+          total={expenseList.pagination.total}
         >
-          <ExpenseTable expenses={expenseList.data} />
+          <ExpenseTable expenses={expenseList.data} listId="projects.finance.expenses" />
         </Panel>
       ) : null}
 
@@ -207,8 +213,10 @@ export default async function ProjectFinancePage({ params }: Params) {
           title="Invoices"
           href={`/finance/invoices?projectId=${project.id}`}
           linkLabel="All invoices"
+          shown={invoiceList.data.length}
+          total={invoiceList.pagination.total}
         >
-          <InvoiceTable invoices={invoiceList.data} />
+          <InvoiceTable invoices={invoiceList.data} listId="projects.finance.invoices" />
         </Panel>
       ) : null}
     </div>
@@ -228,20 +236,38 @@ function Panel({
   title,
   href,
   linkLabel,
+  shown,
+  total,
   children,
 }: {
   title: string;
   href: string;
   linkLabel: string;
+  /** Rows in this preview and every matching row: a preview says it is one (AUD-08 §4). */
+  shown: number;
+  total: number;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{title}</h2>
-        <Link href={href} className="text-table font-medium text-accent-strong hover:underline">
-          {linkLabel}
-        </Link>
+        <span className="flex items-center gap-3">
+          <span className="text-table text-fg-muted" data-testid="preview-count">
+            {shown < total ? (
+              <>
+                Latest <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span>
+              </>
+            ) : (
+              <>
+                <span className="tabular-nums">{total}</span> in total
+              </>
+            )}
+          </span>
+          <Link href={href} className="text-table font-medium text-accent-strong hover:underline">
+            {linkLabel}
+          </Link>
+        </span>
       </div>
       {children}
     </section>

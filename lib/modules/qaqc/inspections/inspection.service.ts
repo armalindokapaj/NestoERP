@@ -15,7 +15,8 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { prisma } from "@/lib/database/prisma";
 import { requireCompanyRequest, resolveReceiptItem } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../qaqc.list";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
@@ -157,13 +158,19 @@ const OPEN_STATUSES: QualityInspectionStatus[] = [
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listInspections(
+/**
+ * The quality-inspection register's predicate (AUD-08 §3, DT-02, DT-03):
+ * scope, then the section (`view`: open, awaiting approval, reinspections,
+ * mine), then filters and search — shared by the page, its count and the CSV
+ * export. The Work, Materials and Reinspections pages are this register with
+ * one value fixed (`inspectionType` or `view`), carried in the query itself.
+ * OR within a filter, AND across filters; a foreign project, goods-receipt or
+ * member id is ANDed with scope and narrows to nothing (DT-22).
+ */
+export function buildInspectionListWhere(
   context: UserContext,
   query: InspectionListQuery & { requestId?: string },
-) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.inspection.view");
-
+): Prisma.QualityInspectionWhereInput {
   const filters: Prisma.QualityInspectionWhereInput[] = [buildInspectionScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_STATUSES } });
@@ -202,29 +209,53 @@ export async function listInspections(
     });
   }
 
-  const where: Prisma.QualityInspectionWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.QualityInspectionOrderByWithRelationInput[] =
-    query.sort === "date-desc"
+/**
+ * The allowlisted inspection sorts (AUD-08 §4, DT-04). An inspection not yet
+ * carried out (no inspection date) sorts after every dated one in both
+ * directions; every order ends in the id.
+ */
+export function inspectionListOrder(
+  sort: InspectionListQuery["sort"],
+): Prisma.QualityInspectionOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.QualityInspectionOrderByWithRelationInput>(
+    sort === "date-desc"
       ? [{ inspectionDate: { sort: "desc", nulls: "last" } }]
-      : query.sort === "date-asc"
+      : sort === "date-asc"
         ? [{ inspectionDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ inspectionNumber: "asc" }]
-          : query.sort === "updated-desc"
+          : sort === "updated-desc"
             ? [{ updatedAt: "desc" }]
-            : [{ createdAt: "desc" }];
+            : [{ createdAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.qualityInspection.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.qualityInspection.count({ where }),
-  ]);
+export async function listInspections(
+  context: UserContext,
+  query: InspectionListQuery & { requestId?: string },
+) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.inspection.view");
+
+  const where = buildInspectionListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.qualityInspection.findMany({
+        where,
+        orderBy: inspectionListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.qualityInspection.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
 
@@ -232,6 +263,23 @@ export async function listInspections(
     data: rows.map((row) => toSummaryDTO(row, members)),
     pagination: paginationMeta(total, query.page, query.limit),
   };
+}
+
+/** Every inspection raised from one request, complete and in creation order, newest first (AUD-08 §4). */
+export async function listForRequest(
+  context: UserContext,
+  requestId: string,
+): Promise<InspectionSummaryDTO[]> {
+  if (!can(context, "qaqc.inspection.view")) return [];
+
+  const rows = await prisma.qualityInspection.findMany({
+    where: { AND: [buildInspectionScopeWhere(context), { requestId }] },
+    orderBy: inspectionListOrder("created-desc"),
+    select: LIST_SELECT,
+  });
+
+  const members = await loadMembers(context.companyId, rows.map((row) => row.assignedInspectorMemberId));
+  return rows.map((row) => toSummaryDTO(row, members));
 }
 
 export async function getInspection(
@@ -329,7 +377,8 @@ async function listReinspections(
 ): Promise<InspectionSummaryDTO[]> {
   const rows = await prisma.qualityInspection.findMany({
     where: { AND: [buildInspectionScopeWhere(context), { parentInspectionId }] },
-    orderBy: { reinspectionSequence: "asc" },
+    // Complete, not paged: one inspection's re-looks, in sequence (AUD-08 §4).
+    orderBy: [{ reinspectionSequence: { sort: "asc", nulls: "last" } }, { id: "asc" }],
     select: LIST_SELECT,
   });
 

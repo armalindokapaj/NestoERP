@@ -29,18 +29,21 @@ import {
   at,
   dateOf,
   fail,
+  LIST_SNAPSHOT,
   loadProjectThrough,
   memberOptions,
   people,
   personOf,
   projectArchived,
   projectNumber,
+  REGISTER_PAGE_SIZE,
   withNumber,
   type ProjectRef,
 } from "@/lib/modules/engineering/engineering.shared";
 import type { Discipline, Option } from "@/lib/modules/engineering/engineering.types";
 import { RFI_OPEN_STATUSES } from "@/lib/modules/engineering/engineering.types";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 
 /**
  * Work packages (PRD #46 §32-§40, §215, §286).
@@ -134,16 +137,27 @@ function listFilters(query: WorkPackageListQuery): Prisma.WorkPackageWhereInput[
   return filters;
 }
 
+/**
+ * One page of work packages (AUD-08 §3, §4): the reader's scope, then the
+ * archived section (`includeArchived`) and the filters, then project name and
+ * code with the id breaking ties (DT-04), then the page — all in the database.
+ * Rows and total share one snapshot (DT-06); `page` is the request clamped to
+ * the last real page (DT-05). A project or contractor id outside the reader's
+ * scope narrows to no rows (DT-22).
+ */
 export async function listWorkPackages(context: UserContext, query: WorkPackageListQuery): Promise<{ items: WorkPackageRowDTO[]; total: number; page: number; pageSize: number }> {
   assertModule(context, MODULE);
   if (!contractorsOpen(context, "work_package.view")) throw new AccessError("FORBIDDEN", "You cannot see work packages.");
-  const pageSize = 50;
+  const pageSize = REGISTER_PAGE_SIZE;
   const where = { AND: [readableWorkPackageWhere(context), ...listFilters(query)] };
-  const [rows, total] = await Promise.all([
-    prisma.workPackage.findMany({ where, orderBy: [{ project: { name: "asc" } }, { code: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: WP_SELECT }),
-    prisma.workPackage.count({ where }),
-  ]);
-  return { items: await toRows(context, rows), total, page: query.page, pageSize };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.workPackage.findMany({ where, orderBy: [{ project: { name: "asc" } }, { code: "asc" }, { id: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: WP_SELECT }),
+      prisma.workPackage.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
+  return { items: await toRows(context, rows), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 export async function loadWorkPackageProject(context: UserContext, projectId: string, permission: "work_package.view" | "work_package.create" = "work_package.view"): Promise<ProjectRef> {
@@ -151,10 +165,27 @@ export async function loadWorkPackageProject(context: UserContext, projectId: st
   return loadProjectThrough(contractorProjectDoor(context, permission), projectId, "You cannot open this project's work packages.");
 }
 
+/**
+ * A project's work packages for its Contractors overview (the metric and the
+ * first twelve), code order with the id breaking ties, at most 500. The
+ * project's own Work packages tab pages through `listProjectWorkPackagesPage`
+ * instead, so it never stops silently at 500 (AUD-08 §4).
+ */
 export async function listProjectWorkPackages(context: UserContext, projectId: string, query: WorkPackageListQuery): Promise<WorkPackageRowDTO[]> {
   const project = await loadWorkPackageProject(context, projectId);
-  const rows = await prisma.workPackage.findMany({ where: { AND: [readableWorkPackageWhere(context), { projectId: project.id }, ...listFilters({ ...query, projectId: null })] }, orderBy: [{ code: "asc" }], take: 500, select: WP_SELECT });
+  const rows = await prisma.workPackage.findMany({ where: { AND: [readableWorkPackageWhere(context), { projectId: project.id }, ...listFilters({ ...query, projectId: null })] }, orderBy: [{ code: "asc" }, { id: "asc" }], take: 500, select: WP_SELECT });
   return toRows(context, rows);
+}
+
+/**
+ * One page of a project's work packages (AUD-08 §3, §4, DT-05): the project
+ * through its door first — one outside the reader's reach is refused like a
+ * missing one (DT-22) — then exactly the company list narrowed to it, with its
+ * count, order and snapshot.
+ */
+export async function listProjectWorkPackagesPage(context: UserContext, projectId: string, query: WorkPackageListQuery): Promise<{ items: WorkPackageRowDTO[]; total: number; page: number; pageSize: number }> {
+  const project = await loadWorkPackageProject(context, projectId);
+  return listWorkPackages(context, { ...query, projectId: project.id });
 }
 
 export async function findReadableWorkPackage(context: UserContext, id: string): Promise<WorkPackageRow> {

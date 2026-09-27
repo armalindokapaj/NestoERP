@@ -132,7 +132,11 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
             </table>
           </div>
         )}
-        {list.truncated ? <p className="text-meta text-fg-muted">Showing the first 500 people. Filter by department to narrow the list.</p> : null}
+        {list.truncated ? (
+          <p role="status" className="text-meta text-fg-muted" data-testid="team-truncated">
+            Showing the first 500 people by name; the counts and the status and approver filters cover only them. Filter by department or search to narrow the list.
+          </p>
+        ) : null}
       </div>
     </ModulePage>
   );

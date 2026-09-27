@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { SquareCheckBig } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -7,7 +8,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import { parseTaskListQuery, type TaskQueryDefaults } from "@/lib/modules/tasks/task.query";
+import { TASK_SORT_KEYS } from "@/lib/modules/tasks/task.schema";
 import { listTasksForWorkspace, taskFilterOptionsForWorkspace } from "@/lib/modules/tasks/task.workspace";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -50,6 +54,11 @@ export async function TasksList({
     listTasksForWorkspace(context, query),
     taskFilterOptionsForWorkspace(context),
   ]);
+  // A page past the end (after an archive, a completion or a narrower filter)
+  // moves once to the last real page, page 1 when nothing matches (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) {
+    redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
+  }
 
   const hasFilters = Boolean(
     query.search ||
@@ -132,15 +141,11 @@ export async function TasksList({
         ]),
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
+  // Clear filters drops only this list's filter and search keys; the sort and
+  // any other route key stay (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", searchParams, 1).slice(1), ["search", "status", "priority", "projectId", "assignee", "due", "dueFrom", "dueTo", "company"]);
+  const clearHref = cleared ? `${basePath}?${cleared}` : basePath;
 
   return (
     <div className="space-y-4">
@@ -167,7 +172,7 @@ export async function TasksList({
             icon={<SquareCheckBig />}
             title="No tasks match these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            action={{ label: "Clear filters", href: clearHref }}
           />
         ) : (
           <EmptyState
@@ -183,7 +188,7 @@ export async function TasksList({
         )
       ) : (
         <>
-          <TaskTable tasks={result.data} />
+          <TaskTable tasks={result.data} sort={{ value: query.sort, keys: TASK_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

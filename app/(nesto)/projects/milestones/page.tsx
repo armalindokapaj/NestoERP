@@ -36,6 +36,12 @@ function Figure({ label, value, tone, testId }: { label: string; value: string |
   );
 }
 
+/** "Showing the top 50 of 73, most overdue first" when a list is cut; nothing when it is whole (AUD-08 §4: no unlabelled cut). */
+function ListScope({ shown, total, order }: { shown: number; total: number; order: string }) {
+  if (total <= shown) return null;
+  return <p className="px-5 text-meta text-fg-muted" data-testid="report-list-scope">Showing the top {shown} of {total}, {order}.</p>;
+}
+
 function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; caption: string; empty: string; testId: string }) {
   if (!rows.length) return <p className="px-5 py-4 text-table text-fg-muted">{empty}</p>;
   return (
@@ -103,6 +109,12 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
   return (
     <ModulePage experience={experience} activeSection="milestones" description="Key dates across your projects: delays, variance against baseline and critical milestones.">
       <div className="space-y-5">
+        {report.truncated ? (
+          // A bounded read is said out loud, never shown as the whole portfolio (AUD-08 §4, DT-05).
+          <p role="status" data-testid="report-truncated" className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-table text-warning-strong">
+            More milestones match than the report reads at once; these figures cover the first 10,000. Narrow the report to a project or status.
+          </p>
+        ) : null}
         <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters">
           <label className="flex min-w-[13rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">Project</span>
@@ -114,6 +126,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                 </option>
               ))}
             </select>
+            {report.projectsTruncated ? <span className="mt-1 text-meta text-fg-muted">The first 500 projects by name are listed.</span> : null}
           </label>
           {report.phases.length ? (
             <label className="flex min-w-[10rem] flex-1 flex-col">
@@ -251,6 +264,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
 
         <section className="nesto-card" aria-labelledby="overdue">
           <h2 id="overdue" className="px-5 pt-4 text-card font-semibold text-fg">Overdue milestones</h2>
+          <ListScope shown={report.overdue.length} total={report.listTotals.overdue} order="most overdue first" />
           <MilestoneTable rows={report.overdue} caption="Overdue milestones" empty="Nothing is overdue." testId="report-overdue" />
           <div className="h-2" />
         </section>
@@ -258,12 +272,14 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         <section className="nesto-card" aria-labelledby="variance">
           <h2 id="variance" className="px-5 pt-4 text-card font-semibold text-fg">Forecast variance</h2>
           <p className="px-5 text-meta text-fg-muted">Baseline against forecast — or actual, once achieved. Largest slips first.</p>
+          <ListScope shown={report.variance.length} total={report.listTotals.variance} order="largest slips first" />
           <MilestoneTable rows={report.variance} caption="Forecast variance" empty="No milestone has a baseline yet." testId="report-variance" />
           <div className="h-2" />
         </section>
 
         <section className="nesto-card" aria-labelledby="critical">
           <h2 id="critical" className="px-5 pt-4 text-card font-semibold text-fg">Critical milestones</h2>
+          <ListScope shown={report.critical.length} total={report.listTotals.critical} order="late first" />
           <MilestoneTable rows={report.critical} caption="Critical milestones" empty="No critical milestones." testId="report-critical" />
           <div className="h-2" />
         </section>

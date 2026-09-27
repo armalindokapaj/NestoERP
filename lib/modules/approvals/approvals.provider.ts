@@ -54,6 +54,29 @@ export type ProviderItem = Omit<UnifiedApprovalItem, "dueState" | "urgency">;
 
 export type ProviderDetail = Omit<UnifiedApprovalDetail, "item"> & { item: ProviderItem };
 
+/**
+ * Which provider answers stopped at one of their own bounds before the list
+ * ran out (AUD-08 §4, DT-05: no silent truncation). A provider reads a bounded
+ * window of its table and then drops what this reader may not decide or open,
+ * so the answer it returns can be short even though rows were left unread — a
+ * "Waiting" read of 300 pending rows that keeps 20 is not "20 waiting". It
+ * marks such an answer here, and the Center reports the list as windowed and
+ * its counts as capped instead of presenting the window as the whole.
+ *
+ * A WeakSet of the returned arrays, so the provider contract (`queue` returns
+ * items) does not change; an answer that is copied must be marked again.
+ */
+const windowedAnswers = new WeakSet<object>();
+
+export function markWindowed<T extends object>(answer: T, windowed: boolean): T {
+  if (windowed) windowedAnswers.add(answer);
+  return answer;
+}
+
+export function isWindowed(answer: object): boolean {
+  return windowedAnswers.has(answer);
+}
+
 export type WaitingCounts = { total: number; overdue: number; critical: number };
 
 export interface ApprovalProvider {

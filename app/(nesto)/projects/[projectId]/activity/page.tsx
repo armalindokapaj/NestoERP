@@ -10,6 +10,7 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ projectId: string }>;
@@ -37,6 +38,8 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
     page: currentPage,
     limit: 25,
   });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== currentPage) redirect(listPageRedirect(`/projects/${projectId}/activity`, {}, activity.pagination.page));
 
   return (
     <div className="space-y-5">

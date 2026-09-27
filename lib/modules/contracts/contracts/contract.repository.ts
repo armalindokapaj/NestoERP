@@ -3,7 +3,8 @@ import { Prisma } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   buildOpportunityScopeWhere,
   buildProposalScopeWhere,
@@ -16,6 +17,9 @@ import {
 } from "../contract.scope";
 import { EXPIRING_SOON_DAYS } from "./contract.status";
 import type { ContractListQuery, ContractSortKey } from "./contract.schema";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * Contract queries (PRD #18 §244, §300–§310).
@@ -194,18 +198,24 @@ export async function listContracts(
 ) {
   const where = buildContractListWhere(context, query, today);
 
-  const [rows, total] = await Promise.all([
-    prisma.contract.findMany({
-      where,
-      orderBy: ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.contract.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "contracts.list",
+    async (tx) => {
+      const window = pageWindow(await tx.contract.count({ where }), query.page, query.limit);
+      const rows = await tx.contract.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
-  return { rows, total };
+  return { rows, total: window.total, window };
 }
 
 export function findContractInScope(context: UserContext, contractId: string) {

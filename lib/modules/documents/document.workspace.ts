@@ -42,14 +42,14 @@ export async function resolveDocumentReaders(session: UserContext): Promise<User
 
 /**
  * Narrows a group read to the company a filter names (§87) — if the reader may
- * read it. A company they may not read, or that does not exist, narrows nothing
- * and says nothing: the filter is ignored, so it cannot be used to find out
- * which companies exist or what they hold (§57, §81).
+ * read it. A company they may not read, or that does not exist, answers no
+ * rows — the same answer for both, so it cannot be used to find out which
+ * companies exist or what they hold (§57, §81). It is never dropped to answer
+ * every company instead, which silently broadened the request (AUD-08 §3, DT-22).
  */
 function narrowToCompany(readers: UserContext[], companyId: string | undefined): UserContext[] {
   if (!companyId) return readers;
-  const chosen = readers.filter((reader) => reader.companyId === companyId);
-  return chosen.length > 0 ? chosen : readers;
+  return readers.filter((reader) => reader.companyId === companyId);
 }
 
 /** The companies a Group workspace list can be narrowed to: the ones it reads, never a list a browser sent (§57). */

@@ -7,8 +7,9 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { dateString, quantityString, toMemberRef, toSupplierRef } from "./receipt.dto";
 import { nextDocumentNumber } from "../procurement.numbering";
 import { buildOrderScopeWhere, buildReceiptScopeWhere } from "../procurement.scope";
@@ -70,6 +71,9 @@ type ReceiptRow = Prisma.GoodsReceiptGetPayload<{ select: typeof RECEIPT_SELECT 
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listForOrder(
   context: UserContext,
   orderId: string,
@@ -109,20 +113,26 @@ export async function listReceipts(
     ],
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.goodsReceipt.findMany({
-      where,
-      orderBy: { receiptDate: "desc" },
-      skip: skipFor(page, limit),
-      take: limit,
-      select: RECEIPT_SELECT,
-    }),
-    prisma.goodsReceipt.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.receipts.list",
+    async (tx) => {
+      const window = pageWindow(await tx.goodsReceipt.count({ where }), page, limit);
+      const rows = await tx.goodsReceipt.findMany({
+        where,
+        orderBy: withTieBreaker({ receiptDate: "desc" }),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: RECEIPT_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map((row) => toDTO(context, row)),
-    pagination: paginationMeta(total, page, limit),
+    pagination: window,
   };
 }
 

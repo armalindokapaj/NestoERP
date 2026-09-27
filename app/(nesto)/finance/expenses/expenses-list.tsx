@@ -21,6 +21,7 @@ import { expenseCategoryLabels, expenseStatusLabels } from "@/lib/modules/financ
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
 import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
 import { firstValue } from "@/lib/modules/shared/list-query";
+import { EXPENSE_SORT_KEYS } from "@/lib/modules/finance/expenses/expense.schema";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -177,7 +178,7 @@ export async function ExpensesList({
           )
         ) : (
           <>
-            <ExpenseTable expenses={result.data} />
+            <ExpenseTable expenses={result.data} sort={{ value: query.sort, keys: EXPENSE_SORT_KEYS }} />
             <Pagination meta={result.pagination} buildHref={buildHref} />
           </>
         )}

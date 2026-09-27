@@ -4,13 +4,17 @@ import { can } from "@/lib/access/can";
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { moduleLink, toItemRef, toLocationRef, toMemberRef, toWarehouseRef } from "../inventory.dto";
 import { quantityString } from "../inventory.quantity";
 import { buildBalanceScopeWhere, buildMovementScopeWhere } from "../inventory.scope";
 import type { BalanceListQuery, MovementListQuery } from "../inventory.schema";
 import type { MovementDTO, StockRowDTO } from "../inventory.types";
 import { BALANCE_SELECT, toStockRow } from "../items/item.service";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * The stock ledger, read (PRD #20 §173–§179).
@@ -69,22 +73,28 @@ export async function listMovements(context: UserContext, query: MovementListQue
 
   const where: Prisma.StockMovementWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.stockMovement.findMany({
-      where,
-      orderBy: query.sort === "occurred-asc" ? [{ occurredAt: "asc" }] : [{ occurredAt: "desc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SELECT,
-    }),
-    prisma.stockMovement.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.movements.list",
+    async (tx) => {
+      const window = pageWindow(await tx.stockMovement.count({ where }), query.page, query.limit);
+      const rows = await tx.stockMovement.findMany({
+        where,
+        orderBy: withTieBreaker(query.sort === "occurred-asc" ? [{ occurredAt: "asc" }] : [{ occurredAt: "desc" }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const members = await loadMembers(rows.map((row) => row.postedByMemberId));
 
   return {
     data: rows.map((row) => toDTO(context, row, members)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -131,24 +141,32 @@ export async function listBalances(context: UserContext, query: BalanceListQuery
 
   const where: Prisma.InventoryBalanceWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.inventoryBalance.findMany({
-      where,
-      orderBy:
-        query.sort === "available-desc"
-          ? [{ availableQuantity: "desc" }]
-          : query.sort === "available-asc"
-            ? [{ availableQuantity: "asc" }]
-            : [{ inventoryItem: { name: "asc" } }, { warehouse: { code: "asc" } }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: BALANCE_SELECT,
-    }),
-    prisma.inventoryBalance.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.balances.list",
+    async (tx) => {
+      const window = pageWindow(await tx.inventoryBalance.count({ where }), query.page, query.limit);
+      const rows = await tx.inventoryBalance.findMany({
+        where,
+        // One item in several locations has one fixed order: location code, then the id (AUD-08 §4, DT-04).
+        orderBy: withTieBreaker<Prisma.InventoryBalanceOrderByWithRelationInput>(
+          query.sort === "available-desc"
+            ? [{ availableQuantity: "desc" }, { inventoryItem: { name: "asc" } }]
+            : query.sort === "available-asc"
+              ? [{ availableQuantity: "asc" }, { inventoryItem: { name: "asc" } }]
+              : [{ inventoryItem: { name: "asc" } }, { warehouse: { code: "asc" } }, { location: { code: "asc" } }],
+        ),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: BALANCE_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const data: StockRowDTO[] = rows.map(toStockRow);
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+  return { data, pagination: window };
 }
 
 /* -------------------------------------------------------------------------- */

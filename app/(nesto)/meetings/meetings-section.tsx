@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { MeetingEmptyIcon, MeetingList } from "@/components/meetings/meeting-list";
@@ -7,6 +9,7 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { meetingTimezone } from "@/lib/modules/meetings/meeting.repository";
 import { meetingListQuerySchema } from "@/lib/modules/meetings/meeting.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { listMeetingsForWorkspace, meetingFilterOptionsForWorkspace } from "@/lib/modules/meetings/meeting.workspace";
 import { MEETING_STATUS_LABELS, MEETING_TYPE_LABELS, MEETING_TYPES } from "@/lib/modules/meetings/meeting.types";
 
@@ -47,6 +50,10 @@ export async function MeetingsSection({ context, section, searchParams, basePath
     meetingTimezone(context.companyId),
     meetingFilterOptionsForWorkspace(context),
   ]);
+  // A page past the end (after a cancellation, a meeting moving to Past or a
+  // narrower filter) moves once to the last real page, page 1 when nothing
+  // matches — never an empty "Nothing scheduled" over existing meetings (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
   const filters: FilterConfig[] = [
@@ -60,13 +67,8 @@ export async function MeetingsSection({ context, section, searchParams, basePath
   ];
   const filtered = Boolean(query.q || query.type?.length || query.status?.length || query.projectId || (group && query.company));
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) if (typeof value === "string" && key !== "page") params.set(key, value);
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  // Every other query key kept, repeats included (AUD-08 §3).
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
 
   return (
     <div className="space-y-4">

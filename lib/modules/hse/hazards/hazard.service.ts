@@ -14,7 +14,8 @@ import type { UserContext } from "@/lib/context/types";
 import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import { dateString, isOverdue, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -113,10 +114,20 @@ type DetailRow = Prisma.HseHazardGetPayload<{ select: typeof DETAIL_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listHazards(context: UserContext, query: HazardListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.hazard.view");
-
+/**
+ * The hazard register's predicate (AUD-08 §3, DT-02, DT-03): scope, then the
+ * section (`view`), then filters and search — shared by the page, its count
+ * and the CSV export. OR within a filter, AND across filters; a foreign
+ * project or member id is ANDed with scope and narrows to nothing (DT-22).
+ *
+ * "Overdue" compares the due date with the start of today in UTC — the day a
+ * stored due date names — as the row badge and the overview do; the company's
+ * own calendar day is not applied here yet (recorded in the AUD-08 manifest).
+ */
+export function buildHazardListWhere(
+  context: UserContext,
+  query: HazardListQuery,
+): Prisma.HseHazardWhereInput {
   const filters: Prisma.HseHazardWhereInput[] = [buildHazardScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_HAZARD_STATUSES } });
@@ -147,27 +158,46 @@ export async function listHazards(context: UserContext, query: HazardListQuery) 
     });
   }
 
-  const where: Prisma.HseHazardWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseHazardOrderByWithRelationInput[] =
-    query.sort === "risk-desc"
+/**
+ * The allowlisted hazard sorts (AUD-08 §4, DT-04). Risk compares the stored
+ * score (a number, never the level label); a hazard without a due date sorts
+ * after every dated one. Every order ends in the id.
+ */
+export function hazardListOrder(sort: HazardListQuery["sort"]): Prisma.HseHazardOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseHazardOrderByWithRelationInput>(
+    sort === "risk-desc"
       ? [{ riskScore: "desc" }, { observedAt: "desc" }]
-      : query.sort === "due-asc"
+      : sort === "due-asc"
         ? [{ dueDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ hazardNumber: "asc" }]
-          : [{ updatedAt: "desc" }];
+          : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseHazard.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseHazard.count({ where }),
-  ]);
+export async function listHazards(context: UserContext, query: HazardListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.hazard.view");
+
+  const where = buildHazardListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseHazard.findMany({
+        where,
+        orderBy: hazardListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseHazard.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
@@ -238,7 +268,8 @@ export async function listForInspection(
 
   const rows = await prisma.hseHazard.findMany({
     where: { AND: [buildHazardScopeWhere(context), { inspectionId }] },
-    orderBy: [{ riskScore: "desc" }, { createdAt: "desc" }],
+    // Complete, not paged: one inspection's hazards (AUD-08 §4 tie-breaker).
+    orderBy: [{ riskScore: "desc" }, { createdAt: "desc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -246,22 +277,34 @@ export async function listForInspection(
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
+/**
+ * A project's hazards for its HSE tab: the first `limit` by risk (the
+ * register's `risk-desc`, so "View all" continues the same order) and the
+ * true total (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<HazardSummaryDTO[]> {
-  if (!can(context, "hse.hazard.view")) return [];
+): Promise<ListPreview<HazardSummaryDTO>> {
+  if (!can(context, "hse.hazard.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.hseHazard.findMany({
-    where: { AND: [buildHazardScopeWhere(context), { projectId }] },
-    orderBy: [{ riskScore: "desc" }, { observedAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.HseHazardWhereInput = { AND: [buildHazardScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseHazard.findMany({
+        where,
+        orderBy: hazardListOrder("risk-desc"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseHazard.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function hazardFilterOptions(context: UserContext) {

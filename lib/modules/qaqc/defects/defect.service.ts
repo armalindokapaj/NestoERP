@@ -11,7 +11,8 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { requireCompanyInspection } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../qaqc.list";
 import {
   dateString,
   isOverdue,
@@ -92,10 +93,20 @@ const OPEN_STATUSES: QualityDefectStatus[] = ["OPEN", "IN_PROGRESS", "REOPENED",
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listDefects(context: UserContext, query: DefectListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.defect.view");
-
+/**
+ * The defect register's predicate (AUD-08 §3, DT-02, DT-03): scope, then the
+ * section (`view`), then filters and search — shared by the page, its count
+ * and the CSV export. OR within a filter, AND across filters; a foreign
+ * project or member id is ANDed with scope and narrows to nothing (DT-22).
+ *
+ * "Overdue" compares the due date with the start of today in UTC — the day a
+ * stored due date names — as the row badge and the overview do; the company's
+ * own calendar day is not applied here yet (recorded in the AUD-08 manifest).
+ */
+export function buildDefectListWhere(
+  context: UserContext,
+  query: DefectListQuery,
+): Prisma.QualityDefectWhereInput {
   const filters: Prisma.QualityDefectWhereInput[] = [buildDefectScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_STATUSES } });
@@ -120,27 +131,46 @@ export async function listDefects(context: UserContext, query: DefectListQuery) 
     });
   }
 
-  const where: Prisma.QualityDefectWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.QualityDefectOrderByWithRelationInput[] =
-    query.sort === "due-asc"
+/**
+ * The allowlisted defect sorts (AUD-08 §4, DT-04). A defect without a due date
+ * sorts after every dated one; severity compares the enum's declared order.
+ * Every order ends in the id.
+ */
+export function defectListOrder(sort: DefectListQuery["sort"]): Prisma.QualityDefectOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.QualityDefectOrderByWithRelationInput>(
+    sort === "due-asc"
       ? [{ dueDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "severity-desc"
+      : sort === "severity-desc"
         ? [{ severity: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ defectNumber: "asc" }]
-          : [{ createdAt: "desc" }];
+          : [{ createdAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.qualityDefect.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.qualityDefect.count({ where }),
-  ]);
+export async function listDefects(context: UserContext, query: DefectListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.defect.view");
+
+  const where = buildDefectListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.qualityDefect.findMany({
+        where,
+        orderBy: defectListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.qualityDefect.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
@@ -204,7 +234,8 @@ export async function listForInspection(
 
   const rows = await prisma.qualityDefect.findMany({
     where: { AND: [buildDefectScopeWhere(context), { inspectionId }] },
-    orderBy: { createdAt: "desc" },
+    // Complete, not paged: one inspection's defects (AUD-08 §4 tie-breaker).
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -212,22 +243,33 @@ export async function listForInspection(
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
+/**
+ * A project's defects for its QA/QC tab: most severe first, the first `limit`
+ * and the true total, so the tab never stops silently at `limit` (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<DefectSummaryDTO[]> {
-  if (!can(context, "qaqc.defect.view")) return [];
+): Promise<ListPreview<DefectSummaryDTO>> {
+  if (!can(context, "qaqc.defect.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.qualityDefect.findMany({
-    where: { AND: [buildDefectScopeWhere(context), { projectId }] },
-    orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.QualityDefectWhereInput = { AND: [buildDefectScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.qualityDefect.findMany({
+        where,
+        orderBy: [{ severity: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.qualityDefect.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function defectFilterOptions(context: UserContext) {

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 import { buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import type { CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Invoice due dates (PRD #39 §56), for Finance-authorised readers only and
@@ -18,7 +18,7 @@ export const financeProvider: CalendarProvider = {
   capabilities: { draggable: false, resizable: false, quickEdit: false },
   enabled: (context) => moduleOpen(context, "finance", "finance.invoice.view"),
   async getEvents(input) {
-    const rows = await prisma.invoice.findMany({
+    const rows = await sourceRows(input, prisma.invoice.findMany({
       where: {
         AND: [
           buildInvoiceScopeWhere(input.context),
@@ -28,7 +28,7 @@ export const financeProvider: CalendarProvider = {
       },
       take: SOURCE_LIMIT,
       select: { id: true, invoiceNumber: true, status: true, dueDate: true, totalAmount: true, currency: true, project: PROJECT_SELECT },
-    });
+    }));
     if (rows.length === 0) return [];
 
     // Settled by allocations of payments that still stand (E-05F §31).

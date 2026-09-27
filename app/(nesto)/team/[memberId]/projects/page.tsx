@@ -32,6 +32,8 @@ export default async function MemberProjectsPage({ params }: Params) {
   const columns: TableColumn<TeamMemberProjectDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Project",
       primary: true,
       render: (project) => (
@@ -45,6 +47,7 @@ export default async function MemberProjectsPage({ params }: Params) {
     },
     {
       key: "role",
+      id: "role",
       label: "Project role",
       render: (project) => (
         <span className="flex items-center gap-2 text-fg-muted">
@@ -55,6 +58,8 @@ export default async function MemberProjectsPage({ params }: Params) {
     },
     {
       key: "status",
+      id: "status",
+      valueType: "status",
       label: "Status",
       render: (project) => <StatusBadge status={project.status} />,
     },
@@ -83,6 +88,7 @@ export default async function MemberProjectsPage({ params }: Params) {
         />
       ) : (
         <DataTable
+      listId="team.member-projects"
           caption={`Projects for ${member.profile.fullName}`}
           columns={columns}
           records={projects}

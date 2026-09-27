@@ -6,8 +6,9 @@ import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { canSeeStock, loadMemberRef } from "../inventory.dto";
 import { ZERO, quantityString } from "../inventory.quantity";
 import {
@@ -58,6 +59,9 @@ type WarehouseRow = Prisma.WarehouseGetPayload<{ select: typeof WAREHOUSE_SELECT
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listWarehouses(context: UserContext, query: WarehouseListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "inventory.warehouse.view");
@@ -75,22 +79,28 @@ export async function listWarehouses(context: UserContext, query: WarehouseListQ
 
   const where: Prisma.WarehouseWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.warehouse.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: WAREHOUSE_SELECT,
-    }),
-    prisma.warehouse.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.warehouses.list",
+    async (tx) => {
+      const window = pageWindow(await tx.warehouse.count({ where }), query.page, query.limit);
+      const rows = await tx.warehouse.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: WAREHOUSE_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const held = await distinctItemsByWarehouse(context, rows.map((row) => row.id));
 
   return {
     data: rows.map((row) => toSummaryDTO(row, held.get(row.id) ?? 0)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

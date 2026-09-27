@@ -107,6 +107,16 @@ export async function listClientProjects(context: UserContext, clientId: string)
   return repository.listClientProjects(context, clientId);
 }
 
+/** The same projects with their true total and the cap, read in one snapshot (AUD-08 §4). */
+export async function listClientProjectsWithTotal(context: UserContext, clientId: string) {
+  assertModule(context, MODULE);
+  assertPermission(context, "client.project.view");
+  assertPermission(context, "project.view");
+  await assertClientInScope(context, clientId);
+
+  return repository.listClientProjectsWithTotal(context, clientId);
+}
+
 export async function listActivity(
   context: UserContext,
   clientId: string,

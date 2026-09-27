@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
+import Link from "@/components/navigation/nav-link";
 import { History } from "lucide-react";
 
+import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import type { UserContext } from "@/lib/context/types";
@@ -12,17 +15,30 @@ import { formatRelativeTime } from "@/lib/utils/format";
  * The messages name the record and the act and nothing else: an injury flag, a
  * root cause and a stop-work reason live on the record itself, where the
  * permissions that guard them apply.
+ *
+ * Newest first, 50 at a time, with the true number of entries (AUD-08 §4).
  */
 export async function HseActivityFeed({
   context,
   entityType,
   entityId,
+  page = 1,
+  buildHref,
+  moreHref,
 }: {
   context: UserContext;
   entityType: string;
   entityId: string;
+  /** The page to show, on a record's own Activity page. */
+  page?: number;
+  /** Paginates the feed (the record's Activity page); without it the feed shows the newest 50. */
+  buildHref?: (page: number) => string;
+  /** Where the whole history lives, linked when the embedded feed is not all of it. */
+  moreHref?: string;
 }) {
-  const result = await activity.listRecordActivity(context, entityType, entityId, { limit: 50 });
+  const result = await activity.listRecordActivity(context, entityType, entityId, { page, limit: 50 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (buildHref && result.pagination.page !== page) redirect(buildHref(result.pagination.page));
 
   if (result.data.length === 0) {
     return (
@@ -34,7 +50,7 @@ export async function HseActivityFeed({
     );
   }
 
-  return (
+  const feed = (
     <ol className="nesto-card divide-y divide-line">
       {result.data.map((entry) => (
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
@@ -50,5 +66,34 @@ export async function HseActivityFeed({
         </li>
       ))}
     </ol>
+  );
+
+  // Never a silent stop at 50 (AUD-08 §4, DT-01): the record's Activity page
+  // pages through everything; an embedded feed says how much it shows.
+  if (buildHref) {
+    return (
+      <div className="space-y-3">
+        {feed}
+        <Pagination meta={result.pagination} buildHref={buildHref} />
+      </div>
+    );
+  }
+  if (result.pagination.total <= result.data.length) return feed;
+  return (
+    <div className="space-y-2">
+      {feed}
+      <p className="text-meta text-fg-muted" data-testid="activity-count">
+        Showing the latest <span className="tabular-nums">{result.data.length}</span> of{" "}
+        <span className="tabular-nums">{result.pagination.total}</span> entries.
+        {moreHref ? (
+          <>
+            {" "}
+            <Link href={moreHref} className="text-accent hover:underline">
+              See the full history
+            </Link>
+          </>
+        ) : null}
+      </p>
+    </div>
   );
 }

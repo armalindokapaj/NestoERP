@@ -1,4 +1,4 @@
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
@@ -17,15 +17,34 @@ import { formatDate } from "@/lib/utils/format";
  * §45), shown as a column of its own, and opening a task goes through
  * `CompanyRecordLink`: the task's page is a company page, so the click enters
  * that company's workspace first.
+ *
+ * Column metadata (AUD-08 §5): the task title is the identity column and
+ * cannot be hidden; status stays mandatory. Header sorts are offered only
+ * where the page passes `sort` — the server-parsed sort of the rows on screen —
+ * and only for the allowlisted stems (`due`, `priority`, `title`).
  */
-export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
+export function TaskTable({
+  tasks,
+  listId = "tasks.list",
+  sort,
+}: {
+  tasks: TaskSummaryDTO[];
+  /** A nested use (a project's Tasks tab) names its own list, so its column choice is its own. */
+  listId?: string;
+  /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   const grouped = tasks.some((task) => task.company);
+  const sortable = Boolean(sort);
 
   const columns: TableColumn<TaskSummaryDTO>[] = [
     {
       key: "title",
+      id: "title",
       label: "Task",
       primary: true,
+      mandatory: true,
+      sortKey: sortable ? "title" : undefined,
       render: (task) => {
         const title = (
           <>
@@ -53,6 +72,8 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
       ? [
           {
             key: "company",
+            id: "company",
+            mandatory: true,
             label: "Company",
             render: (task: TaskSummaryDTO) => (task.company ? <CompanyTag name={task.company.name} /> : null),
           },
@@ -60,6 +81,7 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
       : []),
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "lg",
       render: (task) =>
@@ -71,6 +93,7 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
     },
     {
       key: "assignee",
+      id: "assignee",
       label: "Assignee",
       hideBelow: "xl",
       render: (task) =>
@@ -88,17 +111,26 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (task) => <StatusBadge status={task.status} />,
     },
     {
       key: "priority",
+      id: "priority",
+      valueType: "status",
+      sortKey: sortable ? "priority" : undefined,
       label: "Priority",
       hideBelow: "lg",
       render: (task) => <PriorityBadge priority={task.priority} />,
     },
     {
       key: "dueDate",
+      id: "due",
+      valueType: "date",
+      sortKey: sortable ? "due" : undefined,
       label: "Due",
       hideBelow: "md",
       render: (task) =>
@@ -116,6 +148,8 @@ export function TaskTable({ tasks }: { tasks: TaskSummaryDTO[] }) {
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Tasks"
       columns={columns}
       records={tasks}

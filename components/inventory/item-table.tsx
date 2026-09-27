@@ -15,14 +15,19 @@ export function ItemTable({
   items,
   showStock,
   caption = "Inventory items",
+  listId = "inventory.items",
 }: {
   items: ItemSummaryDTO[];
   showStock: boolean;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
 }) {
   const columns: TableColumn<ItemSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Item",
       primary: true,
       render: (row) => (
@@ -34,12 +39,14 @@ export function ItemTable({
     },
     {
       key: "category",
+      id: "category",
       label: "Category",
       hideBelow: "lg",
       render: (row) => itemCategoryLabels[row.category],
     },
     {
       key: "baseUnit",
+      id: "baseUnit",
       label: "Unit",
       hideBelow: "xl",
       render: (row) => row.baseUnit,
@@ -50,6 +57,8 @@ export function ItemTable({
     columns.push(
       {
         key: "onHand",
+        id: "onHand",
+        valueType: "number",
         label: "On hand",
         align: "right",
         render: (row) => (
@@ -58,6 +67,8 @@ export function ItemTable({
       },
       {
         key: "reserved",
+        id: "reserved",
+        valueType: "number",
         label: "Reserved",
         align: "right",
         hideBelow: "lg",
@@ -69,6 +80,8 @@ export function ItemTable({
       },
       {
         key: "available",
+        id: "available",
+        valueType: "number",
         label: "Available",
         align: "right",
         hideBelow: "md",
@@ -78,6 +91,8 @@ export function ItemTable({
       },
       {
         key: "level",
+        id: "level",
+        valueType: "status",
         label: "Level",
         render: (row) => <StockLevelBadge level={row.level} />,
       },
@@ -85,6 +100,9 @@ export function ItemTable({
   } else {
     columns.push({
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     });
@@ -92,6 +110,7 @@ export function ItemTable({
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={items}
       rowKey={(row) => row.id}

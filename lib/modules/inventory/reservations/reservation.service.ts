@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { releaseReservation, reserveStock } from "../balances/balance.service";
 import {
   dateString,
@@ -21,6 +22,9 @@ import type { ReservationInput, ReservationListQuery } from "../inventory.schema
 import { isReservationHolding } from "../inventory.status";
 import type { ReservationDTO } from "../inventory.types";
 import { stockReservationMachine } from "./reservation.machine";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * Stock spoken for but not yet issued (PRD #20 §152–§166).
@@ -70,26 +74,34 @@ export async function listReservations(context: UserContext, query: ReservationL
 
   const where: Prisma.StockReservationWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.stockReservation.findMany({
-      where,
-      orderBy:
-        query.sort === "required-asc"
-          ? [{ requiredDate: { sort: "asc", nulls: "last" } }]
-          : query.sort === "expires-asc"
-            ? [{ expiresAt: { sort: "asc", nulls: "last" } }]
-            : [{ createdAt: "desc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SELECT,
-    }),
-    prisma.stockReservation.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.reservations.list",
+    async (tx) => {
+      const window = pageWindow(await tx.stockReservation.count({ where }), query.page, query.limit);
+      const rows = await tx.stockReservation.findMany({
+        where,
+        // Nullable dates go last; every sort ends in the id (AUD-08 §4, DT-04).
+        orderBy: withTieBreaker<Prisma.StockReservationOrderByWithRelationInput>(
+          query.sort === "required-asc"
+            ? [{ requiredDate: { sort: "asc", nulls: "last" } }]
+            : query.sort === "expires-asc"
+              ? [{ expiresAt: { sort: "asc", nulls: "last" } }]
+              : [{ createdAt: "desc" }],
+        ),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toDTO(context, row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

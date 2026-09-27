@@ -94,7 +94,18 @@ export default async function ProjectMeetingsPage({ params }: Params) {
             action={canCreate ? { label: "Schedule a meeting", href: `/meetings/new?projectId=${project.id}` } : undefined}
           />
         ) : (
-          <MeetingList meetings={upcoming.data} zone={zone} today={today} showProject={false} />
+          <>
+            <MeetingList meetings={upcoming.data} zone={zone} today={today} showProject={false} />
+            {/* The tab shows the first 50; the rest are one link away, counted — never cut silently (AUD-08 §4). */}
+            {upcoming.pagination.total > upcoming.data.length ? (
+              <p className="text-table text-fg-muted" data-testid="project-meetings-upcoming-count">
+                Showing <span className="tabular-nums">{upcoming.data.length}</span> of <span className="tabular-nums">{upcoming.pagination.total}</span>.{" "}
+                <Link href={`/meetings?projectId=${project.id}`} className="font-medium text-accent-strong">
+                  All upcoming meetings
+                </Link>
+              </p>
+            ) : null}
+          </>
         )}
       </section>
 
@@ -105,7 +116,7 @@ export default async function ProjectMeetingsPage({ params }: Params) {
               Recent
             </h2>
             <Link href={`/meetings/past?projectId=${project.id}`} className="text-table font-medium text-accent-strong">
-              All past meetings
+              All past meetings (<span className="tabular-nums">{past.pagination.total}</span>)
             </Link>
           </div>
           <MeetingList meetings={past.data} zone={zone} today={today} showProject={false} />

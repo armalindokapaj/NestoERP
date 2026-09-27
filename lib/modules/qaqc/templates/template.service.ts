@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../qaqc.list";
 import { loadMemberRef, toMemberRef } from "../qaqc.dto";
 import { buildTemplateScopeWhere } from "../qaqc.scope";
 import type { TemplateInput, TemplateListQuery } from "../qaqc.schema";
@@ -79,10 +80,14 @@ type DetailRow = Prisma.InspectionTemplateGetPayload<{ select: typeof DETAIL_SEL
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listTemplates(context: UserContext, query: TemplateListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.template.view");
-
+/**
+ * The template register's predicate (AUD-08 §3, DT-03): scope, then filters
+ * and search. OR within a filter, AND across filters.
+ */
+export function buildTemplateListWhere(
+  context: UserContext,
+  query: TemplateListQuery,
+): Prisma.InspectionTemplateWhereInput {
   const filters: Prisma.InspectionTemplateWhereInput[] = [buildTemplateScopeWhere(context)];
   if (query.status?.length) filters.push({ status: { in: query.status } });
   if (query.inspectionType?.length) {
@@ -99,25 +104,40 @@ export async function listTemplates(context: UserContext, query: TemplateListQue
     });
   }
 
-  const where: Prisma.InspectionTemplateWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.InspectionTemplateOrderByWithRelationInput[] =
-    query.sort === "name-asc"
+/** The allowlisted template sorts, each ending in the id (AUD-08 §4, DT-04). No key is nullable. */
+export function templateListOrder(sort: TemplateListQuery["sort"]): Prisma.InspectionTemplateOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.InspectionTemplateOrderByWithRelationInput>(
+    sort === "name-asc"
       ? [{ name: "asc" }]
-      : query.sort === "updated-desc"
+      : sort === "updated-desc"
         ? [{ updatedAt: "desc" }]
-        : [{ code: "asc" }, { version: "desc" }];
+        : [{ code: "asc" }, { version: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.inspectionTemplate.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.inspectionTemplate.count({ where }),
-  ]);
+export async function listTemplates(context: UserContext, query: TemplateListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.template.view");
+
+  const where = buildTemplateListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.inspectionTemplate.findMany({
+        where,
+        orderBy: templateListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.inspectionTemplate.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return {
     data: rows.map(toSummaryDTO),

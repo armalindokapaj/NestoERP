@@ -149,10 +149,16 @@ export default async function SupplierDetailPage({ params }: Params) {
           {recentOrders.length > 0 ? (
             <section className="space-y-3">
               <h2 className="text-card font-semibold text-fg">Orders</h2>
+              {(recentOrders.total ?? recentOrders.length) > recentOrders.length ? (
+                <p className="text-meta text-fg-subtle" data-testid="supplier-orders-scope">
+                  The {recentOrders.length} most recent of {recentOrders.total} orders.
+                </p>
+              ) : null}
               <OrderTable
                 orders={recentOrders}
                 showSupplier={false}
                 caption={`Orders with ${supplier.name}`}
+                listId="procurement.supplier-orders"
               />
             </section>
           ) : null}

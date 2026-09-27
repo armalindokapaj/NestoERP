@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 
 import { CompliancePanel } from "@/components/contractors/contractor-panels";
 import { ListToolbar } from "@/components/data/list-toolbar";
-import { flat, type SearchParams } from "@/components/engineering/page-helpers";
+import { Pagination } from "@/components/data/pagination";
+import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { ModulePage } from "@/components/modules/module-page";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -19,7 +20,11 @@ export default async function CompliancePage({ searchParams }: { searchParams: S
   const context = await requireModule("contractors");
   if (!contractorsOpen(context, "contractor_compliance.view")) redirect("/access-denied");
   const experience = resolveModuleExperience(context, "contractors");
-  const result = await listCompliance(context, complianceListSchema.parse(flat(await searchParams)));
+  const params = await searchParams;
+  const query = complianceListSchema.parse(flat(params));
+  const result = await listCompliance(context, query);
+  // The register pages with a true count instead of stopping silently at 50 (AUD-08 §4, DT-05).
+  keepPageInRange("/contractors/compliance", params, query.page, result);
   return (
     <ModulePage experience={experience} activeSection="compliance" description="Insurance, licences, guarantees and certificates across contractors — soonest expiry first.">
       <div className="space-y-4">
@@ -33,6 +38,7 @@ export default async function CompliancePage({ searchParams }: { searchParams: S
           ]}
         />
         <CompliancePanel contractorId={null} items={result.items} canManage={false} canUpload={false} showContractor />
+        <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/contractors/compliance", params, page)} />
       </div>
     </ModulePage>
   );

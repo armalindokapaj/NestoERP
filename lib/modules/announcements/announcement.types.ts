@@ -91,4 +91,10 @@ export type AnnouncementMetricsDTO = {
 
 export type AcknowledgmentRowDTO = { memberId: string; name: string; readAt: string | null; acknowledgedAt: string | null };
 
-export type AnnouncementFeedDTO = { items: AnnouncementCardDTO[]; nextCursor: string | null; counts: { unread: number; acknowledge: number } };
+/**
+ * One slice of a feed. `total` is every announcement matching the tab and its
+ * filters — never the loaded cards — so "Showing 20 of 73" is true (AUD-08 §4).
+ * Slices are offsets into a live view: a notice published meanwhile can shift
+ * the next one, which the list de-duplicates by id.
+ */
+export type AnnouncementFeedDTO = { items: AnnouncementCardDTO[]; nextCursor: string | null; total: number; counts: { unread: number; acknowledge: number } };

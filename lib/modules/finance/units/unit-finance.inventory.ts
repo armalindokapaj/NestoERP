@@ -4,7 +4,8 @@ import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { sqlTimestamp } from "@/lib/database/clock";
-import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow } from "@/lib/modules/shared/list-query";
 import { loadStructureProject } from "@/lib/modules/project-structure/structure.service";
 import { businessDateString } from "../finance.fields";
 import { companyToday, financeCapabilities } from "./unit-finance.core";
@@ -171,21 +172,34 @@ export async function listFinanceInventory(context: UserContext, projectId: stri
   const statusFilter = query.financialStatus ? Prisma.sql`AND ${STATUS} = ${query.financialStatus}` : Prisma.empty;
   const cte = figures(context.companyId, project.id, today);
 
-  const [rows, counts, totals] = await Promise.all([
-    prisma.$queryRaw<Row[]>`${cte}
-      SELECT u."id", u."unitCode", t."name" AS "unitType", b."name" AS "building", fl."name" AS "floor",
-        f."contractId", f."contractNumber", f."contractStatus", f."currency", f."clientId", cl."name" AS "clientName",
-        f."value", f."paid", f."outstanding", f."overdue", f."nextDueDate", f."nextDueAmount", ${STATUS} AS "status"
-      ${from} ${where} ${statusFilter}
-      ORDER BY ${orderBy(query.sort)} LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}`,
-    // The quick filters' counts ignore the status filter itself, so every chip says what it would show (§47).
-    prisma.$queryRaw<Array<{ status: UnitFinancialStatus; count: bigint }>>`${cte} SELECT ${STATUS} AS "status", COUNT(*) AS "count" ${from} ${where} GROUP BY 1`,
-    // Totals over the contracts behind the listed units, each contract once (§92).
-    prisma.$queryRaw<Array<{ currency: string; contracted: Prisma.Decimal; collected: Prisma.Decimal; outstanding: Prisma.Decimal; overdue: Prisma.Decimal }>>`${cte}
-      SELECT x."currency", SUM(x."value") AS "contracted", SUM(x."paid") AS "collected", SUM(x."outstanding") AS "outstanding", SUM(x."overdue") AS "overdue"
-      FROM (SELECT DISTINCT f."contractId", f."currency", f."value", f."paid", f."outstanding", f."overdue" ${from} ${where} ${statusFilter} AND f."contractId" IS NOT NULL AND f."contractStatus" IN ('SIGNED', 'ACTIVE', 'COMPLETED')) x
-      GROUP BY x."currency" ORDER BY x."currency"`,
-  ]);
+  /*
+   * One snapshot for the chips' counts, the page and the totals (AUD-08 §4,
+   * DT-06): the count comes first, so a page past the end reads the last real
+   * page (DT-05) rather than an empty offset, and a payment recorded meanwhile
+   * cannot land in the totals but not the rows. Every sort ends in `u."id"`.
+   */
+  const { rows, counts, totals, window } = await runInTransaction(
+    "finance.unit-inventory.list",
+    async (tx) => {
+      // The quick filters' counts ignore the status filter itself, so every chip says what it would show (§47).
+      const counts = await tx.$queryRaw<Array<{ status: UnitFinancialStatus; count: bigint }>>`${cte} SELECT ${STATUS} AS "status", COUNT(*) AS "count" ${from} ${where} GROUP BY 1`;
+      const matching = counts.reduce((sum, row) => sum + (!query.financialStatus || row.status === query.financialStatus ? Number(row.count) : 0), 0);
+      const window = pageWindow(matching, query.page, query.limit);
+      const rows = await tx.$queryRaw<Row[]>`${cte}
+        SELECT u."id", u."unitCode", t."name" AS "unitType", b."name" AS "building", fl."name" AS "floor",
+          f."contractId", f."contractNumber", f."contractStatus", f."currency", f."clientId", cl."name" AS "clientName",
+          f."value", f."paid", f."outstanding", f."overdue", f."nextDueDate", f."nextDueAmount", ${STATUS} AS "status"
+        ${from} ${where} ${statusFilter}
+        ORDER BY ${orderBy(query.sort)} LIMIT ${window.limit} OFFSET ${(window.page - 1) * window.limit}`;
+      // Totals over the contracts behind the filtered units — all of them, not the page — each contract once (§92).
+      const totals = await tx.$queryRaw<Array<{ currency: string; contracted: Prisma.Decimal; collected: Prisma.Decimal; outstanding: Prisma.Decimal; overdue: Prisma.Decimal }>>`${cte}
+        SELECT x."currency", SUM(x."value") AS "contracted", SUM(x."paid") AS "collected", SUM(x."outstanding") AS "outstanding", SUM(x."overdue") AS "overdue"
+        FROM (SELECT DISTINCT f."contractId", f."currency", f."value", f."paid", f."outstanding", f."overdue" ${from} ${where} ${statusFilter} AND f."contractId" IS NOT NULL AND f."contractStatus" IN ('SIGNED', 'ACTIVE', 'COMPLETED')) x
+        GROUP BY x."currency" ORDER BY x."currency"`;
+      return { rows, counts, totals, window };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
 
   const items = rows.map((row): FinanceInventoryRowDTO => ({
     id: row.id,
@@ -209,9 +223,10 @@ export async function listFinanceInventory(context: UserContext, projectId: stri
   const all = Object.values(tally).reduce((sum, value) => sum + value, 0);
   return {
     items,
-    page: query.page,
-    pageSize: query.limit,
-    total: query.financialStatus ? tally[query.financialStatus] : all,
+    // The page actually read: the last one when a page past the end was asked for (AUD-08 §4, DT-05).
+    page: window.page,
+    pageSize: window.limit,
+    total: window.total,
     counts: { ...tally, ALL: all },
     totals: totals.map((row) => ({ currency: row.currency, contracted: text(row.contracted)!, collected: text(row.collected)!, outstanding: text(row.outstanding)!, overdue: text(row.overdue)! })),
     canSeeClients,

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
@@ -10,6 +10,7 @@ import * as clients from "@/lib/modules/clients/client.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { clientBreadcrumbs, loadClient } from "../client-context";
 import { ClientTabs } from "../client-tabs";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ clientId: string }>;
@@ -35,6 +36,8 @@ export default async function ClientActivityPage({ params, searchParams }: Param
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
   const activity = await clients.listActivity(context, clientId, { page, limit: 25 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== page) redirect(listPageRedirect(`/clients/${clientId}/activity`, query, activity.pagination.page));
 
   return (
     <div className="space-y-5">

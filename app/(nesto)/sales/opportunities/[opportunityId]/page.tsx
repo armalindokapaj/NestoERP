@@ -224,7 +224,7 @@ export default async function OpportunityPage({ params }: Params) {
           {relatedProposals.length === 0 ? (
             <p className="nesto-card p-5 text-table text-fg-subtle">No proposals yet.</p>
           ) : (
-            <ProposalTable proposals={relatedProposals} showOpportunity={false} />
+            <ProposalTable proposals={relatedProposals} showOpportunity={false} listId="sales.opportunity-proposals" />
           )}
         </section>
       ) : null}

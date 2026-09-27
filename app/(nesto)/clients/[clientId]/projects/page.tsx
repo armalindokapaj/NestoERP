@@ -26,7 +26,7 @@ export default async function ClientProjectsPage({ params }: Params) {
 
   if (!client.capabilities.canViewProjects) notFound();
 
-  const rows = await clients.listClientProjects(context, clientId);
+  const { rows, total, cap } = await clients.listClientProjectsWithTotal(context, clientId);
 
   const projects = rows.map((project) => ({
     id: project.id,
@@ -70,7 +70,22 @@ export default async function ClientProjectsPage({ params }: Params) {
           description="Projects you can open that name this client will appear here."
         />
       ) : (
-        <ProjectTable projects={projects} />
+        <>
+          <ProjectTable projects={projects} listId="clients.projects" />
+          {/* The true count, and the cap said out loud when it bites (AUD-08 §4). */}
+          <p className="text-table text-fg-muted" data-testid="pagination-count">
+            {total > projects.length ? (
+              <>
+                Showing the first <span className="tabular-nums">{projects.length}</span> of{" "}
+                <span className="tabular-nums">{total}</span> projects (limit {cap}).
+              </>
+            ) : (
+              <>
+                <span className="tabular-nums">{total}</span> {total === 1 ? "project" : "projects"}
+              </>
+            )}
+          </p>
+        </>
       )}
     </div>
   );

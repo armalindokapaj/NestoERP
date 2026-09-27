@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { can, canAccessModule } from "@/lib/access/can";
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
-import { SOURCE_LIMIT } from "@/lib/modules/calendar/providers/provider.helpers";
+import { SOURCE_LIMIT, sourceRows } from "@/lib/modules/calendar/providers/provider.helpers";
 import type { CalendarProvider } from "@/lib/modules/calendar/calendar.types";
 import { meetingsOpen, readableMeetingWhere } from "./meeting.permissions";
 
@@ -22,7 +22,8 @@ export const meetingCalendarProvider: CalendarProvider = {
   categories: ["MEETING"],
   capabilities: { draggable: false, resizable: false, quickEdit: false },
   enabled: (context) => meetingsOpen(context),
-  async getEvents({ context, range, filters }) {
+  async getEvents(input) {
+    const { context, range, filters } = input;
     const where: Prisma.MeetingWhereInput = {
       AND: [
         readableMeetingWhere(context),
@@ -32,9 +33,9 @@ export const meetingCalendarProvider: CalendarProvider = {
         filters.memberIds?.length ? { participants: { some: { memberId: { in: filters.memberIds }, response: { not: "DECLINED" } } } } : {},
       ],
     };
-    const rows = await prisma.meeting.findMany({
+    const rows = await sourceRows(input, prisma.meeting.findMany({
       where,
-      orderBy: { startsAt: "asc" },
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
       take: SOURCE_LIMIT,
       select: {
         id: true,
@@ -52,7 +53,7 @@ export const meetingCalendarProvider: CalendarProvider = {
           select: { memberId: true, member: { select: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } } } },
         },
       },
-    });
+    }));
 
     // A project the reader cannot open is not named, even on a meeting they attend (PRD #39 §46).
     const projectIds = [...new Set(rows.map((row) => row.project?.id).filter((id): id is string => Boolean(id)))];

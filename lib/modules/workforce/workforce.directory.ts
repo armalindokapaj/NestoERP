@@ -1,11 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { accountStatusOf, accountStatusWhere } from "@/lib/modules/hr/hr.person";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { assignmentsOf } from "./assignment.service";
 import { crewMembershipsOf } from "./crew.service";
 import { assertWorkforce, canManageAssignments, canManageCrewOn, coversDay, readableCrewWhere, readableWorkerWhere, seesWholeCompany, workforceOpen, workforceProjectWhere } from "./workforce.permissions";
@@ -35,10 +36,15 @@ const SUMMARY_SELECT = {
   companyMember: { select: { status: true, user: { select: { status: true } } } },
 } satisfies Prisma.EmployeeProfileSelect;
 
+/**
+ * Directory sorts (AUD-08 §4, DT-04), each ending in the id. The employee
+ * number is optional: workers without one go last. A worker with no trade sorts
+ * after every trade (PostgreSQL's nulls-last for an ascending relation sort).
+ */
 const ORDER: Record<WorkerListQuery["sort"], Prisma.EmployeeProfileOrderByWithRelationInput[]> = {
   "name-asc": [{ personProfile: { lastName: "asc" } }, { personProfile: { firstName: "asc" } }],
   "name-desc": [{ personProfile: { lastName: "desc" } }, { personProfile: { firstName: "desc" } }],
-  "number-asc": [{ employeeNumber: "asc" }],
+  "number-asc": [{ employeeNumber: { sort: "asc", nulls: "last" } }, { personProfile: { lastName: "asc" } }],
   "trade-asc": [{ trade: { name: "asc" } }, { personProfile: { lastName: "asc" } }],
 };
 
@@ -70,10 +76,16 @@ export async function listWorkers(context: UserContext, query: WorkerListQuery) 
   }
 
   const where: Prisma.EmployeeProfileWhereInput = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.employeeProfile.findMany({ where, orderBy: ORDER[query.sort], skip: skipFor(query.page, query.limit), take: query.limit, select: SUMMARY_SELECT }),
-    prisma.employeeProfile.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "workforce.workers.list",
+    async (tx) => {
+      const window = pageWindow(await tx.employeeProfile.count({ where }), query.page, query.limit);
+      const rows = await tx.employeeProfile.findMany({ where, orderBy: withTieBreaker(ORDER[query.sort]), skip: skipFor(window.page, window.limit), take: window.limit, select: SUMMARY_SELECT });
+      return { rows, window };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
   const places = await currentPlaces(context, rows.map((row) => row.id));
 
   return {
@@ -96,7 +108,7 @@ export async function listWorkers(context: UserContext, query: WorkerListQuery) 
         accountStatus: accountStatusOf(row.companyMember),
       };
     }),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

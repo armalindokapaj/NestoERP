@@ -188,10 +188,12 @@ test.describe("HSE role (PRD #22 §403)", () => {
   test("exports the list it is looking at (§216)", async ({ page }) => {
     await page.goto("/hse/hazards");
 
-    const link = page.getByRole("link", { name: /export csv/i });
-    await expect(link).toBeVisible();
-    // `kind`, not `type`: the lists already use type filters of their own.
-    await expect(link).toHaveAttribute("href", /\/api\/hse\/export\?.*kind=hazards/);
+    // A button that fetches the file (AUD-08 §7). `kind`, not `type`: the lists already use type filters of their own.
+    const button = mainRegion(page).getByTestId("hse-export-hazards");
+    await expect(button).toBeVisible();
+    const request = page.waitForRequest(/\/api\/hse\/export\?.*kind=hazards/);
+    await button.click();
+    await request;
   });
 
   test("the export endpoint answers with a CSV, not a 422 (§216)", async ({ page }) => {

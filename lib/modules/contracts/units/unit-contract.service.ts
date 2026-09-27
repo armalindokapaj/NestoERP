@@ -10,6 +10,7 @@ import { allocateNumber, isAutoNumbered } from "@/lib/core/numbering/numbering.s
 import { applyTransition } from "@/lib/core/state/transition";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { fail, findReadableUnit } from "@/lib/modules/project-structure/structure.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -30,6 +31,9 @@ import {
   type UnitLegalDTO,
 } from "./unit-contract.types";
 import type { z } from "zod";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * A unit's contract (E-05F §7-§17, §49, §57, §74, §88-§90, §113).
@@ -386,12 +390,25 @@ export async function listContractRequests(context: UserContext, query: Contract
         : {},
     ],
   };
-  const [total, rows] = await Promise.all([
-    prisma.unitContractRequest.count({ where }),
-    prisma.unitContractRequest.findMany({ where, orderBy: query.view === "open" ? [{ requestedAt: "asc" }] : [{ updatedAt: "desc" }], skip: (query.page - 1) * query.limit, take: query.limit, select: REQUEST_SELECT }),
-  ]);
+  // Count and page from one snapshot, oldest open request first, the id breaking ties; a page past the
+  // end reads the last real page (AUD-08 §4, DT-04..DT-06).
+  const { rows, window } = await runInTransaction(
+    "contracts.requests.list",
+    async (tx) => {
+      const window = pageWindow(await tx.unitContractRequest.count({ where }), query.page, query.limit);
+      const rows = await tx.unitContractRequest.findMany({
+        where,
+        orderBy: withTieBreaker<Prisma.UnitContractRequestOrderByWithRelationInput>(query.view === "open" ? [{ requestedAt: "asc" }] : [{ updatedAt: "desc" }]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: REQUEST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
   const names = await memberNames(context.companyId, rows.map((row) => row.requestedByMemberId));
-  return { items: rows.map((row) => requestDTO(row, caps, names)), page: query.page, pageSize: query.limit, total };
+  return { items: rows.map((row) => requestDTO(row, caps, names)), page: window.page, pageSize: window.limit, total: window.total };
 }
 
 export async function declineContractRequest(context: UserContext, requestId: string, input: z.infer<typeof declineRequestSchema>): Promise<void> {

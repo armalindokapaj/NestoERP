@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as notifications from "@/lib/core/notifications/notification.service";
 import { prisma } from "../../helpers";
@@ -10,8 +10,10 @@ import { COMPANY_A, COMPANY_B, COMPANY_SUSPENDED, invokeJob, withCompanyStatus }
  *
  * Every announcement here is written straight into the table with its own id
  * and removed after the test with the audit, outbox and attention it caused.
- * The seeded schedule is days ahead of the clock the job is given, so it is
- * never among what a run publishes.
+ * The seeded schedule is "days from now" at seed time, so on a database
+ * seeded a few days ago it has come due. Any schedule this file did not write
+ * is moved a year ahead for the file's duration and put back afterwards, so a
+ * run publishes only what the test wrote.
  */
 
 const JOB = "announcements.schedule";
@@ -46,7 +48,18 @@ afterEach(async () => {
   await prisma.announcement.deleteMany({ where: { id: { in: ids } } });
 });
 
+const parked: Array<{ id: string; publishAt: Date | null }> = [];
+
+beforeAll(async () => {
+  const seeded = await prisma.announcement.findMany({ where: { status: "SCHEDULED", NOT: { id: { startsWith: "jobtest_" } } }, select: { id: true, publishAt: true } });
+  for (const row of seeded) {
+    parked.push(row);
+    await prisma.announcement.update({ where: { id: row.id }, data: { publishAt: new Date(Date.now() + 365 * 24 * 60 * MINUTE) } });
+  }
+});
+
 afterAll(async () => {
+  for (const row of parked) await prisma.announcement.update({ where: { id: row.id }, data: { publishAt: row.publishAt } });
   await prisma.$disconnect();
 });
 

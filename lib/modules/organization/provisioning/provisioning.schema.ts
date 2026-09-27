@@ -40,6 +40,7 @@ export type ProvisionInput = { username?: string };
 
 export const provisioningListQuerySchema = z.object({
   status: optionalEnum(PROVISIONING_STATUSES),
-  page: z.coerce.number().int().min(1).default(1),
+  // A page that is not a page number is page 1, not an error page (AUD-08 §3).
+  page: z.coerce.number().int().min(1).default(1).catch(1),
 });
 export type ProvisioningListQuery = z.infer<typeof provisioningListQuerySchema>;

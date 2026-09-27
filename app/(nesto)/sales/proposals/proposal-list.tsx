@@ -1,4 +1,5 @@
 import { FileText } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -6,10 +7,11 @@ import { ProposalTable } from "@/components/sales/proposal-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
-import { PROPOSAL_STATUSES } from "@/lib/modules/sales/proposals/proposal.schema";
+import { PROPOSAL_SORT_KEYS, PROPOSAL_STATUSES } from "@/lib/modules/sales/proposals/proposal.schema";
 import { proposalStatusLabels } from "@/lib/modules/sales/proposals/proposal.status";
 import * as proposals from "@/lib/modules/sales/proposals/proposal.service";
 import { parseProposalQuery } from "@/lib/modules/sales/sales.query";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -57,15 +59,9 @@ export async function ProposalList({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/sales/proposals?${search}` : "/sales/proposals";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/sales/proposals", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/sales/proposals", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -103,7 +99,7 @@ export async function ProposalList({
         )
       ) : (
         <>
-          <ProposalTable proposals={result.data} />
+          <ProposalTable proposals={result.data} sort={{ value: query.sort, keys: PROPOSAL_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

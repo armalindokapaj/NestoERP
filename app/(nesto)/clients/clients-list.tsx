@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -8,6 +9,9 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseClientListQuery, type ClientQueryDefaults } from "@/lib/modules/clients/client.query";
 import { clientFilterOptions } from "@/lib/modules/clients/client.repository";
+import { CLIENT_SORT_KEYS } from "@/lib/modules/clients/client.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import * as clients from "@/lib/modules/clients/client.service";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -44,6 +48,8 @@ export async function ClientsList({
     clients.listClients(context, query),
     clientFilterOptions(context),
   ]);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
 
   const hasFilters = Boolean(
     query.search ||
@@ -100,15 +106,11 @@ export async function ClientsList({
     },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `${basePath}?${search}` : basePath;
-  }
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
+  // Clear filters drops only this list's filter and search keys; the sort and
+  // any other route key stay (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", searchParams, 1).slice(1), ["search", "type", "status", "country", "projectId", "hasActiveProject"]);
+  const clearHref = cleared ? `${basePath}?${cleared}` : basePath;
 
   return (
     <div className="space-y-4">
@@ -132,7 +134,7 @@ export async function ClientsList({
             icon={<Users />}
             title="No clients match these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            action={{ label: "Clear filters", href: clearHref }}
           />
         ) : (
           <EmptyState
@@ -148,7 +150,7 @@ export async function ClientsList({
         )
       ) : (
         <>
-          <ClientTable clients={result.data} />
+          <ClientTable clients={result.data} sort={{ value: query.sort, keys: CLIENT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

@@ -17,17 +17,22 @@ export function OrderTable({
   showProject = true,
   showSupplier = true,
   caption = "Purchase orders",
+  listId = "procurement.orders",
 }: {
   orders: OrderSummaryDTO[];
   showProject?: boolean;
   showSupplier?: boolean;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
 }) {
   const grouped = isGroupRows(orders);
 
   const columns: TableColumn<OrderSummaryDTO>[] = [
     {
       key: "poNumber",
+      id: "poNumber",
+      mandatory: true,
       label: "Order",
       primary: true,
       render: (row) => (
@@ -46,6 +51,7 @@ export function OrderTable({
       ? [
           {
             key: "supplier",
+            id: "supplier",
             label: "Supplier",
             render: (row: OrderSummaryDTO) => (
               <span className={row.supplier.status === "ACTIVE" ? undefined : "text-fg-subtle"}>
@@ -59,6 +65,7 @@ export function OrderTable({
       ? [
           {
             key: "project",
+            id: "project",
             label: "Project",
             hideBelow: "xl" as const,
             render: (row: OrderSummaryDTO) =>
@@ -68,6 +75,9 @@ export function OrderTable({
       : []),
     {
       key: "totalAmount",
+      id: "totalAmount",
+      mandatory: true,
+      valueType: "money",
       label: "Value",
       align: "right",
       render: (row) => (
@@ -76,11 +86,16 @@ export function OrderTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "received",
+      id: "received",
+      valueType: "status",
       label: "Received",
       hideBelow: "lg",
       render: (row) =>
@@ -92,6 +107,8 @@ export function OrderTable({
     },
     {
       key: "requiredDate",
+      id: "requiredDate",
+      valueType: "date",
       label: "Due",
       hideBelow: "md",
       render: (row) =>
@@ -108,6 +125,7 @@ export function OrderTable({
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={orders}
       rowKey={(row) => row.id}

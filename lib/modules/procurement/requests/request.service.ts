@@ -7,8 +7,9 @@ import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
@@ -131,27 +132,36 @@ type DetailRow = Prisma.PurchaseRequestGetPayload<{ select: typeof DETAIL_SELECT
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listRequests(context: UserContext, query: RequestListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.request.view");
 
   const where = buildListWhere([context], query);
 
-  const [rows, total] = await Promise.all([
-    prisma.purchaseRequest.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.purchaseRequest.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.requests.list",
+    async (tx) => {
+      const window = pageWindow(await tx.purchaseRequest.count({ where }), query.page, query.limit);
+      const rows = await tx.purchaseRequest.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toSummaryDTO(row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -265,22 +275,28 @@ export async function listRequestsForWorkspace(session: UserContext, query: Requ
   );
   const where = buildListWhere(contexts, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.purchaseRequest.findMany({
-      where,
-      // The list's own sort first; the id keeps a page boundary stable when rows tie.
-      orderBy: [...orderFor(query.sort), { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: GROUP_LIST_SELECT,
-    }),
-    prisma.purchaseRequest.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.requests.group-list",
+    async (tx) => {
+      const window = pageWindow(await tx.purchaseRequest.count({ where }), query.page, query.limit);
+      const rows = await tx.purchaseRequest.findMany({
+        where,
+        // The list's own sort first; the id keeps a page boundary stable when rows tie.
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: GROUP_LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toSummaryDTO(row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

@@ -17,6 +17,8 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
   const columns: TableColumn<DepartmentSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Department",
       primary: true,
       render: (department) => (
@@ -38,6 +40,7 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
     },
     {
       key: "manager",
+      id: "manager",
       label: "Manager",
       render: (department) =>
         department.manager ? (
@@ -53,6 +56,7 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
     },
     {
       key: "code",
+      id: "code",
       label: "Code",
       hideBelow: "xl",
       render: (department) => (
@@ -61,6 +65,8 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
     },
     {
       key: "members",
+      id: "members",
+      valueType: "number",
       label: "Active members",
       align: "right",
       render: (department) => (
@@ -69,10 +75,12 @@ export function DepartmentTable({ departments, linkToOrganization }: { departmen
     },
     {
       key: "status",
+      id: "status",
+      valueType: "status",
       label: "Status",
       render: (department) => <StatusBadge status={department.status} />,
     },
   ];
 
-  return <DataTable caption="Departments" columns={columns} records={departments} rowKey={(department) => department.id} />;
+  return <DataTable listId="team.departments" caption="Departments" columns={columns} records={departments} rowKey={(department) => department.id} />;
 }

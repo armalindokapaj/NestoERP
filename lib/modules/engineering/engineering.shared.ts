@@ -32,6 +32,23 @@ export function fail(code: string, message: string, status: FailStatus = "VALIDA
   return new AccessError(status, message, { code, ...extra }, reason);
 }
 
+/**
+ * One register page and its total read from one REPEATABLE READ snapshot
+ * (AUD-08 §4, DT-06): a record committed between the two statements cannot
+ * make "1–50 of 73" disagree with the rows. Shared by the engineering,
+ * contractor and work-package registers.
+ */
+export const LIST_SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
+
+/**
+ * The register page size (PRD #46): fixed, so the parsers take no `limit`.
+ * The page a register answers is the request clamped into 1..totalPages
+ * (`paginationMeta`), so a page past the end — after a void, an archive or a
+ * narrower filter — tells the server page to move once to the last real page
+ * (AUD-08 §4, DT-05).
+ */
+export const REGISTER_PAGE_SIZE = 50;
+
 export const at = (date: string | null | undefined) => (date ? businessInstant(date) : null);
 
 export function isOverdue(due: Date | null, today: string): boolean {

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { buildLeaveScopeWhere, hrScopeKind } from "@/lib/modules/hr/hr.scope";
 import { personName, PERSON_NAME_SELECT, type PersonName } from "@/lib/modules/hr/hr.person";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, onBusinessDate, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, onBusinessDate, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /**
  * Approved leave (PRD #39 §48, §55).
@@ -75,11 +75,11 @@ export const hrProvider: CalendarProvider = {
     const events: Array<CalendarEventDTO | null> = [];
 
     if (can(context, "hr.leave.view")) {
-      const rows = await prisma.leaveRequest.findMany({
+      const rows = await sourceRows(input, prisma.leaveRequest.findMany({
         where: { AND: [buildLeaveScopeWhere(context), overlap, memberFilter] },
         take: SOURCE_LIMIT,
         select,
-      });
+      }));
       for (const row of rows) {
         seen.add(row.id);
         const name = memberName(row);
@@ -114,7 +114,7 @@ export const hrProvider: CalendarProvider = {
     // A project manager plans around their team's absences without reading HR
     // files: who is away, never why.
     if (!filters.myOnly && can(context, "project.manage") && canAccessModule(context, "projects")) {
-      const rows = await prisma.leaveRequest.findMany({
+      const rows = await sourceRows(input, prisma.leaveRequest.findMany({
         where: {
           AND: [
             { companyId: context.companyId },
@@ -127,7 +127,7 @@ export const hrProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select,
-      });
+      }));
       for (const row of rows) {
         const name = memberName(row);
         events.push(onBusinessDate(input, row.startDate, busyOnly(row.id, name), row.endDate));

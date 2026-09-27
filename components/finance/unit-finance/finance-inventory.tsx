@@ -71,6 +71,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
   const [reloadKey, setReloadKey] = React.useState(0);
   const [panelOpen, setPanelOpen] = React.useState(PANEL_KEYS.some((key) => initialFilters[key]));
   const firstLoad = React.useRef(true);
+  const settledPage = React.useRef<number | null>(null);
 
   const panelCount = PANEL_KEYS.filter((key) => filters[key]).length;
   const active = panelCount + (filters.q.trim() ? 1 : 0) + (filters.financialStatus ? 1 : 0);
@@ -89,6 +90,10 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
       firstLoad.current = false;
       return;
     }
+    if (settledPage.current === page) {
+      settledPage.current = null;
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     setLoadError(null);
@@ -97,6 +102,11 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         const json = (await response.json().catch(() => null)) as { data?: FinanceInventoryDTO; error?: { message?: string } } | null;
         if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? "Could not load the units.");
         setList(json.data);
+        // A page past the end came back as the last real page: the address follows it once, with no second request (AUD-08 §4, DT-05).
+        if (json.data.page !== page) {
+          settledPage.current = json.data.page;
+          setPage(json.data.page);
+        }
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Could not load the units.");
@@ -123,6 +133,8 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         {(["contracted", "collected", "outstanding", "overdue"] as const).map((key) => (
           <div key={key} className="nesto-card p-4">
             <p className="text-table text-fg-muted">{key === "contracted" ? "Contracted" : key === "collected" ? "Collected" : key === "outstanding" ? "Outstanding" : "Overdue"}</p>
+            {/* Every unit the filters match, not this page; one line per currency, never added across them (AUD-08 §4, DT-07). */}
+            <p className="text-meta text-fg-subtle">Filtered total</p>
             {list.totals.length === 0 ? (
               <p className="mt-2 text-page font-semibold tabular-nums text-fg">—</p>
             ) : (

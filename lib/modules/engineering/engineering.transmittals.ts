@@ -10,12 +10,13 @@ import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { loadEngineeringProject } from "./engineering.documents";
 import { notifyEngineering } from "./engineering.notify";
 import { engineeringOpen, filesOpen, MODULE, readableEngineeringDocumentWhere, readableTransmittalWhere, TRANSMITTAL_ACTIVITY, TRANSMITTAL_RECORD } from "./engineering.permissions";
 import type { CreateTransmittalInput, TransmittalListQuery, UpdateTransmittalInput } from "./engineering.schema";
 import { companyToday } from "./engineering.settings";
-import { assertProjectWritable, at, dateOf, fail, people, personOf, projectArchived, projectNumber, resolveProjectContext, withNumber } from "./engineering.shared";
+import { assertProjectWritable, at, dateOf, fail, LIST_SNAPSHOT, people, personOf, projectArchived, projectNumber, REGISTER_PAGE_SIZE, resolveProjectContext, withNumber } from "./engineering.shared";
 import { documentTransmittalMachine } from "./engineering.transmittal.machine";
 import { TRANSMITTAL_PURPOSE_LABELS, type TransmittalDetailDTO, type TransmittalItemDTO, type TransmittalRowDTO } from "./engineering.types";
 
@@ -76,11 +77,19 @@ function toRow(row: TransmittalRow): TransmittalRowDTO {
   };
 }
 
+/**
+ * One register page (AUD-08 §3, §4): authorized scope, then the section
+ * (`projectId`, `drawings`/`types`) and the filters, then the order — issue date newest first with unissued drafts first, then created newest first; the id breaks ties
+ * (DT-04) — then the page, all in the database. Rows and total share one
+ * snapshot (DT-06); `page` is the request clamped to the last real page, so a
+ * page past the end moves there once (DT-05). A project id outside the
+ * reader's reach is refused like a missing one (DT-22).
+ */
 export async function listTransmittals(context: UserContext, query: TransmittalListQuery): Promise<{ items: TransmittalRowDTO[]; total: number; page: number; pageSize: number }> {
   assertModule(context, MODULE);
   if (!engineeringOpen(context, "transmittal.view")) throw new AccessError("FORBIDDEN", "You cannot open transmittals.");
   if (query.projectId) await loadEngineeringProject(context, query.projectId, "transmittal.view");
-  const pageSize = 50;
+  const pageSize = REGISTER_PAGE_SIZE;
   const filters: Prisma.DocumentTransmittalWhereInput[] = [readableTransmittalWhere(context)];
   if (query.projectId) filters.push({ projectId: query.projectId });
   if (query.status) filters.push({ status: query.status });
@@ -99,11 +108,11 @@ export async function listTransmittals(context: UserContext, query: TransmittalL
     });
   }
   const where = { AND: filters };
-  const [rows, total] = await Promise.all([
-    prisma.documentTransmittal.findMany({ where, orderBy: [{ issuedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: TRANSMITTAL_SELECT }),
-    prisma.documentTransmittal.count({ where }),
-  ]);
-  return { items: rows.map(toRow), total, page: query.page, pageSize };
+  const [rows, total] = await prisma.$transaction(
+    [prisma.documentTransmittal.findMany({ where, orderBy: [{ issuedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }, { id: "asc" }], skip: (query.page - 1) * pageSize, take: pageSize, select: TRANSMITTAL_SELECT }), prisma.documentTransmittal.count({ where })],
+    LIST_SNAPSHOT,
+  );
+  return { items: rows.map(toRow), total, page: paginationMeta(total, query.page, pageSize).page, pageSize };
 }
 
 async function findReadableTransmittal(context: UserContext, id: string): Promise<TransmittalRow> {

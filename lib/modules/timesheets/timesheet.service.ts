@@ -139,7 +139,7 @@ async function buildWeek(context: UserContext, input: { memberId: string; period
   const own = memberId === context.membershipId;
 
   const [logRows, leave, attendance, cycles, reopens] = await Promise.all([
-    timesheet ? prisma.workLog.findMany({ where: { timesheetId: timesheet.id }, orderBy: [{ workDate: "asc" }, { createdAt: "asc" }], select: LOG_SELECT }) : Promise.resolve([]),
+    timesheet ? prisma.workLog.findMany({ where: { timesheetId: timesheet.id }, orderBy: [{ workDate: "asc" }, { createdAt: "asc" }, { id: "asc" }], select: LOG_SELECT }) : Promise.resolve([]),
     prisma.leaveRequest.findMany({
       where: { companyId: context.companyId, companyMemberId: memberId, status: "APPROVED", startDate: { lt: new Date(`${addLocalDays(periodEnd, 1)}T00:00:00.000Z`) }, endDate: { gte: new Date(`${periodStart}T00:00:00.000Z`) } },
       select: { leaveType: true, startDate: true, endDate: true },

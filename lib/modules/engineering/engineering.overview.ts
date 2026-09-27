@@ -9,7 +9,7 @@ import { contractorProjectDoor, contractorsOpen, readableAssignmentWhere, readab
 import { COMPLIANCE_ALERT_STATUSES, COMPLIANCE_STATUS_LABELS, COMPLIANCE_TYPE_LABELS, OPEN_WORK_PACKAGE_STATUSES, type ComplianceStatus } from "@/lib/modules/contractors/contractor.types";
 import { loadEngineeringProject } from "./engineering.documents";
 import { engineeringOpen, MODULE, readableEngineeringDocumentWhere, readableRfiWhere, readableSubmittalWhere } from "./engineering.permissions";
-import { listRfis } from "./engineering.rfis";
+import { buildRfiListWhere, listRfis } from "./engineering.rfis";
 import { companyToday } from "./engineering.settings";
 import { dateLabel, dateOf } from "./engineering.shared";
 import {
@@ -122,15 +122,29 @@ export async function myEngineeringWork(context: UserContext): Promise<MyEnginee
   if (!engineeringOpen(context)) throw new AccessError("FORBIDDEN", "You cannot open engineering.");
   const { today } = await companyToday(context.companyId);
   const door = doors(context);
-  const [assigned, raised, submittals, documents] = await Promise.all([
-    listRfis(context, { assignee: "me", open: false, awaiting: true, overdue: false, page: 1, projectId: null, q: null, contractorId: null, workPackageId: null }),
-    can(context, "rfi.close") || can(context, "rfi.edit")
-      ? prisma.rfi.findMany({ where: { AND: [door.rfi, { status: "ANSWERED", createdByMemberId: context.membershipId }] }, select: { id: true } })
-      : [],
-    prisma.technicalSubmittal.findMany({ where: { AND: [door.submittal, { assignedReviewerMemberId: context.membershipId, status: { in: SUBMITTAL_IN_REVIEW } }] }, orderBy: { dueAt: { sort: "asc", nulls: "last" } }, take: 50, select: { id: true, projectId: true, submittalNumber: true, title: true, dueAt: true, project: { select: { name: true } }, currentRevision: { select: { revisionCode: true } } } }),
-    prisma.engineeringDocument.findMany({ where: { AND: [door.document, { reviewerMemberId: context.membershipId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } }] }, orderBy: { reviewDueAt: { sort: "asc", nulls: "last" } }, take: 50, select: { id: true, projectId: true, documentNumber: true, title: true, reviewDueAt: true, project: { select: { name: true } }, currentRevision: { select: { revisionCode: true } } } }),
+  // The three RFI lists and the overdue count read the register's own predicate
+  // in the database — never a filter over its first loaded page, which dropped
+  // "ready to close" RFIs past the first 50 answered ones and counted only the
+  // overdue RFIs on that page (AUD-08 §3, §4).
+  const base = { open: false, awaiting: false, overdue: false, page: 1, projectId: null, q: null, contractorId: null, workPackageId: null };
+  // Each review list shows its first 50; its counts are the database's, so the metrics never stop at 50 (AUD-08 §4).
+  const mySubmittals: Prisma.TechnicalSubmittalWhereInput = { assignedReviewerMemberId: context.membershipId, status: { in: SUBMITTAL_IN_REVIEW } };
+  const myDocuments: Prisma.EngineeringDocumentWhereInput = { reviewerMemberId: context.membershipId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } };
+  const beforeToday = { lt: new Date(`${today}T00:00:00.000Z`) };
+  const [assigned, overdueRfis, answered, submittals, documents, reviewCounts] = await Promise.all([
+    listRfis(context, { ...base, assignee: "me", awaiting: true }),
+    prisma.rfi.count({ where: buildRfiListWhere(context, { ...base, assignee: "me", awaiting: true, overdue: true }, today) }),
+    can(context, "rfi.close") || can(context, "rfi.edit") ? listRfis(context, { ...base, status: "ANSWERED", raisedBy: "me" }) : null,
+    prisma.technicalSubmittal.findMany({ where: { AND: [door.submittal, mySubmittals] }, orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { id: "asc" }], take: 50, select: { id: true, projectId: true, submittalNumber: true, title: true, dueAt: true, project: { select: { name: true } }, currentRevision: { select: { revisionCode: true } } } }),
+    prisma.engineeringDocument.findMany({ where: { AND: [door.document, myDocuments] }, orderBy: [{ reviewDueAt: { sort: "asc", nulls: "last" } }, { id: "asc" }], take: 50, select: { id: true, projectId: true, documentNumber: true, title: true, reviewDueAt: true, project: { select: { name: true } }, currentRevision: { select: { revisionCode: true } } } }),
+    Promise.all([
+      prisma.technicalSubmittal.count({ where: { AND: [door.submittal, mySubmittals] } }),
+      prisma.engineeringDocument.count({ where: { AND: [door.document, myDocuments] } }),
+      prisma.technicalSubmittal.count({ where: { AND: [door.submittal, mySubmittals, { dueAt: beforeToday }] } }),
+      prisma.engineeringDocument.count({ where: { AND: [door.document, myDocuments, { reviewDueAt: beforeToday }] } }),
+    ]),
   ]);
-  const toClose = raised.length ? (await listRfis(context, { status: "ANSWERED", open: false, awaiting: false, overdue: false, page: 1, projectId: null, q: null, contractorId: null, workPackageId: null })).items.filter((row) => raised.some((item) => item.id === row.id)) : [];
+  const toClose = answered?.items ?? [];
   const overdue = (due: Date | null) => Boolean(due && dateOf(due)! < today);
   const reviews: ReviewItem[] = [
     ...submittals.map((row) => ({ id: row.id, kind: "submittal" as const, number: row.submittalNumber, title: row.title, projectName: row.project.name, revisionCode: row.currentRevision?.revisionCode ?? null, dueAt: dateOf(row.dueAt), overdue: overdue(row.dueAt), href: `/projects/${row.projectId}/engineering/submittals/${row.id}` })),
@@ -140,7 +154,7 @@ export async function myEngineeringWork(context: UserContext): Promise<MyEnginee
     assignedRfis: assigned.items,
     reviews,
     toClose,
-    counts: { assignedRfis: assigned.total, overdueRfis: assigned.items.filter((row) => row.overdue).length, reviews: reviews.length, overdueReviews: reviews.filter((row) => row.overdue).length, toClose: toClose.length },
+    counts: { assignedRfis: assigned.total, overdueRfis, reviews: reviewCounts[0] + reviewCounts[1], overdueReviews: reviewCounts[2] + reviewCounts[3], toClose: answered?.total ?? 0 },
   };
 }
 

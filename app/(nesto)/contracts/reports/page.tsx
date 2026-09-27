@@ -254,7 +254,7 @@ export default async function ContractReportsPage() {
           {reports.portfolio.length === 0 ? (
             <Empty />
           ) : (
-            <ContractTable contracts={reports.portfolio} caption="Contract portfolio" />
+            <ContractTable contracts={reports.portfolio} caption="Contract portfolio" listId="contracts.report-portfolio" />
           )}
         </Panel>
       </div>

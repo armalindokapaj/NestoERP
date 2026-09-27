@@ -8,10 +8,11 @@ import { AccessError, assertFound, assertModule, assertPermission, stateDenied }
 import { inGroupWorkspace } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, paginationMeta, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { toAmountString } from "../finance.money";
@@ -88,17 +89,26 @@ const DETAIL_SELECT = {
 
 type BudgetDetailRow = Prisma.ProjectBudgetGetPayload<{ select: typeof DETAIL_SELECT }>;
 
-const ORDER: Record<string, Prisma.ProjectBudgetOrderByWithRelationInput[]> = {
-  "updated-desc": [{ updatedAt: "desc" }],
-  "project-asc": [{ project: { name: "asc" } }, { version: "desc" }],
-  "amount-desc": [{ totalAmount: "desc" }],
-  "amount-asc": [{ totalAmount: "asc" }],
-  "version-desc": [{ version: "desc" }],
+/**
+ * Budget sorts (AUD-08 §4, DT-04): required typed columns (no nulls), each
+ * ending in the id so equal amounts or versions page in one fixed order in a
+ * company and across the Group's companies alike.
+ */
+type BudgetOrder = Prisma.ProjectBudgetOrderByWithRelationInput;
+const ORDER: Record<string, BudgetOrder[]> = {
+  "updated-desc": withTieBreaker<BudgetOrder>([{ updatedAt: "desc" }]),
+  "project-asc": withTieBreaker<BudgetOrder>([{ project: { name: "asc" } }, { version: "desc" }]),
+  "amount-desc": withTieBreaker<BudgetOrder>([{ totalAmount: "desc" }]),
+  "amount-asc": withTieBreaker<BudgetOrder>([{ totalAmount: "asc" }]),
+  "version-desc": withTieBreaker<BudgetOrder>([{ version: "desc" }]),
 };
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /** One company's list clause: its scope, the archive rule, the search and the filters. */
 function buildBudgetListWhere(context: UserContext, query: BudgetListQuery): Prisma.ProjectBudgetWhereInput {
@@ -136,16 +146,22 @@ export async function listBudgets(context: UserContext, query: BudgetListQuery) 
 
   const where = buildBudgetListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.projectBudget.findMany({
-      where,
-      orderBy: ORDER[query.sort] ?? ORDER["updated-desc"],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SUMMARY_SELECT,
-    }),
-    prisma.projectBudget.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "finance.budgets.list",
+    async (tx) => {
+      const window = pageWindow(await tx.projectBudget.count({ where }), query.page, query.limit);
+      const rows = await tx.projectBudget.findMany({
+        where,
+        orderBy: ORDER[query.sort] ?? ORDER["updated-desc"],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SUMMARY_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const fallback = await baseCurrency(context.companyId);
   const numbers = await projectFinanceNumbers(
@@ -155,7 +171,7 @@ export async function listBudgets(context: UserContext, query: BudgetListQuery) 
 
   return {
     data: rows.map((row) => toSummaryDTO(row, numbers.get(row.projectId))),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -179,17 +195,23 @@ export async function listBudgetsForWorkspace(
   if (readable.length === 0) return { data: [], pagination: paginationMeta(0, query.page, query.limit) };
 
   const where: Prisma.ProjectBudgetWhereInput = { OR: readable.map((context) => buildBudgetListWhere(context, query)) };
-  const [rows, total] = await Promise.all([
-    prisma.projectBudget.findMany({
-      where,
-      // `id` breaks ties so a page holds still across companies.
-      orderBy: [...(ORDER[query.sort] ?? ORDER["updated-desc"]), { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: { ...SUMMARY_SELECT, companyId: true },
-    }),
-    prisma.projectBudget.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "finance.budgets.group-list",
+    async (tx) => {
+      const window = pageWindow(await tx.projectBudget.count({ where }), query.page, query.limit);
+      const rows = await tx.projectBudget.findMany({
+        where,
+        // `id` breaks ties so a page holds still across companies.
+        orderBy: [...(ORDER[query.sort] ?? ORDER["updated-desc"]), { id: "asc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: { ...SUMMARY_SELECT, companyId: true },
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   // Each company's projects are measured against that company's own base currency.
   const numbers = new Map<string, ProjectFinanceNumbers>();
@@ -203,7 +225,7 @@ export async function listBudgetsForWorkspace(
 
   return {
     data: rows.map((row) => ({ ...toSummaryDTO(row, numbers.get(row.projectId)), company: companies.get(row.companyId)! })),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

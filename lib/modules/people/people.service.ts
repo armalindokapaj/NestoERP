@@ -1,4 +1,4 @@
-import type { EmploymentStatus, Prisma } from "@prisma/client";
+import { Prisma, type EmploymentStatus } from "@prisma/client";
 
 import { isMembershipRoleKey, roleLabel } from "@/config/roles";
 import { can } from "@/lib/access/can";
@@ -16,7 +16,8 @@ import { summaryQualificationWhere } from "@/lib/modules/hr/qualifications/quali
 import { getPersonQualifications } from "@/lib/modules/hr/qualifications/qualification.service";
 import { QUALIFICATION_TYPE_RULES, type PersonQualificationsDTO } from "@/lib/modules/hr/qualifications/qualification.types";
 import { portfolioProjectWhere, resolveProjectPortfolio } from "@/lib/modules/projects/project.portfolio";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
+import { pageWindow, skipFor } from "@/lib/modules/shared/list-query";
 import type { PersonDepartmentDTO } from "@/lib/modules/organization/departments/department.types";
 import { ALL_COMPANIES } from "./people.schema";
 import type { DirectoryQuery, ManagedWorkProfileInput, OwnWorkProfileInput } from "./people.schema";
@@ -323,7 +324,10 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
     });
   }
   if (query.project) {
-    and.push({ user: { is: { memberships: { some: { company: { parentGroupId: group }, projectMemberships: { some: { projectId: query.project, status: "ACTIVE" } } } } } } });
+    // Only a project the reader may open, in any company of theirs: a project they cannot see is no
+    // result at all, not a list of its members (AUD-08 §3, DT-22).
+    const openable = portfolioProjectWhere(await resolveProjectPortfolio(context));
+    and.push({ user: { is: { memberships: { some: { company: { parentGroupId: group }, projectMemberships: { some: { projectId: query.project, status: "ACTIVE", project: openable } } } } } } });
   }
   if (query.location) {
     and.push({ OR: [{ officeLocation: contains(query.location) }, { employments: { some: { company: { parentGroupId: group }, workLocation: contains(query.location) } } }] });
@@ -366,18 +370,24 @@ export async function listPeople(context: UserContext, query: DirectoryQuery): P
   }
 
   const where: Prisma.PersonProfileWhereInput = { AND: and };
-  const [total, rows] = await Promise.all([
-    prisma.personProfile.count({ where }),
-    prisma.personProfile.findMany({
-      where,
-      select: personSelect(group),
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-    }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "people.directory.list",
+    async (tx) => {
+      const window = pageWindow(await tx.personProfile.count({ where }), query.page, query.limit);
+      const rows = await tx.personProfile.findMany({
+        where,
+        select: personSelect(group),
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+      });
+      return { rows, window };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
 
-  return { data: rows.map(toCard), pagination: paginationMeta(total, query.page, query.limit), canIncludeInactive: seesFormerPeople(context) };
+  return { data: rows.map(toCard), pagination: window, canIncludeInactive: seesFormerPeople(context) };
 }
 
 export type DirectoryFilterOptionsDTO = {

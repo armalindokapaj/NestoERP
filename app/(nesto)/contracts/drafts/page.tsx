@@ -11,6 +11,7 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { ContractList } from "../contract-list";
+import { contractSectionSearch } from "@/lib/modules/contracts/contract.query";
 
 export const metadata: Metadata = { title: "Drafts" };
 
@@ -25,11 +26,8 @@ export default async function Page({
 
   const experience = resolveModuleExperience(context, "contracts");
   const params = await searchParams;
-  const search = new URLSearchParams(
-    Object.entries(params).flatMap(([key, value]) =>
-      typeof value === "string" ? [[key, value] as [string, string]] : [],
-    ),
-  ).toString();
+  // The export carries this section's own view, not just the filters (AUD-08 §3, DT-02).
+  const search = contractSectionSearch(params, "drafts");
 
   return (
     <ModulePage

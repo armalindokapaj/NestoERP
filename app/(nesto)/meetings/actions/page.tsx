@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
 import { ListChecks, Plus } from "lucide-react";
 
@@ -50,6 +51,11 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
     const search = next.toString();
     return search ? `/meetings/actions?${search}` : "/meetings/actions";
   };
+  // One it does not offer narrows the list to nothing (AUD-08 DT-22); the address moves once to the
+  // canonical one without it, so the chips and the rows say the same thing.
+  if (query.company && group && !company) redirect(link({ page: "" }));
+  // A page past the end (an action done, a narrower view) moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(link(result.pagination.page > 1 ? { page: String(result.pagination.page) } : {}));
   const chip = (active: boolean) =>
     cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 

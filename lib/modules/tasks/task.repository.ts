@@ -1,11 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { buildTaskScopeWhere } from "@/lib/access/scope";
+import { companyDays } from "@/lib/core/notifications/company-day";
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import type { TaskListQuery, TaskSortKey } from "./task.schema";
-import { dayBounds, startOfWeek } from "./task.status";
+import { startOfWeek } from "./task.status";
 
 /**
  * Database access for Tasks (PRD #11 §100, §101).
@@ -15,16 +16,35 @@ import { dayBounds, startOfWeek } from "./task.status";
  * left it to the caller would be one refactor away from leaking (PRD #11 §20).
  */
 
+/**
+ * The allowlisted sorts (AUD-08 §3, §4, DT-04).
+ *
+ * Every order ends in the task id, so two tasks with the same due date,
+ * priority or title keep one order across every page and the API. Null
+ * placement is explicit: a task without a due date sorts after every dated
+ * task in both directions. Priority compares the enum's declared order
+ * (LOW < MEDIUM < HIGH < CRITICAL), never its label.
+ */
 const SORT_ORDER: Record<TaskSortKey, Prisma.TaskOrderByWithRelationInput[]> = {
-  "due-asc": [{ dueDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
-  "due-desc": [{ dueDate: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
-  "priority-desc": [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-  "priority-asc": [{ priority: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }],
-  "updated-desc": [{ updatedAt: "desc" }],
-  "created-desc": [{ createdAt: "desc" }],
-  "title-asc": [{ title: "asc" }],
-  "title-desc": [{ title: "desc" }],
+  "due-asc": [{ dueDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }, { id: "asc" }],
+  "due-desc": [{ dueDate: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }, { id: "asc" }],
+  "priority-desc": [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+  "priority-asc": [{ priority: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+  "updated-desc": [{ updatedAt: "desc" }, { id: "asc" }],
+  "created-desc": [{ createdAt: "desc" }, { id: "asc" }],
+  "title-asc": [{ title: "asc" }, { id: "asc" }],
+  "title-desc": [{ title: "desc" }, { id: "asc" }],
 };
+
+/** One page and its total read from one snapshot (AUD-08 §4, DT-06). */
+const SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
+
+const DAY_MS = 86_400_000;
+
+/** The company's calendar day now, `YYYY-MM-DD` (PRD #51 §48): what the day presets compare against. */
+async function companyToday(companyId: string, now: Date): Promise<string> {
+  return (await companyDays(companyId))(now).day;
+}
 
 /** A person shown on a task row: identity only, never HR fields (PRD #11 §123). */
 const PERSON_SELECT = {
@@ -83,6 +103,8 @@ export function buildTaskListWhere(
   context: UserContext,
   query: TaskListQuery,
   now: Date = new Date(),
+  /** The company's calendar day, `YYYY-MM-DD`; UTC's when the caller does not know it. */
+  today: string = now.toISOString().slice(0, 10),
 ): Prisma.TaskWhereInput {
   const scope = buildTaskScopeWhere(context);
 
@@ -133,7 +155,7 @@ export function buildTaskListWhere(
   if (query.entityType) filters.push({ entityType: query.entityType });
   if (query.entityId) filters.push({ entityId: query.entityId });
 
-  const due = dueClause(query, now);
+  const due = dueClause(query, now, today);
   if (due) filters.push(due);
 
   return { AND: filters };
@@ -144,29 +166,35 @@ export function buildTaskListWhere(
  *
  * "Overdue" and "today" also exclude finished work, because a task completed
  * last week is not overdue however old its due date is (PRD #11 §142).
+ *
+ * A due date is a calendar day stored as that day's UTC midnight (AUD-09 §4),
+ * so the day presets compare against the company's own calendar day, `today`
+ * (`YYYY-MM-DD` in the company's timezone), as UTC midnights in half-open
+ * `[start, end)` ranges — never the server process's local midnight, which
+ * put a Tirane "today" on the wrong day between 00:00 and 02:00 local
+ * (AUD-08 §3, DT-03). "Overdue" keeps PRD #11 §142's instant rule,
+ * `dueDate < now`, which the row badge (`isTaskOverdue`) shares.
+ *
+ * `dueFrom`/`dueTo` are inclusive calendar days: `dueTo` covers its whole day
+ * (before, `lte` midnight dropped a timestamped due date later that day).
  */
-function dueClause(query: TaskListQuery, now: Date): Prisma.TaskWhereInput | undefined {
+function dueClause(query: TaskListQuery, now: Date, today: string): Prisma.TaskWhereInput | undefined {
   const open: Prisma.TaskWhereInput = { status: { in: [...OPEN_STATUSES] } };
+  const start = new Date(`${today}T00:00:00.000Z`);
+  const plusDays = (from: Date, days: number) => new Date(from.getTime() + days * DAY_MS);
 
   switch (query.due) {
     case "overdue":
       return { AND: [open, { dueDate: { lt: now } }] };
-    case "today": {
-      const { start, end } = dayBounds(now);
-      return { AND: [open, { dueDate: { gte: start, lt: end } }] };
-    }
+    case "today":
+      return { AND: [open, { dueDate: { gte: start, lt: plusDays(start, 1) } }] };
     case "week": {
-      const start = startOfWeek(now);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      return { dueDate: { gte: start, lt: end } };
+      // Monday of the company's week: getUTCDay() of a UTC midnight is that day's weekday.
+      const monday = plusDays(start, -((start.getUTCDay() + 6) % 7));
+      return { dueDate: { gte: monday, lt: plusDays(monday, 7) } };
     }
-    case "next7": {
-      const { start } = dayBounds(now);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      return { dueDate: { gte: start, lt: end } };
-    }
+    case "next7":
+      return { dueDate: { gte: start, lt: plusDays(start, 7) } };
     case "none":
       return { dueDate: null };
     default:
@@ -175,23 +203,35 @@ function dueClause(query: TaskListQuery, now: Date): Prisma.TaskWhereInput | und
 
   const range: Prisma.DateTimeFilter = {};
   if (query.dueFrom) range.gte = query.dueFrom;
-  if (query.dueTo) range.lte = query.dueTo;
+  if (query.dueTo) range.lt = plusDays(new Date(`${query.dueTo.toISOString().slice(0, 10)}T00:00:00.000Z`), 1);
   return Object.keys(range).length > 0 ? { dueDate: range } : undefined;
 }
 
+/**
+ * One page of the list and its total (AUD-08 §3, §4, DT-03, DT-06).
+ *
+ * The page and the count share one predicate and one REPEATABLE READ
+ * snapshot, so a task committed between the two statements cannot make the
+ * total disagree with the rows (before, two pooled reads raced). The database
+ * slices after scope, section and filters — never the visible page.
+ */
 export async function listTasks(context: UserContext, query: TaskListQuery) {
-  const where = buildTaskListWhere(context, query);
+  const now = new Date();
+  const where = buildTaskListWhere(context, query, now, await companyToday(context.companyId, now));
 
-  const [rows, total] = await Promise.all([
-    prisma.task.findMany({
-      where,
-      select: SUMMARY_SELECT,
-      orderBy: SORT_ORDER[query.sort],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-    }),
-    prisma.task.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.task.findMany({
+        where,
+        select: SUMMARY_SELECT,
+        orderBy: SORT_ORDER[query.sort],
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+      }),
+      prisma.task.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return { rows, total };
 }
@@ -212,19 +252,26 @@ export type GroupTaskSummaryRow = TaskSummaryRow & { companyId: string };
 export async function listTasksForContexts(contexts: UserContext[], query: TaskListQuery) {
   if (contexts.length === 0) return { rows: [] as GroupTaskSummaryRow[], total: 0 };
   const now = new Date();
-  const where: Prisma.TaskWhereInput = { OR: contexts.map((context) => buildTaskListWhere(context, query, now)) };
+  // Each branch's day presets read its own company's calendar day (DT-03).
+  const todays = await Promise.all(contexts.map((context) => companyToday(context.companyId, now)));
+  const where: Prisma.TaskWhereInput = {
+    OR: contexts.map((context, index) => buildTaskListWhere(context, query, now, todays[index])),
+  };
 
-  const [rows, total] = await Promise.all([
-    prisma.task.findMany({
-      where,
-      select: { ...SUMMARY_SELECT, companyId: true },
-      // The id keeps a page boundary stable when two companies' tasks tie.
-      orderBy: [...SORT_ORDER[query.sort], { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-    }),
-    prisma.task.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.task.findMany({
+        where,
+        select: { ...SUMMARY_SELECT, companyId: true },
+        // The id (last in every order) keeps a page boundary stable when two companies' tasks tie.
+        orderBy: SORT_ORDER[query.sort],
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+      }),
+      prisma.task.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   return { rows, total };
 }
@@ -260,10 +307,11 @@ export async function listTaskActivity(
     entityId: taskId,
   };
 
-  const [rows, total] = await Promise.all([
+  // Newest first with the id as tie-breaker; page and total from one snapshot (DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction([
     prisma.activity.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: skipFor(options.page, options.limit),
       take: options.limit,
       select: {
@@ -276,7 +324,7 @@ export async function listTaskActivity(
       },
     }),
     prisma.activity.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }
@@ -293,7 +341,9 @@ export async function taskOverviewStats(context: UserContext, now: Date = new Da
     AND: [scope, { archivedAt: null, status: { not: "ARCHIVED" } }],
   };
   const open: Prisma.TaskWhereInput = { AND: [live, { status: { in: [...OPEN_STATUSES] } }] };
-  const { start: todayStart, end: todayEnd } = dayBounds(now);
+  // "Due today" is the company's calendar day, as the `due=today` list it links to (DT-03).
+  const todayStart = new Date(`${await companyToday(context.companyId, now)}T00:00:00.000Z`);
+  const todayEnd = new Date(todayStart.getTime() + DAY_MS);
 
   const [openCount, dueToday, overdue, blocked, completedThisWeek, mine] = await Promise.all([
     prisma.task.count({ where: open }),
@@ -322,7 +372,7 @@ export async function priorityTasks(context: UserContext, limit = 5) {
       ],
     },
     select: SUMMARY_SELECT,
-    orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }],
+    orderBy: [{ priority: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
     take: limit,
   });
 }

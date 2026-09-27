@@ -5,14 +5,21 @@ import { HseActivityFeed } from "@/components/hse/record-activity";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 
 export const metadata: Metadata = { title: "Inspection activity" };
 
-type Params = { params: Promise<{ inspectionId: string }> };
+type Params = {
+  params: Promise<{ inspectionId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default async function InspectionActivityPage({ params }: Params) {
+export default async function InspectionActivityPage({ params, searchParams }: Params) {
   const { inspectionId } = await params;
+  const query = await searchParams;
+  const { page } = paginationSchema.parse({ page: typeof query.page === "string" ? query.page : undefined });
+  const basePath = `/hse/inspections/${inspectionId}/activity`;
   const context = await requireModule("hse");
 
   let inspection;
@@ -40,7 +47,13 @@ export default async function InspectionActivityPage({ params }: Params) {
         Activity on {inspection.inspectionNumber}
       </h1>
 
-      <HseActivityFeed context={context} entityType="HseInspection" entityId={inspection.id} />
+      <HseActivityFeed
+        context={context}
+        entityType="HseInspection"
+        entityId={inspection.id}
+        page={page}
+        buildHref={(target) => pageHref(basePath, query, target)}
+      />
     </div>
   );
 }

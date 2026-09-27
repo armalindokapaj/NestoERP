@@ -11,7 +11,8 @@ import { assertCompanyMembers } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../hse.list";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
@@ -125,13 +126,17 @@ const RISK_ORDER = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listRiskAssessments(
+/**
+ * The risk-assessment register's predicate (AUD-08 §3, DT-02, DT-03): scope,
+ * then the section (`view`), then filters and search — shared by the page, its
+ * count and the CSV export. "Due for review" is judged at `now`. A foreign
+ * project id is ANDed with scope and narrows to nothing (DT-22).
+ */
+export function buildRiskAssessmentListWhere(
   context: UserContext,
   query: RiskAssessmentListQuery,
-) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.risk.view");
-
+  now: Date = new Date(),
+): Prisma.HseRiskAssessmentWhereInput {
   const filters: Prisma.HseRiskAssessmentWhereInput[] = [
     buildRiskAssessmentScopeWhere(context),
   ];
@@ -139,7 +144,7 @@ export async function listRiskAssessments(
   if (query.view === "approved") filters.push({ status: "APPROVED" });
   if (query.view === "mine") filters.push({ ownerMemberId: context.membershipId });
   if (query.view === "review-due") {
-    filters.push({ status: "APPROVED", reviewDate: { lte: new Date() } });
+    filters.push({ status: "APPROVED", reviewDate: { lte: now } });
   }
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
@@ -156,25 +161,48 @@ export async function listRiskAssessments(
     });
   }
 
-  const where: Prisma.HseRiskAssessmentWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseRiskAssessmentOrderByWithRelationInput[] =
-    query.sort === "review-asc"
+/**
+ * The allowlisted assessment sorts (AUD-08 §4, DT-04). An assessment without a
+ * review date sorts after every dated one; every order ends in the id.
+ */
+export function riskAssessmentListOrder(
+  sort: RiskAssessmentListQuery["sort"],
+): Prisma.HseRiskAssessmentOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseRiskAssessmentOrderByWithRelationInput>(
+    sort === "review-asc"
       ? [{ reviewDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ assessmentNumber: "asc" }, { version: "desc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseRiskAssessment.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseRiskAssessment.count({ where }),
-  ]);
+export async function listRiskAssessments(
+  context: UserContext,
+  query: RiskAssessmentListQuery,
+) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.risk.view");
+
+  const where = buildRiskAssessmentListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseRiskAssessment.findMany({
+        where,
+        orderBy: riskAssessmentListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseRiskAssessment.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.ownerMemberId));
 
@@ -239,7 +267,7 @@ export async function listForProject(
 
   const rows = await prisma.hseRiskAssessment.findMany({
     where: { AND: [buildRiskAssessmentScopeWhere(context), { projectId }] },
-    orderBy: [{ assessmentDate: "desc" }],
+    orderBy: [{ assessmentDate: "desc" }, { id: "asc" }],
     take: limit,
     select: LIST_SELECT,
   });

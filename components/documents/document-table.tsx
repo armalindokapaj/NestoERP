@@ -1,6 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 
-import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
@@ -19,19 +19,32 @@ import { formatDate } from "@/lib/utils/format";
  * `group` is the Group workspace list (Workspace Context §45): a Company column
  * names whose file each row is, and every link to a company page — the file
  * itself, its related record — enters that company's workspace first.
+ *
+ * Column metadata (AUD-08 §5): the document name is the identity column (and
+ * the company, in a group). Header sorts only where the page passes `sort`.
  */
 export function DocumentTable({
   documents,
   showStatus = false,
   group = false,
+  listId = "documents.list",
+  sort,
 }: {
   documents: DocumentSummaryDTO[];
   showStatus?: boolean;
   group?: boolean;
+  /** A nested use (a project's or client's Documents tab) names its own list (AUD-08 §5). */
+  listId?: string;
+  /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
+  const sortable = Boolean(sort);
   const columns: TableColumn<DocumentSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
+      sortKey: sortable ? "name" : undefined,
       label: "Document",
       primary: true,
       render: (document) => {
@@ -72,6 +85,8 @@ export function DocumentTable({
       ? [
           {
             key: "company",
+            id: "company",
+            mandatory: true,
             label: "Company",
             render: (document: DocumentSummaryDTO) =>
               document.company ? <CompanyTag name={document.company.name} /> : <span className="text-fg-subtle">—</span>,
@@ -80,18 +95,22 @@ export function DocumentTable({
       : []),
     {
       key: "type",
+      id: "type",
+      sortKey: sortable ? "type" : undefined,
       label: "Type",
       hideBelow: "md",
       render: (document) => <span className="text-fg-muted">{document.typeLabel}</span>,
     },
     {
       key: "context",
+      id: "context",
       label: "Context",
       hideBelow: "lg",
       render: (document) => <span className="text-fg-muted">{document.context.label}</span>,
     },
     {
       key: "related",
+      id: "related",
       label: "Related record",
       hideBelow: "xl",
       render: (document) =>
@@ -119,6 +138,7 @@ export function DocumentTable({
     },
     {
       key: "uploadedBy",
+      id: "uploadedBy",
       label: "Uploaded by",
       hideBelow: "xl",
       render: (document) => (
@@ -131,6 +151,9 @@ export function DocumentTable({
     },
     {
       key: "size",
+      id: "size",
+      valueType: "number",
+      sortKey: sortable ? "size" : undefined,
       label: "Size",
       hideBelow: "lg",
       align: "right",
@@ -144,6 +167,9 @@ export function DocumentTable({
       ? [
           {
             key: "status",
+            id: "status",
+            mandatory: true,
+            valueType: "status" as const,
             label: "Status",
             render: (document: DocumentSummaryDTO) => <StatusBadge status={document.status} />,
           },
@@ -151,6 +177,9 @@ export function DocumentTable({
       : []),
     {
       key: "updated",
+      id: "updated",
+      valueType: "date",
+      sortKey: sortable ? "updated" : undefined,
       label: "Updated",
       hideBelow: "md",
       render: (document) => <span className="text-fg-muted">{formatDate(document.updatedAt)}</span>,
@@ -159,6 +188,8 @@ export function DocumentTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Documents"
       columns={columns}
       records={documents}

@@ -28,6 +28,8 @@ export function RequestTable({
   const columns: TableColumn<RequestSummaryDTO>[] = [
     {
       key: "requestNumber",
+      id: "requestNumber",
+      mandatory: true,
       label: "Request",
       primary: true,
       render: (row) => (
@@ -44,6 +46,7 @@ export function RequestTable({
       ? [
           {
             key: "project",
+            id: "project",
             label: "Project",
             hideBelow: "lg" as const,
             render: (row: RequestSummaryDTO) =>
@@ -53,6 +56,7 @@ export function RequestTable({
       : []),
     {
       key: "requestedBy",
+      id: "requestedBy",
       label: "Raised by",
       hideBelow: "xl",
       render: (row) => (
@@ -64,12 +68,16 @@ export function RequestTable({
     },
     {
       key: "priority",
+      id: "priority",
+      valueType: "status",
       label: "Priority",
       hideBelow: "xl",
       render: (row) => priorityLabels[row.priority],
     },
     {
       key: "estimatedTotal",
+      id: "estimatedTotal",
+      valueType: "money",
       label: "Estimated",
       align: "right",
       render: (row) => (
@@ -80,11 +88,16 @@ export function RequestTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "requiredDate",
+      id: "requiredDate",
+      valueType: "date",
       label: "Needed",
       hideBelow: "md",
       render: (row) =>
@@ -101,6 +114,7 @@ export function RequestTable({
 
   return (
     <DataTable
+      listId="procurement.requests"
       columns={columns}
       records={requests}
       rowKey={(row) => row.id}

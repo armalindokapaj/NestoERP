@@ -2,7 +2,7 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { buildCorrectiveActionScopeWhere, buildInspectionScopeWhere, buildNcrScopeWhere } from "@/lib/modules/qaqc/qaqc.scope";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT } from "./provider.helpers";
+import { compact, dateWindow, isPastDue, moduleOpen, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows } from "./provider.helpers";
 
 /** Quality dates (PRD #39 §59): planned inspections and reinspections, corrective-action and NCR due dates. */
 export const qaqcProvider: CalendarProvider = {
@@ -20,7 +20,7 @@ export const qaqcProvider: CalendarProvider = {
     const events: Array<CalendarEventDTO | null> = [];
 
     if (can(context, "qaqc.inspection.view")) {
-      const rows = await prisma.qualityInspection.findMany({
+      const rows = await sourceRows(input, prisma.qualityInspection.findMany({
         where: {
           AND: [
             buildInspectionScopeWhere(context),
@@ -31,7 +31,7 @@ export const qaqcProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, inspectionNumber: true, inspectionType: true, status: true, inspectionDate: true, parentInspectionId: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.inspectionDate!, {
@@ -52,7 +52,7 @@ export const qaqcProvider: CalendarProvider = {
     }
 
     if (can(context, "qaqc.corrective_action.view")) {
-      const rows = await prisma.correctiveAction.findMany({
+      const rows = await sourceRows(input, prisma.correctiveAction.findMany({
         where: {
           AND: [
             buildCorrectiveActionScopeWhere(context),
@@ -63,7 +63,7 @@ export const qaqcProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, actionNumber: true, title: true, status: true, dueDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         const overdue = row.status !== "PENDING_VERIFICATION" && isPastDue(row.dueDate!, input);
         events.push(
@@ -86,7 +86,7 @@ export const qaqcProvider: CalendarProvider = {
     }
 
     if (can(context, "qaqc.ncr.view")) {
-      const rows = await prisma.nonConformanceReport.findMany({
+      const rows = await sourceRows(input, prisma.nonConformanceReport.findMany({
         where: {
           AND: [
             buildNcrScopeWhere(context),
@@ -97,7 +97,7 @@ export const qaqcProvider: CalendarProvider = {
         },
         take: SOURCE_LIMIT,
         select: { id: true, ncrNumber: true, title: true, status: true, severity: true, dueDate: true, project: PROJECT_SELECT },
-      });
+      }));
       for (const row of rows) {
         const overdue = isPastDue(row.dueDate!, input);
         events.push(

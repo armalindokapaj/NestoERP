@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import { dateString, isOverdue, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -76,10 +77,16 @@ type ListRow = Prisma.EnvironmentalObservationGetPayload<{ select: typeof LIST_S
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listObservations(context: UserContext, query: ObservationListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.environment.view");
-
+/**
+ * The environmental register's predicate (AUD-08 §3, DT-02, DT-03): scope,
+ * then the section (`view`), then filters and search — shared by the page, its
+ * count and the CSV export. OR within a filter, AND across filters; a foreign
+ * project id is ANDed with scope and narrows to nothing (DT-22).
+ */
+export function buildObservationListWhere(
+  context: UserContext,
+  query: ObservationListQuery,
+): Prisma.EnvironmentalObservationWhereInput {
   const filters: Prisma.EnvironmentalObservationWhereInput[] = [
     buildObservationScopeWhere(context),
   ];
@@ -110,25 +117,42 @@ export async function listObservations(context: UserContext, query: ObservationL
     });
   }
 
-  const where: Prisma.EnvironmentalObservationWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.EnvironmentalObservationOrderByWithRelationInput[] =
-    query.sort === "observed-desc"
+/** The allowlisted observation sorts, each ending in the id (AUD-08 §4, DT-04). No key is nullable. */
+export function observationListOrder(
+  sort: ObservationListQuery["sort"],
+): Prisma.EnvironmentalObservationOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.EnvironmentalObservationOrderByWithRelationInput>(
+    sort === "observed-desc"
       ? [{ observedAt: "desc" }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ observationNumber: "asc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.environmentalObservation.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.environmentalObservation.count({ where }),
-  ]);
+export async function listObservations(context: UserContext, query: ObservationListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.environment.view");
+
+  const where = buildObservationListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.environmentalObservation.findMany({
+        where,
+        orderBy: observationListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.environmentalObservation.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -189,25 +213,39 @@ export async function getObservation(
   };
 }
 
+/**
+ * A project's observations for its HSE tab: the first `limit`, most recently
+ * observed first (the register's `observed-desc`), and the true total
+ * (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<ObservationSummaryDTO[]> {
-  if (!can(context, "hse.environment.view")) return [];
+): Promise<ListPreview<ObservationSummaryDTO>> {
+  if (!can(context, "hse.environment.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.environmentalObservation.findMany({
-    where: { AND: [buildObservationScopeWhere(context), { projectId }] },
-    orderBy: [{ observedAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.EnvironmentalObservationWhereInput = {
+    AND: [buildObservationScopeWhere(context), { projectId }],
+  };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.environmentalObservation.findMany({
+        where,
+        orderBy: observationListOrder("observed-desc"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.environmentalObservation.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
     rows.flatMap((row) => [row.reportedByMemberId, row.assignedToMemberId]),
   );
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function observationFilterOptions(context: UserContext) {

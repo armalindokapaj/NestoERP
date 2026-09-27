@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../qaqc.list";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
@@ -129,10 +130,17 @@ const OPEN_ACTION_STATUSES = ["OPEN", "IN_PROGRESS", "PENDING_VERIFICATION", "RE
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listNcrs(context: UserContext, query: NcrListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.ncr.view");
-
+/**
+ * The NCR register's predicate (AUD-08 §3, DT-02, DT-03): scope, then the
+ * section (`view`), then filters and search — shared by the page, its count
+ * and the CSV export. OR within a filter, AND across filters; a foreign
+ * project or member id is ANDed with scope and narrows to nothing (DT-22).
+ *
+ * "Overdue" compares the due date with the start of today in UTC — the day a
+ * stored due date names — as the row badge and the overview do; the company's
+ * own calendar day is not applied here yet (recorded in the AUD-08 manifest).
+ */
+export function buildNcrListWhere(context: UserContext, query: NcrListQuery): Prisma.NonConformanceReportWhereInput {
   const filters: Prisma.NonConformanceReportWhereInput[] = [buildNcrScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_STATUSES } });
@@ -165,27 +173,46 @@ export async function listNcrs(context: UserContext, query: NcrListQuery) {
     });
   }
 
-  const where: Prisma.NonConformanceReportWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.NonConformanceReportOrderByWithRelationInput[] =
-    query.sort === "due-asc"
+/**
+ * The allowlisted NCR sorts (AUD-08 §4, DT-04). An NCR without a due date sorts
+ * after every dated one; severity compares the enum's declared order. Every
+ * order ends in the id.
+ */
+export function ncrListOrder(sort: NcrListQuery["sort"]): Prisma.NonConformanceReportOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.NonConformanceReportOrderByWithRelationInput>(
+    sort === "due-asc"
       ? [{ dueDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "severity-desc"
+      : sort === "severity-desc"
         ? [{ severity: "desc" }, { dueDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ ncrNumber: "asc" }]
-          : [{ createdAt: "desc" }];
+          : [{ createdAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.nonConformanceReport.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.nonConformanceReport.count({ where }),
-  ]);
+export async function listNcrs(context: UserContext, query: NcrListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.ncr.view");
+
+  const where = buildNcrListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.nonConformanceReport.findMany({
+        where,
+        orderBy: ncrListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.nonConformanceReport.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
 
@@ -268,7 +295,8 @@ export async function listForInspection(
 
   const rows = await prisma.nonConformanceReport.findMany({
     where: { AND: [buildNcrScopeWhere(context), { inspectionId }] },
-    orderBy: { createdAt: "desc" },
+    // Complete, not paged: one inspection's NCRs (AUD-08 §4 tie-breaker).
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -284,7 +312,8 @@ export async function listForDefect(
 
   const rows = await prisma.nonConformanceReport.findMany({
     where: { AND: [buildNcrScopeWhere(context), { sourceDefectId: defectId }] },
-    orderBy: { createdAt: "desc" },
+    // Complete, not paged: one defect's NCRs (AUD-08 §4 tie-breaker).
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     select: LIST_SELECT,
   });
 
@@ -292,22 +321,33 @@ export async function listForDefect(
   return rows.map((row) => toSummaryDTO(row, members));
 }
 
+/**
+ * A project's NCRs for its QA/QC tab: most severe first, the first `limit` and
+ * the true total, so the tab never stops silently at `limit` (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<NcrSummaryDTO[]> {
-  if (!can(context, "qaqc.ncr.view")) return [];
+): Promise<ListPreview<NcrSummaryDTO>> {
+  if (!can(context, "qaqc.ncr.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.nonConformanceReport.findMany({
-    where: { AND: [buildNcrScopeWhere(context), { projectId }] },
-    orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.NonConformanceReportWhereInput = { AND: [buildNcrScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.nonConformanceReport.findMany({
+        where,
+        orderBy: [{ severity: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.nonConformanceReport.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.assignedToMemberId));
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function ncrFilterOptions(context: UserContext) {

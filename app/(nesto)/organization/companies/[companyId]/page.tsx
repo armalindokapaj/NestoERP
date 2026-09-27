@@ -48,6 +48,8 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
   const columns: TableColumn<Row>[] = [
     {
       key: "department",
+      id: "department",
+      mandatory: true,
       label: "Department",
       primary: true,
       render: (row) => (
@@ -61,6 +63,7 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
     },
     {
       key: "manager",
+      id: "manager",
       label: "Manager",
       render: (row) => {
         if (!row.branch) return <span className="text-meta text-fg-subtle">{row.department.name} is not active in this company.</span>;
@@ -83,6 +86,8 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
     { key: "members", label: "People", align: "right", render: (row) => <span className="tabular-nums">{row.branch?.memberCount ?? "—"}</span> },
     {
       key: "status",
+      id: "status",
+      valueType: "status",
       label: "Status",
       render: (row) => (row.branch ? <StatusBadge status={row.branch.status} /> : <span className="text-meta text-fg-subtle">Not active</span>),
     },
@@ -99,6 +104,7 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
         <EmptyState title="No Group Departments have been created yet." description="Departments are defined once for the group, then activated here." />
       ) : (
         <DataTable
+      listId="organization.company-departments"
           caption={`Departments of ${view.company.name}`}
           columns={columns}
           records={view.rows}

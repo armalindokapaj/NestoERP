@@ -14,7 +14,7 @@ import {
   actionListWhere,
   listActionItems,
 } from "./meeting.actions";
-import { LIST_SELECT, listItemDTOs } from "./meeting.repository";
+import { LIST_SELECT, LIST_SNAPSHOT, listItemDTOs } from "./meeting.repository";
 import type { ActionListQuery, MeetingListQuery } from "./meeting.schema";
 import { listMeetings, meetingListOrder, meetingListWhere } from "./meeting.service";
 import type { MeetingListItemDTO, MyActionItemDTO } from "./meeting.types";
@@ -43,13 +43,14 @@ async function groupMeetingContexts(session: UserContext): Promise<UserContext[]
 
 /**
  * The `company` filter, checked against the companies the person may read
- * (§86, §87): one they may not read — or none — is not an error and not a hint
- * that it exists; the filter is simply not applied.
+ * (§86, §87). A company they may not read — or none at all — is not an error
+ * and not a hint that it exists: it narrows to no authorized rows. It is never
+ * dropped to answer every company instead, which would silently broaden what
+ * the person asked for (AUD-08 §3, DT-22).
  */
 function narrowToCompany(contexts: UserContext[], company: string | undefined): UserContext[] {
   if (!company) return contexts;
-  const narrowed = contexts.filter((context) => context.companyId === company);
-  return narrowed.length > 0 ? narrowed : contexts;
+  return contexts.filter((context) => context.companyId === company);
 }
 
 const refOf = (context: UserContext): CompanyRef => ({ id: context.companyId, name: context.company.name });
@@ -85,16 +86,19 @@ export async function listMeetingsForWorkspace(
 
   const now = new Date();
   const where = { OR: contexts.map((context) => meetingListWhere(context, query, now)) };
-  const [rows, total] = await Promise.all([
-    prisma.meeting.findMany({
-      where,
-      orderBy: meetingListOrder(query),
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      select: { ...LIST_SELECT, companyId: true },
-    }),
-    prisma.meeting.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.meeting.findMany({
+        where,
+        orderBy: meetingListOrder(query),
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        select: { ...LIST_SELECT, companyId: true },
+      }),
+      prisma.meeting.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
 
   return {
     data: await shapeByCompany(contexts, rows, listItemDTOs),
@@ -113,16 +117,19 @@ export async function listActionItemsForWorkspace(
   if (contexts.length === 0) return { data: [], pagination: paginationMeta(0, query.page, query.limit) };
 
   const where = { OR: contexts.map((context) => actionListWhere(context, query)) };
-  const [rows, total] = await Promise.all([
-    prisma.meetingActionItem.findMany({
-      where,
-      orderBy: [...ACTION_LIST_ORDER, { id: "asc" }],
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      include: ACTION_LIST_INCLUDE,
-    }),
-    prisma.meetingActionItem.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.meetingActionItem.findMany({
+        where,
+        orderBy: ACTION_LIST_ORDER,
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        include: ACTION_LIST_INCLUDE,
+      }),
+      prisma.meetingActionItem.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
 
   return {
     data: await shapeByCompany(contexts, rows, actionListDTOs),

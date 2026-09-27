@@ -1,8 +1,10 @@
+import { redirect } from "next/navigation";
 import { ClipboardCheck } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
-import type { paginationMeta } from "@/lib/modules/shared/list-query";
+import { listPageRedirect, pageHref, type paginationMeta } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
@@ -55,6 +57,14 @@ import {
  * shared link reproduce the same list (PRD #7 §17). The filter options name
  * only statuses and categories, never records — a dropdown must not become a
  * directory of quality failures the reader cannot open (PRD #21 §202).
+ *
+ * AUD-08 (§3–§5): each list is one parsed query — section (`view`), filters,
+ * search, sort, page and page size — handed to the service that also feeds the
+ * count and the CSV export. A page that is the register with one value fixed
+ * (Work and Materials fix the inspection type, Reinspections fixes the view)
+ * passes it as `fixed`: it is part of the query, its control is not offered,
+ * and page links, Clear and the out-of-range redirect stay on that page
+ * (`basePath`) instead of jumping to /qaqc/inspections.
  */
 
 export type QaqcListKind =
@@ -173,6 +183,27 @@ const CREATE = {
   },
 } as const;
 
+/** Sizes the list schemas accept (`paginationSchema`: at most 100). */
+const PAGE_SIZES = [25, 50, 100] as const;
+
+/** Filter keys read from the URL that have no toolbar control (a person, a parent NCR). */
+const EXTRA_FILTER_KEYS = ["assignedToMemberId", "assignedInspectorMemberId", "ncrId"] as const;
+
+type ProjectOption = { id: string; code: string; name: string };
+
+/**
+ * The projects a list can be narrowed to — only projects in the reader's
+ * QA/QC scope that hold a record of this kind (PRD #21 §202). Showing the
+ * filter means a list opened from a project tab's "View all" says so, and
+ * Clear can undo it (AUD-08 §3).
+ */
+const PROJECT_OPTIONS: Partial<Record<QaqcListKind, (context: UserContext) => Promise<{ projects: ProjectOption[] }>>> = {
+  requests: requests.requestFilterOptions,
+  inspections: inspections.inspectionFilterOptions,
+  defects: defects.defectFilterOptions,
+  ncrs: ncrs.ncrFilterOptions,
+};
+
 function read(params: SearchParams, key: string): string | undefined {
   return typeof params[key] === "string" ? (params[key] as string) : undefined;
 }
@@ -185,19 +216,32 @@ function multi(params: SearchParams, key: string, allowed: readonly string[]) {
 export async function QaqcListSection({
   context,
   kind,
-  searchParams,
+  searchParams: urlParams,
+  basePath = `/qaqc/${kind}`,
+  fixed = {},
 }: {
   context: UserContext;
   kind: QaqcListKind;
   searchParams: SearchParams;
+  /** The page this list is on; page links, Clear and redirects stay here. */
+  basePath?: string;
+  /** Query values the page fixes (a section, an inspection type): applied, never offered. */
+  fixed?: Record<string, string>;
 }) {
+  // The fixed values win over anything in the URL, and are part of the query.
+  const searchParams: SearchParams = { ...urlParams, ...fixed };
   const shared = {
     search: read(searchParams, "search"),
     view: read(searchParams, "view"),
     sort: read(searchParams, "sort"),
     page: read(searchParams, "page"),
+    limit: read(searchParams, "limit"),
     projectId: read(searchParams, "projectId"),
   };
+  const listId = `qaqc.${kind}`;
+  const sortKeys = SORT_OPTIONS[kind].map((option) => option.value);
+  const sortConfig = (value: string) => ({ value, keys: sortKeys });
+  const projectOptions = PROJECT_OPTIONS[kind]?.(context);
 
   const filters: FilterConfig[] = [
     { param: "view", label: "View", options: VIEW_OPTIONS[kind] },
@@ -206,6 +250,9 @@ export async function QaqcListSection({
   let rendered: React.ReactNode;
   let pagination: ReturnType<typeof paginationMeta>;
   let empty = false;
+  // The page and sort the parser read, for the redirect and the header controls.
+  let requestedPage = 1;
+  let appliedSortValue: string;
 
   if (kind === "requests") {
     const query = requestListQuerySchema.parse({
@@ -215,6 +262,8 @@ export async function QaqcListSection({
       priority: multi(searchParams, "priority", PRIORITIES),
     });
     const result = await requests.listRequests(context, query);
+    requestedPage = query.page;
+    appliedSortValue = query.sort;
     filters.push(
       {
         param: "status",
@@ -232,7 +281,7 @@ export async function QaqcListSection({
         options: PRIORITIES.map((value) => ({ value, label: priorityLabels[value] })),
       },
     );
-    rendered = <RequestTable requests={result.data} />;
+    rendered = <RequestTable requests={result.data} listId={listId} sort={sortConfig(query.sort)} />;
     pagination = result.pagination;
     empty = result.data.length === 0;
   } else if (kind === "inspections") {
@@ -243,6 +292,8 @@ export async function QaqcListSection({
       inspectionType: multi(searchParams, "type", INSPECTION_TYPES),
     });
     const result = await inspections.listInspections(context, query);
+    requestedPage = query.page;
+    appliedSortValue = query.sort;
     filters.push(
       {
         param: "status",
@@ -267,7 +318,7 @@ export async function QaqcListSection({
         options: INSPECTION_TYPES.map((value) => ({ value, label: inspectionTypeLabels[value] })),
       },
     );
-    rendered = <InspectionTable inspections={result.data} />;
+    rendered = <InspectionTable inspections={result.data} listId={listId} sort={sortConfig(query.sort)} />;
     pagination = result.pagination;
     empty = result.data.length === 0;
   } else if (kind === "defects") {
@@ -277,6 +328,8 @@ export async function QaqcListSection({
       severity: multi(searchParams, "severity", SEVERITIES),
     });
     const result = await defects.listDefects(context, query);
+    requestedPage = query.page;
+    appliedSortValue = query.sort;
     filters.push(
       {
         param: "status",
@@ -289,7 +342,7 @@ export async function QaqcListSection({
         options: SEVERITIES.map((value) => ({ value, label: severityLabels[value] })),
       },
     );
-    rendered = <DefectTable defects={result.data} />;
+    rendered = <DefectTable defects={result.data} listId={listId} sort={sortConfig(query.sort)} />;
     pagination = result.pagination;
     empty = result.data.length === 0;
   } else if (kind === "ncrs") {
@@ -300,6 +353,8 @@ export async function QaqcListSection({
       category: multi(searchParams, "category", NCR_CATEGORIES),
     });
     const result = await ncrs.listNcrs(context, query);
+    requestedPage = query.page;
+    appliedSortValue = query.sort;
     filters.push(
       {
         param: "status",
@@ -317,7 +372,7 @@ export async function QaqcListSection({
         options: SEVERITIES.map((value) => ({ value, label: severityLabels[value] })),
       },
     );
-    rendered = <NcrTable ncrs={result.data} />;
+    rendered = <NcrTable ncrs={result.data} listId={listId} sort={sortConfig(query.sort)} />;
     pagination = result.pagination;
     empty = result.data.length === 0;
   } else {
@@ -327,6 +382,8 @@ export async function QaqcListSection({
       ncrId: read(searchParams, "ncrId"),
     });
     const result = await actions.listActions(context, query);
+    requestedPage = query.page;
+    appliedSortValue = query.sort;
     filters.push({
       param: "status",
       label: "Status",
@@ -335,31 +392,42 @@ export async function QaqcListSection({
         label: correctiveActionStatusLabels[value],
       })),
     });
-    rendered = <CorrectiveActionTable actions={result.data} />;
+    rendered = <CorrectiveActionTable actions={result.data} listId={listId} sort={sortConfig(query.sort)} />;
     pagination = result.pagination;
     empty = result.data.length === 0;
   }
 
-  const hasFilters = Boolean(
-    shared.search ||
-      (shared.view && shared.view !== "all") ||
-      read(searchParams, "status") ||
-      read(searchParams, "severity") ||
-      read(searchParams, "category") ||
-      read(searchParams, "result") ||
-      read(searchParams, "type") ||
-      read(searchParams, "priority"),
-  );
-
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const query = next.toString();
-    return query ? `/qaqc/${kind}?${query}` : `/qaqc/${kind}`;
+  const projectList = projectOptions ? (await projectOptions).projects : null;
+  if (projectList) {
+    filters.push({
+      param: "projectId",
+      label: "Project",
+      options: projectList.map((project) => ({ value: project.id, label: `${project.code} — ${project.name}` })),
+    });
   }
+  // Without a Project control a URL `projectId` still narrows the list, so Clear must remove it.
+  const extraFilterKeys: string[] = [...EXTRA_FILTER_KEYS, ...(projectList ? [] : ["projectId"])];
+
+  // A value the page fixes is not a control the reader can change or clear.
+  const toolbarFilters = filters.filter((filter) => !(filter.param in fixed));
+
+  // A page past the end — after a close or a narrower filter — moves once to
+  // the last real page, page 1 when nothing matches (AUD-08 §4, DT-05).
+  if (pagination.page !== requestedPage) {
+    redirect(listPageRedirect(basePath, urlParams, pagination.page));
+  }
+
+  // Every key this list filters by, except the fixed ones: a narrowed list
+  // that matches nothing says so, never the first-run copy (AUD-08 §8).
+  const filterKeys = ["search", ...toolbarFilters.map((filter) => filter.param), ...extraFilterKeys];
+  const hasFilters = filterKeys.some((key) => {
+    const value = read(urlParams, key);
+    return Boolean(value && !(key === "view" && value === "all"));
+  });
+  // Clear drops this list's search and filters, keeps sort and page size (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", urlParams, 1).replace(/^\?/, ""), filterKeys);
+
+  const buildHref = (page: number) => pageHref(basePath, urlParams, page);
 
   const create = CREATE[kind];
   const copy = EMPTY_COPY[kind];
@@ -368,8 +436,10 @@ export async function QaqcListSection({
     <div className="space-y-4">
       <ListToolbar
         searchPlaceholder="Search by number or title…"
-        filters={filters}
+        filters={toolbarFilters}
         sortOptions={SORT_OPTIONS[kind]}
+        extraFilterParams={extraFilterKeys}
+        applied={{ sort: appliedSortValue }}
       />
 
       {empty ? (
@@ -378,7 +448,7 @@ export async function QaqcListSection({
             icon={<ClipboardCheck />}
             title="Nothing matches these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: `/qaqc/${kind}` }}
+            action={{ label: "Clear filters", href: cleared ? `${basePath}?${cleared}` : basePath }}
           />
         ) : (
           <EmptyState
@@ -395,7 +465,7 @@ export async function QaqcListSection({
       ) : (
         <>
           {rendered}
-          <Pagination meta={pagination} buildHref={buildHref} />
+          <Pagination meta={pagination} buildHref={buildHref} pageSizes={PAGE_SIZES} listId={listId} />
         </>
       )}
     </div>

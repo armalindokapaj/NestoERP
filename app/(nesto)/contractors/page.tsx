@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "@/components/navigation/nav-link";
 
 import { NewContractorButton } from "@/components/contractors/contractor-dialogs";
 import { ContractorTable } from "@/components/contractors/contractor-tables";
 import { ListToolbar } from "@/components/data/list-toolbar";
-import { flat, pageHref, type SearchParams } from "@/components/engineering/page-helpers";
+import { Pagination } from "@/components/data/pagination";
+import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { ModulePage } from "@/components/modules/module-page";
-import { Button } from "@/components/ui/button";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -23,6 +22,8 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const query = contractorListSchema.parse(flat(params));
   const result = await listContractors(context, query);
+  // A count on every page and the last real page for a page past the end (AUD-08 §4, DT-05).
+  keepPageInRange("/contractors", params, query.page, result);
   return (
     <ModulePage experience={experience} activeSection="all" actions={can(context, "contractor.create") ? <NewContractorButton /> : null}>
       <div className="space-y-4">
@@ -35,20 +36,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
           ]}
         />
         <ContractorTable items={result.items} />
-        {result.total > result.pageSize ? (
-          <div className="flex justify-end gap-2">
-            {result.page > 1 ? (
-              <Button asChild size="sm" variant="secondary">
-                <Link href={pageHref("/contractors", params, result.page - 1)}>Previous</Link>
-              </Button>
-            ) : null}
-            {result.page * result.pageSize < result.total ? (
-              <Button asChild size="sm" variant="secondary">
-                <Link href={pageHref("/contractors", params, result.page + 1)}>Next</Link>
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
+        <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/contractors", params, page)} />
       </div>
     </ModulePage>
   );

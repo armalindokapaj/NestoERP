@@ -95,6 +95,8 @@ export async function listMyWork(session: UserContext, filters: MyWorkFilters): 
   }
 
   // A filter naming something the person cannot see matches nothing it could leak, and is simply not applied (§168).
+  // AUD-08 note: dropping it shows only the person's own authorized rows, and the page echoes only kept filters,
+  // so query and result still agree; narrowing to nothing instead needs the page to echo it (see the AUD-08 manifest).
   const companyId = filters.companyId && companies.has(filters.companyId) ? filters.companyId : null;
   const moduleKey = filters.module && modules.has(filters.module as ModuleKey) ? filters.module : null;
   const projectId = filters.projectId && projects.has(filters.projectId) ? filters.projectId : null;

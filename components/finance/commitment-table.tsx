@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,18 @@ import type { CommitmentSummaryDTO } from "@/lib/modules/finance/finance.types";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /** The commitment list (PRD #15 §171). */
-export function CommitmentTable({ commitments }: { commitments: CommitmentSummaryDTO[] }) {
+export function CommitmentTable({ commitments, listId = "finance.commitments", sort }: {
+  commitments: CommitmentSummaryDTO[];
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   const columns: TableColumn<CommitmentSummaryDTO>[] = [
     {
       key: "description",
+      id: "description",
+      mandatory: true,
       label: "Commitment",
       primary: true,
       render: (commitment) => (
@@ -25,6 +34,7 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
     },
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "lg",
       render: (commitment) => (
@@ -33,6 +43,7 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
     },
     {
       key: "category",
+      id: "category",
       label: "Category",
       hideBelow: "xl",
       render: (commitment) => (
@@ -41,6 +52,9 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
     },
     {
       key: "expected",
+      id: "expected",
+      valueType: "date",
+      sortKey: sort ? "expected" : undefined,
       label: "Expected",
       hideBelow: "lg",
       render: (commitment) => (
@@ -51,6 +65,10 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
     },
     {
       key: "amount",
+      id: "amount",
+      mandatory: true,
+      valueType: "money",
+      sortKey: sort ? "amount" : undefined,
       label: "Amount",
       align: "right",
       render: (commitment) => (
@@ -59,6 +77,9 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (commitment) => (
         <span className="flex items-center gap-2">
@@ -75,6 +96,8 @@ export function CommitmentTable({ commitments }: { commitments: CommitmentSummar
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Commitments"
       columns={columns}
       records={commitments}

@@ -136,6 +136,8 @@ export const rfiListSchema = z.object({
   contractorId: optionalId,
   workPackageId: optionalId,
   assignee: z.enum(["me"]).optional(),
+  /** Raised by the reader (their "ready to close" list, PRD #46 §278): narrowed in the database, never on a loaded page (AUD-08 §3). */
+  raisedBy: z.enum(["me"]).optional(),
   page,
 });
 export type RfiListQuery = z.infer<typeof rfiListSchema>;

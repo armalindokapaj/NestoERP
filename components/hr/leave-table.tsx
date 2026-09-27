@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
@@ -16,16 +17,24 @@ import { formatDays } from "./hr-format";
 export function LeaveTable({
   requests,
   showEmployee = true,
+  listId = "hr.leave",
+  sort,
 }: {
   requests: LeaveRequestDTO[];
   /** Hidden on a single employee's own list, where every row is the same person. */
   showEmployee?: boolean;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<LeaveRequestDTO>[] = [
     ...(showEmployee
       ? [
           {
             key: "employee",
+            id: "employee",
+            mandatory: true,
             label: "Employee",
             primary: true,
             render: (request: LeaveRequestDTO) => (
@@ -41,6 +50,8 @@ export function LeaveTable({
       : [
           {
             key: "leaveType",
+            id: "leaveType",
+            mandatory: true,
             label: "Type",
             primary: true,
             render: (request: LeaveRequestDTO) => <span>{leaveTypeLabels[request.leaveType]}</span>,
@@ -50,6 +61,8 @@ export function LeaveTable({
       ? [
           {
             key: "leaveType",
+            id: "leaveType",
+            mandatory: true,
             label: "Type",
             hideBelow: "xl" as const,
             render: (request: LeaveRequestDTO) => (
@@ -60,17 +73,24 @@ export function LeaveTable({
       : []),
     {
       key: "from",
+      id: "from",
+      valueType: "date",
+      sortKey: sort ? "start" : undefined,
       label: "From",
       render: (request) => <span className="text-fg-muted">{formatDate(request.startDate)}</span>,
     },
     {
       key: "to",
+      id: "to",
+      valueType: "date",
       label: "To",
       hideBelow: "md",
       render: (request) => <span className="text-fg-muted">{formatDate(request.endDate)}</span>,
     },
     {
       key: "days",
+      id: "days",
+      valueType: "number",
       label: "Days",
       align: "right",
       render: (request) => (
@@ -79,11 +99,15 @@ export function LeaveTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (request) => <StatusBadge status={request.status} />,
     },
     {
       key: "decided",
+      id: "decided",
       label: "Decided by",
       hideBelow: "xl",
       render: (request) => (
@@ -96,6 +120,8 @@ export function LeaveTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Leave requests"
       columns={columns}
       records={requests}

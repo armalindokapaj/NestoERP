@@ -7,7 +7,6 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { dayOf, todayDay } from "../employment/employment.dates";
 import { openAssignment, startHistory, syncCache } from "../employment/employment.history";
 import { employmentCapabilities } from "../employment/employment.capabilities";
@@ -61,11 +60,11 @@ export async function listEmployees(context: UserContext, query: EmployeeListQue
   assertModule(context, MODULE);
   assertPermission(context, "hr.employee.view");
 
-  const { rows, total } = await repository.listEmployees(context, query);
+  const { rows, window } = await repository.listEmployees(context, query);
 
   return {
     data: rows.map(toSummaryDTO),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

@@ -1,9 +1,10 @@
 import { assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { prisma } from "@/lib/database/prisma";
 import { businessDateString } from "../hr.calendar";
 import { buildEmployeeScopeWhere } from "../hr.scope";
-import type { EmploymentStatus, HrProgressStatus } from "@prisma/client";
+import { Prisma, type EmploymentStatus, type HrProgressStatus } from "@prisma/client";
+
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 
 /**
  * Onboarding and offboarding readiness (PRD #16 §116–§125).
@@ -32,40 +33,58 @@ const RELEVANT_EMPLOYMENT: Record<ProgressKind, EmploymentStatus[]> = {
   offboarding: ["ACTIVE", "ON_LEAVE", "SUSPENDED", "ENDED"],
 };
 
+/** How many open records one worklist shows; the page says so when there are more (AUD-08 §4). */
+export const PROGRESS_SHOWN = 100;
+
 export async function listProgress(
   context: UserContext,
   kind: ProgressKind,
-): Promise<ProgressRow[]> {
+): Promise<ProgressRow[] & { total: number }> {
   assertModule(context, "hr");
   assertPermission(context, kind === "onboarding" ? "hr.onboarding.view" : "hr.offboarding.view");
 
   const field = kind === "onboarding" ? "onboardingStatus" : "offboardingStatus";
 
-  const records = await prisma.employeeProfile.findMany({
-    where: {
-      AND: [
-        buildEmployeeScopeWhere(context),
-        // Open work only: completed and not-required are done with.
-        { [field]: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
-        { employmentStatus: { in: RELEVANT_EMPLOYMENT[kind] } },
-      ],
-    },
-    orderBy: kind === "onboarding" ? [{ startDate: "asc" }] : [{ endDate: "asc" }],
-    take: 100,
-    select: {
-      id: true,
-      startDate: true,
-      endDate: true,
-      employmentStatus: true,
-      onboardingStatus: true,
-      offboardingStatus: true,
-      personProfile: { select: { firstName: true, lastName: true } },
-      department: { select: { name: true } },
-      managerMember: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
-    },
-  });
+  const where: Prisma.EmployeeProfileWhereInput = {
+    AND: [
+      buildEmployeeScopeWhere(context),
+      // Open work only: completed and not-required are done with.
+      { [field]: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
+      { employmentStatus: { in: RELEVANT_EMPLOYMENT[kind] } },
+    ],
+  };
 
-  return records.map((record) => {
+  /*
+   * The count and the rows from one snapshot, soonest first, the undated last
+   * and the id breaking ties (AUD-08 §4, DT-04, DT-06). A worklist longer than
+   * PROGRESS_SHOWN keeps its cap but reports its total, so the page says "the
+   * first N of M" instead of passing a cut list off as all of it.
+   */
+  const { records, total } = await runInTransaction(
+    `hr.${kind}.list`,
+    async (tx) => ({
+      total: await tx.employeeProfile.count({ where }),
+      records: await tx.employeeProfile.findMany({
+        where,
+        orderBy: [kind === "onboarding" ? { startDate: { sort: "asc", nulls: "last" } } : { endDate: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+        take: PROGRESS_SHOWN,
+        select: {
+          id: true,
+          startDate: true,
+          endDate: true,
+          employmentStatus: true,
+          onboardingStatus: true,
+          offboardingStatus: true,
+          personProfile: { select: { firstName: true, lastName: true } },
+          department: { select: { name: true } },
+          managerMember: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+    }),
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
+  );
+
+  const rows = records.map((record) => {
     const date = kind === "onboarding" ? record.startDate : record.endDate;
 
     return {
@@ -81,4 +100,5 @@ export async function listProgress(
       progress: kind === "onboarding" ? record.onboardingStatus : record.offboardingStatus,
     };
   });
+  return Object.assign(rows, { total });
 }

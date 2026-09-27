@@ -34,7 +34,12 @@ export const optionalText = (max = TEXT_MAX) =>
     .transform((value) => (value ? value : null));
 export const reason = z.string().trim().min(1, "Give a reason.").max(REASON_MAX, `Keep this under ${REASON_MAX.toLocaleString("en")} characters.`);
 export const expectedVersion = z.number().int().min(1);
-export const page = z.coerce.number().int().min(1).max(10_000).default(1);
+/**
+ * A register page number. A malformed or out-of-bounds value in the address
+ * reads as page 1 rather than failing the page (AUD-08 §3: keep safe defaults
+ * for invalid optional UI values); a page past the end is clamped by the list.
+ */
+export const page = z.coerce.number().int().min(1).max(10_000).catch(1);
 export const optionalEmail = z
   .string()
   .trim()

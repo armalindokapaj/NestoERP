@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
 import type { ProposalSummaryDTO } from "@/lib/modules/sales/sales.types";
@@ -15,13 +16,22 @@ import { formatAmount } from "./sales-format";
 export function ProposalTable({
   proposals,
   showOpportunity = true,
+  listId = "sales.proposals",
+  sort,
 }: {
   proposals: ProposalSummaryDTO[];
   showOpportunity?: boolean;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<ProposalSummaryDTO>[] = [
     {
       key: "number",
+      id: "number",
+      mandatory: true,
+      sortKey: sort ? "number" : undefined,
       label: "Number",
       primary: true,
       render: (row) => <span className="font-medium tabular-nums text-fg">{row.proposalNumber}</span>,
@@ -31,6 +41,7 @@ export function ProposalTable({
       ? [
           {
             key: "opportunity",
+            id: "opportunity",
             label: "Opportunity",
             hideBelow: "xl" as const,
             render: (row: ProposalSummaryDTO) => row.opportunity.name,
@@ -40,6 +51,10 @@ export function ProposalTable({
     { key: "client", label: "Client", hideBelow: "lg", render: (row) => row.client.name },
     {
       key: "total",
+      id: "total",
+      mandatory: true,
+      valueType: "money",
+      sortKey: sort ? "amount" : undefined,
       label: "Total",
       align: "right",
       render: (row) => (
@@ -48,6 +63,8 @@ export function ProposalTable({
     },
     {
       key: "valid",
+      id: "valid",
+      valueType: "date",
       label: "Valid until",
       hideBelow: "lg",
       render: (row) =>
@@ -66,6 +83,8 @@ export function ProposalTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       columns={columns}
       records={proposals}
       rowKey={(row) => row.id}

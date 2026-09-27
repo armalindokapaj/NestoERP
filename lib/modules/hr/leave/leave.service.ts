@@ -4,13 +4,14 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { APPROVAL_CYCLE_REQUIRED, APPROVAL_SOURCE_CHANGED, requireDecisionNote } from "@/lib/core/approvals/approval-guard";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   businessDateString,
   calculateLeaveDays,
@@ -95,6 +96,9 @@ const ORDER: Record<string, Prisma.LeaveRequestOrderByWithRelationInput[]> = {
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listLeave(context: UserContext, query: LeaveListQuery) {
   assertModule(context, MODULE);
 
@@ -129,21 +133,27 @@ export async function listLeave(context: UserContext, query: LeaveListQuery) {
 
   const where: Prisma.LeaveRequestWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.leaveRequest.findMany({
-      where,
-      orderBy: ORDER[query.sort] ?? ORDER["start-desc"],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: SELECT,
-    }),
-    prisma.leaveRequest.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "hr.leave.list",
+    async (tx) => {
+      const window = pageWindow(await tx.leaveRequest.count({ where }), query.page, query.limit);
+      const rows = await tx.leaveRequest.findMany({
+        where,
+        orderBy: withTieBreaker(ORDER[query.sort] ?? ORDER["start-desc"]),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const deciders = await deciderNames(context.companyId, rows);
   return {
     data: rows.map((row) => toDTO(context, row, deciders)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

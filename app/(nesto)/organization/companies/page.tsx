@@ -28,6 +28,8 @@ export default async function CompaniesPage() {
   const columns: TableColumn<Row>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Company",
       primary: true,
       render: (company) => (
@@ -39,6 +41,7 @@ export default async function CompaniesPage() {
     { key: "departments", label: "Active departments", align: "right", render: (company) => <span className="tabular-nums">{company.activeDepartments}</span> },
     {
       key: "managers",
+      id: "managers",
       label: "With a manager",
       align: "right",
       render: (company) => <span className="tabular-nums">{company.activeDepartments === 0 ? "—" : `${company.withManager} of ${company.activeDepartments}`}</span>,
@@ -49,7 +52,7 @@ export default async function CompaniesPage() {
 
   return (
     <ModulePage experience={resolveModuleExperience(context, "organization")} activeSection="companies" title="Companies" description="The group's companies and the departments each one runs.">
-      <DataTable caption="Companies" columns={columns} records={companies} rowKey={(company) => company.id} />
+      <DataTable listId="organization.companies" caption="Companies" columns={columns} records={companies} rowKey={(company) => company.id} />
     </ModulePage>
   );
 }

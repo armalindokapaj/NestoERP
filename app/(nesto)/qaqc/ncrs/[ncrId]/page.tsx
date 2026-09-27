@@ -275,6 +275,7 @@ export default async function NcrPage({ params }: Params) {
                 context={context}
                 entityType="NonConformanceReport"
                 entityId={ncr.id}
+                moreHref={`/qaqc/ncrs/${ncr.id}/activity`}
               />
             </section>
           ) : null}

@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import type { MovementDTO } from "@/lib/modules/inventory/inventory.types";
@@ -22,14 +23,24 @@ export function MovementTable({
   movements,
   showItem = true,
   caption = "Stock movements",
+  listId = "inventory.movements",
+  sort,
 }: {
   movements: MovementDTO[];
   showItem?: boolean;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<MovementDTO>[] = [
     {
       key: "occurredAt",
+      id: "occurredAt",
+      mandatory: true,
+      valueType: "datetime",
+      sortKey: sort ? "occurred" : undefined,
       label: "When",
       primary: !showItem,
       render: (row) => (
@@ -41,6 +52,8 @@ export function MovementTable({
   if (showItem) {
     columns.push({
       key: "item",
+      id: "item",
+      mandatory: true,
       label: "Item",
       primary: true,
       render: (row) => (
@@ -55,6 +68,9 @@ export function MovementTable({
   columns.push(
     {
       key: "movementType",
+      id: "movementType",
+      mandatory: true,
+      valueType: "status",
       label: "Type",
       render: (row) => (
         <span className="flex items-center gap-1.5">
@@ -65,6 +81,9 @@ export function MovementTable({
     },
     {
       key: "quantity",
+      id: "quantity",
+      mandatory: true,
+      valueType: "number",
       label: "Quantity",
       align: "right",
       render: (row) => (
@@ -81,6 +100,7 @@ export function MovementTable({
     },
     {
       key: "location",
+      id: "location",
       label: "Location",
       hideBelow: "lg",
       render: (row) => (
@@ -92,6 +112,7 @@ export function MovementTable({
     },
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "xl",
       render: (row) =>
@@ -99,6 +120,7 @@ export function MovementTable({
     },
     {
       key: "source",
+      id: "source",
       label: "Source",
       hideBelow: "md",
       render: (row) => {
@@ -114,6 +136,7 @@ export function MovementTable({
     },
     {
       key: "postedBy",
+      id: "postedBy",
       label: "Posted by",
       hideBelow: "xl",
       render: (row) =>
@@ -126,6 +149,6 @@ export function MovementTable({
   );
 
   return (
-    <DataTable columns={columns} records={movements} rowKey={(row) => row.id} caption={caption} />
+    <DataTable listId={listId} sort={sort} columns={columns} records={movements} rowKey={(row) => row.id} caption={caption} />
   );
 }

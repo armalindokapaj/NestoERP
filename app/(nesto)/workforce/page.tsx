@@ -14,7 +14,8 @@ import { ACCOUNT_STATUSES } from "@/lib/modules/hr/hr.person";
 import { WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
 import { accountStatusLabels, employmentStatusLabels, workerCategoryLabels } from "@/lib/modules/hr/hr.status";
 import { listWorkers, workerFilterOptions } from "@/lib/modules/workforce/workforce.directory";
-import { parseWorkerQuery } from "@/lib/modules/workforce/workforce.schema";
+import { parseWorkerQuery, WORKER_SORT_KEYS } from "@/lib/modules/workforce/workforce.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Workforce" };
 
@@ -42,12 +43,9 @@ export default async function WorkforcePage({ searchParams }: { searchParams: Pr
   ];
   const filtered = Boolean(query.search || query.workerCategory || query.tradeId || query.crewId || query.projectId || query.siteId || query.accountStatus || query.status);
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) if (typeof value === "string" && key !== "page") next.set(key, value);
-    if (page > 1) next.set("page", String(page));
-    return next.size ? `/workforce?${next}` : "/workforce";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/workforce", params, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/workforce", params, page);
 
   return (
     <ModulePage experience={resolveModuleExperience(context, "workforce")} activeSection="workers">
@@ -70,7 +68,7 @@ export default async function WorkforcePage({ searchParams }: { searchParams: Pr
           )
         ) : (
           <>
-            <WorkerTable workers={result.data} />
+            <WorkerTable workers={result.data} sort={{ value: query.sort, keys: WORKER_SORT_KEYS }} />
             <Pagination meta={result.pagination} buildHref={buildHref} />
           </>
         )}

@@ -20,10 +20,21 @@ import { formatAmount } from "./sales-format";
  * company's (Workspace Context §31, §45). The lead's own organisation stays
  * under "Organisation" so the two are never confused.
  */
-export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[]; grouped?: boolean }) {
+export function LeadTable({
+  leads,
+  grouped = false,
+  listId = "sales.leads",
+}: {
+  leads: LeadSummaryDTO[];
+  grouped?: boolean;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+}) {
   const columns: TableColumn<LeadSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Lead",
       primary: true,
       render: (lead) =>
@@ -44,6 +55,7 @@ export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[];
       ? [
           {
             key: "nestoCompany",
+            id: "nestoCompany",
             label: "Company",
             render: (lead: LeadSummaryDTO) => (lead.company ? <CompanyTag name={lead.company.name} /> : null),
           },
@@ -51,18 +63,21 @@ export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[];
       : []),
     {
       key: "organisation",
+      id: "organisation",
       label: grouped ? "Organisation" : "Company",
       hideBelow: "md",
       render: (lead) => lead.companyName ?? <span className="text-fg-subtle">—</span>,
     },
     {
       key: "source",
+      id: "source",
       label: "Source",
       hideBelow: "lg",
       render: (lead) => leadSourceLabels[lead.source],
     },
     {
       key: "owner",
+      id: "owner",
       label: "Owner",
       hideBelow: "lg",
       render: (lead) =>
@@ -77,6 +92,8 @@ export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[];
     },
     {
       key: "value",
+      id: "value",
+      valueType: "money",
       label: "Estimated value",
       align: "right",
       render: (lead) =>
@@ -89,6 +106,8 @@ export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[];
     { key: "status", label: "Status", render: (lead) => <StatusBadge status={lead.status} /> },
     {
       key: "updated",
+      id: "updated",
+      valueType: "datetime",
       label: "Updated",
       hideBelow: "xl",
       render: (lead) => (
@@ -99,6 +118,7 @@ export function LeadTable({ leads, grouped = false }: { leads: LeadSummaryDTO[];
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={leads}
       rowKey={(lead) => lead.id}

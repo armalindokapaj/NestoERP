@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { Money } from "@/components/finance/money";
 import { VoidPaymentButton } from "@/components/finance/void-payment-button";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +17,20 @@ const METHOD_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
+export function PaymentTable({ payments, listId = "finance.payments", sort }: {
+  payments: PaymentSummaryDTO[];
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   const columns: TableColumn<PaymentSummaryDTO>[] = [
     {
       key: "record",
+      id: "record",
       label: "Against",
       primary: true,
+      mandatory: true,
       render: (payment) => (
         <span className="min-w-0">
           {payment.relatedRecord ? (
@@ -51,14 +60,18 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
     },
     {
       key: "date",
+      id: "date",
       label: "Date",
       hideBelow: "md",
+      valueType: "date",
+      sortKey: sort ? "date" : undefined,
       render: (payment) => (
         <span className="text-fg-muted">{formatDate(payment.paymentDate)}</span>
       ),
     },
     {
       key: "method",
+      id: "method",
       label: "Method",
       hideBelow: "xl",
       render: (payment) => (
@@ -67,8 +80,12 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
     },
     {
       key: "amount",
+      id: "amount",
       label: "Amount",
       align: "right",
+      mandatory: true,
+      valueType: "money",
+      sortKey: sort ? "amount" : undefined,
       render: (payment) => (
         <Money
           amount={payment.amount}
@@ -82,7 +99,10 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
     },
     {
       key: "status",
+      id: "status",
       label: "Status",
+      mandatory: true,
+      valueType: "status",
       render: (payment) => (
         <Badge tone={payment.status === "VOIDED" ? "default" : "success"}>
           {payment.status === "VOIDED" ? "Voided" : "Recorded"}
@@ -91,7 +111,10 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
     },
     {
       key: "actions",
+      id: "actions",
       label: "",
+      // The row action stays reachable whatever columns are chosen (AUD-08 §5).
+      mandatory: true,
       align: "right",
       render: (payment) =>
         // The capability is a hint; voidPayment re-checks the permission and
@@ -107,6 +130,8 @@ export function PaymentTable({ payments }: { payments: PaymentSummaryDTO[] }) {
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Payments"
       columns={columns}
       records={payments}

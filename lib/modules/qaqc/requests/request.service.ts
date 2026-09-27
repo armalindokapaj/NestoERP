@@ -11,7 +11,8 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { resolveReceiptItem } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../qaqc.list";
 import {
   dateString,
   isOverdue,
@@ -85,10 +86,17 @@ const OPEN_STATUSES: InspectionRequestStatus[] = ["OPEN", "ASSIGNED", "IN_PROGRE
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listRequests(context: UserContext, query: RequestListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "qaqc.request.view");
-
+/**
+ * The inspection-request register's predicate (AUD-08 §3, DT-02, DT-03):
+ * scope, then the section (`view`), then filters and search — shared by the
+ * page, its count and the CSV export. OR within a filter, AND across filters;
+ * a foreign project or member id is ANDed with scope and narrows to nothing
+ * (DT-22).
+ */
+export function buildRequestListWhere(
+  context: UserContext,
+  query: RequestListQuery,
+): Prisma.InspectionRequestWhereInput {
   const filters: Prisma.InspectionRequestWhereInput[] = [buildRequestScopeWhere(context)];
 
   if (query.view === "open") filters.push({ status: { in: OPEN_STATUSES } });
@@ -125,27 +133,46 @@ export async function listRequests(context: UserContext, query: RequestListQuery
     });
   }
 
-  const where: Prisma.InspectionRequestWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.InspectionRequestOrderByWithRelationInput[] =
-    query.sort === "required-asc"
+/**
+ * The allowlisted request sorts (AUD-08 §4, DT-04). A request with no
+ * needed-by date sorts after every dated one; priority compares the enum's
+ * declared order. Every order ends in the id.
+ */
+export function requestListOrder(sort: RequestListQuery["sort"]): Prisma.InspectionRequestOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.InspectionRequestOrderByWithRelationInput>(
+    sort === "required-asc"
       ? [{ requiredByDate: { sort: "asc", nulls: "last" } }]
-      : query.sort === "priority-desc"
+      : sort === "priority-desc"
         ? [{ priority: "desc" }, { requiredByDate: { sort: "asc", nulls: "last" } }]
-        : query.sort === "number-asc"
+        : sort === "number-asc"
           ? [{ requestNumber: "asc" }]
-          : [{ createdAt: "desc" }];
+          : [{ createdAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.inspectionRequest.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.inspectionRequest.count({ where }),
-  ]);
+export async function listRequests(context: UserContext, query: RequestListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "qaqc.request.view");
+
+  const where = buildRequestListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.inspectionRequest.findMany({
+        where,
+        orderBy: requestListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.inspectionRequest.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -191,26 +218,16 @@ export async function getRequest(
   };
 }
 
+/**
+ * Every inspection raised from this request — complete, not the first 50 the
+ * detail page used to stop at without saying so (AUD-08 §4, DT-01). A request
+ * has a handful; the list is record-bound, scoped and in a stable order.
+ */
 async function listInspectionsForRequest(context: UserContext, requestId: string) {
   if (!can(context, "qaqc.inspection.view")) return [];
 
-  const { listInspections } = await import("../inspections/inspection.service");
-  const result = await listInspections(context, {
-    page: 1,
-    limit: 50,
-    view: "all",
-    sort: "created-desc",
-    search: undefined,
-    status: undefined,
-    result: undefined,
-    inspectionType: undefined,
-    projectId: undefined,
-    goodsReceiptId: undefined,
-    assignedInspectorMemberId: undefined,
-    requestId,
-  });
-
-  return result.data;
+  const { listForRequest } = await import("../inspections/inspection.service");
+  return listForRequest(context, requestId);
 }
 
 export async function requestFilterOptions(context: UserContext) {

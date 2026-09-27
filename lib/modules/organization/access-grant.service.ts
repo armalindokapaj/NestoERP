@@ -361,7 +361,7 @@ export async function listAccessGrants(context: UserContext, query: GrantListQue
       revokedByUserId: true,
       user: { select: { id: true, firstName: true, lastName: true } },
     },
-    orderBy: [{ revokedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
+    orderBy: [{ revokedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }, { id: "asc" }],
     take: 500,
   });
 

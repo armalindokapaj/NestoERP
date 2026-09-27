@@ -12,7 +12,8 @@ import type { UserContext } from "@/lib/context/types";
 import { notifyCriticalSafety } from "@/lib/core/notifications/safety-notifications";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT } from "../hse.list";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -83,10 +84,15 @@ type DetailRow = Prisma.StopWorkRecordGetPayload<{ select: typeof DETAIL_SELECT 
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listStopWorks(context: UserContext, query: StopWorkListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.stop_work.view");
-
+/**
+ * The stop-work register's predicate (AUD-08 §3, DT-03): scope, then filters
+ * and search. A foreign project id is ANDed with scope and narrows to nothing
+ * (DT-22).
+ */
+export function buildStopWorkListWhere(
+  context: UserContext,
+  query: StopWorkListQuery,
+): Prisma.StopWorkRecordWhereInput {
   const filters: Prisma.StopWorkRecordWhereInput[] = [buildStopWorkScopeWhere(context)];
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
@@ -103,27 +109,46 @@ export async function listStopWorks(context: UserContext, query: StopWorkListQue
     });
   }
 
-  const where: Prisma.StopWorkRecordWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.StopWorkRecordOrderByWithRelationInput[] =
-    query.sort === "issued-desc"
+/**
+ * The allowlisted stop-work sorts (AUD-08 §4, DT-04), each ending in the id.
+ * The default puts ACTIVE first — status in its declared order — because an
+ * open stop-work is the most urgent row on any HSE page (PRD #22 §175).
+ */
+export function stopWorkListOrder(
+  sort: StopWorkListQuery["sort"],
+): Prisma.StopWorkRecordOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.StopWorkRecordOrderByWithRelationInput>(
+    sort === "issued-desc"
       ? [{ issuedAt: "desc" }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ stopWorkNumber: "asc" }]
-        : // Active first, always: an open stop-work is the most urgent row on
-          // any HSE page it appears on (PRD #22 §175).
-          [{ status: "asc" }, { issuedAt: "desc" }];
+        : [{ status: "asc" }, { issuedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.stopWorkRecord.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.stopWorkRecord.count({ where }),
-  ]);
+export async function listStopWorks(context: UserContext, query: StopWorkListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.stop_work.view");
+
+  const where = buildStopWorkListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.stopWorkRecord.findMany({
+        where,
+        orderBy: stopWorkListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.stopWorkRecord.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -441,7 +466,8 @@ async function listBy(
 ): Promise<StopWorkSummaryDTO[]> {
   const rows = await prisma.stopWorkRecord.findMany({
     where: { AND: [buildStopWorkScopeWhere(context), filter] },
-    orderBy: [{ status: "asc" }, { issuedAt: "desc" }],
+    // Complete, not paged: a record's, a project's or the active stop-works (AUD-08 §4).
+    orderBy: stopWorkListOrder("recent"),
     select: LIST_SELECT,
   });
 

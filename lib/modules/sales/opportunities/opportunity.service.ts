@@ -74,37 +74,10 @@ export async function listOpportunities(context: UserContext, query: Opportunity
   assertModule(context, MODULE);
   assertPermission(context, "sales.opportunity.view");
 
-  const { rows, total } = await repository.listOpportunities(context, query);
+  const { rows, window } = await repository.listOpportunities(context, query);
 
-  return { data: refinePage(rows.map(toSummaryDTO), query), pagination: paginationMeta(total, query.page, query.limit) };
-}
-
-/**
- * Probability and weighted value are derived, so they cannot be SQL filters or
- * SQL sorts. Applying them after the page is read narrows the page rather than
- * the query — honest about what it is, and correct for what is shown.
- */
-function refinePage(rows: OpportunitySummaryDTO[], query: OpportunityListQuery): OpportunitySummaryDTO[] {
-  let data = rows;
-
-  if (query.minProbability !== undefined) {
-    data = data.filter((row) => Number.parseFloat(row.probability) >= query.minProbability!);
-  }
-  if (query.maxProbability !== undefined) {
-    data = data.filter((row) => Number.parseFloat(row.probability) <= query.maxProbability!);
-  }
-  if (query.sort === "weighted-desc") {
-    data = [...data].sort(
-      (a, b) => Number.parseFloat(b.weightedValue) - Number.parseFloat(a.weightedValue),
-    );
-  }
-  if (query.sort === "probability-desc") {
-    data = [...data].sort(
-      (a, b) => Number.parseFloat(b.probability) - Number.parseFloat(a.probability),
-    );
-  }
-
-  return data;
+  // Probability filters and the derived sorts ran in the query, before the count and the page (AUD-08 §3, DT-03, DT-04).
+  return { data: rows.map(toSummaryDTO), pagination: window };
 }
 
 /**
@@ -121,14 +94,11 @@ export async function listOpportunitiesForWorkspace(session: UserContext, query:
   const readers = await groupReaders(session, "sales.opportunity.view", query.companyId);
   if (readers.length === 0) return { data: [] as OpportunitySummaryDTO[], pagination: paginationMeta(0, query.page, query.limit) };
 
-  const { rows, total } = await repository.listOpportunitiesInGroup(readers, query);
+  const { rows, window } = await repository.listOpportunitiesInGroup(readers, query);
   const companies = companyRefs(readers);
-  const data = refinePage(
-    rows.map((row) => ({ ...toSummaryDTO(row), company: companies.get(row.companyId) })),
-    query,
-  );
+  const data = rows.map((row) => ({ ...toSummaryDTO(row), company: companies.get(row.companyId) }));
 
-  return { data, pagination: paginationMeta(total, query.page, query.limit) };
+  return { data, pagination: window };
 }
 
 export async function getOpportunity(

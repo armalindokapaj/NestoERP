@@ -15,6 +15,7 @@ import { listDocuments } from "@/lib/modules/documents/document.service";
 import { buildReceiptScopeWhere as buildInventoryReceiptScopeWhere } from "@/lib/modules/inventory/inventory.scope";
 import { buildOrderScopeWhere, buildReceiptScopeWhere as buildGoodsReceiptScopeWhere } from "@/lib/modules/procurement/procurement.scope";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { canEditSection, dailyLogsOpen, isEditable, MODULE, projectDoor, readableDailyLogWhere, RECORD } from "./daily-log.permissions";
 import type { DailyLogListQuery, UpdateDailyLogInput } from "./daily-log.schema";
 import { resolveDailyLogSettings } from "./daily-log.settings";
@@ -172,6 +173,24 @@ export async function updateDailyLog(context: UserContext, dailyLogId: string, i
 /* List                                                                        */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The newest site day first, then the newest log; the id breaks ties so a
+ * page never repeats or drops a log (AUD-08 §4, DT-04). The review queue reads
+ * the oldest submission first. `workDate` and `createdAt` are required; a
+ * submitted log always has `submittedAt`, and one without sorts last.
+ */
+const LIST_ORDER: Prisma.DailyLogOrderByWithRelationInput[] = [{ workDate: "desc" }, { createdAt: "desc" }, { id: "asc" }];
+const REVIEW_ORDER: Prisma.DailyLogOrderByWithRelationInput[] = [{ submittedAt: { sort: "asc", nulls: "last" } }, { workDate: "asc" }, { id: "asc" }];
+const LIST_SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
+
+/**
+ * One page of daily logs (AUD-08 §3, §4): the reader's scope, then the section
+ * (a project, or the review queue — an explicit option the API reads as
+ * `queue=review`), then the filters, AND across them; then the order and the
+ * page, in the database. Rows and total share one snapshot (DT-06), and `page`
+ * is the request clamped to the last real page so a page past the end moves
+ * there once (DT-05). A project the reader cannot open narrows to no rows (DT-22).
+ */
 export async function listDailyLogs(context: UserContext, query: DailyLogListQuery, options: { reviewQueue?: boolean } = {}): Promise<DailyLogListDTO> {
   assertModule(context, MODULE);
   if (!dailyLogsOpen(context)) throw new AccessError("FORBIDDEN");
@@ -188,11 +207,11 @@ export async function listDailyLogs(context: UserContext, query: DailyLogListQue
       options.reviewQueue ? { status: "SUBMITTED", OR: [{ reviewerMemberId: context.membershipId }, { reviewerMemberId: null }, { project: { is: { projectManagerMemberId: context.membershipId } } }] } : {},
     ],
   };
-  const [total, rows] = await Promise.all([
+  const [total, rows] = await prisma.$transaction([
     prisma.dailyLog.count({ where }),
     prisma.dailyLog.findMany({
       where,
-      orderBy: options.reviewQueue ? [{ submittedAt: "asc" }] : [{ workDate: "desc" }, { createdAt: "desc" }],
+      orderBy: options.reviewQueue ? REVIEW_ORDER : LIST_ORDER,
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       select: {
@@ -201,7 +220,7 @@ export async function listDailyLogs(context: UserContext, query: DailyLogListQue
         _count: { select: { workActivities: true, delayEntries: true, corrections: true } },
       },
     }),
-  ]);
+  ], LIST_SNAPSHOT);
   const ids = rows.map((row) => row.id);
   const [workforce, photos, people] = await Promise.all([
     ids.length ? prisma.dailyLogWorkforceEntry.groupBy({ by: ["dailyLogId"], where: { dailyLogId: { in: ids } }, _sum: { headcount: true } }) : [],
@@ -236,7 +255,7 @@ export async function listDailyLogs(context: UserContext, query: DailyLogListQue
       href: `/projects/${row.project.id}/daily-logs/${row.id}`,
     })),
     total,
-    page: query.page,
+    page: paginationMeta(total, query.page, query.pageSize).page,
     pageSize: query.pageSize,
     today,
   };

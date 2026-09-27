@@ -1,4 +1,4 @@
-import type { Prisma, ProjectStatus } from "@prisma/client";
+import { Prisma, type ProjectStatus } from "@prisma/client";
 import { cache } from "react";
 import { z } from "zod";
 
@@ -369,26 +369,37 @@ async function discoverProjects(session: UserContext, query: PortfolioQuery): Pr
   const take = query.limit + 1;
 
   const runs = STATUS_RUNS.slice(cursor ? STATUS_RUNS.indexOf(cursor.run) : 0);
-  const pages = await Promise.all(
-    runs.map((run, index) => {
-      const after: Prisma.ProjectWhereInput[] =
-        cursor && index === 0 ? [{ OR: [{ name: { gt: cursor.name } }, { name: cursor.name, id: { gt: cursor.id } }] }] : [];
-      return prisma.project.findMany({
-        where: { AND: [matching, { status: run }, ...after] },
-        orderBy: [{ name: "asc" }, { id: "asc" }],
-        take,
-        select: LIST_SELECT,
-      });
-    }),
+  const reads = runs.map((run, index) => {
+    const after: Prisma.ProjectWhereInput[] =
+      cursor && index === 0 ? [{ OR: [{ name: { gt: cursor.name } }, { name: cursor.name, id: { gt: cursor.id } }] }] : [];
+    return prisma.project.findMany({
+      where: { AND: [matching, { status: run }, ...after] },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      take,
+      select: LIST_SELECT,
+    });
+  });
+  // The page, the per-company counts and the matching count come from one
+  // REPEATABLE READ snapshot, so a project created or archived between the
+  // reads cannot make "N projects" disagree with the cards (AUD-08 §4, DT-06).
+  // Without a search the matching count is the visible count, so it is not read twice.
+  const results = await prisma.$transaction(
+    [
+      prisma.project.groupBy({ by: ["companyId"], where: authorised, _count: { _all: true }, orderBy: { companyId: "asc" } }),
+      ...(query.q ? [prisma.project.count({ where: matching })] : []),
+      ...reads,
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
+  const companyCounts = results[0] as Array<{ companyId: string; _count: { _all: number } }>;
+  const matchingCount = query.q ? (results[1] as number) : null;
+  const pages = results.slice(query.q ? 2 : 1) as Array<Array<Prisma.ProjectGetPayload<{ select: typeof LIST_SELECT }>>>;
   const rows = pages.flat().slice(0, take);
   const hasNextPage = rows.length > query.limit;
   const page = rows.slice(0, query.limit);
   const last = page.at(-1);
 
-  const [companyCounts, matchingCount, favorites, covers] = await Promise.all([
-    prisma.project.groupBy({ by: ["companyId"], where: authorised, _count: { _all: true } }),
-    query.q ? prisma.project.count({ where: matching }) : Promise.resolve(null),
+  const [favorites, covers] = await Promise.all([
     favoriteState(portfolio, page.map((row) => row.id)),
     readableCovers(portfolio, page),
   ]);

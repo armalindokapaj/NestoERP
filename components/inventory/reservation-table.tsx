@@ -17,14 +17,19 @@ export function ReservationTable({
   reservations,
   actions,
   caption = "Reservations",
+  listId = "inventory.reservations",
 }: {
   reservations: ReservationDTO[];
   actions?: (row: ReservationDTO) => React.ReactNode;
   caption?: string;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
 }) {
   const columns: TableColumn<ReservationDTO>[] = [
     {
       key: "reservationNumber",
+      id: "reservationNumber",
+      mandatory: true,
       label: "Reservation",
       primary: true,
       render: (row) => (
@@ -36,6 +41,7 @@ export function ReservationTable({
     },
     {
       key: "project",
+      id: "project",
       label: "Project",
       hideBelow: "md",
       render: (row) =>
@@ -43,6 +49,7 @@ export function ReservationTable({
     },
     {
       key: "location",
+      id: "location",
       label: "Held at",
       hideBelow: "lg",
       render: (row) => (
@@ -54,6 +61,8 @@ export function ReservationTable({
     },
     {
       key: "quantity",
+      id: "quantity",
+      valueType: "number",
       label: "Reserved",
       align: "right",
       render: (row) => (
@@ -71,6 +80,8 @@ export function ReservationTable({
     },
     {
       key: "requiredDate",
+      id: "requiredDate",
+      valueType: "date",
       label: "Required",
       hideBelow: "xl",
       render: (row) =>
@@ -78,6 +89,9 @@ export function ReservationTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => (
         <span className="flex items-center gap-1.5">
@@ -90,6 +104,7 @@ export function ReservationTable({
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={reservations}
       rowKey={(row) => row.id}

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { FolderKanban } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
@@ -6,6 +7,9 @@ import { ProjectTable } from "@/components/projects/project-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
 import { parseProjectListQuery } from "@/lib/modules/projects/project.query";
+import { PROJECT_SORT_KEYS } from "@/lib/modules/projects/project.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { clearListFilters } from "@/lib/tables/list-url";
 import { projectFilterOptions } from "@/lib/modules/projects/project.repository";
 import * as projects from "@/lib/modules/projects/project.service";
 
@@ -34,6 +38,8 @@ export async function ProjectsList({
     projects.listProjects(context, query),
     projectFilterOptions(context),
   ]);
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
 
   const hasFilters = Boolean(
     query.search || query.status?.length || query.priority?.length || query.clientId || query.projectManagerMemberId,
@@ -73,15 +79,11 @@ export async function ProjectsList({
     },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const query = params.toString();
-    return query ? `${basePath}?${query}` : basePath;
-  }
+  const buildHref = (page: number) => pageHref(basePath, searchParams, page);
+  // Clear filters drops only this list's filter and search keys; the sort and
+  // any other route key stay (AUD-08 §3).
+  const cleared = clearListFilters(pageHref("", searchParams, 1).slice(1), ["search", "status", "priority", "clientId", "manager"]);
+  const clearHref = cleared ? `${basePath}?${cleared}` : basePath;
 
   return (
     <div className="space-y-4">
@@ -109,7 +111,7 @@ export async function ProjectsList({
             icon={<FolderKanban />}
             title="No projects match these filters."
             description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            action={{ label: "Clear filters", href: clearHref }}
           />
         ) : (
           <EmptyState
@@ -120,7 +122,7 @@ export async function ProjectsList({
         )
       ) : (
         <>
-          <ProjectTable projects={result.data} />
+          <ProjectTable projects={result.data} sort={{ value: query.sort, keys: PROJECT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

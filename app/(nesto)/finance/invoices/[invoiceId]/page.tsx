@@ -247,7 +247,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
           </p>
         ) : (
           <div className="mt-4">
-            <PaymentTable payments={invoice.payments} />
+            <PaymentTable payments={invoice.payments} listId="finance.invoice-payments" />
           </div>
         )}
       </section>

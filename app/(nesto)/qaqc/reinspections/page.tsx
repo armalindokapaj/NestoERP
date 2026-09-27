@@ -39,7 +39,9 @@ export default async function QaqcReinspectionsPage({
         <QaqcListSection
           context={context}
           kind="inspections"
-          searchParams={{ ...params, view: "reinspections" }}
+          searchParams={params}
+          basePath="/qaqc/reinspections"
+          fixed={{ view: "reinspections" }}
         />
       </Suspense>
     </ModulePage>

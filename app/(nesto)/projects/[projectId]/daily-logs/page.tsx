@@ -3,12 +3,14 @@ import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
 import { DailyLogList } from "@/components/daily-logs/daily-log-list";
+import { Pagination } from "@/components/data/pagination";
 import { StartLogForm } from "@/components/daily-logs/start-log-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { Button } from "@/components/ui/button";
 import { can } from "@/lib/access/can";
 import { listQuerySchema } from "@/lib/modules/daily-logs/daily-log.schema";
 import { listDailyLogs } from "@/lib/modules/daily-logs/daily-log.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { resolveDailyLogSettings } from "@/lib/modules/daily-logs/daily-log.settings";
 import { addLocalDays, localDate } from "@/lib/modules/daily-logs/daily-log.time";
 import { DAILY_LOG_STATUSES, DAILY_LOG_STATUS_LABELS } from "@/lib/modules/daily-logs/daily-log.types";
@@ -36,6 +38,10 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
 
   const query = listQuerySchema.parse({ projectId: project.id, status: one(search.status), page: one(search.page) });
   const [list, settings] = await Promise.all([listDailyLogs(context, query), resolveDailyLogSettings(context.companyId, project.id)]);
+  // A count on every page — the old Newer/Older pair said nothing about how many — and a page past
+  // the end moves once to the last real page (AUD-08 §4, DT-05).
+  const base = `/projects/${project.id}/daily-logs`;
+  if (list.page !== query.page) redirect(listPageRedirect(base, search, list.page));
   const today = localDate(new Date(), settings.timezone);
   const canCreate = can(context, "daily_log.create") && list.today?.canCreate;
   const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
@@ -109,20 +115,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
         emptyTitle={query.status ? "No logs with this status." : "No daily logs yet."}
         emptyDescription="Each site day's workforce, work, deliveries, delays and photos are recorded here."
       />
-      {list.total > list.items.length ? (
-        <div className="flex justify-center gap-2">
-          {query.page > 1 ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link href={`/projects/${project.id}/daily-logs?page=${query.page - 1}${query.status ? `&status=${query.status}` : ""}`}>Newer</Link>
-            </Button>
-          ) : null}
-          {query.page * query.pageSize < list.total ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link href={`/projects/${project.id}/daily-logs?page=${query.page + 1}${query.status ? `&status=${query.status}` : ""}`}>Older</Link>
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <Pagination meta={{ page: list.page, limit: list.pageSize, total: list.total, totalPages: Math.max(1, Math.ceil(list.total / list.pageSize)) }} buildHref={(page) => pageHref(base, search, page)} />
     </div>
   );
 }

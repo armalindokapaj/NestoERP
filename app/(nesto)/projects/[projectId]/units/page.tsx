@@ -8,6 +8,7 @@ import { AccessError } from "@/lib/access/guards";
 import { parseUnitListQuery } from "@/lib/modules/project-structure/structure.schema";
 import { getProjectStructure, listProjectUnits } from "@/lib/modules/project-structure/structure.service";
 import * as projects from "@/lib/modules/projects/project.service";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
 
@@ -63,6 +64,10 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
   const units = structure.buildings.length
     ? await listProjectUnits(context, project.id, { ...query, buildingId: selection.buildingId ?? undefined, floorId: selection.floorId ?? undefined }).catch(refuse)
     : null;
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (units && units.total > 0 && units.page > Math.ceil(units.total / units.pageSize)) {
+    redirect(listPageRedirect(`/projects/${project.id}/units`, search, Math.ceil(units.total / units.pageSize)));
+  }
 
   return (
     <div className="space-y-5">

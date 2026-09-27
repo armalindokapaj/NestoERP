@@ -1,4 +1,5 @@
 import { CalendarDays } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -10,9 +11,10 @@ import Link from "@/components/navigation/nav-link";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseLeaveQuery } from "@/lib/modules/hr/hr.query";
-import { LEAVE_STATUSES, LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
+import { LEAVE_SORT_KEYS, LEAVE_STATUSES, LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
 import { leaveStatusLabels, leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -47,15 +49,9 @@ export async function LeaveList({
     },
   ];
 
-  function buildHref(page: number) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") params.set(key, value);
-    }
-    if (page > 1) params.set("page", String(page));
-    const search = params.toString();
-    return search ? `/hr/leave?${search}` : "/hr/leave";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/hr/leave", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/hr/leave", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -110,7 +106,7 @@ export async function LeaveList({
         )
       ) : (
         <>
-          <LeaveTable requests={result.data} showEmployee={seesOthers && !mineOnly} />
+          <LeaveTable requests={result.data} showEmployee={seesOthers && !mineOnly} sort={{ value: query.sort, keys: LEAVE_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

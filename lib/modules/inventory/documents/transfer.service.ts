@@ -5,8 +5,9 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { applyStockMovement } from "../balances/balance.service";
 import { dateString, loadMemberRef, toItemRef, toLocationRef, toWarehouseRef } from "../inventory.dto";
 import { nextDocumentNumber } from "../inventory.numbering";
@@ -27,6 +28,9 @@ import {
   reverseMovements,
 } from "./posting";
 import { stockTransferMachine } from "./transfer.machine";
+
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
 
 /**
  * Stock moving between locations (PRD #20 §129–§140).
@@ -96,20 +100,35 @@ export async function listTransfers(context: UserContext, query: TransactionList
 
   const where: Prisma.StockTransferWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.stockTransfer.findMany({
-      where,
-      orderBy: query.sort === "date-asc" ? [{ transferDate: "asc" }] : [{ transferDate: "desc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.stockTransfer.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "inventory.transfers.list",
+    async (tx) => {
+      const window = pageWindow(await tx.stockTransfer.count({ where }), query.page, query.limit);
+      const rows = await tx.stockTransfer.findMany({
+        where,
+        // Every sort the toolbar offers, each ending in the id — number and updated no longer fall back to the date (AUD-08 §4, DT-04).
+        orderBy: withTieBreaker<Prisma.StockTransferOrderByWithRelationInput>(
+          query.sort === "date-asc"
+            ? [{ transferDate: "asc" }]
+            : query.sort === "number-asc"
+              ? [{ transferNumber: "asc" }]
+              : query.sort === "updated-desc"
+                ? [{ updatedAt: "desc" }]
+                : [{ transferDate: "desc" }],
+        ),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   return {
     data: rows.map(toSummaryDTO),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

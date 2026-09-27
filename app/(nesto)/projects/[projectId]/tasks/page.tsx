@@ -3,18 +3,24 @@ import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ListChecks } from "lucide-react";
 
+import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { TaskTable } from "@/components/tasks/task-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import * as projects from "@/lib/modules/projects/project.service";
-import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { parseTaskListQuery } from "@/lib/modules/tasks/task.query";
+import { TASK_SORT_KEYS } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
 
-type Params = { params: Promise<{ projectId: string }> };
+type Params = {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -25,16 +31,24 @@ export const metadata: Metadata = { title: "Tasks" };
  * the tasks the user may see: the project tab narrows, it never widens
  * (PRD #10 §224). Rows open the canonical task URL rather than a project-local
  * copy of the detail page (PRD #11 §12, §172).
+ *
+ * The tab pages through every task with a true count and an allowlisted sort
+ * (AUD-08 §4, DT-05). It used to show the first 100 with no count, silently
+ * dropping the rest; the project filter is forced from the route, never read
+ * from the query string.
  */
-export default async function ProjectTasksPage({ params }: Params) {
+export default async function ProjectTasksPage({ params, searchParams }: Params) {
   const { projectId } = await params;
+  const raw = await searchParams;
   const { context, project } = await loadProject(projectId);
   const actions = projects.projectActions(context);
 
   if (!actions.canViewTasks) redirect("/access-denied");
 
-  const query = taskListQuerySchema.parse({ projectId, limit: 100, sort: "due-asc" });
+  const query = { ...parseTaskListQuery(raw), projectId };
   const result = await tasks.listTasks(context, query);
+  const basePath = `/projects/${project.id}/tasks`;
+  if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, raw, result.pagination.page));
 
   // New work on an archived project is refused by the service, so the control
   // is not offered either (PRD #11 §173).
@@ -95,7 +109,10 @@ export default async function ProjectTasksPage({ params }: Params) {
           }
         />
       ) : (
-        <TaskTable tasks={result.data} />
+        <>
+          <TaskTable tasks={result.data} listId="projects.tasks" sort={{ value: query.sort, keys: TASK_SORT_KEYS }} />
+          <Pagination meta={result.pagination} buildHref={(page) => pageHref(basePath, raw, page)} />
+        </>
       )}
     </div>
   );

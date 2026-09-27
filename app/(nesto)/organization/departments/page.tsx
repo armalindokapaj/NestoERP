@@ -39,6 +39,8 @@ export default async function DepartmentsPage({ searchParams }: Props) {
   const columns: TableColumn<GroupDepartmentDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Department",
       primary: true,
       render: (department) => (
@@ -78,7 +80,7 @@ export default async function DepartmentsPage({ searchParams }: Props) {
           description={configures ? "Create the group's first department, then activate it in the companies that need it." : "The group's departments are set up by its Owner and Group IT."}
         />
       ) : (
-        <DataTable caption="Group departments" columns={columns} records={departments} rowKey={(department) => department.id} />
+        <DataTable listId="organization.departments" caption="Group departments" columns={columns} records={departments} rowKey={(department) => department.id} />
       )}
     </ModulePage>
   );

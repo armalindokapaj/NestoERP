@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import type { CalendarProvider } from "@/lib/modules/calendar/calendar.types";
-import { compact, dateWindow, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, todayIn, wants } from "@/lib/modules/calendar/providers/provider.helpers";
+import { compact, dateWindow, onBusinessDate, projectFilter, projectRef, PROJECT_SELECT, SOURCE_LIMIT, sourceRows, todayIn, wants } from "@/lib/modules/calendar/providers/provider.helpers";
 import { dateOf, displayDateOf, isDelayed } from "./planning.dates";
 import { planningOpen, readableMilestoneWhere } from "./planning.permissions";
 
@@ -32,7 +32,7 @@ export const milestoneCalendarProvider: CalendarProvider = {
       { actualDate: null, forecastDate: null, plannedDate: window },
       { actualDate: null, forecastDate: null, plannedDate: null, baselineDate: window },
     ];
-    const rows = await prisma.projectMilestone.findMany({
+    const rows = await sourceRows(input, prisma.projectMilestone.findMany({
       where: {
         AND: [
           readableMilestoneWhere(context),
@@ -43,7 +43,7 @@ export const milestoneCalendarProvider: CalendarProvider = {
         ],
       },
       take: SOURCE_LIMIT,
-      orderBy: { forecastDate: "asc" },
+      orderBy: [{ forecastDate: "asc" }, { id: "asc" }],
       select: {
         id: true,
         name: true,
@@ -57,7 +57,7 @@ export const milestoneCalendarProvider: CalendarProvider = {
         project: PROJECT_SELECT,
         ownerMemberId: true,
       },
-    });
+    }));
     const ownerIds = [...new Set(rows.map((row) => row.ownerMemberId).filter((id): id is string => Boolean(id)))];
     const owners = ownerIds.length ? await prisma.companyMember.findMany({ where: { companyId: context.companyId, id: { in: ownerIds } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } }) : [];
     const ownerName = new Map(owners.map((row) => [row.id, `${row.user.firstName} ${row.user.lastName}`]));

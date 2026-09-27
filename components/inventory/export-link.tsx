@@ -1,34 +1,24 @@
-import Link from "@/components/navigation/nav-link";
-import { Download } from "lucide-react";
+"use client";
 
-import { Button } from "@/components/ui/button";
+import { ExportControl } from "@/lib/core/export/export-control";
 import type { InventoryExportType } from "@/lib/modules/inventory/inventory.export";
 
 /**
- * CSV export (PRD #20 §214, §215).
+ * CSV export (PRD #20 §214, §215; AUD-08 §7).
  *
- * A plain link carrying the current filters, so the file is the list the reader
- * is looking at — same scope, same warehouse visibility, same redaction. There
- * is no separate "export everything" door.
+ * Every row the list's current filters match — same scope, same warehouse
+ * visibility, same redaction, same order — read from the page's own address
+ * when clicked, so a filtered reservation list exports the filtered
+ * reservations even where the page passes no `search`. There is no separate
+ * "export everything" door.
  */
 export function InventoryExportLink({
   type,
-  search,
   label = "Export CSV",
 }: {
   type: InventoryExportType;
   search?: string;
   label?: string;
 }) {
-  const params = new URLSearchParams(search ?? "");
-  params.set("type", type);
-
-  return (
-    <Button asChild variant="secondary" size="sm">
-      <Link href={`/api/inventory/export?${params.toString()}`} prefetch={false}>
-        <Download aria-hidden="true" />
-        {label}
-      </Link>
-    </Button>
-  );
+  return <ExportControl endpoint="/api/inventory/export" selector={{ param: "type", value: type }} label={label} testId={`inventory-export-${type}`} />;
 }

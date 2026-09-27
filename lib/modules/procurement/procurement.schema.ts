@@ -152,7 +152,9 @@ export const supplierListQuerySchema = paginationSchema.extend({
   country: z.string().trim().max(120).optional(),
   sort: z
     .enum(["name-asc", "name-desc", "updated-desc", "created-desc", "code-asc"])
-    .default("name-asc"),
+    .default("name-asc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("name-asc"),
 });
 
 export type SupplierListQuery = z.infer<typeof supplierListQuerySchema>;
@@ -200,7 +202,9 @@ export const requestListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
   view: z
     .enum(["all", "mine", "drafts", "pending", "approved", "sourcing", "ordered", "archived"])
-    .default("all"),
+    .default("all")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("all"),
   status: z.array(z.enum(REQUEST_STATUSES)).optional(),
   priority: z.array(z.enum(PRIORITIES)).optional(),
   projectId: z.string().optional(),
@@ -217,7 +221,9 @@ export const requestListQuerySchema = paginationSchema.extend({
       "value-desc",
       "status-asc",
     ])
-    .default("updated-desc"),
+    .default("updated-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("updated-desc"),
 });
 
 export type RequestListQuery = z.infer<typeof requestListQuerySchema>;
@@ -254,12 +260,16 @@ export type RfqInput = z.infer<typeof rfqSchema>;
 
 export const rfqListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
-  view: z.enum(["all", "draft", "issued", "closed"]).default("all"),
+  view: z.enum(["all", "draft", "issued", "closed"]).default("all")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("all"),
   status: z.array(z.enum(RFQ_STATUSES)).optional(),
   projectId: z.string().optional(),
   sort: z
     .enum(["updated-desc", "created-desc", "number-asc", "due-asc"])
-    .default("updated-desc"),
+    .default("updated-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("updated-desc"),
 });
 
 export type RfqListQuery = z.infer<typeof rfqListQuerySchema>;
@@ -364,7 +374,9 @@ export const orderListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(200).optional(),
   view: z
     .enum(["all", "draft", "pending", "issued", "receiving", "closed", "archived"])
-    .default("all"),
+    .default("all")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("all"),
   status: z.array(z.enum(ORDER_STATUSES)).optional(),
   supplierId: z.string().optional(),
   projectId: z.string().optional(),
@@ -379,7 +391,9 @@ export const orderListQuerySchema = paginationSchema.extend({
       "value-desc",
       "status-asc",
     ])
-    .default("updated-desc"),
+    .default("updated-desc")
+    // An unknown value from a stale link shows the default list, not an error page (AUD-08 §3).
+    .catch("updated-desc"),
 });
 
 export type OrderListQuery = z.infer<typeof orderListQuerySchema>;

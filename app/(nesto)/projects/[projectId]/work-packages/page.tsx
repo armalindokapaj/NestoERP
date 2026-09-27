@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ListToolbar } from "@/components/data/list-toolbar";
+import { Pagination } from "@/components/data/pagination";
 import { NewWorkPackageButton } from "@/components/contractors/contractor-dialogs";
 import { WorkPackageTable } from "@/components/contractors/contractor-tables";
-import { flat, orNotFound, type SearchParams } from "@/components/engineering/page-helpers";
+import { flat, keepPageInRange, orNotFound, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { contractorsOpen } from "@/lib/modules/contractors/contractor.permissions";
@@ -12,7 +13,7 @@ import { workPackageListSchema } from "@/lib/modules/contractors/contractor.sche
 import { WORK_PACKAGE_STATUSES, WORK_PACKAGE_STATUS_LABELS } from "@/lib/modules/contractors/contractor.types";
 import { DISCIPLINES, DISCIPLINE_LABELS } from "@/lib/modules/engineering/engineering.types";
 import * as projects from "@/lib/modules/projects/project.service";
-import { listProjectWorkPackages } from "@/lib/modules/work-packages/work-package.service";
+import { listProjectWorkPackagesPage } from "@/lib/modules/work-packages/work-package.service";
 import { loadProject, projectBreadcrumbs } from "../project-context";
 import { ProjectTabs } from "../project-tabs";
 
@@ -26,7 +27,11 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   const { context, project } = await loadProject(projectId);
   const actions = projects.projectActions(context);
   if (!contractorsOpen(context, "work_package.view")) redirect("/access-denied");
-  const items = await orNotFound(listProjectWorkPackages(context, project.id, workPackageListSchema.parse(flat(search))));
+  const query = workPackageListSchema.parse(flat(search));
+  // Every work package, with a count and pages — before, the tab stopped silently at 500 (AUD-08 §4, DT-05).
+  const result = await orNotFound(listProjectWorkPackagesPage(context, project.id, query));
+  const base = `/projects/${project.id}/work-packages`;
+  keepPageInRange(base, search, query.page, result);
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
 
   return (
@@ -65,7 +70,8 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
           { param: "discipline", label: "Discipline", options: DISCIPLINES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] })) },
         ]}
       />
-      <WorkPackageTable items={items} />
+      <WorkPackageTable items={result.items} />
+      <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref(base, search, page)} />
     </div>
   );
 }

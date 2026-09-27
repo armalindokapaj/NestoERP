@@ -20,6 +20,7 @@ import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
 import type { InvoiceListQuery } from "@/lib/modules/finance/invoices/invoice.schema";
 import { invoiceStatusLabels, settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
 import { firstValue } from "@/lib/modules/shared/list-query";
+import { INVOICE_SORT_KEYS } from "@/lib/modules/finance/invoices/invoice.schema";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -186,7 +187,7 @@ export async function InvoicesList({
           )
         ) : (
           <>
-            <InvoiceTable invoices={result.data} />
+            <InvoiceTable invoices={result.data} sort={{ value: query.sort, keys: INVOICE_SORT_KEYS }} />
             <Pagination meta={result.pagination} buildHref={buildHref} />
           </>
         )}

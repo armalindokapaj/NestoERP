@@ -182,6 +182,7 @@ async function Companies({ context, department }: { context: UserContext; depart
     { key: "company", label: "Company", primary: true, render: (row) => <span className="font-medium text-fg">{row.company.name}</span> },
     {
       key: "manager",
+      id: "manager",
       label: "Manager",
       render: (row) => {
         if (!row.branch) return <span className="text-fg-subtle">—</span>;
@@ -201,6 +202,8 @@ async function Companies({ context, department }: { context: UserContext; depart
     { key: "members", label: "People", align: "right", render: (row) => <span className="tabular-nums">{row.branch?.memberCount ?? 0}</span> },
     {
       key: "status",
+      id: "status",
+      valueType: "status",
       label: "Status",
       render: (row) => (row.branch ? <StatusBadge status={row.branch.status} /> : <span className="text-meta text-fg-subtle">Not active here</span>),
     },
@@ -213,6 +216,7 @@ async function Companies({ context, department }: { context: UserContext; depart
         <EmptyState title="No company to show" description="No company you can see runs this department." />
       ) : (
         <DataTable
+      listId="organization.department-companies"
           caption={`${department.name} by company`}
           columns={columns}
           records={department.companies}
@@ -246,6 +250,8 @@ async function Team({ context, department, query }: { context: UserContext; depa
   const columns: TableColumn<TeamMemberDTO>[] = [
     {
       key: "person",
+      id: "person",
+      mandatory: true,
       label: "Person",
       primary: true,
       render: (member) => (
@@ -259,6 +265,7 @@ async function Team({ context, department, query }: { context: UserContext; depa
     { key: "position", label: "Position", render: (member) => <Badge tone={member.position === "MEMBER" ? "neutral" : "info"}>{POSITION_LABEL[member.position]}</Badge> },
     {
       key: "coverage",
+      id: "coverage",
       label: "Companies",
       render: (member) =>
         member.coverage.length === 0 ? (
@@ -344,7 +351,7 @@ async function Team({ context, department, query }: { context: UserContext; depa
       {team.data.length === 0 ? (
         <EmptyState title={filtered ? "Nobody matches" : "Nobody works here yet"} description={filtered ? "Try fewer filters." : "Add somebody who already works in one of its companies."} />
       ) : (
-        <DataTable caption={`${department.name} team`} columns={columns} records={team.data} rowKey={(member) => member.person.userId} />
+        <DataTable listId="organization.department-team" caption={`${department.name} team`} columns={columns} records={team.data} rowKey={(member) => member.person.userId} />
       )}
     </section>
   );

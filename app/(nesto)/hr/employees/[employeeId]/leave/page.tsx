@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 
 import { EmployeeTabs } from "@/components/hr/employee-tabs";
@@ -14,8 +14,13 @@ import { leaveListQuerySchema } from "@/lib/modules/hr/hr.schema";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
 import { orDash } from "@/lib/utils/format";
 import { employeeBreadcrumbs, employeeTabVisibility, loadEmployee } from "../employee-context";
+import { Pagination } from "@/components/data/pagination";
+import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-type Params = { params: Promise<{ employeeId: string }> };
+type Params = {
+  params: Promise<{ employeeId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export const metadata: Metadata = { title: "Employee leave" };
 
@@ -25,20 +30,26 @@ export const metadata: Metadata = { title: "Employee leave" };
  * The balance is set by hand — V0.1 has no accrual engine — and days used are
  * never typed: they are derived from approved leave (PRD #16 §81, §218).
  */
-export default async function EmployeeLeaveTabPage({ params }: Params) {
+export default async function EmployeeLeaveTabPage({ params, searchParams }: Params) {
   const { employeeId } = await params;
   const { context, employee } = await loadEmployee(employeeId, "/leave");
 
   if (!employee.capabilities.canViewLeave) notFound();
 
   const year = leaveYearOf(today());
+  const search = await searchParams;
+  const requested = Number.parseInt(firstValue(search.page) ?? "1", 10);
+  const query = leaveListQuerySchema.parse({ employeeId, page: Number.isFinite(requested) && requested > 0 ? requested : 1 });
+  const basePath = `/hr/employees/${employeeId}/leave`;
 
   const [requests, balances] = await Promise.all([
-    leave.listLeave(context, leaveListQuerySchema.parse({ employeeId })),
+    leave.listLeave(context, query),
     can(context, "hr.leave.balance.view")
       ? leave.getBalances(context, employeeId, year)
       : Promise.resolve([]),
   ]);
+  // Every request is reachable page by page — the tab used to stop silently at 25 (AUD-08 §4, DT-05).
+  if (requests.pagination.page !== query.page) redirect(listPageRedirect(basePath, search, requests.pagination.page));
 
   return (
     <div className="space-y-5">
@@ -74,7 +85,10 @@ export default async function EmployeeLeaveTabPage({ params }: Params) {
           description="Requests filed by or for this employee appear here."
         />
       ) : (
-        <LeaveTable requests={requests.data} showEmployee={false} />
+        <>
+          <LeaveTable requests={requests.data} showEmployee={false} listId="hr.employee-leave" />
+          <Pagination meta={requests.pagination} buildHref={(next) => pageHref(basePath, search, next)} />
+        </>
       )}
     </div>
   );

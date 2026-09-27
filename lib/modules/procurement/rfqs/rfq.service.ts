@@ -6,8 +6,9 @@ import { buildProjectScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import {
   dateString,
   loadMemberRef,
@@ -93,6 +94,9 @@ type DetailRow = Prisma.RFQGetPayload<{ select: typeof DETAIL_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listRfqs(context: UserContext, query: RfqListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.rfq.view");
@@ -121,21 +125,27 @@ export async function listRfqs(context: UserContext, query: RfqListQuery) {
 
   const where: Prisma.RFQWhereInput = { AND: filters };
 
-  const [rows, total] = await Promise.all([
-    prisma.rFQ.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.rFQ.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.rfqs.list",
+    async (tx) => {
+      const window = pageWindow(await tx.rFQ.count({ where }), query.page, query.limit);
+      const rows = await tx.rFQ.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toSummaryDTO(row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 

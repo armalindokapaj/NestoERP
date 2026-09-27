@@ -89,7 +89,7 @@ export const getTeamMembers = cache(async (companyId: string): Promise<TeamMembe
   const records = await prisma.companyMember.findMany({
     where: { companyId },
     select: MEMBER_SELECT,
-    orderBy: [{ department: { name: "asc" } }, { user: { firstName: "asc" } }],
+    orderBy: [{ department: { name: "asc" } }, { user: { firstName: "asc" } }, { id: "asc" }],
   });
 
   return records.map(toTeamMember);

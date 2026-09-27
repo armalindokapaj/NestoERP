@@ -17,6 +17,8 @@ export function SupplierTable({
   const columns: TableColumn<SupplierSummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Supplier",
       primary: true,
       render: (row) => (
@@ -31,18 +33,22 @@ export function SupplierTable({
     ...(grouped ? [companyColumn<SupplierSummaryDTO>()] : []),
     {
       key: "supplierType",
+      id: "supplierType",
       label: "Type",
       hideBelow: "lg",
       render: (row) => supplierTypeLabels[row.supplierType],
     },
     {
       key: "country",
+      id: "country",
       label: "Country",
       hideBelow: "xl",
       render: (row) => row.country ?? <span className="text-fg-subtle">—</span>,
     },
     {
       key: "paymentTermsDays",
+      id: "paymentTermsDays",
+      valueType: "number",
       label: "Terms",
       hideBelow: "xl",
       render: (row) =>
@@ -54,6 +60,8 @@ export function SupplierTable({
     },
     {
       key: "openOrders",
+      id: "openOrders",
+      valueType: "number",
       label: "Open orders",
       align: "right",
       hideBelow: "md",
@@ -61,6 +69,9 @@ export function SupplierTable({
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -68,6 +79,7 @@ export function SupplierTable({
 
   return (
     <DataTable
+      listId="procurement.suppliers"
       columns={columns}
       records={suppliers}
       rowKey={(row) => row.id}

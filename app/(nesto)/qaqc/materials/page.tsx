@@ -48,7 +48,9 @@ export default async function QaqcMaterialsPage({
         <QaqcListSection
           context={context}
           kind="inspections"
-          searchParams={{ ...params, type: "MATERIAL" }}
+          searchParams={params}
+          basePath="/qaqc/materials"
+          fixed={{ type: "MATERIAL" }}
         />
       </Suspense>
     </ModulePage>

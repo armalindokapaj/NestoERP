@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
 
 import { Pagination } from "@/components/data/pagination";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import * as documents from "@/lib/modules/documents/document.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { documentBreadcrumbs, loadDocument } from "../document-context";
+import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
   params: Promise<{ documentId: string }>;
@@ -29,6 +30,8 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
   const activity = await documents.listActivity(context, documentId, { page, limit: 25 });
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (activity.pagination.page !== page) redirect(listPageRedirect(`/documents/${documentId}/activity`, query, activity.pagination.page));
 
   return (
     <div className="space-y-5">

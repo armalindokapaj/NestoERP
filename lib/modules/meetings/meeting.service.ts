@@ -29,12 +29,13 @@ import {
   getMeeting,
   laterOccurrencesInReach,
   LIST_SELECT,
+  LIST_SNAPSHOT,
   listItemDTOs,
+  type MeetingDetailRow,
   meetingTimezone,
   MODULE,
   RECORD,
   requireReadableMeeting,
-  type MeetingDetailRow,
 } from "./meeting.repository";
 import type { CreateMeetingInput, MeetingListQuery, MeetingRecurrence, UpdateMeetingInput } from "./meeting.schema";
 import { DEFAULT_REMINDER_MINUTES, PARTICIPANTS_MAX, SERIES_OCCURRENCES_MAX } from "./meeting.schema";
@@ -261,7 +262,11 @@ export function meetingListWhere(context: UserContext, query: MeetingListQuery, 
   return { AND: filters };
 }
 
-/** Upcoming work reads soonest first, history newest first. */
+/**
+ * Upcoming work reads soonest first, history newest first; `startsAt` is
+ * required, so there are no nulls to place, and the id breaks ties between
+ * meetings starting at the same instant (AUD-08 §4, DT-04).
+ */
 export function meetingListOrder(query: Pick<MeetingListQuery, "section">): Prisma.MeetingOrderByWithRelationInput[] {
   const ascending = query.section === "upcoming" || query.section === "mine";
   return [{ startsAt: ascending ? "asc" : "desc" }, { id: "asc" }];
@@ -271,16 +276,19 @@ export async function listMeetings(context: UserContext, query: MeetingListQuery
   assertModule(context, MODULE);
   assertPermission(context, "meeting.view");
   const where = meetingListWhere(context, query);
-  const [rows, total] = await Promise.all([
-    prisma.meeting.findMany({
-      where,
-      orderBy: meetingListOrder(query),
-      skip: (query.page - 1) * query.limit,
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.meeting.count({ where }),
-  ]);
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.meeting.findMany({
+        where,
+        orderBy: meetingListOrder(query),
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.meeting.count({ where }),
+    ],
+    LIST_SNAPSHOT,
+  );
   return { data: await listItemDTOs(context, rows), pagination: paginationMeta(total, query.page, query.limit) };
 }
 

@@ -101,7 +101,9 @@ export function parseLeaveQuery(
     search: read(params, "search") || undefined,
     status: list(read(params, "status"), LEAVE_STATUSES) ?? defaults.status,
     leaveType: list(read(params, "leaveType"), LEAVE_TYPES),
-    companyMemberId: read(params, "memberId") || undefined,
+    // One employment's records (its tab, `?employeeId=`), inside the reader's scope. The old `memberId`
+    // key was written to a field the schema dropped, so the filter silently listed everyone (AUD-08 §3, DT-03).
+    employeeId: read(params, "employeeId") || undefined,
     from: date(params, "from"),
     to: date(params, "to"),
     mine: defaults.mine ?? flag(params, "mine"),
@@ -122,7 +124,9 @@ export function parseAttendanceQuery(
   return attendanceListQuerySchema.parse({
     search: read(params, "search") || undefined,
     status: list(read(params, "status"), ATTENDANCE_STATUSES),
-    companyMemberId: read(params, "memberId") || undefined,
+    // One employment's records (its tab, `?employeeId=`), inside the reader's scope. The old `memberId`
+    // key was written to a field the schema dropped, so the filter silently listed everyone (AUD-08 §3, DT-03).
+    employeeId: read(params, "employeeId") || undefined,
     from: date(params, "from"),
     to: date(params, "to"),
     mine: defaults.mine ?? flag(params, "mine"),

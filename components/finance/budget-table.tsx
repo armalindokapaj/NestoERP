@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
 import { Money, Variance } from "@/components/finance/money";
@@ -15,13 +16,21 @@ import type { BudgetSummaryDTO } from "@/lib/modules/finance/finance.types";
  * budget row shows what the project has really spent, which is the only
  * comparison that means anything (PRD #15 §118).
  */
-export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
+export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
+  budgets: BudgetSummaryDTO[];
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
+}) {
   // Rows read in the Group workspace name their company and open through it.
   const grouped = budgets.some((budget) => budget.company);
 
   const columns: TableColumn<BudgetSummaryDTO>[] = [
     {
       key: "project",
+      id: "project",
+      mandatory: true,
       label: "Project",
       primary: true,
       render: (budget) => {
@@ -49,6 +58,10 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     ...(grouped ? [companyColumn<BudgetSummaryDTO>()] : []),
     {
       key: "budget",
+      id: "budget",
+      mandatory: true,
+      valueType: "money",
+      sortKey: sort ? "amount" : undefined,
       label: "Budget",
       align: "right",
       render: (budget) => (
@@ -57,6 +70,8 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     },
     {
       key: "actual",
+      id: "actual",
+      valueType: "money",
       label: "Actual",
       align: "right",
       hideBelow: "lg",
@@ -70,6 +85,8 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     },
     {
       key: "committed",
+      id: "committed",
+      valueType: "money",
       label: "Committed",
       align: "right",
       hideBelow: "xl",
@@ -83,6 +100,8 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     },
     {
       key: "forecast",
+      id: "forecast",
+      valueType: "money",
       label: "Forecast",
       align: "right",
       hideBelow: "lg",
@@ -96,12 +115,16 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     },
     {
       key: "variance",
+      id: "variance",
+      valueType: "money",
       label: "Variance",
       align: "right",
       render: (budget) => <Variance amount={budget.variance} currency={budget.currency} />,
     },
     {
       key: "risk",
+      id: "risk",
+      valueType: "status",
       label: "Risk",
       hideBelow: "md",
       render: (budget) => (
@@ -110,6 +133,9 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
     },
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (budget) => <StatusBadge status={budget.status} />,
     },
@@ -117,6 +143,8 @@ export function BudgetTable({ budgets }: { budgets: BudgetSummaryDTO[] }) {
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Project budgets"
       columns={columns}
       records={budgets}

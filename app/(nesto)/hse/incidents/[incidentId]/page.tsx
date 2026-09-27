@@ -270,6 +270,7 @@ export default async function IncidentPage({ params }: Params) {
                 context={context}
                 entityType="HseIncident"
                 entityId={incident.id}
+                moreHref={`/hse/incidents/${incident.id}/activity`}
               />
             </section>
           ) : null}

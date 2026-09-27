@@ -7,7 +7,7 @@ import { CATEGORY_RULES } from "@/lib/modules/hr/documents/employee-document.typ
 import { hrQualificationWhere, readerPersonId, SELF_QUALIFICATION_VISIBLE } from "@/lib/modules/hr/qualifications/qualification.access";
 import { QUALIFICATION_TYPE_RULES } from "@/lib/modules/hr/qualifications/qualification.types";
 import type { CalendarEventDTO, CalendarProvider } from "../calendar.types";
-import { compact, dateWindow, onBusinessDate, SOURCE_LIMIT, wants } from "./provider.helpers";
+import { compact, dateWindow, onBusinessDate, SOURCE_LIMIT, sourceRows, wants } from "./provider.helpers";
 
 /**
  * When licences, permits and certificates run out (E-02 §92, §93).
@@ -51,12 +51,12 @@ export const credentialCalendarProvider: CalendarProvider = {
 
     // Their own, as the employee file shows it to them.
     if (includeOwn && can(context, "hr.self.documents")) {
-      const rows = await prisma.employeeDocumentLink.findMany({
+      const rows = await sourceRows(input, prisma.employeeDocumentLink.findMany({
         where: { companyId: context.companyId, employeeProfile: { companyMemberId: context.membershipId }, visibility: { in: SELF_VISIBLE }, ...expiring },
-        orderBy: { expiryDate: "asc" },
+        orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         take: SOURCE_LIMIT,
         select: { id: true, category: true, verificationStatus: true, expiryDate: true, employeeProfile: { select: { personProfileId: true } } },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.expiryDate!, {
@@ -74,12 +74,12 @@ export const credentialCalendarProvider: CalendarProvider = {
       }
     }
     if (includeOwn && ownPersonId) {
-      const rows = await prisma.personQualification.findMany({
+      const rows = await sourceRows(input, prisma.personQualification.findMany({
         where: { parentGroupId: context.parentGroupId, personProfileId: ownPersonId, visibility: { in: SELF_QUALIFICATION_VISIBLE }, ...expiring },
-        orderBy: { expiryDate: "asc" },
+        orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         take: SOURCE_LIMIT,
         select: { id: true, type: true, verificationStatus: true, expiryDate: true },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.expiryDate!, {
@@ -102,9 +102,9 @@ export const credentialCalendarProvider: CalendarProvider = {
     const hrDocuments = hrLinkWhere(context);
     if (hrDocuments) {
       const members: Prisma.EmployeeDocumentLinkWhereInput = onlyMembers ? { employeeProfile: { companyMemberId: { in: onlyMembers } } } : {};
-      const rows = await prisma.employeeDocumentLink.findMany({
+      const rows = await sourceRows(input, prisma.employeeDocumentLink.findMany({
         where: { AND: [hrDocuments, { ...expiring, employeeProfile: { employmentStatus: { not: "ENDED" } } }, members] },
-        orderBy: { expiryDate: "asc" },
+        orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         take: SOURCE_LIMIT,
         select: {
           id: true,
@@ -114,7 +114,7 @@ export const credentialCalendarProvider: CalendarProvider = {
           employeeProfileId: true,
           employeeProfile: { select: { companyMemberId: true, personProfile: { select: { firstName: true, lastName: true } } } },
         },
-      });
+      }));
       for (const row of rows) {
         const name = `${row.employeeProfile.personProfile.firstName} ${row.employeeProfile.personProfile.lastName}`;
         events.push(
@@ -136,12 +136,12 @@ export const credentialCalendarProvider: CalendarProvider = {
     const hrQualifications = hrQualificationWhere(context, ownPersonId);
     if (hrQualifications) {
       const employed: Prisma.EmployeeProfileWhereInput = { companyId: context.companyId, employmentStatus: { not: "ENDED" }, ...(onlyMembers ? { companyMemberId: { in: onlyMembers } } : {}) };
-      const rows = await prisma.personQualification.findMany({
+      const rows = await sourceRows(input, prisma.personQualification.findMany({
         where: { AND: [hrQualifications, { ...expiring, person: { employments: { some: employed } } }] },
-        orderBy: { expiryDate: "asc" },
+        orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         take: SOURCE_LIMIT,
         select: { id: true, type: true, verificationStatus: true, expiryDate: true, personProfileId: true, person: { select: { firstName: true, lastName: true } } },
-      });
+      }));
       for (const row of rows) {
         events.push(
           onBusinessDate(input, row.expiryDate!, {

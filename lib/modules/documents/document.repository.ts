@@ -1,7 +1,8 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import type { UserContext } from "@/lib/context/types";
+import { addLocalDays, isValidTimeZone, localDate, startOfLocalDay } from "@/lib/core/time/zoned-time";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import { extensionsForGroups, type FileTypeGroup } from "./document.files";
 import { buildDocumentAccessWhere, findReadableDocument } from "./document.parent-access";
@@ -15,15 +16,63 @@ import type { DocumentListQuery, DocumentSortKey } from "./document.schema";
  * scope would be one refactor away from leaking a file (PRD #13 §134).
  */
 
+/**
+ * The allowlisted sorts (AUD-08 §4, DT-04). Each ends in the document id, so
+ * equal names, sizes or types keep one order across pages; a file without a
+ * recorded size sorts last in both directions.
+ */
 const SORT_ORDER: Record<DocumentSortKey, Prisma.DocumentOrderByWithRelationInput[]> = {
-  "updated-desc": [{ updatedAt: "desc" }],
-  "created-desc": [{ createdAt: "desc" }],
-  "name-asc": [{ name: "asc" }],
-  "name-desc": [{ name: "desc" }],
-  "size-desc": [{ sizeBytes: { sort: "desc", nulls: "last" } }],
-  "size-asc": [{ sizeBytes: { sort: "asc", nulls: "last" } }],
-  "type-asc": [{ extension: "asc" }, { name: "asc" }],
+  "updated-desc": [{ updatedAt: "desc" }, { id: "asc" }],
+  "created-desc": [{ createdAt: "desc" }, { id: "asc" }],
+  "name-asc": [{ name: "asc" }, { id: "asc" }],
+  "name-desc": [{ name: "desc" }, { id: "asc" }],
+  "size-desc": [{ sizeBytes: { sort: "desc", nulls: "last" } }, { id: "asc" }],
+  "size-asc": [{ sizeBytes: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+  "type-asc": [{ extension: "asc" }, { name: "asc" }, { id: "asc" }],
 };
+
+/** A page and its total from one snapshot (AUD-08 §4, DT-06). */
+const SNAPSHOT = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead };
+
+/** The company's timezone, UTC when unset or invalid (PRD #51 §48). */
+async function companyZone(companyId: string): Promise<string> {
+  const settings = await prisma.companySettings.findUnique({ where: { companyId }, select: { timezone: true } });
+  return settings?.timezone && isValidTimeZone(settings.timezone) ? settings.timezone : "UTC";
+}
+
+/**
+ * The upload-date range for one company, in its own timezone (AUD-08 §3, DT-03).
+ *
+ * `dateFrom`/`dateTo` are calendar days, inclusive: `[local midnight of from,
+ * local midnight of the day after to)`. Before, `dateTo` compared with `lte`
+ * UTC midnight, so a file uploaded during the chosen last day was left out,
+ * and the presets used the server process's midnight.
+ */
+function uploadRange(query: DocumentListQuery, zone: string, now: Date): Prisma.DateTimeFilter | undefined {
+  const today = localDate(now, zone);
+  const day = (value: Date) => value.toISOString().slice(0, 10);
+  let from: string | undefined;
+  switch (query.datePreset) {
+    case "today":
+      from = today;
+      break;
+    case "7d":
+      from = addLocalDays(today, -7);
+      break;
+    case "30d":
+      from = addLocalDays(today, -30);
+      break;
+    case "year":
+      from = `${today.slice(0, 4)}-01-01`;
+      break;
+    default:
+      from = query.dateFrom ? day(query.dateFrom) : undefined;
+  }
+  const range: Prisma.DateTimeFilter = {};
+  if (from) range.gte = startOfLocalDay(from, zone);
+  if (query.dateTo) range.lt = startOfLocalDay(addLocalDays(day(query.dateTo), 1), zone);
+  return Object.keys(range).length > 0 ? range : undefined;
+}
 
 const SUMMARY_SELECT = {
   id: true,
@@ -175,18 +224,25 @@ export async function buildDocumentListWhereAcross(
   if (query.clientId) filters.push({ clientId: query.clientId });
   if (query.uploadedByMemberId) filters.push({ uploadedByMemberId: query.uploadedByMemberId });
 
-  const range: Prisma.DateTimeFilter = {};
-  if (query.dateFrom) range.gte = query.dateFrom;
-  if (query.dateTo) range.lte = query.dateTo;
-  if (Object.keys(range).length > 0) filters.push({ createdAt: range });
+  if (query.datePreset || query.dateFrom || query.dateTo) {
+    // Each company's days are its own; a group list ORs one range per company.
+    const now = new Date();
+    const zones = await Promise.all(contexts.map((context) => companyZone(context.companyId)));
+    const branches = contexts.flatMap((context, index) => {
+      const range = uploadRange(query, zones[index], now);
+      return range ? [{ companyId: context.companyId, createdAt: range }] : [];
+    });
+    if (branches.length > 0) filters.push(branches.length === 1 ? branches[0] : { OR: branches });
+  }
 
   return { AND: filters };
 }
 
+/** Rows and count share one predicate and one snapshot; the database slices (AUD-08 §3, §4). */
 export async function listDocuments(context: UserContext, query: DocumentListQuery) {
   const where = await buildDocumentListWhere(context, query);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total] = await prisma.$transaction([
     prisma.document.findMany({
       where,
       select: SUMMARY_SELECT,
@@ -195,7 +251,7 @@ export async function listDocuments(context: UserContext, query: DocumentListQue
       take: query.limit,
     }),
     prisma.document.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }
@@ -209,16 +265,16 @@ export async function listDocuments(context: UserContext, query: DocumentListQue
 export async function listDocumentsAcross(contexts: UserContext[], query: DocumentListQuery) {
   const where = await buildDocumentListWhereAcross(contexts, query);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total] = await prisma.$transaction([
     prisma.document.findMany({
       where,
       select: SUMMARY_SELECT,
-      orderBy: [...SORT_ORDER[query.sort], { id: "asc" }],
+      orderBy: SORT_ORDER[query.sort],
       skip: skipFor(query.page, query.limit),
       take: query.limit,
     }),
     prisma.document.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }
@@ -241,7 +297,7 @@ export async function listDocumentsAcross(contexts: UserContext[], query: Docume
 export async function listRecordAttachments(parent: { companyId: string; entityType: string; entityId: string }) {
   return prisma.document.findMany({
     where: { companyId: parent.companyId, entityType: parent.entityType, entityId: parent.entityId, status: "ACTIVE" },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: 50,
     select: SUMMARY_SELECT,
   });
@@ -278,10 +334,11 @@ export async function listDocumentActivity(
     entityId: documentId,
   };
 
-  const [rows, total] = await Promise.all([
+  // Newest first, id as tie-breaker, page and total from one snapshot (DT-04, DT-06).
+  const [rows, total] = await prisma.$transaction([
     prisma.activity.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: skipFor(options.page, options.limit),
       take: options.limit,
       select: {
@@ -294,7 +351,7 @@ export async function listDocumentActivity(
       },
     }),
     prisma.activity.count({ where }),
-  ]);
+  ], SNAPSHOT);
 
   return { rows, total };
 }

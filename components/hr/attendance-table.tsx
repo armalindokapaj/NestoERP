@@ -1,4 +1,5 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { attendanceSourceLabels } from "@/lib/modules/hr/hr.status";
@@ -16,15 +17,23 @@ import { formatTimeOfDay, formatWorkedMinutes } from "./hr-format";
 export function AttendanceTable({
   records,
   showEmployee = true,
+  listId = "hr.attendance",
+  sort,
 }: {
   records: AttendanceDTO[];
   showEmployee?: boolean;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
+  /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
+  sort?: TableSortConfig;
 }) {
   const columns: TableColumn<AttendanceDTO>[] = [
     ...(showEmployee
       ? [
           {
             key: "employee",
+            id: "employee",
+            mandatory: true,
             label: "Employee",
             primary: true,
             render: (record: AttendanceDTO) => (
@@ -40,6 +49,10 @@ export function AttendanceTable({
       : [
           {
             key: "date",
+            id: "date",
+            mandatory: true,
+            valueType: "date" as const,
+            sortKey: sort ? "date" : undefined,
             label: "Date",
             primary: true,
             render: (record: AttendanceDTO) => <span>{formatDate(record.date)}</span>,
@@ -49,6 +62,10 @@ export function AttendanceTable({
       ? [
           {
             key: "date",
+            id: "date",
+            mandatory: true,
+            valueType: "date" as const,
+            sortKey: sort ? "date" : undefined,
             label: "Date",
             hideBelow: "xl" as const,
             render: (record: AttendanceDTO) => (
@@ -59,11 +76,15 @@ export function AttendanceTable({
       : []),
     {
       key: "status",
+      id: "status",
+      mandatory: true,
+      valueType: "status",
       label: "Status",
       render: (record) => <StatusBadge status={record.status} />,
     },
     {
       key: "checkIn",
+      id: "checkIn",
       label: "Check in",
       hideBelow: "md",
       render: (record) => (
@@ -72,6 +93,7 @@ export function AttendanceTable({
     },
     {
       key: "checkOut",
+      id: "checkOut",
       label: "Check out",
       hideBelow: "md",
       render: (record) => (
@@ -80,6 +102,8 @@ export function AttendanceTable({
     },
     {
       key: "worked",
+      id: "worked",
+      valueType: "number",
       label: "Worked",
       align: "right",
       render: (record) => (
@@ -88,6 +112,7 @@ export function AttendanceTable({
     },
     {
       key: "source",
+      id: "source",
       label: "Source",
       hideBelow: "xl",
       render: (record) => (
@@ -96,6 +121,7 @@ export function AttendanceTable({
     },
     {
       key: "exception",
+      id: "exception",
       label: "Flag",
       hideBelow: "lg",
       render: (record) =>
@@ -105,6 +131,8 @@ export function AttendanceTable({
 
   return (
     <DataTable
+      listId={listId}
+      sort={sort}
       caption="Attendance"
       columns={columns}
       records={records}

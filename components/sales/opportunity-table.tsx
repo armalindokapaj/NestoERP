@@ -23,14 +23,19 @@ export function OpportunityTable({
   opportunities,
   showClient = true,
   grouped = false,
+  listId = "sales.opportunities",
 }: {
   opportunities: OpportunitySummaryDTO[];
   showClient?: boolean;
   grouped?: boolean;
+  /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
+  listId?: string;
 }) {
   const columns: TableColumn<OpportunitySummaryDTO>[] = [
     {
       key: "name",
+      id: "name",
+      mandatory: true,
       label: "Opportunity",
       primary: true,
       render: (row) =>
@@ -51,6 +56,7 @@ export function OpportunityTable({
       ? [
           {
             key: "company",
+            id: "company",
             label: "Company",
             render: (row: OpportunitySummaryDTO) => (row.company ? <CompanyTag name={row.company.name} /> : null),
           },
@@ -60,6 +66,7 @@ export function OpportunityTable({
       ? [
           {
             key: "client",
+            id: "client",
             label: "Client",
             hideBelow: "md" as const,
             render: (row: OpportunitySummaryDTO) =>
@@ -69,6 +76,7 @@ export function OpportunityTable({
       : []),
     {
       key: "owner",
+      id: "owner",
       label: "Owner",
       hideBelow: "xl",
       render: (row) => (
@@ -81,6 +89,8 @@ export function OpportunityTable({
     { key: "stage", label: "Stage", render: (row) => <StatusBadge status={row.stage} /> },
     {
       key: "value",
+      id: "value",
+      valueType: "money",
       label: "Value",
       align: "right",
       render: (row) => (
@@ -89,6 +99,8 @@ export function OpportunityTable({
     },
     {
       key: "probability",
+      id: "probability",
+      valueType: "number",
       label: "Probability",
       align: "right",
       hideBelow: "lg",
@@ -100,6 +112,8 @@ export function OpportunityTable({
     },
     {
       key: "weighted",
+      id: "weighted",
+      valueType: "money",
       label: "Weighted",
       align: "right",
       hideBelow: "lg",
@@ -111,6 +125,8 @@ export function OpportunityTable({
     },
     {
       key: "close",
+      id: "close",
+      valueType: "date",
       label: "Expected close",
       hideBelow: "xl",
       render: (row) =>
@@ -127,6 +143,7 @@ export function OpportunityTable({
 
   return (
     <DataTable
+      listId={listId}
       columns={columns}
       records={opportunities}
       rowKey={(row) => row.id}

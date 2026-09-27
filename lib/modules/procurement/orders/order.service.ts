@@ -13,7 +13,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { keepOrSet } from "@/lib/modules/finance/finance.fields";
-import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
+import { pageWindow, searchClause, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { settleStep } from "@/lib/core/approvals/approval-steps";
@@ -144,27 +144,36 @@ type DetailRow = Prisma.PurchaseOrderGetPayload<{ select: typeof DETAIL_SELECT }
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
+const LIST_READ = { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 } as const;
+
 export async function listOrders(context: UserContext, query: OrderListQuery) {
   assertModule(context, MODULE);
   assertPermission(context, "procurement.order.view");
 
   const where = buildListWhere([context], query);
 
-  const [rows, total] = await Promise.all([
-    prisma.purchaseOrder.findMany({
-      where,
-      orderBy: orderFor(query.sort),
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.purchaseOrder.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.orders.list",
+    async (tx) => {
+      const window = pageWindow(await tx.purchaseOrder.count({ where }), query.page, query.limit);
+      const rows = await tx.purchaseOrder.findMany({
+        where,
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toSummaryDTO(row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -239,22 +248,28 @@ export async function listOrdersForWorkspace(session: UserContext, query: OrderL
   );
   const where = buildListWhere(contexts, query);
 
-  const [rows, total] = await Promise.all([
-    prisma.purchaseOrder.findMany({
-      where,
-      // The list's own sort first; the id keeps a page boundary stable when rows tie.
-      orderBy: [...orderFor(query.sort), { id: "asc" }],
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: GROUP_LIST_SELECT,
-    }),
-    prisma.purchaseOrder.count({ where }),
-  ]);
+  // Count and page from one snapshot; a page past the end reads the last one (AUD-08 §4, DT-05, DT-06).
+  const { rows, window } = await runInTransaction(
+    "procurement.orders.group-list",
+    async (tx) => {
+      const window = pageWindow(await tx.purchaseOrder.count({ where }), query.page, query.limit);
+      const rows = await tx.purchaseOrder.findMany({
+        where,
+        // The list's own sort first; the id keeps a page boundary stable when rows tie.
+        orderBy: withTieBreaker(orderFor(query.sort)),
+        skip: skipFor(window.page, window.limit),
+        take: window.limit,
+        select: GROUP_LIST_SELECT,
+      });
+      return { rows, window };
+    },
+    LIST_READ,
+  );
 
   const today = new Date();
   return {
     data: rows.map((row) => toSummaryDTO(row, today)),
-    pagination: paginationMeta(total, query.page, query.limit),
+    pagination: window,
   };
 }
 
@@ -480,21 +495,37 @@ export async function listForProject(
   return rows.map((row) => toSummaryDTO(row, today));
 }
 
+/**
+ * A supplier's most recent orders, for its record page, with how many there are
+ * in all (AUD-08 §4): the page states "the N most recent of M" rather than
+ * passing a capped list off as the whole relationship. Count and rows come from
+ * one snapshot; the id breaks a same-day tie.
+ */
+export const SUPPLIER_ORDERS_SHOWN = 100;
+
 export async function listForSupplier(
   context: UserContext,
   supplierId: string,
-): Promise<OrderSummaryDTO[]> {
+): Promise<OrderSummaryDTO[] & { total?: number }> {
   if (!can(context, "procurement.order.view")) return [];
 
-  const rows = await prisma.purchaseOrder.findMany({
-    where: { AND: [buildOrderScopeWhere(context), { supplierId, archivedAt: null }] },
-    orderBy: { orderDate: "desc" },
-    take: 100,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.PurchaseOrderWhereInput = { AND: [buildOrderScopeWhere(context), { supplierId, archivedAt: null }] };
+  const { rows, total } = await runInTransaction(
+    "procurement.supplier-orders.list",
+    async (tx) => ({
+      total: await tx.purchaseOrder.count({ where }),
+      rows: await tx.purchaseOrder.findMany({
+        where,
+        orderBy: [{ orderDate: "desc" }, { id: "asc" }],
+        take: SUPPLIER_ORDERS_SHOWN,
+        select: LIST_SELECT,
+      }),
+    }),
+    LIST_READ,
+  );
 
   const today = new Date();
-  return rows.map((row) => toSummaryDTO(row, today));
+  return Object.assign(rows.map((row) => toSummaryDTO(row, today)), { total });
 }
 
 export async function orderFilterOptions(context: UserContext) {

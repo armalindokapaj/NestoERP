@@ -12,6 +12,7 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import * as approvals from "@/lib/modules/qaqc/approvals/approval.service";
 import { approvalListQuerySchema } from "@/lib/modules/qaqc/qaqc.schema";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Quality approvals" };
 
@@ -23,6 +24,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
  * Scoped twice: to the records the reader can open, and to the types they hold
  * a decision permission for. Whatever they submitted themselves shows without
  * decision controls — nobody signs off their own work.
+ *
+ * The count is the number of cycles on records the reader can open, and a
+ * page past the end moves once to the last real page (AUD-08 §4, DT-05).
  */
 export default async function QaqcApprovalsPage({
   searchParams,
@@ -45,16 +49,11 @@ export default async function QaqcApprovalsPage({
   });
 
   const result = await approvals.listApprovals(context, query);
-
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/qaqc/approvals?${search}` : "/qaqc/approvals";
+  if (result.pagination.page !== query.page) {
+    redirect(listPageRedirect("/qaqc/approvals", params, result.pagination.page));
   }
+
+  const buildHref = (page: number) => pageHref("/qaqc/approvals", params, page);
 
   return (
     <ModulePage
@@ -83,6 +82,7 @@ export default async function QaqcApprovalsPage({
               ],
             },
           ]}
+          applied={{ view: query.view, recordType: query.recordType }}
         />
 
         {result.data.length === 0 ? (

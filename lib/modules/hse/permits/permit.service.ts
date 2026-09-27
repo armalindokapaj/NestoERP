@@ -14,7 +14,8 @@ import { assertSameProject } from "@/lib/access/references";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import * as approvals from "../approvals/approval.service";
 import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
@@ -103,11 +104,19 @@ type DetailRow = Prisma.HseWorkPermitGetPayload<{ select: typeof DETAIL_SELECT }
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listPermits(context: UserContext, query: PermitListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.permit.view");
-
-  const now = new Date();
+/**
+ * The permit register's predicate (AUD-08 §3, DT-02, DT-03): scope, then the
+ * section (`view`), then filters and search — shared by the page, its count
+ * and the CSV export. "Active now" and "Expiring this week" are judged at one
+ * instant, `now`, which the caller passes so the rows and their clock agree.
+ * OR within a filter, AND across filters; a foreign project id is ANDed with
+ * scope and narrows to nothing (DT-22).
+ */
+export function buildPermitListWhere(
+  context: UserContext,
+  query: PermitListQuery,
+  now: Date = new Date(),
+): Prisma.HseWorkPermitWhereInput {
   const filters: Prisma.HseWorkPermitWhereInput[] = [buildPermitScopeWhere(context)];
 
   if (query.view === "active") {
@@ -146,25 +155,41 @@ export async function listPermits(context: UserContext, query: PermitListQuery) 
     });
   }
 
-  const where: Prisma.HseWorkPermitWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.HseWorkPermitOrderByWithRelationInput[] =
-    query.sort === "expiry-asc"
+/** The allowlisted permit sorts, each ending in the id (AUD-08 §4, DT-04). `validUntil` is never null. */
+export function permitListOrder(sort: PermitListQuery["sort"]): Prisma.HseWorkPermitOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.HseWorkPermitOrderByWithRelationInput>(
+    sort === "expiry-asc"
       ? [{ validUntil: "asc" }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ permitNumber: "asc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.hseWorkPermit.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.hseWorkPermit.count({ where }),
-  ]);
+export async function listPermits(context: UserContext, query: PermitListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.permit.view");
+
+  const now = new Date();
+  const where = buildPermitListWhere(context, query, now);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseWorkPermit.findMany({
+        where,
+        orderBy: permitListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseWorkPermit.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
@@ -232,25 +257,37 @@ export async function getPermit(
   };
 }
 
+/**
+ * A project's permits for its HSE tab: the first `limit`, latest expiry first,
+ * and the true total (AUD-08 §4). One clock for every row.
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<PermitSummaryDTO[]> {
-  if (!can(context, "hse.permit.view")) return [];
+): Promise<ListPreview<PermitSummaryDTO>> {
+  if (!can(context, "hse.permit.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.hseWorkPermit.findMany({
-    where: { AND: [buildPermitScopeWhere(context), { projectId }] },
-    orderBy: [{ validUntil: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const now = new Date();
+  const where: Prisma.HseWorkPermitWhereInput = { AND: [buildPermitScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.hseWorkPermit.findMany({
+        where,
+        orderBy: [{ validUntil: "desc" }, { id: "asc" }],
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.hseWorkPermit.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(
     context.companyId,
     rows.flatMap((row) => [row.requestedByMemberId, row.responsibleMemberId]),
   );
-  return rows.map((row) => toSummaryDTO(row, members, new Date()));
+  return { data: rows.map((row) => toSummaryDTO(row, members, now)), total };
 }
 
 /** Permits about to run out, for the overview (PRD #22 §211). */
@@ -270,7 +307,7 @@ export async function expiringPermits(
         { status: { in: ["ACTIVE", "APPROVED"] }, validUntil: { gte: now, lte: horizon } },
       ],
     },
-    orderBy: [{ validUntil: "asc" }],
+    orderBy: [{ validUntil: "asc" }, { id: "asc" }],
     take: 10,
     select: LIST_SELECT,
   });

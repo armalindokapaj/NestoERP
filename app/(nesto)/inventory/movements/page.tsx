@@ -16,11 +16,12 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import * as warehouses from "@/lib/modules/inventory/warehouses/warehouse.service";
-import { movementListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
+import { MOVEMENT_SORT_KEYS, movementListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import {
   MOVEMENT_TYPES,
   movementTypeLabels,
 } from "@/lib/modules/inventory/inventory.status";
+import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export const metadata: Metadata = { title: "Stock movements" };
 
@@ -118,15 +119,9 @@ async function MovementList({
       : []),
   ];
 
-  function buildHref(page: number) {
-    const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string" && key !== "page") next.set(key, value);
-    }
-    if (page > 1) next.set("page", String(page));
-    const search = next.toString();
-    return search ? `/inventory/movements?${search}` : "/inventory/movements";
-  }
+  // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
+  if (result.pagination.page !== query.page) redirect(listPageRedirect("/inventory/movements", searchParams, result.pagination.page));
+  const buildHref = (page: number) => pageHref("/inventory/movements", searchParams, page);
 
   return (
     <div className="space-y-4">
@@ -156,7 +151,7 @@ async function MovementList({
         )
       ) : (
         <>
-          <MovementTable movements={result.data} />
+          <MovementTable movements={result.data} sort={{ value: query.sort, keys: MOVEMENT_SORT_KEYS }} />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

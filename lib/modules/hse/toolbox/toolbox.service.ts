@@ -10,7 +10,8 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
+import { paginationMeta, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
+import { SNAPSHOT, type ListPreview } from "../hse.list";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import { buildHseMemberWhere, buildHseProjectWhere, buildToolboxScopeWhere } from "../hse.scope";
@@ -92,10 +93,15 @@ type ListRow = Prisma.ToolboxTalkGetPayload<{ select: typeof LIST_SELECT }>;
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export async function listToolboxTalks(context: UserContext, query: ToolboxListQuery) {
-  assertModule(context, MODULE);
-  assertPermission(context, "hse.toolbox.view");
-
+/**
+ * The toolbox-talk register's predicate (AUD-08 §3, DT-03): scope, then
+ * filters and search — shared by the page, its count and the CSV export. A
+ * foreign project id is ANDed with scope and narrows to nothing (DT-22).
+ */
+export function buildToolboxListWhere(
+  context: UserContext,
+  query: ToolboxListQuery,
+): Prisma.ToolboxTalkWhereInput {
   const filters: Prisma.ToolboxTalkWhereInput[] = [buildToolboxScopeWhere(context)];
 
   if (query.status?.length) filters.push({ status: { in: query.status } });
@@ -112,25 +118,40 @@ export async function listToolboxTalks(context: UserContext, query: ToolboxListQ
     });
   }
 
-  const where: Prisma.ToolboxTalkWhereInput = { AND: filters };
+  return { AND: filters };
+}
 
-  const orderBy: Prisma.ToolboxTalkOrderByWithRelationInput[] =
-    query.sort === "date-desc"
+/** The allowlisted toolbox sorts, each ending in the id (AUD-08 §4, DT-04). `talkDate` is never null. */
+export function toolboxListOrder(sort: ToolboxListQuery["sort"]): Prisma.ToolboxTalkOrderByWithRelationInput[] {
+  return withTieBreaker<Prisma.ToolboxTalkOrderByWithRelationInput>(
+    sort === "date-desc"
       ? [{ talkDate: "desc" }]
-      : query.sort === "number-asc"
+      : sort === "number-asc"
         ? [{ talkNumber: "asc" }]
-        : [{ updatedAt: "desc" }];
+        : [{ updatedAt: "desc" }],
+  );
+}
 
-  const [rows, total] = await Promise.all([
-    prisma.toolboxTalk.findMany({
-      where,
-      orderBy,
-      skip: skipFor(query.page, query.limit),
-      take: query.limit,
-      select: LIST_SELECT,
-    }),
-    prisma.toolboxTalk.count({ where }),
-  ]);
+export async function listToolboxTalks(context: UserContext, query: ToolboxListQuery) {
+  assertModule(context, MODULE);
+  assertPermission(context, "hse.toolbox.view");
+
+  const where = buildToolboxListWhere(context, query);
+
+  // Rows and total from one snapshot (AUD-08 §4, DT-06).
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.toolboxTalk.findMany({
+        where,
+        orderBy: toolboxListOrder(query.sort),
+        skip: skipFor(query.page, query.limit),
+        take: query.limit,
+        select: LIST_SELECT,
+      }),
+      prisma.toolboxTalk.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.conductedByMemberId));
 
@@ -200,22 +221,33 @@ export async function getToolboxTalk(
   };
 }
 
+/**
+ * A project's toolbox talks for its HSE tab: the first `limit`, most recent
+ * first (the register's `date-desc`), and the true total (AUD-08 §4).
+ */
 export async function listForProject(
   context: UserContext,
   projectId: string,
   limit = 50,
-): Promise<ToolboxSummaryDTO[]> {
-  if (!can(context, "hse.toolbox.view")) return [];
+): Promise<ListPreview<ToolboxSummaryDTO>> {
+  if (!can(context, "hse.toolbox.view")) return { data: [], total: 0 };
 
-  const rows = await prisma.toolboxTalk.findMany({
-    where: { AND: [buildToolboxScopeWhere(context), { projectId }] },
-    orderBy: [{ talkDate: "desc" }],
-    take: limit,
-    select: LIST_SELECT,
-  });
+  const where: Prisma.ToolboxTalkWhereInput = { AND: [buildToolboxScopeWhere(context), { projectId }] };
+  const [rows, total] = await prisma.$transaction(
+    [
+      prisma.toolboxTalk.findMany({
+        where,
+        orderBy: toolboxListOrder("date-desc"),
+        take: limit,
+        select: LIST_SELECT,
+      }),
+      prisma.toolboxTalk.count({ where }),
+    ],
+    SNAPSHOT,
+  );
 
   const members = await loadMembers(context.companyId, rows.map((row) => row.conductedByMemberId));
-  return rows.map((row) => toSummaryDTO(row, members));
+  return { data: rows.map((row) => toSummaryDTO(row, members)), total };
 }
 
 export async function toolboxFilterOptions(context: UserContext) {

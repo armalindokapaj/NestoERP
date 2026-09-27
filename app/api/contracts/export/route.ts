@@ -1,45 +1,24 @@
 import { withContext } from "@/lib/api/respond";
-import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
-import { recordUserAction } from "@/lib/core/audit/audit.service";
-import { exportContracts, type ContractExportType } from "@/lib/modules/contracts/contract.export";
-import { parseContractQuery, parseObligationQuery } from "@/lib/modules/contracts/contract.query";
+import { exportResponse, recordExport } from "@/lib/core/export/exporter";
+import { exportSelector } from "@/lib/core/export/export-params";
+import { EXPORT_TYPES, exportContracts, parseContractExport } from "@/lib/modules/contracts/contract.export";
 
 /**
- * CSV export (PRD #18 §225, §226).
+ * CSV export (PRD #18 §225, §226; AUD-08 §7).
  *
- * The same query, the same service, the same redaction as the screen — so the
- * file can never contain a column the reader could not see (PRD #18 §227).
+ * The same query — the section (`view`) included — the same service, the same
+ * redaction as the screen, every page of it, so the file can never contain a
+ * column the reader could not see (PRD #18 §227) nor lose the section the
+ * reader was on (DT-02). An unknown export or filter is refused, and past the
+ * row cap the request is refused whole with a JSON error, never a short file.
  */
 export async function GET(request: Request) {
   return withContext(async (context) => {
-    const url = new URL(request.url);
-    const raw = url.searchParams.get("type");
-    const type: ContractExportType =
-      raw === "obligations" ? "obligations" : raw === "amendments" ? "amendments" : "contracts";
-
-    const { filename, csv } = await exportContracts(
-      context,
-      type,
-      parseContractQuery(url.searchParams),
-      parseObligationQuery(url.searchParams),
-    );
-
-    /*
-     * Who took a copy of company data, and which one (PRD #28 §130). The row
-     * counts and the filter values are not recorded — the evidence is that an
-     * export happened, not a second copy of what left.
-     */
-    await recordUserAction(context, {
-      actionKey: AuditAction.REPORT_EXPORTED_CSV,
-      entity: { type: "export", id: "contracts", label: filename },
-      metadata: { module: "contracts" },
-    });
-
-    return new Response(csv, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
+    const params = new URL(request.url).searchParams;
+    const type = exportSelector(params, "type", EXPORT_TYPES, "contracts");
+    const { query, obligationQuery } = parseContractExport(context, type, params);
+    const prepared = await exportContracts(context, type, query, obligationQuery);
+    await recordExport(context, { id: "contracts", module: "contracts", filename: prepared.filename });
+    return exportResponse(prepared);
   });
 }
