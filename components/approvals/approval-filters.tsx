@@ -11,9 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { compareDecimal, decimalRule, parseOptionalDecimal } from "@/lib/forms/decimal";
 import {
-  DUE_STATE_LABELS,
   DUE_STATES,
-  STATUS_LABELS,
   type ApprovalCompany,
   type ApprovalPriority,
   type ApprovalProviderSummary,
@@ -21,6 +19,7 @@ import {
   type DueState,
   type UnifiedApprovalStatus,
 } from "@/lib/modules/approvals/approvals.types";
+import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 
 /**
  * Filters and their chips (PRD #41 §92, §93).
@@ -62,7 +61,6 @@ export const EMPTY_FILTERS: ApprovalFilters = {
 };
 
 const PRIORITIES: ApprovalPriority[] = ["CRITICAL", "HIGH", "NORMAL", "LOW"];
-const PRIORITY_LABELS: Record<ApprovalPriority, string> = { CRITICAL: "Critical", HIGH: "High", NORMAL: "Normal", LOW: "Low" };
 const STATUS_OPTIONS: UnifiedApprovalStatus[] = ["PENDING", "APPROVED", "REJECTED", "RETURNED", "CANCELLED"];
 /** Money, as the queue filter reads it on the server: up to 15 whole digits and 2 decimals, not negative (approvals.schema). */
 const AMOUNT_RULE = (label: string) => decimalRule("money", label, { maxIntegerDigits: 15 });
@@ -105,6 +103,8 @@ export function FilterDrawer({
   companies?: ApprovalCompany[];
   onApply: (filters: ApprovalFilters) => void;
 }) {
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   const [draft, setDraft] = React.useState(filters);
   // The amounts as typed: read with the shared decimal rule on Apply, never
   // stripped of characters as they are typed (AUD-09 §4; AUD-04 §6, MW-09).
@@ -121,8 +121,8 @@ export function FilterDrawer({
 
   /** The staged filters with the amounts read, or null when an amount is refused (and said why). */
   function readAmounts(): ApprovalFilters | null {
-    const min = parseOptionalDecimal(amounts.min, AMOUNT_RULE("Minimum amount"));
-    const max = parseOptionalDecimal(amounts.max, AMOUNT_RULE("Maximum amount"));
+    const min = parseOptionalDecimal(amounts.min, AMOUNT_RULE(t("filters.minimumAmount")));
+    const max = parseOptionalDecimal(amounts.max, AMOUNT_RULE(t("filters.maximumAmount")));
     const refuse = (field: "min" | "max", message: string) => {
       setAmountError({ field, message });
       (field === "min" ? minRef : maxRef).current?.focus();
@@ -131,7 +131,7 @@ export function FilterDrawer({
     if (!min.ok) return refuse("min", min.message);
     if (!max.ok) return refuse("max", max.message);
     if (min.value !== null && max.value !== null && compareDecimal(min.value, max.value) > 0) {
-      return refuse("max", "The maximum amount is below the minimum.");
+      return refuse("max", t("filters.maxBelowMin"));
     }
     setAmountError(null);
     return { ...draft, amountMin: min.value, amountMax: max.value };
@@ -150,10 +150,10 @@ export function FilterDrawer({
       <DrawerContent side="right" className="bg-surface sm:max-w-[400px]" data-testid="approval-filters">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
-            <DrawerTitle className="text-card font-semibold text-fg">Filter approvals</DrawerTitle>
-            <DrawerDescription className="text-meta text-fg-muted">Narrow the list; the counts above stay yours.</DrawerDescription>
+            <DrawerTitle className="text-card font-semibold text-fg">{t("filters.title")}</DrawerTitle>
+            <DrawerDescription className="text-meta text-fg-muted">{t("filters.description")}</DrawerDescription>
           </div>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)} aria-label="Close filters">
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)} aria-label={t("filters.close")}>
             <X aria-hidden="true" />
           </Button>
         </div>
@@ -170,9 +170,9 @@ export function FilterDrawer({
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
             {companies && companies.length > 1 ? (
               <div className="space-y-1.5">
-                <Label htmlFor="filter-company">Company</Label>
+                <Label htmlFor="filter-company">{t("filters.company")}</Label>
                 <select id="filter-company" className={selectClass} value={draft.company ?? ""} onChange={(event) => setDraft({ ...draft, company: event.target.value || null })}>
-                  <option value="">All companies</option>
+                  <option value="">{t("filters.allCompanies")}</option>
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>
                       {company.name}
@@ -182,35 +182,35 @@ export function FilterDrawer({
               </div>
             ) : null}
             {providers.length > 1 ? (
-              <Group legend="Module">
+              <Group legend={t("filters.module")}>
                 {providers.map((provider) => (
-                  <CheckRow key={provider.key} label={provider.label} checked={draft.provider.includes(provider.key)} onChange={() => toggle("provider", provider.key)} />
+                  <CheckRow key={provider.key} label={word(provider.label)} checked={draft.provider.includes(provider.key)} onChange={() => toggle("provider", provider.key)} />
                 ))}
               </Group>
             ) : null}
             {showStatus ? (
-              <Group legend="Status">
+              <Group legend={t("filters.status")}>
                 {STATUS_OPTIONS.map((status) => (
-                  <CheckRow key={status} label={STATUS_LABELS[status]} checked={draft.status.includes(status)} onChange={() => toggle("status", status)} />
+                  <CheckRow key={status} label={t(`status.${status}`)} checked={draft.status.includes(status)} onChange={() => toggle("status", status)} />
                 ))}
               </Group>
             ) : null}
-            <Group legend="Priority">
+            <Group legend={t("filters.priority")}>
               {PRIORITIES.map((priority) => (
-                <CheckRow key={priority} label={PRIORITY_LABELS[priority]} checked={draft.priority.includes(priority)} onChange={() => toggle("priority", priority)} />
+                <CheckRow key={priority} label={t(`priority.${priority}`)} checked={draft.priority.includes(priority)} onChange={() => toggle("priority", priority)} />
               ))}
             </Group>
             {tab === "waiting" || tab === "requested" || tab === "history" ? (
-              <Group legend="Due">
+              <Group legend={t("filters.due")}>
                 {DUE_STATES.map((state) => (
-                  <CheckRow key={state} label={DUE_STATE_LABELS[state]} checked={draft.dueState.includes(state)} onChange={() => toggle("dueState", state)} />
+                  <CheckRow key={state} label={t(`due.${state}`)} checked={draft.dueState.includes(state)} onChange={() => toggle("dueState", state)} />
                 ))}
               </Group>
             ) : null}
             <div className="space-y-1.5">
-              <Label htmlFor="filter-project">Project</Label>
+              <Label htmlFor="filter-project">{t("filters.project")}</Label>
               <select id="filter-project" className={selectClass} value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value || null })}>
-                <option value="">Any project</option>
+                <option value="">{t("filters.anyProject")}</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.label}
@@ -220,9 +220,9 @@ export function FilterDrawer({
             </div>
             {tab !== "requested" ? (
               <div className="space-y-1.5">
-                <Label htmlFor="filter-requester">Requester</Label>
+                <Label htmlFor="filter-requester">{t("filters.requester")}</Label>
                 <select id="filter-requester" className={selectClass} value={draft.requesterId ?? ""} onChange={(event) => setDraft({ ...draft, requesterId: event.target.value || null })}>
-                  <option value="">Anyone</option>
+                  <option value="">{t("filters.anyone")}</option>
                   {requesters.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.label}
@@ -232,21 +232,21 @@ export function FilterDrawer({
               </div>
             ) : null}
             <fieldset className="space-y-1.5">
-              <legend className="text-table font-medium text-fg">{tab === "approved" || tab === "rejected" || tab === "returned" ? "Decided between" : "Requested between"}</legend>
+              <legend className="text-table font-medium text-fg">{tab === "approved" || tab === "rejected" || tab === "returned" ? t("filters.decidedBetween") : t("filters.requestedBetween")}</legend>
               <div className="grid grid-cols-2 gap-2">
-                <Input type="date" aria-label="From" value={draft.from ?? ""} onChange={(event) => setDraft({ ...draft, from: event.target.value || null })} />
-                <Input type="date" aria-label="To" value={draft.to ?? ""} onChange={(event) => setDraft({ ...draft, to: event.target.value || null })} />
+                <Input type="date" aria-label={t("filters.from")} value={draft.from ?? ""} onChange={(event) => setDraft({ ...draft, from: event.target.value || null })} />
+                <Input type="date" aria-label={t("filters.to")} value={draft.to ?? ""} onChange={(event) => setDraft({ ...draft, to: event.target.value || null })} />
               </div>
             </fieldset>
             <fieldset className="space-y-1.5">
-              <legend className="text-table font-medium text-fg">Amount</legend>
-              <p id="filter-amount-hint" className="text-meta text-fg-subtle">In each record&apos;s own currency. Records without an amount drop out. Use a point or a comma for decimals, e.g. 1234.50.</p>
+              <legend className="text-table font-medium text-fg">{t("filters.amount")}</legend>
+              <p id="filter-amount-hint" className="text-meta text-fg-subtle">{t("filters.amountHint")}</p>
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   ref={minRef}
                   inputMode="decimal"
-                  aria-label="Minimum amount"
-                  placeholder="Min"
+                  aria-label={t("filters.minimumAmount")}
+                  placeholder={t("filters.min")}
                   value={amounts.min}
                   aria-invalid={amountError?.field === "min" || undefined}
                   aria-describedby={amountError?.field === "min" ? "filter-amount-error" : "filter-amount-hint"}
@@ -258,8 +258,8 @@ export function FilterDrawer({
                 <Input
                   ref={maxRef}
                   inputMode="decimal"
-                  aria-label="Maximum amount"
-                  placeholder="Max"
+                  aria-label={t("filters.maximumAmount")}
+                  placeholder={t("filters.max")}
                   value={amounts.max}
                   aria-invalid={amountError?.field === "max" || undefined}
                   aria-describedby={amountError?.field === "max" ? "filter-amount-error" : "filter-amount-hint"}
@@ -286,10 +286,10 @@ export function FilterDrawer({
                 setAmountError(null);
               }}
             >
-              Reset
+              {t("filters.reset")}
             </Button>
             <Button type="submit" className="ml-auto">
-              Show results
+              {t("filters.showResults")}
             </Button>
           </div>
         </form>
@@ -335,20 +335,22 @@ export function FilterChips({
   companies?: ApprovalCompany[];
   onChange: (filters: ApprovalFilters) => void;
 }) {
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   const chips: Array<{ key: string; label: string; clear: () => ApprovalFilters }> = [];
-  if (filters.company) chips.push({ key: "company", label: companies?.find((company) => company.id === filters.company)?.name ?? "Company", clear: () => ({ ...filters, company: null }) });
-  for (const key of filters.provider) chips.push({ key: `provider:${key}`, label: providers.find((provider) => provider.key === key)?.label ?? key, clear: () => ({ ...filters, provider: filters.provider.filter((entry) => entry !== key) }) });
-  for (const status of filters.status) chips.push({ key: `status:${status}`, label: STATUS_LABELS[status], clear: () => ({ ...filters, status: filters.status.filter((entry) => entry !== status) }) });
-  for (const priority of filters.priority) chips.push({ key: `priority:${priority}`, label: `${PRIORITY_LABELS[priority]} priority`, clear: () => ({ ...filters, priority: filters.priority.filter((entry) => entry !== priority) }) });
-  for (const state of filters.dueState) chips.push({ key: `due:${state}`, label: DUE_STATE_LABELS[state], clear: () => ({ ...filters, dueState: filters.dueState.filter((entry) => entry !== state) }) });
-  if (filters.projectId) chips.push({ key: "project", label: projects.find((project) => project.id === filters.projectId)?.label ?? "Project", clear: () => ({ ...filters, projectId: null }) });
-  if (filters.requesterId) chips.push({ key: "requester", label: `By ${requesters.find((person) => person.id === filters.requesterId)?.label ?? "requester"}`, clear: () => ({ ...filters, requesterId: null }) });
+  if (filters.company) chips.push({ key: "company", label: companies?.find((company) => company.id === filters.company)?.name ?? t("filters.company"), clear: () => ({ ...filters, company: null }) });
+  for (const key of filters.provider) chips.push({ key: `provider:${key}`, label: word(providers.find((provider) => provider.key === key)?.label ?? key), clear: () => ({ ...filters, provider: filters.provider.filter((entry) => entry !== key) }) });
+  for (const status of filters.status) chips.push({ key: `status:${status}`, label: t(`status.${status}`), clear: () => ({ ...filters, status: filters.status.filter((entry) => entry !== status) }) });
+  for (const priority of filters.priority) chips.push({ key: `priority:${priority}`, label: t("filters.chipPriority", { priority: t(`priority.${priority}`) }), clear: () => ({ ...filters, priority: filters.priority.filter((entry) => entry !== priority) }) });
+  for (const state of filters.dueState) chips.push({ key: `due:${state}`, label: t(`due.${state}`), clear: () => ({ ...filters, dueState: filters.dueState.filter((entry) => entry !== state) }) });
+  if (filters.projectId) chips.push({ key: "project", label: projects.find((project) => project.id === filters.projectId)?.label ?? t("filters.project"), clear: () => ({ ...filters, projectId: null }) });
+  if (filters.requesterId) chips.push({ key: "requester", label: t("filters.chipBy", { name: requesters.find((person) => person.id === filters.requesterId)?.label ?? t("filters.chipRequester") }), clear: () => ({ ...filters, requesterId: null }) });
   if (filters.from || filters.to) chips.push({ key: "dates", label: `${filters.from ?? "…"} – ${filters.to ?? "…"}`, clear: () => ({ ...filters, from: null, to: null }) });
-  if (filters.amountMin || filters.amountMax) chips.push({ key: "amount", label: `Amount ${filters.amountMin ?? "0"}–${filters.amountMax ?? "∞"}`, clear: () => ({ ...filters, amountMin: null, amountMax: null }) });
+  if (filters.amountMin || filters.amountMax) chips.push({ key: "amount", label: t("filters.chipAmount", { min: filters.amountMin ?? "0", max: filters.amountMax ?? "∞" }), clear: () => ({ ...filters, amountMin: null, amountMax: null }) });
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" role="group" aria-label="Active filters">
+    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" role="group" aria-label={t("filters.active")}>
       {chips.map((chip) => (
         <button
           key={chip.key}
@@ -356,14 +358,14 @@ export function FilterChips({
           onClick={() => onChange(chip.clear())}
           // 44px tall on a touch screen, like every chip (AUD-04 §3, MW-06).
           className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-line bg-surface pl-2.5 pr-1.5 text-meta font-medium text-fg transition-colors hover:border-line-strong touch:h-11 touch:pl-3.5 touch:pr-2.5"
-          aria-label={`Remove filter ${chip.label}`}
+          aria-label={t("filters.remove", { label: chip.label })}
         >
           <span className="min-w-0 truncate">{chip.label}</span>
           <X aria-hidden="true" className="size-3 shrink-0 text-fg-subtle" />
         </button>
       ))}
       <button type="button" onClick={() => onChange(EMPTY_FILTERS)} className="ml-1 text-meta font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline touch:min-h-11 touch:px-2">
-        Clear all
+        {t("filters.clearAll")}
       </button>
     </div>
   );

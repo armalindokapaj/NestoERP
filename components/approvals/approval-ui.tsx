@@ -20,7 +20,9 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import type { ApprovalMoney, ApprovalPriority, ApprovalProviderKey, DueState, UnifiedApprovalItem, UnifiedApprovalStatus } from "@/lib/modules/approvals/approvals.types";
+import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
+import { englishApprovals, useApprovalsTranslations } from "./approvals-text";
 
 /**
  * The small, restrained vocabulary the Approvals Center is drawn with (PRD
@@ -61,24 +63,17 @@ const STATUS_TONE: Record<UnifiedApprovalStatus, "default" | "neutral" | "succes
   EXPIRED: "default",
 };
 
-const STATUS_TEXT: Record<UnifiedApprovalStatus, string> = {
-  PENDING: "Pending",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  RETURNED: "Returned",
-  CANCELLED: "Cancelled",
-  EXPIRED: "Expired",
-};
-
 export function StatusBadge({ status }: { status: UnifiedApprovalStatus }) {
-  return <Badge tone={STATUS_TONE[status]}>{STATUS_TEXT[status]}</Badge>;
+  const t = useApprovalsTranslations();
+  return <Badge tone={STATUS_TONE[status]}>{t(`status.${status}`)}</Badge>;
 }
 
 export function PriorityBadge({ priority }: { priority: ApprovalPriority }) {
+  const t = useApprovalsTranslations();
   if (priority !== "HIGH" && priority !== "CRITICAL") return null;
   return (
     <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className="uppercase tracking-[0.06em]">
-      {priority === "CRITICAL" ? "Critical" : "High"}
+      {t(`priority.${priority}`)}
     </Badge>
   );
 }
@@ -89,17 +84,18 @@ function dayStart(value: Date) {
   return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
 }
 
-export function dueText(dueAt: string | null, state: DueState, now = new Date()): string | null {
+export function dueText(dueAt: string | null, state: DueState, now = new Date(), t: Translate<"approvals"> = englishApprovals): string | null {
   if (!dueAt || state === "none") return null;
   const days = Math.round((dayStart(new Date(dueAt)) - dayStart(now)) / DAY);
-  if (state === "overdue") return `Overdue ${Math.abs(days)}d`;
-  if (state === "due_today") return "Due today";
-  return `Due in ${days}d`;
+  if (state === "overdue") return t("due.overdueDays", { days: Math.abs(days) });
+  if (state === "due_today") return t("due.due_today");
+  return t("due.inDays", { days });
 }
 
 export function DueBadge({ item }: { item: Pick<UnifiedApprovalItem, "dueAt" | "dueState" | "status"> }) {
+  const t = useApprovalsTranslations();
   if (item.status !== "PENDING") return null;
-  const text = dueText(item.dueAt, item.dueState);
+  const text = dueText(item.dueAt, item.dueState, new Date(), t);
   if (!text) return null;
   const tone = item.dueState === "overdue" ? "danger" : item.dueState === "due_today" ? "warning" : "default";
   return (
@@ -132,22 +128,22 @@ export function formatDay(iso: string | null | undefined): string {
 }
 
 /** "Waiting 3 days" (PRD #41 §166). */
-export function waitingText(requestedAt: string, now = new Date()): string {
+export function waitingText(requestedAt: string, now = new Date(), t: Translate<"approvals"> = englishApprovals): string {
   const hours = Math.floor((now.getTime() - new Date(requestedAt).getTime()) / 3_600_000);
-  if (hours < 1) return "Just now";
-  if (hours < 24) return `Waiting ${hours}h`;
+  if (hours < 1) return t("time.justNowWaiting");
+  if (hours < 24) return t("time.waitingHours", { count: hours });
   const days = Math.floor(hours / 24);
-  return `Waiting ${days} ${days === 1 ? "day" : "days"}`;
+  return t("time.waitingDays", { count: days });
 }
 
-export function relativeText(iso: string, now = new Date()): string {
+export function relativeText(iso: string, now = new Date(), t: Translate<"approvals"> = englishApprovals): string {
   const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t("time.justNow");
+  if (minutes < 60) return t("time.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("time.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return t("time.daysAgo", { count: days });
   return formatDay(iso);
 }
 

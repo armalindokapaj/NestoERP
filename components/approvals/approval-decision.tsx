@@ -12,6 +12,7 @@ import type { ApprovalDecision, UnifiedApprovalItem } from "@/lib/modules/approv
 import { cn } from "@/lib/utils/cn";
 import { useApprovalDraft, useForgetApprovalDrafts } from "./approval-drafts";
 import { formatMoney } from "./approval-ui";
+import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 
 /**
  * The decision bar and its dialogs (PRD #41 §82-§85, §100, §111-§113,
@@ -50,7 +51,9 @@ export function DecisionBar({
   const forget = useForgetApprovalDrafts();
   const busy = pending !== null;
   const any = item.canApprove || item.canReject || item.canReturn;
-  const noun = item.sourceLabel.toLowerCase();
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
+  const noun = word(item.sourceLabel).toLowerCase();
 
   /** A dialog that closes takes its input with it: opened again, it starts empty. */
   function closeDialog() {
@@ -60,7 +63,7 @@ export function DecisionBar({
 
   // A note typed with an approval is unsaved work whose only way forward is
   // deciding: a workflow step the prompt never takes (AUD-03 §3).
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: "Your approval note" });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: t("decision.approvalNote") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(item.canApprove && note !== ""), [item.canApprove, note, setDirty]);
   React.useEffect(() => setSaving(pending === "APPROVE" && dialog === null), [pending, dialog, setSaving]);
@@ -68,7 +71,7 @@ export function DecisionBar({
   if (!any) {
     return (
       <div className={cn("border-t border-line bg-surface px-5 py-3.5", className)} data-testid="decision-bar">
-        <p className="text-table text-fg-muted">{item.status === "PENDING" ? (item.blockedReason ?? "Nothing for you to decide here.") : "This approval has been decided."}</p>
+        <p className="text-table text-fg-muted">{item.status === "PENDING" ? (item.blockedReason ?? t("decision.nothingToDecide")) : t("decision.decided")}</p>
       </div>
     );
   }
@@ -85,20 +88,20 @@ export function DecisionBar({
     }
   }
 
-  const approveLabel = item.totalSteps && item.currentStep && item.currentStep < item.totalSteps ? `Approve step ${item.currentStep}` : "Approve";
+  const approveLabel = item.totalSteps && item.currentStep && item.currentStep < item.totalSteps ? t("decision.approveStep", { step: item.currentStep }) : t("decision.approve");
 
   return (
     <div className={cn("border-t border-line bg-surface/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-surface/85 sm:px-5", className)} data-testid="decision-bar">
       {noteOpen && item.canApprove ? (
         <div className="mb-3 space-y-1.5">
-          <Label htmlFor={`approve-note-${item.id}`}>Note with your approval (optional)</Label>
+          <Label htmlFor={`approve-note-${item.id}`}>{t("decision.noteLabel")}</Label>
           <Textarea
             id={`approve-note-${item.id}`}
             rows={2}
             maxLength={NOTE_LIMIT}
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Anything the requester should know"
+            placeholder={t("decision.notePlaceholder")}
           />
         </div>
       ) : null}
@@ -112,7 +115,7 @@ export function DecisionBar({
         {item.canApprove && !noteOpen ? (
           <Button type="button" variant="ghost" size="sm" className="order-first basis-full justify-start sm:order-none sm:mr-auto sm:basis-auto" onClick={() => setNoteOpen(true)} disabled={busy}>
             <MessageSquarePlus aria-hidden="true" />
-            Add note
+            {t("decision.addNote")}
           </Button>
         ) : (
           <span className="hidden sm:mr-auto sm:block" />
@@ -125,10 +128,10 @@ export function DecisionBar({
             className="min-w-0 flex-1 sm:flex-none"
             disabled={busy}
             onClick={() => setDialog("RETURN")}
-            aria-label={`Return this ${noun} for revision`}
+            aria-label={t("decision.returnAria", { noun })}
           >
             {pending === "RETURN" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <CornerUpLeft aria-hidden="true" />}
-            Return
+            {t("decision.return")}
           </Button>
         ) : null}
         {item.canReject ? (
@@ -139,10 +142,10 @@ export function DecisionBar({
             className="min-w-0 flex-1 text-danger-strong hover:text-danger-strong sm:flex-none"
             disabled={busy}
             onClick={() => setDialog("REJECT")}
-            aria-label={`Reject this ${noun}`}
+            aria-label={t("decision.rejectAria", { noun })}
           >
             {pending === "REJECT" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <X aria-hidden="true" />}
-            Reject
+            {t("decision.reject")}
           </Button>
         ) : null}
         {item.canApprove ? (
@@ -152,7 +155,7 @@ export function DecisionBar({
             className="order-first min-w-0 basis-full sm:order-none sm:min-w-32 sm:basis-auto"
             disabled={busy}
             onClick={() => void approve()}
-            aria-label={`Approve this ${noun}`}
+            aria-label={t("decision.approveAria", { noun })}
             data-testid="decision-approve"
           >
             {pending === "APPROVE" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
@@ -200,10 +203,11 @@ export type DecisionFailure = { message: string; stale: boolean };
 
 /** A refusal from the server, inside the dialog that asked for it (AUD-10 §4). */
 function DialogFailure({ failure }: { failure: DecisionFailure }) {
+  const t = useApprovalsTranslations();
   return (
     <p role="alert" className="mt-3 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-table text-fg" data-testid="decision-dialog-failure">
       {failure.message}
-      {failure.stale ? " Nothing was decided. Cancel, then reload the approval to see where it stands now." : null}
+      {failure.stale ? t("decision.staleDialog") : null}
     </p>
   );
 }
@@ -222,15 +226,18 @@ function ReasonDialog(props: ReasonDialogProps) {
   const { open, decision, item, pending, onOpenChange } = props;
   const reject = decision === "REJECT";
   const busy = pending !== null;
+  const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
+  const reference = item.reference ?? t("decision.thisRequest");
 
   return (
     <Dialog open={open} onOpenChange={(value) => (busy ? null : onOpenChange(value))}>
       <DialogContent>
-        <DialogTitle>{reject ? `Reject ${item.reference ?? "this request"}?` : `Return ${item.reference ?? "this request"} for revision?`}</DialogTitle>
+        <DialogTitle>{reject ? t("decision.rejectTitle", { reference }) : t("decision.returnTitle", { reference })}</DialogTitle>
         <DialogDescription>
           {reject
-            ? `${item.requester.name} is told it was rejected, with your reason. ${item.sourceLabel}s follow their own rules once rejected.`
-            : `It goes back to ${item.requester.name} to change and submit again. Your reason tells them what to change.`}
+            ? t("decision.rejectBody", { name: item.requester.name, source: word(item.sourceLabel) })
+            : t("decision.returnBody", { name: item.requester.name })}
         </DialogDescription>
         {/* Inside the dialog, so the reason belongs to its guarded close (AUD-03 §5). Opened afresh it starts empty; a rotation keeps it (AUD-04 MW-16). */}
         <ReasonForm {...props} />
@@ -247,9 +254,10 @@ function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialog
   const id = React.useId();
   const reject = decision === "REJECT";
   const busy = pending !== null;
+  const t = useApprovalsTranslations();
 
   // Rejecting and returning are workflow steps: the prompt never takes them (AUD-03 §3).
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: reject ? "Reject" : "Return", label: reject ? "Reason for rejecting" : "What needs to change" });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: reject ? "Reject" : "Return", label: reject ? t("decision.reasonLabel") : t("decision.changeLabel") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
   React.useEffect(() => setSaving(busy), [busy, setSaving]);
@@ -260,14 +268,14 @@ function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialog
       onSubmit={async (event) => {
         event.preventDefault();
         if (!reason.trim()) {
-          setError(reject ? "Give a reason for rejecting it." : "Say what needs to change.");
+          setError(reject ? t("decision.reasonRequired") : t("decision.changeRequired"));
           return;
         }
         setSent(true);
         if (await onSubmit(reason.trim())) setDirty(false);
       }}
     >
-      <Label htmlFor={`${id}-reason`}>{reject ? "Reason for rejecting" : "What needs to change"}</Label>
+      <Label htmlFor={`${id}-reason`}>{reject ? t("decision.reasonLabel") : t("decision.changeLabel")}</Label>
       <Textarea
         id={`${id}-reason`}
         rows={4}
@@ -298,12 +306,12 @@ function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialog
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={busy}>
-            Cancel
+            {t("decision.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" variant={reject ? "danger" : "primary"} disabled={busy}>
           {busy ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-          {reject ? "Reject" : "Return for revision"}
+          {reject ? t("decision.reject") : t("decision.returnForRevision")}
         </Button>
       </DialogFooter>
     </form>
@@ -324,19 +332,20 @@ function StrongApproveDialog(props: StrongApproveProps) {
   const { open, item, pending, onOpenChange } = props;
   const amount = formatMoney(item.amount);
   const lastStep = !item.totalSteps || item.currentStep === item.totalSteps;
+  const t = useApprovalsTranslations();
+  const noun = useApprovalsWord()(item.sourceLabel).toLowerCase();
   return (
     <Dialog open={open} onOpenChange={(value) => (pending ? null : onOpenChange(value))}>
       <DialogContent>
         <DialogTitle>
-          Approve {amount ? `${amount} ` : ""}
-          {item.sourceLabel.toLowerCase()}?
+          {t("decision.strongTitle", { what: `${amount ? `${amount} ` : ""}${noun}` })}
         </DialogTitle>
         <DialogDescription>
           {item.title}
           {item.project ? ` · ${item.project.name}` : ""}.{" "}
           {lastStep
-            ? `This is the final approval: the ${item.sourceLabel.toLowerCase()} is approved as soon as you confirm.`
-            : `This approves step ${item.currentStep} of ${item.totalSteps}; whoever takes the next step is asked next.`}
+            ? t("decision.finalApproval", { noun })
+            : t("decision.stepApproval", { current: item.currentStep ?? "", total: item.totalSteps ?? "" })}
         </DialogDescription>
         {/* Inside the dialog, so the note belongs to its guarded close (AUD-03 §5). Opened afresh from the bar's note; a rotation keeps it (AUD-04 MW-16). */}
         <StrongApproveForm {...props} />
@@ -350,10 +359,11 @@ function StrongApproveForm({ item, pending, failure, initialNote, onConfirm }: S
   const [sent, setSent] = React.useState(false);
   const id = React.useId();
   const amount = formatMoney(item.amount);
+  const t = useApprovalsTranslations();
 
   // Approving is a workflow step: the prompt never approves (AUD-03 §3). The
   // note carried over from the bar is still the bar's; what changed here counts.
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: "Your approval note" });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: t("decision.approvalNote") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(note !== initialNote), [note, initialNote, setDirty]);
   React.useEffect(() => setSaving(pending), [pending, setSaving]);
@@ -361,14 +371,14 @@ function StrongApproveForm({ item, pending, failure, initialNote, onConfirm }: S
   return (
     <>
       <div className="mt-4 space-y-1.5">
-        <Label htmlFor={`${id}-note`}>Note (optional)</Label>
+        <Label htmlFor={`${id}-note`}>{t("decision.noteOptional")}</Label>
         <Textarea id={`${id}-note`} rows={3} maxLength={NOTE_LIMIT} value={note} readOnly={pending} onChange={(event) => setNote(event.target.value)} />
       </div>
       {sent && failure && !pending ? <DialogFailure failure={failure} /> : null}
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("decision.cancel")}
           </Button>
         </DialogClose>
         <Button
@@ -381,7 +391,7 @@ function StrongApproveForm({ item, pending, failure, initialNote, onConfirm }: S
           data-testid="confirm-approve"
         >
           {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
-          Approve {amount ?? ""}
+          {t("decision.approveAmount", { amount: amount ?? "" }).trim()}
         </Button>
       </DialogFooter>
     </>

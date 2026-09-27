@@ -7,13 +7,17 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadRecord } from "@/lib/core/records/record.registry";
 import { approvalQuerySchema, parseApprovalRef, providerKeySchema } from "@/lib/modules/approvals/approvals.schema";
 import { listApprovalsForWorkspace } from "@/lib/modules/approvals/approvals.group";
 import { findApprovalForRecord, getApprovalDetail } from "@/lib/modules/approvals/approvals.service";
 import type { UnifiedApprovalDetail } from "@/lib/modules/approvals/approvals.types";
 
-export const metadata: Metadata = { title: "Approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("approvals");
+  return { title: t("title") };
+}
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
