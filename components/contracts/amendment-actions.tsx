@@ -24,6 +24,7 @@ import {
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ContractAmendmentDTO } from "@/lib/modules/contracts/contract.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
+import { useContractsTranslations } from "./contracts-text";
 
 /**
  * Actions on an amendment (PRD #18 §170–§180).
@@ -42,6 +43,7 @@ export function AmendmentActions({
   /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -73,62 +75,62 @@ export function AmendmentActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/contracts/${contractId}/amendments/${amendment.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
-        <Button size="sm" disabled={pending} onClick={() => run("submit", "Amendment submitted for approval.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("submit", t("amendmentActions.submitted"))}>
           <Send aria-hidden="true" />
-          Submit for approval
+          {t("common.submitForApproval")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
-        <Button size="sm" disabled={pending} onClick={() => run("approve", "Amendment approved.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("approve", t("amendmentActions.approved"))}>
           <CheckCircle2 aria-hidden="true" />
-          Approve
+          {t("common.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("reject")}>
           <XCircle aria-hidden="true" />
-          Reject
+          {t("common.reject")}
         </Button>
       ) : null}
 
       {may.canMarkSent ? (
-        <Button size="sm" disabled={pending} onClick={() => run("mark-sent", "Amendment marked as sent.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("mark-sent", t("amendmentActions.markedSent"))}>
           <Send aria-hidden="true" />
-          Mark sent
+          {t("common.markSent")}
         </Button>
       ) : null}
 
       {may.canMarkSigned ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("signed")}>
           <FileSignature aria-hidden="true" />
-          Mark signed
+          {t("common.markSigned")}
         </Button>
       ) : null}
 
       {may.canActivate ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("activate")}>
           <Play aria-hidden="true" />
-          Activate
+          {t("common.activate")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("archive")}>
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -137,18 +139,18 @@ export function AmendmentActions({
         onOpenChange={(open) => setDialog(open ? "signed" : "none")}
         contractId={contractId}
         amendment={amendment}
-        onDone={() => handle({ ok: true }, "Amendment recorded as signed.")}
+        onDone={() => handle({ ok: true }, t("amendmentActions.signed"))}
         onError={(message) => toast({ title: message, tone: "danger" })}
       />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : "none")}
-        title={`Reject ${amendment.amendmentNumber}?`}
-        description="The amendment goes back to its author with your reason attached."
+        title={t("common.rejectNumber", { number: amendment.amendmentNumber })}
+        description={t("amendmentActions.rejectDescription")}
         onReject={async (reason) => {
           const result = await rejectAmendmentAction(contractId, amendment.id, reason, cycle);
-          handle(result, "Amendment rejected.");
+          handle(result, t("amendmentActions.rejected"));
           return result.ok;
         }}
       />
@@ -156,16 +158,16 @@ export function AmendmentActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : "none")}
-        title={`Cancel ${amendment.amendmentNumber}?`}
-        description="The amendment stops before it is executed. The contract is unchanged."
-        label="Reason"
-        placeholder="Why is this amendment not going ahead?"
-        confirmLabel="Cancel amendment"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it was cancelled, so the record explains itself."
+        title={t("common.cancelNumber", { number: amendment.amendmentNumber })}
+        description={t("amendmentActions.cancelDescription")}
+        label={t("common.reason")}
+        placeholder={t("amendmentActions.cancelPlaceholder")}
+        confirmLabel={t("amendmentActions.cancelAmendment")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("common.sayWhyCancelled")}
         onReject={async (note) => {
           const result = await amendmentLifecycleAction(contractId, amendment.id, "cancel", note);
-          handle(result, "Amendment cancelled.");
+          handle(result, t("amendmentActions.cancelled"));
           return result.ok;
         }}
       />
@@ -173,23 +175,23 @@ export function AmendmentActions({
       <ConfirmDialog
         open={dialog === "activate"}
         onOpenChange={(open) => setDialog(open ? "activate" : "none")}
-        title={`Apply ${amendment.amendmentNumber} to the contract?`}
-        description="The new value and expiry date are written onto the contract now. What it held before is kept on the amendment, and this can only happen once."
-        confirmLabel="Activate amendment"
+        title={t("amendmentActions.activateTitle", { number: amendment.amendmentNumber })}
+        description={t("amendmentActions.activateDescription")}
+        confirmLabel={t("amendmentActions.activateAmendment")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("activate", "Amendment applied to the contract.")}
+        onConfirm={() => run("activate", t("amendmentActions.activated"))}
       />
 
       <ConfirmDialog
         open={dialog === "archive"}
         onOpenChange={(open) => setDialog(open ? "archive" : "none")}
-        title="Archive this amendment?"
-        description="It leaves the amendment list. Only a draft, rejected or cancelled amendment can be archived — an executed one stays visible."
-        confirmLabel="Archive amendment"
+        title={t("amendmentActions.archiveTitle")}
+        description={t("amendmentActions.archiveDescription")}
+        confirmLabel={t("amendmentActions.archiveAmendment")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("archive", "Amendment archived.")}
+        onConfirm={() => run("archive", t("amendmentActions.archived"))}
       />
     </>
   );
@@ -210,6 +212,7 @@ function SignedDialog({
   onDone: () => void;
   onError: (message: string) => void;
 }) {
+  const t = useContractsTranslations();
   const [signedDate, setSignedDate] = React.useState(() => localToday());
   const [unresolved, setUnresolved] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -249,15 +252,13 @@ function SignedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogEditor label={`Signature of ${amendment.amendmentNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Record as signed" />
-        <DialogTitle>Record {amendment.amendmentNumber} as signed</DialogTitle>
-        <DialogDescription>
-          Signing does not change the contract. Activating the amendment does.
-        </DialogDescription>
+        <DialogEditor label={t("common.signatureOf", { number: amendment.amendmentNumber })} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow={t("common.recordAsSigned")} />
+        <DialogTitle>{t("common.recordNumberAsSigned", { number: amendment.amendmentNumber })}</DialogTitle>
+        <DialogDescription>{t("amendmentActions.signedDescription")}</DialogDescription>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="amendment-signed">Signed date</Label>
+            <Label htmlFor="amendment-signed">{t("common.signedDate")}</Label>
             <Input
               id="amendment-signed"
               type="date"
@@ -270,11 +271,11 @@ function SignedDialog({
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DialogClose asChild>
               <Button type="button" variant="secondary" disabled={pending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Record as signed"}
+              {pending ? t("common.saving") : t("common.recordAsSigned")}
             </Button>
           </div>
         </form>

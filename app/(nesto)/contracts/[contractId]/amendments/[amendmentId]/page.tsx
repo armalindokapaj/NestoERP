@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -18,7 +19,10 @@ import { contractBreadcrumbs, contractContext } from "../../contract-context";
 
 type Params = { params: Promise<{ contractId: string; amendmentId: string }> };
 
-export const metadata: Metadata = { title: "Amendment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.amendment") };
+}
 
 /**
  * One amendment (PRD #18 §160–§163, §169–§175).
@@ -31,6 +35,7 @@ export const metadata: Metadata = { title: "Amendment" };
 export default async function AmendmentDetailPage({ params }: Params) {
   const { contractId, amendmentId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewAmendments) notFound();
 
@@ -58,7 +63,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={contractBreadcrumbs(contract, amendment.amendmentNumber)}
+        breadcrumbs={contractBreadcrumbs(contract, amendment.amendmentNumber, t)}
         title={amendment.title}
         subtitle={`${contract.contractNumber} · ${amendment.amendmentNumber}`}
         status={amendment.status}
@@ -68,14 +73,14 @@ export default async function AmendmentDetailPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Summary</h2>
+            <h2 className="text-card font-semibold text-fg">{t("amendments.summary")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg">{amendment.summary}</p>
           </section>
 
           {/* What changes, before and after (PRD #18 §167, §168, §332). */}
           {amendment.commercial || amendment.newExpiryDate ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">What this changes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("amendments.changes")}</h2>
               <DetailGrid
                 className="mt-4"
                 columns={3}
@@ -83,15 +88,15 @@ export default async function AmendmentDetailPage({ params }: Params) {
                   ...(amendment.commercial
                     ? [
                         {
-                          label: "Value before",
+                          label: t("amendments.valueBefore"),
                           value: money(amendment.commercial.previousContractValue),
                         },
                         {
-                          label: "Value after",
+                          label: t("amendments.valueAfter"),
                           value: money(amendment.commercial.newContractValue),
                         },
                         {
-                          label: "Change",
+                          label: t("amendments.change"),
                           value: money(amendment.commercial.valueDelta),
                         },
                       ]
@@ -99,13 +104,13 @@ export default async function AmendmentDetailPage({ params }: Params) {
                   ...(amendment.newExpiryDate
                     ? [
                         {
-                          label: "Expiry before",
+                          label: t("amendments.expiryBefore"),
                           value: amendment.previousExpiryDate
                             ? formatDate(amendment.previousExpiryDate)
                             : "—",
                         },
                         {
-                          label: "Expiry after",
+                          label: t("amendments.expiryAfter"),
                           value: formatDate(amendment.newExpiryDate),
                         },
                       ]
@@ -114,30 +119,29 @@ export default async function AmendmentDetailPage({ params }: Params) {
               />
               {amendment.status !== "ACTIVE" ? (
                 <p className="mt-4 border-t border-line pt-4 text-meta text-fg-subtle">
-                  Nothing has changed on the contract yet. The value and expiry move when this
-                  amendment is activated.
+                  {t("amendments.nothingYet")}
                 </p>
               ) : null}
             </section>
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Approval history</h2>
+            <h2 className="text-card font-semibold text-fg">{t("amendments.approvalHistory")}</h2>
             <ContractApprovalHistory
               approvals={amendment.approvals}
-              emptyLabel="This amendment has not been submitted for approval."
+              emptyLabel={t("approvalHistory.amendmentEmpty")}
             />
           </section>
 
           {contract.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("amendments.documents")}</h2>
               <Suspense fallback={<SkeletonTable rows={2} />}>
                 <ContractRecordDocuments
                   context={context}
                   entityType="amendment"
                   entityId={amendment.id}
-                  emptyDescription="The signed amendment and any supporting papers appear here."
+                  emptyDescription={t("documents.amendmentEmpty")}
                 />
               </Suspense>
             </section>
@@ -146,18 +150,18 @@ export default async function AmendmentDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Dates</h2>
+            <h2 className="text-card font-semibold text-fg">{t("amendments.dates")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Effective"
+                label={t("amendments.effectiveLabel")}
                 value={amendment.effectiveDate ? formatDate(amendment.effectiveDate) : "—"}
               />
               <Meta
-                label="Signed"
+                label={t("amendments.signed")}
                 value={amendment.signedDate ? formatDate(amendment.signedDate) : "—"}
               />
               <Meta
-                label="Activated"
+                label={t("amendments.activated")}
                 value={amendment.activatedAt ? formatDate(amendment.activatedAt) : "—"}
               />
             </dl>
@@ -165,7 +169,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
         </div>
       </div>
 
-      <RecordDocuments context={context} entityType="amendment" entityId={amendmentId} title="Documents" emptyDescription="The signed amendment and its supporting papers appear here." />
+      <RecordDocuments context={context} entityType="amendment" entityId={amendmentId} title={t("amendments.documents")} emptyDescription={t("documents.amendmentRecordEmpty")} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
       <CollaborationPanel parentType="amendment" parentId={amendmentId} />
     </div>

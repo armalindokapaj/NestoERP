@@ -7,6 +7,8 @@ import { can, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import { contractStatusLabels } from "@/lib/modules/contracts/contracts/contract.status";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * "Create contract" on a won opportunity or an accepted proposal
@@ -45,6 +47,7 @@ export async function SalesContractHandoff({
   if (!isModuleEnabled(context, "contracts")) return null;
   if (!can(context, "legal.view")) return null;
 
+  const t = await getTranslations("contracts");
   const mayCreate = can(context, "legal.contract.create");
   const existing = await contracts.listForSalesSource(context, source);
 
@@ -63,18 +66,18 @@ export async function SalesContractHandoff({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">Contract</h2>
+          <h2 className="text-card font-semibold text-fg">{t("handoff.title")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {existing.length === 0
-              ? "Draw up the agreement behind this deal. The value and dates stay editable while it is a draft."
-              : "Already drawn from this sales record."}
+              ? t("handoff.intro")
+              : t("handoff.already")}
           </p>
         </div>
         {mayCreate ? (
           <Button asChild variant={existing.length > 0 ? "secondary" : "primary"} size="sm">
             <Link href={`/contracts/new?${params.toString()}`}>
               <FileSignature aria-hidden="true" />
-              {existing.length > 0 ? "Create another" : "Create contract"}
+              {existing.length > 0 ? t("handoff.createAnother") : t("handoff.create")}
             </Link>
           </Button>
         ) : null}
@@ -86,8 +89,8 @@ export async function SalesContractHandoff({
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>
               {existing.length === 1
-                ? "A contract already exists for this sales record. Create another only if the deal genuinely produced a second agreement."
-                : `${existing.length} contracts already exist for this sales record.`}
+                ? t("handoff.oneExists")
+                : t("handoff.manyExist", { count: existing.length })}
             </span>
           </p>
           <ul className="mt-3 divide-y divide-line border-t border-line">
@@ -99,7 +102,7 @@ export async function SalesContractHandoff({
                 >
                   {contract.contractNumber} — {contract.title}
                 </Link>
-                <Badge tone="neutral">{contractStatusLabels[contract.status]}</Badge>
+                <Badge tone="neutral">{contractsLabel(t, "contractStatus", contract.status, contractStatusLabels[contract.status])}</Badge>
               </li>
             ))}
           </ul>

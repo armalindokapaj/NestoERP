@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractForm, ContractMetadataForm } from "@/components/contracts/contract-form";
@@ -11,7 +12,10 @@ import { contractBreadcrumbs, contractContext } from "../contract-context";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Edit contract" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.editContract") };
+}
 
 /**
  * Edit a contract (PRD #18 §104–§107).
@@ -38,7 +42,7 @@ export default async function EditContractPage({ params }: Params) {
   const mode = contractEditMode(contract.status);
   if (mode === "NONE") notFound();
 
-  const options = await contracts.contractEditOptions(context);
+  const [options, t] = await Promise.all([contracts.contractEditOptions(context), getTranslations("contracts")]);
   const owners = options.owners.map((owner) => ({
     value: owner.id,
     label: `${owner.user.firstName} ${owner.user.lastName}`,
@@ -49,7 +53,7 @@ export default async function EditContractPage({ params }: Params) {
     return updateContractAction(contractId, formData);
   }
 
-  const breadcrumbs = contractBreadcrumbs(contract, "Edit");
+  const breadcrumbs = contractBreadcrumbs(contract, t("crumbs.edit"), t);
   const cancelHref = `/contracts/${contract.id}`;
 
   // Approved and beyond: the small correction form. It posts no contract
@@ -60,7 +64,7 @@ export default async function EditContractPage({ params }: Params) {
       <div className="space-y-5">
         <Breadcrumbs items={breadcrumbs} />
         <div>
-          <h1 className="text-page font-semibold text-fg">Edit contract</h1>
+          <h1 className="text-page font-semibold text-fg">{t("meta.editContract")}</h1>
           <p className="mt-1.5 text-body text-fg-muted">
             {contract.contractNumber} — {contract.title}
           </p>
@@ -87,7 +91,7 @@ export default async function EditContractPage({ params }: Params) {
       <Breadcrumbs items={breadcrumbs} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit contract</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editContract")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {contract.contractNumber} — {contract.title}
         </p>
@@ -96,8 +100,8 @@ export default async function EditContractPage({ params }: Params) {
       <ContractForm
         action={action}
         cancelHref={cancelHref}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         versionUpdatedAt={contract.updatedAt}
         canEditCommercial={commercial}
         canEditConfidential={confidential}

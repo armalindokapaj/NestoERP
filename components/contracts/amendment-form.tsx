@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import { previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
+import { useContractsTranslations } from "./contracts-text";
 
 export type AmendmentFormValues = {
   amendmentNumber: string;
@@ -59,6 +60,7 @@ export function AmendmentForm({
   /** Set after the server refused an unacknowledged reduction (PRD #18 §168). */
   requireReductionAcknowledgement: boolean;
 }) {
+  const t = useContractsTranslations();
   const [newValue, setNewValue] = React.useState(values?.newContractValue ?? "");
   const [newExpiry, setNewExpiry] = React.useState(values?.newExpiryDate ?? "");
 
@@ -85,10 +87,10 @@ export function AmendmentForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Amendment"
-        description={`A legal change to ${contract.contractNumber}. It does not replace the contract.`}
+        title={t("amendmentForm.amendment")}
+        description={t("amendmentForm.description", { number: contract.contractNumber })}
       >
-        <Field label="Amendment number" name="amendmentNumber" required>
+        <Field label={t("amendmentForm.amendmentNumber")} name="amendmentNumber" required>
           <Input
             id="amendmentNumber"
             name="amendmentNumber"
@@ -99,7 +101,7 @@ export function AmendmentForm({
           />
         </Field>
 
-        <Field label="Effective date" name="effectiveDate">
+        <Field label={t("common.effectiveDate")} name="effectiveDate">
           <Input
             id="effectiveDate"
             name="effectiveDate"
@@ -108,16 +110,16 @@ export function AmendmentForm({
           />
         </Field>
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("common.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={250} />
         </Field>
 
         <Field
-          label="Summary"
+          label={t("common.summary")}
           name="summary"
           required
           className="sm:col-span-2"
-          hint="What changes, in the words the parties agreed."
+          hint={t("amendmentForm.summaryHint")}
         >
           <Textarea
             id="summary"
@@ -131,17 +133,17 @@ export function AmendmentForm({
       </FormSection>
 
       <FormSection
-        title="What it changes"
-        description="Leave a field empty to leave that term as it is."
+        title={t("amendmentForm.changes")}
+        description={t("amendmentForm.changesDescription")}
       >
         {canEditCommercial ? (
           <Field
-            label="New contract value"
+            label={t("amendmentForm.newValue")}
             name="newContractValue"
             hint={
               contract.contractValue && contract.currency
-                ? `Currently ${formatAmount(contract.contractValue, contract.currency)}`
-                : "The contract has no recorded value."
+                ? t("amendmentForm.currently", { value: formatAmount(contract.contractValue, contract.currency) })
+                : t("amendmentForm.noValue")
             }
           >
             <Input
@@ -156,9 +158,9 @@ export function AmendmentForm({
         ) : null}
 
         <Field
-          label="New expiry date"
+          label={t("amendmentForm.newExpiry")}
           name="newExpiryDate"
-          hint={contract.expiryDate ? `Currently ${contract.expiryDate}` : "No fixed expiry today."}
+          hint={contract.expiryDate ? t("amendmentForm.currently", { value: contract.expiryDate }) : t("amendmentForm.noExpiry")}
         >
           <Input
             id="newExpiryDate"
@@ -171,9 +173,9 @@ export function AmendmentForm({
 
         {delta !== null && contract.currency ? (
           <p className="text-meta text-fg-subtle sm:col-span-2">
-            Change (preview): {reduces ? "−" : "+"}
-            {formatAmount(delta.replace(/^-/, ""), contract.currency)}. The server recalculates
-            this from the contract&apos;s value at the moment the amendment is activated.
+            {t("amendmentForm.preview", {
+              amount: `${reduces ? "−" : "+"}${formatAmount(delta.replace(/^-/, ""), contract.currency)}`,
+            })}
           </p>
         ) : null}
 
@@ -186,11 +188,15 @@ export function AmendmentForm({
               className="mt-0.5 size-4 rounded border-line"
             />
             <span>
-              This amendment {reduces ? "reduces the contract value" : ""}
-              {reduces && shortens ? " and " : ""}
-              {shortens ? "shortens the term" : ""}
-              {!reduces && !shortens ? "reduces the terms" : ""}. Confirm that the reduction is
-              intended.
+              {t(
+                reduces && shortens
+                  ? "amendmentForm.reducesBoth"
+                  : reduces
+                    ? "amendmentForm.reducesValue"
+                    : shortens
+                      ? "amendmentForm.shortensTerm"
+                      : "amendmentForm.reducesTerms",
+              )}
             </span>
           </label>
         ) : null}

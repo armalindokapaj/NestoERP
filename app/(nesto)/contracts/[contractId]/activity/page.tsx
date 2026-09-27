@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractActivityFeed } from "@/components/contracts/contract-activity";
@@ -10,7 +11,10 @@ import { ContractTabs } from "../contract-tabs";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Contract activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.activity") };
+}
 
 /**
  * What has happened to this contract (PRD #18 §209, §210).
@@ -23,13 +27,14 @@ export const metadata: Metadata = { title: "Contract activity" };
 export default async function ContractActivityPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewActivity) notFound();
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={contractBreadcrumbs(contract, "Activity")}
+        breadcrumbs={contractBreadcrumbs(contract, t("crumbs.activity"), t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}

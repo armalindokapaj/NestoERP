@@ -15,8 +15,12 @@ import {
 } from "@/lib/modules/contracts/overview/overview.service";
 import { commercialLabel, expiryLabel } from "@/components/contracts/contract-format";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Legal" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.legal") };
+}
 
 /**
  * The Legal overview (PRD #18 §32–§34, §339).
@@ -29,6 +33,7 @@ export const metadata: Metadata = { title: "Legal" };
 export default async function ContractsOverviewPage() {
   const context = await requireModule("contracts");
   const experience = resolveModuleExperience(context, "contracts");
+  const t = await getTranslations("contracts");
 
   const [overview, attention] = await Promise.all([
     contractOverview(context),
@@ -44,7 +49,7 @@ export default async function ContractsOverviewPage() {
       actions={
         can(context, "legal.contract.create") ? (
           <Button asChild size="sm">
-            <Link href="/contracts/new">New contract</Link>
+            <Link href="/contracts/new">{t("common.newContract")}</Link>
           </Button>
         ) : null
       }
@@ -55,43 +60,43 @@ export default async function ContractsOverviewPage() {
         {!overview.visible.contracts ? (
           <EmptyState
             icon={<Scale />}
-            title="Nothing in your Legal view."
-            description="Your access covers the module but not the contract register itself."
+            title={t("overview.emptyTitle")}
+            description={t("overview.emptyDescription")}
           />
         ) : null}
 
         {attention ? (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <AttentionPanel
-              title="Expiring soon"
+              title={t("overview.expiringSoon")}
               href="/contracts/expiring"
-              emptyLabel="Nothing ends in the next ninety days."
+              emptyLabel={t("overview.expiringEmpty")}
               rows={attention.expiring.map((row) => ({
                 id: row.id,
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
                 secondary: row.title,
-                meta: expiryLabel(row.attention.daysToExpiry),
+                meta: expiryLabel(row.attention.daysToExpiry, t),
               }))}
             />
 
             <AttentionPanel
-              title="Renewal notice due"
+              title={t("overview.renewalNoticeDue")}
               href="/contracts/expiring"
-              emptyLabel="No renewal notice is outstanding."
+              emptyLabel={t("overview.renewalEmpty")}
               rows={attention.renewalNoticeDue.map((row) => ({
                 id: row.id,
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
-                secondary: row.client?.name ?? row.counterpartyName ?? "No counterparty",
+                secondary: row.client?.name ?? row.counterpartyName ?? t("common.noCounterparty"),
                 meta: row.expiryDate ? formatDate(row.expiryDate) : "—",
               }))}
             />
 
             <AttentionPanel
-              title="Ready to activate"
+              title={t("overview.readyToActivate")}
               href="/contracts/all?status=SIGNED"
-              emptyLabel="Nothing signed is waiting for its effective date."
+              emptyLabel={t("overview.readyEmpty")}
               rows={attention.readyToActivate.map((row) => ({
                 id: row.id,
                 href: `/contracts/${row.id}`,
@@ -102,44 +107,44 @@ export default async function ContractsOverviewPage() {
             />
 
             <AttentionPanel
-              title="Sent, awaiting signature"
+              title={t("overview.awaitingSignature")}
               href="/contracts/all?status=SENT"
-              emptyLabel="Nothing is out for signature."
+              emptyLabel={t("overview.awaitingEmpty")}
               rows={attention.awaitingSignature.map((row) => ({
                 id: row.id,
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
-                secondary: row.client?.name ?? row.counterpartyName ?? "No counterparty",
-                meta: commercialLabel(row.commercial) ?? "—",
+                secondary: row.client?.name ?? row.counterpartyName ?? t("common.noCounterparty"),
+                meta: commercialLabel(row.commercial, t) ?? "—",
               }))}
             />
 
             {overview.visible.obligations ? (
               <AttentionPanel
-                title="Overdue obligations"
+                title={t("overview.overdueObligations")}
                 href="/contracts/reports"
-                emptyLabel="Every open obligation is still in date."
+                emptyLabel={t("overview.overdueEmpty")}
                 rows={attention.overdueObligations.map((row) => ({
                   id: row.id,
                   href: `/contracts/${row.contractId}/obligations`,
                   primary: row.title,
-                  secondary: row.responsible?.fullName ?? "Unassigned",
-                  meta: `${row.daysOverdue} day${row.daysOverdue === 1 ? "" : "s"} overdue`,
+                  secondary: row.responsible?.fullName ?? t("common.unassigned"),
+                  meta: t("overview.daysOverdue", { count: row.daysOverdue }),
                 }))}
               />
             ) : null}
 
             {attention.inactiveOwners.length > 0 ? (
               <AttentionPanel
-                title="Owner has left"
+                title={t("overview.ownerLeft")}
                 href="/contracts/active"
-                emptyLabel="Every live contract has an active owner."
+                emptyLabel={t("overview.ownerLeftEmpty")}
                 rows={attention.inactiveOwners.map((row) => ({
                   id: row.id,
                   href: `/contracts/${row.id}`,
                   primary: row.contractNumber,
-                  secondary: `${row.owner.fullName} is no longer active`,
-                  meta: "Reassign",
+                  secondary: t("overview.noLongerActive", { name: row.owner.fullName }),
+                  meta: t("overview.reassign"),
                 }))}
               />
             ) : null}
@@ -158,7 +163,7 @@ type AttentionRow = {
   meta: string;
 };
 
-function AttentionPanel({
+async function AttentionPanel({
   title,
   href,
   rows,
@@ -169,6 +174,7 @@ function AttentionPanel({
   rows: AttentionRow[];
   emptyLabel: string;
 }) {
+  const t = await getTranslations("contracts");
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
@@ -177,7 +183,7 @@ function AttentionPanel({
           href={href}
           className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
-          All
+          {t("common.all")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>

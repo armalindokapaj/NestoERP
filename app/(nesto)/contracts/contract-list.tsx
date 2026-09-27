@@ -22,6 +22,8 @@ import {
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import { canSeeCommercial } from "@/lib/modules/contracts/contract.dto";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -51,6 +53,7 @@ export async function ContractList({
   emptyTitle: string;
   emptyDescription: string;
 }) {
+  const t = await getTranslations("contracts");
   const query = parseContractQuery(searchParams, { view });
 
   const [result, options] = await Promise.all([
@@ -78,24 +81,24 @@ export async function ContractList({
       ? [
           {
             param: "status",
-            label: "Status",
+            label: t("list.status"),
             options: CONTRACT_STATUSES.filter((status) => status !== "ARCHIVED").map((value) => ({
               value,
-              label: contractStatusLabels[value],
+              label: contractsLabel(t, "contractStatus", value, contractStatusLabels[value]),
             })),
           },
         ]
       : []),
     {
       param: "type",
-      label: "Type",
-      options: CONTRACT_TYPES.map((value) => ({ value, label: contractTypeLabels[value] })),
+      label: t("list.type"),
+      options: CONTRACT_TYPES.map((value) => ({ value, label: contractsLabel(t, "contractType", value, contractTypeLabels[value]) })),
     },
     ...(options.clients.length > 0
       ? [
           {
             param: "clientId",
-            label: "Client",
+            label: t("list.client"),
             options: options.clients.map((client) => ({ value: client.id, label: client.name })),
           },
         ]
@@ -104,7 +107,7 @@ export async function ContractList({
       ? [
           {
             param: "projectId",
-            label: "Project",
+            label: t("list.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: `${project.code} — ${project.name}`,
@@ -116,7 +119,7 @@ export async function ContractList({
       ? [
           {
             param: "owner",
-            label: "Owner",
+            label: t("list.owner"),
             options: options.owners.map((owner) => ({
               value: owner.id,
               label: `${owner.user.firstName} ${owner.user.lastName}`,
@@ -126,14 +129,14 @@ export async function ContractList({
       : []),
     {
       param: "renewal",
-      label: "Renewal",
-      options: RENEWAL_TYPES.map((value) => ({ value, label: renewalTypeLabels[value] })),
+      label: t("list.renewal"),
+      options: RENEWAL_TYPES.map((value) => ({ value, label: contractsLabel(t, "renewalType", value, renewalTypeLabels[value]) })),
     },
     ...(commercial && options.currencies.length > 1
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("list.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -142,12 +145,12 @@ export async function ContractList({
       ? [
           {
             param: "within",
-            label: "Within",
+            label: t("list.within"),
             options: [
-              { value: "30", label: "30 days" },
-              { value: "60", label: "60 days" },
-              { value: "90", label: "90 days" },
-              { value: "180", label: "180 days" },
+              { value: "30", label: t("list.days", { count: 30 }) },
+              { value: "60", label: t("list.days", { count: 60 }) },
+              { value: "90", label: t("list.days", { count: 90 }) },
+              { value: "180", label: t("list.days", { count: 180 }) },
             ],
           },
         ]
@@ -155,14 +158,14 @@ export async function ContractList({
   ];
 
   const sortOptions = [
-    { value: "updated-desc", label: "Recently updated" },
-    { value: "created-desc", label: "Recently created" },
-    { value: "number-asc", label: "Contract number" },
-    { value: "title-asc", label: "Title A–Z" },
-    { value: "effective-desc", label: "Effective date" },
-    { value: "expiry-asc", label: "Expiry soonest" },
-    ...(commercial ? [{ value: "value-desc", label: "Value high–low" }] : []),
-    { value: "status-asc", label: "Status" },
+    { value: "updated-desc", label: t("list.sortUpdated") },
+    { value: "created-desc", label: t("list.sortCreated") },
+    { value: "number-asc", label: t("list.sortNumber") },
+    { value: "title-asc", label: t("list.sortTitle") },
+    { value: "effective-desc", label: t("list.sortEffective") },
+    { value: "expiry-asc", label: t("list.sortExpiry") },
+    ...(commercial ? [{ value: "value-desc", label: t("list.sortValue") }] : []),
+    { value: "status-asc", label: t("list.sortStatus") },
   ];
 
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
@@ -172,7 +175,7 @@ export async function ContractList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search number, title, counterparty…"
+        searchPlaceholder={t("list.searchPlaceholder")}
         filters={filters}
         sortOptions={sortOptions}
       />
@@ -181,9 +184,9 @@ export async function ContractList({
         hasFilters ? (
           <EmptyState
             icon={<Scale />}
-            title="No contracts match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchDescription")}
+            action={{ label: t("list.clearFilters"), href: basePath }}
           />
         ) : (
           <EmptyState
@@ -192,7 +195,7 @@ export async function ContractList({
             description={emptyDescription}
             action={
               can(context, "legal.contract.create")
-                ? { label: "New contract", href: "/contracts/new" }
+                ? { label: t("common.newContract"), href: "/contracts/new" }
                 : undefined
             }
           />

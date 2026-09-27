@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 import { FileStack } from "lucide-react";
@@ -11,12 +12,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
 import { amendmentStatusLabels } from "@/lib/modules/contracts/amendments/amendment.status";
 import { formatDate } from "@/lib/utils/format";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
 import { contractBreadcrumbs, contractContext } from "../contract-context";
 import { ContractTabs } from "../contract-tabs";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Contract amendments" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.amendments") };
+}
 
 /**
  * How the agreement has changed since it was signed (PRD #18 §159–§165).
@@ -31,21 +36,21 @@ export default async function ContractAmendmentsPage({ params }: Params) {
 
   if (!contract.capabilities.canViewAmendments) notFound();
 
-  const rows = await amendments.listForContract(context, contractId);
+  const [rows, t] = await Promise.all([amendments.listForContract(context, contractId), getTranslations("contracts")]);
   const mayCreate = contract.capabilities.canCreateAmendment;
   const createHref = `/contracts/${contract.id}/amendments/new`;
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={contractBreadcrumbs(contract, "Amendments")}
+        breadcrumbs={contractBreadcrumbs(contract, t("crumbs.amendments"), t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}
         actions={
           mayCreate ? (
             <Button asChild size="sm">
-              <Link href={createHref}>New amendment</Link>
+              <Link href={createHref}>{t("amendments.newAmendment")}</Link>
             </Button>
           ) : null
         }
@@ -60,9 +65,9 @@ export default async function ContractAmendmentsPage({ params }: Params) {
       {rows.length === 0 ? (
         <EmptyState
           icon={<FileStack />}
-          title="No amendments."
-          description="Changes agreed after signature are recorded here, each with its own approval."
-          action={mayCreate ? { label: "New amendment", href: createHref } : undefined}
+          title={t("amendments.emptyTitle")}
+          description={t("amendments.emptyDescription")}
+          action={mayCreate ? { label: t("amendments.newAmendment"), href: createHref } : undefined}
         />
       ) : (
         <ul className="nesto-card divide-y divide-line">
@@ -74,6 +79,7 @@ export default async function ContractAmendmentsPage({ params }: Params) {
                     contractValue: amendment.commercial.newContractValue,
                   }
                 : null,
+              t,
             );
             return (
               <li
@@ -89,16 +95,16 @@ export default async function ContractAmendmentsPage({ params }: Params) {
                   </Link>
                   <p className="text-meta text-fg-subtle">
                     {amendment.effectiveDate
-                      ? `Effective ${formatDate(amendment.effectiveDate)}`
-                      : "No effective date yet"}
-                    {value ? ` · new value ${value}` : ""}
+                      ? t("amendments.effective", { date: formatDate(amendment.effectiveDate) })
+                      : t("amendments.noEffective")}
+                    {value ? t("amendments.newValue", { value }) : ""}
                     {amendment.newExpiryDate
-                      ? ` · new expiry ${formatDate(amendment.newExpiryDate)}`
+                      ? t("amendments.newExpiry", { date: formatDate(amendment.newExpiryDate) })
                       : ""}
                   </p>
                 </div>
                 <Badge tone={amendment.status === "ACTIVE" ? "success" : "neutral"}>
-                  {amendmentStatusLabels[amendment.status]}
+                  {contractsLabel(t, "amendmentStatus", amendment.status, amendmentStatusLabels[amendment.status])}
                 </Badge>
               </li>
             );

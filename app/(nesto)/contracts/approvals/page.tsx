@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -14,7 +15,10 @@ import * as approvals from "@/lib/modules/contracts/approvals/approval.service";
 import { Pagination } from "@/components/data/pagination";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Contract approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.contractApprovals") };
+}
 
 /**
  * The approval queue (PRD #18 §185–§188).
@@ -30,6 +34,7 @@ export default async function ContractApprovalsPage({
   const context = await requireModule("contracts");
   if (!can(context, "legal.approval.view")) redirect("/access-denied");
 
+  const t = await getTranslations("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const params = await searchParams;
   const decided = params.status === "DECIDED";
@@ -51,25 +56,25 @@ export default async function ContractApprovalsPage({
       actions={
         can(context, "approvals.view") ? (
           <Button asChild variant="secondary" size="sm">
-            <Link href="/approvals?provider=legal">Open in Approvals</Link>
+            <Link href="/approvals?provider=legal">{t("approvalsPage.openInApprovals")}</Link>
           </Button>
         ) : undefined
       }
     >
       <div className="space-y-4">
-        <nav aria-label="Approval filter" className="flex gap-2">
-          <FilterLink href="/contracts/approvals" label="Pending" active={!decided} />
-          <FilterLink href="/contracts/approvals?status=DECIDED" label="Decided" active={decided} />
+        <nav aria-label={t("approvalsPage.filter")} className="flex gap-2">
+          <FilterLink href="/contracts/approvals" label={t("approvalsPage.pending")} active={!decided} />
+          <FilterLink href="/contracts/approvals?status=DECIDED" label={t("approvalsPage.decided")} active={decided} />
         </nav>
 
         {result.data.length === 0 ? (
           <EmptyState
             icon={<ShieldCheck />}
-            title={decided ? "Nothing decided yet." : "No contracts awaiting approval."}
+            title={decided ? t("approvalsPage.decidedEmpty") : t("approvalsPage.pendingEmpty")}
             description={
               decided
-                ? "Approved and rejected submissions appear here once a decision is recorded."
-                : "Contracts and amendments submitted for a decision appear here."
+                ? t("approvalsPage.decidedEmptyDescription")
+                : t("approvalsPage.pendingEmptyDescription")
             }
           />
         ) : (

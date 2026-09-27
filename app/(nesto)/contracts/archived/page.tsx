@@ -12,8 +12,12 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { ContractList } from "../contract-list";
 import { contractSectionSearch } from "@/lib/modules/contracts/contract.query";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Archived" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.archived") };
+}
 
 /** Archived contracts, read-only until restored (PRD #18 §93, §499). */
 export default async function Page({
@@ -24,6 +28,7 @@ export default async function Page({
   const context = await requireModule("contracts");
   if (!can(context, "legal.contract.view")) redirect("/access-denied");
 
+  const t = await getTranslations("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const params = await searchParams;
   // The export carries this section's own view, not just the filters (AUD-08 §3, DT-02).
@@ -38,7 +43,7 @@ export default async function Page({
           {can(context, "legal.export") ? <ContractExportLink search={search} /> : null}
           {can(context, "legal.contract.create") ? (
             <Button asChild size="sm">
-              <Link href="/contracts/new">New contract</Link>
+              <Link href="/contracts/new">{t("common.newContract")}</Link>
             </Button>
           ) : null}
         </div>
@@ -50,8 +55,8 @@ export default async function Page({
           searchParams={params}
           view="archived"
           basePath="/contracts/archived"
-          emptyTitle="Nothing is archived."
-          emptyDescription="Finished contracts that were put away appear here. Restoring one returns the status it held."
+          emptyTitle={t("views.archived.title")}
+          emptyDescription={t("views.archived.description")}
         />
       </Suspense>
     </ModulePage>

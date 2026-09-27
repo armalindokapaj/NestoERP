@@ -42,6 +42,7 @@ import {
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
+import { useContractsTranslations } from "./contracts-text";
 
 /**
  * Actions on a contract (PRD #18 §108–§135, §359, §362).
@@ -61,6 +62,7 @@ export function ContractActions({
   /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -93,7 +95,7 @@ export function ContractActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/contracts/${contract.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -102,27 +104,27 @@ export function ContractActions({
         <AssignMemberControl
           endpoint="/api/contracts/assignable"
           currentMemberId={contract.owner?.memberId ?? null}
-          triggerLabel="Change owner"
-          title="Assign this contract"
-          description="The owner answers for its obligations and renewal dates."
+          triggerLabel={t("actions.changeOwner")}
+          title={t("actions.assignTitle")}
+          description={t("actions.assignDescription")}
           onAssign={async (memberId) => {
             const result = await assignContractOwnerAction(contract.id, memberId);
-            return { ok: result.ok, message: result.ok ? "Owner changed." : result.error };
+            return { ok: result.ok, message: result.ok ? t("actions.ownerChanged") : result.error };
           }}
         />
       ) : null}
 
       {may.canSubmitReview ? (
-        <Button size="sm" disabled={pending} onClick={() => run("submit-review", "Contract sent for review.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("submit-review", t("actions.sentForReview"))}>
           <Send aria-hidden="true" />
-          Submit for review
+          {t("actions.submitReview")}
         </Button>
       ) : null}
 
       {may.canReturnToDraft ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("return")}>
           <Undo2 aria-hidden="true" />
-          Return to draft
+          {t("common.returnToDraft")}
         </Button>
       ) : null}
 
@@ -130,38 +132,38 @@ export function ContractActions({
         <Button
           size="sm"
           disabled={pending}
-          onClick={() => run("submit-approval", "Contract submitted for approval.")}
+          onClick={() => run("submit-approval", t("actions.submittedForApproval"))}
         >
           <ShieldCheck aria-hidden="true" />
-          Submit for approval
+          {t("common.submitForApproval")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
-        <Button size="sm" disabled={pending} onClick={() => run("approve", "Contract approved.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("approve", t("actions.approved"))}>
           <CheckCircle2 aria-hidden="true" />
-          Approve
+          {t("common.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("reject")}>
           <XCircle aria-hidden="true" />
-          Reject
+          {t("common.reject")}
         </Button>
       ) : null}
 
       {may.canMarkSent ? (
-        <Button size="sm" disabled={pending} onClick={() => run("mark-sent", "Contract marked as sent.")}>
+        <Button size="sm" disabled={pending} onClick={() => run("mark-sent", t("actions.markedSent"))}>
           <Send aria-hidden="true" />
-          Mark sent
+          {t("common.markSent")}
         </Button>
       ) : null}
 
       {may.canMarkSigned ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("signed")}>
           <FileSignature aria-hidden="true" />
-          Mark signed
+          {t("common.markSigned")}
         </Button>
       ) : null}
 
@@ -171,38 +173,38 @@ export function ContractActions({
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
-              handle(await activateContractAction(contract.id), "Contract activated.");
+              handle(await activateContractAction(contract.id), t("actions.activated"));
             })
           }
         >
           <Play aria-hidden="true" />
-          Activate
+          {t("common.activate")}
         </Button>
       ) : null}
 
       {may.canExpire ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("expire")}>
-          Record as expired
+          {t("actions.recordExpired")}
         </Button>
       ) : null}
 
       {may.canTerminate ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("terminate")}>
           <XCircle aria-hidden="true" />
-          Terminate
+          {t("actions.terminate")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("archive")}>
           <Archive aria-hidden="true" />
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -211,10 +213,10 @@ export function ContractActions({
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => run("restore", "Contract restored.")}
+          onClick={() => run("restore", t("actions.restored"))}
         >
           <RotateCcw aria-hidden="true" />
-          Restore
+          {t("actions.restore")}
         </Button>
       ) : null}
 
@@ -230,19 +232,19 @@ export function ContractActions({
         open={dialog === "terminate"}
         onOpenChange={(open) => setDialog(open ? "terminate" : "none")}
         contract={contract}
-        onDone={() => handle({ ok: true }, "Contract terminated.")}
+        onDone={() => handle({ ok: true }, t("actions.terminated"))}
         onError={(message) => toast({ title: message, tone: "danger" })}
       />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : "none")}
-        title={`Reject ${contract.contractNumber}?`}
-        description="The contract returns to review with your reason attached, so whoever drafted it knows what to change."
-        placeholder="What needs to change before this can be approved?"
+        title={t("common.rejectNumber", { number: contract.contractNumber })}
+        description={t("actions.rejectDescription")}
+        placeholder={t("actions.rejectPlaceholder")}
         onReject={async (reason) => {
           const result = await rejectContractAction(contract.id, reason, cycle);
-          handle(result, "Contract rejected.");
+          handle(result, t("actions.rejected"));
           return result.ok;
         }}
       />
@@ -250,16 +252,16 @@ export function ContractActions({
       <RejectDialog
         open={dialog === "return"}
         onOpenChange={(open) => setDialog(open ? "return" : "none")}
-        title={`Return ${contract.contractNumber} to draft?`}
-        description="The contract goes back to whoever is drafting it. A note is optional but helps."
-        label="Note"
-        placeholder="What still needs work?"
-        confirmLabel="Return to draft"
-        pendingLabel="Returning…"
-        emptyMessage="Say what needs changing, or leave the note out entirely."
+        title={t("actions.returnTitle", { number: contract.contractNumber })}
+        description={t("actions.returnDescription")}
+        label={t("common.note")}
+        placeholder={t("actions.returnPlaceholder")}
+        confirmLabel={t("common.returnToDraft")}
+        pendingLabel={t("actions.returning")}
+        emptyMessage={t("actions.returnEmpty")}
         onReject={async (note) => {
           const result = await returnToDraftAction(contract.id, note);
-          handle(result, "Contract returned to draft.");
+          handle(result, t("actions.returned"));
           return result.ok;
         }}
       />
@@ -267,16 +269,16 @@ export function ContractActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : "none")}
-        title={`Cancel ${contract.contractNumber}?`}
-        description="The contract stops before signature. Its history is kept."
-        label="Reason"
-        placeholder="Why is this contract not going ahead?"
-        confirmLabel="Cancel contract"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it was cancelled, so the record explains itself."
+        title={t("common.cancelNumber", { number: contract.contractNumber })}
+        description={t("actions.cancelDescription")}
+        label={t("common.reason")}
+        placeholder={t("actions.cancelPlaceholder")}
+        confirmLabel={t("actions.cancelContract")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("common.sayWhyCancelled")}
         onReject={async (note) => {
           const result = await cancelContractAction(contract.id, note);
-          handle(result, "Contract cancelled.");
+          handle(result, t("actions.cancelled"));
           return result.ok;
         }}
       />
@@ -284,23 +286,23 @@ export function ContractActions({
       <ConfirmDialog
         open={dialog === "expire"}
         onOpenChange={(open) => setDialog(open ? "expire" : "none")}
-        title="Record this contract as expired?"
-        description="Reporting has treated it as expired since the day it ended. This makes the stored status agree."
-        confirmLabel="Record as expired"
+        title={t("actions.expireTitle")}
+        description={t("actions.expireDescription")}
+        confirmLabel={t("actions.recordExpired")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("expire", "Contract recorded as expired.")}
+        onConfirm={() => run("expire", t("actions.expired"))}
       />
 
       <ConfirmDialog
         open={dialog === "archive"}
         onOpenChange={(open) => setDialog(open ? "archive" : "none")}
-        title="Archive this contract?"
-        description="It leaves the working lists. Documents, obligations and amendments are all kept, and restoring it returns the status it holds now."
-        confirmLabel="Archive contract"
+        title={t("actions.archiveTitle")}
+        description={t("actions.archiveDescription")}
+        confirmLabel={t("actions.archiveContract")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("archive", "Contract archived.")}
+        onConfirm={() => run("archive", t("actions.archived"))}
       />
     </>
   );
@@ -326,6 +328,7 @@ function MarkSignedDialog({
   onDone: (message: string) => void;
   onError: (message: string) => void;
 }) {
+  const t = useContractsTranslations();
   const [signedDate, setSignedDate] = React.useState(() => localToday());
   const [missingDocument, setMissingDocument] = React.useState(false);
   const [unresolved, setUnresolved] = React.useState(false);
@@ -362,7 +365,7 @@ function MarkSignedDialog({
 
       if (result.ok) {
         onOpenChange(false);
-        onDone("Contract recorded as signed.");
+        onDone(t("actions.signed"));
         return;
       }
 
@@ -378,15 +381,13 @@ function MarkSignedDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogEditor label={`Signature of ${contract.contractNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Record as signed" />
-        <DialogTitle>Record {contract.contractNumber} as signed</DialogTitle>
-        <DialogDescription>
-          The date the last party signed. It may be after the effective date.
-        </DialogDescription>
+        <DialogEditor label={t("common.signatureOf", { number: contract.contractNumber })} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow={t("common.recordAsSigned")} />
+        <DialogTitle>{t("common.recordNumberAsSigned", { number: contract.contractNumber })}</DialogTitle>
+        <DialogDescription>{t("actions.signedDescription")}</DialogDescription>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="signedDate">Signed date</Label>
+            <Label htmlFor="signedDate">{t("common.signedDate")}</Label>
             <Input
               id="signedDate"
               type="date"
@@ -398,19 +399,18 @@ function MarkSignedDialog({
 
           {missingDocument ? (
             <p className="rounded-md border border-warning bg-warning-soft px-3 py-2 text-table text-warning-strong">
-              No signed contract document is attached. Continue to record the signature anyway — you
-              can add the executed copy later.
+              {t("actions.missingDocument")}
             </p>
           ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DialogClose asChild>
               <Button type="button" variant="secondary" disabled={pending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : missingDocument ? "Record anyway" : "Record as signed"}
+              {pending ? t("common.saving") : missingDocument ? t("actions.recordAnyway") : t("common.recordAsSigned")}
             </Button>
           </div>
         </form>
@@ -439,6 +439,7 @@ function TerminateDialog({
   onDone: () => void;
   onError: (message: string) => void;
 }) {
+  const t = useContractsTranslations();
   const [terminationDate, setTerminationDate] = React.useState(() =>
     localToday(),
   );
@@ -462,7 +463,7 @@ function TerminateDialog({
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (reason.trim().length < 2) {
-      setError("Say why the agreement was ended. It becomes part of the record.");
+      setError(t("actions.terminationRequired"));
       return;
     }
 
@@ -494,16 +495,13 @@ function TerminateDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogEditor label={`Termination of ${contract.contractNumber}`} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow="Terminate" />
-        <DialogTitle>Terminate {contract.contractNumber}?</DialogTitle>
-        <DialogDescription>
-          {contract.title} ends on the date below. Its documents, obligations and amendments are all
-          kept; open obligations stay open until somebody closes them.
-        </DialogDescription>
+        <DialogEditor label={t("actions.terminationOf", { number: contract.contractNumber })} module="contracts" dirty={changed} saving={pending} unresolved={unresolved} workflow={t("actions.terminate")} />
+        <DialogTitle>{t("actions.terminateTitle", { number: contract.contractNumber })}</DialogTitle>
+        <DialogDescription>{t("actions.terminateDescription", { title: contract.title })}</DialogDescription>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="terminationDate">Termination date</Label>
+            <Label htmlFor="terminationDate">{t("actions.terminationDate")}</Label>
             <Input
               id="terminationDate"
               type="date"
@@ -514,14 +512,14 @@ function TerminateDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="terminationReason">Reason</Label>
+            <Label htmlFor="terminationReason">{t("common.reason")}</Label>
             <Textarea
               id="terminationReason"
               rows={4}
               maxLength={2000}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Which clause was relied on, and why."
+              placeholder={t("actions.terminationPlaceholder")}
             />
             {error ? <p className="text-meta text-danger-strong">{error}</p> : null}
           </div>
@@ -529,11 +527,11 @@ function TerminateDialog({
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DialogClose asChild>
               <Button type="button" variant="secondary" disabled={pending}>
-                Keep the contract
+                {t("actions.keep")}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Terminating…" : "Terminate contract"}
+              {pending ? t("actions.terminating") : t("actions.terminateContract")}
             </Button>
           </div>
         </form>

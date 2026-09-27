@@ -26,6 +26,7 @@ import {
   partyRoleLabels,
   partyTypeLabels,
 } from "@/lib/modules/contracts/parties/party.schema";
+import { contractsLabel, useContractsTranslations } from "./contracts-text";
 
 /**
  * The parties to an agreement (PRD #18 §136–§147).
@@ -47,6 +48,7 @@ export function ContractPartyList({
   canRemove: boolean;
   clients: { value: string; label: string }[];
 }) {
+  const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [editing, setEditing] = React.useState<ContractPartyDTO | null>(null);
@@ -59,7 +61,7 @@ export function ContractPartyList({
       const result = await removeContractPartyAction(contractId, party.id);
       setRemoving(null);
       if (result.ok) {
-        toast({ title: `${party.name} removed.`, tone: "success" });
+        toast({ title: t("parties.removed", { name: party.name }), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -73,7 +75,7 @@ export function ContractPartyList({
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setAdding(true)}>
             <Plus aria-hidden="true" />
-            Add party
+            {t("parties.add")}
           </Button>
         </div>
       ) : null}
@@ -81,8 +83,8 @@ export function ContractPartyList({
       {parties.length === 0 ? (
         <EmptyState
           icon={<Users />}
-          title="No parties recorded."
-          description="The legal entities to this agreement — ours, the counterparty, and any guarantor."
+          title={t("parties.emptyTitle")}
+          description={t("parties.emptyDescription")}
         />
       ) : (
         <ul className="grid gap-4 lg:grid-cols-2">
@@ -96,36 +98,36 @@ export function ContractPartyList({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                  <Badge tone="neutral">{partyRoleLabels[party.role]}</Badge>
+                  <Badge tone="neutral">{contractsLabel(t, "partyRole", party.role, partyRoleLabels[party.role])}</Badge>
                   {party.isPrimaryCounterparty ? (
-                    <Badge tone="info">Primary counterparty</Badge>
+                    <Badge tone="info">{t("parties.primary")}</Badge>
                   ) : null}
                 </div>
               </div>
 
               <dl className="grid gap-x-4 gap-y-1 text-meta sm:grid-cols-2">
-                <Row label="Type" value={partyTypeLabels[party.type]} />
-                <Row label="Registration" value={party.registrationNumber} />
-                <Row label="Tax ID" value={party.taxId} />
+                <Row label={t("parties.type")} value={contractsLabel(t, "partyType", party.type, partyTypeLabels[party.type])} />
+                <Row label={t("parties.registration")} value={party.registrationNumber} />
+                <Row label={t("parties.taxId")} value={party.taxId} />
                 <Row
-                  label="Address"
+                  label={t("parties.address")}
                   value={[party.address, party.city, party.country].filter(Boolean).join(", ")}
                 />
-                <Row label="Signatory" value={party.signatoryName} />
-                <Row label="Title" value={party.signatoryTitle} />
+                <Row label={t("parties.signatory")} value={party.signatoryName} />
+                <Row label={t("parties.title")} value={party.signatoryTitle} />
               </dl>
 
               {canManage || canRemove ? (
                 <div className="flex flex-wrap justify-end gap-2">
                   {canManage ? (
                     <Button variant="secondary" size="sm" onClick={() => setEditing(party)}>
-                      Edit
+                      {t("common.edit")}
                     </Button>
                   ) : null}
                   {canRemove ? (
                     <Button variant="ghost" size="sm" onClick={() => setRemoving(party)}>
                       <Trash2 aria-hidden="true" />
-                      Remove
+                      {t("parties.remove")}
                     </Button>
                   ) : null}
                 </div>
@@ -156,9 +158,9 @@ export function ContractPartyList({
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => (open ? undefined : setRemoving(null))}
-        title={`Remove ${removing?.name ?? "this party"}?`}
-        description="Only a draft contract allows this. Once anybody has reviewed it, the list of parties is part of what they agreed to."
-        confirmLabel="Remove party"
+        title={t("parties.removeTitle", { name: removing?.name ?? t("parties.thisParty") })}
+        description={t("parties.removeDescription")}
+        confirmLabel={t("parties.removeParty")}
         destructive
         pending={pending}
         onConfirm={() => removing && remove(removing)}
@@ -197,14 +199,12 @@ function PartyDialog({
   clients: { value: string; label: string }[];
   onSaved: () => void;
 }) {
+  const t = useContractsTranslations();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>{party ? `Edit ${party.name}` : "Add a party"}</DialogTitle>
-        <DialogDescription>
-          These details are a snapshot of what the agreement says. They stay as they are even if the
-          client record is renamed later.
-        </DialogDescription>
+        <DialogTitle>{party ? t("parties.editTitle", { name: party.name }) : t("parties.addTitle")}</DialogTitle>
+        <DialogDescription>{t("parties.dialogDescription")}</DialogDescription>
         <PartyForm contractId={contractId} party={party} clients={clients} onSaved={onSaved} />
       </DialogContent>
     </Dialog>
@@ -222,6 +222,7 @@ function PartyForm({
   clients: { value: string; label: string }[];
   onSaved: () => void;
 }) {
+  const t = useContractsTranslations();
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({
@@ -229,9 +230,9 @@ function PartyForm({
     action: (formData: FormData) => saveContractPartyAction(contractId, party?.id ?? null, formData),
     module: "contracts",
     saveKind: party ? "save" : "create",
-    label: party ? party.name : "New party",
+    label: party ? party.name : t("parties.newParty"),
     onCommitted: () => {
-      toast({ title: party ? "Party updated." : "Party added.", tone: "success" });
+      toast({ title: party ? t("parties.updated") : t("parties.added"), tone: "success" });
       onSaved();
       return true;
     },
@@ -243,7 +244,7 @@ function PartyForm({
       <SaveMessages save={save} />
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-3 sm:grid-cols-2">
-          <DialogField label="Role" name="partyRole" errors={errors}>
+          <DialogField label={t("parties.role")} name="partyRole" errors={errors}>
             <select
               id="partyRole"
               name="partyRole"
@@ -252,13 +253,13 @@ function PartyForm({
             >
               {PARTY_ROLES.map((role) => (
                 <option key={role} value={role}>
-                  {partyRoleLabels[role]}
+                  {contractsLabel(t, "partyRole", role, partyRoleLabels[role])}
                 </option>
               ))}
             </select>
           </DialogField>
 
-          <DialogField label="Party type" name="partyType" errors={errors}>
+          <DialogField label={t("parties.partyType")} name="partyType" errors={errors}>
             <select
               id="partyType"
               name="partyType"
@@ -267,17 +268,17 @@ function PartyForm({
             >
               {PARTY_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {partyTypeLabels[type]}
+                  {contractsLabel(t, "partyType", type, partyTypeLabels[type])}
                 </option>
               ))}
             </select>
           </DialogField>
 
-          <DialogField label="Name" name="name" errors={errors}>
+          <DialogField label={t("parties.name")} name="name" errors={errors}>
             <Input id="name" name="name" defaultValue={party?.name ?? ""} required maxLength={250} />
           </DialogField>
 
-          <DialogField label="Legal name" name="legalName" errors={errors}>
+          <DialogField label={t("parties.legalName")} name="legalName" errors={errors}>
             <Input
               id="legalName"
               name="legalName"
@@ -286,7 +287,7 @@ function PartyForm({
             />
           </DialogField>
 
-          <DialogField label="Registration number" name="registrationNumber" errors={errors}>
+          <DialogField label={t("parties.registrationNumber")} name="registrationNumber" errors={errors}>
             <Input
               id="registrationNumber"
               name="registrationNumber"
@@ -295,18 +296,18 @@ function PartyForm({
             />
           </DialogField>
 
-          <DialogField label="Tax ID" name="taxId" errors={errors}>
+          <DialogField label={t("parties.taxId")} name="taxId" errors={errors}>
             <Input id="taxId" name="taxId" defaultValue={party?.taxId ?? ""} maxLength={80} />
           </DialogField>
 
-          <DialogField label="Linked client" name="clientId" errors={errors}>
+          <DialogField label={t("parties.linkedClient")} name="clientId" errors={errors}>
             <select
               id="clientId"
               name="clientId"
               className={selectClass}
               defaultValue={party?.clientId ?? ""}
             >
-              <option value="">Not linked</option>
+              <option value="">{t("parties.notLinked")}</option>
               {clients.map((client) => (
                 <option key={client.value} value={client.value}>
                   {client.label}
@@ -315,19 +316,19 @@ function PartyForm({
             </select>
           </DialogField>
 
-          <DialogField label="City" name="city" errors={errors}>
+          <DialogField label={t("parties.city")} name="city" errors={errors}>
             <Input id="city" name="city" defaultValue={party?.city ?? ""} maxLength={120} />
           </DialogField>
 
-          <DialogField label="Address" name="address" errors={errors} className="sm:col-span-2">
+          <DialogField label={t("parties.address")} name="address" errors={errors} className="sm:col-span-2">
             <Input id="address" name="address" defaultValue={party?.address ?? ""} maxLength={500} />
           </DialogField>
 
-          <DialogField label="Country" name="country" errors={errors}>
+          <DialogField label={t("parties.country")} name="country" errors={errors}>
             <Input id="country" name="country" defaultValue={party?.country ?? ""} maxLength={120} />
           </DialogField>
 
-          <DialogField label="Signatory" name="signatoryName" errors={errors}>
+          <DialogField label={t("parties.signatory")} name="signatoryName" errors={errors}>
             <Input
               id="signatoryName"
               name="signatoryName"
@@ -336,7 +337,7 @@ function PartyForm({
             />
           </DialogField>
 
-          <DialogField label="Signatory title" name="signatoryTitle" errors={errors}>
+          <DialogField label={t("parties.signatoryTitle")} name="signatoryTitle" errors={errors}>
             <Input
               id="signatoryTitle"
               name="signatoryTitle"
@@ -353,7 +354,7 @@ function PartyForm({
             defaultChecked={party?.isPrimaryCounterparty ?? false}
             className="size-4 rounded border-line"
           />
-          Primary counterparty — at most one per contract
+          {t("parties.primaryCheckbox")}
         </label>
 
       </fieldset>
@@ -362,11 +363,11 @@ function PartyForm({
         <UnsavedIndicator save={save} />
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : party ? "Save party" : "Add party"}
+          {pending ? t("common.saving") : party ? t("parties.save") : t("parties.add")}
         </Button>
       </div>
     </form>

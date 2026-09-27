@@ -12,8 +12,12 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { ContractList } from "../contract-list";
 import { contractSectionSearch } from "@/lib/modules/contracts/contract.query";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Expiring" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.expiring") };
+}
 
 /** Active contracts ending soon, derived from today (PRD #18 §90). */
 export default async function Page({
@@ -24,6 +28,7 @@ export default async function Page({
   const context = await requireModule("contracts");
   if (!can(context, "legal.contract.view")) redirect("/access-denied");
 
+  const t = await getTranslations("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const params = await searchParams;
   // The export carries this section's own view, not just the filters (AUD-08 §3, DT-02).
@@ -38,7 +43,7 @@ export default async function Page({
           {can(context, "legal.export") ? <ContractExportLink search={search} /> : null}
           {can(context, "legal.contract.create") ? (
             <Button asChild size="sm">
-              <Link href="/contracts/new">New contract</Link>
+              <Link href="/contracts/new">{t("common.newContract")}</Link>
             </Button>
           ) : null}
         </div>
@@ -50,8 +55,8 @@ export default async function Page({
           searchParams={params}
           view="expiring"
           basePath="/contracts/expiring"
-          emptyTitle="Nothing is expiring."
-          emptyDescription="Active contracts ending inside the chosen horizon appear here."
+          emptyTitle={t("views.expiring.title")}
+          emptyDescription={t("views.expiring.description")}
         />
       </Suspense>
     </ModulePage>
