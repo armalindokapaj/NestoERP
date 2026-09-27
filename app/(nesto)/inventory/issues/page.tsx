@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Issues" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.issues") };
+}
 
 /** Issues: Material leaving stock for a project or for general use. */
 export default async function IssuesPage({
@@ -22,6 +26,7 @@ export default async function IssuesPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.issue.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -32,7 +37,7 @@ export default async function IssuesPage({
       actions={
         can(context, "inventory.issue.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/issues/new">New issue</Link>
+            <Link href="/inventory/issues/new">{t("meta.newIssue")}</Link>
           </Button>
         ) : null
       }

@@ -1,4 +1,3 @@
-import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 
@@ -27,6 +26,8 @@ import {
   TransferTable,
 } from "./document-tables";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "./inventory-labels";
 
 /**
  * The five stock-document lists, from one place (PRD #20 §323–§325).
@@ -39,33 +40,6 @@ import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
 export type DocumentKind = "receipts" | "issues" | "returns" | "transfers" | "adjustments";
 
-const EMPTY_COPY: Record<DocumentKind, { title: string; description: string }> = {
-  receipts: {
-    title: "No receipts yet.",
-    description:
-      "A receipt records material arriving into stock, whether from a Procurement delivery or straight off a lorry.",
-  },
-  issues: {
-    title: "No issues yet.",
-    description:
-      "An issue records material leaving stock for a project or for general use.",
-  },
-  returns: {
-    title: "No returns yet.",
-    description: "A return records unused material coming back from a project into stock.",
-  },
-  transfers: {
-    title: "No transfers yet.",
-    description:
-      "A transfer moves material between locations. The company holds the same total either way.",
-  },
-  adjustments: {
-    title: "No adjustments yet.",
-    description:
-      "An adjustment corrects what the company believes it holds — a count, a breakage, an opening balance.",
-  },
-};
-
 const CREATE_PERMISSION = {
   receipts: "inventory.receipt.create",
   issues: "inventory.issue.create",
@@ -73,14 +47,6 @@ const CREATE_PERMISSION = {
   transfers: "inventory.transfer.create",
   adjustments: "inventory.adjustment.create",
 } as const;
-
-const CREATE_LABEL: Record<DocumentKind, string> = {
-  receipts: "New receipt",
-  issues: "New issue",
-  returns: "New return",
-  transfers: "New transfer",
-  adjustments: "New adjustment",
-};
 
 export async function DocumentListSection({
   context,
@@ -91,6 +57,7 @@ export async function DocumentListSection({
   kind: DocumentKind;
   searchParams: Record<string, string | string[] | undefined>;
 }) {
+  const t = await getTranslations("inventory");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -126,20 +93,20 @@ export async function DocumentListSection({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
+      label: t("columns.status"),
       options: TRANSACTION_STATUSES.map((value) => ({
         value,
-        label: transactionStatusLabels[value],
+        label: inventoryLabel(t, "transactionStatus", value, transactionStatusLabels[value]),
       })),
     },
     ...(kind === "adjustments"
       ? [
           {
             param: "reason",
-            label: "Reason",
+            label: t("fields.reason"),
             options: ADJUSTMENT_REASONS.map((value) => ({
               value,
-              label: adjustmentReasonLabels[value],
+              label: inventoryLabel(t, "adjustmentReason", value, adjustmentReasonLabels[value]),
             })),
           },
         ]
@@ -151,36 +118,35 @@ export async function DocumentListSection({
   const buildHref = (page: number) => pageHref(`/inventory/${kind}`, searchParams, page);
 
   const mayCreate = can(context, CREATE_PERMISSION[kind]);
-  const copy = EMPTY_COPY[kind];
 
   if (result.data.length === 0) {
     return (
       <div className="space-y-4">
         <ListToolbar
-          searchPlaceholder="Search by number or note…"
+          searchPlaceholder={t("documentList.search")}
           filters={filters}
           sortOptions={[
-            { value: "date-desc", label: "Newest first" },
-            { value: "date-asc", label: "Oldest first" },
-            { value: "number-asc", label: "By number" },
-            { value: "updated-desc", label: "Recently updated" },
+            { value: "date-desc", label: t("sort.newest") },
+            { value: "date-asc", label: t("sort.oldest") },
+            { value: "number-asc", label: t("sort.byNumber") },
+            { value: "updated-desc", label: t("sort.recentlyUpdated") },
           ]}
         />
         {hasFilters ? (
           <EmptyState
             icon={<ClipboardList />}
-            title="Nothing matches these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: `/inventory/${kind}` }}
+            title={t("empty.noMatchTitle")}
+            description={t("empty.noMatchDescription")}
+            action={{ label: t("empty.clearFilters"), href: `/inventory/${kind}` }}
           />
         ) : (
           <EmptyState
             icon={<ClipboardList />}
-            title={copy.title}
-            description={copy.description}
+            title={t(`documentList.empty.${kind}.title`)}
+            description={t(`documentList.empty.${kind}.description`)}
             action={
               mayCreate
-                ? { label: CREATE_LABEL[kind], href: `/inventory/${kind}/new` }
+                ? { label: t(`documentList.create.${kind}`), href: `/inventory/${kind}/new` }
                 : undefined
             }
           />
@@ -192,13 +158,13 @@ export async function DocumentListSection({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search by number or note…"
+        searchPlaceholder={t("documentList.search")}
         filters={filters}
         sortOptions={[
-          { value: "date-desc", label: "Newest first" },
-          { value: "date-asc", label: "Oldest first" },
-          { value: "number-asc", label: "By number" },
-          { value: "updated-desc", label: "Recently updated" },
+          { value: "date-desc", label: t("sort.newest") },
+          { value: "date-asc", label: t("sort.oldest") },
+          { value: "number-asc", label: t("sort.byNumber") },
+          { value: "updated-desc", label: t("sort.recentlyUpdated") },
         ]}
       />
 
@@ -225,16 +191,5 @@ export async function DocumentListSection({
   );
 }
 
-/** The "new" button for a document list header, when the reader may create one. */
-export function DocumentCreateLink({
-  context,
-  kind,
-}: {
-  context: UserContext;
-  kind: DocumentKind;
-}) {
-  if (!can(context, CREATE_PERMISSION[kind])) return null;
-  return <Link href={`/inventory/${kind}/new`}>{CREATE_LABEL[kind]}</Link>;
-}
 
-export { CREATE_PERMISSION, CREATE_LABEL };
+export { CREATE_PERMISSION };

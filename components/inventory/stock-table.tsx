@@ -3,6 +3,7 @@ import Link from "@/components/navigation/nav-link";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import type { StockRowDTO } from "@/lib/modules/inventory/inventory.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatQuantity } from "./inventory-format";
 import { StockLevelBadge } from "./stock-level-badge";
 
@@ -12,10 +13,10 @@ import { StockLevelBadge } from "./stock-level-badge";
  * One row per item per location, because "we have 40 tonnes somewhere" is not
  * an answer anybody can act on.
  */
-export function StockTable({
+export async function StockTable({
   rows,
   show = "all",
-  caption = "Stock on hand",
+  caption,
   listId = "inventory.stock",
   sort,
 }: {
@@ -28,6 +29,7 @@ export function StockTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<StockRowDTO>[] = [];
 
   if (show !== "by-location") {
@@ -35,7 +37,7 @@ export function StockTable({
       key: "item",
       id: "item",
       mandatory: true,
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -55,7 +57,7 @@ export function StockTable({
     columns.push({
       key: "warehouse",
       id: "warehouse",
-      label: "Warehouse",
+      label: t("columns.warehouse"),
       primary: show === "by-location",
       render: (row) => (
         <span className="flex flex-col">
@@ -75,7 +77,7 @@ export function StockTable({
     {
       key: "location",
       id: "location",
-      label: "Location",
+      label: t("columns.location"),
       hideBelow: "md",
       render: (row) => (
         <span>
@@ -90,7 +92,7 @@ export function StockTable({
       key: "onHand",
       id: "onHand",
       valueType: "number",
-      label: "On hand",
+      label: t("columns.onHand"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -102,7 +104,7 @@ export function StockTable({
       key: "reserved",
       id: "reserved",
       valueType: "number",
-      label: "Reserved",
+      label: t("columns.reserved"),
       align: "right",
       hideBelow: "lg",
       render: (row) => (
@@ -115,7 +117,7 @@ export function StockTable({
       mandatory: true,
       valueType: "number",
       sortKey: sort ? "available" : undefined,
-      label: "Available",
+      label: t("columns.available"),
       align: "right",
       render: (row) => <span className="tabular-nums">{formatQuantity(row.available)}</span>,
     },
@@ -123,7 +125,7 @@ export function StockTable({
       key: "level",
       id: "level",
       valueType: "status",
-      label: "Level",
+      label: t("columns.level"),
       hideBelow: "lg",
       render: (row) => <StockLevelBadge level={row.level} />,
     },
@@ -136,7 +138,7 @@ export function StockTable({
       columns={columns}
       records={rows}
       rowKey={(row) => `${row.item.id}:${row.location.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.stock")}
     />
   );
 }

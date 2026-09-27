@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ReservationForm } from "@/components/inventory/reservation-form";
@@ -10,7 +11,10 @@ import {
   heldBalances,
 } from "@/lib/modules/inventory/inventory.options";
 
-export const metadata: Metadata = { title: "New reservation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.newReservation") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -21,6 +25,7 @@ export default async function NewReservationPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
   if (!can(context, "inventory.reservation.create")) notFound();
 
   const params = await searchParams;
@@ -36,17 +41,16 @@ export default async function NewReservationPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Reservations", href: "/inventory/reservations" },
-          { label: "New reservation" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.reservations"), href: "/inventory/reservations" },
+          { label: t("meta.newReservation") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New reservation</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newReservation")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Holds quantity back from available. On-hand stock does not change — the material stays
-          in the rack, it is just already spoken for.
+          {t("newPage.reservations")}
         </p>
       </div>
 

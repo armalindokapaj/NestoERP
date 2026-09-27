@@ -16,6 +16,7 @@ import { isPositiveDecimal, isZeroDecimal, previewDecimal, sumDecimal } from "@/
 import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import { formatQuantity } from "./inventory-format";
+import { useInventoryTranslations } from "./inventory-text";
 
 /**
  * The line editor every stock document shares (PRD #20 §313, §315, §317).
@@ -71,8 +72,6 @@ function resultingOnHand(onHand: string | undefined, delta: string): string | nu
   return sumDecimal([onHand, change], 4);
 }
 
-const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero");
-const nonZeroDelta = (value: string) => (isZeroDecimal(value) ? "An adjustment of zero changes nothing" : null);
 
 export function StockLinesEditor({
   variant = "simple",
@@ -94,6 +93,9 @@ export function StockLinesEditor({
   fromWarehouseId?: string;
   toWarehouseId?: string;
 }) {
+  const t = useInventoryTranslations();
+  const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : t("lines.quantityPositive"));
+  const nonZeroDelta = (value: string) => (isZeroDecimal(value) ? t("lines.deltaNonZero") : null);
   const instance = React.useId();
   const empty = React.useCallback((): StockLineValue => ({ ...EMPTY }), []);
   const { rows, add, remove, update, atLimit, removed, undo, dismissRemoved } = useLineRows(initial ?? [], empty, { max: MAX_LINE_ITEMS });
@@ -150,7 +152,7 @@ export function StockLinesEditor({
         update(row.rowId, patch);
       }
     }
-    setCleared(count > 0 ? `Location cleared on ${count === 1 ? "one line" : `${count} lines`}: it is not in the warehouse now chosen.` : null);
+    setCleared(count > 0 ? t("lines.locationCleared", { count }) : null);
     // Only a change of warehouse runs this; typing in a line does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopes]);
@@ -159,7 +161,7 @@ export function StockLinesEditor({
 
   return (
     <div className="space-y-3" aria-describedby={errors.list ? listErrorId : undefined}>
-      <p className="text-meta text-fg-subtle">Quantities take up to 4 decimals, e.g. 2.5 or 2,5.</p>
+      <p className="text-meta text-fg-subtle">{t("lines.decimalsHint")}</p>
       <CellError id={listErrorId} message={errors.list} />
       {cleared ? (
         <p role="status" className="text-meta text-warning-strong">
@@ -180,13 +182,13 @@ export function StockLinesEditor({
           return (
             <div key={line.rowId} className="nesto-card space-y-3 p-4" data-line-row={line.rowId}>
               <div className="flex items-start justify-between gap-3">
-                <p className="nesto-eyebrow text-fg-subtle">Line {index + 1}</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("lines.line", { number: index + 1 })}</p>
                 {rows.length > 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove line ${index + 1}${item ? `: ${item.label}` : ""}`}
+                    aria-label={`${t("lines.removeLine", { number: index + 1 })}${item ? `: ${item.label}` : ""}`}
                     onClick={() => remove(line.rowId)}
                   >
                     <Trash2 aria-hidden="true" />
@@ -197,7 +199,7 @@ export function StockLinesEditor({
               {line.id ? <input type="hidden" name={`lines.${index}.id`} value={line.id} /> : null}
 
               <div className="space-y-1.5">
-                <Label htmlFor={`${base}-item`}>Item</Label>
+                <Label htmlFor={`${base}-item`}>{t("lines.item")}</Label>
                 <select
                   id={`${base}-item`}
                   name={`lines.${index}.inventoryItemId`}
@@ -208,7 +210,7 @@ export function StockLinesEditor({
                   aria-invalid={rowErrors.inventoryItemId ? true : undefined}
                   aria-describedby={described("inventoryItemId")}
                 >
-                  <option value="">{items.length === 0 ? "No items available" : "Choose an item"}</option>
+                  <option value="">{items.length === 0 ? t("lines.noItems") : t("lines.chooseItem")}</option>
                   {items.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -224,7 +226,7 @@ export function StockLinesEditor({
                     <LocationSelect
                       id={`${base}-fromLocationId`}
                       name={`lines.${index}.fromLocationId`}
-                      label="From location"
+                      label={t("lines.fromLocation")}
                       value={line.fromLocationId ?? ""}
                       options={sourceLocations}
                       scopeChosen={Boolean(fromWarehouseId)}
@@ -234,7 +236,7 @@ export function StockLinesEditor({
                     <LocationSelect
                       id={`${base}-toLocationId`}
                       name={`lines.${index}.toLocationId`}
-                      label="To location"
+                      label={t("lines.toLocation")}
                       value={line.toLocationId ?? ""}
                       options={destinationLocations}
                       scopeChosen={Boolean(toWarehouseId)}
@@ -246,7 +248,7 @@ export function StockLinesEditor({
                   <LocationSelect
                     id={`${base}-locationId`}
                     name={`lines.${index}.locationId`}
-                    label="Location"
+                    label={t("lines.location")}
                     value={line.locationId ?? ""}
                     options={sourceLocations}
                     scopeChosen={Boolean(warehouseId)}
@@ -259,10 +261,10 @@ export function StockLinesEditor({
                   <DecimalCell
                     id={`${base}-quantityDelta`}
                     name={`lines.${index}.quantityDelta`}
-                    label="Change"
+                    label={t("lines.change")}
                     unit={item?.unit}
                     value={line.quantityDelta ?? ""}
-                    rule={{ label: "Adjustment", ...RATE_RULE, allowNegative: true }}
+                    rule={{ label: t("lines.adjustment"), ...RATE_RULE, allowNegative: true }}
                     refine={nonZeroDelta}
                     serverError={rowErrors.quantityDelta}
                     onChange={(value) => change(line.rowId, { quantityDelta: value })}
@@ -271,10 +273,10 @@ export function StockLinesEditor({
                   <DecimalCell
                     id={`${base}-quantity`}
                     name={`lines.${index}.quantity`}
-                    label="Quantity"
+                    label={t("lines.quantity")}
                     unit={item?.unit}
                     value={line.quantity ?? ""}
-                    rule={{ label: "Quantity", ...RATE_RULE }}
+                    rule={{ label: t("lines.quantity"), ...RATE_RULE }}
                     refine={positiveQuantity}
                     serverError={rowErrors.quantity}
                     onChange={(value) => change(line.rowId, { quantity: value })}
@@ -283,7 +285,7 @@ export function StockLinesEditor({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor={`${base}-notes`}>Note</Label>
+                <Label htmlFor={`${base}-notes`}>{t("lines.note")}</Label>
                 <Input
                   id={`${base}-notes`}
                   name={`lines.${index}.notes`}
@@ -298,16 +300,16 @@ export function StockLinesEditor({
 
               {held ? (
                 <p className="text-meta text-fg-subtle">
-                  <span className="tabular-nums text-fg">{formatQuantity(held.onHand)}</span> on
-                  hand here,{" "}
+                  <span className="tabular-nums text-fg">{formatQuantity(held.onHand)}</span>{" "}
+                  {t("lines.onHandHere")}{" "}
                   <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span>{" "}
-                  available
+                  {t("lines.available")}
                   {variant === "adjustment" && line.quantityDelta
                     ? (() => {
                         const result = resultingOnHand(held.onHand, line.quantityDelta);
                         return result === null ? null : (
                           <>
-                            {" · would become "}
+                            {` · ${t("lines.wouldBecome")} `}
                             <span className="tabular-nums text-fg">
                               {formatQuantity(result)}
                             </span>
@@ -315,11 +317,11 @@ export function StockLinesEditor({
                         );
                       })()
                     : null}
-                  . The server checks again when you post.
+                  {t("lines.serverChecks")}
                 </p>
               ) : line.inventoryItemId && (line.locationId || line.fromLocationId) ? (
                 <p className="text-meta text-fg-subtle">
-                  Nothing is recorded in this location yet.
+                  {t("lines.nothingHere")}
                 </p>
               ) : null}
             </div>
@@ -332,9 +334,9 @@ export function StockLinesEditor({
 
       <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
         <Plus aria-hidden="true" />
-        Add line
+        {t("lines.addLine")}
       </Button>
-      {atLimit ? <p className="text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      {atLimit ? <p className="text-meta text-fg-subtle">{t("lines.atLimit", { max: MAX_LINE_ITEMS })}</p> : null}
     </div>
   );
 }
@@ -363,7 +365,8 @@ function LocationSelect({
   error?: string;
   onChange: (value: string) => void;
 }) {
-  const placeholder = !scopeChosen ? "Choose a warehouse first" : options.length === 0 ? "No locations in this warehouse" : "Choose a location";
+  const t = useInventoryTranslations();
+  const placeholder = !scopeChosen ? t("lines.chooseWarehouseFirst") : options.length === 0 ? t("lines.noLocations") : t("lines.chooseLocation");
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>

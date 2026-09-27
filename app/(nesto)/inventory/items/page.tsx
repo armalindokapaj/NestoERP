@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Package } from "lucide-react";
@@ -26,8 +27,12 @@ import {
   itemStatusLabels,
 } from "@/lib/modules/inventory/inventory.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
-export const metadata: Metadata = { title: "Inventory items" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.inventoryItems") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -40,6 +45,7 @@ export default async function ItemsPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.item.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
   const query = new URLSearchParams(
@@ -59,7 +65,7 @@ export default async function ItemsPage({
           ) : null}
           {can(context, "inventory.item.create") ? (
             <Button asChild size="sm">
-              <Link href="/inventory/items/new">New item</Link>
+              <Link href="/inventory/items/new">{t("meta.newItem")}</Link>
             </Button>
           ) : null}
         </>
@@ -79,6 +85,7 @@ async function ItemList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("inventory");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -116,28 +123,28 @@ async function ItemList({
   const filters: FilterConfig[] = [
     {
       param: "view",
-      label: "View",
+      label: t("items.view"),
       options: [
-        { value: "all", label: "All items" },
-        { value: "low-stock", label: "Low stock" },
-        { value: "archived", label: "Archived" },
+        { value: "all", label: t("items.allItems") },
+        { value: "low-stock", label: t("meta.lowStock") },
+        { value: "archived", label: t("labels.itemStatus.ARCHIVED") },
       ],
     },
     {
       param: "status",
-      label: "Status",
-      options: ITEM_STATUSES.map((value) => ({ value, label: itemStatusLabels[value] })),
+      label: t("columns.status"),
+      options: ITEM_STATUSES.map((value) => ({ value, label: inventoryLabel(t, "itemStatus", value, itemStatusLabels[value]) })),
     },
     {
       param: "category",
-      label: "Category",
-      options: ITEM_CATEGORIES.map((value) => ({ value, label: itemCategoryLabels[value] })),
+      label: t("columns.category"),
+      options: ITEM_CATEGORIES.map((value) => ({ value, label: inventoryLabel(t, "itemCategory", value, itemCategoryLabels[value]) })),
     },
     ...(options.warehouses.length > 1
       ? [
           {
             param: "warehouseId",
-            label: "Warehouse",
+            label: t("columns.warehouse"),
             options: options.warehouses.map((warehouse) => ({
               value: warehouse.id,
               label: `${warehouse.code} — ${warehouse.name}`,
@@ -154,14 +161,14 @@ async function ItemList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search SKU or name…"
+        searchPlaceholder={t("items.search")}
         filters={filters}
         sortOptions={[
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "sku-asc", label: "SKU" },
-          { value: "stock-asc", label: "Least stock first" },
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently added" },
+          { value: "name-asc", label: t("sort.nameAz") },
+          { value: "sku-asc", label: t("fields.sku") },
+          { value: "stock-asc", label: t("sort.leastStock") },
+          { value: "updated-desc", label: t("sort.recentlyUpdated") },
+          { value: "created-desc", label: t("sort.recentlyAdded") },
         ]}
       />
 
@@ -169,18 +176,18 @@ async function ItemList({
         hasFilters ? (
           <EmptyState
             icon={<Package />}
-            title="No items match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/inventory/items" }}
+            title={t("items.noMatch")}
+            description={t("empty.noMatchDescription")}
+            action={{ label: t("empty.clearFilters"), href: "/inventory/items" }}
           />
         ) : (
           <EmptyState
             icon={<Package />}
-            title="No items yet."
-            description="An item is something the company stocks — one row here, however many warehouses hold it."
+            title={t("items.emptyTitle")}
+            description={t("items.emptyDescription")}
             action={
               can(context, "inventory.item.create")
-                ? { label: "New item", href: "/inventory/items/new" }
+                ? { label: t("meta.newItem"), href: "/inventory/items/new" }
                 : undefined
             }
           />

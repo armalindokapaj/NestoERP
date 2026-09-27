@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { WarehouseForm } from "@/components/inventory/warehouse-form";
@@ -8,11 +9,15 @@ import { requireModule } from "@/lib/context/current-user";
 import { createWarehouseAction } from "@/lib/actions/inventory";
 import * as warehouses from "@/lib/modules/inventory/warehouses/warehouse.service";
 
-export const metadata: Metadata = { title: "New warehouse" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.newWarehouse") };
+}
 
 /** Add a warehouse (PRD #20 §50, §64). */
 export default async function NewWarehousePage() {
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
   if (!can(context, "inventory.warehouse.create")) notFound();
 
   const options = await warehouses.warehouseFormOptions(context);
@@ -21,25 +26,24 @@ export default async function NewWarehousePage() {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Warehouses", href: "/inventory/warehouses" },
-          { label: "New warehouse" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.warehouses"), href: "/inventory/warehouses" },
+          { label: t("meta.newWarehouse") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New warehouse</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newWarehouse")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Somewhere stock is physically kept. It gets a GENERAL location automatically, so it can
-          take stock straight away.
+          {t("newPage.warehouses")}
         </p>
       </div>
 
       <WarehouseForm
         action={createWarehouseAction}
         cancelHref="/inventory/warehouses"
-        submitLabel="Add warehouse"
-        pendingLabel="Adding…"
+        submitLabel={t("form.addWarehouse")}
+        pendingLabel={t("form.adding")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

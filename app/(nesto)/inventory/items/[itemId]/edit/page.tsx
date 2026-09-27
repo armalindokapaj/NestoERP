@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ItemForm } from "@/components/inventory/item-form";
@@ -11,12 +12,16 @@ import * as warehouses from "@/lib/modules/inventory/warehouses/warehouse.servic
 
 type Params = { params: Promise<{ itemId: string }> };
 
-export const metadata: Metadata = { title: "Edit item" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.editItem") };
+}
 
 /** Edit an item. An archived one is read-only until restored (PRD #20 §45). */
 export default async function EditItemPage({ params }: Params) {
   const { itemId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let item;
   try {
@@ -43,15 +48,15 @@ export default async function EditItemPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Items", href: "/inventory/items" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("breadcrumbs.items"), href: "/inventory/items" },
           { label: item.name, href: `/inventory/items/${item.id}` },
-          { label: "Edit" },
+          { label: t("actions.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit item</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editItem")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{item.name}</p>
       </div>
 
@@ -59,8 +64,8 @@ export default async function EditItemPage({ params }: Params) {
         action={action}
         versionUpdatedAt={item.updatedAt}
         cancelHref={`/inventory/items/${item.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("form.saveChanges")}
+        pendingLabel={t("form.saving")}
         warehouses={warehouseOptions}
         locations={locationOptions}
         baseUnitLocked={moved}

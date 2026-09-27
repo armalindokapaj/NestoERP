@@ -10,17 +10,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { documentLifecycleAction } from "@/lib/actions/inventory";
 import type { TransactionCapabilities } from "@/lib/modules/inventory/inventory.types";
-import { postWarnings } from "./inventory-format";
+import { useInventoryTranslations } from "./inventory-text";
 
 type Kind = "receipts" | "issues" | "returns" | "transfers" | "adjustments";
 
-const NOUN: Record<Kind, string> = {
-  receipts: "receipt",
-  issues: "issue",
-  returns: "return",
-  transfers: "transfer",
-  adjustments: "adjustment",
-};
 
 /**
  * Post, cancel, reverse (PRD #20 §311, §314, §316, §318).
@@ -43,10 +36,9 @@ export function DocumentActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
   const [confirming, setConfirming] = React.useState<"post" | "cancel" | "reverse" | null>(null);
-
-  const noun = NOUN[kind];
 
   function run(action: "post" | "cancel" | "reverse", success: string) {
     startTransition(async () => {
@@ -67,14 +59,14 @@ export function DocumentActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/inventory/${kind}/${documentId}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("actions.edit")}
           </Link>
         </Button>
       ) : null}
 
       {capabilities.canPost ? (
         <Button size="sm" disabled={pending} onClick={() => setConfirming("post")}>
-          Post
+          {t("documentActions.post")}
         </Button>
       ) : null}
 
@@ -85,7 +77,7 @@ export function DocumentActions({
           disabled={pending}
           onClick={() => setConfirming("cancel")}
         >
-          Cancel draft
+          {t("documentActions.cancelDraft")}
         </Button>
       ) : null}
 
@@ -96,41 +88,41 @@ export function DocumentActions({
           disabled={pending}
           onClick={() => setConfirming("reverse")}
         >
-          Reverse
+          {t("documentActions.reverse")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={confirming === "post"}
         onOpenChange={(open) => setConfirming(open ? "post" : null)}
-        title={`Post ${documentNumber}?`}
-        description={`${postWarnings[kind]} A posted ${noun} cannot be edited — only reversed.`}
-        confirmLabel="Post to stock"
-        cancelLabel="Not yet"
+        title={t("documentActions.postTitle", { number: documentNumber })}
+        description={`${t(`documentActions.postWarning.${kind}`)} ${t(`documentActions.postedLocked.${kind}`)}`}
+        confirmLabel={t("documentActions.postConfirm")}
+        cancelLabel={t("documentActions.notYet")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("post", "Posted to the stock ledger.")}
+        onConfirm={() => run("post", t("documentActions.posted"))}
       />
 
       <ConfirmDialog
         open={confirming === "cancel"}
         onOpenChange={(open) => setConfirming(open ? "cancel" : null)}
-        title={`Cancel ${documentNumber}?`}
-        description={`The draft stays on record as cancelled. Nothing has reached the stock ledger, so no stock changes.`}
-        confirmLabel={`Cancel ${noun}`}
-        cancelLabel="Keep draft"
+        title={t("documentActions.cancelTitle", { number: documentNumber })}
+        description={t("documentActions.cancelDescription")}
+        confirmLabel={t(`documentActions.cancelConfirm.${kind}`)}
+        cancelLabel={t("documentActions.keepDraft")}
         pending={pending}
-        onConfirm={() => run("cancel", "Draft cancelled.")}
+        onConfirm={() => run("cancel", t("documentActions.cancelled"))}
       />
 
       <ConfirmDialog
         open={confirming === "reverse"}
         onOpenChange={(open) => setConfirming(open ? "reverse" : null)}
-        title={`Reverse ${documentNumber}?`}
-        description="This writes opposite movements into the ledger. The original rows stay exactly where they are — the history is not rewritten."
-        confirmLabel={`Reverse ${noun}`}
+        title={t("documentActions.reverseTitle", { number: documentNumber })}
+        description={t("documentActions.reverseDescription")}
+        confirmLabel={t(`documentActions.reverseConfirm.${kind}`)}
         pending={pending}
-        onConfirm={() => run("reverse", "Reversed. The opposite movements are on the ledger.")}
+        onConfirm={() => run("reverse", t("documentActions.reversed"))}
       />
     </>
   );

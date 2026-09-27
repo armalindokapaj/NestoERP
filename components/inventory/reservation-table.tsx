@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
 import type { ReservationDTO } from "@/lib/modules/inventory/inventory.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatQuantity } from "./inventory-format";
 
 /**
@@ -13,10 +14,10 @@ import { formatQuantity } from "./inventory-format";
  * the material is still in the rack, it is just already spoken for
  * (PRD #20 §166).
  */
-export function ReservationTable({
+export async function ReservationTable({
   reservations,
   actions,
-  caption = "Reservations",
+  caption,
   listId = "inventory.reservations",
 }: {
   reservations: ReservationDTO[];
@@ -25,12 +26,13 @@ export function ReservationTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<ReservationDTO>[] = [
     {
       key: "reservationNumber",
       id: "reservationNumber",
       mandatory: true,
-      label: "Reservation",
+      label: t("columns.reservation"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -42,15 +44,15 @@ export function ReservationTable({
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "md",
       render: (row) =>
-        row.project ? row.project.code : <span className="text-fg-subtle">General</span>,
+        row.project ? row.project.code : <span className="text-fg-subtle">{t("columns.general")}</span>,
     },
     {
       key: "location",
       id: "location",
-      label: "Held at",
+      label: t("columns.heldAt"),
       hideBelow: "lg",
       render: (row) => (
         <span className="flex flex-col">
@@ -63,7 +65,7 @@ export function ReservationTable({
       key: "quantity",
       id: "quantity",
       valueType: "number",
-      label: "Reserved",
+      label: t("columns.reserved"),
       align: "right",
       render: (row) => (
         <span className="flex flex-col items-end">
@@ -72,7 +74,7 @@ export function ReservationTable({
           </span>
           {row.fulfilledQuantity !== "0" && row.fulfilledQuantity !== "0.0000" ? (
             <span className="text-meta text-fg-subtle tabular-nums">
-              {formatQuantity(row.fulfilledQuantity)} taken
+              {t("columns.taken", { quantity: formatQuantity(row.fulfilledQuantity) })}
             </span>
           ) : null}
         </span>
@@ -82,7 +84,7 @@ export function ReservationTable({
       key: "requiredDate",
       id: "requiredDate",
       valueType: "date",
-      label: "Required",
+      label: t("columns.required"),
       hideBelow: "xl",
       render: (row) =>
         row.requiredDate ? formatDate(row.requiredDate) : <span className="text-fg-subtle">—</span>,
@@ -92,11 +94,11 @@ export function ReservationTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => (
         <span className="flex items-center gap-1.5">
           <StatusBadge status={row.status} />
-          {row.expired ? <Badge tone="warning">Past expiry</Badge> : null}
+          {row.expired ? <Badge tone="warning">{t("columns.pastExpiry")}</Badge> : null}
         </span>
       ),
     },
@@ -109,7 +111,7 @@ export function ReservationTable({
       records={reservations}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/reservations/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.reservations")}
       actions={actions}
     />
   );

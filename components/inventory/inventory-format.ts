@@ -42,17 +42,3 @@ export const stockLevelTones: Record<StockLevel, StatusTone> = {
   NOT_TRACKED: "default",
 };
 
-/**
- * The line a document posts against stock, said once (PRD #20 §311, §314, §316).
- *
- * Posting is the irreversible half of every stock document, so the confirmation
- * says what will actually change rather than "are you sure".
- */
-export const postWarnings: Record<string, string> = {
-  receipts: "This will increase stock in the locations named on the lines.",
-  issues: "This will reduce stock in the locations named on the lines.",
-  returns: "This will increase stock in the locations named on the lines.",
-  transfers: "Source stock decreases and destination stock increases, in one step.",
-  adjustments:
-    "This directly changes recorded stock and cannot be edited after posting.",
-};

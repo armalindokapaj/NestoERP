@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
 import * as activity from "@/lib/modules/inventory/inventory.activity";
 import { formatRelativeTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * One record's history (PRD #20 §199, §200).
@@ -22,14 +23,15 @@ export async function InventoryActivityFeed({
   entityType: string;
   entityId: string;
 }) {
+  const t = await getTranslations("inventory");
   const result = await activity.listRecordActivity(context, entityType, entityId, { limit: 50 });
 
   if (result.data.length === 0) {
     return (
       <EmptyState
         icon={<History />}
-        title="Nothing recorded yet."
-        description="Changes to this record appear here as they happen."
+        title={t("activity.emptyTitle")}
+        description={t("activity.emptyDescription")}
       />
     );
   }
@@ -39,7 +41,7 @@ export async function InventoryActivityFeed({
       {result.data.map((entry) => (
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
           <p className="min-w-0 text-table text-fg">
-            {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Somebody</span>}{" "}
+            {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.somebody")}</span>}{" "}
             <span className="text-fg-muted">{entry.message ?? entry.action}</span>
           </p>
           <time className="shrink-0 text-meta text-fg-subtle" dateTime={entry.createdAt}>

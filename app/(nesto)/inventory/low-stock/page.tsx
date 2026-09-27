@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { PackageCheck } from "lucide-react";
@@ -19,7 +20,10 @@ import { itemListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
 import type { ItemSummaryDTO } from "@/lib/modules/inventory/inventory.types";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Low stock" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.lowStock") };
+}
 
 /**
  * What is running out (PRD #20 §167–§172, §321).
@@ -39,6 +43,7 @@ export default async function LowStockPage({
     redirect("/access-denied");
   }
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
   const page = typeof params.page === "string" ? params.page : undefined;
@@ -56,7 +61,7 @@ export default async function LowStockPage({
       key: "name",
       id: "name",
       mandatory: true,
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -74,7 +79,7 @@ export default async function LowStockPage({
       key: "onHand",
       id: "onHand",
       valueType: "number",
-      label: "On hand",
+      label: t("columns.onHand"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -86,7 +91,7 @@ export default async function LowStockPage({
       key: "available",
       id: "available",
       valueType: "number",
-      label: "Available",
+      label: t("columns.available"),
       align: "right",
       hideBelow: "md",
       render: (row) => (
@@ -97,7 +102,7 @@ export default async function LowStockPage({
       key: "reorderPoint",
       id: "reorderPoint",
       valueType: "number",
-      label: "Reorder at",
+      label: t("columns.reorderAt"),
       align: "right",
       hideBelow: "lg",
       render: (row) =>
@@ -111,7 +116,7 @@ export default async function LowStockPage({
       key: "minimumStock",
       id: "minimumStock",
       valueType: "number",
-      label: "Minimum",
+      label: t("columns.minimum"),
       align: "right",
       hideBelow: "xl",
       render: (row) =>
@@ -126,7 +131,7 @@ export default async function LowStockPage({
       id: "level",
       mandatory: true,
       valueType: "status",
-      label: "Level",
+      label: t("columns.level"),
       render: (row) => <StockLevelBadge level={row.level} />,
     },
   ];
@@ -137,13 +142,13 @@ export default async function LowStockPage({
     <ModulePage
       experience={experience}
       activeSection="low-stock"
-      description="Items at or below the thresholds the company set. NESTO reports what is running out; somebody still decides what to do about it."
+      description={t("lowStock.description")}
     >
       {result.data.length === 0 ? (
         <EmptyState
           icon={<PackageCheck />}
-          title="Nothing is running low."
-          description="Every item with a threshold set is above it. Items with no minimum and no reorder point are never reported here — NESTO does not invent a number the company never chose."
+          title={t("lowStock.emptyTitle")}
+          description={t("lowStock.emptyDescription")}
         />
       ) : (
         <div className="space-y-4">
@@ -152,7 +157,7 @@ export default async function LowStockPage({
             columns={columns}
             records={result.data}
             rowKey={(row) => row.id}
-            caption="Items running low"
+            caption={t("lowStock.caption")}
             actions={
               mayRequest || mayReserve
                 ? (row) => (
@@ -160,7 +165,7 @@ export default async function LowStockPage({
                       {mayReserve ? (
                         <Button asChild variant="ghost" size="sm">
                           <Link href={`/inventory/reservations/new?itemId=${row.id}`}>
-                            Reserve
+                            {t("lowStock.reserve")}
                           </Link>
                         </Button>
                       ) : null}
@@ -169,7 +174,7 @@ export default async function LowStockPage({
                           <Link
                             href={`/procurement/requests/new?title=${encodeURIComponent(row.name)}`}
                           >
-                            Request
+                            {t("lowStock.request")}
                           </Link>
                         </Button>
                       ) : null}

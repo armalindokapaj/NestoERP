@@ -12,10 +12,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { DocumentFormOptions } from "@/lib/modules/inventory/inventory.options";
-import {
-  ADJUSTMENT_REASONS,
-  adjustmentReasonLabels,
-} from "@/lib/modules/inventory/inventory.status";
+import { ADJUSTMENT_REASONS, adjustmentReasonLabels } from "@/lib/modules/inventory/inventory.status";
+import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
 import { StockLinesEditor, type HeldBalance, type StockLineValue } from "./stock-lines";
 import { localToday } from "@/components/finance/local-date";
 
@@ -56,39 +54,6 @@ const DATE_FIELD: Record<DocumentKind, string> = {
   adjustments: "adjustmentDate",
 };
 
-const DATE_LABEL: Record<DocumentKind, string> = {
-  receipts: "Received on",
-  issues: "Issued on",
-  returns: "Returned on",
-  transfers: "Transferred on",
-  adjustments: "Adjusted on",
-};
-
-const HEADER: Record<DocumentKind, { title: string; description: string }> = {
-  receipts: {
-    title: "Receipt",
-    description: "Material arriving into stock. Save it as a draft, then post it to commit it.",
-  },
-  issues: {
-    title: "Issue",
-    description: "Material leaving stock for a project or for general use.",
-  },
-  returns: {
-    title: "Return",
-    description: "Unused material coming back from a project into stock.",
-  },
-  transfers: {
-    title: "Transfer",
-    description:
-      "Material moving between locations. The company holds the same total either way.",
-  },
-  adjustments: {
-    title: "Adjustment",
-    description:
-      "A correction to what the company believes it holds, without anything physically moving.",
-  },
-};
-
 /** The browser's calendar day, not the UTC one (AUD-09 §4, FV-07). */
 function today(): string {
   return localToday();
@@ -115,11 +80,11 @@ export function DocumentForm({
   options: DocumentFormOptions;
   balances: HeldBalance[];
 }) {
+  const t = useInventoryTranslations();
   const [warehouseId, setWarehouseId] = React.useState(values?.warehouseId ?? "");
   const [fromWarehouseId, setFromWarehouseId] = React.useState(values?.fromWarehouseId ?? "");
   const [toWarehouseId, setToWarehouseId] = React.useState(values?.toWarehouseId ?? "");
 
-  const header = HEADER[kind];
   const variant =
     kind === "transfers" ? "transfer" : kind === "adjustments" ? "adjustment" : "simple";
 
@@ -134,10 +99,10 @@ export function DocumentForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title={header.title} description={header.description}>
+      <FormSection title={t(`documentForm.header.${kind}.title`)} description={t(`documentForm.header.${kind}.description`)}>
         {kind === "transfers" ? (
           <>
-            <Field label="From warehouse" name="fromWarehouseId" required>
+            <Field label={t("fields.fromWarehouse")} name="fromWarehouseId" required>
               <select
                 id="fromWarehouseId"
                 name="fromWarehouseId"
@@ -146,7 +111,7 @@ export function DocumentForm({
                 onChange={(event) => setFromWarehouseId(event.target.value)}
                 required
               >
-                <option value="">Choose a warehouse</option>
+                <option value="">{t("fields.chooseWarehouse")}</option>
                 {options.warehouses.map((warehouse) => (
                   <option key={warehouse.value} value={warehouse.value}>
                     {warehouse.label}
@@ -155,7 +120,7 @@ export function DocumentForm({
               </select>
             </Field>
 
-            <Field label="To warehouse" name="toWarehouseId" required>
+            <Field label={t("fields.toWarehouse")} name="toWarehouseId" required>
               <select
                 id="toWarehouseId"
                 name="toWarehouseId"
@@ -164,7 +129,7 @@ export function DocumentForm({
                 onChange={(event) => setToWarehouseId(event.target.value)}
                 required
               >
-                <option value="">Choose a warehouse</option>
+                <option value="">{t("fields.chooseWarehouse")}</option>
                 {options.warehouses.map((warehouse) => (
                   <option key={warehouse.value} value={warehouse.value}>
                     {warehouse.label}
@@ -175,7 +140,7 @@ export function DocumentForm({
           </>
         ) : (
           <Field
-            label={kind === "returns" ? "Back into warehouse" : "Warehouse"}
+            label={kind === "returns" ? t("documentForm.backIntoWarehouse") : t("fields.warehouse")}
             name="warehouseId"
             required
           >
@@ -187,7 +152,7 @@ export function DocumentForm({
               onChange={(event) => setWarehouseId(event.target.value)}
               required
             >
-              <option value="">Choose a warehouse</option>
+              <option value="">{t("fields.chooseWarehouse")}</option>
               {options.warehouses.map((warehouse) => (
                 <option key={warehouse.value} value={warehouse.value}>
                   {warehouse.label}
@@ -197,7 +162,7 @@ export function DocumentForm({
           </Field>
         )}
 
-        <Field label={DATE_LABEL[kind]} name={DATE_FIELD[kind]} required>
+        <Field label={t(`documentForm.dateLabel.${kind}`)} name={DATE_FIELD[kind]} required>
           <Input
             id={DATE_FIELD[kind]}
             name={DATE_FIELD[kind]}
@@ -210,9 +175,9 @@ export function DocumentForm({
         {kind === "issues" ? (
           <>
             <Field
-              label="Project"
+              label={t("fields.project")}
               name="projectId"
-              hint="Leave blank for a general issue not charged to a project."
+              hint={t("documentForm.projectHint")}
             >
               <select
                 id="projectId"
@@ -220,7 +185,7 @@ export function DocumentForm({
                 className={selectClass}
                 defaultValue={values?.projectId ?? ""}
               >
-                <option value="">General issue</option>
+                <option value="">{t("documentForm.generalIssue")}</option>
                 {options.projects.map((project) => (
                   <option key={project.value} value={project.value}>
                     {project.label}
@@ -229,14 +194,14 @@ export function DocumentForm({
               </select>
             </Field>
 
-            <Field label="Issued to" name="issuedToMemberId">
+            <Field label={t("fields.issuedTo")} name="issuedToMemberId">
               <select
                 id="issuedToMemberId"
                 name="issuedToMemberId"
                 className={selectClass}
                 defaultValue={values?.issuedToMemberId ?? ""}
               >
-                <option value="">Not recorded</option>
+                <option value="">{t("fields.notRecorded")}</option>
                 {options.members.map((member) => (
                   <option key={member.value} value={member.value}>
                     {member.label}
@@ -245,14 +210,14 @@ export function DocumentForm({
               </select>
             </Field>
 
-            <Field label="Requested by" name="requestedByMemberId">
+            <Field label={t("fields.requestedBy")} name="requestedByMemberId">
               <select
                 id="requestedByMemberId"
                 name="requestedByMemberId"
                 className={selectClass}
                 defaultValue={values?.requestedByMemberId ?? ""}
               >
-                <option value="">Not recorded</option>
+                <option value="">{t("fields.notRecorded")}</option>
                 {options.members.map((member) => (
                   <option key={member.value} value={member.value}>
                     {member.label}
@@ -265,7 +230,7 @@ export function DocumentForm({
 
         {kind === "returns" ? (
           <>
-            <Field label="From project" name="projectId" required>
+            <Field label={t("fields.fromProject")} name="projectId" required>
               <select
                 id="projectId"
                 name="projectId"
@@ -273,7 +238,7 @@ export function DocumentForm({
                 defaultValue={values?.projectId ?? ""}
                 required
               >
-                <option value="">Choose a project</option>
+                <option value="">{t("fields.chooseProject")}</option>
                 {options.projects.map((project) => (
                   <option key={project.value} value={project.value}>
                     {project.label}
@@ -282,14 +247,14 @@ export function DocumentForm({
               </select>
             </Field>
 
-            <Field label="Returned by" name="returnedByMemberId">
+            <Field label={t("fields.returnedBy")} name="returnedByMemberId">
               <select
                 id="returnedByMemberId"
                 name="returnedByMemberId"
                 className={selectClass}
                 defaultValue={values?.returnedByMemberId ?? ""}
               >
-                <option value="">Not recorded</option>
+                <option value="">{t("fields.notRecorded")}</option>
                 {options.members.map((member) => (
                   <option key={member.value} value={member.value}>
                     {member.label}
@@ -302,10 +267,10 @@ export function DocumentForm({
 
         {kind === "adjustments" ? (
           <Field
-            label="Reason"
+            label={t("fields.reason")}
             name="reason"
             required
-            hint="An opening balance is the one reason allowed to create stock from nothing."
+            hint={t("documentForm.reasonHint")}
           >
             <select
               id="reason"
@@ -316,14 +281,14 @@ export function DocumentForm({
             >
               {ADJUSTMENT_REASONS.map((reason) => (
                 <option key={reason} value={reason}>
-                  {adjustmentReasonLabels[reason]}
+                  {inventoryLabel(t, "adjustmentReason", reason, adjustmentReasonLabels[reason])}
                 </option>
               ))}
             </select>
           </Field>
         ) : null}
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("fields.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"
@@ -335,11 +300,11 @@ export function DocumentForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Lines</h2>
+        <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           {kind === "adjustments"
-            ? "A negative change writes stock off. Nothing moves until you post."
-            : "Each line is one item in one location. Nothing moves until you post."}
+            ? t("documentForm.linesAdjustment")
+            : t("documentForm.linesSimple")}
         </p>
         <div className="mt-4">
           <StockLinesEditor

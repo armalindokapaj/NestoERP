@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,7 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { InventoryExportLink } from "@/components/inventory/export-link";
 import { ModulePage } from "@/components/modules/module-page";
 import { formatQuantity } from "@/components/inventory/inventory-format";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -20,7 +22,10 @@ import type {
 } from "@/lib/modules/inventory/inventory.types";
 import { statusLabel } from "@/lib/utils/status";
 
-export const metadata: Metadata = { title: "Inventory reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.inventoryReports") };
+}
 
 /**
  * Built-in inventory reports (PRD #20 §205–§213).
@@ -38,13 +43,14 @@ export default async function InventoryReportsPage() {
   const context = await requireModule("inventory");
   if (!can(context, "inventory.report.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const reports = await inventoryReports(context);
 
   const warehouseColumns: TableColumn<StockByWarehouseRow>[] = [
     {
       key: "warehouse",
-      label: "Warehouse",
+      label: t("columns.warehouse"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -60,13 +66,13 @@ export default async function InventoryReportsPage() {
     },
     {
       key: "distinctItems",
-      label: "Distinct items",
+      label: t("detail.distinctItems"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.distinctItems}</span>,
     },
     {
       key: "totalReserved",
-      label: "Reserved",
+      label: t("columns.reserved"),
       align: "right",
       hideBelow: "md",
       render: (row) => (
@@ -84,7 +90,7 @@ export default async function InventoryReportsPage() {
   const heldColumns: TableColumn<{ item: ItemRef; onHand: string; locations: number }>[] = [
     {
       key: "item",
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -100,7 +106,7 @@ export default async function InventoryReportsPage() {
     },
     {
       key: "onHand",
-      label: "On hand",
+      label: t("columns.onHand"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -110,7 +116,7 @@ export default async function InventoryReportsPage() {
     },
     {
       key: "locations",
-      label: "Locations",
+      label: t("columns.locations"),
       align: "right",
       hideBelow: "md",
       render: (row) => <span className="tabular-nums">{row.locations}</span>,
@@ -121,93 +127,97 @@ export default async function InventoryReportsPage() {
     <ModulePage
       experience={experience}
       activeSection="reports"
-      description="Counted through your own access. Two people on this page can see different totals, and both are right."
+      description={t("reports.description")}
       actions={
         can(context, "inventory.export") ? (
-          <InventoryExportLink type="balances" label="Export stock" />
+          <InventoryExportLink type="balances" label={t("reports.exportStock")} />
         ) : null
       }
     >
       <div className="space-y-6">
         <section className="space-y-3">
           <div>
-            <h2 className="text-card font-semibold text-fg">Stock by warehouse</h2>
+            <h2 className="text-card font-semibold text-fg">{t("reports.byWarehouse")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
-              How many distinct items each warehouse is holding. There is no single quantity
-              total across a warehouse — bags and tonnes do not add up.
+              {t("reports.byWarehouseHint")}
             </p>
           </div>
           {reports.stockByWarehouse.length === 0 ? (
             <p className="nesto-card p-5 text-table text-fg-subtle">
-              No warehouses are visible to you.
+              {t("reports.noWarehouses")}
             </p>
           ) : (
             <DataTable
               columns={warehouseColumns}
               records={reports.stockByWarehouse}
               rowKey={(row) => row.warehouse.id}
-              caption="Stock by warehouse"
+              caption={t("reports.byWarehouse")}
             />
           )}
         </section>
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-card font-semibold text-fg">Most held items</h2>
+            <h2 className="text-card font-semibold text-fg">{t("reports.mostHeld")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
-              Summed within each item, across every location you can see.
+              {t("reports.mostHeldHint")}
             </p>
           </div>
           {heldRows.length === 0 ? (
             <p className="nesto-card p-5 text-table text-fg-subtle">
-              Nothing is recorded as held.
+              {t("reports.nothingHeld")}
             </p>
           ) : (
             <DataTable
               columns={heldColumns}
               records={heldRows}
               rowKey={(row) => row.item.id}
-              caption="Most held items"
+              caption={t("reports.mostHeld")}
             />
           )}
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <CountPanel
-            title="Movements by type"
-            emptyLabel="No movements are visible to you."
+            title={t("reports.movementsByType")}
+            emptyLabel={t("reports.noMovements")}
             rows={reports.movementsByType.map((row) => ({
               key: row.movementType,
-              label:
-                movementTypeLabels[row.movementType as keyof typeof movementTypeLabels] ??
-                statusLabel(row.movementType),
+              label: inventoryLabel(
+                t,
+                "movementType",
+                row.movementType,
+                movementTypeLabels[row.movementType as keyof typeof movementTypeLabels] ?? statusLabel(row.movementType),
+              ),
               count: row.count,
             }))}
           />
 
           <CountPanel
-            title="Adjustments by reason"
-            emptyLabel="No posted adjustments are visible to you."
+            title={t("reports.adjustmentsByReason")}
+            emptyLabel={t("reports.noAdjustments")}
             rows={reports.adjustmentsByReason.map((row) => ({
               key: row.reason,
-              label:
-                adjustmentReasonLabels[row.reason as keyof typeof adjustmentReasonLabels] ??
-                statusLabel(row.reason),
+              label: inventoryLabel(
+                t,
+                "adjustmentReason",
+                row.reason,
+                adjustmentReasonLabels[row.reason as keyof typeof adjustmentReasonLabels] ?? statusLabel(row.reason),
+              ),
               count: row.count,
             }))}
           />
         </div>
 
         <p className="text-meta text-fg-subtle">
-          There is no stock value here. V0.1 has no costing method, so a currency figure would be
-          a number nobody could defend.
+          {t("reports.noValue")}
         </p>
       </div>
     </ModulePage>
   );
 }
 
-function CountPanel({
+async function CountPanel({
   title,
   rows,
   emptyLabel,
@@ -216,6 +226,7 @@ function CountPanel({
   rows: { key: string; label: string; count: number }[];
   emptyLabel: string;
 }) {
+  const t = await getTranslations("inventory");
   const total = rows.reduce((running, row) => running + row.count, 0);
 
   return (
@@ -232,7 +243,7 @@ function CountPanel({
             </div>
           ))}
           <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
-            <dt className="text-table font-medium text-fg">Total</dt>
+            <dt className="text-table font-medium text-fg">{t("reports.total")}</dt>
             <dd className="text-table font-semibold tabular-nums text-fg">{total}</dd>
           </div>
         </dl>

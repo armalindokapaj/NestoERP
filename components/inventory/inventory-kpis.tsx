@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import type { InventoryOverviewDTO } from "@/lib/modules/inventory/inventory.types";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Inventory KPI row (PRD #20 §21).
@@ -12,42 +13,43 @@ import type { InventoryOverviewDTO } from "@/lib/modules/inventory/inventory.typ
  * There is deliberately no stock value. V0.1 has no costing method, so a
  * currency figure here would be a number nobody could defend (PRD #20 §186).
  */
-export function InventoryKpiGrid({ overview }: { overview: InventoryOverviewDTO }) {
+export async function InventoryKpiGrid({ overview }: { overview: InventoryOverviewDTO }) {
+  const t = await getTranslations("inventory");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.items) {
     cards.push({
-      label: "Active items",
+      label: t("kpis.activeItems"),
       value: String(overview.activeItems),
-      hint: overview.visible.stock ? `${overview.itemsHeld} currently held` : undefined,
+      hint: overview.visible.stock ? t("kpis.currentlyHeld", { count: overview.itemsHeld }) : undefined,
       href: "/inventory/items",
     });
   }
 
   if (overview.visible.stock) {
     cards.push({
-      label: "Low stock",
+      label: t("kpis.lowStock"),
       value: String(overview.lowStockItems),
       hint:
         overview.outOfStockItems > 0
-          ? `${overview.outOfStockItems} out of stock`
-          : "Nothing has run out",
+          ? t("kpis.outOfStock", { count: overview.outOfStockItems })
+          : t("kpis.nothingOut"),
       href: "/inventory/low-stock",
     });
   }
 
   if (overview.visible.documents) {
     cards.push({
-      label: "Drafts to post",
+      label: t("kpis.draftsToPost"),
       value: String(overview.draftDocuments),
-      hint: "Receipts and issues not yet committed",
+      hint: t("kpis.draftsHint"),
       href: "/inventory/receipts?status=DRAFT",
     });
   }
 
   if (overview.visible.movements) {
     cards.push({
-      label: "Movements this month",
+      label: t("kpis.movementsThisMonth"),
       value: String(overview.movementsThisMonth),
       href: "/inventory/movements",
     });
@@ -55,16 +57,16 @@ export function InventoryKpiGrid({ overview }: { overview: InventoryOverviewDTO 
 
   if (overview.visible.reservations) {
     cards.push({
-      label: "Active reservations",
+      label: t("kpis.activeReservations"),
       value: String(overview.activeReservations),
-      hint: "Held back from available stock",
+      hint: t("kpis.reservationsHint"),
       href: "/inventory/reservations",
     });
   }
 
   if (overview.warehouses > 0) {
     cards.push({
-      label: "Warehouses",
+      label: t("kpis.warehouses"),
       value: String(overview.warehouses),
       href: "/inventory/warehouses",
     });

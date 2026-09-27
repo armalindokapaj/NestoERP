@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { BookmarkCheck } from "lucide-react";
@@ -27,8 +28,12 @@ import {
   reservationStatusLabels,
 } from "@/lib/modules/inventory/inventory.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
-export const metadata: Metadata = { title: "Reservations" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.reservations") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -41,6 +46,7 @@ export default async function ReservationsPage({
   const context = await requireModule("inventory");
   if (!can(context, "inventory.reservation.view")) redirect("/access-denied");
 
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
   const params = await searchParams;
 
@@ -56,7 +62,7 @@ export default async function ReservationsPage({
           {can(context, "inventory.reservation.release") ? <ExpireReservationsButton /> : null}
           {can(context, "inventory.reservation.create") ? (
             <Button asChild size="sm">
-              <Link href="/inventory/reservations/new">New reservation</Link>
+              <Link href="/inventory/reservations/new">{t("meta.newReservation")}</Link>
             </Button>
           ) : null}
         </>
@@ -76,6 +82,7 @@ async function ReservationList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("inventory");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -99,10 +106,10 @@ async function ReservationList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
+      label: t("columns.status"),
       options: RESERVATION_STATUSES.map((value) => ({
         value,
-        label: reservationStatusLabels[value],
+        label: inventoryLabel(t, "reservationStatus", value, reservationStatusLabels[value]),
       })),
     },
   ];
@@ -114,12 +121,13 @@ async function ReservationList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search by reservation number…"
+        // English: "Search by reservation number…" (AUD-05 §5).
+        searchPlaceholder={t("reservations.search")}
         filters={filters}
         sortOptions={[
-          { value: "created-desc", label: "Newest first" },
-          { value: "required-asc", label: "Needed soonest" },
-          { value: "expires-asc", label: "Expiring soonest" },
+          { value: "created-desc", label: t("sort.newest") },
+          { value: "required-asc", label: t("sort.neededSoonest") },
+          { value: "expires-asc", label: t("sort.expiringSoonest") },
         ]}
       />
 
@@ -127,18 +135,18 @@ async function ReservationList({
         hasFilters ? (
           <EmptyState
             icon={<BookmarkCheck />}
-            title="No reservations match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/inventory/reservations" }}
+            title={t("reservations.noMatch")}
+            description={t("empty.noMatchDescription")}
+            action={{ label: t("empty.clearFilters"), href: "/inventory/reservations" }}
           />
         ) : (
           <EmptyState
             icon={<BookmarkCheck />}
-            title="Nothing is reserved."
-            description="A reservation holds stock back from available without moving it — the material stays exactly where it is, but it is already spoken for."
+            title={t("reservations.emptyTitle")}
+            description={t("reservations.emptyDescription")}
             action={
               can(context, "inventory.reservation.create")
-                ? { label: "New reservation", href: "/inventory/reservations/new" }
+                ? { label: t("meta.newReservation"), href: "/inventory/reservations/new" }
                 : undefined
             }
           />

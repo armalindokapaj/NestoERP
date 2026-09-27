@@ -17,6 +17,7 @@ import type {
   Option,
 } from "@/lib/modules/inventory/inventory.options";
 import { formatQuantity } from "./inventory-format";
+import { useInventoryTranslations } from "./inventory-text";
 import { CellError } from "@/components/finance/line-rows";
 import { isPositiveDecimal } from "@/lib/modules/finance/finance.decimal";
 
@@ -56,12 +57,13 @@ export function ProcurementHandoff({
   locations: LocationOption[];
   existing: { id: string; receiptNumber: string; status: string } | null;
 }) {
+  const t = useInventoryTranslations();
   const [open, setOpen] = React.useState(false);
 
   if (existing) {
     return (
       <p className="flex flex-wrap items-center gap-2 text-meta text-fg-subtle">
-        Booked into stock as{" "}
+        {t("handoff.bookedAs")}{" "}
         <Link
           href={`/inventory/receipts/${existing.id}`}
           className="font-medium text-accent-strong hover:underline"
@@ -78,7 +80,7 @@ export function ProcurementHandoff({
   if (acceptedLines.length === 0) {
     return (
       <p className="text-meta text-fg-subtle">
-        Nothing on this delivery was accepted, so there is nothing to book into stock.
+        {t("handoff.nothingAccepted")}
       </p>
     );
   }
@@ -87,7 +89,7 @@ export function ProcurementHandoff({
     return (
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <PackagePlus aria-hidden="true" />
-        Book into stock
+        {t("handoff.book")}
       </Button>
     );
   }
@@ -127,6 +129,7 @@ function HandoffForm({
   locations: LocationOption[];
   onClose: () => void;
 }) {
+  const t = useInventoryTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [warehouseId, setWarehouseId] = React.useState("");
   const [mapping, setMapping] = React.useState<
@@ -137,7 +140,7 @@ function HandoffForm({
     action: (formData: FormData) => postFromGoodsReceiptAction(goodsReceiptId, formData),
     module: "inventory",
     saveKind: "create",
-    label: `Stock booking for ${receiptNumber}`,
+    label: t("handoff.bookingLabel", { number: receiptNumber }),
   });
   const { pending, fieldErrors } = save;
   const [cleared, setCleared] = React.useState(false);
@@ -164,11 +167,10 @@ function HandoffForm({
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
         <h3 className="text-card font-semibold text-fg">
-          Book {receiptNumber} into stock
+          {t("handoff.title", { number: receiptNumber })}
         </h3>
         <p className="mt-1 text-meta text-fg-subtle">
-          Only the accepted quantity crosses, and it cannot be changed here — Procurement decided
-          it. This creates a draft receipt; posting it is a separate step.
+          {t("handoff.description")}
         </p>
       </div>
 
@@ -176,7 +178,7 @@ function HandoffForm({
 
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
-          <Label htmlFor="handoff-warehouse">Into warehouse</Label>
+          <Label htmlFor="handoff-warehouse">{t("handoff.intoWarehouse")}</Label>
           <select
             id="handoff-warehouse"
             name="warehouseId"
@@ -187,7 +189,7 @@ function HandoffForm({
             aria-invalid={fieldErrors.warehouseId ? true : undefined}
             aria-describedby={fieldErrors.warehouseId ? "handoff-warehouse-error" : undefined}
           >
-            <option value="">Choose a warehouse</option>
+            <option value="">{t("fields.chooseWarehouse")}</option>
             {warehouses.map((warehouse) => (
               <option key={warehouse.value} value={warehouse.value}>
                 {warehouse.label}
@@ -197,7 +199,7 @@ function HandoffForm({
           <CellError id="handoff-warehouse-error" message={fieldErrors.warehouseId?.[0]} />
           {cleared ? (
             <p role="status" className="text-meta text-warning-strong">
-              Locations from the previous warehouse were cleared. Choose them again.
+              {t("handoff.locationsCleared")}
             </p>
           ) : null}
         </div>
@@ -213,7 +215,7 @@ function HandoffForm({
               <li key={line.goodsReceiptItemId} className="rounded-md border border-line p-4">
                 <p className="text-table font-medium text-fg">{line.description}</p>
                 <p className="text-meta text-fg-subtle">
-                  Accepted{" "}
+                  {t("handoff.accepted")}{" "}
                   <span className="tabular-nums text-fg">
                     {formatQuantity(line.acceptedQuantity)} {line.unit}
                   </span>
@@ -227,7 +229,7 @@ function HandoffForm({
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor={`handoff-${index}-item`}>Inventory item</Label>
+                    <Label htmlFor={`handoff-${index}-item`}>{t("handoff.inventoryItem")}</Label>
                     <select
                       id={`handoff-${index}-item`}
                       name={`lines.${index}.inventoryItemId`}
@@ -243,7 +245,7 @@ function HandoffForm({
                         }))
                       }
                     >
-                      <option value="">Do not book this line</option>
+                      <option value="">{t("handoff.skipLine")}</option>
                       {items.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -253,7 +255,7 @@ function HandoffForm({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor={`handoff-${index}-location`}>Location</Label>
+                    <Label htmlFor={`handoff-${index}-location`}>{t("lines.location")}</Label>
                     <select
                       id={`handoff-${index}-location`}
                       name={`lines.${index}.locationId`}
@@ -272,7 +274,7 @@ function HandoffForm({
                       aria-invalid={fieldErrors[`lines.${index}.locationId`] ? true : undefined}
                       aria-describedby={fieldErrors[`lines.${index}.locationId`] ? `handoff-${index}-location-error` : undefined}
                     >
-                      <option value="">{warehouseId ? "Choose a location" : "Choose a warehouse first"}</option>
+                      <option value="">{warehouseId ? t("lines.chooseLocation") : t("lines.chooseWarehouseFirst")}</option>
                       {available.map((location) => (
                         <option key={location.value} value={location.value}>
                           {location.label}
@@ -291,7 +293,7 @@ function HandoffForm({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={pending || Boolean(save.saved)}>
-          {pending ? "Booking…" : "Create draft receipt"}
+          {pending ? t("handoff.booking") : t("handoff.submit")}
         </Button>
         <Button
           type="button"
@@ -300,7 +302,7 @@ function HandoffForm({
           disabled={pending}
           onClick={() => void save.editor.requestDismiss(onClose)}
         >
-          Cancel
+          {t("actions.cancel")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

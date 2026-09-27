@@ -2,6 +2,7 @@
 
 import { ExportControl } from "@/lib/core/export/export-control";
 import type { InventoryExportType } from "@/lib/modules/inventory/inventory.export";
+import { useInventoryTranslations } from "./inventory-text";
 
 /**
  * CSV export (PRD #20 §214, §215; AUD-08 §7).
@@ -14,11 +15,12 @@ import type { InventoryExportType } from "@/lib/modules/inventory/inventory.expo
  */
 export function InventoryExportLink({
   type,
-  label = "Export CSV",
+  label,
 }: {
   type: InventoryExportType;
   search?: string;
   label?: string;
 }) {
-  return <ExportControl endpoint="/api/inventory/export" selector={{ param: "type", value: type }} label={label} testId={`inventory-export-${type}`} />;
+  const t = useInventoryTranslations();
+  return <ExportControl endpoint="/api/inventory/export" selector={{ param: "type", value: type }} label={label ?? t("actions.exportCsv")} testId={`inventory-export-${type}`} />;
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Package } from "lucide-react";
 
@@ -14,10 +15,14 @@ import {
   inventoryOverview,
 } from "@/lib/modules/inventory/overview/overview.service";
 import { stockLevelLabels } from "@/lib/modules/inventory/inventory.status";
+import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import { formatDate } from "@/lib/utils/format";
 import { formatQuantity } from "@/components/inventory/inventory-format";
 
-export const metadata: Metadata = { title: "Inventory" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.inventory") };
+}
 
 /**
  * The Inventory overview (PRD #20 §21–§24).
@@ -28,6 +33,7 @@ export const metadata: Metadata = { title: "Inventory" };
  */
 export default async function InventoryOverviewPage() {
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
 
   const [overview, attention] = await Promise.all([
@@ -48,7 +54,7 @@ export default async function InventoryOverviewPage() {
       actions={
         can(context, "inventory.issue.create") ? (
           <Button asChild size="sm">
-            <Link href="/inventory/issues/new">New issue</Link>
+            <Link href="/inventory/issues/new">{t("meta.newIssue")}</Link>
           </Button>
         ) : null
       }
@@ -59,64 +65,64 @@ export default async function InventoryOverviewPage() {
         {nothingVisible ? (
           <EmptyState
             icon={<Package />}
-            title="Nothing in your Inventory view."
-            description="Your access covers the module but not the stock records inside it."
+            title={t("overview.nothingVisibleTitle")}
+            description={t("overview.nothingVisibleDescription")}
           />
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {overview.visible.stock ? (
             <AttentionPanel
-              title="Running low"
+              title={t("overview.runningLow")}
               href="/inventory/low-stock"
-              emptyLabel="Nothing is below its threshold."
+              emptyLabel={t("overview.runningLowEmpty")}
               rows={attention.lowStock.map((row) => ({
                 id: row.id,
                 href: `/inventory/items/${row.id}`,
                 title: `${row.sku} — ${row.name}`,
-                meta: `${formatQuantity(row.stock?.onHand)} ${row.baseUnit} · ${stockLevelLabels[row.level]}`,
+                meta: `${formatQuantity(row.stock?.onHand)} ${row.baseUnit} · ${inventoryLabel(t, "stockLevel", row.level, stockLevelLabels[row.level])}`,
               }))}
             />
           ) : null}
 
           {can(context, "inventory.receipt.view") ? (
             <AttentionPanel
-              title="Receipts to post"
+              title={t("overview.receiptsToPost")}
               href="/inventory/receipts?status=DRAFT"
-              emptyLabel="No deliveries are waiting to be committed."
+              emptyLabel={t("overview.receiptsToPostEmpty")}
               rows={attention.draftReceipts.map((row) => ({
                 id: row.id,
                 href: `/inventory/receipts/${row.id}`,
                 title: `${row.receiptNumber} — ${row.warehouse.name}`,
-                meta: `${row.lineCount} ${row.lineCount === 1 ? "line" : "lines"} · ${formatDate(row.receiptDate)}`,
+                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.receiptDate)}`,
               }))}
             />
           ) : null}
 
           {can(context, "inventory.issue.view") ? (
             <AttentionPanel
-              title="Issues to post"
+              title={t("overview.issuesToPost")}
               href="/inventory/issues?status=DRAFT"
-              emptyLabel="No issues are sitting in draft."
+              emptyLabel={t("overview.issuesToPostEmpty")}
               rows={attention.draftIssues.map((row) => ({
                 id: row.id,
                 href: `/inventory/issues/${row.id}`,
-                title: `${row.issueNumber} — ${row.project?.code ?? "General"}`,
-                meta: `${row.lineCount} ${row.lineCount === 1 ? "line" : "lines"} · ${formatDate(row.issueDate)}`,
+                title: `${row.issueNumber} — ${row.project?.code ?? t("columns.general")}`,
+                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.issueDate)}`,
               }))}
             />
           ) : null}
 
           {overview.visible.reservations ? (
             <AttentionPanel
-              title="Reservations expiring"
+              title={t("overview.reservationsExpiring")}
               href="/inventory/reservations"
-              emptyLabel="Nothing is close to expiry."
+              emptyLabel={t("overview.reservationsExpiringEmpty")}
               rows={attention.expiringReservations.map((row) => ({
                 id: row.id,
                 href: `/inventory/items/${row.item.id}`,
                 title: `${row.reservationNumber} — ${row.item.name}`,
-                meta: `${formatQuantity(row.remainingQuantity)} ${row.item.baseUnit}${row.expiresAt ? ` · expires ${formatDate(row.expiresAt)}` : ""}`,
+                meta: `${formatQuantity(row.remainingQuantity)} ${row.item.baseUnit}${row.expiresAt ? ` · ${t("overview.expires", { date: formatDate(row.expiresAt) })}` : ""}`,
               }))}
             />
           ) : null}
@@ -126,7 +132,7 @@ export default async function InventoryOverviewPage() {
   );
 }
 
-function AttentionPanel({
+async function AttentionPanel({
   title,
   href,
   rows,
@@ -137,6 +143,7 @@ function AttentionPanel({
   rows: { id: string; href: string; title: string; meta: string }[];
   emptyLabel: string;
 }) {
+  const t = await getTranslations("inventory");
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
@@ -145,7 +152,7 @@ function AttentionPanel({
           href={href}
           className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
-          View all
+          {t("overview.viewAll")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>

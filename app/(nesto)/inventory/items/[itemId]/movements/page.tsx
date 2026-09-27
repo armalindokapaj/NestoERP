@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { History } from "lucide-react";
 
@@ -10,7 +11,10 @@ import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { ItemPageShell, loadItemPage } from "../item-shell";
 
-export const metadata: Metadata = { title: "Movements" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.movements") };
+}
 
 type Params = {
   params: Promise<{ itemId: string }>;
@@ -26,6 +30,7 @@ export default async function ItemMovementsPage({ params, searchParams }: Params
   const { itemId } = await params;
   const { context, item } = await loadItemPage(itemId, "movements");
 
+  const t = await getTranslations("inventory");
   const search = await searchParams;
   const basePath = `/inventory/items/${itemId}/movements`;
   const query = movementListQuerySchema.parse({ inventoryItemId: itemId, page: firstValue(search.page) });
@@ -38,19 +43,18 @@ export default async function ItemMovementsPage({ params, searchParams }: Params
       {result.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="Nothing has moved."
-          description="Every receipt, issue, transfer and adjustment touching this item appears here, in order."
+          title={t("detail.nothingMoved")}
+          description={t("detail.itemMovementsEmpty")}
         />
       ) : (
         <div className="space-y-3">
           <p className="text-meta text-fg-subtle">
-            The ledger is the record. A correction is a new row here, never an edit to an old
-            one.
+            {t("detail.ledgerNote")}
           </p>
           <MovementTable
             movements={result.data}
             showItem={false}
-            caption={`Movements for ${item.name}`}
+            caption={t("detail.movementsFor", { name: item.name })}
             listId="inventory.item-movements"
           />
           <Pagination meta={result.pagination} buildHref={(next) => pageHref(basePath, search, next)} />

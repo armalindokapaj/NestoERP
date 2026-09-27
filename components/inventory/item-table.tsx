@@ -2,6 +2,8 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { ItemSummaryDTO } from "@/lib/modules/inventory/inventory.types";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { inventoryLabel } from "./inventory-labels";
 import { formatQuantity } from "./inventory-format";
 import { StockLevelBadge } from "./stock-level-badge";
 
@@ -11,10 +13,10 @@ import { StockLevelBadge } from "./stock-level-badge";
  * Stock columns disappear entirely for a reader without balance permission
  * rather than showing zeros — absence, not a blanked-out figure (PRD #20 §20).
  */
-export function ItemTable({
+export async function ItemTable({
   items,
   showStock,
-  caption = "Inventory items",
+  caption,
   listId = "inventory.items",
 }: {
   items: ItemSummaryDTO[];
@@ -23,12 +25,13 @@ export function ItemTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const t = await getTranslations("inventory");
   const columns: TableColumn<ItemSummaryDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
-      label: "Item",
+      label: t("columns.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -40,14 +43,14 @@ export function ItemTable({
     {
       key: "category",
       id: "category",
-      label: "Category",
+      label: t("columns.category"),
       hideBelow: "lg",
-      render: (row) => itemCategoryLabels[row.category],
+      render: (row) => inventoryLabel(t, "itemCategory", row.category, itemCategoryLabels[row.category]),
     },
     {
       key: "baseUnit",
       id: "baseUnit",
-      label: "Unit",
+      label: t("columns.unit"),
       hideBelow: "xl",
       render: (row) => row.baseUnit,
     },
@@ -59,7 +62,7 @@ export function ItemTable({
         key: "onHand",
         id: "onHand",
         valueType: "number",
-        label: "On hand",
+        label: t("columns.onHand"),
         align: "right",
         render: (row) => (
           <span className="tabular-nums">{formatQuantity(row.stock?.onHand)}</span>
@@ -69,7 +72,7 @@ export function ItemTable({
         key: "reserved",
         id: "reserved",
         valueType: "number",
-        label: "Reserved",
+        label: t("columns.reserved"),
         align: "right",
         hideBelow: "lg",
         render: (row) => (
@@ -82,7 +85,7 @@ export function ItemTable({
         key: "available",
         id: "available",
         valueType: "number",
-        label: "Available",
+        label: t("columns.available"),
         align: "right",
         hideBelow: "md",
         render: (row) => (
@@ -93,7 +96,7 @@ export function ItemTable({
         key: "level",
         id: "level",
         valueType: "status",
-        label: "Level",
+        label: t("columns.level"),
         render: (row) => <StockLevelBadge level={row.level} />,
       },
     );
@@ -103,7 +106,7 @@ export function ItemTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (row) => <StatusBadge status={row.status} />,
     });
   }
@@ -115,7 +118,7 @@ export function ItemTable({
       records={items}
       rowKey={(row) => row.id}
       rowHref={(row) => `/inventory/items/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("captions.items")}
     />
   );
 }

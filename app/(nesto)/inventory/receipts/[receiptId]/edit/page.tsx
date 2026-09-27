@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentForm } from "@/components/inventory/document-form";
@@ -14,7 +15,10 @@ import {
 
 type Params = { params: Promise<{ receiptId: string }> };
 
-export const metadata: Metadata = { title: "Edit receipt" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("inventory");
+  return { title: t("meta.editReceipt") };
+}
 
 /**
  * Edit a drafted receipt (PRD #20 §295).
@@ -26,6 +30,7 @@ export const metadata: Metadata = { title: "Edit receipt" };
 export default async function EditReceiptPage({ params }: Params) {
   const { receiptId } = await params;
   const context = await requireModule("inventory");
+  const t = await getTranslations("inventory");
 
   let record;
   try {
@@ -51,15 +56,15 @@ export default async function EditReceiptPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Inventory", href: "/inventory" },
-          { label: "Receipts", href: "/inventory/receipts" },
+          { label: t("meta.inventory"), href: "/inventory" },
+          { label: t("meta.receipts"), href: "/inventory/receipts" },
           { label: record.receiptNumber, href: `/inventory/receipts/${record.id}` },
-          { label: "Edit" },
+          { label: t("actions.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit receipt</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editReceipt")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{record.receiptNumber}</p>
       </div>
 
@@ -68,8 +73,8 @@ export default async function EditReceiptPage({ params }: Params) {
         action={action}
         versionUpdatedAt={record.updatedAt}
         cancelHref={`/inventory/receipts/${record.id}`}
-        submitLabel="Save draft"
-        pendingLabel="Saving…"
+        submitLabel={t("form.saveDraft")}
+        pendingLabel={t("form.saving")}
         options={options}
         balances={balances}
         values={{

@@ -17,6 +17,7 @@ import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { createReservationAction } from "@/lib/actions/inventory";
 import type { DocumentFormOptions } from "@/lib/modules/inventory/inventory.options";
 import { formatQuantity } from "./inventory-format";
+import { useInventoryTranslations } from "./inventory-text";
 import type { HeldBalance } from "./stock-lines";
 import { DecimalCell } from "@/components/finance/line-rows";
 import { isPositiveDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
@@ -43,6 +44,7 @@ export function ReservationForm({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useInventoryTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   // AUD-03 §3, §6: a normal save opens the reservations list; Save and
   // continue leaves the destination to the departure.
@@ -54,9 +56,9 @@ export function ReservationForm({
     },
     module: "inventory",
     saveKind: "create",
-    label: "Reservation",
-    onCommitted: (result) => {
-      toast({ title: result?.message ?? "Stock reserved.", tone: "success" });
+    label: t("reservationForm.section"),
+    onCommitted: () => {
+      toast({ title: t("reservationForm.reserved"), tone: "success" });
     },
   });
   const { pending, fieldErrors: errors } = save;
@@ -96,10 +98,10 @@ export function ReservationForm({
 
         <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-5 border-0 p-0">
           <FormSection
-            title="Reservation"
-            description="Holds quantity back from available without moving anything. The material stays exactly where it is."
+            title={t("reservationForm.section")}
+            description={t("reservationForm.sectionDescription")}
           >
-            <Field label="Item" name="inventoryItemId" required>
+            <Field label={t("lines.item")} name="inventoryItemId" required>
               <select
                 id="inventoryItemId"
                 name="inventoryItemId"
@@ -108,7 +110,7 @@ export function ReservationForm({
                 onChange={(event) => setItemId(event.target.value)}
                 required
               >
-                <option value="">{options.items.length === 0 ? "No items available" : "Choose an item"}</option>
+                <option value="">{options.items.length === 0 ? t("lines.noItems") : t("lines.chooseItem")}</option>
                 {options.items.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -117,14 +119,14 @@ export function ReservationForm({
               </select>
             </Field>
 
-            <Field label="Project" name="projectId" hint="Leave blank to hold it generally.">
+            <Field label={t("fields.project")} name="projectId" hint={t("reservationForm.projectHint")}>
               <select
                 id="projectId"
                 name="projectId"
                 className={selectClass}
                 defaultValue={defaults?.projectId ?? ""}
               >
-                <option value="">Not set</option>
+                <option value="">{t("fields.notSet")}</option>
                 {options.projects.map((project) => (
                   <option key={project.value} value={project.value}>
                     {project.label}
@@ -133,7 +135,7 @@ export function ReservationForm({
               </select>
             </Field>
 
-            <Field label="Warehouse" name="warehouseId" required>
+            <Field label={t("fields.warehouse")} name="warehouseId" required>
               <select
                 id="warehouseId"
                 name="warehouseId"
@@ -145,7 +147,7 @@ export function ReservationForm({
                 }}
                 required
               >
-                <option value="">Choose a warehouse</option>
+                <option value="">{t("fields.chooseWarehouse")}</option>
                 {options.warehouses.map((warehouse) => (
                   <option key={warehouse.value} value={warehouse.value}>
                     {warehouse.label}
@@ -154,7 +156,7 @@ export function ReservationForm({
               </select>
             </Field>
 
-            <Field label="Location" name="locationId" required>
+            <Field label={t("lines.location")} name="locationId" required>
               <select
                 id="locationId"
                 name="locationId"
@@ -165,7 +167,7 @@ export function ReservationForm({
                 disabled={!warehouseId}
               >
                 <option value="">
-                  {!warehouseId ? "Choose a warehouse first" : locations.length === 0 ? "No locations in this warehouse" : "Choose a location"}
+                  {!warehouseId ? t("lines.chooseWarehouseFirst") : locations.length === 0 ? t("lines.noLocations") : t("lines.chooseLocation")}
                 </option>
                 {locations.map((location) => (
                   <option key={location.value} value={location.value}>
@@ -179,12 +181,12 @@ export function ReservationForm({
               <DecimalCell
                 id="quantity"
                 name="quantity"
-                label="Quantity"
+                label={t("lines.quantity")}
                 markRequired
                 unit={item?.unit}
                 value={quantity}
-                rule={{ label: "Quantity", ...RATE_RULE }}
-                refine={(value) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero")}
+                rule={{ label: t("lines.quantity"), ...RATE_RULE }}
+                refine={(value) => (isPositiveDecimal(value) ? null : t("lines.quantityPositive"))}
                 serverError={quantityEdited ? undefined : errors.quantity?.[0]}
                 onChange={(value) => {
                   setQuantity(value);
@@ -193,14 +195,14 @@ export function ReservationForm({
               />
             </div>
 
-            <Field label="Required by" name="requiredDate">
+            <Field label={t("fields.requiredBy")} name="requiredDate">
               <Input id="requiredDate" name="requiredDate" type="date" />
             </Field>
 
             <Field
-              label="Expires"
+              label={t("fields.expires")}
               name="expiresAt"
-              hint="Optional. On or after the required date. After this date the reservation can be released in bulk."
+              hint={t("reservationForm.expiresHint")}
             >
               <Input id="expiresAt" name="expiresAt" type="date" />
             </Field>
@@ -208,8 +210,8 @@ export function ReservationForm({
 
           {held ? (
             <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-              <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span> available
-              here before this reservation
+              <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span>{" "}
+              {t("reservationForm.availableBefore")}
               {availableAfter === null ? null : (
                 <>
                   {", "}
@@ -222,21 +224,21 @@ export function ReservationForm({
                   >
                     {formatQuantity(availableAfter)}
                   </span>{" "}
-                  after
+                  {t("reservationForm.after")}
                 </>
               )}
-              . The server checks again when you save.
+              {t("reservationForm.serverChecks")}
             </p>
           ) : null}
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={pending || Boolean(save.saved)}>
-            {pending ? "Reserving…" : "Reserve stock"}
+            {pending ? t("reservationForm.reserving") : t("reservationForm.submit")}
           </Button>
           {/* Guarded navigation: asks first while anything is unsaved (§4). */}
           <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
-            Cancel
+            {t("actions.cancel")}
           </Button>
           <UnsavedIndicator save={save} />
         </div>
