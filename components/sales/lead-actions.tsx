@@ -17,6 +17,7 @@ import {
   type LeadLifecycleAction,
 } from "@/lib/actions/sales";
 import type { LeadDetailDTO } from "@/lib/modules/sales/sales.types";
+import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * Actions on a lead (PRD #17 §48–§57, §294).
@@ -25,6 +26,8 @@ import type { LeadDetailDTO } from "@/lib/modules/sales/sales.types";
  * page cannot qualify a lead somebody else has already converted (PRD #17 §56).
  */
 export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
+  const t = useSalesTranslations();
+  const serverText = useSalesServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -41,7 +44,7 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -52,7 +55,7 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/sales/leads/${lead.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -61,12 +64,12 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         <AssignMemberControl
           endpoint="/api/sales/assignable"
           currentMemberId={lead.owner?.memberId ?? null}
-          triggerLabel="Reassign"
-          title="Assign this lead"
-          description="The owner is who follows it up, and whose pipeline it counts towards."
+          triggerLabel={t("common.reassign")}
+          title={t("leadActions.assignTitle")}
+          description={t("leadActions.assignDescription")}
           onAssign={async (memberId) => {
             const result = await assignLeadAction(lead.id, memberId);
-            return { ok: result.ok, message: result.ok ? "Lead reassigned." : result.error };
+            return { ok: result.ok, message: result.ok ? t("leadActions.reassigned") : serverText(result.error) ?? result.error };
           }}
         />
       ) : null}
@@ -75,18 +78,18 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => run("contacted", "Contact recorded.")}
+          onClick={() => run("contacted", t("leadActions.contactRecorded"))}
           disabled={pending}
         >
           <PhoneCall aria-hidden="true" />
-          Mark contacted
+          {t("leadActions.markContacted")}
         </Button>
       ) : null}
 
       {may.canQualify ? (
-        <Button size="sm" onClick={() => run("qualify", "Lead qualified.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("qualify", t("leadActions.qualified"))} disabled={pending}>
           <CheckCircle2 aria-hidden="true" />
-          {pending ? "Working…" : "Qualify"}
+          {pending ? t("common.working") : t("leadActions.qualify")}
         </Button>
       ) : null}
 
@@ -94,7 +97,7 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         <Button asChild size="sm">
           <Link href={`/sales/leads/${lead.id}/convert`}>
             <ArrowRightLeft aria-hidden="true" />
-            Convert
+            {t("leadActions.convert")}
           </Link>
         </Button>
       ) : null}
@@ -107,14 +110,14 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
           disabled={pending}
         >
           <XCircle aria-hidden="true" />
-          Disqualify
+          {t("leadActions.disqualify")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" onClick={() => setArchiving(true)} disabled={pending}>
           <Archive aria-hidden="true" />
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -122,43 +125,43 @@ export function LeadActions({ lead }: { lead: LeadDetailDTO }) {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => run("restore", "Lead restored.")}
+          onClick={() => run("restore", t("leadActions.restored"))}
           disabled={pending}
         >
           <RotateCcw aria-hidden="true" />
-          Restore
+          {t("common.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title="Archive this lead?"
-        description="It leaves the working list. Restoring it later returns it to the status it holds now."
-        confirmLabel="Archive lead"
+        title={t("leadActions.archiveTitle")}
+        description={t("leadActions.archiveDescription")}
+        confirmLabel={t("leadActions.archiveConfirm")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("archive", "Lead archived.")}
+        onConfirm={() => run("archive", t("leadActions.archived"))}
       />
 
       <RejectDialog
         open={disqualifying}
         onOpenChange={setDisqualifying}
-        title="Disqualify this lead?"
-        description="The reason stays on the lead, so the lost-lead picture is worth reading later."
-        label="Why it went nowhere"
-        placeholder="No budget this year, duplicate enquiry, wrong fit…"
-        confirmLabel="Disqualify"
-        pendingLabel="Disqualifying…"
-        emptyMessage="Say why it went nowhere, so the record is worth keeping."
+        title={t("leadActions.disqualifyTitle")}
+        description={t("leadActions.disqualifyDescription")}
+        label={t("leadActions.disqualifyLabel")}
+        placeholder={t("leadActions.disqualifyPlaceholder")}
+        confirmLabel={t("leadActions.disqualify")}
+        pendingLabel={t("leadActions.disqualifying")}
+        emptyMessage={t("leadActions.disqualifyEmpty")}
         onReject={async (reason) => {
           const result = await disqualifyLeadAction(lead.id, reason);
           if (result.ok) {
-            toast({ title: "Lead disqualified." });
+            toast({ title: t("leadActions.disqualified") });
             setDisqualifying(false);
             router.refresh();
           } else {
-            toast({ title: result.error, tone: "danger" });
+            toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           }
           return result.ok;
         }}

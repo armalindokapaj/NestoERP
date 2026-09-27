@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ListChecks } from "lucide-react";
@@ -18,7 +19,10 @@ import type { UserContext } from "@/lib/context/types";
 import { parseTaskListQuery } from "@/lib/modules/tasks/task.query";
 import * as tasks from "@/lib/modules/tasks/task.service";
 
-export const metadata: Metadata = { title: "Sales tasks" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.salesTasks") };
+}
 
 /**
  * Sales follow-up work (PRD #17 §134, §138).
@@ -33,6 +37,7 @@ export default async function SalesTasksPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   if (!can(context, "sales.task.view") || !can(context, "task.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "sales");
@@ -42,11 +47,11 @@ export default async function SalesTasksPage({
     <ModulePage
       experience={experience}
       activeSection="tasks"
-      description="Follow-up work on leads and opportunities. These are ordinary tasks — they appear in Tasks too."
+      description={t("tasks.description")}
       actions={
         can(context, "task.create") && can(context, "sales.task.create") ? (
           <Button asChild size="sm">
-            <Link href="/tasks/new?module=sales">New task</Link>
+            <Link href="/tasks/new?module=sales">{t("tasks.newTask")}</Link>
           </Button>
         ) : null
       }
@@ -67,6 +72,7 @@ async function SalesTaskList({
 }) {
   // `module` is forced rather than read from the URL: this section is the sales
   // tasks, and a query string must not be able to widen it.
+  const t = await getTranslations("sales");
   const query = { ...parseTaskListQuery(searchParams), moduleKey: "sales" };
   const result = await tasks.listTasks(context, query);
 
@@ -85,36 +91,36 @@ async function SalesTaskList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search sales tasks…"
+        searchPlaceholder={t("tasks.search")}
         filters={[
           {
             param: "status",
-            label: "Status",
+            label: t("lists.status"),
             options: [
-              { value: "TODO", label: "To do" },
-              { value: "IN_PROGRESS", label: "In progress" },
-              { value: "BLOCKED", label: "Blocked" },
-              { value: "COMPLETED", label: "Completed" },
+              { value: "TODO", label: t("tasks.todo") },
+              { value: "IN_PROGRESS", label: t("tasks.inProgress") },
+              { value: "BLOCKED", label: t("tasks.blocked") },
+              { value: "COMPLETED", label: t("tasks.completed") },
             ],
           },
         ]}
         sortOptions={[
-          { value: "due-asc", label: "Due soonest" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "priority-desc", label: "Highest priority" },
+          { value: "due-asc", label: t("tasks.dueSoonest") },
+          { value: "created-desc", label: t("lists.recentlyCreated") },
+          { value: "priority-desc", label: t("tasks.highestPriority") },
         ]}
       />
 
       {result.data.length === 0 ? (
         <EmptyState
           icon={<ListChecks />}
-          title={hasFilters ? "No Sales records match these filters." : "No sales tasks yet."}
+          title={hasFilters ? t("lists.noMatchTitle") : t("tasks.none")}
           description={
             hasFilters
-              ? "Adjust or clear the filters to see more."
-              : "Follow-up work raised from a lead or an opportunity appears here."
+              ? t("lists.noMatchDescription")
+              : t("tasks.noneDescription")
           }
-          action={hasFilters ? { label: "Clear filters", href: "/sales/tasks" } : undefined}
+          action={hasFilters ? { label: t("lists.clearFilters"), href: "/sales/tasks" } : undefined}
         />
       ) : (
         <>

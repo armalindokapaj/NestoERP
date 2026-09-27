@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useUnsavedFrozen } from "@/components/unsaved/use-unsaved";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * A full-page form whose submit is a workflow step — converting a lead,
@@ -35,6 +36,7 @@ export function WorkflowForm({
   workflow: string;
   children: React.ReactNode;
 }) {
+  const t = useSalesTranslations();
   const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
   const frozen = useUnsavedFrozen();
@@ -56,7 +58,7 @@ export function WorkflowForm({
             {pending ? pendingLabel : submitLabel}
           </Button>
           <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <UnsavedIndicator save={save} />
         </div>

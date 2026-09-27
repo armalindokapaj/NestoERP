@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -6,7 +7,10 @@ import { LostForm } from "@/components/sales/close-forms";
 import { markLostAction } from "@/lib/actions/sales";
 import { opportunityContext } from "../opportunity-context";
 
-export const metadata: Metadata = { title: "Mark lost" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.markLost") };
+}
 
 type Params = { params: Promise<{ opportunityId: string }> };
 
@@ -14,6 +18,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 export default async function MarkLostPage({ params }: Params) {
   const { opportunityId } = await params;
   const { opportunity } = await opportunityContext(opportunityId);
+  const t = await getTranslations("sales");
 
   if (!opportunity.capabilities.canMarkLost) redirect(`/sales/opportunities/${opportunityId}`);
 
@@ -26,13 +31,13 @@ export default async function MarkLostPage({ params }: Params) {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
           { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
-          { label: "Mark lost" },
+          { label: t("crumbs.markLost") },
         ]}
-        title={`Mark ${opportunity.name} as lost`}
-        subtitle="It can be reopened later. The reason is what makes the lost-reason report worth reading."
+        title={t("pages.markLostTitle", { name: opportunity.name })}
+        subtitle={t("pages.markLostSubtitle")}
       />
 
       <LostForm action={action} cancelHref={`/sales/opportunities/${opportunityId}`} />

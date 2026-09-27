@@ -1,6 +1,7 @@
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { CompanyRef } from "@/lib/modules/sales/sales.types";
 import { GroupCompanyFilter } from "./group-company-filter";
+import { SalesText } from "./sales-text";
 
 /**
  * What a Sales page in the Group workspace is reading (Workspace Context §45,
@@ -12,7 +13,7 @@ export function GroupSalesScope({ companies, included }: { companies: CompanyRef
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="group-sales-scope">
       <GroupCompanyFilter companies={companies} />
-      <span className="text-meta text-fg-subtle">{included.length === 1 ? "Company" : "Across"}</span>
+      <span className="text-meta text-fg-subtle">{included.length === 1 ? <SalesText k="common.groupCompany" /> : <SalesText k="common.groupAcross" />}</span>
       {included.map((company) => (
         <CompanyTag key={company.id} name={company.name} />
       ))}

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -12,7 +13,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { resolveSalesExperience } from "@/lib/modules/sales/sales.workspace";
 import { OpportunityList } from "./opportunity-list";
 
-export const metadata: Metadata = { title: "Opportunities" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.opportunities") };
+}
 
 /**
  * The opportunity list (PRD #17 §71, §292).
@@ -27,6 +31,7 @@ export default async function OpportunitiesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   const experience = await resolveSalesExperience(context);
   const params = await searchParams;
@@ -40,7 +45,7 @@ export default async function OpportunitiesPage({
           {!grouped && can(context, "sales.export") ? <SalesExportLink type="opportunities" /> : null}
           {!grouped && can(context, "sales.opportunity.create") ? (
             <Button asChild size="sm">
-              <Link href="/sales/opportunities/new">New opportunity</Link>
+              <Link href="/sales/opportunities/new">{t("lists.newOpportunity")}</Link>
             </Button>
           ) : null}
         </div>

@@ -5,7 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
-import { areaText, numberText, plural } from "@/components/project-structure/structure-ui";
+import { areaText, numberText } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
@@ -15,6 +15,8 @@ import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema"
 import { UNIT_COMMERCIAL_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
 import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
 
 /**
@@ -89,6 +91,7 @@ export function SalesInventory({
   unitTypes: Array<{ id: string; name: string }>;
   actions: { canReserve: boolean; canRelease: boolean };
 }) {
+  const t = useSalesTranslations();
   const [filters, setFilters] = React.useState(initialFilters);
   const [search, setSearch] = React.useState(initialFilters.q);
   const [page, setPage] = React.useState(initial.page);
@@ -122,17 +125,17 @@ export function SalesInventory({
     fetch(`/api/projects/${projectId}/sales/units?${queryString(filters, page)}`, { signal: controller.signal })
       .then(async (response) => {
         const json = (await response.json().catch(() => null)) as { data?: InventoryDTO; error?: { message?: string } } | null;
-        if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? "Could not load the units.");
+        if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? t("inventory.loadFailed"));
         setList(json.data);
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Could not load the units.");
+        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : t("inventory.loadFailed"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [filters, page, projectId, reloadKey]);
+  }, [filters, page, projectId, reloadKey, t]);
 
   function setFilter(patch: Partial<InventoryFilters>) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -153,7 +156,7 @@ export function SalesInventory({
   return (
     <div className="space-y-3">
       <div className="-mx-1 overflow-x-auto">
-        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label="Commercial status">
+        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label={t("inventory.statusGroup")}>
           {QUICK.map((status) => {
             const pressed = filters.commercialStatus === status;
             return (
@@ -166,7 +169,7 @@ export function SalesInventory({
                 onClick={() => setFilter({ commercialStatus: status })}
                 className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
-                {status ? UNIT_COMMERCIAL_STATUS_LABELS[status] : "All"}
+                {status ? salesLabel(t, "commercialStatus", status, UNIT_COMMERCIAL_STATUS_LABELS[status]) : t("inventory.all")}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>
               </button>
             );
@@ -177,42 +180,42 @@ export function SalesInventory({
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
           className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1"
-          placeholder={list.canSeeClients || list.canSeeDeals ? "Search unit, client or deal" : "Search unit code or name"}
+          placeholder={list.canSeeClients || list.canSeeDeals ? t("inventory.searchWide") : t("inventory.searchNarrow")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          aria-label="Search units"
+          aria-label={t("inventory.searchUnits")}
         />
         <Button variant="secondary" onClick={() => setPanelOpen((open) => !open)} aria-expanded={panelOpen}>
           <SlidersHorizontal aria-hidden="true" />
           Filters{panelCount ? ` (${panelCount})` : ""}
         </Button>
-        <select aria-label="Sort units" className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
+        <select aria-label={t("inventory.sortUnits")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
           {(Object.keys(SORT_LABELS) as InventorySort[]).map((sort) => (
             <option key={sort} value={sort}>
-              {SORT_LABELS[sort]}
+              {t(`inventory.sort.${sort}` as "inventory.sort.code")}
             </option>
           ))}
         </select>
         {active ? (
           <Button variant="ghost" onClick={clear}>
             <RotateCcw aria-hidden="true" />
-            Clear filters
+            {t("inventory.clearFilters")}
           </Button>
         ) : null}
       </div>
 
       {panelOpen ? (
         <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="sales-filters">
-          <FilterSelect label="Building" value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
-          <FilterSelect label="Floor" value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
-          <FilterSelect label="Unit type" value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
-          <FilterSelect label="Bedrooms" value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label="Bathrooms" value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label="Orientation" value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: ORIENTATION_LABELS[value] }))} />
-          <FilterSelect label="Position" value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: POSITION_LABELS[value] }))} />
-          <RangeFilter label="Saleable area (m²)" min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
-          <RangeFilter label="Asking price" min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
-          <RangeFilter label="Price/m²" min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />
+          <FilterSelect label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
+          <FilterSelect label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
+          <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+          <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
+          <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
+          <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: ORIENTATION_LABELS[value] }))} />
+          <FilterSelect label={t("inventory.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: POSITION_LABELS[value] }))} />
+          <RangeFilter label={t("inventory.saleableArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
+          <RangeFilter label={t("inventory.askingPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
+          <RangeFilter label={t("inventory.pricePerSqm")} min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />
         </div>
       ) : null}
 
@@ -220,31 +223,31 @@ export function SalesInventory({
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong" role="alert">
           <span>{loadError}</span>
           <Button variant="secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>
-            Retry
+            {t("inventory.retry")}
           </Button>
         </div>
       ) : list.items.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="sales-none">
-          {active ? "No units match these filters." : "This project has no units yet."}
+          {active ? t("inventory.noMatch") : t("inventory.noUnits")}
         </p>
       ) : (
         <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
-          {active ? <p className="mb-2 text-table text-fg-muted">{plural(list.total, "unit")}</p> : null}
+          {active ? <p className="mb-2 text-table text-fg-muted">{t("inventory.unitCount", { count: list.total })}</p> : null}
           <div className="hidden md:block">
-            <Table label="Sales inventory" data-testid="sales-table">
+            <Table label={t("inventory.table")} data-testid="sales-table">
               <TableHead>
                 <tr>
-                  <TableHeaderCell>Unit</TableHeaderCell>
-                  <TableHeaderCell>Location</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Saleable</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Beds</TableHeaderCell>
-                  <TableHeaderCell className="hidden 2xl:table-cell">Orientation</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Asking price</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Price/m²</TableHeaderCell>
-                  {list.canSeeClients ? <TableHeaderCell>Client</TableHeaderCell> : null}
-                  {list.canSeeDeals ? <TableHeaderCell>Deal</TableHeaderCell> : null}
-                  <TableHeaderCell>Expires</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.unit")}</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.location")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.saleable")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.beds")}</TableHeaderCell>
+                  <TableHeaderCell className="hidden 2xl:table-cell">{t("inventory.orientation")}</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.status")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.askingPrice")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.pricePerSqm")}</TableHeaderCell>
+                  {list.canSeeClients ? <TableHeaderCell>{t("inventory.client")}</TableHeaderCell> : null}
+                  {list.canSeeDeals ? <TableHeaderCell>{t("inventory.deal")}</TableHeaderCell> : null}
+                  <TableHeaderCell>{t("inventory.expires")}</TableHeaderCell>
                 </tr>
               </TableHead>
               <TableBody>
@@ -294,30 +297,30 @@ export function SalesInventory({
                     <span className="mt-1 block text-meta text-fg-muted">
                       {row.client ? row.client.name : null}
                       {row.client && row.reservationExpiresAt ? " · " : null}
-                      {row.reservationExpiresAt ? `expires ${formatDate(row.reservationExpiresAt)}` : null}
+                      {row.reservationExpiresAt ? t("inventory.expiresOn", { date: formatDate(row.reservationExpiresAt) }) : null}
                     </span>
                   ) : null}
                 </Link>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button asChild variant="secondary" size="sm">
-                    <Link href={href(row)}>Open</Link>
+                    <Link href={href(row)}>{t("inventory.open")}</Link>
                   </Button>
                   {/* The table's Deal column, so a phone reaches the unit's deal too (AUD-04 §5, MW-05). */}
                   {list.canSeeDeals && row.deal ? (
                     <Button asChild variant="secondary" size="sm" className="max-w-full">
-                      <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={`Deal: ${row.deal.name}`}>
+                      <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={t("inventory.dealLabel", { name: row.deal.name })}>
                         <span className="truncate">Deal: {row.deal.name}</span>
                       </Link>
                     </Button>
                   ) : null}
                   {actions.canReserve && (row.status === "FOR_SALE" || row.status === "ON_HOLD") && row.publicationStatus === "PUBLISHED" ? (
                     <Button asChild size="sm">
-                      <Link href={`${href(row)}/sales?action=reserve`}>Reserve</Link>
+                      <Link href={`${href(row)}/sales?action=reserve`}>{t("inventory.reserve")}</Link>
                     </Button>
                   ) : null}
                   {actions.canRelease && row.status === "RESERVED" ? (
                     <Button asChild variant="secondary" size="sm">
-                      <Link href={`${href(row)}/sales?action=release`}>Release</Link>
+                      <Link href={`${href(row)}/sales?action=release`}>{t("inventory.release")}</Link>
                     </Button>
                   ) : null}
                 </div>
@@ -326,23 +329,23 @@ export function SalesInventory({
           </ul>
 
           {list.total > list.pageSize ? (
-            <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <nav aria-label={t("inventory.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-table text-fg-muted">
                 <span className="tabular-nums">
                   {first}–{last}
                 </span>{" "}
-                of <span className="tabular-nums">{list.total}</span>
+                {t("inventory.of")} <span className="tabular-nums">{list.total}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" disabled={list.page <= 1 || loading} onClick={() => setPage(list.page - 1)}>
                   <ChevronLeft aria-hidden="true" />
-                  Previous
+                  {t("inventory.previous")}
                 </Button>
                 <span className="text-table tabular-nums text-fg-subtle">
-                  Page {list.page} of {pages}
+                  {t("inventory.pageOf", { page: list.page, pages })}
                 </span>
                 <Button variant="secondary" size="sm" disabled={list.page >= pages || loading} onClick={() => setPage(list.page + 1)}>
-                  Next
+                  {t("inventory.next")}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               </div>
@@ -355,6 +358,7 @@ export function SalesInventory({
 }
 
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
+  const t = useSalesTranslations();
   const id = `sales-filter-${label.toLowerCase().replace(/\W+/g, "-")}`;
   return (
     <div className="flex min-w-0 flex-col gap-1">
@@ -362,7 +366,7 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
         {label}
       </label>
       <select id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Any</option>
+        <option value="">{t("inventory.any")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -374,6 +378,7 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
 }
 
 function RangeFilter({ label, min, max, onChange }: { label: string; min: string; max: string; onChange: (min: string, max: string) => void }) {
+  const t = useSalesTranslations();
   const [low, setLow] = React.useState(min);
   const [high, setHigh] = React.useState(max);
   React.useEffect(() => {
@@ -388,9 +393,9 @@ function RangeFilter({ label, min, max, onChange }: { label: string; min: string
     <fieldset className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
       <legend className="mb-1 text-meta font-medium text-fg-muted">{label}</legend>
       <div className="flex items-center gap-1.5">
-        <Input aria-label={`${label} from`} placeholder="Min" inputMode="decimal" className="h-9" value={low} onChange={(event) => setLow(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
+        <Input aria-label={t("inventory.from", { label })} placeholder={t("inventory.min")} inputMode="decimal" className="h-9" value={low} onChange={(event) => setLow(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
         <span className="text-fg-subtle">–</span>
-        <Input aria-label={`${label} to`} placeholder="Max" inputMode="decimal" className="h-9" value={high} onChange={(event) => setHigh(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
+        <Input aria-label={t("inventory.to", { label })} placeholder={t("inventory.max")} inputMode="decimal" className="h-9" value={high} onChange={(event) => setHigh(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
       </div>
     </fieldset>
   );

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { Target } from "lucide-react";
 
@@ -17,7 +18,10 @@ import { includedCompanies, resolveSalesExperience } from "@/lib/modules/sales/s
 import type { UserContext } from "@/lib/context/types";
 import { totalsLabel, weightedTotalsLabel } from "@/components/sales/sales-format";
 
-export const metadata: Metadata = { title: "Pipeline" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.pipeline") };
+}
 
 /**
  * The Kanban board (PRD #17 §98–§103).
@@ -49,6 +53,7 @@ export default async function PipelinePage({
 }
 
 async function Pipeline({ context, companyParam }: { context: UserContext; companyParam: string | undefined }) {
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   const [pipeline, companies] = await Promise.all([
     getPipelineForWorkspace(context, companyParam),
@@ -61,8 +66,8 @@ async function Pipeline({ context, companyParam }: { context: UserContext; compa
     return (
       <EmptyState
         icon={<Target />}
-        title="No accessible data for this module."
-        description="None of the companies you can open lets you read the pipeline."
+        title={t("lists.noAccessTitle")}
+        description={t("pipeline.noAccessDescription")}
       />
     );
   }
@@ -72,13 +77,13 @@ async function Pipeline({ context, companyParam }: { context: UserContext; compa
       {grouped ? <GroupSalesScope companies={companies} included={includedCompanies(companies, companyParam)} /> : null}
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Open pipeline</h2>
+        <h2 className="text-card font-semibold text-fg">{t("pipeline.openPipeline")}</h2>
         {/* Grouped by currency, never summed across them (PRD #17 §31, §103). */}
         <p className="mt-2 text-page font-semibold tabular-nums text-fg">
           {totalsLabel(pipeline.totals)}
         </p>
         <p className="mt-1 text-table text-fg-subtle">
-          {weightedTotalsLabel(pipeline.totals)} weighted
+          {t("pipeline.weighted", { amount: weightedTotalsLabel(pipeline.totals) })}
         </p>
       </section>
 

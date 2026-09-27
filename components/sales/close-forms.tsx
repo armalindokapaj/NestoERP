@@ -10,6 +10,8 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useSalesTranslations } from "@/components/sales/sales-text";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { WorkflowForm } from "@/components/sales/workflow-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +67,7 @@ export function WonForm({
   currency: string;
   cancelHref: string;
 }) {
+  const t = useSalesTranslations();
   const [clientMode, setClientMode] = React.useState(hasClient ? "KEEP" : "EXISTING");
   const [projectMode, setProjectMode] = React.useState("NONE");
   const today = localToday();
@@ -73,16 +76,16 @@ export function WonForm({
     <WorkflowForm
       action={action}
       cancelHref={cancelHref}
-      submitLabel="Mark won"
-      pendingLabel="Closing…"
-      workflow="Mark won"
+      submitLabel={t("forms.markWon")}
+      pendingLabel={t("forms.closing")}
+      workflow={t("forms.markWon")}
     >
-      <FormSection title="The close" description="What the deal was worth when it was agreed.">
-        <Field label="Actual close date" name="actualCloseDate" required>
+      <FormSection title={t("forms.closeTitle")} description={t("forms.wonCloseDescription")}>
+        <Field label={t("forms.actualCloseDate")} name="actualCloseDate" required>
           <Input id="actualCloseDate" name="actualCloseDate" type="date" defaultValue={today} required />
         </Field>
 
-        <Field label={`Final value (${currency})`} name="finalValue" required>
+        <Field label={t("forms.finalValue", { currency })} name="finalValue" required>
           <Input
             id="finalValue"
             name="finalValue"
@@ -92,16 +95,16 @@ export function WonForm({
           />
         </Field>
 
-        <Field label="Why it was won" name="wonReason" className="sm:col-span-2">
+        <Field label={t("forms.wonReason")} name="wonReason" className="sm:col-span-2">
           <Textarea id="wonReason" name="wonReason" rows={3} maxLength={1000} />
         </Field>
       </FormSection>
 
       <FormSection
-        title="Client"
-        description="A won deal is a customer relationship, so it needs a canonical client."
+        title={t("forms.clientTitle")}
+        description={t("forms.wonClientDescription")}
       >
-        <Field label="Client" name="clientMode" required className="sm:col-span-2">
+        <Field label={t("forms.clientTitle")} name="clientMode" required className="sm:col-span-2">
           <select
             id="clientMode"
             name="clientMode"
@@ -109,16 +112,16 @@ export function WonForm({
             value={clientMode}
             onChange={(event) => setClientMode(event.target.value)}
           >
-            {hasClient ? <option value="KEEP">Keep {clientName}</option> : null}
-            {canLinkClient ? <option value="EXISTING">Link an existing client</option> : null}
-            {canCreateClient ? <option value="NEW">Create a new client</option> : null}
+            {hasClient ? <option value="KEEP">{t("forms.keepClient", { name: clientName ?? "" })}</option> : null}
+            {canLinkClient ? <option value="EXISTING">{t("forms.linkExistingClient")}</option> : null}
+            {canCreateClient ? <option value="NEW">{t("forms.createNewClient")}</option> : null}
           </select>
         </Field>
 
         {clientMode === "EXISTING" ? (
-          <Field label="Existing client" name="clientId" required className="sm:col-span-2">
+          <Field label={t("forms.existingClient")} name="clientId" required className="sm:col-span-2">
             <select id="clientId" name="clientId" className={selectClass} defaultValue="">
-              <option value="">Choose a client</option>
+              <option value="">{t("forms.chooseClient")}</option>
               {clients.map((client) => (
                 <option key={client.value} value={client.value}>
                   {client.label}
@@ -129,7 +132,7 @@ export function WonForm({
         ) : null}
 
         {clientMode === "NEW" ? (
-          <Field label="New client name" name="newClientName" required className="sm:col-span-2">
+          <Field label={t("forms.newClientName")} name="newClientName" required className="sm:col-span-2">
             <Input id="newClientName" name="newClientName" maxLength={200} />
           </Field>
         ) : null}
@@ -137,10 +140,10 @@ export function WonForm({
 
       {canLinkProject || canCreateProject ? (
         <FormSection
-          title="Delivery"
-          description="Optional. A project can be linked later without reopening the deal."
+          title={t("forms.deliveryTitle")}
+          description={t("forms.deliveryDescription")}
         >
-          <Field label="Project" name="projectMode" className="sm:col-span-2">
+          <Field label={t("forms.project")} name="projectMode" className="sm:col-span-2">
             <select
               id="projectMode"
               name="projectMode"
@@ -148,22 +151,22 @@ export function WonForm({
               value={projectMode}
               onChange={(event) => setProjectMode(event.target.value)}
             >
-              <option value="NONE">Do not create a project</option>
-              {canLinkProject ? <option value="EXISTING">Link an existing project</option> : null}
-              {canCreateProject ? <option value="NEW">Create a new project</option> : null}
+              <option value="NONE">{t("forms.noProject")}</option>
+              {canLinkProject ? <option value="EXISTING">{t("forms.linkExistingProject")}</option> : null}
+              {canCreateProject ? <option value="NEW">{t("forms.createNewProject")}</option> : null}
             </select>
           </Field>
 
           {projectMode === "EXISTING" ? (
             <Field
-              label="Existing project"
+              label={t("forms.existingProject")}
               name="projectId"
               required
               className="sm:col-span-2"
-              hint="It must belong to the same client."
+              hint={t("forms.sameClientHint")}
             >
               <select id="projectId" name="projectId" className={selectClass} defaultValue="">
-                <option value="">Choose a project</option>
+                <option value="">{t("forms.chooseProject")}</option>
                 {projects.map((project) => (
                   <option key={project.value} value={project.value}>
                     {project.label}
@@ -175,10 +178,10 @@ export function WonForm({
 
           {projectMode === "NEW" ? (
             <>
-              <Field label="Project code" name="newProjectCode" required>
+              <Field label={t("forms.projectCode")} name="newProjectCode" required>
                 <Input id="newProjectCode" name="newProjectCode" maxLength={30} />
               </Field>
-              <Field label="Project name" name="newProjectName" required>
+              <Field label={t("forms.projectName")} name="newProjectName" required>
                 <Input id="newProjectName" name="newProjectName" maxLength={200} />
               </Field>
             </>
@@ -196,6 +199,7 @@ export function LostForm({
   action: (formData: FormData) => Promise<FormActionResult>;
   cancelHref: string;
 }) {
+  const t = useSalesTranslations();
   const [reason, setReason] = React.useState<string>("PRICE");
   const today = localToday();
 
@@ -203,19 +207,19 @@ export function LostForm({
     <WorkflowForm
       action={action}
       cancelHref={cancelHref}
-      submitLabel="Mark lost"
-      pendingLabel="Closing…"
-      workflow="Mark lost"
+      submitLabel={t("forms.markLost")}
+      pendingLabel={t("forms.closing")}
+      workflow={t("forms.markLost")}
     >
       <FormSection
-        title="The close"
-        description="Recorded so the lost-reason report can say something useful."
+        title={t("forms.closeTitle")}
+        description={t("forms.lostCloseDescription")}
       >
-        <Field label="Actual close date" name="actualCloseDate" required>
+        <Field label={t("forms.actualCloseDate")} name="actualCloseDate" required>
           <Input id="actualCloseDate" name="actualCloseDate" type="date" defaultValue={today} required />
         </Field>
 
-        <Field label="Reason" name="lostReason" required>
+        <Field label={t("forms.reason")} name="lostReason" required>
           <select
             id="lostReason"
             name="lostReason"
@@ -225,18 +229,18 @@ export function LostForm({
           >
             {LOST_REASONS.map((option) => (
               <option key={option} value={option}>
-                {lostReasonLabels[option]}
+                {salesLabel(t, "lostReason", option, lostReasonLabels[option])}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Note"
+          label={t("forms.note")}
           name="lostNote"
           className="sm:col-span-2"
           required={reason === "OTHER"}
-          hint={reason === "OTHER" ? "Required when the reason is Other." : "Optional."}
+          hint={reason === "OTHER" ? t("forms.noteRequired") : t("forms.optional")}
         >
           <Textarea id="lostNote" name="lostNote" rows={4} maxLength={2000} />
         </Field>

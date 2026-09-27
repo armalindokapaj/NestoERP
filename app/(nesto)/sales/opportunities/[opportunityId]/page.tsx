@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -19,10 +20,14 @@ import * as proposals from "@/lib/modules/sales/proposals/proposal.service";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RecordTasks } from "@/components/tasks/record-tasks";
 import { formatAmount } from "@/components/sales/sales-format";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { formatDate } from "@/lib/utils/format";
 import { opportunityContext } from "./opportunity-context";
 
-export const metadata: Metadata = { title: "Opportunity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.opportunity") };
+}
 
 type Params = { params: Promise<{ opportunityId: string }> };
 
@@ -30,6 +35,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 export default async function OpportunityPage({ params }: Params) {
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
+  const t = await getTranslations("sales");
 
   const relatedProposals = await proposals.listForOpportunity(context, opportunityId);
 
@@ -37,38 +43,38 @@ export default async function OpportunityPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
           { label: opportunity.name },
         ]}
         title={opportunity.name}
-        subtitle={opportunity.client?.name ?? "No client yet"}
+        subtitle={opportunity.client?.name ?? t("detail.noClientYet")}
         status={opportunity.stage}
         badges={
           <>
-            {opportunity.archivedAt ? <Badge tone="default">Archived</Badge> : null}
+            {opportunity.archivedAt ? <Badge tone="default">{t("detail.archived")}</Badge> : null}
             {opportunity.expectedCloseOverdue ? (
-              <Badge tone="warning">Expected close overdue</Badge>
+              <Badge tone="warning">{t("detail.expectedCloseOverdue")}</Badge>
             ) : null}
-            {opportunity.owner.active ? null : <Badge tone="warning">Owner inactive</Badge>}
+            {opportunity.owner.active ? null : <Badge tone="warning">{t("detail.ownerInactive")}</Badge>}
           </>
         }
         meta={[
           {
-            label: "Value",
+            label: t("detail.value"),
             value: formatAmount(opportunity.estimatedValue, opportunity.currency),
           },
           {
-            label: "Probability",
-            value: `${opportunity.probability}%${opportunity.probabilityIsOverride ? " (override)" : " (stage default)"}`,
+            label: t("detail.probability"),
+            value: `${opportunity.probability}%${opportunity.probabilityIsOverride ? t("detail.override") : t("detail.stageDefault")}`,
           },
           {
-            label: "Weighted",
+            label: t("detail.weighted"),
             value: formatAmount(opportunity.weightedValue, opportunity.currency),
           },
-          { label: "Owner", value: <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} /> },
+          { label: t("detail.owner"), value: <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} /> },
           {
-            label: opportunity.actualCloseDate ? "Closed" : "Expected close",
+            label: opportunity.actualCloseDate ? t("detail.closed") : t("detail.expectedClose"),
             value: opportunity.actualCloseDate
               ? formatDate(opportunity.actualCloseDate)
               : opportunity.expectedCloseDate
@@ -81,7 +87,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.stage === "WON" ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Won</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.won")}</h2>
           {opportunity.wonReason ? (
             <p className="mt-1 text-table text-fg-muted">{opportunity.wonReason}</p>
           ) : null}
@@ -100,10 +106,10 @@ export default async function OpportunityPage({ params }: Params) {
               </Link>
             ) : opportunity.capabilities.canLinkProject ? (
               <Button asChild variant="secondary" size="sm">
-                <Link href={`/sales/opportunities/${opportunityId}/project`}>Link a project</Link>
+                <Link href={`/sales/opportunities/${opportunityId}/project`}>{t("detail.linkProject")}</Link>
               </Button>
             ) : (
-              <span className="text-fg-subtle">No delivery project yet.</span>
+              <span className="text-fg-subtle">{t("detail.noDeliveryProject")}</span>
             )}
           </div>
         </section>
@@ -126,7 +132,7 @@ export default async function OpportunityPage({ params }: Params) {
       {opportunity.stage === "LOST" && opportunity.lostReason ? (
         <section className="nesto-card p-5">
           <h2 className="text-card font-semibold text-fg">
-            Lost — {lostReasonLabels[opportunity.lostReason]}
+            {t("detail.lostTitle", { reason: salesLabel(t, "lostReason", opportunity.lostReason, lostReasonLabels[opportunity.lostReason]) })}
           </h2>
           {opportunity.lostNote ? (
             <p className="mt-1 text-table text-fg-muted">{opportunity.lostNote}</p>
@@ -136,24 +142,24 @@ export default async function OpportunityPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Details</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
 
           {opportunity.nextStep ? (
             <div className="mt-4">
-              <h3 className="nesto-eyebrow text-fg-subtle">Next step</h3>
+              <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.nextStep")}</h3>
               <p className="mt-1 text-table text-fg">{opportunity.nextStep}</p>
             </div>
           ) : null}
 
           <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
             <div>
-              <dt className="nesto-eyebrow text-fg-subtle">Contact</dt>
+              <dt className="nesto-eyebrow text-fg-subtle">{t("detail.contact")}</dt>
               <dd className="mt-0.5 text-table text-fg">
                 {opportunity.contact ? opportunity.contact.fullName : <span className="text-fg-subtle">—</span>}
               </dd>
             </div>
             <div>
-              <dt className="nesto-eyebrow text-fg-subtle">From lead</dt>
+              <dt className="nesto-eyebrow text-fg-subtle">{t("detail.fromLead")}</dt>
               <dd className="mt-0.5 text-table text-fg">
                 {opportunity.sourceLead ? (
                   <Link
@@ -168,18 +174,18 @@ export default async function OpportunityPage({ params }: Params) {
               </dd>
             </div>
             <div>
-              <dt className="nesto-eyebrow text-fg-subtle">In this stage since</dt>
+              <dt className="nesto-eyebrow text-fg-subtle">{t("detail.inStageSince")}</dt>
               <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.stageChangedAt)}</dd>
             </div>
             <div>
-              <dt className="nesto-eyebrow text-fg-subtle">Created</dt>
+              <dt className="nesto-eyebrow text-fg-subtle">{t("detail.created")}</dt>
               <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.createdAt)}</dd>
             </div>
           </dl>
 
           {opportunity.description ? (
             <div className="mt-5 border-t border-line pt-4">
-              <h3 className="nesto-eyebrow text-fg-subtle">Description</h3>
+              <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.description")}</h3>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {opportunity.description}
               </p>
@@ -188,7 +194,7 @@ export default async function OpportunityPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Documents</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
           <div className="mt-4">
             <Suspense fallback={<SkeletonTable rows={2} />}>
               <SalesRecordDocuments
@@ -211,18 +217,18 @@ export default async function OpportunityPage({ params }: Params) {
       {can(context, "sales.proposal.view") ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-card font-semibold text-fg">Proposals</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.proposals")}</h2>
             {opportunity.capabilities.canCreateProposal ? (
               <Button asChild size="sm">
                 <Link href={`/sales/proposals/new?opportunityId=${opportunityId}`}>
-                  New proposal
+                  {t("detail.newProposal")}
                 </Link>
               </Button>
             ) : null}
           </div>
 
           {relatedProposals.length === 0 ? (
-            <p className="nesto-card p-5 text-table text-fg-subtle">No proposals yet.</p>
+            <p className="nesto-card p-5 text-table text-fg-subtle">{t("detail.noProposals")}</p>
           ) : (
             <ProposalTable proposals={relatedProposals} showOpportunity={false} listId="sales.opportunity-proposals" />
           )}
@@ -231,7 +237,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.capabilities.canViewTasks ? (
         <Suspense fallback={<SkeletonTable rows={2} />}>
-          <RecordTasks context={context} parentType="opportunity" parentId={opportunity.id} title="Follow-up tasks" />
+          <RecordTasks context={context} parentType="opportunity" parentId={opportunity.id} title={t("detail.followUpTasks")} />
         </Suspense>
       ) : null}
 
@@ -239,7 +245,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Activity</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed
               context={context}

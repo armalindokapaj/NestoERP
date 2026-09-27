@@ -20,6 +20,9 @@ import { UnitContractStatusBadge } from "@/components/finance/unit-finance/finan
 import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_SOLD_RULE_LABELS, UNIT_PRICE_BASIS_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { failureMessage } from "@/components/project-structure/structure-ui";
 import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/utils/format";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { useSalesTranslations } from "@/components/sales/sales-text";
+import { soldMissingText } from "./sold-missing";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
 import { CorrectDialog, dateValue, PriceDialog, ReasonDialog, ReopenDialog, ReserveDialog } from "./unit-sales-dialogs";
 
@@ -37,6 +40,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
+  const t = useSalesTranslations();
   const caps = sales.capabilities;
   const reservation = sales.activeReservation;
   const [open, setOpen] = React.useState<Open>(null);
@@ -83,7 +87,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       setOpen(null);
     } catch (error) {
       setOpen(null);
-      toast({ title: failureMessage(error, "That did not work. Try again."), tone: "danger" });
+      toast({ title: failureMessage(error, t("unitSales.failed")), tone: "danger" });
     } finally {
       setPending(false);
     }
@@ -92,11 +96,11 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   async function markSold() {
     setPending(true);
     try {
-      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, `${sales.unitCode} is sold.`);
+      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, t("unitSales.isSold", { unit: sales.unitCode }));
       setOpen(null);
     } catch (error) {
       setOpen(null);
-      toast({ title: failureMessage(error, "The unit could not be marked Sold."), tone: "danger" });
+      toast({ title: failureMessage(error, t("unitSales.soldFailed")), tone: "danger" });
     } finally {
       setPending(false);
     }
@@ -110,32 +114,32 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         <section className="nesto-card p-5" aria-labelledby="unit-sales-summary" data-testid="unit-sales-summary">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="unit-sales-summary" className="text-card font-semibold text-fg">
-              Sales
+              {t("unitSales.sales")}
             </h2>
             <CommercialStatusBadge status={status} />
-            {sales.statusChangedAt ? <span className="text-meta text-fg-subtle">since {formatDate(sales.statusChangedAt)}</span> : null}
+            {sales.statusChangedAt ? <span className="text-meta text-fg-subtle">{t("unitSales.since", { date: formatDate(sales.statusChangedAt) })}</span> : null}
           </div>
 
           {!sales.sellable && (status === "NOT_FOR_SALE" || status === "FOR_SALE" || status === "ON_HOLD") ? (
             <p className="mt-3 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-table text-warning-strong" data-testid="unit-not-sellable">
-              {sales.sellableReason} It can be put on sale and reserved once the Architecture team publishes it.
+              {t("unitSales.notSellable", { reason: sales.sellableReason ?? "" })}
             </p>
           ) : null}
 
           <DetailGrid
             className="mt-4"
             items={[
-              { label: "Asking price", value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency)}</span> },
-              { label: "Price/m²", value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency)}</span> },
-              { label: "Price basis", value: `${UNIT_PRICE_BASIS_LABELS[sales.priceBasis]}${sales.basisArea ? ` · ${areaText(sales.basisArea)}` : ""}` },
+              { label: t("unitSales.askingPrice"), value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency)}</span> },
+              { label: t("unitSales.pricePerSqm"), value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency)}</span> },
+              { label: t("unitSales.priceBasis"), value: `${salesLabel(t, "priceBasis", sales.priceBasis, UNIT_PRICE_BASIS_LABELS[sales.priceBasis])}${sales.basisArea ? ` · ${areaText(sales.basisArea)}` : ""}` },
               ...(status === "ON_HOLD"
                 ? [
                     {
-                      label: "Held",
+                      label: t("unitSales.held"),
                       value: (
                         <>
                           {sales.heldBy ? <PersonLink memberId={sales.heldByMemberId} name={sales.heldBy} /> : "—"}
-                          {sales.holdUntil ? ` · until ${formatDate(sales.holdUntil)}` : ""}
+                          {sales.holdUntil ? t("unitSales.until", { date: formatDate(sales.holdUntil) }) : ""}
                         </>
                       ),
                     },
@@ -147,13 +151,13 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
           {status === "ON_HOLD" && sales.holdReason ? (
             <div className="mt-4">
-              <p className="nesto-eyebrow text-fg-subtle">Hold reason</p>
+              <p className="nesto-eyebrow text-fg-subtle">{t("unitSales.holdReason")}</p>
               <p className="mt-1 whitespace-pre-line text-table text-fg">{sales.holdReason}</p>
             </div>
           ) : null}
           {sales.salesNotes ? (
             <div className="mt-4">
-              <p className="nesto-eyebrow text-fg-subtle">Sales notes</p>
+              <p className="nesto-eyebrow text-fg-subtle">{t("unitSales.salesNotes")}</p>
               <p className="mt-1 whitespace-pre-line text-table text-fg">{sales.salesNotes}</p>
             </div>
           ) : null}
@@ -162,59 +166,59 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4" data-testid="unit-sales-actions">
               {offer.putOnSale ? (
                 <Button onClick={() => setOpen("putOnSale")} disabled={pending}>
-                  <PlayCircle aria-hidden="true" /> Put on sale
+                  <PlayCircle aria-hidden="true" /> {t("unitSales.putOnSale")}
                 </Button>
               ) : null}
               {offer.reserve ? (
                 <Button onClick={() => setOpen("reserve")} disabled={pending}>
-                  <BadgeCheck aria-hidden="true" /> Reserve
+                  <BadgeCheck aria-hidden="true" /> {t("unitSales.reserve")}
                 </Button>
               ) : null}
               {offer.sold ? (
                 <Button onClick={() => setOpen(sales.soldCheck.allowed ? "sold" : "notSold")} disabled={pending}>
-                  <BadgeCheck aria-hidden="true" /> Mark Sold
+                  <BadgeCheck aria-hidden="true" /> {t("unitSales.markSold")}
                 </Button>
               ) : null}
               {offer.extend ? (
                 <Button variant="secondary" onClick={() => setOpen("extend")} disabled={pending}>
-                  <CalendarPlus aria-hidden="true" /> Extend
+                  <CalendarPlus aria-hidden="true" /> {t("unitSales.extend")}
                 </Button>
               ) : null}
               {offer.release ? (
                 <Button variant="secondary" onClick={() => setOpen("release")} disabled={pending}>
-                  <Unlock aria-hidden="true" /> Release
+                  <Unlock aria-hidden="true" /> {t("unitSales.release")}
                 </Button>
               ) : null}
               {offer.hold ? (
                 <Button variant="secondary" onClick={() => setOpen("hold")} disabled={pending}>
-                  <PauseCircle aria-hidden="true" /> Hold
+                  <PauseCircle aria-hidden="true" /> {t("unitSales.hold")}
                 </Button>
               ) : null}
               {offer.releaseHold ? (
                 <Button variant="secondary" onClick={() => setOpen("releaseHold")} disabled={pending}>
-                  <PlayCircle aria-hidden="true" /> Release hold
+                  <PlayCircle aria-hidden="true" /> {t("unitSales.releaseHold")}
                 </Button>
               ) : null}
               {offer.reopen ? (
                 <Button variant="secondary" onClick={() => setOpen("reopen")} disabled={pending}>
-                  <Undo2 aria-hidden="true" /> Reopen sale
+                  <Undo2 aria-hidden="true" /> {t("unitSales.reopenSale")}
                 </Button>
               ) : null}
               {offer.price ? (
                 <Button variant="secondary" onClick={() => setOpen("price")} disabled={pending}>
-                  <Tag aria-hidden="true" /> {sales.askingPrice ? "Change price" : "Set price"}
+                  <Tag aria-hidden="true" /> {sales.askingPrice ? t("unitSales.changePrice") : t("unitSales.setPrice")}
                 </Button>
               ) : null}
               {menu ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="More sales actions">
+                    <Button variant="ghost" size="icon" aria-label={t("unitSales.moreActions")}>
                       <MoreHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {offer.correct ? <DropdownMenuItem onSelect={() => setOpen("correct")}>Correct reservation</DropdownMenuItem> : null}
-                    {offer.takeOff ? <DropdownMenuItem onSelect={() => setOpen("takeOff")}>Take off sale</DropdownMenuItem> : null}
+                    {offer.correct ? <DropdownMenuItem onSelect={() => setOpen("correct")}>{t("unitSales.correctReservation")}</DropdownMenuItem> : null}
+                    {offer.takeOff ? <DropdownMenuItem onSelect={() => setOpen("takeOff")}>{t("unitSales.takeOffSale")}</DropdownMenuItem> : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
@@ -226,17 +230,17 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
         <section className="nesto-card p-5" aria-labelledby="reservation-history">
           <h2 id="reservation-history" className="text-card font-semibold text-fg">
-            Reservations
+            {t("unitSales.reservations")}
           </h2>
           {sales.reservations.length === 0 ? (
-            <p className="mt-3 text-table text-fg-muted">This unit has never been reserved.</p>
+            <p className="mt-3 text-table text-fg-muted">{t("unitSales.neverReserved")}</p>
           ) : (
             <ol className="mt-3 divide-y divide-line" data-testid="reservation-history">
               {sales.reservations.map((row) => (
                 <li key={row.id} className="py-2.5 text-table">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <Badge tone={row.status === "ACTIVE" ? "info" : row.status === "CONVERTED_TO_SALE" ? "success" : "default"}>{UNIT_RESERVATION_STATUS_LABELS[row.status]}</Badge>
-                    <span className="font-medium text-fg">{row.client?.name ?? "Client hidden"}</span>
+                    <Badge tone={row.status === "ACTIVE" ? "info" : row.status === "CONVERTED_TO_SALE" ? "success" : "default"}>{salesLabel(t, "reservationStatus", row.status, UNIT_RESERVATION_STATUS_LABELS[row.status])}</Badge>
+                    <span className="font-medium text-fg">{row.client?.name ?? t("unitSales.clientHidden")}</span>
                     {row.deal ? <span className="text-fg-muted">· {row.deal.name}</span> : null}
                     <span className="ml-auto tabular-nums text-fg-muted">{moneyLabel(row.agreedPrice, row.currency)}</span>
                   </div>
@@ -248,7 +252,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                         <PersonLink memberId={row.salespersonMemberId} name={row.salesperson} />
                       </>
                     ) : null}
-                    {row.extensions.length ? ` · extended ${row.extensions.length === 1 ? "once" : `${row.extensions.length} times`}` : ""}
+                    {row.extensions.length ? (row.extensions.length === 1 ? t("unitSales.extendedOnce") : t("unitSales.extendedTimes", { count: row.extensions.length })) : ""}
                   </p>
                   {row.closeReason ? <p className="mt-0.5 text-meta text-fg-muted">{row.closeReason}</p> : null}
                 </li>
@@ -262,7 +266,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         {sales.deals.length ? (
           <section className="nesto-card p-5" aria-labelledby="unit-deals">
             <h2 id="unit-deals" className="text-card font-semibold text-fg">
-              Deals
+              {t("unitSales.deals")}
             </h2>
             <ul className="mt-3 space-y-2" data-testid="unit-deals">
               {sales.deals.map((deal) => (
@@ -279,10 +283,10 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
         <section className="nesto-card p-5" aria-labelledby="price-history">
           <h2 id="price-history" className="text-card font-semibold text-fg">
-            Price history
+            {t("unitSales.priceHistory")}
           </h2>
           {sales.priceHistory.length === 0 ? (
-            <p className="mt-3 text-table text-fg-muted">No price has been set.</p>
+            <p className="mt-3 text-table text-fg-muted">{t("unitSales.noPrice")}</p>
           ) : (
             <ol className="mt-3 divide-y divide-line" data-testid="price-history">
               {sales.priceHistory.map((row) => (
@@ -309,20 +313,20 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
         <section className="nesto-card p-5" aria-labelledby="status-history">
           <h2 id="status-history" className="text-card font-semibold text-fg">
-            Status history
+            {t("unitSales.statusHistory")}
           </h2>
           {sales.statusHistory.length === 0 ? (
-            <p className="mt-3 text-table text-fg-muted">Not For Sale since it was created.</p>
+            <p className="mt-3 text-table text-fg-muted">{t("unitSales.notForSaleSinceCreated")}</p>
           ) : (
             <ol className="mt-3 divide-y divide-line" data-testid="status-history">
               {sales.statusHistory.map((row) => (
                 <li key={row.id} className="py-2 text-table">
                   <p className="text-fg">
-                    {row.fromStatus ? `${UNIT_COMMERCIAL_STATUS_LABELS[row.fromStatus]} → ` : ""}
-                    <span className="font-medium">{UNIT_COMMERCIAL_STATUS_LABELS[row.toStatus]}</span>
+                    {row.fromStatus ? `${salesLabel(t, "commercialStatus", row.fromStatus, UNIT_COMMERCIAL_STATUS_LABELS[row.fromStatus])} → ` : ""}
+                    <span className="font-medium">{salesLabel(t, "commercialStatus", row.toStatus, UNIT_COMMERCIAL_STATUS_LABELS[row.toStatus])}</span>
                   </p>
                   <p className="text-meta text-fg-subtle">
-                    {formatDateTime(row.changedAt)} · {row.actor ? <PersonLink memberId={row.actorMemberId} name={row.actor} /> : COMMERCIAL_SOURCE_LABELS[row.source]}
+                    {formatDateTime(row.changedAt)} · {row.actor ? <PersonLink memberId={row.actorMemberId} name={row.actor} /> : salesLabel(t, "commercialSource", row.source, COMMERCIAL_SOURCE_LABELS[row.source])}
                   </p>
                   {row.reason ? <p className="text-meta text-fg-muted">{row.reason}</p> : null}
                 </li>
@@ -334,23 +338,23 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
       <PriceDialog open={open === "price"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       {/* A sale's approval, where the company's Sold rule asks for one (E-05F §42). */}
-      <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={`Ask for approval to sell ${sales.unitCode}`} description="It waits in the Approvals Center. Once approved, you can mark the unit Sold." confirmLabel="Ask for approval" url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: "Note for the approver", kind: "textarea" }]} success="The sale is waiting for approval." submit={submit} testId="request-sale-approval-dialog" />
-      <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={`Approve the sale of ${sales.unitCode}?`} description="Sales can then mark it Sold for this reservation." confirmLabel="Approve" url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: "Note", kind: "textarea" }]} success="The sale is approved." submit={submit} />
-      <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={`Reject the sale of ${sales.unitCode}?`} confirmLabel="Reject" url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: "Reason", kind: "textarea", required: true }]} success="The sale was rejected." submit={submit} />
+      <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={t("unitSales.requestTitle", { unit: sales.unitCode })} description={t("unitSales.requestDescription")} confirmLabel={t("unitSales.askForApproval")} url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: t("unitSales.noteForApprover"), kind: "textarea" }]} success={t("unitSales.requestSuccess")} submit={submit} testId="request-sale-approval-dialog" />
+      <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={t("unitSales.approveTitle", { unit: sales.unitCode })} description={t("unitSales.approveDescription")} confirmLabel={t("unitSales.approve")} url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: t("unitSales.note"), kind: "textarea" }]} success={t("unitSales.approveSuccess")} submit={submit} />
+      <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={t("unitSales.rejectTitle", { unit: sales.unitCode })} confirmLabel={t("unitSales.reject")} url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: t("unitSales.reason"), kind: "textarea", required: true }]} success={t("unitSales.rejectSuccess")} submit={submit} />
       <ReserveDialog open={open === "reserve"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReopenDialog open={open === "reopen"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <CorrectDialog open={open === "correct"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReasonDialog
         open={open === "hold"}
         onClose={() => setOpen(null)}
-        title={`Hold ${sales.unitCode}`}
-        description="A held unit cannot be offered until the hold is released. It can still be reserved by someone allowed to."
-        confirmLabel="Hold"
+        title={t("unitSales.holdTitle", { unit: sales.unitCode })}
+        description={t("unitSales.holdDescription")}
+        confirmLabel={t("unitSales.hold")}
         url={`/api/project-units/${sales.unitId}/sales/status`}
         body={{ action: "hold", ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }}
-        success={`${sales.unitCode} is on hold.`}
+        success={t("unitSales.holdSuccess", { unit: sales.unitCode })}
         submit={submit}
-        date={{ label: "Review the hold on", field: "holdUntil", required: false, min: dateValue(new Date()) }}
+        date={{ label: t("unitSales.reviewHoldOn"), field: "holdUntil", required: false, min: dateValue(new Date()) }}
         testId="hold-dialog"
       />
       {reservation ? (
@@ -358,58 +362,58 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
           <ReasonDialog
             open={open === "extend"}
             onClose={() => setOpen(null)}
-            title={`Extend the reservation of ${sales.unitCode}`}
-            description={`It now expires on ${formatDate(reservation.expiresAt)}. The old and new dates are both kept.`}
-            confirmLabel="Extend"
+            title={t("unitSales.extendTitle", { unit: sales.unitCode })}
+            description={t("unitSales.extendDescription", { date: formatDate(reservation.expiresAt) })}
+            confirmLabel={t("unitSales.extend")}
             url={`/api/unit-reservations/${reservation.id}/extend`}
             body={{ expectedVersion: reservation.version }}
-            success={`The reservation of ${sales.unitCode} was extended.`}
+            success={t("unitSales.extendSuccess", { unit: sales.unitCode })}
             submit={submit}
-            date={{ label: "New expiry date", field: "expiresAt", required: true, initial: dateValue(new Date(new Date(reservation.expiresAt).getTime() + sales.defaults.reservationDays * 86_400_000)), min: dateValue(reservation.expiresAt) }}
+            date={{ label: t("unitSales.newExpiry"), field: "expiresAt", required: true, initial: dateValue(new Date(new Date(reservation.expiresAt).getTime() + sales.defaults.reservationDays * 86_400_000)), min: dateValue(reservation.expiresAt) }}
             testId="extend-dialog"
           />
           <ReasonDialog
             open={open === "release"}
             onClose={() => setOpen(null)}
-            title={`Release the reservation of ${sales.unitCode}?`}
-            description="The unit goes back on sale. The reservation stays in the history."
-            confirmLabel="Release"
+            title={t("unitSales.releaseTitle", { unit: sales.unitCode })}
+            description={t("unitSales.releaseDescription")}
+            confirmLabel={t("unitSales.release")}
             url={`/api/unit-reservations/${reservation.id}/release`}
             body={{ expectedVersion: reservation.version }}
-            success={`The reservation of ${sales.unitCode} was released.`}
+            success={t("unitSales.releaseSuccess", { unit: sales.unitCode })}
             submit={submit}
             testId="release-dialog"
           />
         </>
       ) : null}
 
-      <ConfirmDialog open={open === "putOnSale"} onOpenChange={(value) => !value && setOpen(null)} title={`Put ${sales.unitCode} on sale?`} description="Sales can offer and reserve it from now on." confirmLabel="Put on sale" destructive={false} pending={pending} onConfirm={() => void quick("put_on_sale", `${sales.unitCode} is for sale.`)} />
-      <ConfirmDialog open={open === "takeOff"} onOpenChange={(value) => !value && setOpen(null)} title={`Take ${sales.unitCode} off sale?`} description="It stops being offered. Its price and history are kept." confirmLabel="Take off sale" pending={pending} onConfirm={() => void quick("take_off_sale", `${sales.unitCode} is no longer for sale.`)} />
-      <ConfirmDialog open={open === "releaseHold"} onOpenChange={(value) => !value && setOpen(null)} title={`Release the hold on ${sales.unitCode}?`} description="The unit is for sale again." confirmLabel="Release hold" destructive={false} pending={pending} onConfirm={() => void quick("release_hold", `${sales.unitCode} is for sale again.`)} />
+      <ConfirmDialog open={open === "putOnSale"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.putOnSaleTitle", { unit: sales.unitCode })} description={t("unitSales.putOnSaleDescription")} confirmLabel={t("unitSales.putOnSale")} destructive={false} pending={pending} onConfirm={() => void quick("put_on_sale", t("unitSales.forSale", { unit: sales.unitCode }))} />
+      <ConfirmDialog open={open === "takeOff"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.takeOffTitle", { unit: sales.unitCode })} description={t("unitSales.takeOffDescription")} confirmLabel={t("unitSales.takeOffSale")} pending={pending} onConfirm={() => void quick("take_off_sale", t("unitSales.noLongerForSale", { unit: sales.unitCode }))} />
+      <ConfirmDialog open={open === "releaseHold"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.releaseHoldTitle", { unit: sales.unitCode })} description={t("unitSales.releaseHoldDescription")} confirmLabel={t("unitSales.releaseHold")} destructive={false} pending={pending} onConfirm={() => void quick("release_hold", t("unitSales.forSaleAgain", { unit: sales.unitCode }))} />
       <ConfirmDialog
         open={open === "sold"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={`Mark ${sales.unitCode} Sold?`}
-        description={`The reservation for ${reservation?.client?.name ?? "the client"} becomes the sale, at ${moneyLabel(reservation?.agreedPrice ?? null, reservation?.currency ?? null)}. Only a Sales Manager can reopen it.`}
-        confirmLabel="Mark Sold"
+        title={t("unitSales.soldTitle", { unit: sales.unitCode })}
+        description={t("unitSales.soldDescription", { client: reservation?.client?.name ?? t("unitSales.theClient"), price: moneyLabel(reservation?.agreedPrice ?? null, reservation?.currency ?? null) })}
+        confirmLabel={t("unitSales.markSold")}
         destructive={false}
         pending={pending}
         onConfirm={() => void markSold()}
       />
       <Dialog open={open === "notSold"} onOpenChange={(value) => !value && setOpen(null)}>
         <DialogContent className="max-w-md" data-testid="not-sellable-dialog">
-          <DialogTitle>{sales.unitCode} cannot be marked Sold yet</DialogTitle>
-          <DialogDescription>The company&apos;s Sold rule is {UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule].toLowerCase()}. Complete these first:</DialogDescription>
+          <DialogTitle>{t("unitSales.cannotSellTitle", { unit: sales.unitCode })}</DialogTitle>
+          <DialogDescription>{t("unitSales.cannotSellDescription", { rule: salesLabel(t, "soldRule", sales.soldCheck.rule, UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule]).toLowerCase() })}</DialogDescription>
           <ul className="mt-3 space-y-2">
             {sales.soldCheck.missing.map((item) => (
               <li key={item} className="flex items-start gap-2 text-table">
                 <CircleX className="mt-0.5 size-4 shrink-0 text-danger-strong" aria-hidden="true" />
-                <span className="font-medium text-fg">{item}</span>
+                <span className="font-medium text-fg">{soldMissingText(t, item)}</span>
               </li>
             ))}
           </ul>
           <DialogFooter>
-            <Button onClick={() => setOpen(null)}>Close</Button>
+            <Button onClick={() => setOpen(null)}>{t("unitSales.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -421,30 +425,31 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
   const expires = new Date(reservation.expiresAt);
   const left = expires.getTime() - Date.now();
   const soon = left < 86_400_000;
+  const t = useSalesTranslations();
   return (
     <section className="nesto-card p-5" aria-labelledby="active-reservation" data-testid="active-reservation">
       <div className="flex flex-wrap items-center gap-2">
         <h2 id="active-reservation" className="text-card font-semibold text-fg">
-          Reservation
+          {t("unitSales.reservation")}
         </h2>
         {/* Past its date and not yet closed by the expiry job, which runs every few minutes (§25). */}
-        <Badge tone={soon ? "warning" : "info"}>{left <= 0 ? "Expired — being released" : `Expires ${formatRelativeTime(expires)}`}</Badge>
+        <Badge tone={soon ? "warning" : "info"}>{left <= 0 ? t("unitSales.expiredReleasing") : t("unitSales.expires", { when: formatRelativeTime(expires) })}</Badge>
       </div>
       <DetailGrid
         className="mt-4"
         items={[
-          { label: "Client", value: reservation.client ? <Link href={`/clients/${reservation.client.id}`} className="font-medium hover:underline" data-testid="reservation-client">{reservation.client.name}</Link> : "Hidden" },
-          { label: "Deal", value: reservation.deal ? <Link href={`/sales/opportunities/${reservation.deal.id}`} className="font-medium hover:underline" data-testid="reservation-deal">{reservation.deal.name}</Link> : "Hidden" },
-          { label: "Reserved", value: formatDate(reservation.reservedAt) },
-          { label: "Expires", value: <span data-testid="reservation-expires">{formatDateTime(reservation.expiresAt)}</span> },
-          { label: "Salesperson", value: reservation.salesperson ? <PersonLink memberId={reservation.salespersonMemberId} name={reservation.salesperson} /> : "—" },
-          { label: "Agreed price", value: <span className="tabular-nums" data-testid="agreed-price">{moneyLabel(reservation.agreedPrice, reservation.currency)}</span> },
+          { label: t("unitSales.client"), value: reservation.client ? <Link href={`/clients/${reservation.client.id}`} className="font-medium hover:underline" data-testid="reservation-client">{reservation.client.name}</Link> : t("unitSales.hidden") },
+          { label: t("unitSales.deal"), value: reservation.deal ? <Link href={`/sales/opportunities/${reservation.deal.id}`} className="font-medium hover:underline" data-testid="reservation-deal">{reservation.deal.name}</Link> : t("unitSales.hidden") },
+          { label: t("unitSales.reserved"), value: formatDate(reservation.reservedAt) },
+          { label: t("unitSales.expiresLabel"), value: <span data-testid="reservation-expires">{formatDateTime(reservation.expiresAt)}</span> },
+          { label: t("unitSales.salesperson"), value: reservation.salesperson ? <PersonLink memberId={reservation.salespersonMemberId} name={reservation.salesperson} /> : "—" },
+          { label: t("unitSales.agreedPrice"), value: <span className="tabular-nums" data-testid="agreed-price">{moneyLabel(reservation.agreedPrice, reservation.currency)}</span> },
         ]}
       />
       {reservation.notes ? <p className="mt-4 whitespace-pre-line text-table text-fg-muted">{reservation.notes}</p> : null}
       {reservation.extensions.length ? (
         <div className="mt-4">
-          <p className="nesto-eyebrow text-fg-subtle">Extensions</p>
+          <p className="nesto-eyebrow text-fg-subtle">{t("unitSales.extensions")}</p>
           <ul className="mt-1 space-y-1">
             {reservation.extensions.map((extension) => (
               <li key={extension.extendedAt} className="text-meta text-fg-muted">
@@ -472,16 +477,17 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
 function SaleConditions({ sales, onOpen }: { sales: UnitSalesDTO; onOpen: (open: Open) => void }) {
   const approval = sales.saleApproval;
   const manual = sales.soldCheck.rule === "MANUAL_APPROVAL";
+  const t = useSalesTranslations();
   if (sales.status !== "RESERVED" && !sales.contract) return null;
   return (
     <div className="mt-4 space-y-2 rounded-md border border-line bg-surface-muted px-3 py-2.5 text-table" data-testid="sale-conditions">
       <p className="text-fg-muted">
-        Sold rule: <span className="font-medium text-fg">{UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule]}</span>
-        {sales.status === "RESERVED" ? (sales.soldCheck.allowed ? " · met" : ` · missing ${sales.soldCheck.missing.join(", ").toLowerCase()}`) : ""}
+        {t("unitSales.soldRule")} <span className="font-medium text-fg">{salesLabel(t, "soldRule", sales.soldCheck.rule, UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule])}</span>
+        {sales.status === "RESERVED" ? (sales.soldCheck.allowed ? t("unitSales.met") : t("unitSales.missing", { items: sales.soldCheck.missing.map((item) => soldMissingText(t, item)).join(", ").toLowerCase() })) : ""}
       </p>
       {sales.contract ? (
         <p className="flex flex-wrap items-center gap-2 text-fg-muted">
-          Contract{" "}
+          {t("unitSales.contract")}{" "}
           <Link href={`/projects/${sales.projectId}/units/${sales.unitId}/legal`} className="font-medium text-fg hover:underline" data-testid="sales-contract-link">
             {sales.contract.number}
           </Link>
@@ -492,24 +498,24 @@ function SaleConditions({ sales, onOpen }: { sales: UnitSalesDTO; onOpen: (open:
         <div className="flex flex-wrap items-center gap-2" data-testid="sale-approval">
           {approval ? (
             <Badge tone={approval.status === "APPROVED" ? "success" : approval.status === "PENDING" ? "warning" : "default"}>
-              {approval.status === "PENDING" ? "Waiting for approval" : approval.status === "APPROVED" ? "Sale approved" : approval.status === "REJECTED" ? "Sale rejected" : "Approval cancelled"}
+              {approval.status === "PENDING" ? t("unitSales.waitingApproval") : approval.status === "APPROVED" ? t("unitSales.saleApproved") : approval.status === "REJECTED" ? t("unitSales.saleRejected") : t("unitSales.approvalCancelled")}
             </Badge>
           ) : (
-            <span className="text-fg-muted">No approval asked for yet.</span>
+            <span className="text-fg-muted">{t("unitSales.noApproval")}</span>
           )}
           {approval?.note ? <span className="text-meta text-fg-subtle">{approval.note}</span> : null}
           {sales.canRequestSaleApproval ? (
             <Button size="sm" variant="secondary" onClick={() => onOpen("requestApproval")}>
-              Ask for approval
+              {t("unitSales.askForApproval")}
             </Button>
           ) : null}
           {approval?.status === "PENDING" && sales.capabilities.canApproveSale ? (
             <>
               <Button size="sm" onClick={() => onOpen("approveSale")}>
-                Approve sale
+                {t("unitSales.approveSale")}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => onOpen("rejectSale")}>
-                Reject
+                {t("unitSales.reject")}
               </Button>
             </>
           ) : null}

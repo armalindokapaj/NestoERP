@@ -6,6 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import type { CompanyRef } from "@/lib/modules/sales/sales.types";
 import { cn } from "@/lib/utils/cn";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * The `company` filter of a Sales page in the Group workspace (Workspace Context
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils/cn";
  * checks it against the same list and ignores what is not there.
  */
 export function GroupCompanyFilter({ companies, className }: { companies: CompanyRef[]; className?: string }) {
+  const t = useSalesTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = React.useTransition();
@@ -34,7 +36,7 @@ export function GroupCompanyFilter({ companies, className }: { companies: Compan
 
   return (
     <select
-      aria-label="Company"
+      aria-label={t("common.company")}
       value={searchParams.get("company") ?? ""}
       onChange={(event) => change(event.target.value)}
       className={cn(
@@ -42,7 +44,7 @@ export function GroupCompanyFilter({ companies, className }: { companies: Compan
         className,
       )}
     >
-      <option value="">All companies</option>
+      <option value="">{t("common.allCompanies")}</option>
       {companies.map((company) => (
         <option key={company.id} value={company.id}>
           {company.name}

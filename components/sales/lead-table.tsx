@@ -6,6 +6,8 @@ import { CompanyTag } from "@/components/workspace/company-tag";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import type { LeadSummaryDTO } from "@/lib/modules/sales/sales.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { SalesLabel } from "@/components/sales/sales-text";
 import { formatAmount } from "./sales-format";
 
 /**
@@ -20,7 +22,7 @@ import { formatAmount } from "./sales-format";
  * company's (Workspace Context §31, §45). The lead's own organisation stays
  * under "Organisation" so the two are never confused.
  */
-export function LeadTable({
+export async function LeadTable({
   leads,
   grouped = false,
   listId = "sales.leads",
@@ -30,12 +32,13 @@ export function LeadTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const t = await getTranslations("sales");
   const columns: TableColumn<LeadSummaryDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
-      label: "Lead",
+      label: t("tables.lead"),
       primary: true,
       render: (lead) =>
         grouped && lead.company ? (
@@ -56,7 +59,7 @@ export function LeadTable({
           {
             key: "nestoCompany",
             id: "nestoCompany",
-            label: "Company",
+            label: t("tables.company"),
             render: (lead: LeadSummaryDTO) => (lead.company ? <CompanyTag name={lead.company.name} /> : null),
           },
         ]
@@ -64,37 +67,37 @@ export function LeadTable({
     {
       key: "organisation",
       id: "organisation",
-      label: grouped ? "Organisation" : "Company",
+      label: grouped ? t("tables.organisation") : t("tables.company"),
       hideBelow: "md",
       render: (lead) => lead.companyName ?? <span className="text-fg-subtle">—</span>,
     },
     {
       key: "source",
       id: "source",
-      label: "Source",
+      label: t("tables.source"),
       hideBelow: "lg",
-      render: (lead) => leadSourceLabels[lead.source],
+      render: (lead) => <SalesLabel group="leadSource" value={lead.source} fallback={leadSourceLabels[lead.source]} />,
     },
     {
       key: "owner",
       id: "owner",
-      label: "Owner",
+      label: t("tables.owner"),
       hideBelow: "lg",
       render: (lead) =>
         lead.owner ? (
           <span className={lead.owner.active ? undefined : "text-fg-subtle"}>
             <PersonLink memberId={lead.owner.memberId} name={lead.owner.fullName} />
-            {lead.owner.active ? "" : " (inactive)"}
+            {lead.owner.active ? "" : t("tables.inactive")}
           </span>
         ) : (
-          <span className="text-fg-subtle">Unassigned</span>
+          <span className="text-fg-subtle">{t("tables.unassigned")}</span>
         ),
     },
     {
       key: "value",
       id: "value",
       valueType: "money",
-      label: "Estimated value",
+      label: t("tables.estimatedValue"),
       align: "right",
       render: (lead) =>
         lead.estimatedValue && lead.currency ? (
@@ -103,12 +106,12 @@ export function LeadTable({
           <span className="text-fg-subtle">—</span>
         ),
     },
-    { key: "status", label: "Status", render: (lead) => <StatusBadge status={lead.status} /> },
+    { key: "status", label: t("tables.status"), render: (lead) => <StatusBadge status={lead.status} /> },
     {
       key: "updated",
       id: "updated",
       valueType: "datetime",
-      label: "Updated",
+      label: t("tables.updated"),
       hideBelow: "xl",
       render: (lead) => (
         <span className="text-meta text-fg-subtle">{formatDate(lead.updatedAt)}</span>
@@ -123,7 +126,7 @@ export function LeadTable({
       records={leads}
       rowKey={(lead) => lead.id}
       rowHref={grouped ? undefined : (lead) => `/sales/leads/${lead.id}`}
-      caption="Leads"
+      caption={t("tables.leads")}
     />
   );
 }

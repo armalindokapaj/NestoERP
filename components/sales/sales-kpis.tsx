@@ -2,6 +2,7 @@ import Link from "@/components/navigation/nav-link";
 
 import { isGroupRoute } from "@/config/workspace";
 import type { CurrencyTotal, SalesOverviewDTO } from "@/lib/modules/sales/sales.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { totalsLabel, weightedTotalsLabel } from "./sales-format";
 
 /**
@@ -15,51 +16,52 @@ import { totalsLabel, weightedTotalsLabel } from "./sales-format";
  * answers; one that would ask "choose a company" (proposals) is a plain figure
  * (Workspace Context §25, §29).
  */
-export function SalesKpiGrid({ overview, grouped = false }: { overview: SalesOverviewDTO; grouped?: boolean }) {
+export async function SalesKpiGrid({ overview, grouped = false }: { overview: SalesOverviewDTO; grouped?: boolean }) {
+  const t = await getTranslations("sales");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.opportunities) {
     cards.push({
-      label: "Open pipeline",
+      label: t("kpis.openPipeline"),
       value: totalsLabel(overview.openPipeline),
-      hint: `${weightedTotalsLabel(overview.openPipeline)} weighted`,
+      hint: t("kpis.weighted", { amount: weightedTotalsLabel(overview.openPipeline) }),
       href: "/sales/pipeline",
     });
     cards.push({
-      label: "Open opportunities",
+      label: t("kpis.openOpportunities"),
       value: String(overview.openOpportunities),
       href: "/sales/opportunities?outcome=OPEN",
     });
     cards.push({
-      label: "Expected close this month",
+      label: t("kpis.expectedCloseThisMonth"),
       value: totalsLabel(overview.expectedCloseThisMonth),
       href: "/sales/reports?report=expected-close",
     });
     cards.push({
-      label: "Won this month",
+      label: t("kpis.wonThisMonth"),
       value: totalsLabel(overview.wonThisMonth),
-      hint: overview.winRate === null ? "No deals closed yet" : `${overview.winRate}% win rate`,
+      hint: overview.winRate === null ? t("kpis.noDealsClosed") : t("kpis.winRate", { rate: overview.winRate }),
       href: "/sales/opportunities?outcome=WON",
     });
   }
 
   if (overview.visible.leads) {
     cards.push({
-      label: "New leads this month",
+      label: t("kpis.newLeadsThisMonth"),
       value: String(overview.newLeadsThisMonth),
       href: "/sales/leads",
     });
     cards.push({
-      label: "Qualified leads",
+      label: t("kpis.qualifiedLeads"),
       value: String(overview.qualifiedLeads),
-      hint: "Waiting to become opportunities",
+      hint: t("kpis.waitingToBecome"),
       href: "/sales/leads?status=QUALIFIED",
     });
   }
 
   if (overview.visible.proposals) {
     cards.push({
-      label: "Proposals awaiting a decision",
+      label: t("kpis.proposalsAwaiting"),
       value: String(overview.pendingProposalApprovals),
       href: "/sales/proposals?status=PENDING_APPROVAL",
     });

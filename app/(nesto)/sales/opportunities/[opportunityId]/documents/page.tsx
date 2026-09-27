@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -7,7 +8,10 @@ import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { opportunityContext } from "../opportunity-context";
 
-export const metadata: Metadata = { title: "Opportunity documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.opportunityDocuments") };
+}
 
 type Params = { params: Promise<{ opportunityId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 export default async function OpportunityDocumentsPage({ params }: Params) {
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
+  const t = await getTranslations("sales");
 
   if (!opportunity.capabilities.canViewDocuments) {
     redirect(`/sales/opportunities/${opportunityId}`);
@@ -24,12 +29,12 @@ export default async function OpportunityDocumentsPage({ params }: Params) {
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
           { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
-          { label: "Documents" },
+          { label: t("crumbs.documents") },
         ]}
-        title={`${opportunity.name} — documents`}
+        title={t("detail.documentsTitle", { name: opportunity.name })}
         status={opportunity.stage}
       />
 
@@ -38,7 +43,7 @@ export default async function OpportunityDocumentsPage({ params }: Params) {
           context={context}
           entityType="opportunity"
           entityId={opportunityId}
-          emptyDescription="Briefs, RFPs and client requirements filed against this deal appear here."
+          emptyDescription={t("detail.dealDocuments")}
         />
       </Suspense>
     </div>

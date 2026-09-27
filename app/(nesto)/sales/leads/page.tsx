@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -13,7 +14,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { resolveSalesExperience } from "@/lib/modules/sales/sales.workspace";
 import { LeadList } from "./lead-list";
 
-export const metadata: Metadata = { title: "Leads" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.leads") };
+}
 
 /**
  * The lead list (PRD #17 §37, §292).
@@ -28,6 +32,7 @@ export default async function LeadsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   // The company grant is the session's own; in the group each company answers
   // for itself, and one where the reader holds nothing simply has no rows.
@@ -45,7 +50,7 @@ export default async function LeadsPage({
           {!grouped && can(context, "sales.export") ? <SalesExportLink type="leads" /> : null}
           {!grouped && can(context, "sales.lead.create") ? (
             <Button asChild size="sm">
-              <Link href="/sales/leads/new">New lead</Link>
+              <Link href="/sales/leads/new">{t("lists.newLead")}</Link>
             </Button>
           ) : null}
         </div>

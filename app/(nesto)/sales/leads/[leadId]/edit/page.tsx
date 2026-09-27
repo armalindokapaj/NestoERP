@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -7,7 +8,10 @@ import { updateLeadAction } from "@/lib/actions/sales";
 import { salesOwnerOptions } from "@/lib/modules/sales/sales.options";
 import { leadContext } from "../lead-context";
 
-export const metadata: Metadata = { title: "Edit lead" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.editLead") };
+}
 
 type Params = { params: Promise<{ leadId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ leadId: string }> };
 export default async function EditLeadPage({ params }: Params) {
   const { leadId } = await params;
   const { context, lead } = await leadContext(leadId);
+  const t = await getTranslations("sales");
 
   if (!lead.capabilities.canEdit) redirect(`/sales/leads/${leadId}`);
 
@@ -29,12 +34,12 @@ export default async function EditLeadPage({ params }: Params) {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Leads", href: "/sales/leads" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.leads"), href: "/sales/leads" },
           { label: lead.name, href: `/sales/leads/${leadId}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
-        title={`Edit ${lead.name}`}
+        title={t("pages.editTitle", { name: lead.name })}
         status={lead.status}
       />
 
@@ -56,8 +61,8 @@ export default async function EditLeadPage({ params }: Params) {
         }}
         versionUpdatedAt={lead.updatedAt}
         cancelHref={`/sales/leads/${leadId}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("pages.saveChanges")}
+        pendingLabel={t("pages.saving")}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { selectClass } from "@/components/forms/record-form";
 import { useToast } from "@/components/ui/toast";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 import { linkProjectAction } from "@/lib/actions/sales";
 import { committed } from "@/lib/forms/committed";
 import type { Option } from "@/lib/modules/sales/sales.options";
@@ -28,6 +29,7 @@ export function LinkProjectForm({
   projects: Option[];
   cancelHref: string;
 }) {
+  const t = useSalesTranslations();
   const router = useRouter();
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -39,13 +41,13 @@ export function LinkProjectForm({
     formRef,
     module: "sales",
     saveKind: "save",
-    label: "Project link",
+    label: t("forms.projectLink"),
     action: async (formData: FormData) => {
       const result = await linkProjectAction(opportunityId, String(formData.get("projectId") ?? ""));
       return result.ok ? committed(cancelHref) : result;
     },
     onCommitted: () => {
-      toast({ title: "Project linked.", tone: "success" });
+      toast({ title: t("forms.projectLinked"), tone: "success" });
     },
   });
   const { pending } = save;
@@ -53,7 +55,7 @@ export function LinkProjectForm({
   if (projects.length === 0) {
     return (
       <p className="nesto-card p-5 text-table text-fg-muted">
-        There is no project for this client yet. Create one in Projects, then come back.
+        {t("forms.noProjectForClient")}
       </p>
     );
   }
@@ -62,7 +64,7 @@ export function LinkProjectForm({
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <SaveMessages save={save} />
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-1.5 border-0 p-0">
-        <Label htmlFor="projectId">Project</Label>
+        <Label htmlFor="projectId">{t("forms.project")}</Label>
         <select
           id="projectId"
           name="projectId"
@@ -71,7 +73,7 @@ export function LinkProjectForm({
           onChange={(event) => setProjectId(event.target.value)}
           required
         >
-          <option value="">Choose a project</option>
+          <option value="">{t("forms.chooseProject")}</option>
           {projects.map((project) => (
             <option key={project.value} value={project.value}>
               {project.label}
@@ -82,10 +84,10 @@ export function LinkProjectForm({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending || !projectId || Boolean(save.saved)}>
-          {pending ? "Linking…" : "Link project"}
+          {pending ? t("forms.linking") : t("forms.linkProject")}
         </Button>
         <Button type="button" variant="secondary" onClick={() => router.push(cancelHref)} disabled={pending}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
+import { getTranslations } from "@/lib/i18n/server";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { ProposalTable } from "@/components/sales/proposal-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
@@ -24,6 +26,7 @@ export async function ProposalList({
   searchParams: SearchParams;
 }) {
   const query = parseProposalQuery(searchParams);
+  const t = await getTranslations("sales");
 
   const [result, options] = await Promise.all([
     proposals.listProposals(context, query),
@@ -37,22 +40,22 @@ export async function ProposalList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
+      label: t("lists.status"),
       options: PROPOSAL_STATUSES.filter((status) => status !== "ARCHIVED").map((value) => ({
         value,
-        label: proposalStatusLabels[value],
+        label: salesLabel(t, "proposalStatus", value, proposalStatusLabels[value]),
       })),
     },
     {
       param: "clientId",
-      label: "Client",
+      label: t("lists.client"),
       options: options.clients.map((client) => ({ value: client.id, label: client.name })),
     },
     ...(options.currencies.length > 1
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("lists.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -66,14 +69,14 @@ export async function ProposalList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search number, title, client…"
+        searchPlaceholder={t("lists.searchProposals")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "number-asc", label: "Number A–Z" },
-          { value: "amount-desc", label: "Highest total" },
-          { value: "valid-asc", label: "Expiring soonest" },
-          { value: "status-asc", label: "Status" },
+          { value: "updated-desc", label: t("lists.recentlyUpdated") },
+          { value: "number-asc", label: t("lists.numberAz") },
+          { value: "amount-desc", label: t("lists.highestTotal") },
+          { value: "valid-asc", label: t("lists.expiringSoonest") },
+          { value: "status-asc", label: t("lists.status") },
         ]}
       />
 
@@ -81,18 +84,18 @@ export async function ProposalList({
         hasFilters ? (
           <EmptyState
             icon={<FileText />}
-            title="No Sales records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/sales/proposals" }}
+            title={t("lists.noMatchTitle")}
+            description={t("lists.noMatchDescription")}
+            action={{ label: t("lists.clearFilters"), href: "/sales/proposals" }}
           />
         ) : (
           <EmptyState
             icon={<FileText />}
-            title="No proposals yet."
-            description="Commercial offers raised against an opportunity appear here. A proposal is not an invoice."
+            title={t("lists.noProposalsTitle")}
+            description={t("lists.noProposalsDescription")}
             action={
               can(context, "sales.proposal.create")
-                ? { label: "New proposal", href: "/sales/proposals/new" }
+                ? { label: t("lists.newProposal"), href: "/sales/proposals/new" }
                 : undefined
             }
           />

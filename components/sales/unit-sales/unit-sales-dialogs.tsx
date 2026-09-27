@@ -17,6 +17,8 @@ import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_PRICE_BASIS_L
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * The dialogs a unit's sale is changed through (E-05E §10, §16-§31, §48). Each
@@ -90,6 +92,7 @@ export function FormDialog({
   workflow?: string;
   module?: string;
 }) {
+  const t = useSalesTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   // One request per submit: a double click or a second Enter before the
   // pending state has rendered finds the latch closed (AUD-09 §6, FV-12).
@@ -164,11 +167,11 @@ export function FormDialog({
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary" disabled={pending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Working…" : confirmLabel}
+              {pending ? t("common.working") : confirmLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -240,6 +243,7 @@ export function requestOutcome(failed: unknown): SaveOutcome {
 
 /** Runs one request for a dialog: pending, a form-level error, and field errors. */
 export function useDialogRequest(submit: Submit) {
+  const t = useSalesTranslations();
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fields, setFields] = React.useState<Record<string, string>>({});
@@ -264,14 +268,14 @@ export function useDialogRequest(submit: Submit) {
       } catch (caught) {
         const byField = fieldErrors(caught);
         setFields(byField);
-        setError(Object.keys(byField).length ? null : failureMessage(caught, "That did not work. Try again."));
+        setError(Object.keys(byField).length ? null : failureMessage(caught, t("unitDialogs.failed")));
         setUnresolved(requestOutcome(caught).kind === "unknown");
         return caught;
       } finally {
         setPending(false);
       }
     },
-    [submit, reset],
+    [submit, reset, t],
   );
   return { pending, error, fields, send, reset, setError, done, unresolved };
 }
@@ -292,6 +296,7 @@ function CurrencySelect({ id, value, onChange }: { id: string; value: string; on
 
 export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const request = useDialogRequest(submit);
+  const t = useSalesTranslations();
   const [price, setPrice] = React.useState("");
   const [currency, setCurrency] = React.useState(sales.defaults.currency);
   const [basis, setBasis] = React.useState(sales.priceBasis);
@@ -308,15 +313,15 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const changed = useOpenedWith(open, [price, currency, basis, notes, reason]);
-  const send = () => request.send(`/api/project-units/${sales.unitId}/sales`, { askingPrice: price, currency, priceBasis: basis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, `The price of ${sales.unitCode} was saved.`);
+  const send = () => request.send(`/api/project-units/${sales.unitId}/sales`, { askingPrice: price, currency, priceBasis: basis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.priceSaved", { unit: sales.unitCode }));
 
   return (
     <FormDialog
       open={open}
       onClose={onClose}
-      title={`Price of ${sales.unitCode}`}
-      description="Every change of the asking price is kept in the price history. The agreed price of a reservation is separate."
-      confirmLabel="Save price"
+      title={t("unitDialogs.priceTitle", { unit: sales.unitCode })}
+      description={t("unitDialogs.priceDescription")}
+      confirmLabel={t("unitDialogs.savePrice")}
       pending={request.pending}
       error={request.error}
       testId="price-dialog"
@@ -326,26 +331,26 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
       onSubmit={() => void send().then((failed) => (failed ? null : onClose()))}
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-        <Field label="Asking price" htmlFor="sales-asking-price" error={request.fields.askingPrice}>
+        <Field label={t("unitDialogs.askingPrice")} htmlFor="sales-asking-price" error={request.fields.askingPrice}>
           <Input id="sales-asking-price" inputMode="decimal" value={price} onChange={(event) => setPrice(numberText(event.target.value))} autoFocus placeholder="e.g. 185000" />
         </Field>
-        <Field label="Currency" htmlFor="sales-currency" error={request.fields.currency}>
+        <Field label={t("unitDialogs.currency")} htmlFor="sales-currency" error={request.fields.currency}>
           <CurrencySelect id="sales-currency" value={currency} onChange={setCurrency} />
         </Field>
       </div>
-      <Field label="Price basis" htmlFor="sales-price-basis" hint="The area the price per m² is worked out from." error={request.fields.priceBasis}>
+      <Field label={t("unitDialogs.priceBasis")} htmlFor="sales-price-basis" hint={t("unitDialogs.priceBasisHint")} error={request.fields.priceBasis}>
         <select id="sales-price-basis" className={selectClass} value={basis} onChange={(event) => setBasis(event.target.value as typeof basis)}>
           {UNIT_PRICE_BASES.map((value) => (
             <option key={value} value={value}>
-              {UNIT_PRICE_BASIS_LABELS[value]}
+              {salesLabel(t, "priceBasis", value, UNIT_PRICE_BASIS_LABELS[value])}
             </option>
           ))}
         </select>
       </Field>
-      <Field label="Reason for the change" htmlFor="sales-price-reason" error={request.fields.reason}>
+      <Field label={t("unitDialogs.changeReason")} htmlFor="sales-price-reason" error={request.fields.reason}>
         <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder="e.g. Second price list" />
       </Field>
-      <Field label="Sales notes" htmlFor="sales-notes" error={request.fields.salesNotes}>
+      <Field label={t("unitDialogs.salesNotes")} htmlFor="sales-notes" error={request.fields.salesNotes}>
         <Textarea id="sales-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={SALES_NOTES_MAX} />
       </Field>
     </FormDialog>
@@ -381,6 +386,7 @@ export function ReasonDialog({
   testId?: string;
 }) {
   const request = useDialogRequest(submit);
+  const t = useSalesTranslations();
   const [reason, setReason] = React.useState("");
   const [day, setDay] = React.useState("");
   const [touched, setTouched] = React.useState(false);
@@ -416,11 +422,11 @@ export function ReasonDialog({
       }}
     >
       {date ? (
-        <Field label={date.label} htmlFor="sales-reason-date" required={date.required} error={(touched && dayMissing ? "Choose a date." : undefined) ?? request.fields[date.field]}>
+        <Field label={date.label} htmlFor="sales-reason-date" required={date.required} error={(touched && dayMissing ? t("unitDialogs.chooseDate") : undefined) ?? request.fields[date.field]}>
           <Input id="sales-reason-date" type="date" value={day} min={date.min} onChange={(event) => setDay(event.target.value)} />
         </Field>
       ) : null}
-      <Field label="Reason" htmlFor="sales-reason" required error={(touched && blank ? "Give a reason." : undefined) ?? request.fields.reason}>
+      <Field label={t("unitDialogs.reason")} htmlFor="sales-reason" required error={(touched && blank ? t("unitDialogs.giveReason") : undefined) ?? request.fields.reason}>
         <Textarea id="sales-reason" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} autoFocus={!date} aria-invalid={touched && blank} />
       </Field>
     </FormDialog>
@@ -431,6 +437,7 @@ export function ReasonDialog({
 
 export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const request = useDialogRequest(submit);
+  const t = useSalesTranslations();
   const [to, setTo] = React.useState<"FOR_SALE" | "RESERVED">("FOR_SALE");
   const [reason, setReason] = React.useState("");
   const [day, setDay] = React.useState("");
@@ -451,9 +458,9 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
     <FormDialog
       open={open}
       onClose={onClose}
-      title={`Reopen the sale of ${sales.unitCode}?`}
-      description="The sale is undone. The converted reservation stays in the history as cancelled."
-      confirmLabel="Reopen sale"
+      title={t("unitDialogs.reopenTitle", { unit: sales.unitCode })}
+      description={t("unitDialogs.reopenDescription")}
+      confirmLabel={t("unitDialogs.reopenSale")}
       pending={request.pending}
       error={request.error}
       testId="reopen-dialog"
@@ -463,25 +470,25 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
         setTouched(true);
         if (blank) return;
         void request
-          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, `The sale of ${sales.unitCode} was reopened.`)
+          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.reopened", { unit: sales.unitCode }))
           .then((failed) => (failed ? null : onClose()));
       }}
     >
       <fieldset className="space-y-2">
-        <legend className="text-meta font-medium text-fg-muted">Return the unit to</legend>
+        <legend className="text-meta font-medium text-fg-muted">{t("unitDialogs.returnTo")}</legend>
         {(["FOR_SALE", "RESERVED"] as const).map((value) => (
           <label key={value} className="flex items-center gap-2 text-table text-fg">
             <input type="radio" name="reopen-to" value={value} checked={to === value} onChange={() => setTo(value)} />
-            {value === "FOR_SALE" ? "For Sale — free for anyone to reserve" : "Reserved — for the same client and deal"}
+            {value === "FOR_SALE" ? t("unitDialogs.returnForSale") : t("unitDialogs.returnReserved")}
           </label>
         ))}
       </fieldset>
       {to === "RESERVED" ? (
-        <Field label="Reserved until" htmlFor="reopen-expiry" error={request.fields.expiresAt}>
+        <Field label={t("unitDialogs.reservedUntil")} htmlFor="reopen-expiry" error={request.fields.expiresAt}>
           <Input id="reopen-expiry" type="date" value={day} min={dateValue(new Date())} onChange={(event) => setDay(event.target.value)} />
         </Field>
       ) : null}
-      <Field label="Reason" htmlFor="reopen-reason" required error={(touched && blank ? "Give a reason." : undefined) ?? request.fields.reason}>
+      <Field label={t("unitDialogs.reason")} htmlFor="reopen-reason" required error={(touched && blank ? t("unitDialogs.giveReason") : undefined) ?? request.fields.reason}>
         <Textarea id="reopen-reason" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} />
       </Field>
     </FormDialog>
@@ -492,6 +499,7 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
 
 export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const request = useDialogRequest(submit);
+  const t = useSalesTranslations();
   const reservation = sales.activeReservation;
   const [price, setPrice] = React.useState("");
   const [currency, setCurrency] = React.useState(sales.defaults.currency);
@@ -514,17 +522,17 @@ export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean;
   /** The dialog's one save path, for its button and for "Save and continue" alike. */
   const correct = async (): Promise<unknown> => {
     setTouched(true);
-    if (blank) return { code: "VALIDATION_ERROR", message: "Give a reason." };
-    return request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, `The reservation of ${sales.unitCode} was corrected.`);
+    if (blank) return { code: "VALIDATION_ERROR", message: t("unitDialogs.giveReason") };
+    return request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, t("unitDialogs.corrected", { unit: sales.unitCode }));
   };
 
   return (
     <FormDialog
       open={open}
       onClose={onClose}
-      title={`Correct the reservation of ${sales.unitCode}`}
-      description="An administrative correction. The reason is kept in the audit trail."
-      confirmLabel="Save correction"
+      title={t("unitDialogs.correctTitle", { unit: sales.unitCode })}
+      description={t("unitDialogs.correctDescription")}
+      confirmLabel={t("unitDialogs.saveCorrection")}
       pending={request.pending}
       error={request.error}
       testId="correct-dialog"
@@ -534,17 +542,17 @@ export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean;
       onSubmit={() => void correct().then((failed) => (failed ? null : onClose()))}
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-        <Field label="Agreed price" htmlFor="correct-price" error={request.fields.agreedPrice}>
+        <Field label={t("unitDialogs.agreedPrice")} htmlFor="correct-price" error={request.fields.agreedPrice}>
           <Input id="correct-price" inputMode="decimal" value={price} onChange={(event) => setPrice(numberText(event.target.value))} />
         </Field>
-        <Field label="Currency" htmlFor="correct-currency" error={request.fields.currency}>
+        <Field label={t("unitDialogs.currency")} htmlFor="correct-currency" error={request.fields.currency}>
           <CurrencySelect id="correct-currency" value={currency} onChange={setCurrency} />
         </Field>
       </div>
-      <Field label="Notes" htmlFor="correct-notes" error={request.fields.notes}>
+      <Field label={t("unitDialogs.notes")} htmlFor="correct-notes" error={request.fields.notes}>
         <Textarea id="correct-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={SALES_NOTES_MAX} />
       </Field>
-      <Field label="Reason" htmlFor="correct-reason" required error={(touched && blank ? "Give a reason." : undefined) ?? request.fields.reason}>
+      <Field label={t("unitDialogs.reason")} htmlFor="correct-reason" required error={(touched && blank ? t("unitDialogs.giveReason") : undefined) ?? request.fields.reason}>
         <Input id="correct-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} />
       </Field>
     </FormDialog>
@@ -560,6 +568,7 @@ type Duplicate = { id: string; name: string; code: string | null; reason: string
 export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const caps = sales.capabilities;
   const request = useDialogRequest(submit);
+  const t = useSalesTranslations();
   const [clientMode, setClientMode] = React.useState<"existing" | "new">("existing");
   const [client, setClient] = React.useState<ClientOption | null>(null);
   const [query, setQuery] = React.useState("");
@@ -649,7 +658,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
       notes,
       ...(sales.version > 0 ? { expectedVersion: sales.version } : {}),
     };
-    const failed = await request.send(`/api/project-units/${sales.unitId}/reservations`, body, `${sales.unitCode} is reserved.`);
+    const failed = await request.send(`/api/project-units/${sales.unitId}/reservations`, body, t("unitDialogs.reserved", { unit: sales.unitCode }));
     if (!failed) return onClose();
     // A similar client already exists: offer it back instead of creating a second (§16).
     if (isFailure(failed) && failed.code === "CONFLICT" && Array.isArray(failed.details)) {
@@ -659,16 +668,16 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
   }
 
   return (
-    <FormDialog open={open} onClose={onClose} title={`Reserve ${sales.unitCode}`} description="The unit is held for this client and deal until the expiry date. Only one reservation can be active on a unit." confirmLabel="Reserve" pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide dirty={changed && !request.done} unresolved={request.unresolved}>
+    <FormDialog open={open} onClose={onClose} title={t("unitDialogs.reserveTitle", { unit: sales.unitCode })} description={t("unitDialogs.reserveDescription")} confirmLabel={t("unitDialogs.reserve")} pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide dirty={changed && !request.done} unresolved={request.unresolved}>
       <fieldset className="space-y-2">
         <legend className="text-meta font-medium text-fg-muted">
-          Client <span aria-hidden="true">*</span>
+          {t("unitDialogs.client")} <span aria-hidden="true">*</span>
         </legend>
         {caps.canSeeClients && caps.canCreateClient ? (
-          <div className="flex gap-1" role="group" aria-label="Client">
+          <div className="flex gap-1" role="group" aria-label={t("unitDialogs.client")}>
             {(["existing", "new"] as const).map((mode) => (
               <Button key={mode} type="button" size="sm" variant={clientMode === mode ? "primary" : "secondary"} aria-pressed={clientMode === mode} onClick={() => { setClientMode(mode); setDuplicates(null); }}>
-                {mode === "existing" ? "Existing client" : <><UserPlus aria-hidden="true" /> New client</>}
+                {mode === "existing" ? t("unitDialogs.existingClient") : <><UserPlus aria-hidden="true" /> {t("unitDialogs.newClient")}</>}
               </Button>
             ))}
           </div>
@@ -682,17 +691,17 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
                 {client.code ? <span className="ml-2 text-meta text-fg-subtle">{client.code}</span> : null}
               </span>
               <Button type="button" variant="ghost" size="sm" onClick={() => setClient(null)}>
-                Change
+                {t("unitDialogs.change")}
               </Button>
             </div>
           ) : (
             <>
-              <SearchField placeholder="Search clients" aria-label="Search clients" value={query} onChange={(event) => setQuery(event.target.value)} autoFocus />
+              <SearchField placeholder={t("unitDialogs.searchClients")} aria-label={t("unitDialogs.searchClients")} value={query} onChange={(event) => setQuery(event.target.value)} autoFocus />
               <ul className="max-h-48 divide-y divide-line overflow-y-auto rounded-md border border-line" data-testid="reserve-client-results">
                 {results === null ? (
-                  <li className="px-3 py-2 text-table text-fg-muted">Searching…</li>
+                  <li className="px-3 py-2 text-table text-fg-muted">{t("unitDialogs.searching")}</li>
                 ) : results.length === 0 ? (
-                  <li className="px-3 py-2 text-table text-fg-muted">No client matches.{caps.canCreateClient ? " Create a new client instead." : ""}</li>
+                  <li className="px-3 py-2 text-table text-fg-muted">{t("unitDialogs.noClientMatches")}{caps.canCreateClient ? t("unitDialogs.createInstead") : ""}</li>
                 ) : (
                   results.map((row) => (
                     <li key={row.id}>
@@ -708,29 +717,29 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
           )
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Client name" htmlFor="reserve-client-name" required className="sm:col-span-2" error={touched && clientMissing ? "Give the client's name." : request.fields["newClient.name"]}>
+            <Field label={t("unitDialogs.clientName")} htmlFor="reserve-client-name" required className="sm:col-span-2" error={touched && clientMissing ? t("unitDialogs.giveClientName") : request.fields["newClient.name"]}>
               <Input id="reserve-client-name" value={newClient.name} onChange={(event) => { setNewClient({ ...newClient, name: event.target.value }); setDuplicates(null); }} autoFocus maxLength={200} />
             </Field>
-            <Field label="Type" htmlFor="reserve-client-type">
+            <Field label={t("unitDialogs.type")} htmlFor="reserve-client-type">
               <select id="reserve-client-type" className={selectClass} value={newClient.type} onChange={(event) => setNewClient({ ...newClient, type: event.target.value })}>
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="COMPANY">Company</option>
+                <option value="INDIVIDUAL">{t("unitDialogs.individual")}</option>
+                <option value="COMPANY">{t("unitDialogs.companyType")}</option>
               </select>
             </Field>
-            <Field label="Phone" htmlFor="reserve-client-phone">
+            <Field label={t("unitDialogs.phone")} htmlFor="reserve-client-phone">
               <Input id="reserve-client-phone" type="tel" value={newClient.phone} onChange={(event) => setNewClient({ ...newClient, phone: event.target.value })} maxLength={40} />
             </Field>
-            <Field label="Email" htmlFor="reserve-client-email" className="sm:col-span-2" error={request.fields["newClient.email"]}>
+            <Field label={t("unitDialogs.email")} htmlFor="reserve-client-email" className="sm:col-span-2" error={request.fields["newClient.email"]}>
               <Input id="reserve-client-email" type="email" value={newClient.email} onChange={(event) => setNewClient({ ...newClient, email: event.target.value })} maxLength={254} />
             </Field>
           </div>
         )}
-        {touched && clientMode === "existing" && !client ? <p className="text-meta text-danger-strong">Select a Client before reserving this Unit.</p> : null}
+        {touched && clientMode === "existing" && !client ? <p className="text-meta text-danger-strong">{t("unitDialogs.selectClient")}</p> : null}
         {request.fields.clientId ? <p className="text-meta text-danger-strong">{request.fields.clientId}</p> : null}
 
         {duplicates?.length ? (
           <div className="space-y-2 rounded-md border border-warning/30 bg-warning-soft p-3" data-testid="reserve-duplicates" role="alert">
-            <p className="text-table font-medium text-warning-strong">A similar client already exists. Use it rather than creating a second one?</p>
+            <p className="text-table font-medium text-warning-strong">{t("unitDialogs.similarClient")}</p>
             <ul className="space-y-1">
               {duplicates.map((row) => (
                 <li key={row.id} className="flex items-center justify-between gap-2 text-table">
@@ -739,54 +748,54 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
                     {row.code ? <span className="ml-2 text-meta text-fg-subtle">{row.code}</span> : null}
                   </span>
                   <Button type="button" size="sm" variant="secondary" onClick={() => { setClientMode("existing"); setClient({ id: row.id, name: row.name, code: row.code }); setDuplicates(null); }}>
-                    <Check aria-hidden="true" /> Use this client
+                    <Check aria-hidden="true" /> {t("unitDialogs.useClient")}
                   </Button>
                 </li>
               ))}
             </ul>
             <Button type="button" size="sm" variant="ghost" disabled={request.pending} onClick={() => void reserve(true)}>
-              Create a new client anyway
+              {t("unitDialogs.createAnyway")}
             </Button>
           </div>
         ) : null}
       </fieldset>
 
-      <Field label="Deal" htmlFor="reserve-deal" required error={touched && dealMissing ? "Create or select a Deal before reserving this Unit." : request.fields.opportunityId}>
+      <Field label={t("unitDialogs.deal")} htmlFor="reserve-deal" required error={touched && dealMissing ? t("unitDialogs.selectDeal") : request.fields.opportunityId}>
         {clientMode === "existing" && caps.canSeeDeals ? (
           <select id="reserve-deal" className={cn(selectClass, !client && "opacity-60")} value={dealId} disabled={!client || deals === null} onChange={(event) => setDealId(event.target.value)}>
-            {!client ? <option value="">Choose the client first</option> : deals === null ? <option value="">Loading deals…</option> : null}
+            {!client ? <option value="">{t("unitDialogs.chooseClientFirst")}</option> : deals === null ? <option value="">{t("unitDialogs.loadingDeals")}</option> : null}
             {deals?.map((deal) => (
               <option key={deal.id} value={deal.id}>
                 {deal.name}
               </option>
             ))}
-            {client && deals && caps.canCreateDeal ? <option value="new">New deal for this client</option> : null}
-            {client && deals?.length === 0 && !caps.canCreateDeal ? <option value="">This client has no open deal</option> : null}
+            {client && deals && caps.canCreateDeal ? <option value="new">{t("unitDialogs.newDeal")}</option> : null}
+            {client && deals?.length === 0 && !caps.canCreateDeal ? <option value="">{t("unitDialogs.noOpenDeal")}</option> : null}
           </select>
         ) : (
           <p id="reserve-deal" className="text-table text-fg-muted">
-            A new deal is opened for the new client.
+            {t("unitDialogs.newDealForNewClient")}
           </p>
         )}
       </Field>
       {creatingDeal ? (
-        <Field label="Deal name" htmlFor="reserve-deal-name" hint={`Left empty, it is named “${sales.unitCode} — client name”.`}>
+        <Field label={t("unitDialogs.dealName")} htmlFor="reserve-deal-name" hint={t("unitDialogs.dealNameHint", { unit: sales.unitCode })}>
           <Input id="reserve-deal-name" value={dealName} onChange={(event) => setDealName(event.target.value)} maxLength={200} />
         </Field>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem]">
-        <Field label="Reserved until" htmlFor="reserve-expiry" required hint={`Default ${sales.defaults.reservationDays} days`} error={request.fields.expiresAt}>
+        <Field label={t("unitDialogs.reservedUntil")} htmlFor="reserve-expiry" required hint={t("unitDialogs.defaultDays", { days: sales.defaults.reservationDays })} error={request.fields.expiresAt}>
           <Input id="reserve-expiry" type="date" value={day} min={dateValue(new Date())} onChange={(event) => setDay(event.target.value)} />
         </Field>
-        <Field label="Agreed price" htmlFor="reserve-price" error={request.fields.agreedPrice}>
+        <Field label={t("unitDialogs.agreedPrice")} htmlFor="reserve-price" error={request.fields.agreedPrice}>
           <Input id="reserve-price" inputMode="decimal" value={price} onChange={(event) => setPrice(numberText(event.target.value))} />
         </Field>
-        <Field label="Currency" htmlFor="reserve-currency" error={request.fields.currency}>
+        <Field label={t("unitDialogs.currency")} htmlFor="reserve-currency" error={request.fields.currency}>
           <CurrencySelect id="reserve-currency" value={currency} onChange={setCurrency} />
         </Field>
       </div>
-      <Field label="Notes" htmlFor="reserve-notes" error={request.fields.notes}>
+      <Field label={t("unitDialogs.notes")} htmlFor="reserve-notes" error={request.fields.notes}>
         <Textarea id="reserve-notes" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={SALES_NOTES_MAX} />
       </Field>
     </FormDialog>

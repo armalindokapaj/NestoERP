@@ -4,6 +4,8 @@ import { Target } from "lucide-react";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
+import { getTranslations } from "@/lib/i18n/server";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { OpportunityTable } from "@/components/sales/opportunity-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,6 +38,7 @@ export async function OpportunityList({
   searchParams: SearchParams;
 }) {
   const query = parseOpportunityQuery(searchParams);
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
 
   const [result, options] = await Promise.all([
@@ -57,43 +60,43 @@ export async function OpportunityList({
   // of one company is not a choice, so it is offered from two.
   const companyFilter: FilterConfig[] =
     grouped && options.companies.length > 1
-      ? [{ param: "company", label: "Company", options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
+      ? [{ param: "company", label: t("lists.company"), options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
       : [];
 
   const filters: FilterConfig[] = [
     ...companyFilter,
     {
       param: "stage",
-      label: "Stage",
+      label: t("lists.stage"),
       options: OPPORTUNITY_STAGE_VALUES.map((value) => ({
         value,
-        label: opportunityStageLabels[value],
+        label: salesLabel(t, "stage", value, opportunityStageLabels[value]),
       })),
     },
     {
       param: "outcome",
-      label: "Outcome",
-      options: OPPORTUNITY_OUTCOMES.map((value) => ({ value, label: OUTCOME_LABELS[value] })),
+      label: t("lists.outcome"),
+      options: OPPORTUNITY_OUTCOMES.map((value) => ({ value, label: salesLabel(t, "outcome", value, OUTCOME_LABELS[value]) })),
     },
     // Drawn from the opportunities this reader can already see (PRD #17 §222).
     {
       param: "owner",
-      label: "Owner",
+      label: t("lists.owner"),
       options: options.owners.map((owner) => ({
         value: owner.memberId,
-        label: `${owner.active ? owner.fullName : `${owner.fullName} (inactive)`}${owner.company ? ` · ${owner.company}` : ""}`,
+        label: `${owner.active ? owner.fullName : t("lists.inactive", { name: owner.fullName })}${owner.company ? ` · ${owner.company}` : ""}`,
       })),
     },
     {
       param: "clientId",
-      label: "Client",
+      label: t("lists.client"),
       options: options.clients.map((client) => ({ value: client.id, label: client.company ? `${client.name} · ${client.company}` : client.name })),
     },
     ...(options.currencies.length > 1
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("lists.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -108,22 +111,22 @@ export async function OpportunityList({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <ListToolbar
-          searchPlaceholder="Search opportunity, client, owner…"
+          searchPlaceholder={t("lists.searchOpportunities")}
           filters={filters}
           sortOptions={[
-            { value: "updated-desc", label: "Recently updated" },
-            { value: "close-asc", label: "Closing soonest" },
-            { value: "value-desc", label: "Highest value" },
-            { value: "weighted-desc", label: "Highest weighted" },
-            { value: "probability-desc", label: "Most likely" },
-            { value: "stage-asc", label: "Stage" },
-            { value: "name-asc", label: "Name A–Z" },
+            { value: "updated-desc", label: t("lists.recentlyUpdated") },
+            { value: "close-asc", label: t("lists.closingSoonest") },
+            { value: "value-desc", label: t("lists.highestValue") },
+            { value: "weighted-desc", label: t("lists.highestWeighted") },
+            { value: "probability-desc", label: t("lists.mostLikely") },
+            { value: "stage-asc", label: t("lists.stage") },
+            { value: "name-asc", label: t("lists.nameAz") },
           ]}
           className="flex-1"
         />
         <Button asChild variant={query.mine ? "primary" : "secondary"} size="sm">
           <Link href={query.mine ? "/sales/opportunities" : "/sales/opportunities?mine=1"}>
-            {query.mine ? "All deals" : "Only mine"}
+            {query.mine ? t("lists.allDeals") : t("lists.onlyMine")}
           </Link>
         </Button>
       </div>
@@ -132,25 +135,25 @@ export async function OpportunityList({
         hasFilters || query.mine ? (
           <EmptyState
             icon={<Target />}
-            title="No Sales records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/sales/opportunities" }}
+            title={t("lists.noMatchTitle")}
+            description={t("lists.noMatchDescription")}
+            action={{ label: t("lists.clearFilters"), href: "/sales/opportunities" }}
           />
         ) : grouped ? (
           // Nothing to read is not an error in the group (Workspace Context §76).
           <EmptyState
             icon={<Target />}
-            title="No accessible data for this module."
-            description="None of the companies you can open holds opportunities you may read."
+            title={t("lists.noAccessTitle")}
+            description={t("lists.noAccessOpportunities")}
           />
         ) : (
           <EmptyState
             icon={<Target />}
-            title="No opportunities yet."
-            description="Deals your company is pursuing appear here."
+            title={t("lists.noOpportunitiesTitle")}
+            description={t("lists.noOpportunitiesDescription")}
             action={
               can(context, "sales.opportunity.create")
-                ? { label: "New opportunity", href: "/sales/opportunities/new" }
+                ? { label: t("lists.newOpportunity"), href: "/sales/opportunities/new" }
                 : undefined
             }
           />

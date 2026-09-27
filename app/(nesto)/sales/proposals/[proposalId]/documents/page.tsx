@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -7,7 +8,10 @@ import { SalesRecordDocuments } from "@/components/sales/record-documents";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { proposalContext } from "../proposal-context";
 
-export const metadata: Metadata = { title: "Proposal documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.proposalDocuments") };
+}
 
 type Params = { params: Promise<{ proposalId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ proposalId: string }> };
 export default async function ProposalDocumentsPage({ params }: Params) {
   const { proposalId } = await params;
   const { context, proposal } = await proposalContext(proposalId);
+  const t = await getTranslations("sales");
 
   if (!proposal.capabilities.canViewDocuments) redirect(`/sales/proposals/${proposalId}`);
 
@@ -22,12 +27,12 @@ export default async function ProposalDocumentsPage({ params }: Params) {
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Proposals", href: "/sales/proposals" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.proposals"), href: "/sales/proposals" },
           { label: proposal.proposalNumber, href: `/sales/proposals/${proposalId}` },
-          { label: "Documents" },
+          { label: t("crumbs.documents") },
         ]}
-        title={`${proposal.proposalNumber} — documents`}
+        title={t("detail.documentsTitle", { name: proposal.proposalNumber })}
         status={proposal.status}
       />
 
@@ -36,7 +41,7 @@ export default async function ProposalDocumentsPage({ params }: Params) {
           context={context}
           entityType="proposal"
           entityId={proposalId}
-          emptyDescription="The proposal PDF and any pricing or scope attachments appear here. NESTO does not generate the PDF."
+          emptyDescription={t("detail.proposalDocumentsFull")}
         />
       </Suspense>
     </div>
