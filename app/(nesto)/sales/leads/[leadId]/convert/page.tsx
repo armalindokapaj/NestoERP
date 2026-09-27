@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -9,7 +10,10 @@ import * as leads from "@/lib/modules/sales/leads/lead.service";
 import { salesClientOptions, salesOwnerOptions } from "@/lib/modules/sales/sales.options";
 import { leadContext } from "../lead-context";
 
-export const metadata: Metadata = { title: "Convert lead" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.convertLead") };
+}
 
 type Params = { params: Promise<{ leadId: string }> };
 
@@ -23,6 +27,7 @@ type Params = { params: Promise<{ leadId: string }> };
 export default async function ConvertLeadPage({ params }: Params) {
   const { leadId } = await params;
   const { context, lead } = await leadContext(leadId);
+  const t = await getTranslations("sales");
 
   if (!lead.capabilities.canConvert) redirect(`/sales/leads/${leadId}`);
 
@@ -52,13 +57,13 @@ export default async function ConvertLeadPage({ params }: Params) {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Leads", href: "/sales/leads" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.leads"), href: "/sales/leads" },
           { label: lead.name, href: `/sales/leads/${leadId}` },
-          { label: "Convert" },
+          { label: t("crumbs.convert") },
         ]}
-        title={`Convert ${lead.name}`}
-        subtitle="The lead stays as the record of where this deal came from."
+        title={t("pages.convertTitle", { name: lead.name })}
+        subtitle={t("pages.convertSubtitle")}
       />
 
       <ConvertLeadForm

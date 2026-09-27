@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -8,7 +9,10 @@ import { markWonAction } from "@/lib/actions/sales";
 import { salesClientOptions, salesProjectOptions } from "@/lib/modules/sales/sales.options";
 import { opportunityContext } from "../opportunity-context";
 
-export const metadata: Metadata = { title: "Mark won" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.markWon") };
+}
 
 type Params = { params: Promise<{ opportunityId: string }> };
 
@@ -21,6 +25,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 export default async function MarkWonPage({ params }: Params) {
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
+  const t = await getTranslations("sales");
 
   if (!opportunity.capabilities.canMarkWon) redirect(`/sales/opportunities/${opportunityId}`);
 
@@ -51,13 +56,13 @@ export default async function MarkWonPage({ params }: Params) {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
           { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
-          { label: "Mark won" },
+          { label: t("crumbs.markWon") },
         ]}
-        title={`Mark ${opportunity.name} as won`}
-        subtitle="The opportunity stays. It becomes the record of where the client and project came from."
+        title={t("pages.markWonTitle", { name: opportunity.name })}
+        subtitle={t("pages.markWonSubtitle")}
       />
 
       <WonForm

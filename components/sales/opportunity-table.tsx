@@ -5,6 +5,7 @@ import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { OpportunitySummaryDTO } from "@/lib/modules/sales/sales.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatAmount } from "./sales-format";
 
 /**
@@ -19,7 +20,7 @@ import { formatAmount } from "./sales-format";
  * deal through the company hop, since a deal's own page is one company's
  * (Workspace Context §31, §45).
  */
-export function OpportunityTable({
+export async function OpportunityTable({
   opportunities,
   showClient = true,
   grouped = false,
@@ -31,12 +32,13 @@ export function OpportunityTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const t = await getTranslations("sales");
   const columns: TableColumn<OpportunitySummaryDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
-      label: "Opportunity",
+      label: t("tables.opportunity"),
       primary: true,
       render: (row) =>
         grouped && row.company ? (
@@ -57,7 +59,7 @@ export function OpportunityTable({
           {
             key: "company",
             id: "company",
-            label: "Company",
+            label: t("tables.company"),
             render: (row: OpportunitySummaryDTO) => (row.company ? <CompanyTag name={row.company.name} /> : null),
           },
         ]
@@ -67,31 +69,31 @@ export function OpportunityTable({
           {
             key: "client",
             id: "client",
-            label: "Client",
+            label: t("tables.client"),
             hideBelow: "md" as const,
             render: (row: OpportunitySummaryDTO) =>
-              row.client?.name ?? <span className="text-fg-subtle">No client yet</span>,
+              row.client?.name ?? <span className="text-fg-subtle">{t("tables.noClientYet")}</span>,
           },
         ]
       : []),
     {
       key: "owner",
       id: "owner",
-      label: "Owner",
+      label: t("tables.owner"),
       hideBelow: "xl",
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
           <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
-          {row.owner.active ? "" : " (inactive)"}
+          {row.owner.active ? "" : t("tables.inactive")}
         </span>
       ),
     },
-    { key: "stage", label: "Stage", render: (row) => <StatusBadge status={row.stage} /> },
+    { key: "stage", label: t("tables.stage"), render: (row) => <StatusBadge status={row.stage} /> },
     {
       key: "value",
       id: "value",
       valueType: "money",
-      label: "Value",
+      label: t("tables.value"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">{formatAmount(row.estimatedValue, row.currency)}</span>
@@ -101,11 +103,11 @@ export function OpportunityTable({
       key: "probability",
       id: "probability",
       valueType: "number",
-      label: "Probability",
+      label: t("tables.probability"),
       align: "right",
       hideBelow: "lg",
       render: (row) => (
-        <span className="tabular-nums" title={row.probabilityIsOverride ? "Manual override" : "Stage default"}>
+        <span className="tabular-nums" title={row.probabilityIsOverride ? t("tables.manualOverride") : t("tables.stageDefault")}>
           {row.probability}%{row.probabilityIsOverride ? "*" : ""}
         </span>
       ),
@@ -114,7 +116,7 @@ export function OpportunityTable({
       key: "weighted",
       id: "weighted",
       valueType: "money",
-      label: "Weighted",
+      label: t("tables.weighted"),
       align: "right",
       hideBelow: "lg",
       render: (row) => (
@@ -127,13 +129,13 @@ export function OpportunityTable({
       key: "close",
       id: "close",
       valueType: "date",
-      label: "Expected close",
+      label: t("tables.expectedClose"),
       hideBelow: "xl",
       render: (row) =>
         row.expectedCloseDate ? (
           <span className={row.expectedCloseOverdue ? "text-warning-strong" : undefined}>
             {formatDate(row.expectedCloseDate)}
-            {row.expectedCloseOverdue ? " · overdue" : ""}
+            {row.expectedCloseOverdue ? t("tables.overdue") : ""}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -148,7 +150,7 @@ export function OpportunityTable({
       records={opportunities}
       rowKey={(row) => row.id}
       rowHref={grouped ? undefined : (row) => `/sales/opportunities/${row.id}`}
-      caption="Opportunities"
+      caption={t("tables.opportunities")}
     />
   );
 }

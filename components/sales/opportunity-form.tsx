@@ -11,6 +11,8 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useSalesTranslations } from "@/components/sales/sales-text";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions, formatAmount } from "@/lib/modules/finance/finance.currency";
@@ -64,6 +66,7 @@ export function OpportunityForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useSalesTranslations();
   const [stage, setStage] = React.useState(values?.stage ?? "PROSPECTING");
   const [value, setValue] = React.useState(values?.estimatedValue ?? "");
   const [currency, setCurrency] = React.useState(values?.currency ?? "EUR");
@@ -91,12 +94,12 @@ export function OpportunityForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title="Opportunity" description="The deal, and who is running it.">
-        <Field label="Name" name="name" required className="sm:col-span-2">
+      <FormSection title={t("forms.opportunityTitle")} description={t("forms.opportunityRunDescription")}>
+        <Field label={t("forms.name")} name="name" required className="sm:col-span-2">
           <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Owner" name="ownerMemberId" required>
+        <Field label={t("forms.owner")} name="ownerMemberId" required>
           <select
             id="ownerMemberId"
             name="ownerMemberId"
@@ -104,7 +107,7 @@ export function OpportunityForm({
             defaultValue={values?.ownerMemberId ?? ""}
             required
           >
-            <option value="">Choose an owner</option>
+            <option value="">{t("forms.chooseOwner")}</option>
             {owners.map((owner) => (
               <option key={owner.value} value={owner.value}>
                 {owner.label}
@@ -113,7 +116,7 @@ export function OpportunityForm({
           </select>
         </Field>
 
-        <Field label="Stage" name="stage" required>
+        <Field label={t("forms.stage")} name="stage" required>
           <select
             id="stage"
             name="stage"
@@ -123,7 +126,7 @@ export function OpportunityForm({
           >
             {OPEN_STAGE_VALUES.map((option) => (
               <option key={option} value={option}>
-                {opportunityStageLabels[option]} · {getDefaultStageProbability(option)}%
+                {salesLabel(t, "stage", option, opportunityStageLabels[option])} · {getDefaultStageProbability(option)}%
               </option>
             ))}
           </select>
@@ -131,10 +134,10 @@ export function OpportunityForm({
       </FormSection>
 
       <FormSection
-        title="Client"
-        description="Optional while the deal is early. A won deal needs one."
+        title={t("forms.clientTitle")}
+        description={t("forms.clientEarlyDescription")}
       >
-        <Field label="Client" name="clientId">
+        <Field label={t("forms.clientTitle")} name="clientId">
           <select
             id="clientId"
             name="clientId"
@@ -142,7 +145,7 @@ export function OpportunityForm({
             value={clientId}
             onChange={(event) => setClientId(event.target.value)}
           >
-            <option value="">No client yet</option>
+            <option value="">{t("forms.noClientYet")}</option>
             {clients.map((client) => (
               <option key={client.value} value={client.value}>
                 {client.label}
@@ -152,9 +155,9 @@ export function OpportunityForm({
         </Field>
 
         <Field
-          label="Contact"
+          label={t("forms.contact")}
           name="contactId"
-          hint={clientId ? undefined : "Choose a client first."}
+          hint={clientId ? undefined : t("forms.chooseClientFirst")}
         >
           <select
             id="contactId"
@@ -163,7 +166,7 @@ export function OpportunityForm({
             defaultValue={values?.contactId ?? ""}
             disabled={contacts.length === 0}
           >
-            <option value="">No contact</option>
+            <option value="">{t("forms.noContact")}</option>
             {contacts.map((contact) => (
               <option key={contact.value} value={contact.value}>
                 {contact.label}
@@ -173,8 +176,8 @@ export function OpportunityForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Commercial" description="What it is worth, and when it should close.">
-        <Field label="Estimated value" name="estimatedValue" required>
+      <FormSection title={t("forms.commercialTitle")} description={t("forms.commercialDescription")}>
+        <Field label={t("forms.estimatedValue")} name="estimatedValue" required>
           <Input
             id="estimatedValue"
             name="estimatedValue"
@@ -185,7 +188,7 @@ export function OpportunityForm({
           />
         </Field>
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("forms.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -202,9 +205,9 @@ export function OpportunityForm({
         </Field>
 
         <Field
-          label="Probability override"
+          label={t("forms.probabilityOverride")}
           name="probabilityOverride"
-          hint={`Leave empty to use the stage default, ${getDefaultStageProbability(stage as (typeof OPEN_STAGE_VALUES)[number])}%.`}
+          hint={t("forms.probabilityHint", { percent: getDefaultStageProbability(stage as (typeof OPEN_STAGE_VALUES)[number]) })}
         >
           <Input
             id="probabilityOverride"
@@ -218,19 +221,19 @@ export function OpportunityForm({
         <div className="flex items-end">
           <p aria-live="polite" className="text-table text-fg-muted">
             {weighted === null ? (
-              "Enter a value to see the weighted figure."
+              t("forms.enterValue")
             ) : (
               <>
                 <span className="font-semibold tabular-nums text-fg">
                   {formatAmount(weighted, currency)}
                 </span>{" "}
-                weighted at {probability}%
+                {t("forms.weightedAt", { percent: probability ?? "" })}
               </>
             )}
           </p>
         </div>
 
-        <Field label="Expected close" name="expectedCloseDate">
+        <Field label={t("forms.expectedClose")} name="expectedCloseDate">
           <Input
             id="expectedCloseDate"
             name="expectedCloseDate"
@@ -239,7 +242,7 @@ export function OpportunityForm({
           />
         </Field>
 
-        <Field label="Next step" name="nextStep" hint="One line. Longer plans belong in a task.">
+        <Field label={t("forms.nextStep")} name="nextStep" hint={t("forms.nextStepHint")}>
           <Input
             id="nextStep"
             name="nextStep"
@@ -248,7 +251,7 @@ export function OpportunityForm({
           />
         </Field>
 
-        <Field label="Description" name="description" className="sm:col-span-2">
+        <Field label={t("forms.description")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"

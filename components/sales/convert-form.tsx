@@ -9,6 +9,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 import { WorkflowForm } from "@/components/sales/workflow-form";
 import { Input } from "@/components/ui/input";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
@@ -48,6 +49,7 @@ export function ConvertLeadForm({
   duplicates?: LeadDuplicateMatch[];
   cancelHref: string;
 }) {
+  const t = useSalesTranslations();
   const [clientMode, setClientMode] = React.useState("NONE");
 
   return (
@@ -56,14 +58,14 @@ export function ConvertLeadForm({
     <WorkflowForm
       action={action}
       cancelHref={cancelHref}
-      submitLabel="Convert to opportunity"
-      pendingLabel="Converting…"
-      workflow="Convert"
+      submitLabel={t("forms.convertSubmit")}
+      pendingLabel={t("forms.converting")}
+      workflow={t("forms.convert")}
     >
       {duplicates && duplicates.length > 0 ? (
         <section role="alert" className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3">
           <h2 className="text-table font-semibold text-warning-strong">
-            A client like this already exists
+            {t("forms.clientExists")}
           </h2>
           <ul className="mt-2 space-y-1 text-meta text-fg-muted">
             {duplicates.map((match) => (
@@ -74,13 +76,13 @@ export function ConvertLeadForm({
           </ul>
           <label className="mt-3 flex items-center gap-2 text-table text-fg">
             <input type="checkbox" name="acceptDuplicate" value="on" defaultChecked />
-            Create it anyway
+            {t("forms.createAnyway")}
           </label>
         </section>
       ) : null}
 
-      <FormSection title="Opportunity" description="What the deal becomes once it is real.">
-        <Field label="Opportunity name" name="opportunityName" required className="sm:col-span-2">
+      <FormSection title={t("forms.opportunityTitle")} description={t("forms.opportunityDescription")}>
+        <Field label={t("forms.opportunityName")} name="opportunityName" required className="sm:col-span-2">
           <Input
             id="opportunityName"
             name="opportunityName"
@@ -90,7 +92,7 @@ export function ConvertLeadForm({
           />
         </Field>
 
-        <Field label="Owner" name="ownerMemberId" required>
+        <Field label={t("forms.owner")} name="ownerMemberId" required>
           <select
             id="ownerMemberId"
             name="ownerMemberId"
@@ -98,7 +100,7 @@ export function ConvertLeadForm({
             defaultValue={defaults.ownerMemberId}
             required
           >
-            <option value="">Choose an owner</option>
+            <option value="">{t("forms.chooseOwner")}</option>
             {owners.map((owner) => (
               <option key={owner.value} value={owner.value}>
                 {owner.label}
@@ -107,11 +109,11 @@ export function ConvertLeadForm({
           </select>
         </Field>
 
-        <Field label="Expected close" name="expectedCloseDate">
+        <Field label={t("forms.expectedClose")} name="expectedCloseDate">
           <Input id="expectedCloseDate" name="expectedCloseDate" type="date" />
         </Field>
 
-        <Field label="Estimated value" name="estimatedValue" required>
+        <Field label={t("forms.estimatedValue")} name="estimatedValue" required>
           <Input
             id="estimatedValue"
             name="estimatedValue"
@@ -121,7 +123,7 @@ export function ConvertLeadForm({
           />
         </Field>
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("forms.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -138,10 +140,10 @@ export function ConvertLeadForm({
       </FormSection>
 
       <FormSection
-        title="Client"
-        description="Optional now. A deal can be worked before the customer record exists."
+        title={t("forms.clientTitle")}
+        description={t("forms.clientOptionalDescription")}
       >
-        <Field label="Client" name="clientMode" className="sm:col-span-2">
+        <Field label={t("forms.clientTitle")} name="clientMode" className="sm:col-span-2">
           <select
             id="clientMode"
             name="clientMode"
@@ -149,16 +151,16 @@ export function ConvertLeadForm({
             value={clientMode}
             onChange={(event) => setClientMode(event.target.value)}
           >
-            <option value="NONE">No client yet</option>
-            {canLinkClient ? <option value="EXISTING">Link an existing client</option> : null}
-            {canCreateClient ? <option value="NEW">Create a new client</option> : null}
+            <option value="NONE">{t("forms.noClientYet")}</option>
+            {canLinkClient ? <option value="EXISTING">{t("forms.linkExistingClient")}</option> : null}
+            {canCreateClient ? <option value="NEW">{t("forms.createNewClient")}</option> : null}
           </select>
         </Field>
 
         {clientMode === "EXISTING" ? (
-          <Field label="Existing client" name="clientId" required className="sm:col-span-2">
+          <Field label={t("forms.existingClient")} name="clientId" required className="sm:col-span-2">
             <select id="clientId" name="clientId" className={selectClass} defaultValue="">
-              <option value="">Choose a client</option>
+              <option value="">{t("forms.chooseClient")}</option>
               {clients.map((client) => (
                 <option key={client.value} value={client.value}>
                   {client.label}
@@ -170,11 +172,11 @@ export function ConvertLeadForm({
 
         {clientMode === "NEW" ? (
           <Field
-            label="New client name"
+            label={t("forms.newClientName")}
             name="newClientName"
             required
             className="sm:col-span-2"
-            hint="Created through the Clients module, with the lead's contact details."
+            hint={t("forms.newClientHint")}
           >
             <Input
               id="newClientName"

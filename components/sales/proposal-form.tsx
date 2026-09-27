@@ -12,6 +12,7 @@ import {
   type SelectOption,
 } from "@/components/forms/record-form";
 import { PricedLineItems, type PricedLineValue } from "@/components/finance/line-items-field";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
@@ -56,6 +57,7 @@ export function ProposalForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useSalesTranslations();
   const [currency, setCurrency] = React.useState(values?.currency ?? "EUR");
   const today = localToday();
 
@@ -69,10 +71,10 @@ export function ProposalForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Proposal"
-        description="A commercial offer against one opportunity. It is not an invoice."
+        title={t("forms.proposalTitle")}
+        description={t("forms.proposalDescription")}
       >
-        <Field label="Proposal number" name="proposalNumber" required>
+        <Field label={t("forms.proposalNumber")} name="proposalNumber" required>
           <Input
             id="proposalNumber"
             name="proposalNumber"
@@ -82,17 +84,17 @@ export function ProposalForm({
           />
         </Field>
 
-        <Field label="Title" name="title" required>
+        <Field label={t("forms.title")} name="title" required>
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
         {opportunities ? (
           <Field
-            label="Opportunity"
+            label={t("forms.opportunity")}
             name="opportunityId"
             required
             className="sm:col-span-2"
-            hint="Fixed once the proposal exists — its approval history belongs to this deal."
+            hint={t("forms.opportunityFixedHint")}
           >
             <select
               id="opportunityId"
@@ -101,7 +103,7 @@ export function ProposalForm({
               defaultValue={lockedOpportunity?.id ?? ""}
               required
             >
-              <option value="">Choose an opportunity</option>
+              <option value="">{t("forms.chooseOpportunity")}</option>
               {opportunities.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -111,12 +113,12 @@ export function ProposalForm({
           </Field>
         ) : lockedOpportunity ? (
           <div className="sm:col-span-2">
-            <p className="nesto-eyebrow text-fg-subtle">Opportunity</p>
+            <p className="nesto-eyebrow text-fg-subtle">{t("forms.opportunity")}</p>
             <p className="mt-0.5 text-table text-fg">{lockedOpportunity.name}</p>
           </div>
         ) : null}
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("forms.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -132,7 +134,7 @@ export function ProposalForm({
           </select>
         </Field>
 
-        <Field label="Issue date" name="issueDate" required>
+        <Field label={t("forms.issueDate")} name="issueDate" required>
           <Input
             id="issueDate"
             name="issueDate"
@@ -142,7 +144,7 @@ export function ProposalForm({
           />
         </Field>
 
-        <Field label="Valid until" name="validUntil" hint="Optional. Cannot be before the issue date.">
+        <Field label={t("forms.validUntil")} name="validUntil" hint={t("forms.validUntilHint")}>
           <Input
             id="validUntil"
             name="validUntil"
@@ -154,8 +156,8 @@ export function ProposalForm({
 
       <PricedLineItems currency={currency} defaultLines={values?.lineItems} />
 
-      <FormSection title="Notes" description="Internal commercial context. Not exported.">
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+      <FormSection title={t("forms.notes")} description={t("forms.notesDescription")}>
+        <Field label={t("forms.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

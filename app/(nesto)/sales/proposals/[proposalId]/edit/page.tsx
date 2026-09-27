@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -6,7 +7,10 @@ import { ProposalForm } from "@/components/sales/proposal-form";
 import { updateProposalAction } from "@/lib/actions/sales";
 import { proposalContext } from "../proposal-context";
 
-export const metadata: Metadata = { title: "Edit proposal" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.editProposal") };
+}
 
 type Params = { params: Promise<{ proposalId: string }> };
 
@@ -19,6 +23,7 @@ type Params = { params: Promise<{ proposalId: string }> };
 export default async function EditProposalPage({ params }: Params) {
   const { proposalId } = await params;
   const { proposal } = await proposalContext(proposalId);
+  const t = await getTranslations("sales");
 
   if (!proposal.capabilities.canEdit) redirect(`/sales/proposals/${proposalId}`);
 
@@ -31,12 +36,12 @@ export default async function EditProposalPage({ params }: Params) {
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Proposals", href: "/sales/proposals" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.proposals"), href: "/sales/proposals" },
           { label: proposal.proposalNumber, href: `/sales/proposals/${proposalId}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
-        title={`Edit ${proposal.proposalNumber}`}
+        title={t("pages.editTitle", { name: proposal.proposalNumber })}
         status={proposal.status}
       />
 
@@ -59,8 +64,8 @@ export default async function EditProposalPage({ params }: Params) {
         }}
         versionUpdatedAt={proposal.updatedAt}
         cancelHref={`/sales/proposals/${proposalId}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("pages.saveChanges")}
+        pendingLabel={t("pages.saving")}
       />
     </div>
   );

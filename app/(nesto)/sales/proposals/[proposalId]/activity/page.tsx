@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -7,7 +8,10 @@ import { SalesActivityFeed } from "@/components/sales/sales-activity";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { proposalContext } from "../proposal-context";
 
-export const metadata: Metadata = { title: "Proposal activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.proposalActivity") };
+}
 
 type Params = { params: Promise<{ proposalId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ proposalId: string }> };
 export default async function ProposalActivityPage({ params }: Params) {
   const { proposalId } = await params;
   const { context, proposal } = await proposalContext(proposalId);
+  const t = await getTranslations("sales");
 
   if (!proposal.capabilities.canViewActivity) redirect(`/sales/proposals/${proposalId}`);
 
@@ -22,12 +27,12 @@ export default async function ProposalActivityPage({ params }: Params) {
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Proposals", href: "/sales/proposals" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.proposals"), href: "/sales/proposals" },
           { label: proposal.proposalNumber, href: `/sales/proposals/${proposalId}` },
-          { label: "Activity" },
+          { label: t("crumbs.activity") },
         ]}
-        title={`${proposal.proposalNumber} — activity`}
+        title={t("detail.activityTitle", { name: proposal.proposalNumber })}
         status={proposal.status}
       />
 

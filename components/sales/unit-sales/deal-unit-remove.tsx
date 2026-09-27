@@ -8,11 +8,13 @@ import { failureMessage, structureApi } from "@/components/project-structure/str
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 /** Takes a unit the deal does not hold out of it (E-05E §18). The server refuses one it holds. */
 export function DealUnitRemove({ opportunityId, unitId, unitCode }: { opportunityId: string; unitId: string; unitCode: string }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useSalesTranslations();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
@@ -20,10 +22,10 @@ export function DealUnitRemove({ opportunityId, unitId, unitCode }: { opportunit
     setPending(true);
     try {
       await structureApi(`/api/sales/opportunities/${opportunityId}/units/${unitId}`, { method: "DELETE" });
-      toast({ title: `${unitCode} was removed from the opportunity.` });
+      toast({ title: t("unitSales.removed", { unit: unitCode }) });
       router.refresh();
     } catch (error) {
-      toast({ title: failureMessage(error, "The unit could not be removed."), tone: "danger" });
+      toast({ title: failureMessage(error, t("unitSales.removeFailed")), tone: "danger" });
     } finally {
       setPending(false);
       setOpen(false);
@@ -32,10 +34,10 @@ export function DealUnitRemove({ opportunityId, unitId, unitCode }: { opportunit
 
   return (
     <>
-      <Button variant="ghost" size="icon-sm" aria-label={`Remove ${unitCode} from the opportunity`} onClick={() => setOpen(true)}>
+      <Button variant="ghost" size="icon-sm" aria-label={t("unitSales.removeLabel", { unit: unitCode })} onClick={() => setOpen(true)}>
         <X />
       </Button>
-      <ConfirmDialog open={open} onOpenChange={setOpen} title={`Remove ${unitCode}?`} description="The unit leaves this opportunity. The unit itself and its sales history are unchanged." confirmLabel="Remove" pending={pending} onConfirm={() => void remove()} />
+      <ConfirmDialog open={open} onOpenChange={setOpen} title={t("unitSales.removeTitle", { unit: unitCode })} description={t("unitSales.removeDescription")} confirmLabel={t("unitSales.remove")} pending={pending} onConfirm={() => void remove()} />
     </>
   );
 }

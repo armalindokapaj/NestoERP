@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -12,10 +13,14 @@ import { RecordTasks } from "@/components/tasks/record-tasks";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import { formatAmount } from "@/components/sales/sales-format";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { formatDate } from "@/lib/utils/format";
 import { leadContext } from "./lead-context";
 
-export const metadata: Metadata = { title: "Lead" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.lead") };
+}
 
 type Params = { params: Promise<{ leadId: string }> };
 
@@ -23,49 +28,49 @@ type Params = { params: Promise<{ leadId: string }> };
 export default async function LeadPage({ params }: Params) {
   const { leadId } = await params;
   const { context, lead } = await leadContext(leadId);
+  const t = await getTranslations("sales");
 
   return (
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Leads", href: "/sales/leads" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.leads"), href: "/sales/leads" },
           { label: lead.name },
         ]}
         title={lead.name}
-        subtitle={lead.companyName ?? "Individual"}
+        subtitle={lead.companyName ?? t("detail.individual")}
         status={lead.status}
         meta={[
-          { label: "Source", value: leadSourceLabels[lead.source] },
+          { label: t("detail.source"), value: salesLabel(t, "leadSource", lead.source, leadSourceLabels[lead.source]) },
           {
-            label: "Owner",
+            label: t("detail.owner"),
             value: lead.owner ? (
               <>
                 <PersonLink memberId={lead.owner.memberId} name={lead.owner.fullName} />
-                {lead.owner.active ? "" : " (inactive)"}
+                {lead.owner.active ? "" : t("detail.inactive")}
               </>
             ) : (
-              "Unassigned"
+              t("detail.unassigned")
             ),
           },
           {
-            label: "Estimated value",
+            label: t("detail.estimatedValue"),
             value:
               lead.estimatedValue && lead.currency
                 ? formatAmount(lead.estimatedValue, lead.currency)
                 : "—",
           },
-          { label: "Created", value: formatDate(lead.createdAt) },
+          { label: t("detail.created"), value: formatDate(lead.createdAt) },
         ]}
         actions={<LeadActions lead={lead} />}
       />
 
       {lead.status === "CONVERTED" ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Converted</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.converted")}</h2>
           <p className="mt-1 text-table text-fg-muted">
-            This lead became an opportunity on {lead.convertedAt ? formatDate(lead.convertedAt) : "—"}.
-            It stays here as the record of where that deal came from.
+            {t("detail.convertedOn", { date: lead.convertedAt ? formatDate(lead.convertedAt) : "—" })}
           </p>
           <div className="mt-3 flex flex-wrap gap-4 text-table">
             {lead.convertedOpportunity ? (
@@ -90,31 +95,31 @@ export default async function LeadPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Contact</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.contact")}</h2>
           <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-            <Detail label="Email" value={lead.email} href={lead.email ? `mailto:${lead.email}` : null} />
-            <Detail label="Phone" value={lead.phone} href={lead.phone ? `tel:${lead.phone}` : null} />
-            <Detail label="Website" value={lead.website} href={lead.website} external />
-            <Detail label="Company" value={lead.companyName} />
+            <Detail label={t("detail.email")} value={lead.email} href={lead.email ? `mailto:${lead.email}` : null} />
+            <Detail label={t("detail.phone")} value={lead.phone} href={lead.phone ? `tel:${lead.phone}` : null} />
+            <Detail label={t("detail.website")} value={lead.website} href={lead.website} external />
+            <Detail label={t("detail.company")} value={lead.companyName} />
           </dl>
 
           {lead.notes ? (
             <div className="mt-5 border-t border-line pt-4">
-              <h3 className="nesto-eyebrow text-fg-subtle">Notes</h3>
+              <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.notes")}</h3>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{lead.notes}</p>
             </div>
           ) : null}
 
           {lead.disqualifyReason ? (
             <div className="mt-5 border-t border-line pt-4">
-              <h3 className="nesto-eyebrow text-fg-subtle">Why it was disqualified</h3>
+              <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.whyDisqualified")}</h3>
               <p className="mt-2 text-table text-fg-muted">{lead.disqualifyReason}</p>
             </div>
           ) : null}
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Documents</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
           <div className="mt-4">
             <Suspense fallback={<SkeletonTable rows={2} />}>
               <SalesRecordDocuments context={context} entityType="lead" entityId={lead.id} />
@@ -124,14 +129,14 @@ export default async function LeadPage({ params }: Params) {
       </div>
 
       <Suspense fallback={<SkeletonTable rows={2} />}>
-        <RecordTasks context={context} parentType="lead" parentId={lead.id} title="Follow-up tasks" />
+        <RecordTasks context={context} parentType="lead" parentId={lead.id} title={t("detail.followUpTasks")} />
       </Suspense>
 
       <CollaborationPanel parentType="lead" parentId={lead.id} />
 
       {lead.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Activity</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed context={context} entityType="Lead" entityId={lead.id} />
           </Suspense>

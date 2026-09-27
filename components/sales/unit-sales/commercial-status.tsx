@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { SalesLabel } from "@/components/sales/sales-text";
 import { UNIT_COMMERCIAL_STATUS_LABELS, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
 
 /**
@@ -18,7 +19,7 @@ const TONES: Record<UnitCommercialStatus, "default" | "info" | "success" | "warn
 export function CommercialStatusBadge({ status, className }: { status: UnitCommercialStatus; className?: string }) {
   return (
     <Badge tone={TONES[status]} className={className} data-testid="commercial-status" data-status={status}>
-      {UNIT_COMMERCIAL_STATUS_LABELS[status]}
+      <SalesLabel group="commercialStatus" value={status} fallback={UNIT_COMMERCIAL_STATUS_LABELS[status]} />
     </Badge>
   );
 }

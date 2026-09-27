@@ -18,8 +18,10 @@ import {
 } from "@/lib/modules/sales/opportunities/opportunity.stage";
 import type { PipelineStageBucket } from "@/lib/modules/sales/sales.types";
 import { cn } from "@/lib/utils/cn";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
 import { formatDate } from "@/lib/utils/format";
-import { cardDescription, formatAmount, totalsLabel, weightedTotalsLabel } from "./sales-format";
+import { formatAmount, totalsLabel, weightedTotalsLabel } from "./sales-format";
 
 /**
  * The pipeline board (PRD #17 §98–§103, §284, §297).
@@ -48,6 +50,7 @@ export function PipelineBoard({
   canChangeStage: boolean;
   grouped?: boolean;
 }) {
+  const t = useSalesTranslations();
   const [selected, setSelected] = React.useState<OpportunityStage>(
     stages[0]?.stage ?? "PROSPECTING",
   );
@@ -58,7 +61,7 @@ export function PipelineBoard({
       {/* Mobile: one stage at a time (PRD #17 §284). */}
       <div className="lg:hidden">
         <label htmlFor="pipeline-stage" className="nesto-eyebrow text-fg-subtle">
-          Stage
+          {t("pipeline.stage")}
         </label>
         <select
           id="pipeline-stage"
@@ -68,7 +71,7 @@ export function PipelineBoard({
         >
           {stages.map((stage) => (
             <option key={stage.stage} value={stage.stage}>
-              {opportunityStageLabels[stage.stage]} ({stage.count})
+              {salesLabel(t, "stage", stage.stage, opportunityStageLabels[stage.stage])} ({stage.count})
             </option>
           ))}
         </select>
@@ -78,7 +81,7 @@ export function PipelineBoard({
             <StageSummary bucket={active} />
             {/* An empty stage says so on a phone too, as its desktop column does (AUD-04 §5, MW-05). */}
             {active.opportunities.length === 0 ? (
-              <p className="nesto-card p-4 text-meta text-fg-subtle">No open opportunities in this stage.</p>
+              <p className="nesto-card p-4 text-meta text-fg-subtle">{t("pipeline.noOpen")}</p>
             ) : null}
             {active.opportunities.map((opportunity) => (
               <PipelineCard
@@ -94,17 +97,17 @@ export function PipelineBoard({
       </div>
 
       {/* Desktop: the columns, scrolling horizontally rather than shrinking. */}
-      <ScrollRegion label="Pipeline stages" className="hidden gap-4 pb-2 lg:flex">
+      <ScrollRegion label={t("pipeline.stagesRegion")} className="hidden gap-4 pb-2 lg:flex">
         {stages.map((stage) => (
           <section
             key={stage.stage}
-            aria-label={`${opportunityStageLabels[stage.stage]}, ${stage.count} opportunities`}
+            aria-label={t("pipeline.columnLabel", { stage: salesLabel(t, "stage", stage.stage, opportunityStageLabels[stage.stage]), count: stage.count })}
             className="w-72 shrink-0 space-y-3"
           >
             <StageSummary bucket={stage} />
             {stage.opportunities.length === 0 ? (
               <p className="nesto-card p-4 text-meta text-fg-subtle">
-                No open opportunities in this stage.
+                {t("pipeline.noOpen")}
               </p>
             ) : (
               stage.opportunities.map((opportunity) => (
@@ -125,11 +128,12 @@ export function PipelineBoard({
 }
 
 function StageSummary({ bucket }: { bucket: PipelineStageBucket }) {
+  const t = useSalesTranslations();
   return (
     <header className="nesto-card p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-table font-semibold text-fg">
-          {opportunityStageLabels[bucket.stage]}
+          {salesLabel(t, "stage", bucket.stage, opportunityStageLabels[bucket.stage])}
         </h2>
         <span className="text-meta tabular-nums text-fg-subtle">
           {bucket.count} · {bucket.probability}%
@@ -137,7 +141,7 @@ function StageSummary({ bucket }: { bucket: PipelineStageBucket }) {
       </div>
       <p className="mt-2 text-table tabular-nums text-fg">{totalsLabel(bucket.totals)}</p>
       <p className="text-meta tabular-nums text-fg-subtle">
-        {weightedTotalsLabel(bucket.totals)} weighted
+        {t("pipeline.weighted", { amount: weightedTotalsLabel(bucket.totals) })}
       </p>
     </header>
   );
@@ -154,6 +158,8 @@ function PipelineCard({
   canChangeStage: boolean;
   grouped: boolean;
 }) {
+  const t = useSalesTranslations();
+  const serverText = useSalesServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -171,10 +177,10 @@ function PipelineCard({
     startTransition(async () => {
       const result = await changeStageAction(opportunity.id, stage);
       if (result.ok) {
-        toast({ title: "Stage updated.", tone: "success" });
+        toast({ title: t("pipeline.stageUpdated"), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -206,17 +212,16 @@ function PipelineCard({
       {/* Everything the colour of a column would otherwise imply, in words
           (PRD #17 §406). */}
       <span className="sr-only">
-        {cardDescription({
+        {t("pipeline.cardDescription", {
           name: opportunity.name,
-          stage: opportunityStageLabels[opportunity.stage],
+          stage: salesLabel(t, "stage", opportunity.stage, opportunityStageLabels[opportunity.stage]),
           probability: opportunity.probability,
-          value: opportunity.estimatedValue,
-          currency: opportunity.currency,
+          value: formatAmount(opportunity.estimatedValue, opportunity.currency),
         })}
       </span>
 
       <p className="mt-1 truncate text-meta text-fg-subtle">
-        {opportunity.client?.name ?? "No client yet"}
+        {opportunity.client?.name ?? t("pipeline.noClientYet")}
       </p>
 
       <p className="mt-2 text-table tabular-nums text-fg">
@@ -226,13 +231,13 @@ function PipelineCard({
 
       <dl className="mt-2 space-y-0.5 text-meta text-fg-subtle">
         <div className="flex justify-between gap-2">
-          <dt>Owner</dt>
+          <dt>{t("pipeline.owner")}</dt>
           <dd className="truncate">
             <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} />
           </dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt>Expected</dt>
+          <dt>{t("pipeline.expected")}</dt>
           <dd className={opportunity.expectedCloseOverdue ? "text-warning-strong" : undefined}>
             {opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : "—"}
           </dd>
@@ -246,7 +251,7 @@ function PipelineCard({
       {canChangeStage && destinations.length > 0 ? (
         <div className="mt-3 flex items-center gap-2">
           <label htmlFor={`move-${opportunity.id}`} className="sr-only">
-            Move {opportunity.name} to another stage
+            {t("pipeline.moveLabel", { name: opportunity.name })}
           </label>
           <select
             id={`move-${opportunity.id}`}
@@ -257,10 +262,10 @@ function PipelineCard({
               if (event.target.value) move(event.target.value);
             }}
           >
-            <option value="">Change stage…</option>
+            <option value="">{t("pipeline.changeStage")}</option>
             {destinations.map((stage) => (
               <option key={stage} value={stage}>
-                {opportunityStageLabels[stage]}
+                {salesLabel(t, "stage", stage, opportunityStageLabels[stage])}
               </option>
             ))}
           </select>

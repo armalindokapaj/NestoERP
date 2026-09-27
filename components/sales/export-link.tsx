@@ -1,6 +1,7 @@
 "use client";
 
 import { ExportControl } from "@/lib/core/export/export-control";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * Exports the list as it is currently filtered (PRD #17 §170, §171; AUD-08 §7).
@@ -12,10 +13,11 @@ import { ExportControl } from "@/lib/core/export/export-control";
  */
 export function SalesExportLink({
   type,
-  label = "Export CSV",
+  label,
 }: {
   type: "leads" | "opportunities" | "proposals";
   label?: string;
 }) {
-  return <ExportControl endpoint="/api/sales/export" selector={{ param: "type", value: type }} label={label} testId={`sales-export-${type}`} />;
+  const t = useSalesTranslations();
+  return <ExportControl endpoint="/api/sales/export" selector={{ param: "type", value: type }} label={label ?? t("common.exportCsv")} testId={`sales-export-${type}`} />;
 }

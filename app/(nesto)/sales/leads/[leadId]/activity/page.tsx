@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -7,7 +8,10 @@ import { SalesActivityFeed } from "@/components/sales/sales-activity";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { leadContext } from "../lead-context";
 
-export const metadata: Metadata = { title: "Lead activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.leadActivity") };
+}
 
 type Params = { params: Promise<{ leadId: string }> };
 
@@ -15,6 +19,7 @@ type Params = { params: Promise<{ leadId: string }> };
 export default async function LeadActivityPage({ params }: Params) {
   const { leadId } = await params;
   const { context, lead } = await leadContext(leadId);
+  const t = await getTranslations("sales");
 
   if (!lead.capabilities.canViewActivity) redirect(`/sales/leads/${leadId}`);
 
@@ -22,12 +27,12 @@ export default async function LeadActivityPage({ params }: Params) {
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Leads", href: "/sales/leads" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.leads"), href: "/sales/leads" },
           { label: lead.name, href: `/sales/leads/${leadId}` },
-          { label: "Activity" },
+          { label: t("crumbs.activity") },
         ]}
-        title={`${lead.name} — activity`}
+        title={t("detail.activityTitle", { name: lead.name })}
         status={lead.status}
       />
 

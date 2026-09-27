@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -25,7 +26,10 @@ import { formatDate } from "@/lib/utils/format";
 import { pendingCycle } from "@/lib/modules/sales/approvals/approval.service";
 import { proposalContext } from "./proposal-context";
 
-export const metadata: Metadata = { title: "Proposal" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.proposal") };
+}
 
 type Params = { params: Promise<{ proposalId: string }> };
 
@@ -33,6 +37,7 @@ type Params = { params: Promise<{ proposalId: string }> };
 export default async function ProposalPage({ params }: Params) {
   const { proposalId } = await params;
   const { context, proposal } = await proposalContext(proposalId);
+  const t = await getTranslations("sales");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle =
     proposal.capabilities.canApprove || proposal.capabilities.canReject
@@ -43,8 +48,8 @@ export default async function ProposalPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Proposals", href: "/sales/proposals" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.proposals"), href: "/sales/proposals" },
           { label: proposal.proposalNumber },
         ]}
         title={proposal.proposalNumber}
@@ -52,13 +57,13 @@ export default async function ProposalPage({ params }: Params) {
         status={proposal.status}
         badges={
           <>
-            {proposal.expiry === "EXPIRING_SOON" ? <Badge tone="warning">Expiring soon</Badge> : null}
-            {proposal.expiry === "EXPIRED" ? <Badge tone="danger">Expired</Badge> : null}
+            {proposal.expiry === "EXPIRING_SOON" ? <Badge tone="warning">{t("detail.expiringSoon")}</Badge> : null}
+            {proposal.expiry === "EXPIRED" ? <Badge tone="danger">{t("detail.expired")}</Badge> : null}
           </>
         }
         meta={[
           {
-            label: "Opportunity",
+            label: t("detail.opportunity"),
             value: (
               <Link
                 href={`/sales/opportunities/${proposal.opportunity.id}`}
@@ -69,7 +74,7 @@ export default async function ProposalPage({ params }: Params) {
             ),
           },
           {
-            label: "Client",
+            label: t("detail.client"),
             value: (
               <Link href={`/clients/${proposal.client.id}`} className="text-accent-strong">
                 {proposal.client.name}
@@ -77,11 +82,11 @@ export default async function ProposalPage({ params }: Params) {
             ),
           },
           {
-            label: "Total",
+            label: t("detail.total"),
             value: formatAmount(proposal.totalAmount, proposal.currency),
           },
           {
-            label: "Valid until",
+            label: t("detail.validUntil"),
             value: proposal.validUntil ? formatDate(proposal.validUntil) : "—",
           },
         ]}
@@ -90,22 +95,22 @@ export default async function ProposalPage({ params }: Params) {
 
       <section className="nesto-card overflow-hidden">
         <div className="p-5 pb-0">
-          <h2 className="text-card font-semibold text-fg">Line items</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.lineItems")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            Every figure is calculated by the server from quantity, unit price and tax rate.
+            {t("detail.lineItemsHint")}
           </p>
         </div>
 
         {/* The Table primitive is the labelled scroll region itself (AUD-04 §5, SP-02). */}
         <div className="mt-4">
-          <Table label="Proposal lines">
+          <Table label={t("detail.proposalLines")}>
             <TableHead>
               <tr>
-                <TableHeaderCell scope="col">Description</TableHeaderCell>
-                <TableHeaderCell scope="col" className="text-right">Quantity</TableHeaderCell>
-                <TableHeaderCell scope="col" className="text-right">Unit price</TableHeaderCell>
-                <TableHeaderCell scope="col" className="text-right">Tax</TableHeaderCell>
-                <TableHeaderCell scope="col" className="text-right">Total</TableHeaderCell>
+                <TableHeaderCell scope="col">{t("detail.description")}</TableHeaderCell>
+                <TableHeaderCell scope="col" className="text-right">{t("detail.quantity")}</TableHeaderCell>
+                <TableHeaderCell scope="col" className="text-right">{t("detail.unitPrice")}</TableHeaderCell>
+                <TableHeaderCell scope="col" className="text-right">{t("detail.tax")}</TableHeaderCell>
+                <TableHeaderCell scope="col" className="text-right">{t("detail.total")}</TableHeaderCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -127,10 +132,10 @@ export default async function ProposalPage({ params }: Params) {
         </div>
 
         <dl className="space-y-1.5 border-t border-line p-5 text-table">
-          <Row label="Subtotal" value={formatAmount(proposal.subtotal, proposal.currency)} />
-          <Row label="Tax" value={formatAmount(proposal.taxAmount, proposal.currency)} />
+          <Row label={t("detail.subtotal")} value={formatAmount(proposal.subtotal, proposal.currency)} />
+          <Row label={t("detail.tax")} value={formatAmount(proposal.taxAmount, proposal.currency)} />
           <Row
-            label="Total"
+            label={t("detail.total")}
             value={formatAmount(proposal.totalAmount, proposal.currency)}
             emphasis
           />
@@ -169,18 +174,18 @@ export default async function ProposalPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Approval</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.approval")}</h2>
           <ApprovalHistory approvals={proposal.approvals} />
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Documents</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
           <Suspense fallback={<SkeletonTable rows={2} />}>
             <SalesRecordDocuments
               context={context}
               entityType="proposal"
               entityId={proposal.id}
-              emptyDescription="The proposal PDF and any pricing or scope attachments appear here."
+              emptyDescription={t("detail.proposalDocuments")}
             />
           </Suspense>
         </section>
@@ -188,14 +193,14 @@ export default async function ProposalPage({ params }: Params) {
 
       {proposal.notes ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Notes</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.notes")}</h2>
           <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{proposal.notes}</p>
         </section>
       ) : null}
 
       {proposal.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Activity</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed context={context} entityType="Proposal" entityId={proposal.id} />
           </Suspense>

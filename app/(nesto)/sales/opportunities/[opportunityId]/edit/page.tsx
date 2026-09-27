@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -8,7 +9,10 @@ import { updateOpportunityAction } from "@/lib/actions/sales";
 import { salesClientOptions, salesOwnerOptions } from "@/lib/modules/sales/sales.options";
 import { opportunityContext } from "../opportunity-context";
 
-export const metadata: Metadata = { title: "Edit opportunity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.editOpportunity") };
+}
 
 type Params = { params: Promise<{ opportunityId: string }> };
 
@@ -16,6 +20,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 export default async function EditOpportunityPage({ params }: Params) {
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
+  const t = await getTranslations("sales");
 
   if (!opportunity.capabilities.canEdit) redirect(`/sales/opportunities/${opportunityId}`);
 
@@ -33,12 +38,12 @@ export default async function EditOpportunityPage({ params }: Params) {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
           { label: opportunity.name, href: `/sales/opportunities/${opportunityId}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
-        title={`Edit ${opportunity.name}`}
+        title={t("pages.editTitle", { name: opportunity.name })}
         status={opportunity.stage}
       />
 
@@ -61,8 +66,8 @@ export default async function EditOpportunityPage({ params }: Params) {
         }}
         versionUpdatedAt={opportunity.updatedAt}
         cancelHref={`/sales/opportunities/${opportunityId}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("pages.saveChanges")}
+        pendingLabel={t("pages.saving")}
       />
     </div>
   );

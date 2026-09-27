@@ -4,6 +4,8 @@ import type { UserContext } from "@/lib/context/types";
 import { listDealUnits } from "@/lib/modules/sales/units/unit-sales.service";
 import { UNIT_RESERVATION_STATUS_LABELS, type UnitReservationStatus } from "@/lib/modules/sales/units/unit-sales.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { SalesLabel } from "@/components/sales/sales-text";
 import { CommercialStatusBadge, moneyLabel } from "./commercial-status";
 import { DealUnitRemove } from "./deal-unit-remove";
 
@@ -15,13 +17,14 @@ import { DealUnitRemove } from "./deal-unit-remove";
  */
 export async function DealUnits({ context, opportunityId, canEdit }: { context: UserContext; opportunityId: string; canEdit: boolean }) {
   const units = await listDealUnits(context, opportunityId);
+  const t = await getTranslations("sales");
   return (
     <section className="nesto-card p-5" aria-labelledby="deal-units" data-testid="deal-units">
       <h2 id="deal-units" className="text-card font-semibold text-fg">
-        Units
+        {t("unitSales.units")}
       </h2>
       {units.length === 0 ? (
-        <p className="mt-3 text-table text-fg-muted">No units yet. A unit joins this opportunity when it is reserved for it, from the unit&apos;s Sales section.</p>
+        <p className="mt-3 text-table text-fg-muted">{t("unitSales.noDealUnits")}</p>
       ) : (
         <ul className="mt-3 divide-y divide-line">
           {units.map((unit) => {
@@ -37,8 +40,8 @@ export async function DealUnits({ context, opportunityId, canEdit }: { context: 
                 <CommercialStatusBadge status={unit.status} />
                 {unit.reservation ? (
                   <span className="text-meta text-fg-subtle">
-                    {UNIT_RESERVATION_STATUS_LABELS[unit.reservation.status as UnitReservationStatus]}
-                    {unit.reservation.status === "ACTIVE" ? ` until ${formatDate(unit.reservation.expiresAt)}` : ""}
+                    <SalesLabel group="reservationStatus" value={unit.reservation.status} fallback={UNIT_RESERVATION_STATUS_LABELS[unit.reservation.status as UnitReservationStatus]} />
+                    {unit.reservation.status === "ACTIVE" ? t("unitSales.reservedUntil", { date: formatDate(unit.reservation.expiresAt) }) : ""}
                   </span>
                 ) : null}
                 <span className="ml-auto tabular-nums text-fg">{moneyLabel(unit.agreedPrice, unit.currency)}</span>

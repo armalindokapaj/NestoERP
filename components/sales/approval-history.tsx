@@ -2,6 +2,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { SalesApprovalDTO } from "@/lib/modules/sales/sales.types";
 import { formatDateTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * A proposal's approval history (PRD #17 §119, §132).
@@ -10,11 +11,12 @@ import { formatDateTime } from "@/lib/utils/format";
  * resubmitted gets a new row rather than reopening the old one, so this reads
  * as the sequence of decisions it actually was (PRD #17 §119).
  */
-export function ApprovalHistory({ approvals }: { approvals: SalesApprovalDTO[] }) {
+export async function ApprovalHistory({ approvals }: { approvals: SalesApprovalDTO[] }) {
+  const t = await getTranslations("sales");
   if (approvals.length === 0) {
     return (
       <p className="nesto-card p-5 text-table text-fg-subtle">
-        This proposal has not been submitted for approval.
+        {t("approvals.none")}
       </p>
     );
   }
@@ -26,26 +28,26 @@ export function ApprovalHistory({ approvals }: { approvals: SalesApprovalDTO[] }
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge status={approval.status} />
             <time className="text-meta text-fg-subtle" dateTime={approval.submittedAt}>
-              Submitted {formatDateTime(approval.submittedAt)}
+              {t("approvals.submitted", { date: formatDateTime(approval.submittedAt) })}
             </time>
           </div>
 
           <dl className="grid gap-x-6 gap-y-1 text-table sm:grid-cols-2">
             <div className="flex gap-2">
-              <dt className="text-fg-subtle">Submitted by</dt>
+              <dt className="text-fg-subtle">{t("approvals.submittedBy")}</dt>
               <dd className="text-fg">
                 {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "—"}
               </dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-fg-subtle">Decided by</dt>
+              <dt className="text-fg-subtle">{t("approvals.decidedBy")}</dt>
               <dd className="text-fg">
-                {approval.decidedBy ? <PersonLink memberId={approval.decidedBy.memberId} name={approval.decidedBy.fullName} /> : "Waiting for a decision"}
+                {approval.decidedBy ? <PersonLink memberId={approval.decidedBy.memberId} name={approval.decidedBy.fullName} /> : t("approvals.waiting")}
               </dd>
             </div>
             {approval.decidedAt ? (
               <div className="flex gap-2">
-                <dt className="text-fg-subtle">Decided</dt>
+                <dt className="text-fg-subtle">{t("approvals.decided")}</dt>
                 <dd className="text-fg">{formatDateTime(approval.decidedAt)}</dd>
               </div>
             ) : null}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Handshake } from "lucide-react";
 
@@ -18,7 +19,10 @@ import { groupCompanies, includedCompanies, resolveSalesExperience } from "@/lib
 import { formatAmount } from "@/components/sales/sales-format";
 import { formatDate } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "Sales" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.sales") };
+}
 
 /**
  * The Sales overview (PRD #17 §21–§24).
@@ -38,6 +42,7 @@ export default async function SalesOverviewPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   const experience = await resolveSalesExperience(context);
   const companyParam = grouped ? firstValue((await searchParams).company) : undefined;
@@ -59,12 +64,12 @@ export default async function SalesOverviewPage({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {!grouped && can(context, "sales.lead.create") ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href="/sales/leads/new">New lead</Link>
+              <Link href="/sales/leads/new">{t("overview.newLead")}</Link>
             </Button>
           ) : null}
           {!grouped && can(context, "sales.opportunity.create") ? (
             <Button asChild size="sm">
-              <Link href="/sales/opportunities/new">New opportunity</Link>
+              <Link href="/sales/opportunities/new">{t("overview.newOpportunity")}</Link>
             </Button>
           ) : null}
         </div>
@@ -79,14 +84,14 @@ export default async function SalesOverviewPage({
           grouped ? (
             <EmptyState
               icon={<Handshake />}
-              title="No accessible data for this module."
-              description="None of the companies you can open holds Sales records you may read."
+              title={t("overview.noAccessTitle")}
+              description={t("overview.noAccessDescription")}
             />
           ) : (
             <EmptyState
               icon={<Handshake />}
-              title="Nothing in your Sales view."
-              description="Your access covers commercial summaries rather than the pipeline itself."
+              title={t("overview.nothingTitle")}
+              description={t("overview.nothingDescription")}
             />
           )
         ) : null}
@@ -94,16 +99,17 @@ export default async function SalesOverviewPage({
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {overview.visible.opportunities ? (
             <AttentionPanel
-              title="Expected close overdue"
+              title={t("overview.overdueTitle")}
               href="/sales/reports?report=expected-close"
-              emptyLabel="Nothing has run past its close date."
+              emptyLabel={t("overview.overdueEmpty")}
               grouped={grouped}
+              allLabel={t("overview.all")}
               rows={attention.overdueClose.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/sales/opportunities/${row.id}`,
                 primary: row.name,
-                secondary: row.client?.name ?? "No client yet",
+                secondary: row.client?.name ?? t("overview.noClientYet"),
                 meta: row.expectedCloseDate ? formatDate(row.expectedCloseDate) : "—",
               }))}
             />
@@ -111,10 +117,11 @@ export default async function SalesOverviewPage({
 
           {overview.visible.opportunities ? (
             <AttentionPanel
-              title="No next step"
+              title={t("overview.noNextStepTitle")}
               href="/sales/opportunities"
-              emptyLabel="Every open deal has a next step."
+              emptyLabel={t("overview.noNextStepEmpty")}
               grouped={grouped}
+              allLabel={t("overview.all")}
               rows={attention.noNextStep.map((row) => ({
                 id: row.id,
                 company: row.company,
@@ -128,16 +135,17 @@ export default async function SalesOverviewPage({
 
           {overview.visible.leads ? (
             <AttentionPanel
-              title="Qualified, not converted"
+              title={t("overview.qualifiedTitle")}
               href="/sales/leads?status=QUALIFIED"
-              emptyLabel="No qualified leads are waiting."
+              emptyLabel={t("overview.qualifiedEmpty")}
               grouped={grouped}
+              allLabel={t("overview.all")}
               rows={attention.qualifiedLeads.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/sales/leads/${row.id}`,
                 primary: row.name,
-                secondary: row.companyName ?? "Individual",
+                secondary: row.companyName ?? t("overview.individual"),
                 meta:
                   row.estimatedValue && row.currency
                     ? formatAmount(row.estimatedValue, row.currency)
@@ -148,10 +156,11 @@ export default async function SalesOverviewPage({
 
           {overview.visible.proposals ? (
             <AttentionPanel
-              title="Proposals expiring"
+              title={t("overview.expiringTitle")}
               href="/sales/proposals?status=SENT"
-              emptyLabel="No sent proposal expires in the next week."
+              emptyLabel={t("overview.expiringEmpty")}
               grouped={grouped}
+              allLabel={t("overview.all")}
               rows={attention.expiringProposals.map((row) => ({
                 id: row.id,
                 company: row.company,
@@ -165,16 +174,17 @@ export default async function SalesOverviewPage({
 
           {overview.visible.opportunities && attention.inactiveOwners.length > 0 ? (
             <AttentionPanel
-              title="Owner has left"
+              title={t("overview.ownerLeftTitle")}
               href="/sales/opportunities"
-              emptyLabel="Every open deal has an active owner."
+              emptyLabel={t("overview.ownerLeftEmpty")}
               grouped={grouped}
+              allLabel={t("overview.all")}
               rows={attention.inactiveOwners.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/sales/opportunities/${row.id}`,
                 primary: row.name,
-                secondary: `${row.owner.fullName} is no longer active`,
+                secondary: t("overview.noLongerActive", { name: row.owner.fullName }),
                 meta: formatAmount(row.estimatedValue, row.currency),
               }))}
             />
@@ -201,12 +211,14 @@ function AttentionPanel({
   rows,
   emptyLabel,
   grouped = false,
+  allLabel,
 }: {
   title: string;
   href: string;
   rows: AttentionRow[];
   emptyLabel: string;
   grouped?: boolean;
+  allLabel: string;
 }) {
   // "All" leads to the full list; one the group does not answer would only ask
   // which company, so it is not offered there (Workspace Context §29).
@@ -221,7 +233,7 @@ function AttentionPanel({
             href={href}
             className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
           >
-            All
+            {allLabel}
             <ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         ) : null}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -8,7 +9,10 @@ import { createProposalAction } from "@/lib/actions/sales";
 import { requireModule } from "@/lib/context/current-user";
 import { proposalOpportunityOptions } from "@/lib/modules/sales/sales.options";
 
-export const metadata: Metadata = { title: "New proposal" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.newProposal") };
+}
 
 /** Draft a commercial offer (PRD #17 §113, §114). */
 export default async function NewProposalPage({
@@ -17,6 +21,7 @@ export default async function NewProposalPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   if (!can(context, "sales.proposal.create")) redirect("/access-denied");
 
   const params = await searchParams;
@@ -33,18 +38,17 @@ export default async function NewProposalPage({
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Proposals", href: "/sales/proposals" },
-          { label: "New proposal" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.proposals"), href: "/sales/proposals" },
+          { label: t("crumbs.newProposal") },
         ]}
-        title="New proposal"
-        subtitle="A commercial offer against one opportunity. It is not an invoice."
+        title={t("meta.newProposal")}
+        subtitle={t("pages.newProposalSubtitle")}
       />
 
       {opportunities.length === 0 ? (
         <p className="nesto-card p-5 text-table text-fg-muted">
-          There is no open opportunity with a client attached. A proposal has to be addressed to
-          somebody, so link a client to the deal first.
+          {t("pages.noOpenOpportunity")}
         </p>
       ) : (
         <ProposalForm
@@ -60,8 +64,8 @@ export default async function NewProposalPage({
               : undefined
           }
           cancelHref="/sales/proposals"
-          submitLabel="Create proposal"
-          pendingLabel="Creating…"
+          submitLabel={t("pages.createProposal")}
+          pendingLabel={t("pages.creating")}
         />
       )}
     </div>

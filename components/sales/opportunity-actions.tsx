@@ -15,6 +15,7 @@ import {
   type OpportunityLifecycleAction,
 } from "@/lib/actions/sales";
 import type { OpportunityDetailDTO } from "@/lib/modules/sales/sales.types";
+import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
 
 /**
  * Actions on an opportunity (PRD #17 §84–§97, §294).
@@ -24,6 +25,8 @@ import type { OpportunityDetailDTO } from "@/lib/modules/sales/sales.types";
  * the wrong shape for either (PRD #17 §84, §253).
  */
 export function OpportunityActions({ opportunity }: { opportunity: OpportunityDetailDTO }) {
+  const t = useSalesTranslations();
+  const serverText = useSalesServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -41,7 +44,7 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -52,7 +55,7 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         <Button asChild variant="secondary" size="sm">
           <Link href={`/sales/opportunities/${opportunity.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -61,14 +64,14 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         <AssignMemberControl
           endpoint="/api/sales/assignable"
           currentMemberId={opportunity.owner?.memberId ?? null}
-          triggerLabel="Reassign"
-          title="Assign this opportunity"
-          description="The owner is who carries the deal, and whose pipeline it counts towards."
+          triggerLabel={t("common.reassign")}
+          title={t("opportunityActions.assignTitle")}
+          description={t("opportunityActions.assignDescription")}
           onAssign={async (memberId) => {
             const result = await assignOpportunityAction(opportunity.id, memberId);
             return {
               ok: result.ok,
-              message: result.ok ? "Opportunity reassigned." : result.error,
+              message: result.ok ? t("opportunityActions.reassigned") : serverText(result.error) ?? result.error,
             };
           }}
         />
@@ -78,7 +81,7 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         <Button asChild size="sm">
           <Link href={`/sales/opportunities/${opportunity.id}/won`}>
             <Trophy aria-hidden="true" />
-            Mark won
+            {t("opportunityActions.markWon")}
           </Link>
         </Button>
       ) : null}
@@ -87,7 +90,7 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         <Button asChild variant="secondary" size="sm">
           <Link href={`/sales/opportunities/${opportunity.id}/lost`}>
             <XCircle aria-hidden="true" />
-            Mark lost
+            {t("opportunityActions.markLost")}
           </Link>
         </Button>
       ) : null}
@@ -95,14 +98,14 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
       {may.canReopen ? (
         <Button variant="secondary" size="sm" onClick={() => setReopening(true)} disabled={pending}>
           <RotateCcw aria-hidden="true" />
-          Reopen
+          {t("common.reopen")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" onClick={() => setArchiving(true)} disabled={pending}>
           <Archive aria-hidden="true" />
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -110,34 +113,34 @@ export function OpportunityActions({ opportunity }: { opportunity: OpportunityDe
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => run("restore", "Opportunity restored.")}
+          onClick={() => run("restore", t("opportunityActions.restored"))}
           disabled={pending}
         >
           <RotateCcw aria-hidden="true" />
-          Restore
+          {t("common.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title="Archive this opportunity?"
-        description="It leaves the pipeline. Its commercial outcome is preserved, and restoring it returns it to the stage it holds now."
-        confirmLabel="Archive opportunity"
+        title={t("opportunityActions.archiveTitle")}
+        description={t("opportunityActions.archiveDescription")}
+        confirmLabel={t("opportunityActions.archiveConfirm")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("archive", "Opportunity archived.")}
+        onConfirm={() => run("archive", t("opportunityActions.archived"))}
       />
 
       <ConfirmDialog
         open={reopening}
         onOpenChange={setReopening}
-        title="Reopen this opportunity?"
-        description="It returns to Qualified, and the close date and lost reason are cleared."
-        confirmLabel="Reopen"
+        title={t("opportunityActions.reopenTitle")}
+        description={t("opportunityActions.reopenDescription")}
+        confirmLabel={t("common.reopen")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("reopen", "Opportunity reopened.")}
+        onConfirm={() => run("reopen", t("opportunityActions.reopened"))}
       />
     </>
   );

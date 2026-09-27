@@ -17,6 +17,8 @@ import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import { LEAD_SOURCES } from "@/lib/modules/sales/leads/lead.schema";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { useSalesTranslations } from "@/components/sales/sales-text";
 
 export type LeadFormValues = {
   name: string;
@@ -61,6 +63,7 @@ export function LeadForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useSalesTranslations();
   const [warned, setWarned] = React.useState(false);
   /**
    * Matches found while typing, before anything is submitted (PRD #17 §44).
@@ -122,7 +125,7 @@ export function LeadForm({
           className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3"
         >
           <h2 className="text-table font-semibold text-warning-strong">
-            This may already be in NESTO
+            {t("leadForm.duplicateTitle")}
           </h2>
           <ul className="mt-2 space-y-1 text-meta text-fg-muted">
             {shownDuplicates.map((match) => (
@@ -136,14 +139,14 @@ export function LeadForm({
           {duplicates && duplicates.length > 0 ? (
             <label className="mt-3 flex items-center gap-2 text-table text-fg">
               <input type="checkbox" name="acceptDuplicate" value="on" defaultChecked={warned} />
-              Save it anyway
+              {t("leadForm.saveAnyway")}
             </label>
           ) : null}
         </section>
       ) : null}
 
-      <FormSection title="Lead" description="Who got in touch, and what it might be worth.">
-        <Field label="Name" name="name" required>
+      <FormSection title={t("leadForm.leadTitle")} description={t("leadForm.leadDescription")}>
+        <Field label={t("leadForm.name")} name="name" required>
           <Input
             id="name"
             name="name"
@@ -154,7 +157,7 @@ export function LeadForm({
           />
         </Field>
 
-        <Field label="Company" name="companyName" hint="Leave empty for an individual.">
+        <Field label={t("leadForm.company")} name="companyName" hint={t("leadForm.companyHint")}>
           <Input
             id="companyName"
             name="companyName"
@@ -164,7 +167,7 @@ export function LeadForm({
           />
         </Field>
 
-        <Field label="Source" name="source" required>
+        <Field label={t("leadForm.source")} name="source" required>
           <select
             id="source"
             name="source"
@@ -173,21 +176,21 @@ export function LeadForm({
           >
             {LEAD_SOURCES.map((source) => (
               <option key={source} value={source}>
-                {leadSourceLabels[source]}
+                {salesLabel(t, "leadSource", source, leadSourceLabels[source])}
               </option>
             ))}
           </select>
         </Field>
 
         {owners ? (
-          <Field label="Owner" name="ownerMemberId" hint="Who is following this up.">
+          <Field label={t("leadForm.owner")} name="ownerMemberId" hint={t("leadForm.ownerHint")}>
             <select
               id="ownerMemberId"
               name="ownerMemberId"
               className={selectClass}
               defaultValue={values?.ownerMemberId ?? ""}
             >
-              <option value="">Unassigned</option>
+              <option value="">{t("common.unassigned")}</option>
               {owners.map((owner) => (
                 <option key={owner.value} value={owner.value}>
                   {owner.label}
@@ -198,8 +201,8 @@ export function LeadForm({
         ) : null}
       </FormSection>
 
-      <FormSection title="Contact" description="However they can be reached.">
-        <Field label="Email" name="email">
+      <FormSection title={t("leadForm.contactTitle")} description={t("leadForm.contactDescription")}>
+        <Field label={t("leadForm.email")} name="email">
           <Input
             id="email"
             name="email"
@@ -209,25 +212,25 @@ export function LeadForm({
           />
         </Field>
 
-        <Field label="Phone" name="phone">
+        <Field label={t("leadForm.phone")} name="phone">
           <Input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={values?.phone ?? ""} maxLength={40} />
         </Field>
 
         <Field
-          label="Website"
+          label={t("leadForm.website")}
           name="website"
           className="sm:col-span-2"
-          hint="A full address, beginning http:// or https://"
+          hint={t("leadForm.websiteHint")}
         >
           <Input id="website" name="website" inputMode="url" autoComplete="url" defaultValue={values?.website ?? ""} />
         </Field>
       </FormSection>
 
       <FormSection
-        title="Commercial"
-        description="A first estimate. It becomes the opportunity's value at conversion."
+        title={t("leadForm.commercialTitle")}
+        description={t("leadForm.commercialDescription")}
       >
-        <Field label="Estimated value" name="estimatedValue">
+        <Field label={t("leadForm.estimatedValue")} name="estimatedValue">
           <Input
             id="estimatedValue"
             name="estimatedValue"
@@ -236,7 +239,7 @@ export function LeadForm({
           />
         </Field>
 
-        <Field label="Currency" name="currency" hint="Required once there is a value.">
+        <Field label={t("leadForm.currency")} name="currency" hint={t("leadForm.currencyHint")}>
           <select
             id="currency"
             name="currency"
@@ -251,7 +254,7 @@ export function LeadForm({
           </select>
         </Field>
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("leadForm.notes")} name="notes" className="sm:col-span-2">
           <Textarea id="notes" name="notes" rows={4} defaultValue={values?.notes ?? ""} maxLength={5000} />
         </Field>
       </FormSection>

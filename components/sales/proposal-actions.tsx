@@ -22,6 +22,7 @@ import {
   rejectProposalAction,
   type ProposalLifecycleAction,
 } from "@/lib/actions/sales";
+import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ProposalDetailDTO } from "@/lib/modules/sales/sales.types";
 
@@ -40,6 +41,8 @@ export function ProposalActions({
   /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
   cycle: PendingCycle | null;
 }) {
+  const t = useSalesTranslations();
+  const serverText = useSalesServerText();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -62,7 +65,7 @@ export function ProposalActions({
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -73,36 +76,36 @@ export function ProposalActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/sales/proposals/${proposal.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
-        <Button size="sm" onClick={() => run("submit", "Proposal submitted.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("submit", t("proposalActions.submitted"))} disabled={pending}>
           <Send aria-hidden="true" />
-          {pending ? "Working…" : "Submit for approval"}
+          {pending ? t("common.working") : t("proposalActions.submit")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
-        <Button size="sm" onClick={() => run("approve", "Proposal approved.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("approve", t("proposalActions.approved"))} disabled={pending}>
           <ThumbsUp aria-hidden="true" />
-          {pending ? "Working…" : "Approve"}
+          {pending ? t("common.working") : t("proposalActions.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" onClick={() => setRejecting(true)} disabled={pending}>
           <ThumbsDown aria-hidden="true" />
-          Reject
+          {t("proposalActions.reject")}
         </Button>
       ) : null}
 
       {may.canMarkSent ? (
-        <Button size="sm" onClick={() => run("mark-sent", "Proposal marked as sent.")} disabled={pending}>
+        <Button size="sm" onClick={() => run("mark-sent", t("proposalActions.markedSent"))} disabled={pending}>
           <Send aria-hidden="true" />
-          Mark sent
+          {t("proposalActions.markSent")}
         </Button>
       ) : null}
 
@@ -113,16 +116,15 @@ export function ProposalActions({
           onClick={() =>
             setConfirming({
               action: "accept",
-              title: "Record this proposal as accepted?",
-              description:
-                "It becomes the deal the client agreed to and can no longer be edited or cancelled. The opportunity moves to Negotiation; winning it stays a separate decision.",
-              confirmLabel: "Record as accepted",
-              success: "Proposal accepted.",
+              title: t("proposalActions.acceptTitle"),
+              description: t("proposalActions.acceptDescription"),
+              confirmLabel: t("proposalActions.acceptConfirm"),
+              success: t("proposalActions.accepted"),
             })
           }
         >
           <ThumbsUp aria-hidden="true" />
-          Accepted
+          {t("proposalActions.acceptedButton")}
         </Button>
       ) : null}
 
@@ -134,15 +136,15 @@ export function ProposalActions({
           onClick={() =>
             setConfirming({
               action: "decline",
-              title: "Record this proposal as declined?",
-              description: "The client turned it down. You can raise a new proposal on the same opportunity.",
-              confirmLabel: "Record as declined",
-              success: "Proposal declined.",
+              title: t("proposalActions.declineTitle"),
+              description: t("proposalActions.declineDescription"),
+              confirmLabel: t("proposalActions.declineConfirm"),
+              success: t("proposalActions.declined"),
             })
           }
         >
           <ThumbsDown aria-hidden="true" />
-          Declined
+          {t("proposalActions.declinedButton")}
         </Button>
       ) : null}
 
@@ -154,15 +156,15 @@ export function ProposalActions({
           onClick={() =>
             setConfirming({
               action: "cancel",
-              title: "Cancel this proposal?",
-              description: "It stops standing. It stays visible with its approval history.",
-              confirmLabel: "Cancel proposal",
-              success: "Proposal cancelled.",
+              title: t("proposalActions.cancelTitle"),
+              description: t("proposalActions.cancelDescription"),
+              confirmLabel: t("proposalActions.cancelConfirm"),
+              success: t("proposalActions.cancelled"),
             })
           }
         >
           <Ban aria-hidden="true" />
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
@@ -174,15 +176,15 @@ export function ProposalActions({
           onClick={() =>
             setConfirming({
               action: "archive",
-              title: "Archive this proposal?",
-              description: "It leaves the working list. Restoring it returns it to the status it holds now.",
-              confirmLabel: "Archive proposal",
-              success: "Proposal archived.",
+              title: t("proposalActions.archiveTitle"),
+              description: t("proposalActions.archiveDescription"),
+              confirmLabel: t("proposalActions.archiveConfirm"),
+              success: t("proposalActions.archived"),
             })
           }
         >
           <Archive aria-hidden="true" />
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -190,11 +192,11 @@ export function ProposalActions({
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => run("restore", "Proposal restored.")}
+          onClick={() => run("restore", t("proposalActions.restored"))}
           disabled={pending}
         >
           <RotateCcw aria-hidden="true" />
-          Restore
+          {t("common.restore")}
         </Button>
       ) : null}
 
@@ -205,7 +207,7 @@ export function ProposalActions({
         }}
         title={confirming?.title ?? ""}
         description={confirming?.description ?? ""}
-        confirmLabel={confirming?.confirmLabel ?? "Confirm"}
+        confirmLabel={confirming?.confirmLabel ?? t("proposalActions.confirm")}
         destructive={confirming?.action === "cancel"}
         pending={pending}
         onConfirm={() => {
@@ -216,17 +218,17 @@ export function ProposalActions({
       <RejectDialog
         open={rejecting}
         onOpenChange={setRejecting}
-        title="Reject this proposal?"
-        description="The reason is recorded against the approval and shown to whoever submitted the price."
-        placeholder="What needs to change before this price can go to the client?"
+        title={t("proposalActions.rejectTitle")}
+        description={t("proposalActions.rejectDescription")}
+        placeholder={t("proposalActions.rejectPlaceholder")}
         onReject={async (reason) => {
           const result = await rejectProposalAction(proposal.id, reason, cycle);
           if (result.ok) {
-            toast({ title: "Proposal rejected." });
+            toast({ title: t("proposalActions.rejected") });
             setRejecting(false);
             router.refresh();
           } else {
-            toast({ title: result.error, tone: "danger" });
+            toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           }
           return result.ok;
         }}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ChartColumn } from "lucide-react";
@@ -27,9 +28,13 @@ import type {
   ProposalReportRow,
 } from "@/lib/modules/sales/sales.types";
 import { totalsLabel, weightedTotalsLabel } from "@/components/sales/sales-format";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "Sales reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.salesReports") };
+}
 
 /**
  * The built-in sales reports (PRD #17 §161).
@@ -64,6 +69,7 @@ export default async function SalesReportsPage({
   searchParams: Promise<{ report?: string; company?: string }>;
 }) {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   if (!grouped && !can(context, "sales.report.view")) redirect("/access-denied");
 
@@ -90,14 +96,14 @@ export default async function SalesReportsPage({
         {grouped ? (
           <EmptyState
             icon={<ChartColumn />}
-            title="No accessible data for this module."
-            description="None of the companies you can open lets you read Sales reports."
+            title={t("lists.noAccessTitle")}
+            description={t("reports.noAccessDescription")}
           />
         ) : (
           <EmptyState
             icon={<ChartColumn />}
-            title="No reports in your view."
-            description="Reports follow the same permissions as the lists they summarise."
+            title={t("reports.noReportsTitle")}
+            description={t("reports.noReportsDescription")}
           />
         )}
       </ModulePage>
@@ -115,7 +121,7 @@ export default async function SalesReportsPage({
       <div className="space-y-5">
         {grouped ? <GroupSalesScope companies={companies} included={includedCompanies(companies, company)} /> : null}
 
-        <nav aria-label="Reports" className="border-b border-line">
+        <nav aria-label={t("reports.nav")} className="border-b border-line">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
             {available.map((entry) => (
               <li key={entry.key}>
@@ -129,7 +135,7 @@ export default async function SalesReportsPage({
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                   )}
                 >
-                  {entry.label}
+                  {t(`reports.tabs.${entry.key}`)}
                 </Link>
               </li>
             ))}
@@ -173,14 +179,15 @@ function Totals({ totals }: { totals: CurrencyTotal[] }) {
 }
 
 async function PipelineReport({ context, company }: { context: UserContext; company?: string }) {
+  const t = await getTranslations("sales");
   const rows = await reports.pipelineByStageForWorkspace(context, company);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No open opportunities."
-        description="The pipeline report reads the deals still in play."
+        title={t("reports.noOpen")}
+        description={t("reports.noOpenPipeline")}
       />
     );
   }
@@ -188,13 +195,13 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "stage",
-      label: "Stage",
+      label: t("reports.stage"),
       primary: true,
       render: (row) => <StatusBadge status={row.stage} />,
     },
     {
       key: "count",
-      label: "Deals",
+      label: t("reports.deals"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -202,10 +209,10 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
         </span>
       ),
     },
-    { key: "value", label: "Value", align: "right", render: (row) => <Totals totals={row.totals} /> },
+    { key: "value", label: t("reports.value"), align: "right", render: (row) => <Totals totals={row.totals} /> },
     {
       key: "weighted",
-      label: "Weighted",
+      label: t("reports.weighted"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals)}</span>
@@ -215,8 +222,8 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
 
   return (
     <ReportShell
-      title="Pipeline by stage"
-      description={`Open opportunities grouped by stage. ${opportunityStageLabels.PROPOSAL} carries its stage probability unless a deal overrides it.`}
+      title={t("reports.tabs.pipeline")}
+      description={t("reports.pipelineDescription", { stage: salesLabel(t, "stage", "PROPOSAL", opportunityStageLabels.PROPOSAL) })}
     >
       <DataTable columns={columns} records={rows} rowKey={(row) => row.stage} />
     </ReportShell>
@@ -224,23 +231,24 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
 }
 
 async function ExpectedCloseReport({ context, company }: { context: UserContext; company?: string }) {
+  const t = await getTranslations("sales");
   const buckets = await reports.expectedCloseReportForWorkspace(context, company);
 
   if (buckets.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No open opportunities."
-        description="Deals with an expected close date appear here."
+        title={t("reports.noOpen")}
+        description={t("reports.noOpenExpected")}
       />
     );
   }
 
   const columns: TableColumn<(typeof buckets)[number]>[] = [
-    { key: "label", label: "When", primary: true, render: (row) => row.label },
+    { key: "label", label: t("reports.when"), primary: true, render: (row) => row.label },
     {
       key: "count",
-      label: "Deals",
+      label: t("reports.deals"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -248,10 +256,10 @@ async function ExpectedCloseReport({ context, company }: { context: UserContext;
         </span>
       ),
     },
-    { key: "value", label: "Value", align: "right", render: (row) => <Totals totals={row.totals} /> },
+    { key: "value", label: t("reports.value"), align: "right", render: (row) => <Totals totals={row.totals} /> },
     {
       key: "weighted",
-      label: "Weighted",
+      label: t("reports.weighted"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals)}</span>
@@ -261,8 +269,8 @@ async function ExpectedCloseReport({ context, company }: { context: UserContext;
 
   return (
     <ReportShell
-      title="Expected close"
-      description="Open deals grouped by when they are due to close. Overdue means the date has passed and the deal is still open."
+      title={t("reports.tabs.expected-close")}
+      description={t("reports.expectedCloseDescription")}
     >
       <DataTable columns={columns} records={buckets} rowKey={(row) => row.key} />
     </ReportShell>
@@ -278,20 +286,21 @@ async function WinLossReport({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const t = await getTranslations("sales");
   const report = await reports.winLossReportForWorkspace(context, period, company);
 
   return (
     <ReportShell
-      title="Win / loss"
-      description="Deals decided this year, by their actual close date. Open deals are excluded — an unfinished deal is not a loss."
+      title={t("reports.tabs.win-loss")}
+      description={t("reports.winLossDescription")}
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card label="Won" value={totalsLabel(report.won)} hint={`${report.wonCount} deals`} />
-        <Card label="Lost" value={totalsLabel(report.lost)} hint={`${report.lostCount} deals`} />
+        <Card label={t("reports.won")} value={totalsLabel(report.won)} hint={t("reports.dealsCount", { count: report.wonCount })} />
+        <Card label={t("reports.lost")} value={totalsLabel(report.lost)} hint={t("reports.dealsCount", { count: report.lostCount })} />
         <Card
-          label="Win rate"
+          label={t("reports.winRate")}
           value={report.winRate === null ? "—" : `${report.winRate}%`}
-          hint={report.winRate === null ? "Nothing closed yet" : "Of decided deals"}
+          hint={report.winRate === null ? t("reports.nothingClosed") : t("reports.ofDecided")}
         />
       </div>
     </ReportShell>
@@ -307,23 +316,24 @@ async function OwnerReport({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const t = await getTranslations("sales");
   const rows = await reports.ownerReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (
-      <EmptyState icon={<ChartColumn />} title="Nothing to report." description="No deals in view." />
+      <EmptyState icon={<ChartColumn />} title={t("reports.nothingTitle")} description={t("reports.nothingDescription")} />
     );
   }
 
   const columns: TableColumn<OwnerPerformanceRow>[] = [
     {
       key: "owner",
-      label: "Owner",
+      label: t("reports.owner"),
       primary: true,
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
           <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
-          {row.owner.active ? "" : " (inactive)"}
+          {row.owner.active ? "" : t("reports.inactive")}
         </span>
       ),
     },
@@ -332,41 +342,41 @@ async function OwnerReport({
       ? [
           {
             key: "company",
-            label: "Company",
+            label: t("reports.company"),
             render: (row: OwnerPerformanceRow) => (row.company ? <CompanyTag name={row.company.name} /> : null),
           },
         ]
       : []),
-    { key: "currency", label: "Currency", render: (row) => row.currency },
+    { key: "currency", label: t("reports.currency"), render: (row) => row.currency },
     {
       key: "open",
-      label: "Open pipeline",
+      label: t("reports.openPipeline"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.openValue}</span>,
     },
     {
       key: "weighted",
-      label: "Weighted",
+      label: t("reports.weighted"),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums text-fg-muted">{row.weightedValue}</span>,
     },
     {
       key: "won",
-      label: "Won",
+      label: t("reports.won"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.wonValue}</span>,
     },
     {
       key: "lost",
-      label: "Lost",
+      label: t("reports.lost"),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.lostValue}</span>,
     },
     {
       key: "rate",
-      label: "Win rate",
+      label: t("reports.winRate"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">{row.winRate === null ? "—" : `${row.winRate}%`}</span>
@@ -376,8 +386,8 @@ async function OwnerReport({
 
   return (
     <ReportShell
-      title="Sales by owner"
-      description="Pipeline and outcomes per person, split by currency so nothing is added across them."
+      title={t("reports.byOwnerTitle")}
+      description={t("reports.byOwnerDescription")}
     >
       <DataTable
         columns={columns}
@@ -397,14 +407,15 @@ async function LostReasons({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const t = await getTranslations("sales");
   const rows = await reports.lostReasonReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="Nothing lost this year."
-        description="Reasons appear here as deals are closed out."
+        title={t("reports.nothingLost")}
+        description={t("reports.nothingLostDescription")}
       />
     );
   }
@@ -412,20 +423,20 @@ async function LostReasons({
   const columns: TableColumn<LostReasonRow>[] = [
     {
       key: "reason",
-      label: "Reason",
+      label: t("reports.reason"),
       primary: true,
-      render: (row) => lostReasonLabels[row.reason],
+      render: (row) => salesLabel(t, "lostReason", row.reason, lostReasonLabels[row.reason]),
     },
-    { key: "currency", label: "Currency", render: (row) => row.currency },
+    { key: "currency", label: t("reports.currency"), render: (row) => row.currency },
     {
       key: "count",
-      label: "Deals",
+      label: t("reports.deals"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.count}</span>,
     },
     {
       key: "value",
-      label: "Value",
+      label: t("reports.value"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.value}</span>,
     },
@@ -433,8 +444,8 @@ async function LostReasons({
 
   return (
     <ReportShell
-      title="Lost reasons"
-      description="Why deals did not close this year, by their actual close date."
+      title={t("reports.tabs.lost-reasons")}
+      description={t("reports.lostReasonsDescription")}
     >
       <DataTable columns={columns} records={rows} rowKey={(row) => `${row.reason}-${row.currency}`} />
     </ReportShell>
@@ -450,22 +461,23 @@ async function LeadConversion({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const t = await getTranslations("sales");
   const report = await reports.leadConversionReportForWorkspace(context, period, company);
 
   return (
     <ReportShell
-      title="Lead conversion"
-      description="Leads created this year, and how many became opportunities. The rate is converted ÷ created — a deliberately simple denominator, stated so nobody has to guess it."
+      title={t("reports.tabs.lead-conversion")}
+      description={t("reports.leadConversionDescription")}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <Card label="Created" value={String(report.totalCreated)} />
-        <Card label="Converted" value={String(report.converted)} />
-        <Card label="Qualified" value={String(report.qualified)} hint="Not yet converted" />
-        <Card label="Disqualified" value={String(report.disqualified)} />
+        <Card label={t("reports.created")} value={String(report.totalCreated)} />
+        <Card label={t("reports.converted")} value={String(report.converted)} />
+        <Card label={t("reports.qualified")} value={String(report.qualified)} hint={t("reports.notYetConverted")} />
+        <Card label={t("reports.disqualified")} value={String(report.disqualified)} />
         <Card
-          label="Conversion rate"
+          label={t("reports.conversionRate")}
           value={report.conversionRate === null ? "—" : `${report.conversionRate}%`}
-          hint="Converted ÷ created"
+          hint={t("reports.convertedOverCreated")}
         />
       </div>
     </ReportShell>
@@ -481,61 +493,62 @@ async function Proposals({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const t = await getTranslations("sales");
   const rows = await reports.proposalReportForWorkspace(context, period, company);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No proposals this year."
-        description="Proposals raised in the period appear here."
+        title={t("reports.noProposals")}
+        description={t("reports.noProposalsDescription")}
       />
     );
   }
 
   const columns: TableColumn<ProposalReportRow>[] = [
-    { key: "currency", label: "Currency", primary: true, render: (row) => row.currency },
+    { key: "currency", label: t("reports.currency"), primary: true, render: (row) => row.currency },
     {
       key: "draft",
-      label: proposalStatusLabels.DRAFT,
+      label: salesLabel(t, "proposalStatus", "DRAFT", proposalStatusLabels.DRAFT),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.counts.DRAFT}</span>,
     },
     {
       key: "pending",
-      label: proposalStatusLabels.PENDING_APPROVAL,
+      label: salesLabel(t, "proposalStatus", "PENDING_APPROVAL", proposalStatusLabels.PENDING_APPROVAL),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.counts.PENDING_APPROVAL}</span>,
     },
     {
       key: "sent",
-      label: proposalStatusLabels.SENT,
+      label: salesLabel(t, "proposalStatus", "SENT", proposalStatusLabels.SENT),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.counts.SENT}</span>,
     },
     {
       key: "accepted",
-      label: proposalStatusLabels.ACCEPTED,
+      label: salesLabel(t, "proposalStatus", "ACCEPTED", proposalStatusLabels.ACCEPTED),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.counts.ACCEPTED}</span>,
     },
     {
       key: "declined",
-      label: proposalStatusLabels.DECLINED,
+      label: salesLabel(t, "proposalStatus", "DECLINED", proposalStatusLabels.DECLINED),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.counts.DECLINED}</span>,
     },
     {
       key: "acceptedValue",
-      label: "Accepted value",
+      label: t("reports.acceptedValue"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.acceptedValue}</span>,
     },
     {
       key: "rate",
-      label: "Acceptance",
+      label: t("reports.acceptance"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -547,8 +560,8 @@ async function Proposals({
 
   return (
     <ReportShell
-      title="Proposals"
-      description="Proposals raised this year, by currency. Acceptance is accepted ÷ (accepted + declined) — only proposals the client actually decided."
+      title={t("reports.tabs.proposals")}
+      description={t("reports.proposalsDescription")}
     >
       <DataTable columns={columns} records={rows} rowKey={(row) => row.currency} />
     </ReportShell>

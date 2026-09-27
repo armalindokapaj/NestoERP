@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
+import { getTranslations } from "@/lib/i18n/server";
+import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { LeadTable } from "@/components/sales/lead-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { inGroupWorkspace } from "@/config/workspace";
@@ -25,6 +27,7 @@ export async function LeadList({
   searchParams: SearchParams;
 }) {
   const query = parseLeadQuery(searchParams);
+  const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
 
   const [result, options] = await Promise.all([
@@ -45,32 +48,32 @@ export async function LeadList({
   // of one company is not a choice, so it is offered from two.
   const companyFilter: FilterConfig[] =
     grouped && options.companies.length > 1
-      ? [{ param: "company", label: "Company", options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
+      ? [{ param: "company", label: t("lists.company"), options: options.companies.map((company) => ({ value: company.id, label: company.name })) }]
       : [];
 
   const filters: FilterConfig[] = [
     ...companyFilter,
     {
       param: "status",
-      label: "Status",
+      label: t("lists.status"),
       options: LEAD_STATUSES.filter((status) => status !== "ARCHIVED").map((value) => ({
         value,
-        label: leadStatusLabels[value],
+        label: salesLabel(t, "leadStatus", value, leadStatusLabels[value]),
       })),
     },
     {
       param: "source",
-      label: "Source",
-      options: LEAD_SOURCES.map((value) => ({ value, label: leadSourceLabels[value] })),
+      label: t("lists.source"),
+      options: LEAD_SOURCES.map((value) => ({ value, label: salesLabel(t, "leadSource", value, leadSourceLabels[value]) })),
     },
     // Only owners who appear on leads this reader can already see: a filter
     // must not become a company directory (PRD #17 §222, §337).
     {
       param: "owner",
-      label: "Owner",
+      label: t("lists.owner"),
       options: options.owners.map((owner) => ({
         value: owner.memberId,
-        label: `${owner.active ? owner.fullName : `${owner.fullName} (inactive)`}${owner.company ? ` · ${owner.company}` : ""}`,
+        label: `${owner.active ? owner.fullName : t("lists.inactive", { name: owner.fullName })}${owner.company ? ` · ${owner.company}` : ""}`,
       })),
     },
   ];
@@ -82,15 +85,15 @@ export async function LeadList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search name, company, email…"
+        searchPlaceholder={t("lists.searchLeads")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "value-desc", label: "Highest value" },
-          { value: "status-asc", label: "Status" },
-          { value: "owner-asc", label: "Owner" },
+          { value: "updated-desc", label: t("lists.recentlyUpdated") },
+          { value: "created-desc", label: t("lists.recentlyCreated") },
+          { value: "name-asc", label: t("lists.nameAz") },
+          { value: "value-desc", label: t("lists.highestValue") },
+          { value: "status-asc", label: t("lists.status") },
+          { value: "owner-asc", label: t("lists.owner") },
         ]}
       />
 
@@ -98,25 +101,25 @@ export async function LeadList({
         hasFilters ? (
           <EmptyState
             icon={<UserPlus />}
-            title="No Sales records match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/sales/leads" }}
+            title={t("lists.noMatchTitle")}
+            description={t("lists.noMatchDescription")}
+            action={{ label: t("lists.clearFilters"), href: "/sales/leads" }}
           />
         ) : grouped ? (
           // Nothing to read is not an error in the group (Workspace Context §76).
           <EmptyState
             icon={<UserPlus />}
-            title="No accessible data for this module."
-            description="None of the companies you can open holds leads you may read."
+            title={t("lists.noAccessTitle")}
+            description={t("lists.noAccessLeads")}
           />
         ) : (
           <EmptyState
             icon={<UserPlus />}
-            title="No leads yet."
-            description="People who get in touch, before they are qualified, appear here."
+            title={t("lists.noLeadsTitle")}
+            description={t("lists.noLeadsDescription")}
             action={
               can(context, "sales.lead.create")
-                ? { label: "New lead", href: "/sales/leads/new" }
+                ? { label: t("lists.newLead"), href: "/sales/leads/new" }
                 : undefined
             }
           />

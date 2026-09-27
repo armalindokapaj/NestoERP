@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -8,11 +9,15 @@ import { createOpportunityAction } from "@/lib/actions/sales";
 import { requireModule } from "@/lib/context/current-user";
 import { salesClientOptions, salesOwnerOptions } from "@/lib/modules/sales/sales.options";
 
-export const metadata: Metadata = { title: "New opportunity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sales");
+  return { title: t("meta.newOpportunity") };
+}
 
 /** Open a deal (PRD #17 §75, §76). */
 export default async function NewOpportunityPage() {
   const context = await requireModule("sales");
+  const t = await getTranslations("sales");
   if (!can(context, "sales.opportunity.create")) redirect("/access-denied");
 
   const [owners, clients] = await Promise.all([
@@ -29,12 +34,12 @@ export default async function NewOpportunityPage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Sales", href: "/sales" },
-          { label: "Opportunities", href: "/sales/opportunities" },
-          { label: "New opportunity" },
+          { label: t("crumbs.sales"), href: "/sales" },
+          { label: t("crumbs.opportunities"), href: "/sales/opportunities" },
+          { label: t("crumbs.newOpportunity") },
         ]}
-        title="New opportunity"
-        subtitle="A deal in the pipeline. It becomes a project only once it is won."
+        title={t("meta.newOpportunity")}
+        subtitle={t("pages.newOpportunitySubtitle")}
       />
 
       <OpportunityForm
@@ -42,8 +47,8 @@ export default async function NewOpportunityPage() {
         owners={owners}
         clients={clients}
         cancelHref="/sales/opportunities"
-        submitLabel="Create opportunity"
-        pendingLabel="Creating…"
+        submitLabel={t("pages.createOpportunity")}
+        pendingLabel={t("pages.creating")}
       />
     </div>
   );
