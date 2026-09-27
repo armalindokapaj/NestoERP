@@ -14,8 +14,12 @@ import {
   type DocumentParentRef,
 } from "@/lib/modules/documents/document.parent-access";
 import { recordDefinition } from "@/lib/core/records/record.registry";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add Document" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("documents");
+  return { title: t("meta.addDocument") };
+}
 
 /**
  * Upload a document (PRD #13 §86–§92).
@@ -34,6 +38,7 @@ export default async function NewDocumentPage({
   if (!can(context, "document.create")) notFound();
 
   const params = await searchParams;
+  const t = await getTranslations("documents");
   const options = await documentFormOptions(context);
 
   const requestedProjectId = typeof params.projectId === "string" ? params.projectId : "";
@@ -72,15 +77,12 @@ export default async function NewDocumentPage({
   return (
     <div className="space-y-5">
       <Breadcrumbs
-        items={[{ label: "Documents", href: "/documents" }, { label: "Add document" }]}
+        items={[{ label: t("crumbs.documents"), href: "/documents" }, { label: t("crumbs.addDocument") }]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Add document</h1>
-        <p className="mt-1.5 text-body text-fg-muted">
-          Files upload straight to private storage and are reachable only through the record
-          they belong to.
-        </p>
+        <h1 className="text-page font-semibold text-fg">{t("newPage.title")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{t("newPage.intro")}</p>
       </div>
 
       <DocumentUploader

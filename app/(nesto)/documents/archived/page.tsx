@@ -8,9 +8,13 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { DocumentsList } from "../documents-list";
 
-export const metadata: Metadata = { title: "Archived Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("documents");
+  return { title: t("meta.archivedDocuments") };
+}
 
 export default async function DocumentsSectionPage({
   searchParams,
@@ -20,6 +24,7 @@ export default async function DocumentsSectionPage({
   const context = await requireModule("documents");
   const experience = resolveModuleExperience(context, "documents");
   const params = await searchParams;
+  const t = await getTranslations("documents");
 
   return (
     <ModulePage
@@ -28,7 +33,7 @@ export default async function DocumentsSectionPage({
       actions={
         can(context, "document.create") ? (
           <Button asChild size="sm">
-            <Link href="/documents/new">Add document</Link>
+            <Link href="/documents/new">{t("overview.addDocument")}</Link>
           </Button>
         ) : null
       }

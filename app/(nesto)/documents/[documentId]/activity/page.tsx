@@ -10,13 +10,17 @@ import * as documents from "@/lib/modules/documents/document.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { documentBreadcrumbs, loadDocument } from "../document-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = {
   params: Promise<{ documentId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Document Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("documents");
+  return { title: t("meta.activity") };
+}
 
 /** Full document history (PRD #13 §118, §119). */
 export default async function DocumentActivityPage({ params, searchParams }: Params) {
@@ -26,6 +30,7 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
   if (!document.capabilities.canViewActivity) notFound();
 
   const query = await searchParams;
+  const t = await getTranslations("documents");
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
@@ -36,7 +41,7 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={documentBreadcrumbs(document, "Activity")}
+        breadcrumbs={documentBreadcrumbs(document, t("crumbs.documents"), t("crumbs.activity"))}
         title={document.name}
         subtitle={document.file.originalFileName ?? undefined}
         status={document.status}
@@ -45,8 +50,8 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this document will be listed here."
+          title={t("detail.noActivity")}
+          description={t("detail.activityHint")}
         />
       ) : (
         <>
@@ -54,7 +59,7 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("detail.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

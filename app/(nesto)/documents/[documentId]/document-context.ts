@@ -27,9 +27,9 @@ export const loadDocument = cache(async function loadDocument(
   }
 });
 
-export function documentBreadcrumbs(document: DocumentDetailDTO, trailing?: string): Crumb[] {
+export function documentBreadcrumbs(document: DocumentDetailDTO, rootLabel: string, trailing?: string): Crumb[] {
   const crumbs: Crumb[] = [
-    { label: "Documents", href: "/documents" },
+    { label: rootLabel, href: "/documents" },
     trailing
       ? { label: document.name, href: `/documents/${document.id}` }
       : { label: document.name },

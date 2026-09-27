@@ -8,6 +8,8 @@ import { CompanyTag } from "@/components/workspace/company-tag";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import type { DocumentSummaryDTO } from "@/lib/modules/documents/document.types";
 import { formatDate } from "@/lib/utils/format";
+import { contextLabel, fileTypeLabel, storageMessageLabel } from "@/lib/i18n/modules/documents/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Documents list (PRD #13 §71–§74, §176).
@@ -23,7 +25,7 @@ import { formatDate } from "@/lib/utils/format";
  * Column metadata (AUD-08 §5): the document name is the identity column (and
  * the company, in a group). Header sorts only where the page passes `sort`.
  */
-export function DocumentTable({
+export async function DocumentTable({
   documents,
   showStatus = false,
   group = false,
@@ -39,13 +41,14 @@ export function DocumentTable({
   sort?: TableSortConfig;
 }) {
   const sortable = Boolean(sort);
+  const t = await getTranslations("documents");
   const columns: TableColumn<DocumentSummaryDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
       sortKey: sortable ? "name" : undefined,
-      label: "Document",
+      label: t("table.document"),
       primary: true,
       render: (document) => {
         const title = (
@@ -61,7 +64,7 @@ export function DocumentTable({
                 Saying so beats implying one is there (PRD #29 §162, §342). */}
             {document.storageMessage && document.storageStatus !== "ARCHIVED" ? (
               <span className="block text-meta font-normal text-warning-strong">
-                {document.storageMessage}
+                {storageMessageLabel(t, document.storageStatus, document.storageMessage)}
               </span>
             ) : null}
           </>
@@ -88,7 +91,7 @@ export function DocumentTable({
             key: "company",
             id: "company",
             mandatory: true,
-            label: "Company",
+            label: t("table.company"),
             render: (document: DocumentSummaryDTO) =>
               document.company ? <CompanyTag name={document.company.name} /> : <span className="text-fg-subtle">—</span>,
           },
@@ -98,21 +101,21 @@ export function DocumentTable({
       key: "type",
       id: "type",
       sortKey: sortable ? "type" : undefined,
-      label: "Type",
+      label: t("table.type"),
       hideBelow: "md",
-      render: (document) => <span className="text-fg-muted">{document.typeLabel}</span>,
+      render: (document) => <span className="text-fg-muted">{fileTypeLabel(t, document.typeLabel)}</span>,
     },
     {
       key: "context",
       id: "context",
-      label: "Context",
+      label: t("table.context"),
       hideBelow: "lg",
-      render: (document) => <span className="text-fg-muted">{document.context.label}</span>,
+      render: (document) => <span className="text-fg-muted">{contextLabel(t, document.context.label)}</span>,
     },
     {
       key: "related",
       id: "related",
-      label: "Related record",
+      label: t("table.related"),
       hideBelow: "xl",
       render: (document) =>
         document.context.relatedRecordName && document.context.relatedRecordHref ? (
@@ -140,7 +143,7 @@ export function DocumentTable({
     {
       key: "uploadedBy",
       id: "uploadedBy",
-      label: "Uploaded by",
+      label: t("table.uploadedBy"),
       hideBelow: "xl",
       render: (document) => (
         document.uploadedBy ? (
@@ -155,7 +158,7 @@ export function DocumentTable({
       id: "size",
       valueType: "number",
       sortKey: sortable ? "size" : undefined,
-      label: "Size",
+      label: t("table.size"),
       hideBelow: "lg",
       align: "right",
       render: (document) => (
@@ -171,7 +174,7 @@ export function DocumentTable({
             id: "status",
             mandatory: true,
             valueType: "status" as const,
-            label: "Status",
+            label: t("table.status"),
             render: (document: DocumentSummaryDTO) => <StatusBadge status={document.status} />,
           },
         ]
@@ -181,7 +184,7 @@ export function DocumentTable({
       id: "updated",
       valueType: "date",
       sortKey: sortable ? "updated" : undefined,
-      label: "Updated",
+      label: t("table.updated"),
       hideBelow: "md",
       render: (document) => <span className="text-fg-muted">{formatDate(document.updatedAt)}</span>,
     },
@@ -191,7 +194,7 @@ export function DocumentTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Documents"
+      caption={t("table.caption")}
       columns={columns}
       records={documents}
       rowKey={(document) => document.id}

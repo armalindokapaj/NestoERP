@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
 import { startDownload } from "@/lib/navigation/start-download";
+import { fileTypeLabel, storageMessageLabel, useDocumentsTranslations } from "./documents-text";
 
 /**
  * The file panel: preview, download and storage state (PRD #29 §100-§107,
@@ -21,11 +22,12 @@ import { startDownload } from "@/lib/navigation/start-download";
 
 export function DocumentFilePanel({ document }: { document: DocumentDetailDTO }) {
   const file = document.file;
+  const t = useDocumentsTranslations();
 
   if (file.storageStatus === "REJECTED") return <RejectedState reason={file.rejectionReason} />;
   if (file.storageStatus === "FAILED") return <FailedState reason={file.rejectionReason} />;
   if (!file.available && file.storageStatus !== "ARCHIVED") {
-    return <ProcessingState message={file.storageMessage} />;
+    return <ProcessingState message={storageMessageLabel(t, file.storageStatus, file.storageMessage)} />;
   }
 
   return (
@@ -33,7 +35,7 @@ export function DocumentFilePanel({ document }: { document: DocumentDetailDTO })
       <div className="flex flex-wrap items-center gap-2">
         {document.capabilities.canDownload ? <DownloadButton documentId={document.id} /> : null}
         {file.scanStatus === "CLEAN" ? (
-          <Badge tone="success">Checked for malware</Badge>
+          <Badge tone="success">{t("file.malwareChecked")}</Badge>
         ) : null}
       </div>
 
@@ -43,7 +45,7 @@ export function DocumentFilePanel({ document }: { document: DocumentDetailDTO })
         // Not a failure — most business formats simply have no safe inline
         // rendering, and saying so beats an empty box (PRD #29 §53, §281).
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          {file.typeLabel} files cannot be previewed in the browser. Download the file to open it.
+          {t("file.noPreview", { type: fileTypeLabel(t, file.typeLabel) })}
         </p>
       ) : null}
     </div>
@@ -58,6 +60,7 @@ export function DocumentFilePanel({ document }: { document: DocumentDetailDTO })
  */
 function DownloadButton({ documentId }: { documentId: string }) {
   const toast = useToast();
+  const t = useDocumentsTranslations();
   const [pending, setPending] = React.useState(false);
 
   async function download() {
@@ -66,7 +69,7 @@ function DownloadButton({ documentId }: { documentId: string }) {
       const response = await fetch(`/api/documents/${documentId}/download`, { method: "POST" });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        toast({ title: body?.error?.message ?? "The file could not be downloaded.", tone: "danger" });
+        toast({ title: body?.error?.message ?? t("file.downloadFailed"), tone: "danger" });
         return;
       }
 
@@ -80,7 +83,7 @@ function DownloadButton({ documentId }: { documentId: string }) {
   return (
     <Button size="sm" onClick={download} disabled={pending}>
       {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Download aria-hidden="true" />}
-      {pending ? "Preparing…" : "Download"}
+      {pending ? t("file.preparing") : t("file.download")}
     </Button>
   );
 }
@@ -104,6 +107,7 @@ function DownloadButton({ documentId }: { documentId: string }) {
  * landscape phone can still reach what is under it.
  */
 function PreviewFrame({ documentId, name }: { documentId: string; name: string }) {
+  const t = useDocumentsTranslations();
   const [grant, setGrant] = React.useState<{ url: string; mimeType: string; kind?: "pdf" | "image" } | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [imageFailed, setImageFailed] = React.useState(false);
@@ -131,7 +135,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
     // (PRD #29 §235, §281).
     return (
       <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-        Preview unavailable. Download the file instead.
+        {t("file.previewUnavailable")}
       </p>
     );
   }
@@ -139,7 +143,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
   if (!grant) {
     return (
       <div className="flex h-[min(28rem,70dvh)] items-center justify-center rounded-md border border-line bg-surface-muted">
-        <p className="text-table text-fg-muted">Preparing preview…</p>
+        <p className="text-table text-fg-muted">{t("file.preparingPreview")}</p>
       </div>
     );
   }
@@ -149,9 +153,9 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
   const inlinePdf = typeof navigator !== "undefined" && navigator.pdfViewerEnabled === true && window.matchMedia("(pointer: fine)").matches;
   const open = (
     <Button asChild variant="secondary" size="sm">
-      <a href={grant.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${name} in a new tab`}>
+      <a href={grant.url} target="_blank" rel="noopener noreferrer" aria-label={t("file.openLabel", { name })}>
         <ExternalLink aria-hidden="true" />
-        Open in a new tab
+        {t("file.openNewTab")}
       </a>
     </Button>
   );
@@ -162,7 +166,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
         <div className="overflow-hidden rounded-md border border-line bg-surface-muted">
           {/* A short-lived grant URL: next/image would cache and re-request it. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={grant.url} alt={`Preview of ${name}`} className="mx-auto max-h-[min(28rem,70dvh)] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="document-preview" />
+          <img src={grant.url} alt={t("file.previewOf", { name })} className="mx-auto max-h-[min(28rem,70dvh)] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="document-preview" />
         </div>
         {open}
       </div>
@@ -176,12 +180,12 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
           <object
             data={grant.url}
             type={grant.mimeType}
-            aria-label={`Preview of ${name}`}
+            aria-label={t("file.previewOf", { name })}
             className="h-[min(28rem,70dvh)] w-full"
             data-testid="document-preview"
           >
             <p className="p-4 text-table text-fg-muted">
-              This file cannot be previewed here. Open it in a new tab or download it instead.
+              {t("file.cannotPreview")}
             </p>
           </object>
         </div>
@@ -193,7 +197,7 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
   return (
     <div className="space-y-2 rounded-md border border-line bg-surface-muted px-4 py-3" data-testid="document-preview-fallback">
       <p className="text-table text-fg-muted">
-        {kind === "image" ? "This image could not be shown here." : "This browser cannot show PDF files inside the page."} Open it in a new tab or download it to read it.
+        {kind === "image" ? t("file.imageFailed") : t("file.noPdf")} {t("file.openOrDownload")}
       </p>
       {open}
     </div>
@@ -202,13 +206,14 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
 
 /** Still being verified or scanned. No download control (PRD #29 §163). */
 function ProcessingState({ message }: { message: string | null }) {
+  const t = useDocumentsTranslations();
   return (
     <div className="flex items-start gap-3 rounded-md border border-line bg-surface-muted px-4 py-3.5">
       <Loader2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 animate-spin text-fg-muted" />
       <div>
-        <p className="text-table font-medium text-fg">{message ?? "Processing…"}</p>
+        <p className="text-table font-medium text-fg">{message ?? t("file.processing")}</p>
         <p className="mt-0.5 text-meta text-fg-muted">
-          The file becomes available once it has been checked.
+          {t("file.availableOnceChecked")}
         </p>
       </div>
     </div>
@@ -224,16 +229,17 @@ function ProcessingState({ message }: { message: string | null }) {
  */
 function RejectedState({ reason }: { reason: string | null }) {
   const malware = reason === "FILE_REJECTED_MALWARE";
+  const t = useDocumentsTranslations();
 
   return (
     <div className="flex items-start gap-3 rounded-md border border-danger/40 bg-danger-soft px-4 py-3.5">
       <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-danger-strong" />
       <div>
-        <p className="text-table font-medium text-fg">Upload rejected.</p>
+        <p className="text-table font-medium text-fg">{t("file.rejected")}</p>
         <p className="mt-0.5 text-meta text-fg-muted">
           {malware
-            ? "This file did not pass a security check and cannot be downloaded."
-            : "This file did not pass validation and cannot be downloaded."}
+            ? t("file.rejectedMalware")
+            : t("file.rejectedValidation")}
         </p>
       </div>
     </div>
@@ -242,15 +248,16 @@ function RejectedState({ reason }: { reason: string | null }) {
 
 /** The upload never completed, or the object went missing (PRD #29 §165). */
 function FailedState({ reason }: { reason: string | null }) {
+  const t = useDocumentsTranslations();
   return (
     <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning-soft px-4 py-3.5">
       <FileWarning aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
       <div>
-        <p className="text-table font-medium text-fg">File processing failed.</p>
+        <p className="text-table font-medium text-fg">{t("file.failed")}</p>
         <p className="mt-0.5 text-meta text-fg-muted">
           {reason === "FILE_SCAN_FAILED"
-            ? "The file could not be checked for malware, so it was never made available. Upload it again."
-            : "The document record exists, but its file did not arrive. Upload it again."}
+            ? t("file.failedScan")
+            : t("file.failedMissing")}
         </p>
       </div>
     </div>

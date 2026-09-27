@@ -16,6 +16,8 @@ import {
 import { DOCUMENT_SORT_KEYS } from "@/lib/modules/documents/document.schema";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { clearListFilters } from "@/lib/tables/list-url";
+import { documentsLabel } from "@/lib/i18n/modules/documents/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import {
   documentFilterOptionsForWorkspace,
   listDocumentCompanies,
@@ -60,6 +62,7 @@ export async function DocumentsList({
 }) {
   const query = parseDocumentListQuery(searchParams, VARIANT_DEFAULTS[variant]);
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("documents");
 
   // The company workspace's own context, or one per company the group reads.
   const readers = await resolveDocumentReaders(context);
@@ -86,11 +89,11 @@ export async function DocumentsList({
 
   // Only the contexts this reader actually has documents in are offered.
   const contextOptions = [
-    { value: "project", label: "Project" },
-    ...(options.clients.length > 0 ? [{ value: "client", label: "Client" }] : []),
-    ...(readers.some((reader) => can(reader, "task.view")) ? [{ value: "task", label: "Task" }] : []),
+    { value: "project", label: t("list.project") },
+    ...(options.clients.length > 0 ? [{ value: "client", label: t("list.client") }] : []),
+    ...(readers.some((reader) => can(reader, "task.view")) ? [{ value: "task", label: t("list.task") }] : []),
     ...(readers.some((reader) => can(reader, "document.company.view"))
-      ? [{ value: "company", label: "Company" }]
+      ? [{ value: "company", label: t("list.company") }]
       : []),
   ];
 
@@ -98,43 +101,43 @@ export async function DocumentsList({
     // The Group workspace's company filter: only companies this person reads
     // are offered, and one company has nothing to narrow (§86, §87).
     ...(group && companies.length > 1
-      ? [{ param: "company", label: "Company", options: companies.map((company) => ({ value: company.id, label: company.name })) }]
+      ? [{ param: "company", label: t("list.company"), options: companies.map((company) => ({ value: company.id, label: company.name })) }]
       : []),
     {
       param: "fileType",
-      label: "File type",
+      label: t("list.fileType"),
       options: (Object.keys(FILE_TYPE_GROUPS) as (keyof typeof FILE_TYPE_GROUPS)[]).map(
-        (group) => ({ value: group, label: fileTypeGroupLabels[group] }),
+        (group) => ({ value: group, label: documentsLabel(t, "fileType", group, fileTypeGroupLabels[group]) }),
       ),
     },
-    { param: "context", label: "Context", options: contextOptions },
+    { param: "context", label: t("list.context"), options: contextOptions },
     {
       param: "projectId",
-      label: "Project",
+      label: t("list.project"),
       options: options.projects.map((project) => ({ value: project.id, label: project.name })),
     },
     ...(options.clients.length > 0
       ? [
           {
             param: "clientId",
-            label: "Client",
+            label: t("list.client"),
             options: options.clients.map((client) => ({ value: client.id, label: client.name })),
           },
         ]
       : []),
     {
       param: "uploadedBy",
-      label: "Uploaded by",
+      label: t("list.uploadedBy"),
       options: options.uploaders.map((member) => ({ value: member.id, label: member.name })),
     },
     {
       param: "date",
-      label: "Added",
+      label: t("list.added"),
       options: [
-        { value: "today", label: "Today" },
-        { value: "7d", label: "Last 7 days" },
-        { value: "30d", label: "Last 30 days" },
-        { value: "year", label: "This year" },
+        { value: "today", label: t("list.today") },
+        { value: "7d", label: t("list.last7") },
+        { value: "30d", label: t("list.last30") },
+        { value: "year", label: t("list.thisYear") },
       ],
     },
   ];
@@ -148,16 +151,16 @@ export async function DocumentsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search documents…"
+        searchPlaceholder={t("list.search")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently added" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "size-desc", label: "Largest" },
-          { value: "size-asc", label: "Smallest" },
-          { value: "type-asc", label: "File type" },
+          { value: "updated-desc", label: t("list.sortUpdated") },
+          { value: "created-desc", label: t("list.sortCreated") },
+          { value: "name-asc", label: t("list.sortNameAsc") },
+          { value: "name-desc", label: t("list.sortNameDesc") },
+          { value: "size-desc", label: t("list.sortLargest") },
+          { value: "size-asc", label: t("list.sortSmallest") },
+          { value: "type-asc", label: t("list.sortType") },
         ]}
       />
 
@@ -165,18 +168,18 @@ export async function DocumentsList({
         hasFilters ? (
           <EmptyState
             icon={<Files />}
-            title="No documents match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: clearHref }}
+            title={t("list.noMatch")}
+            description={t("list.adjustFilters")}
+            action={{ label: t("list.clearFilters"), href: clearHref }}
           />
         ) : (
           <EmptyState
             icon={<Files />}
-            title={group ? "No accessible data for this module." : EMPTY_TITLE[variant]}
-            description={EMPTY_DESCRIPTION[variant]}
+            title={group ? t("overview.noAccessibleData") : t(EMPTY_TITLE[variant])}
+            description={t(EMPTY_DESCRIPTION[variant])}
             action={
               !group && variant !== "archived" && can(context, "document.create")
-                ? { label: "Add document", href: "/documents/new" }
+                ? { label: t("overview.addDocument"), href: "/documents/new" }
                 : undefined
             }
           />
@@ -192,14 +195,14 @@ export async function DocumentsList({
 }
 
 /** Empty-state copy from PRD #13 §183–§185. */
-const EMPTY_TITLE: Record<DocumentListVariant, string> = {
-  all: "No documents yet.",
-  recent: "No recent documents.",
-  archived: "No archived documents.",
-};
+const EMPTY_TITLE = {
+  all: "list.emptyAll",
+  recent: "list.emptyRecent",
+  archived: "list.emptyArchived",
+} as const satisfies Record<DocumentListVariant, string>;
 
-const EMPTY_DESCRIPTION: Record<DocumentListVariant, string> = {
-  all: "Documents you can access will appear here.",
-  recent: "Recently updated documents will appear here.",
-  archived: "Documents removed from active lists will appear here.",
-};
+const EMPTY_DESCRIPTION = {
+  all: "list.emptyAllText",
+  recent: "list.emptyRecentText",
+  archived: "list.emptyArchivedText",
+} as const satisfies Record<DocumentListVariant, string>;

@@ -14,12 +14,12 @@ import { formatFileSize } from "@/lib/modules/documents/document.files";
 import { UPLOAD_RETRY_LIMIT } from "@/lib/core/storage";
 import { acceptedTypesText, uploadAccept } from "./upload-client";
 import {
-  uploadStatusLabel,
   useUploadQueue,
   type LostUpload,
   type UploadContextInput,
   type UploadItem,
 } from "./upload-queue";
+import { uploadErrorText, useDocumentsTranslations } from "./documents-text";
 
 /**
  * The upload surface (PRD #29 §166-§174, §333-§346).
@@ -58,6 +58,7 @@ export function DocumentUploader({
   doneHref: string;
 }) {
   const router = useRouter();
+  const t = useDocumentsTranslations();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const [contextKind, setContextKind] = React.useState<string>(
@@ -131,10 +132,10 @@ export function DocumentUploader({
 
   return (
     <div className="space-y-5">
-      <FormSection title="Where it belongs">
+      <FormSection title={t("uploader.where")}>
         {lockedContext ? (
           <div className="sm:col-span-2">
-            <Field label="Context" name="context">
+            <Field label={t("uploader.context")} name="context">
               <p className="rounded-md border border-line bg-surface-2 px-3 py-2.5 text-body text-fg">
                 {lockedContext.label}
               </p>
@@ -142,21 +143,21 @@ export function DocumentUploader({
           </div>
         ) : (
           <>
-            <Field label="Context" name="context" required>
+            <Field label={t("uploader.context")} name="context" required>
               <select
                 id="context"
                 value={contextKind}
                 onChange={(event) => setContextKind(event.target.value)}
                 className={selectClass}
               >
-                {projects.length > 0 ? <option value="project">Project</option> : null}
-                {clients.length > 0 ? <option value="client">Client</option> : null}
-                {canFileToCompany ? <option value="company">Company</option> : null}
+                {projects.length > 0 ? <option value="project">{t("uploader.project")}</option> : null}
+                {clients.length > 0 ? <option value="client">{t("uploader.client")}</option> : null}
+                {canFileToCompany ? <option value="company">{t("uploader.company")}</option> : null}
               </select>
             </Field>
 
             {contextKind === "project" ? (
-              <Field label="Project" name="projectId" required>
+              <Field label={t("uploader.project")} name="projectId" required>
                 <select
                   id="projectId"
                   value={projectId}
@@ -173,7 +174,7 @@ export function DocumentUploader({
             ) : null}
 
             {contextKind === "client" ? (
-              <Field label="Client" name="clientId" required>
+              <Field label={t("uploader.client")} name="clientId" required>
                 <select
                   id="clientId"
                   value={clientId}
@@ -191,19 +192,19 @@ export function DocumentUploader({
 
             {contextKind === "company" ? (
               <p className="sm:col-span-2 text-meta text-fg-subtle">
-                A company document is visible to colleagues with company-level Documents access.
+                {t("uploader.companyHint")}
               </p>
             ) : null}
           </>
         )}
       </FormSection>
 
-      <FormSection title="Details">
+      <FormSection title={t("uploader.details")}>
         <div className="sm:col-span-2">
           <Field
-            label="Document name"
+            label={t("uploader.name")}
             name="name"
-            hint="Optional. Each file otherwise takes its own name."
+            hint={t("uploader.nameHint")}
           >
             <Input
               id="name"
@@ -215,7 +216,7 @@ export function DocumentUploader({
         </div>
 
         <div className="sm:col-span-2">
-          <Field label="Description" name="description">
+          <Field label={t("uploader.description")} name="description">
             <Textarea
               id="description"
               rows={3}
@@ -227,7 +228,7 @@ export function DocumentUploader({
         </div>
       </FormSection>
 
-      <FormSection title="Files">
+      <FormSection title={t("uploader.files")}>
         <div className="sm:col-span-2">
           <button
             type="button"
@@ -249,16 +250,13 @@ export function DocumentUploader({
           >
             <Upload aria-hidden="true" className="size-5 text-fg-muted" />
             <span className="text-body font-medium text-fg">
-              Drop files here, or choose files
+              {t("uploader.drop")}
             </span>
           </button>
           {/* What is accepted, before anything is chosen, from the registry and
               ceiling the server enforces — not a second list (AUD-09 §8). */}
           <p id="upload-hint" className="mt-2 text-meta text-fg-muted" data-testid="upload-accepted-types">
-            Required: at least one file; each becomes its own document. Up to {maxMegabytes} MB
-            each. Accepted: {acceptedTypesText()}. Executables, scripts, archives and
-            macro-enabled Office files are not accepted, and every file is checked by its
-            contents, not its name, before it is ready.
+            {t("uploader.hint", { max: maxMegabytes, types: acceptedTypesText() })}
           </p>
 
           <input
@@ -267,7 +265,7 @@ export function DocumentUploader({
             multiple
             accept={uploadAccept()}
             className="sr-only"
-            aria-label="Choose files to upload"
+            aria-label={t("uploader.chooseFiles")}
             data-testid="document-upload-input"
             onChange={(event) => {
               start(event.target.files);
@@ -294,20 +292,20 @@ export function DocumentUploader({
       <div className="flex items-center justify-between gap-3 border-t border-line pt-5">
         <p aria-live="polite" className="text-meta text-fg-muted">
           {queue.active
-            ? "Uploading. Stay on this page until it finishes."
+            ? t("uploader.uploading")
             : [
-                finished > 0 ? `${finished} file${finished === 1 ? "" : "s"} ready.` : "",
-                checking > 0 ? `${checking} still being checked — not ready yet.` : "",
+                finished > 0 ? (finished === 1 ? t("uploader.readyOne") : t("uploader.readyMany", { count: finished })) : "",
+                checking > 0 ? t("uploader.checking", { count: checking }) : "",
               ].filter(Boolean).join(" ")}
         </p>
 
         <div className="flex items-center gap-2">
           <Button asChild variant="secondary" size="sm">
-            <Link href={cancelHref}>{finished > 0 ? "Back" : "Cancel"}</Link>
+            <Link href={cancelHref}>{finished > 0 ? t("uploader.back") : t("uploader.cancel")}</Link>
           </Button>
           {finished > 0 && !queue.active ? (
             <Button asChild size="sm">
-              <Link href={doneHref}>Done</Link>
+              <Link href={doneHref}>{t("uploader.done")}</Link>
             </Button>
           ) : null}
         </div>
@@ -344,14 +342,15 @@ export function UploadQueueList({
   onClear: (id: string) => void;
   onReselect?: (lost: LostUpload, file: File) => void;
 }) {
+  const t = useDocumentsTranslations();
   return (
-    <ul className="divide-y divide-line rounded-md border border-line" aria-label="Upload queue" data-testid="upload-queue">
+    <ul className="divide-y divide-line rounded-md border border-line" aria-label={t("queue.label")} data-testid="upload-queue">
       {items.map((item) => (
         <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="upload-queue-item" data-status={item.status}>
           <div className="min-w-0 flex-1">
             <p className="truncate text-table font-medium text-fg">{item.file.name}</p>
             <p className="mt-0.5 text-meta text-fg-muted" aria-live="polite">
-              {formatFileSize(item.file.size)} · {uploadStatusLabel(item)}
+              {formatFileSize(item.file.size)} · {t(`labels.uploadStatus.${item.status}`, { progress: item.progress })}
             </p>
 
             {item.status === "uploading" ? (
@@ -360,7 +359,7 @@ export function UploadQueueList({
                 aria-valuenow={item.progress}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={`Uploading ${item.file.name}`}
+                aria-label={t("queue.uploadingFile", { name: item.file.name })}
                 className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-3"
               >
                 <div
@@ -372,7 +371,7 @@ export function UploadQueueList({
 
             {item.error ? (
               <p role={item.status === "failed" ? "alert" : undefined} className={`mt-1 text-meta ${item.status === "failed" ? "text-danger-strong" : "text-warning-strong"}`}>
-                {item.error}
+                {uploadErrorText(t, item.error)}
               </p>
             ) : null}
           </div>
@@ -388,16 +387,16 @@ export function UploadQueueList({
               different file, not another attempt (PRD #29 §335). It resumes
               where the failure was: nothing already uploaded goes again. */}
           {item.status === "failed" && !item.terminal && item.attempts < UPLOAD_RETRY_LIMIT ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onRetry(item)} aria-label={`Retry ${item.file.name}`}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onRetry(item)} aria-label={t("queue.retryLabel", { name: item.file.name })}>
               <RotateCcw aria-hidden="true" />
-              Retry
+              {t("queue.retry")}
             </Button>
           ) : null}
 
           {item.status === "pending" && onRecheck ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onRecheck(item)} aria-label={`Check ${item.file.name} again`}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onRecheck(item)} aria-label={t("queue.checkLabel", { name: item.file.name })}>
               <RotateCcw aria-hidden="true" />
-              Check again
+              {t("queue.checkAgain")}
             </Button>
           ) : null}
 
@@ -406,7 +405,7 @@ export function UploadQueueList({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Cancel upload of ${item.file.name}`}
+              aria-label={t("queue.cancelLabel", { name: item.file.name })}
               onClick={() => onCancel(item)}
             >
               <X />
@@ -418,7 +417,7 @@ export function UploadQueueList({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove ${item.file.name} from the list`}
+              aria-label={t("queue.removeLabel", { name: item.file.name })}
               onClick={() => onClear(item.id)}
             >
               <X />
@@ -444,12 +443,13 @@ function LostUploadRow({
   onReselect?: (lost: LostUpload, file: File) => void;
 }) {
   const input = React.useRef<HTMLInputElement>(null);
+  const t = useDocumentsTranslations();
   return (
     <li className="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="upload-queue-lost" data-status="lost">
       <div className="min-w-0 flex-1">
         <p className="truncate text-table font-medium text-fg">{entry.fileName}</p>
         <p className="mt-0.5 text-meta text-warning-strong" aria-live="polite">
-          {formatFileSize(entry.fileSize)} · Not attached. The file was not kept when this page reloaded — select this file again.
+          {formatFileSize(entry.fileSize)} · {t("queue.lost")}
         </p>
       </div>
       {onReselect ? (
@@ -460,7 +460,7 @@ function LostUploadRow({
             accept={uploadAccept()}
             className="sr-only"
             tabIndex={-1}
-            aria-label={`Select ${entry.fileName} again`}
+            aria-label={t("queue.selectLabel", { name: entry.fileName })}
             onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = "";
@@ -468,11 +468,11 @@ function LostUploadRow({
             }}
           />
           <Button type="button" variant="secondary" size="sm" onClick={() => input.current?.click()}>
-            Select this file again
+            {t("queue.selectAgain")}
           </Button>
         </>
       ) : null}
-      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${entry.fileName} from the list`} onClick={() => onClear(entry.id)}>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label={t("queue.removeLabel", { name: entry.fileName })} onClick={() => onClear(entry.id)}>
         <X />
       </Button>
     </li>

@@ -19,8 +19,14 @@ import {
   workspaceExperience,
 } from "@/lib/modules/documents/document.workspace";
 import { formatDate } from "@/lib/utils/format";
+import { fileTypeLabel, contextLabel } from "@/lib/i18n/modules/documents/labels";
+import type { Translate } from "@/lib/i18n/translator";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("documents");
+  return { title: t("meta.documents") };
+}
 
 /**
  * Documents module overview (PRD #13 §9, §10).
@@ -35,6 +41,7 @@ export default async function DocumentsOverviewPage() {
   const context = await requireModule("documents");
   const group = inGroupWorkspace(context);
   const experience = workspaceExperience(context, resolveModuleExperience(context, "documents"));
+  const t = await getTranslations("documents");
 
   const [stats, recent, mine] = await Promise.all([
     getDocumentOverviewForWorkspace(context),
@@ -43,14 +50,14 @@ export default async function DocumentsOverviewPage() {
   ]);
 
   const cards = [
-    { label: "Visible documents", value: stats.visible, href: "/documents/all" },
-    { label: "Added this month", value: stats.addedThisMonth, href: "/documents/recent" },
+    { label: t("overview.visible"), value: stats.visible, href: "/documents/all" },
+    { label: t("overview.addedThisMonth"), value: stats.addedThisMonth, href: "/documents/recent" },
     {
-      label: "Project documents",
+      label: t("overview.projectDocuments"),
       value: stats.projectDocuments,
       href: "/documents/all?context=project",
     },
-    ...(group ? [] : [{ label: "Archived", value: stats.archived, href: "/documents/archived" }]),
+    ...(group ? [] : [{ label: t("overview.archived"), value: stats.archived, href: "/documents/archived" }]),
   ];
 
   return (
@@ -60,7 +67,7 @@ export default async function DocumentsOverviewPage() {
       actions={
         !group && can(context, "document.create") ? (
           <Button asChild size="sm">
-            <Link href="/documents/new">Add document</Link>
+            <Link href="/documents/new">{t("overview.addDocument")}</Link>
           </Button>
         ) : null
       }
@@ -82,22 +89,23 @@ export default async function DocumentsOverviewPage() {
         {recent.length === 0 ? (
           <EmptyState
             icon={<Files />}
-            title={group ? "No accessible data for this module." : "No documents yet."}
-            description="Documents you can access will appear here."
+            title={group ? t("overview.noAccessibleData") : t("overview.noDocuments")}
+            description={t("overview.accessibleAppear")}
             action={
               !group && can(context, "document.create")
-                ? { label: "Add document", href: "/documents/new" }
+                ? { label: t("overview.addDocument"), href: "/documents/new" }
                 : undefined
             }
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            <DocumentPanel title="Recent documents" href="/documents/recent" documents={recent} />
+            <DocumentPanel t={t} title={t("overview.recentDocuments")} href="/documents/recent" documents={recent} />
             <DocumentPanel
-              title="Your recent uploads"
+              t={t}
+              title={t("overview.yourUploads")}
               href="/documents/all?mine=true"
               documents={mine}
-              emptyMessage="You have not uploaded anything yet."
+              emptyMessage={t("overview.noUploads")}
             />
           </div>
         )}
@@ -109,11 +117,13 @@ export default async function DocumentsOverviewPage() {
 const LINK_CLASS = "block truncate text-table font-medium text-fg transition-colors hover:text-accent";
 
 function DocumentPanel({
+  t,
   title,
   href,
   documents: rows,
-  emptyMessage = "Nothing to show yet.",
+  emptyMessage,
 }: {
+  t: Translate<"documents">;
   title: string;
   href: string;
   documents: DocumentSummaryDTO[];
@@ -127,12 +137,12 @@ function DocumentPanel({
           href={href}
           className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
-          All documents
+          {t("overview.allDocuments")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">{emptyMessage}</p>
+        <p className="mt-4 text-table text-fg-subtle">{emptyMessage ?? t("overview.nothingYet")}</p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {rows.map((document) => (
@@ -158,7 +168,7 @@ function DocumentPanel({
                   </Link>
                 )}
                 <p className="truncate text-meta text-fg-subtle">
-                  {document.typeLabel} · {document.context.relatedRecordName ?? document.context.label}
+                  {fileTypeLabel(t, document.typeLabel)} · {document.context.relatedRecordName ?? contextLabel(t, document.context.label)}
                 </p>
                 {document.company ? <CompanyTag name={document.company.name} className="mt-1" /> : null}
               </div>
