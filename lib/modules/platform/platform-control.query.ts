@@ -306,14 +306,21 @@ export async function platformAuditPage(context: PlatformContext, categories?: A
     }),
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, attempts: 1 },
   );
-  return { rows: rows.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() })), total };
+  return { rows: rows.map(({ metadataJson, ...row }) => ({ ...row, summary: auditSummary(metadataJson), occurredAt: row.occurredAt.toISOString() })), total };
 }
 
 export async function platformAudit(context: PlatformContext) {
   return (await platformAuditPage(context)).rows;
 }
 
-const AUDIT_ROW_SELECT = { id: true, actionKey: true, moduleKey: true, category: true, severity: true, actorDisplayNameSnapshot: true, actorRoleSnapshot: true, entityType: true, entityId: true, entityLabelSnapshot: true, parentGroupId: true, companyId: true, projectId: true, reason: true, occurredAt: true, requestId: true } satisfies Prisma.AuditEventSelect;
+const AUDIT_ROW_SELECT = { id: true, actionKey: true, moduleKey: true, category: true, severity: true, actorDisplayNameSnapshot: true, actorRoleSnapshot: true, entityType: true, entityId: true, entityLabelSnapshot: true, parentGroupId: true, companyId: true, projectId: true, reason: true, metadataJson: true, occurredAt: true, requestId: true } satisfies Prisma.AuditEventSelect;
+
+/** The system-written change summary an event carries, if any; only that string leaves the query. */
+function auditSummary(metadata: Prisma.JsonValue | null): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const summary = (metadata as Record<string, unknown>).summary;
+  return typeof summary === "string" ? summary.slice(0, 200) : null;
+}
 
 export const PLATFORM_SETTING_DEFAULTS = {
   "general.platformName": "NESTO",

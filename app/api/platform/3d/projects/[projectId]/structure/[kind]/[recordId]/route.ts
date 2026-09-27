@@ -1,5 +1,5 @@
 import { AccessError } from "@/lib/access/guards";
-import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
+import { apiOk, readJson, readOptionalJson, withPlatformContext } from "@/lib/api/respond";
 import { project3DStructureDeleteSchema, project3DStructureUpdateSchema } from "@/lib/modules/project-3d/project-3d.schema";
 import { deletePlatformProjectStructure, updatePlatformProjectStructure } from "@/lib/modules/project-3d/project-3d.structure";
 
@@ -25,7 +25,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   return withPlatformContext(async (context) => {
     const { projectId, kind: rawKind, recordId } = await params;
     const kind = structureKind(rawKind);
-    const { reason } = project3DStructureDeleteSchema.parse(await readJson(request));
+    const { reason } = project3DStructureDeleteSchema.parse(await readOptionalJson(request));
     return apiOk({ data: await deletePlatformProjectStructure(context, projectId, kind, recordId, reason) });
   });
 }

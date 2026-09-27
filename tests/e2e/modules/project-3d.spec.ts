@@ -312,7 +312,7 @@ test("Experience detail opens the editor in its own tab, with no Platform Admin 
   await expect(page).toHaveURL(new RegExp(`/platform-admin/3d/projects/${PROJECT_ID}$`));
 });
 
-test("Save keeps a draft: unsaved work is guarded, a reason is required, and the live release does not change", async ({ page, browser }) => {
+test("Save keeps a draft: unsaved work is guarded, no reason is asked, and the live release does not change", async ({ page, browser }) => {
   await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d/projects/${PROJECT_ID}` });
   await expect(draftState(page)).toContainText("Draft revision 1");
   const editorOpened = page.waitForEvent("popup");
@@ -334,14 +334,14 @@ test("Save keeps a draft: unsaved work is guarded, a reason is required, and the
   await dialog.dismiss();
   await expect(status).toHaveText("Unsaved changes");
 
-  // Save needs a reason; Ctrl/Cmd+S saves from the reason field.
-  await editor.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(editor.getByText("Give a reason for these changes before saving.")).toBeVisible();
-  const reason = editor.getByLabel("Reason for this change");
-  await expect(reason).toBeFocused();
-  await reason.fill("Draft the sky for the next release");
-  await reason.press("ControlOrMeta+s");
+  // No reason is asked: there is no field for one, and Ctrl/Cmd+S saves directly.
+  await expect(editor.getByLabel("Reason for this change")).toHaveCount(0);
+  await editor.keyboard.press("ControlOrMeta+s");
   await expect(status).toHaveText("Saved");
+  // The audit names who saved and what changed, by itself.
+  const saved = await db.auditEvent.findFirstOrThrow({ where: { actionKey: "PLATFORM_THREE_D_EXPERIENCE_CHANGED", projectId: PROJECT_ID }, orderBy: { occurredAt: "desc" } });
+  expect(saved).toMatchObject({ reason: null, actorDisplayNameSnapshot: expect.any(String) });
+  expect(saved.metadataJson).toMatchObject({ operation: "EXPERIENCE_CONFIGURATION_SAVED", revision: 2 });
 
   const draft = await authoring();
   expect(draft.revision).toBe(2);
@@ -375,7 +375,7 @@ test("Reset defaults asks first and only changes this tab's draft", async ({ pag
   const status = saveStatus(page);
   await expect(status).toHaveText("Saved");
   const reset = page.getByRole("button", { name: "Reset defaults" });
-  const dialog = page.getByRole("dialog", { name: "Reset this Experience to default editor settings?" });
+  const dialog = page.getByRole("dialog", { name: "Reset editor settings to defaults?" });
 
   await reset.click();
   await expect(dialog).toBeVisible();
@@ -398,7 +398,6 @@ test("A save from another tab is noticed, and the stale tab cannot overwrite it"
 
   await tool(second, "Environment").click();
   await second.getByRole("checkbox", { name: "Fog", exact: true }).click();
-  await second.getByLabel("Reason for this change").fill("Fog from the second tab");
   await second.getByRole("button", { name: "Save", exact: true }).click();
   await expect(saveStatus(second)).toHaveText("Saved");
 
@@ -408,7 +407,6 @@ test("A save from another tab is noticed, and the stale tab cannot overwrite it"
   // Saving there anyway is refused rather than silently applied.
   await tool(page, "Environment").click();
   await page.getByRole("checkbox", { name: "Clouds", exact: true }).click();
-  await page.getByLabel("Reason for this change").fill("Clouds from the stale tab");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(saveStatus(page)).toHaveText("Save failed");
   const after = await authoring();
@@ -476,7 +474,6 @@ test("A GLB uploaded in the editor is prepared, shown and editable, and a remove
   await upload.getByLabel("GLB file").setInputFiles({ name: "e2e-tower.glb", mimeType: "model/gltf-binary", buffer: Buffer.from(triangleGlb("E2E_Tower")) });
   await expect(upload.getByLabel("Model name")).toHaveValue("e2e-tower");
   await upload.getByLabel("Model name").fill("E2E tower");
-  await upload.getByLabel("Reason").fill("Upload from the editor");
   await upload.getByRole("button", { name: "Upload GLB" }).click();
 
   // No worker runs here: the request that completed the upload prepares it.
@@ -492,15 +489,16 @@ test("A GLB uploaded in the editor is prepared, shown and editable, and a remove
   await expect(positionX).toBeEnabled();
   await positionX.focus();
   await page.keyboard.press("ArrowRight");
-  await page.getByLabel("Reason for this change").fill("Move the uploaded tower");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(saveStatus(page)).toHaveText("Saved");
   await expect.poll(async () => (await db.project3DModelVersion.findUniqueOrThrow({ where: { id: slot.versions[0].id } })).positionX).toBe(0.5);
 
   await scene.getByRole("button", { name: "Remove E2E tower" }).click();
-  const dialog = page.getByRole("dialog", { name: "Remove E2E tower?" });
-  await dialog.getByLabel("Reason").fill("Only an upload check");
-  await dialog.getByRole("button", { name: "Remove model" }).click();
+  const dialog = page.getByRole("dialog", { name: "Remove model?" });
+  await expect(dialog).toContainText("E2E tower will be removed from this 3D Experience.");
+  await expect(dialog.getByRole("textbox")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(scene.getByRole("button", { name: "Remove E2E tower" })).toHaveCount(0);
   await expect(db.project3DModelSlot.findUniqueOrThrow({ where: { id: slot.id } })).resolves.toMatchObject({ isActive: false });
 });

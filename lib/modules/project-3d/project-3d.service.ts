@@ -7,6 +7,7 @@ import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { defaultProject3DExperience } from "@/lib/3d/shared/experience";
 import { readAuthorizedDocumentThumbnail, type Thumbnail } from "@/lib/modules/documents/storage/thumbnail.service";
+import { project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DEntitlementUpdate, Project3DExperienceCreate, Project3DExperienceListQuery, Project3DExperienceMetadata } from "./project-3d.schema";
 
@@ -156,7 +157,7 @@ export async function createProject3DExperience(context: PlatformContext, input:
         before: null,
         after: { projectId: project.id, configurationId: config.id, schemaVersion: 1, experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, entitlementStatus: entitlement.status },
         reason: input.reason,
-        metadata: { structureMode: input.structureMode, existingStructure: project._count },
+        metadata: project3DAuditMetadata("EXPERIENCE_CREATED", `${input.experienceName} provisioned`, { structureMode: input.structureMode, existingStructure: project._count }),
       }, { tx });
       return { id: config.id, projectId: project.id, openPath: input.structureMode === "CREATE_NOW" ? `/platform-admin/3d/projects/${project.id}/structure` : `/platform-admin/3d/projects/${project.id}` };
     });
@@ -179,6 +180,7 @@ export async function updateProject3DExperienceMetadata(context: PlatformContext
       entity: { type: "Project3DConfig", id: config.id, label: input.experienceName }, projectId,
       before: { projectId, configurationId: config.id, experienceName: config.experienceName || `${config.project.name} 3D Experience`, internalNotes: config.internalNotes },
       after: { projectId, configurationId: config.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes }, reason: input.reason,
+      metadata: project3DAuditMetadata("EXPERIENCE_DETAILS_UPDATED", "Experience details updated"),
     }, { tx });
     return { id: updated.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes };
   });

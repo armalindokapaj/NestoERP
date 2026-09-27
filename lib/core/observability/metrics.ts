@@ -108,6 +108,12 @@ export const Metric = {
   MY_WORK_LOAD_MS: "my_work_load_ms",
   QUICK_CREATE_LAUNCH_DENIED: "quick_create_launch_denied_total",
   ACTIVITY_CENTER_LOAD_MS: "activity_center_load_ms",
+  // 3D Experience Editor, no-reason workflow (§36).
+  EXPERIENCE_SAVE: "experience_save_total",
+  EXPERIENCE_SAVE_FAILURE: "experience_save_failure_total",
+  MODEL_DETACH: "model_detach_total",
+  MODEL_DELETE: "model_delete_total",
+  MODEL_DELETE_BLOCKED_DEPENDENCY: "model_delete_blocked_dependency_total",
   // Authorization (PRD #47 §196)
   AUTHORIZATION_DENIED: "authorization_denied_total",
   CROSS_COMPANY_DENIED: "cross_company_denied_total",

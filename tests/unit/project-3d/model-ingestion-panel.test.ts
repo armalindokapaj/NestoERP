@@ -39,7 +39,6 @@ async function prepare(options: { existing?: boolean; onQueued?: (id: string) =>
     if (options.existing) renderer.root.findAllByType("select")[0].props.onChange({ target: { value: "slot1" } });
   });
   await act(async () => {
-    renderer.root.findAllByType("input").find((node) => String(node.props.id).endsWith("-reason"))!.props.onChange({ target: { value: "Upload building model" } });
     await renderer.root.findByProps({ type: "file" }).props.onChange({ target: { files: [new File(["model"], "building.glb")] } });
   });
 }
@@ -55,9 +54,10 @@ describe("model upload", () => {
     await prepare({ onQueued });
     await submit();
     expect(paths()).toEqual(["/slots", "/slots/slot1/uploads", "/versions/v1/complete"]);
-    expect(mocks.api.mock.calls[0][1].body).toMatchObject({ kind: "DETAIL", role: "BUILDING", displayName: "building", reason: "Upload building model" });
+    expect(mocks.api.mock.calls[0][1].body).toMatchObject({ kind: "DETAIL", role: "BUILDING", displayName: "building" });
+    expect(mocks.api.mock.calls[0][1].body).not.toHaveProperty("reason");
     expect(mocks.api.mock.calls[0][1].body.slotKey).toMatch(/^building-[0-9a-f]{8}$/);
-    expect(mocks.api.mock.calls[1][1].body).toEqual({ fileName: "building.glb", sizeBytes: 5, reason: "Upload building model" });
+    expect(mocks.api.mock.calls[1][1].body).toEqual({ fileName: "building.glb", sizeBytes: 5 });
     expect(mocks.put).toHaveBeenCalledTimes(1);
     expect(onQueued).toHaveBeenCalledWith("v1");
     expect(renderer.root.findByProps({ role: "status" }).children.join("")).toContain("Preparing");

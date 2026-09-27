@@ -3,14 +3,14 @@
 import * as React from "react";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 /**
- * Takes a model out of the Experience, with the reason the audit trail needs.
- * Its versions stay, and a published release keeps showing it until the next
- * release; it just stops asking for a version when publishing.
+ * Takes a model out of the Experience: a confirmation, never a typed reason
+ * (Experience Editor no-reason PRD §12, §15). It detaches only — its versions
+ * and files stay in the Model Library, and a published release keeps showing it
+ * until the next release; it just stops asking for a version when publishing.
+ * Who removed it, and when, is audited by the server.
  */
 export function RemoveModelDialog({ projectId, slot, onOpenChange, onRemoved }: {
   projectId: string;
@@ -18,28 +18,19 @@ export function RemoveModelDialog({ projectId, slot, onOpenChange, onRemoved }: 
   onOpenChange: (open: boolean) => void;
   onRemoved: (slotId: string) => void;
 }) {
-  const [reason, setReason] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const id = React.useId();
 
   React.useEffect(() => {
-    if (!slot) return;
-    setReason("");
-    setError(null);
+    if (slot) setError(null);
   }, [slot]);
 
-  async function remove(event: React.FormEvent) {
-    event.preventDefault();
+  async function remove() {
     if (!slot || pending) return;
-    if (reason.trim().length < 3) {
-      setError("Give a reason of at least three characters.");
-      return;
-    }
     setPending(true);
     setError(null);
     try {
-      await engineeringApi(`/api/platform/3d/projects/${projectId}/slots/${slot.id}`, { method: "DELETE", body: { reason: reason.trim() } });
+      await engineeringApi(`/api/platform/3d/projects/${projectId}/slots/${slot.id}`, { method: "DELETE" });
       onRemoved(slot.id);
       onOpenChange(false);
     } catch (failure) {
@@ -49,27 +40,18 @@ export function RemoveModelDialog({ projectId, slot, onOpenChange, onRemoved }: 
     }
   }
 
+  const name = slot?.displayName ?? "This model";
   return (
-    <Dialog open={slot !== null} onOpenChange={(open) => { if (!pending) onOpenChange(open); }}>
-      <DialogContent className="max-w-md">
-        <form onSubmit={(event) => void remove(event)} className="space-y-4">
-          <DialogTitle>Remove {slot?.displayName ?? "this model"}?</DialogTitle>
-          <DialogDescription>
-            It leaves the scene and is no longer needed to publish. Its uploaded versions are kept, and the published viewer keeps showing it until the next release is published.
-          </DialogDescription>
-          <label className="block text-table font-medium text-fg" htmlFor={`${id}-reason`}>
-            Reason
-            <Input id={`${id}-reason`} className="mt-1.5" value={reason} maxLength={500} autoFocus onChange={(event) => setReason(event.target.value)} placeholder="Why this model is removed" />
-          </label>
-          {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="secondary" disabled={pending}>Cancel</Button>
-            </DialogClose>
-            <Button type="submit" variant="danger" disabled={pending}>{pending ? "Removing…" : "Remove model"}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={slot !== null}
+      onOpenChange={(open) => { if (!pending) onOpenChange(open); }}
+      title="Remove model?"
+      description={`${name} will be removed from this 3D Experience. Its files stay in the Model Library, and the published viewer keeps showing it until the next release is published.`}
+      confirmLabel="Remove"
+      pending={pending}
+      onConfirm={() => void remove()}
+    >
+      {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
+    </ConfirmDialog>
   );
 }

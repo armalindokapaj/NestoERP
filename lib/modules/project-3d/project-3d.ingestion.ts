@@ -11,6 +11,7 @@ import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
 import { optimizeGlbForDeliveryDetailed } from "./processing/glb.optimize";
 import { validateGlb } from "./processing/glb.validate";
+import { countProject3DOperation, project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DSlotCreate, Project3DUploadCreate } from "./project-3d.schema";
 import { assertProject3DStorageKey, buildProject3DStorageKey } from "./project-3d.storage";
@@ -86,7 +87,7 @@ export async function getProject3DModelStatuses(context: PlatformContext, projec
  * request cut off at its time limit, or a worker that crashed. Refused while
  * the preparation may still be running, so two never overlap on purpose.
  */
-export async function retryProject3DModelProcessing(context: PlatformContext, projectId: string, versionId: string, reason: string) {
+export async function retryProject3DModelProcessing(context: PlatformContext, projectId: string, versionId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
   if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
@@ -111,6 +112,7 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
       before: snapshot,
       after: snapshot,
       reason,
+      metadata: project3DAuditMetadata("MODEL_PREPARATION_RETRIED", "Stalled preparation retried"),
     }, { tx });
   });
   return { id: version.id, status: "PROCESSING" as const };
@@ -122,7 +124,7 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
  * version when publishing — so an abandoned or mistaken model cannot block
  * every future release. Models that followed its transform stop following it.
  */
-export async function deactivateProject3DModelSlot(context: PlatformContext, projectId: string, slotId: string, reason: string) {
+export async function deactivateProject3DModelSlot(context: PlatformContext, projectId: string, slotId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
   const slot = assertFound(await prisma.project3DModelSlot.findFirst({
     where: { id: slotId, projectId, isActive: true, project: NOT_A_FIXTURE },
@@ -140,8 +142,12 @@ export async function deactivateProject3DModelSlot(context: PlatformContext, pro
       before,
       after: { ...before, isActive: false },
       reason,
+      metadata: project3DAuditMetadata("MODEL_DETACHED", `${slot.displayName} removed from the Experience`),
     }, { tx });
     return { id: slot.id, isActive: false };
+  }).then((result) => {
+    countProject3DOperation("detach");
+    return result;
   });
 }
 
@@ -183,6 +189,7 @@ export async function createProject3DModelSlot(context: PlatformContext, project
       projectId,
       after: { projectId, slotId: slot.id, slotKey: slot.slotKey, displayName: slot.displayName, kind: slot.kind, role: slot.role },
       reason: input.reason,
+      metadata: project3DAuditMetadata("MODEL_ATTACHED", `${slot.displayName} added to the Experience`),
     }, { tx });
     return slot;
   });
@@ -228,6 +235,9 @@ export async function createProject3DModelUpload(context: PlatformContext, proje
       projectId,
       after: { projectId, slotId: slot.id, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName },
       reason: input.reason,
+      metadata: slot.versions[0]
+        ? project3DAuditMetadata("MODEL_REPLACED", `${slot.displayName}: version ${slot.versions[0].version} → ${version.version}`, { oldVersion: slot.versions[0].version, newVersion: version.version })
+        : project3DAuditMetadata("MODEL_UPLOAD_STARTED", `${slot.displayName}: first file uploading`, { newVersion: version.version }),
     }, { tx });
     return version;
   });
@@ -240,7 +250,7 @@ export async function createProject3DModelUpload(context: PlatformContext, proje
   }
 }
 
-export async function completeProject3DModelUpload(context: PlatformContext, projectId: string, versionId: string, reason: string) {
+export async function completeProject3DModelUpload(context: PlatformContext, projectId: string, versionId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
@@ -274,6 +284,7 @@ export async function completeProject3DModelUpload(context: PlatformContext, pro
       before: { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: "UPLOADED", validationStatus: "PENDING", fileName: version.originalFileName },
       after: { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: "PROCESSING", validationStatus: "PENDING", fileName: version.originalFileName },
       reason,
+      metadata: project3DAuditMetadata("MODEL_UPLOAD_COMPLETED", `${version.originalFileName} received`),
     }, { tx });
   });
   return { id: version.id, status: "PROCESSING" as const };

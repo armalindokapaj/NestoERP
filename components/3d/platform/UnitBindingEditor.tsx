@@ -6,7 +6,7 @@ import { engineeringApi, failureMessage } from "@/components/engineering/enginee
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { autoMatchUnitNodes } from "@/lib/3d/shared/unit-matching";
@@ -62,7 +62,8 @@ export function UnitBindingEditor({
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [draft, setDraft] = React.useState<Record<string, Binding>>({});
   const [saved, setSaved] = React.useState("{}");
-  const [reason, setReason] = React.useState("");
+  /** Units whose link this save would remove, awaiting confirmation (no-reason PRD §17). */
+  const [unbinding, setUnbinding] = React.useState<string[] | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -108,20 +109,26 @@ export function UnitBindingEditor({
     setDraft((existing) => Object.fromEntries(Object.entries(existing).map(([meshName, binding]) => [meshName, { ...binding, projectUnitId: matches[meshName] ?? "" }])));
   }
 
+  function requestSave() {
+    const before = JSON.parse(saved) as Record<string, Binding>;
+    const unitCode = new Map((workspace?.units ?? []).map((unit) => [unit.id, unit.unitCode]));
+    const removed = Object.values(before)
+      .filter((binding) => binding.projectUnitId && !draft[binding.meshName]?.projectUnitId)
+      .map((binding) => unitCode.get(binding.projectUnitId) ?? binding.meshName);
+    if (removed.length > 0) setUnbinding(removed);
+    else void save();
+  }
+
   async function save() {
-    if (reason.trim().length < 3) {
-      setError("Give a reason for this binding change.");
-      return;
-    }
+    setUnbinding(null);
     setPending(true);
     setError(null);
     try {
       await engineeringApi(endpoint, {
         method: "PUT",
-        body: { bindings: Object.values(draft).filter((binding) => binding.projectUnitId), reason },
+        body: { bindings: Object.values(draft).filter((binding) => binding.projectUnitId) },
       });
       toast({ title: "Unit links saved.", tone: "success" });
-      setReason("");
       await load();
     } catch (failure) {
       setError(failureMessage(failure, "The unit links could not be saved."));
@@ -207,22 +214,20 @@ export function UnitBindingEditor({
           </Table>
         )}
 
-        <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label htmlFor={`binding-reason-${versionId}`} className="text-meta font-medium text-fg-muted">Reason</label>
-            <Input
-              id={`binding-reason-${versionId}`}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Why these unit links are changing"
-              disabled={pending}
-            />
-          </div>
-          <Button type="button" onClick={() => void save()} disabled={pending || !["READY", "PUBLISHED"].includes(workspace.version.status)}>
+        <div className="flex justify-end border-t border-line pt-4">
+          <Button type="button" onClick={requestSave} disabled={pending || !["READY", "PUBLISHED"].includes(workspace.version.status)}>
             {pending ? "Saving…" : "Save unit links"}
           </Button>
         </div>
         {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
+        <ConfirmDialog
+          open={unbinding !== null}
+          onOpenChange={(open) => { if (!open) setUnbinding(null); }}
+          title={unbinding?.length === 1 ? `Unbind Unit ${unbinding[0]}?` : `Unbind ${unbinding?.length ?? 0} units?`}
+          description={unbinding?.length === 1 ? "The 3D object will no longer open the canonical Unit page." : `The 3D objects of ${unbinding?.slice(0, 5).join(", ")}${(unbinding?.length ?? 0) > 5 ? " and others" : ""} will no longer open their canonical Unit pages.`}
+          confirmLabel="Unbind"
+          onConfirm={() => void save()}
+        />
       </CardContent>
     </Card>
   );

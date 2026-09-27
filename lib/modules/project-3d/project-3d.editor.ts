@@ -9,6 +9,7 @@ import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { StorageError } from "@/lib/core/storage/storage.errors";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
+import { changedConfigKeys, countedSave, countSummary, project3DAuditMetadata } from "./project-3d.audit";
 import { PROJECT_3D_PROCESSING_STALE_MS, project3DUploadLimitBytes } from "./project-3d.ingestion";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DExperienceUpdate, Project3DModelSettingsUpdate } from "./project-3d.schema";
@@ -222,7 +223,7 @@ export async function updateProject3DExperience(
   }
   parsed.config.updatedAt = new Date().toISOString();
 
-  return prisma.$transaction(async (tx) => {
+  return countedSave(prisma.$transaction(async (tx) => {
     const current = await tx.project3DConfig.findFirstOrThrow({ where: { id: config.id, companyId: config.companyId, projectId }, select: { authoringDocument: true } });
     if (experience(current.authoringDocument).revision !== input.expectedRevision) throw new AccessError("CONFLICT", "The 3D Experience changed while you were editing it. Reload and try again.", { code: "EXPERIENCE_RACED" });
     const changed = await tx.project3DConfig.updateMany({ where: { id: config.id, companyId: config.companyId, projectId }, data: { authoringDocument: parsed as unknown as Prisma.InputJsonValue, schemaVersion: parsed.schemaVersion, updatedByUserId: context.userId } });
@@ -235,9 +236,10 @@ export async function updateProject3DExperience(
       before: { projectId, configurationId: config.id, schemaVersion: before.schemaVersion, revision: before.revision },
       after: { projectId, configurationId: config.id, schemaVersion: parsed.schemaVersion, revision: parsed.revision },
       reason: input.reason,
+      metadata: configSaveMetadata(before.config as unknown as Record<string, unknown>, parsed.config as unknown as Record<string, unknown>, parsed.revision, input.resetToDefaults === true),
     }, { tx });
     return { document: parsed, updatedAt: updated.updatedAt.toISOString() };
-  });
+  }));
 }
 
 export async function updateProject3DModelSettings(
@@ -257,7 +259,7 @@ export async function updateProject3DModelSettings(
   const allowedNodeIds = new Set(sceneNodes(version.sceneManifest).map((node) => node.nodeId));
   if (nodeIds.some((nodeId) => !allowedNodeIds.has(nodeId))) throw new AccessError("VALIDATION_ERROR", "Choose nodes from this model's scene manifest.", { nodeOverrides: ["An override references an unknown node."] });
   const before = { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName, scale: version.scale, rotationDeg: version.rotationDeg, altitudeOffset: version.altitudeOffset, positionX: version.positionX, positionZ: version.positionZ, rotationXDeg: version.rotationXDeg, rotationZDeg: version.rotationZDeg, visible: version.visible, castShadow: version.castShadow, receiveShadow: version.receiveShadow, selectable: version.selectable, transformLocked: version.transformLocked, nodeOverrideCount: Array.isArray(version.nodeOverrides) ? version.nodeOverrides.length : 0 };
-  return prisma.$transaction(async (tx) => {
+  return countedSave(prisma.$transaction(async (tx) => {
     const changed = await tx.project3DModelVersion.updateMany({
       where: { id: version.id, updatedAt: new Date(input.expectedUpdatedAt) },
       data: { scale: input.scale, rotationDeg: input.rotationDeg, altitudeOffset: input.altitudeOffset, positionX: input.positionX, positionZ: input.positionZ, rotationXDeg: input.rotationXDeg, rotationZDeg: input.rotationZDeg, visible: input.visible, castShadow: input.castShadow, receiveShadow: input.receiveShadow, selectable: input.selectable, transformLocked: input.transformLocked, nodeOverrides: input.nodeOverrides as unknown as Prisma.InputJsonValue },
@@ -271,7 +273,34 @@ export async function updateProject3DModelSettings(
       before,
       after: { ...before, scale: updated.scale, rotationDeg: updated.rotationDeg, altitudeOffset: updated.altitudeOffset, positionX: updated.positionX, positionZ: updated.positionZ, rotationXDeg: updated.rotationXDeg, rotationZDeg: updated.rotationZDeg, visible: updated.visible, castShadow: updated.castShadow, receiveShadow: updated.receiveShadow, selectable: updated.selectable, transformLocked: updated.transformLocked, nodeOverrideCount: input.nodeOverrides.length },
       reason: input.reason,
+      metadata: modelSettingsMetadata(version, updated, version.nodeOverrides, input.nodeOverrides),
     }, { tx });
     return { id: updated.id, updatedAt: updated.updatedAt.toISOString() };
-  });
+  }));
+}
+
+function configSaveMetadata(before: Record<string, unknown>, after: Record<string, unknown>, revision: number, reset: boolean) {
+  const changedKeys = changedConfigKeys(before, after);
+  return project3DAuditMetadata(
+    reset ? "EXPERIENCE_DEFAULTS_RESET" : "EXPERIENCE_CONFIGURATION_SAVED",
+    reset ? "Editor settings reset to defaults" : countSummary(changedKeys.length, "Experience setting"),
+    { revision, changedKeys: changedKeys.slice(0, 40) },
+  );
+}
+
+const MODEL_PROPERTIES = ["scale", "rotationDeg", "altitudeOffset", "positionX", "positionZ", "rotationXDeg", "rotationZDeg", "visible", "castShadow", "receiveShadow", "selectable", "transformLocked"] as const;
+
+function modelSettingsMetadata(
+  before: Record<(typeof MODEL_PROPERTIES)[number], unknown>,
+  after: Record<(typeof MODEL_PROPERTIES)[number], unknown>,
+  overridesBefore: unknown,
+  overridesAfter: ReadonlyArray<{ nodeId: string }>,
+) {
+  const properties = MODEL_PROPERTIES.filter((key) => before[key] !== after[key]);
+  const previous = new Map((Array.isArray(overridesBefore) ? overridesBefore as Array<{ nodeId?: unknown }> : []).map((override) => [String(override.nodeId), JSON.stringify(override)]));
+  const next = new Map(overridesAfter.map((override) => [override.nodeId, JSON.stringify(override)]));
+  const nodes = new Set([...previous.keys(), ...next.keys()]);
+  const materials = [...nodes].filter((nodeId) => previous.get(nodeId) !== next.get(nodeId)).length;
+  const parts = [properties.length ? countSummary(properties.length, "model property", "model properties") : null, materials ? countSummary(materials, "scene node") : null].filter(Boolean);
+  return project3DAuditMetadata("MODEL_SETTINGS_UPDATED", parts.length ? parts.join(", ") : "Model settings saved unchanged", { changedProperties: properties, changedNodeCount: materials });
 }

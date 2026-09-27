@@ -20,7 +20,7 @@ export type IngestionVersion = { id: string; version: number; status: string; va
 export type IngestionSlot = { id: string; displayName: string; role: string; versions: IngestionVersion[] };
 
 /** One upload in flight, kept across a retry so a retry never makes a second version. */
-type Attempt = { file: File; slotId: string; reason: string; intent?: ModelUploadIntent; sent: boolean };
+type Attempt = { file: File; slotId: string; intent?: ModelUploadIntent; sent: boolean };
 
 const ROLES = [
   { value: "BUILDING", label: "Building" },
@@ -74,7 +74,6 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
   const [target, setTarget] = React.useState("");
   const [name, setName] = React.useState("");
   const [role, setRole] = React.useState("BUILDING");
-  const [reason, setReason] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
   const [pending, setPending] = React.useState(false);
   const [progress, setProgress] = React.useState<number | null>(null);
@@ -135,8 +134,6 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
     setError(null);
     try {
       await checkModelFile(file, uploadLimitBytes);
-      const why = reason.trim();
-      if (why.length < 3) throw new Error("Give a reason of at least three characters.");
       if (!attempt.current) {
         let slotId = targetSlot?.id ?? "";
         if (!slotId) {
@@ -144,19 +141,19 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
           if (displayName.length < 2) throw new Error("Give the model a name of at least two characters.");
           setStep("Creating the model…");
           const slot = await engineeringApi<{ id: string }>(`/api/platform/3d/projects/${projectId}/slots`, {
-            body: { kind: "DETAIL", role, slotKey: `${slugOf(displayName)}-${crypto.randomUUID().slice(0, 8)}`, displayName, sortOrder: slots.length, reason: why },
+            body: { kind: "DETAIL", role, slotKey: `${slugOf(displayName)}-${crypto.randomUUID().slice(0, 8)}`, displayName, sortOrder: slots.length },
           });
           slotId = slot.id;
           // From here on, a retry adds a version to this model instead of creating another.
           setTarget(slot.id);
         }
-        attempt.current = { file, slotId, reason: why, sent: false };
+        attempt.current = { file, slotId, sent: false };
       }
       const current = attempt.current;
       if (!current.intent) {
         setStep("Preparing a private upload…");
         current.intent = await engineeringApi<ModelUploadIntent>(`/api/platform/3d/projects/${projectId}/slots/${current.slotId}/uploads`, {
-          body: { fileName: current.file.name, sizeBytes: current.file.size, reason: current.reason },
+          body: { fileName: current.file.name, sizeBytes: current.file.size },
         });
       }
       if (!current.sent) {
@@ -171,11 +168,10 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
       }
       setProgress(null);
       setStep("Verifying the upload…");
-      await engineeringApi(`/api/platform/3d/projects/${projectId}/versions/${current.intent.versionId}/complete`, { body: { reason: current.reason } });
+      await engineeringApi(`/api/platform/3d/projects/${projectId}/versions/${current.intent.versionId}/complete`, { body: {} });
       setQueuedId(current.intent.versionId);
       onQueued?.(current.intent.versionId);
       setStep("Uploaded. Preparing the model for the scene…");
-      setReason("");
       setTarget("");
       clearFile();
       if (!compact) toast({ title: "Model uploaded.", description: "It appears in the scene once it has been prepared.", tone: "success" });
@@ -241,12 +237,6 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
         />
       </label>
       <p className={hint}>{file ? `${file.name} · ${formatMegabytes(file.size)}. ` : ""}GLB 2.0 up to {formatMegabytes(uploadLimitBytes)}; Draco and Meshopt compression are kept. The file stays private and is prepared in the background.</p>
-      <fieldset disabled={locked} className="min-w-0">
-        <label className={label} htmlFor={`${id}-reason`}>
-          Reason
-          {compact ? <input id={`${id}-reason`} className={field} value={reason} maxLength={500} placeholder="Why this model is uploaded" onChange={(event) => setReason(event.target.value)} /> : <Input id={`${id}-reason`} className="mt-1.5" value={reason} maxLength={500} placeholder="Why this model is uploaded" onChange={(event) => setReason(event.target.value)} />}
-        </label>
-      </fieldset>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={pending || !file}>
           <Upload aria-hidden="true" />{pending ? "Working…" : retryable ? "Retry upload" : "Upload GLB"}
