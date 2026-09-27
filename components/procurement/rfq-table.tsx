@@ -2,21 +2,23 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { RfqSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /** The enquiry list (PRD #19 §252). */
-export function RfqTable({
+export async function RfqTable({
   rfqs,
-  caption = "Enquiries",
+  caption,
 }: {
   rfqs: RfqSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("procurement");
   const columns: TableColumn<RfqSummaryDTO>[] = [
     {
       key: "rfqNumber",
       id: "rfqNumber",
       mandatory: true,
-      label: "Enquiry",
+      label: t("common.enquiry"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -28,15 +30,15 @@ export function RfqTable({
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("common.project"),
       hideBelow: "xl",
-      render: (row) => row.project?.code ?? <span className="text-fg-subtle">Company</span>,
+      render: (row) => row.project?.code ?? <span className="text-fg-subtle">{t("common.company")}</span>,
     },
     {
       key: "responses",
       id: "responses",
       valueType: "number",
-      label: "Responses",
+      label: t("rfqs.responses"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -49,23 +51,23 @@ export function RfqTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("common.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "responseDueDate",
       id: "responseDueDate",
       valueType: "date",
-      label: "Responses by",
+      label: t("rfqs.responsesBy"),
       hideBelow: "md",
       render: (row) =>
         row.responseDueDate ? (
           <span className={row.overdue ? "text-warning-strong" : undefined}>
             {formatDate(row.responseDueDate)}
-            {row.overdue ? " · overdue" : ""}
+            {row.overdue ? t("rfqs.overdueSuffix") : ""}
           </span>
         ) : (
-          <span className="text-fg-subtle">No date</span>
+          <span className="text-fg-subtle">{t("common.noDate")}</span>
         ),
     },
   ];
@@ -77,7 +79,7 @@ export function RfqTable({
       records={rfqs}
       rowKey={(row) => row.id}
       rowHref={(row) => `/procurement/rfqs/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("rfqs.caption")}
     />
   );
 }

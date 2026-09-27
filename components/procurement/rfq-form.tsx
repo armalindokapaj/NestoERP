@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import { LineItemsEditor, type LineValue } from "./line-items";
 import { withSavedOption } from "@/components/finance/saved-option";
+import { useProcurementTranslations } from "./procurement-text";
 
 export type RfqFormValues = {
   title: string;
@@ -54,12 +55,13 @@ export function RfqForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useProcurementTranslations();
   const [selected, setSelected] = React.useState<string[]>(values?.supplierIds ?? []);
   const offered = selected.filter((id) => suppliers.some((supplier) => supplier.value === id));
   const dropped = selected.length - offered.length;
   // Saved links the pickers no longer offer stay on this enquiry (FV-10).
-  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, "Current request (no longer open for sourcing)");
-  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new enquiries)");
+  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, t("rfqs.savedRequest"));
+  const projectOptions = withSavedOption(projects, values?.projectId, t("rfqs.savedProject"));
 
   return (
     <RecordForm
@@ -71,14 +73,14 @@ export function RfqForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Enquiry"
-        description="The same ask, sent to several suppliers, so their answers compare line by line."
+        title={t("common.enquiry")}
+        description={t("rfqs.formDescription")}
       >
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("common.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={250} />
         </Field>
 
-        <Field label="Currency" name="currency" required hint="Every quote is priced in this currency">
+        <Field label={t("common.currency")} name="currency" required hint={t("rfqs.currencyHint")}>
           <select
             id="currency"
             name="currency"
@@ -94,7 +96,7 @@ export function RfqForm({
           </select>
         </Field>
 
-        <Field label="Responses by" name="responseDueDate">
+        <Field label={t("rfqs.responsesBy")} name="responseDueDate">
           <Input
             id="responseDueDate"
             name="responseDueDate"
@@ -103,14 +105,14 @@ export function RfqForm({
           />
         </Field>
 
-        <Field label="Purchase request" name="purchaseRequestId">
+        <Field label={t("common.purchaseRequest")} name="purchaseRequestId">
           <select
             id="purchaseRequestId"
             name="purchaseRequestId"
             className={selectClass}
             defaultValue={values?.purchaseRequestId ?? ""}
           >
-            <option value="">Not from a request</option>
+            <option value="">{t("rfqs.notFromRequest")}</option>
             {requestOptions.map((request) => (
               <option key={request.value} value={request.value}>
                 {request.label}
@@ -119,14 +121,14 @@ export function RfqForm({
           </select>
         </Field>
 
-        <Field label="Project" name="projectId">
+        <Field label={t("common.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project</option>
+            <option value="">{t("common.noProject")}</option>
             {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -137,15 +139,15 @@ export function RfqForm({
       </FormSection>
 
       <FormSection
-        title="Suppliers to ask"
-        description="At least two before it can be issued. You can invite more after it goes out."
+        title={t("rfqs.suppliersSection")}
+        description={t("rfqs.suppliersDescription")}
       >
         <div className="sm:col-span-2">
           <fieldset className="space-y-2">
-            <legend className="sr-only">Suppliers to invite</legend>
+            <legend className="sr-only">{t("rfqs.suppliersLegend")}</legend>
             {suppliers.length === 0 ? (
               <p className="text-table text-fg-subtle">
-                No active suppliers yet. Add one before raising an enquiry.
+                {t("rfqs.noSuppliers")}
               </p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -176,16 +178,15 @@ export function RfqForm({
               </div>
             )}
             <p className="text-meta text-fg-subtle" aria-live="polite">
-              {offered.length} selected
-              {offered.length < 2 ? " — two are needed to issue this enquiry." : "."}
+              {t("rfqs.selected", { count: offered.length })}
+              {offered.length < 2 ? t("rfqs.needTwo") : "."}
             </p>
             {/* An invited supplier who has since become inactive cannot stay
                 invited (the server refuses inactive suppliers): said, not done
                 silently (AUD-09 §5, FV-10). */}
             {dropped > 0 ? (
               <p className="text-meta text-warning-strong" role="status">
-                {dropped === 1 ? "One invited supplier is" : `${dropped} invited suppliers are`} no longer active and will
-                be removed from this enquiry when you save.
+                {t("rfqs.dropped", { count: dropped })}
               </p>
             ) : null}
           </fieldset>
@@ -193,8 +194,8 @@ export function RfqForm({
       </FormSection>
 
       <FormSection
-        title="Lines"
-        description="What every supplier is being asked to price. No prices here — those come back on their quotes."
+        title={t("common.lines")}
+        description={t("rfqs.linesDescription")}
       >
         <div className="sm:col-span-2">
           <LineItemsEditor initial={values?.items} columns={["quantity", "unit"]} />

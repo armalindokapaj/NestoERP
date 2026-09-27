@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { RfqForm } from "@/components/procurement/rfq-form";
@@ -8,7 +9,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { createRfqAction } from "@/lib/actions/procurement";
 import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 
-export const metadata: Metadata = { title: "New enquiry" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.newRfq") };
+}
 
 /** Draft an enquiry, optionally seeded from a request's lines (PRD #19 §71). */
 export default async function NewRfqPage({
@@ -23,31 +27,32 @@ export default async function NewRfqPage({
 
   const requestId = typeof params.requestId === "string" ? params.requestId : "";
   const source = options.requests.find((request) => request.id === requestId);
+  const t = await getTranslations("procurement");
 
   return (
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Enquiries", href: "/procurement/rfqs" },
-          { label: "New enquiry" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.enquiries"), href: "/procurement/rfqs" },
+          { label: t("crumbs.newEnquiry") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New enquiry</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newRfq")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {source
-            ? `Seeded from ${source.requestNumber}. Change the lines before issuing if the ask has moved on.`
-            : "Ask several suppliers to price the same lines."}
+            ? t("rfqs.seeded", { number: source.requestNumber })
+            : t("rfqs.newDescription")}
         </p>
       </div>
 
       <RfqForm
         action={createRfqAction}
         cancelHref="/procurement/rfqs"
-        submitLabel="Create enquiry"
-        pendingLabel="Creating…"
+        submitLabel={t("rfqs.create")}
+        pendingLabel={t("common.creating")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,
           label: supplier.code ? `${supplier.code} — ${supplier.name}` : supplier.name,

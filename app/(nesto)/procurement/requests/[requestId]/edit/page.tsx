@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { RequestForm } from "@/components/procurement/request-form";
@@ -10,7 +11,10 @@ import * as requests from "@/lib/modules/procurement/requests/request.service";
 
 type Params = { params: Promise<{ requestId: string }> };
 
-export const metadata: Metadata = { title: "Edit purchase request" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.editRequest") };
+}
 
 /**
  * Edit a request (PRD #19 §55).
@@ -34,6 +38,7 @@ export default async function EditRequestPage({ params }: Params) {
   if (!request.capabilities.canEdit) notFound();
 
   const options = await requests.requestFormOptions(context);
+  const t = await getTranslations("procurement");
 
   async function action(formData: FormData) {
     "use server";
@@ -44,15 +49,15 @@ export default async function EditRequestPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Requests", href: "/procurement/requests" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.requests"), href: "/procurement/requests" },
           { label: request.requestNumber, href: `/procurement/requests/${request.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit purchase request</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editRequest")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {request.requestNumber} — {request.title}
         </p>
@@ -62,8 +67,8 @@ export default async function EditRequestPage({ params }: Params) {
         action={action}
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/procurement/requests/${request.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

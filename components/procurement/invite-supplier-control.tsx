@@ -19,6 +19,8 @@ import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { inviteSupplierAction } from "@/lib/actions/procurement";
+import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * Asking one more supplier to quote (PRD #19 §84).
@@ -40,19 +42,20 @@ export function InviteSupplierControl({
   invitedSupplierIds: string[];
 }) {
   const [open, setOpen] = React.useState(false);
+  const t = useProcurementTranslations();
 
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" />
-        Invite supplier
+        {t("invite.button")}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>Invite a supplier</DialogTitle>
+          <DialogTitle>{t("invite.title")}</DialogTitle>
           <DialogDescription>
-            They are added to this request and can be sent it with the others.
+            {t("invite.description")}
           </DialogDescription>
 
           {/* Inside the dialog, so its guarded close asks about the choice (AUD-03 §5). */}
@@ -85,9 +88,12 @@ function InviteForm({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
+  const tCommon = useTranslations("common");
   const [pending, setPending] = React.useState(false);
   const [supplierId, setSupplierId] = React.useState("");
-  const editor = useUnsavedEditor({ module: "procurement", saveKind: "none", workflow: "Invite", label: "Supplier invitation" });
+  const editor = useUnsavedEditor({ module: "procurement", saveKind: "none", workflow: "Invite", label: t("invite.editorLabel") });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(supplierId !== ""), [supplierId, setDirty]);
@@ -106,15 +112,15 @@ function InviteForm({
         setUnresolved(false);
         setDirty(false);
         onInvited();
-        toast({ title: "Supplier invited to quote.", tone: "success" });
+        toast({ title: t("invite.invited"), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     } catch {
       // It may or may not have gone through: say so, never repeat it (§6).
       setUnresolved(true);
-      toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
+      toast({ title: tCommon("outcomeUnknown") === "outcomeUnknown" ? OUTCOME_COPY.unknown : tCommon("outcomeUnknown"), tone: "danger" });
     } finally {
       setPending(false);
       setSaving(false);
@@ -124,7 +130,7 @@ function InviteForm({
   return (
     <>
       <div className="space-y-1.5">
-        <Label htmlFor="invite-supplier">Supplier</Label>
+        <Label htmlFor="invite-supplier">{t("common.supplier")}</Label>
         <select
           id="invite-supplier"
           className={selectClass}
@@ -133,7 +139,7 @@ function InviteForm({
           onChange={(event) => setSupplierId(event.target.value)}
         >
           <option value="">
-            {available.length === 0 ? "Everyone available is already invited" : "Choose a supplier"}
+            {available.length === 0 ? t("invite.allInvited") : t("common.chooseSupplier")}
           </option>
           {available.map((supplier) => (
             <option key={supplier.value} value={supplier.value}>
@@ -145,10 +151,10 @@ function InviteForm({
 
       <DialogFooter>
         <DialogClose asChild>
-          <Button variant="secondary">Cancel</Button>
+          <Button variant="secondary">{t("common.cancel")}</Button>
         </DialogClose>
         <Button disabled={pending || !supplierId} onClick={invite}>
-          {pending ? "Inviting…" : "Invite"}
+          {pending ? t("invite.inviting") : t("invite.invite")}
         </Button>
       </DialogFooter>
     </>

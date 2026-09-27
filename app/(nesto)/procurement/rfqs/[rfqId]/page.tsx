@@ -1,5 +1,6 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -16,6 +17,7 @@ import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 import { selectableSuppliers } from "@/lib/modules/procurement/suppliers/supplier.service";
 import { rfqSupplierStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 type Params = { params: Promise<{ rfqId: string }> };
 
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const rfq = await rfqs.getRfq(context, rfqId);
     return { title: `${rfq.rfqNumber} — ${rfq.title}` };
   } catch {
-    return { title: "Enquiry" };
+    return { title: (await getTranslations("procurement"))("meta.rfq") };
   }
 }
 
@@ -48,25 +50,26 @@ export default async function RfqDetailPage({ params }: Params) {
   const suppliers = rfq.capabilities.canManageSuppliers
     ? await selectableSuppliers(context)
     : [];
+  const t = await getTranslations("procurement");
 
   return (
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Enquiries", href: "/procurement/rfqs" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.enquiries"), href: "/procurement/rfqs" },
           { label: rfq.rfqNumber },
         ]}
         title={rfq.title}
         subtitle={rfq.rfqNumber}
         status={rfq.status}
-        badges={rfq.overdue ? <Badge tone="warning">Responses overdue</Badge> : null}
+        badges={rfq.overdue ? <Badge tone="warning">{t("rfqs.responsesOverdue")}</Badge> : null}
         meta={[
-          { label: "Invited", value: `${rfq.invitedCount} suppliers` },
-          { label: "Answered", value: `${rfq.respondedCount}` },
+          { label: t("rfqs.invited"), value: t("rfqs.suppliersCount", { count: rfq.invitedCount }) },
+          { label: t("rfqs.answered"), value: `${rfq.respondedCount}` },
           {
-            label: "Responses by",
-            value: rfq.responseDueDate ? formatDate(rfq.responseDueDate) : "No date",
+            label: t("rfqs.responsesBy"),
+            value: rfq.responseDueDate ? formatDate(rfq.responseDueDate) : t("common.noDate"),
           },
         ]}
         actions={
@@ -81,19 +84,19 @@ export default async function RfqDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="p-5">
-              <h2 className="text-card font-semibold text-fg">What was asked for</h2>
+              <h2 className="text-card font-semibold text-fg">{t("rfqs.asked")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
-                Every supplier priced these lines, so the answers compare.
+                {t("rfqs.askedNote")}
               </p>
             </div>
-            <ScrollRegion label="Enquiry lines">
+            <ScrollRegion label={t("rfqs.linesLabel")}>
               <table className="w-full text-table">
-                <caption className="sr-only">Enquiry lines</caption>
+                <caption className="sr-only">{t("rfqs.linesLabel")}</caption>
                 <thead>
                   <tr className="border-y border-line text-left text-meta text-fg-subtle">
-                    <th scope="col" className="px-5 py-2 font-medium">Description</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Quantity</th>
-                    <th scope="col" className="px-5 py-2 font-medium">Unit</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.description")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.quantity")}</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.unit")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -116,14 +119,14 @@ export default async function RfqDetailPage({ params }: Params) {
 
           <section className="nesto-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">Suppliers asked</h2>
+              <h2 className="text-card font-semibold text-fg">{t("rfqs.suppliersAsked")}</h2>
               <div className="flex items-center gap-3">
                 {rfq.capabilities.canViewQuotes ? (
                   <Link
                     href={`/procurement/rfqs/${rfq.id}/comparison`}
                     className="text-table font-medium text-accent-strong"
                   >
-                    Compare answers
+                    {t("rfqs.compare")}
                   </Link>
                 ) : null}
                 {rfq.capabilities.canManageSuppliers ? (
@@ -148,7 +151,7 @@ export default async function RfqDetailPage({ params }: Params) {
                   <div className="flex items-center gap-2">
                     {entry.respondedAt ? (
                       <span className="text-meta text-fg-subtle">
-                        answered {formatDate(entry.respondedAt)}
+                        {t("rfqs.answeredOn", { date: formatDate(entry.respondedAt) })}
                       </span>
                     ) : null}
                     <Badge
@@ -160,7 +163,7 @@ export default async function RfqDetailPage({ params }: Params) {
                             : "neutral"
                       }
                     >
-                      {rfqSupplierStatusLabels[entry.status]}
+                      {procurementLabel(t, "rfqSupplierStatus", entry.status, rfqSupplierStatusLabels[entry.status])}
                     </Badge>
                   </div>
                 </li>
@@ -171,13 +174,13 @@ export default async function RfqDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Where it belongs</h2>
+            <h2 className="text-card font-semibold text-fg">{t("common.whereItBelongs")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
               items={[
                 {
-                  label: "Request",
+                  label: t("common.request"),
                   value: rfq.requestLink ? (
                     rfq.requestLink.href ? (
                       <Link href={rfq.requestLink.href} className="text-accent-strong">
@@ -187,11 +190,11 @@ export default async function RfqDetailPage({ params }: Params) {
                       rfq.requestLink.label
                     )
                   ) : (
-                    <span className="text-fg-subtle">None</span>
+                    <span className="text-fg-subtle">{t("common.none")}</span>
                   ),
                 },
                 {
-                  label: "Project",
+                  label: t("common.project"),
                   value: rfq.projectLink ? (
                     rfq.projectLink.href ? (
                       <Link href={rfq.projectLink.href} className="text-accent-strong">
@@ -201,24 +204,24 @@ export default async function RfqDetailPage({ params }: Params) {
                       rfq.projectLink.label
                     )
                   ) : (
-                    <span className="text-fg-subtle">Company</span>
+                    <span className="text-fg-subtle">{t("common.company")}</span>
                   ),
                 },
-                { label: "Currency", value: rfq.currency },
+                { label: t("common.currency"), value: rfq.currency },
               ]}
             />
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
               <div>
-                <dt className="nesto-eyebrow text-fg-subtle">Created</dt>
+                <dt className="nesto-eyebrow text-fg-subtle">{t("common.created")}</dt>
                 <dd className="mt-0.5 text-table text-fg">{formatDateTime(rfq.createdAt)}</dd>
               </div>
               {rfq.dates.issuedAt ? (
                 <div>
-                  <dt className="nesto-eyebrow text-fg-subtle">Issued</dt>
+                  <dt className="nesto-eyebrow text-fg-subtle">{t("common.issued")}</dt>
                   <dd className="mt-0.5 text-table text-fg">
                     {formatDateTime(rfq.dates.issuedAt)}
                   </dd>
@@ -226,7 +229,7 @@ export default async function RfqDetailPage({ params }: Params) {
               ) : null}
               {rfq.dates.closedAt ? (
                 <div>
-                  <dt className="nesto-eyebrow text-fg-subtle">Closed</dt>
+                  <dt className="nesto-eyebrow text-fg-subtle">{t("common.closed")}</dt>
                   <dd className="mt-0.5 text-table text-fg">
                     {formatDateTime(rfq.dates.closedAt)}
                   </dd>
@@ -236,7 +239,7 @@ export default async function RfqDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
-      <RecordDocuments context={context} entityType="rfq" entityId={rfqId} title="Documents" emptyDescription="The request pack and supplier submissions attached to this RFQ appear here." />
+      <RecordDocuments context={context} entityType="rfq" entityId={rfqId} title={t("common.documents")} emptyDescription={t("rfqs.documentsEmpty")} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}
       <CollaborationPanel parentType="rfq" parentId={rfqId} />
     </div>

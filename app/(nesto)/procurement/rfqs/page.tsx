@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { FileQuestion } from "lucide-react";
@@ -19,8 +20,12 @@ import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 import { rfqListQuerySchema } from "@/lib/modules/procurement/procurement.schema";
 import { RFQ_STATUSES, rfqStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
-export const metadata: Metadata = { title: "Enquiries" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.rfqs") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,6 +39,7 @@ export default async function RfqsPage({
   if (!can(context, "procurement.rfq.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "procurement");
+  const t = await getTranslations("procurement");
   const params = await searchParams;
 
   return (
@@ -43,7 +49,7 @@ export default async function RfqsPage({
       actions={
         can(context, "procurement.rfq.create") ? (
           <Button asChild size="sm">
-            <Link href="/procurement/rfqs/new">New enquiry</Link>
+            <Link href="/procurement/rfqs/new">{t("rfqs.newEnquiry")}</Link>
           </Button>
         ) : null
       }
@@ -83,19 +89,20 @@ async function RfqList({
     rfqs.rfqFilterOptions(context),
   ]);
 
+  const t = await getTranslations("procurement");
   const hasFilters = Boolean(query.search || query.status?.length || query.projectId);
 
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
-      options: RFQ_STATUSES.map((value) => ({ value, label: rfqStatusLabels[value] })),
+      label: t("common.status"),
+      options: RFQ_STATUSES.map((value) => ({ value, label: procurementLabel(t, "rfqStatus", value, rfqStatusLabels[value]) })),
     },
     ...(options.projects.length > 0
       ? [
           {
             param: "projectId",
-            label: "Project",
+            label: t("common.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: `${project.code} — ${project.name}`,
@@ -112,13 +119,13 @@ async function RfqList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search enquiry number or title…"
+        searchPlaceholder={t("rfqs.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "number-asc", label: "Enquiry number" },
-          { value: "due-asc", label: "Responses due soonest" },
+          { value: "updated-desc", label: t("common.recentlyUpdated") },
+          { value: "created-desc", label: t("common.recentlyCreated") },
+          { value: "number-asc", label: t("rfqs.sortNumber") },
+          { value: "due-asc", label: t("rfqs.sortDue") },
         ]}
       />
 
@@ -126,18 +133,18 @@ async function RfqList({
         hasFilters ? (
           <EmptyState
             icon={<FileQuestion />}
-            title="No enquiries match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/procurement/rfqs" }}
+            title={t("rfqs.noMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/procurement/rfqs" }}
           />
         ) : (
           <EmptyState
             icon={<FileQuestion />}
-            title="No enquiries yet."
-            description="An enquiry sends the same ask to several suppliers, so their answers can be compared line by line."
+            title={t("rfqs.empty")}
+            description={t("rfqs.emptyDescription")}
             action={
               can(context, "procurement.rfq.create")
-                ? { label: "New enquiry", href: "/procurement/rfqs/new" }
+                ? { label: t("rfqs.newEnquiry"), href: "/procurement/rfqs/new" }
                 : undefined
             }
           />

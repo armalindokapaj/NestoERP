@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import { withSavedOption } from "@/components/finance/saved-option";
 import { LineItemsEditor, type LineValue } from "./line-items";
+import { useProcurementTranslations } from "./procurement-text";
 
 export type OrderFormValues = {
   supplierId: string;
@@ -58,10 +59,11 @@ export function OrderForm({
   pendingLabel: string;
 }) {
   // Saved links the pickers no longer offer stay on this order (FV-10).
-  const supplierOptions = withSavedOption(suppliers, values?.supplierId, "Current supplier (inactive — choose an active one to save)");
-  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, "Current request (no longer open for new orders)");
-  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new orders)");
-  const contractOptions = withSavedOption(contracts, values?.contractId, "Current contract (no longer available for new orders)");
+  const t = useProcurementTranslations();
+  const supplierOptions = withSavedOption(suppliers, values?.supplierId, t("orders.savedSupplier"));
+  const requestOptions = withSavedOption(requests, values?.purchaseRequestId, t("orders.savedRequest"));
+  const projectOptions = withSavedOption(projects, values?.projectId, t("orders.savedProject"));
+  const contractOptions = withSavedOption(contracts, values?.contractId, t("orders.savedContract"));
 
   return (
     <RecordForm
@@ -73,10 +75,10 @@ export function OrderForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Order"
-        description="Issuing an order is the moment the company owes a supplier money. It is saved as a draft until somebody approves it."
+        title={t("orders.formSection")}
+        description={t("orders.formDescription")}
       >
-        <Field label="Supplier" name="supplierId" required>
+        <Field label={t("common.supplier")} name="supplierId" required>
           <select
             id="supplierId"
             name="supplierId"
@@ -84,7 +86,7 @@ export function OrderForm({
             defaultValue={values?.supplierId ?? ""}
             required
           >
-            <option value="">Choose a supplier</option>
+            <option value="">{t("common.chooseSupplier")}</option>
             {supplierOptions.map((supplier) => (
               <option key={supplier.value} value={supplier.value}>
                 {supplier.label}
@@ -93,7 +95,7 @@ export function OrderForm({
           </select>
         </Field>
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("common.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -109,7 +111,7 @@ export function OrderForm({
           </select>
         </Field>
 
-        <Field label="Order date" name="orderDate" required>
+        <Field label={t("orders.orderDate")} name="orderDate" required>
           <Input
             id="orderDate"
             name="orderDate"
@@ -119,7 +121,7 @@ export function OrderForm({
           />
         </Field>
 
-        <Field label="Required by" name="requiredDate" hint="Optional. On or after the order date.">
+        <Field label={t("orders.requiredBy")} name="requiredDate" hint={t("orders.requiredHint")}>
           <Input
             id="requiredDate"
             name="requiredDate"
@@ -129,15 +131,15 @@ export function OrderForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Where it belongs">
-        <Field label="Purchase request" name="purchaseRequestId">
+      <FormSection title={t("common.whereItBelongs")}>
+        <Field label={t("common.purchaseRequest")} name="purchaseRequestId">
           <select
             id="purchaseRequestId"
             name="purchaseRequestId"
             className={selectClass}
             defaultValue={values?.purchaseRequestId ?? ""}
           >
-            <option value="">Direct order</option>
+            <option value="">{t("orders.directOrder")}</option>
             {requestOptions.map((request) => (
               <option key={request.value} value={request.value}>
                 {request.label}
@@ -146,14 +148,14 @@ export function OrderForm({
           </select>
         </Field>
 
-        <Field label="Project" name="projectId">
+        <Field label={t("common.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project</option>
+            <option value="">{t("common.noProject")}</option>
             {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -165,14 +167,14 @@ export function OrderForm({
         {/* Not rendered for someone who may not see contracts: the key is then
             absent and the server keeps the saved contract (AUD-09 §5, FV-10). */}
         {contractOptions.length > 0 ? (
-          <Field label="Contract" name="contractId" hint="If this order sits under an agreement">
+          <Field label={t("common.contract")} name="contractId" hint={t("orders.contractHint")}>
             <select
               id="contractId"
               name="contractId"
               className={selectClass}
               defaultValue={values?.contractId ?? ""}
             >
-              <option value="">None</option>
+              <option value="">{t("common.none")}</option>
               {contractOptions.map((contract) => (
                 <option key={contract.value} value={contract.value}>
                   {contract.label}
@@ -182,20 +184,20 @@ export function OrderForm({
           </Field>
         ) : null}
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("common.notes")} name="notes" className="sm:col-span-2">
           <Textarea id="notes" name="notes" rows={3} defaultValue={values?.notes ?? ""} maxLength={4000} />
         </Field>
       </FormSection>
 
       <FormSection
-        title="Lines"
-        description="What is being ordered, at the price agreed. Tax is a fraction — 0.2 is twenty per cent."
+        title={t("common.lines")}
+        description={t("orders.linesDescription")}
       >
         <div className="sm:col-span-2">
           <LineItemsEditor
             initial={values?.items}
             columns={["quantity", "unit", "unitPrice", "taxRate"]}
-            priceLabel="Unit price"
+            priceLabel={t("common.unitPrice")}
             priceField="unitPrice"
             currency={values?.currency}
           />

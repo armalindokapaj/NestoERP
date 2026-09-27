@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
@@ -30,8 +31,12 @@ import {
   requestStatusLabels,
 } from "@/lib/modules/procurement/procurement.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
-export const metadata: Metadata = { title: "Purchase requests" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.requests") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -51,6 +56,7 @@ export default async function RequestsPage({
   if (!(await canReadProcurement(context, "procurement.request.view"))) redirect("/access-denied");
 
   const experience = await resolveProcurementExperience(context);
+  const t = await getTranslations("procurement");
   const params = await searchParams;
 
   return (
@@ -60,7 +66,7 @@ export default async function RequestsPage({
       actions={
         !inGroupWorkspace(context) && can(context, "procurement.request.create") ? (
           <Button asChild size="sm">
-            <Link href="/procurement/requests/new">New request</Link>
+            <Link href="/procurement/requests/new">{t("requests.newRequest")}</Link>
           </Button>
         ) : null
       }
@@ -90,6 +96,7 @@ async function RequestList({
   };
 
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("procurement");
 
   const query = requestListQuerySchema.parse({
     // The Group `company` filter; a company workspace never reads it (§86, §87).
@@ -124,31 +131,31 @@ async function RequestList({
 
   const filters: FilterConfig[] = [
     ...(group && options.companies.length > 1
-      ? [{ param: "company", label: "Company", options: options.companies }]
+      ? [{ param: "company", label: t("common.company"), options: options.companies }]
       : []),
     {
       param: "status",
-      label: "Status",
+      label: t("common.status"),
       options: REQUEST_STATUSES.filter((status) => status !== "ARCHIVED").map((value) => ({
         value,
-        label: requestStatusLabels[value],
+        label: procurementLabel(t, "requestStatus", value, requestStatusLabels[value]),
       })),
     },
     {
       param: "priority",
-      label: "Priority",
-      options: PRIORITIES.map((value) => ({ value, label: priorityLabels[value] })),
+      label: t("common.priority"),
+      options: PRIORITIES.map((value) => ({ value, label: procurementLabel(t, "priority", value, priorityLabels[value]) })),
     },
     {
       param: "category",
-      label: "Category",
-      options: CATEGORIES.map((value) => ({ value, label: categoryLabels[value] })),
+      label: t("common.category"),
+      options: CATEGORIES.map((value) => ({ value, label: procurementLabel(t, "category", value, categoryLabels[value]) })),
     },
     ...(options.projects.length > 0
       ? [
           {
             param: "projectId",
-            label: "Project",
+            label: t("common.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: `${project.code} — ${project.name}${project.company ? ` · ${project.company.name}` : ""}`,
@@ -160,7 +167,7 @@ async function RequestList({
       ? [
           {
             param: "requestedBy",
-            label: "Raised by",
+            label: t("common.raisedBy"),
             options: options.requesters.map((member) => ({
               value: member.id,
               label: `${member.user.firstName} ${member.user.lastName}${member.company ? ` · ${member.company.name}` : ""}`,
@@ -177,16 +184,16 @@ async function RequestList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search number, title or line…"
+        searchPlaceholder={t("requests.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "number-asc", label: "Request number" },
-          { value: "required-asc", label: "Needed soonest" },
-          { value: "priority-desc", label: "Priority" },
-          { value: "value-desc", label: "Estimated value" },
-          { value: "status-asc", label: "Status" },
+          { value: "updated-desc", label: t("common.recentlyUpdated") },
+          { value: "created-desc", label: t("common.recentlyCreated") },
+          { value: "number-asc", label: t("requests.sortNumber") },
+          { value: "required-asc", label: t("requests.sortNeeded") },
+          { value: "priority-desc", label: t("common.priority") },
+          { value: "value-desc", label: t("requests.sortValue") },
+          { value: "status-asc", label: t("common.status") },
         ]}
       />
 
@@ -194,22 +201,22 @@ async function RequestList({
         hasFilters ? (
           <EmptyState
             icon={<ClipboardList />}
-            title="No requests match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/procurement/requests" }}
+            title={t("requests.noMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/procurement/requests" }}
           />
         ) : (
           <EmptyState
             icon={<ClipboardList />}
-            title="No purchase requests yet."
+            title={t("requests.empty")}
             description={
               group
-                ? "No company you can read has a purchase request yet. Raising one is done inside a company."
-                : "A request is somebody asking to buy something. Nothing is committed until an order is issued."
+                ? t("requests.emptyGroup")
+                : t("requests.emptyCompany")
             }
             action={
               !group && can(context, "procurement.request.create")
-                ? { label: "New request", href: "/procurement/requests/new" }
+                ? { label: t("requests.newRequest"), href: "/procurement/requests/new" }
                 : undefined
             }
           />

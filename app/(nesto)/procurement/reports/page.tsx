@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -15,8 +16,13 @@ import type { CompanyRef, CurrencyTotal } from "@/lib/modules/procurement/procur
 import { totalsLabel } from "@/components/procurement/procurement-format";
 import type { RFQStatus } from "@prisma/client";
 import { ScrollRegion } from "@/components/ui/scroll-region";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import type { Translate } from "@/lib/i18n/translator";
 
-export const metadata: Metadata = { title: "Procurement reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.reports") };
+}
 
 /**
  * Procurement reports (PRD #19 §178–§187).
@@ -38,48 +44,47 @@ export default async function ReportsPage() {
   const group = inGroupWorkspace(context);
   const experience = await resolveProcurementExperience(context);
   const reports = await procurementReportsForWorkspace(context);
+  const t = await getTranslations("procurement");
 
   return (
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Open orders</h2>
+          <h2 className="text-card font-semibold text-fg">{t("reports.openOrders")}</h2>
           <p className="mt-1 text-page font-semibold text-fg">
             {totalsLabel(reports.openOrders.totals)}
           </p>
           <p className="mt-1 text-meta text-fg-subtle">
-            Across {reports.openOrders.count} order
-            {reports.openOrders.count === 1 ? "" : "s"} still being delivered. Committed, not paid.
-            {group ? " Added per currency across companies, never between currencies." : ""}
+            {t("reports.openOrdersNote", { count: reports.openOrders.count })}
+            {group ? ` ${t("reports.groupNote")}` : ""}
           </p>
         </section>
 
         <div className="grid gap-4 lg:grid-cols-2">
           {reports.spendByCompany ? (
-            <SpendPanel title="Committed spend by company" rows={reports.spendByCompany} showCompany={false} />
+            <SpendPanel t={t} title={t("reports.spendByCompany")} rows={reports.spendByCompany} showCompany={false} />
           ) : null}
-          <SpendPanel title="Committed spend by supplier" rows={reports.spendBySupplier} />
-          <SpendPanel title="Committed spend by project" rows={reports.spendByProject} />
-          <SpendPanel title="Committed spend by category" rows={reports.spendByCategory} />
+          <SpendPanel t={t} title={t("reports.spendBySupplier")} rows={reports.spendBySupplier} />
+          <SpendPanel t={t} title={t("reports.spendByProject")} rows={reports.spendByProject} />
+          <SpendPanel t={t} title={t("reports.spendByCategory")} rows={reports.spendByCategory} />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Delivery performance</h2>
+            <h2 className="text-card font-semibold text-fg">{t("reports.deliveryPerformance")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
-              Measured against the first recorded delivery. Orders with no agreed date are
-              excluded — no promise was made to keep.
+              {t("reports.deliveryNote")}
             </p>
             {reports.deliveryPerformance.length === 0 ? (
-              <p className="mt-4 text-table text-fg-subtle">Nothing delivered against a date yet.</p>
+              <p className="mt-4 text-table text-fg-subtle">{t("reports.deliveryEmpty")}</p>
             ) : (
-              <ScrollRegion label="On-time delivery by supplier" className="mt-4">
+              <ScrollRegion label={t("reports.onTimeBySupplier")} className="mt-4">
               <table className="w-full text-table">
-                <caption className="sr-only">On-time delivery by supplier</caption>
+                <caption className="sr-only">{t("reports.onTimeBySupplier")}</caption>
                 <thead>
                   <tr className="text-left text-meta text-fg-subtle">
-                    <th scope="col" className="pb-2 font-medium">Supplier</th>
-                    {group ? <th scope="col" className="pb-2 font-medium">Company</th> : null}
-                    <th scope="col" className="pb-2 text-right font-medium">Orders</th>
-                    <th scope="col" className="pb-2 text-right font-medium">On time</th>
+                    <th scope="col" className="pb-2 font-medium">{t("common.supplier")}</th>
+                    {group ? <th scope="col" className="pb-2 font-medium">{t("common.company")}</th> : null}
+                    <th scope="col" className="pb-2 text-right font-medium">{t("reports.orders")}</th>
+                    <th scope="col" className="pb-2 text-right font-medium">{t("reports.onTime")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -105,12 +110,12 @@ export default async function ReportsPage() {
 
           {reports.rfqSummary.length > 0 ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Enquiries</h2>
+              <h2 className="text-card font-semibold text-fg">{t("reports.enquiries")}</h2>
               <dl className="mt-4 space-y-2">
                 {reports.rfqSummary.map((row) => (
                   <div key={row.status} className="flex items-baseline justify-between gap-3">
                     <dt className="text-table text-fg-muted">
-                      {rfqStatusLabels[row.status as RFQStatus] ?? row.status}
+                      {procurementLabel(t, "rfqStatus", row.status, rfqStatusLabels[row.status as RFQStatus] ?? row.status)}
                     </dt>
                     <dd className="tabular-nums text-table font-medium text-fg">{row.count}</dd>
                   </div>
@@ -125,10 +130,12 @@ export default async function ReportsPage() {
 }
 
 function SpendPanel({
+  t,
   title,
   rows,
   showCompany = true,
 }: {
+  t: Translate<"procurement">;
   title: string;
   rows: { key: string; label: string; count: number; totals: CurrencyTotal[]; company?: CompanyRef }[];
   /** A row that is one company's own record names it; the by-company panel already does by its label. */
@@ -138,7 +145,7 @@ function SpendPanel({
     <section className="nesto-card p-5">
       <h2 className="text-card font-semibold text-fg">{title}</h2>
       {rows.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">Nothing committed yet.</p>
+        <p className="mt-4 text-table text-fg-subtle">{t("reports.nothingCommitted")}</p>
       ) : (
         <dl className="mt-4 space-y-2.5">
           {rows.slice(0, 8).map((row) => (
@@ -147,7 +154,7 @@ function SpendPanel({
                 <span className="min-w-0 break-words">{row.label}</span>
                 {showCompany && row.company ? <CompanyTag name={row.company.name} /> : null}
                 <span className="text-meta text-fg-subtle">
-                  {row.count} order{row.count === 1 ? "" : "s"}
+                  {t("common.orderCount", { count: row.count })}
                 </span>
               </dt>
               <dd className="shrink-0 tabular-nums text-table font-medium text-fg">

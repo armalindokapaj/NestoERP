@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { CheckCheck } from "lucide-react";
@@ -14,7 +15,10 @@ import { requireModule } from "@/lib/context/current-user";
 import * as approvals from "@/lib/modules/procurement/approvals/approval.service";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Procurement approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.approvals") };
+}
 
 /**
  * The approval queue (PRD #19 §152, §153).
@@ -32,6 +36,7 @@ export default async function ApprovalsPage({
   if (!can(context, "procurement.approval.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "procurement");
+  const t = await getTranslations("procurement");
   const params = await searchParams;
   const requested = Number.parseInt(firstValue(params.page) ?? "1", 10);
   const page = Number.isFinite(requested) && requested > 0 ? requested : 1;
@@ -52,11 +57,11 @@ export default async function ApprovalsPage({
       actions={
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="secondary" size="sm">
-            <Link href="/procurement/approvals/limits">Approval limits</Link>
+            <Link href="/procurement/approvals/limits">{t("approvals.approvalLimits")}</Link>
           </Button>
           {can(context, "approvals.view") ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href="/approvals?provider=procurement">Open in Approvals</Link>
+              <Link href="/approvals?provider=procurement">{t("approvals.openInApprovals")}</Link>
             </Button>
           ) : null}
         </div>
@@ -64,12 +69,12 @@ export default async function ApprovalsPage({
     >
       <div className="space-y-6">
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">Waiting on a decision</h2>
+          <h2 className="text-card font-semibold text-fg">{t("approvals.waiting")}</h2>
           {pending.data.length === 0 ? (
             <EmptyState
               icon={<CheckCheck />}
-              title="Nothing is waiting."
-              description="Requests and orders submitted for approval appear here."
+              title={t("approvals.nothingWaiting")}
+              description={t("approvals.nothingWaitingDescription")}
             />
           ) : (
             <>
@@ -81,9 +86,9 @@ export default async function ApprovalsPage({
 
         {decided.data.length > 0 ? (
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Recently decided</h2>
+            <h2 className="text-card font-semibold text-fg">{t("approvals.recentlyDecided")}</h2>
             <p className="text-meta text-fg-subtle" data-testid="decided-scope">
-              The {decided.data.length} most recent of {decided.pagination.total} decisions.
+              {t("approvals.decidedScope", { shown: decided.data.length, total: decided.pagination.total })}
             </p>
             <ProcurementApprovalQueue approvals={decided.data} />
           </section>

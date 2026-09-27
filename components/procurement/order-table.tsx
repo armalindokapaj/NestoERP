@@ -4,6 +4,7 @@ import type { OrderSummaryDTO } from "@/lib/modules/procurement/procurement.type
 import { formatDate } from "@/lib/utils/format";
 import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount, receivedLabel } from "./procurement-format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The purchase order list (PRD #19 §254, §279).
@@ -12,11 +13,11 @@ import { dueLabel, formatAmount, receivedLabel } from "./procurement-format";
  * because "the half-filled bar" is not a state a screen reader can perceive
  * (PRD #19 §289).
  */
-export function OrderTable({
+export async function OrderTable({
   orders,
   showProject = true,
   showSupplier = true,
-  caption = "Purchase orders",
+  caption,
   listId = "procurement.orders",
 }: {
   orders: OrderSummaryDTO[];
@@ -27,32 +28,33 @@ export function OrderTable({
   listId?: string;
 }) {
   const grouped = isGroupRows(orders);
+  const t = await getTranslations("procurement");
 
   const columns: TableColumn<OrderSummaryDTO>[] = [
     {
       key: "poNumber",
       id: "poNumber",
       mandatory: true,
-      label: "Order",
+      label: t("orders.order"),
       primary: true,
       render: (row) => (
         <RecordLink company={row.company} href={`/procurement/orders/${row.id}`}>
           <span className="flex flex-col">
             <span className="font-medium text-fg">{row.poNumber}</span>
             <span className="text-meta text-fg-subtle">
-              {row.itemCount} line{row.itemCount === 1 ? "" : "s"}
+              {t("common.lineCount", { count: row.itemCount })}
             </span>
           </span>
         </RecordLink>
       ),
     },
-    ...(grouped ? [companyColumn<OrderSummaryDTO>()] : []),
+    ...(grouped ? [companyColumn<OrderSummaryDTO>(t("common.company"))] : []),
     ...(showSupplier
       ? [
           {
             key: "supplier",
             id: "supplier",
-            label: "Supplier",
+            label: t("common.supplier"),
             render: (row: OrderSummaryDTO) => (
               <span className={row.supplier.status === "ACTIVE" ? undefined : "text-fg-subtle"}>
                 {row.supplier.name}
@@ -66,10 +68,10 @@ export function OrderTable({
           {
             key: "project",
             id: "project",
-            label: "Project",
+            label: t("common.project"),
             hideBelow: "xl" as const,
             render: (row: OrderSummaryDTO) =>
-              row.project?.code ?? <span className="text-fg-subtle">Company</span>,
+              row.project?.code ?? <span className="text-fg-subtle">{t("common.company")}</span>,
           },
         ]
       : []),
@@ -78,7 +80,7 @@ export function OrderTable({
       id: "totalAmount",
       mandatory: true,
       valueType: "money",
-      label: "Value",
+      label: t("orders.value"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">{formatAmount(row.totalAmount, row.currency)}</span>
@@ -89,18 +91,18 @@ export function OrderTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("common.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "received",
       id: "received",
       valueType: "status",
-      label: "Received",
+      label: t("common.received"),
       hideBelow: "lg",
       render: (row) =>
         row.attention.awaitingReceipt || row.receivedFraction > 0 ? (
-          <span className="text-meta">{receivedLabel(row.receivedFraction)}</span>
+          <span className="text-meta">{receivedLabel(t, row.receivedFraction)}</span>
         ) : (
           <span className="text-fg-subtle">—</span>
         ),
@@ -109,16 +111,16 @@ export function OrderTable({
       key: "requiredDate",
       id: "requiredDate",
       valueType: "date",
-      label: "Due",
+      label: t("orders.due"),
       hideBelow: "md",
       render: (row) =>
         row.requiredDate ? (
           <span className={row.attention.overdue ? "text-warning-strong" : undefined}>
             {formatDate(row.requiredDate)}
-            {row.attention.overdue ? ` · ${dueLabel(row.attention.daysToRequired)}` : ""}
+            {row.attention.overdue ? ` · ${dueLabel(t, row.attention.daysToRequired)}` : ""}
           </span>
         ) : (
-          <span className="text-fg-subtle">No date</span>
+          <span className="text-fg-subtle">{t("common.noDate")}</span>
         ),
     },
   ];
@@ -130,7 +132,7 @@ export function OrderTable({
       records={orders}
       rowKey={(row) => row.id}
       rowHref={grouped ? undefined : (row) => `/procurement/orders/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("orders.caption")}
     />
   );
 }

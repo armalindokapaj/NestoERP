@@ -18,6 +18,7 @@ import {
 } from "@/lib/actions/procurement";
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { RequestDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * What a reader may do to a purchase request (PRD #19 §56–§60).
@@ -37,6 +38,8 @@ export function RequestActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<"none" | "reject" | "cancel" | "archive">("none");
 
@@ -48,7 +51,7 @@ export function RequestActions({
       toast({ title: success, tone: "success" });
       router.refresh();
     } else {
-      toast({ title: result.error, tone: "danger" });
+      toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
     }
   }
 
@@ -64,66 +67,66 @@ export function RequestActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/procurement/requests/${request.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
-        <Button size="sm" disabled={pending} onClick={() => run("submit", "Sent for approval.")}>
-          Submit for approval
+        <Button size="sm" disabled={pending} onClick={() => run("submit", t("common.sentForApproval"))}>
+          {t("common.submitForApproval")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("reject")}>
-          Reject
+          {t("common.reject")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
-        <Button size="sm" disabled={pending} onClick={() => run("approve", "Request approved.")}>
-          Approve
+        <Button size="sm" disabled={pending} onClick={() => run("approve", t("requests.approved"))}>
+          {t("common.approve")}
         </Button>
       ) : null}
 
       {may.canCreateRfq ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/procurement/rfqs/new?requestId=${request.id}`}>Create enquiry</Link>
+          <Link href={`/procurement/rfqs/new?requestId=${request.id}`}>{t("requests.createEnquiry")}</Link>
         </Button>
       ) : null}
 
       {may.canCreateOrder ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/procurement/orders/new?requestId=${request.id}`}>Create order</Link>
+          <Link href={`/procurement/orders/new?requestId=${request.id}`}>{t("requests.createOrder")}</Link>
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("archive")}>
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
       {may.canRestore ? (
-        <Button variant="secondary" size="sm" disabled={pending} onClick={() => run("restore", "Request restored.")}>
-          Restore
+        <Button variant="secondary" size="sm" disabled={pending} onClick={() => run("restore", t("requests.restored"))}>
+          {t("common.restore")}
         </Button>
       ) : null}
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Reject ${request.requestNumber}?`}
+        title={t("requests.rejectTitle", { number: request.requestNumber })}
         onReject={async (reason) => {
           const result = await rejectRequestAction(request.id, reason, cycle);
-          handle(result, "Request rejected.");
+          handle(result, t("requests.rejected"));
           return result.ok;
         }}
       />
@@ -131,16 +134,16 @@ export function RequestActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Cancel ${request.requestNumber}?`}
-        description="The request stays on the record, marked cancelled."
-        label="Note"
-        placeholder="Why is this no longer needed?"
-        confirmLabel="Cancel request"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it is no longer needed."
+        title={t("requests.cancelTitle", { number: request.requestNumber })}
+        description={t("requests.cancelDescription")}
+        label={t("common.note")}
+        placeholder={t("requests.cancelPlaceholder")}
+        confirmLabel={t("requests.cancelConfirm")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("requests.cancelEmpty")}
         onReject={async (note) => {
           const result = await cancelRequestAction(request.id, note);
-          handle(result, "Request cancelled.");
+          handle(result, t("requests.cancelled"));
           return result.ok;
         }}
       />
@@ -148,10 +151,10 @@ export function RequestActions({
       <ConfirmDialog
         open={dialog === "archive"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Archive ${request.requestNumber}?`}
-        description="It leaves the register and can be restored to the state it holds now."
-        confirmLabel="Archive request"
-        onConfirm={() => run("archive", "Request archived.")}
+        title={t("requests.archiveTitle", { number: request.requestNumber })}
+        description={t("common.archiveDescription")}
+        confirmLabel={t("requests.archiveConfirm")}
+        onConfirm={() => run("archive", t("requests.archived"))}
       />
     </>
   );

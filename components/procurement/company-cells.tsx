@@ -13,10 +13,10 @@ import type { CompanyRef } from "@/lib/modules/procurement/procurement.types";
  */
 
 /** The row's company as a column: a tag in the Group workspace, absent otherwise. */
-export function companyColumn<T extends { company?: CompanyRef }>(): TableColumn<T> {
+export function companyColumn<T extends { company?: CompanyRef }>(label = "Company"): TableColumn<T> {
   return {
     key: "company",
-    label: "Company",
+    label,
     render: (row) => (row.company ? <CompanyTag name={row.company.name} /> : null),
   };
 }

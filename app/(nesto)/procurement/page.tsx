@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, ShoppingCart } from "lucide-react";
 
@@ -23,7 +24,10 @@ import type { CompanyRef } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
 import { formatAmount, receivedLabel } from "@/components/procurement/procurement-format";
 
-export const metadata: Metadata = { title: "Procurement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.procurement") };
+}
 
 /**
  * The Procurement overview (PRD #19 §22–§25).
@@ -39,6 +43,7 @@ export const metadata: Metadata = { title: "Procurement" };
  */
 export default async function ProcurementOverviewPage() {
   const context = await requireModule("procurement");
+  const t = await getTranslations("procurement");
   const group = inGroupWorkspace(context);
   const experience = await resolveProcurementExperience(context);
 
@@ -58,7 +63,7 @@ export default async function ProcurementOverviewPage() {
       actions={
         !group && can(context, "procurement.request.create") ? (
           <Button asChild size="sm">
-            <Link href="/procurement/requests/new">New request</Link>
+            <Link href="/procurement/requests/new">{t("overview.newRequest")}</Link>
           </Button>
         ) : null
       }
@@ -71,17 +76,18 @@ export default async function ProcurementOverviewPage() {
         {!overview.visible.requests && !overview.visible.orders ? (
           <EmptyState
             icon={<ShoppingCart />}
-            title="Nothing in your Procurement view."
-            description="Your access covers the module but not the buying records inside it."
+            title={t("overview.emptyTitle")}
+            description={t("overview.emptyDescription")}
           />
         ) : null}
 
         {attention ? (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <AttentionPanel
-              title="Awaiting approval"
+              viewAllLabel={t("common.viewAll")}
+              title={t("overview.awaitingApproval")}
               href="/procurement/requests?view=pending"
-              emptyLabel="No requests are waiting on a decision."
+              emptyLabel={t("overview.awaitingApprovalEmpty")}
               rows={attention.awaitingApproval.map((row) => ({
                 id: row.id,
                 company: row.company,
@@ -89,47 +95,50 @@ export default async function ProcurementOverviewPage() {
                 title: `${row.requestNumber} — ${row.title}`,
                 meta: row.currency
                   ? formatAmount(row.estimatedTotal, row.currency)
-                  : "No estimate",
+                  : t("overview.noEstimate"),
               }))}
             />
 
             <AttentionPanel
-              title="Overdue deliveries"
+              viewAllLabel={t("common.viewAll")}
+              title={t("overview.overdueDeliveries")}
               href="/procurement/orders?view=receiving"
-              emptyLabel="Nothing is past its delivery date."
+              emptyLabel={t("overview.overdueEmpty")}
               rows={attention.overdueOrders.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/procurement/orders/${row.id}`,
                 title: `${row.poNumber} — ${row.supplier.name}`,
-                meta: row.requiredDate ? `Due ${formatDate(row.requiredDate)}` : "No date",
+                meta: row.requiredDate ? t("overview.due", { date: formatDate(row.requiredDate) }) : t("common.noDate"),
               }))}
             />
 
             <AttentionPanel
-              title="Awaiting receipt"
+              viewAllLabel={t("common.viewAll")}
+              title={t("overview.awaitingReceipt")}
               href="/procurement/orders?view=receiving"
-              emptyLabel="Nothing is out with a supplier."
+              emptyLabel={t("overview.awaitingReceiptEmpty")}
               rows={attention.awaitingReceipt.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/procurement/orders/${row.id}`,
                 title: `${row.poNumber} — ${row.supplier.name}`,
-                meta: receivedLabel(row.receivedFraction),
+                meta: receivedLabel(t, row.receivedFraction),
               }))}
             />
 
             <AttentionPanel
-              title="Enquiries closing"
+              viewAllLabel={t("common.viewAll")}
+              title={t("overview.enquiriesClosing")}
               // The enquiry register is company work; it has no group list to send the reader to.
               href={group ? null : "/procurement/rfqs?view=issued"}
-              emptyLabel="No enquiries are open."
+              emptyLabel={t("overview.enquiriesEmpty")}
               rows={attention.rfqsClosingSoon.map((row) => ({
                 id: row.id,
                 company: row.company,
                 href: `/procurement/rfqs/${row.id}`,
                 title: `${row.rfqNumber} — ${row.title}`,
-                meta: `${row.respondedCount} of ${row.invitedCount} replied`,
+                meta: t("overview.replied", { responded: row.respondedCount, invited: row.invitedCount }),
               }))}
             />
           </div>
@@ -144,11 +153,13 @@ function AttentionPanel({
   href,
   rows,
   emptyLabel,
+  viewAllLabel,
 }: {
   title: string;
   href: string | null;
   rows: { id: string; company?: CompanyRef; href: string; title: string; meta: string }[];
   emptyLabel: string;
+  viewAllLabel: string;
 }) {
   return (
     <section className="nesto-card p-5">
@@ -159,7 +170,7 @@ function AttentionPanel({
             href={href}
             className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
           >
-            View all
+            {viewAllLabel}
             <ArrowRight aria-hidden="true" className="size-3.5" />
           </Link>
         ) : null}

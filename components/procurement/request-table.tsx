@@ -6,6 +6,8 @@ import { priorityLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDate } from "@/lib/utils/format";
 import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount } from "./procurement-format";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The purchase request list (PRD #19 §249, §277).
@@ -14,23 +16,24 @@ import { dueLabel, formatAmount } from "./procurement-format";
  * rather than a commitment and a column headed "Value" invites people to read
  * it as one (PRD #19 §48).
  */
-export function RequestTable({
+export async function RequestTable({
   requests,
   showProject = true,
-  caption = "Purchase requests",
+  caption,
 }: {
   requests: RequestSummaryDTO[];
   showProject?: boolean;
   caption?: string;
 }) {
   const grouped = isGroupRows(requests);
+  const t = await getTranslations("procurement");
 
   const columns: TableColumn<RequestSummaryDTO>[] = [
     {
       key: "requestNumber",
       id: "requestNumber",
       mandatory: true,
-      label: "Request",
+      label: t("common.request"),
       primary: true,
       render: (row) => (
         <RecordLink company={row.company} href={`/procurement/requests/${row.id}`}>
@@ -41,28 +44,28 @@ export function RequestTable({
         </RecordLink>
       ),
     },
-    ...(grouped ? [companyColumn<RequestSummaryDTO>()] : []),
+    ...(grouped ? [companyColumn<RequestSummaryDTO>(t("common.company"))] : []),
     ...(showProject
       ? [
           {
             key: "project",
             id: "project",
-            label: "Project",
+            label: t("common.project"),
             hideBelow: "lg" as const,
             render: (row: RequestSummaryDTO) =>
-              row.project?.code ?? <span className="text-fg-subtle">Company</span>,
+              row.project?.code ?? <span className="text-fg-subtle">{t("common.company")}</span>,
           },
         ]
       : []),
     {
       key: "requestedBy",
       id: "requestedBy",
-      label: "Raised by",
+      label: t("common.raisedBy"),
       hideBelow: "xl",
       render: (row) => (
         <span className={row.requestedBy.active ? undefined : "text-fg-subtle"}>
           <PersonLink memberId={row.requestedBy.memberId} name={row.requestedBy.fullName} />
-          {row.requestedBy.active ? "" : " (inactive)"}
+          {row.requestedBy.active ? "" : t("requests.inactive")}
         </span>
       ),
     },
@@ -70,15 +73,15 @@ export function RequestTable({
       key: "priority",
       id: "priority",
       valueType: "status",
-      label: "Priority",
+      label: t("common.priority"),
       hideBelow: "xl",
-      render: (row) => priorityLabels[row.priority],
+      render: (row) => procurementLabel(t, "priority", row.priority, priorityLabels[row.priority]),
     },
     {
       key: "estimatedTotal",
       id: "estimatedTotal",
       valueType: "money",
-      label: "Estimated",
+      label: t("requests.estimated"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
@@ -91,23 +94,23 @@ export function RequestTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("common.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "requiredDate",
       id: "requiredDate",
       valueType: "date",
-      label: "Needed",
+      label: t("requests.needed"),
       hideBelow: "md",
       render: (row) =>
         row.requiredDate ? (
           <span className={row.attention.overdue ? "text-warning-strong" : undefined}>
             {formatDate(row.requiredDate)}
-            {row.attention.overdue ? ` · ${dueLabel(row.attention.daysToRequired)}` : ""}
+            {row.attention.overdue ? ` · ${dueLabel(t, row.attention.daysToRequired)}` : ""}
           </span>
         ) : (
-          <span className="text-fg-subtle">No date</span>
+          <span className="text-fg-subtle">{t("common.noDate")}</span>
         ),
     },
   ];
@@ -119,7 +122,7 @@ export function RequestTable({
       records={requests}
       rowKey={(row) => row.id}
       rowHref={grouped ? undefined : (row) => `/procurement/requests/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("requests.caption")}
     />
   );
 }

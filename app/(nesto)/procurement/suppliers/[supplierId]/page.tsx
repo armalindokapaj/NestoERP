@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { OrderTable } from "@/components/procurement/order-table";
@@ -11,6 +12,7 @@ import * as orders from "@/lib/modules/procurement/orders/order.service";
 import * as suppliers from "@/lib/modules/procurement/suppliers/supplier.service";
 import { supplierTypeLabels } from "@/lib/modules/procurement/procurement.status";
 import { formatDateTime, orDash } from "@/lib/utils/format";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 type Params = { params: Promise<{ supplierId: string }> };
 
@@ -21,7 +23,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const supplier = await suppliers.getSupplier(context, supplierId);
     return { title: supplier.name };
   } catch {
-    return { title: "Supplier" };
+    return { title: (await getTranslations("procurement"))("meta.supplier") };
   }
 }
 
@@ -41,50 +43,52 @@ export default async function SupplierDetailPage({ params }: Params) {
   const recentOrders = supplier.capabilities.canViewOrders
     ? await orders.listForSupplier(context, supplierId)
     : [];
+  const t = await getTranslations("procurement");
+  const typeLabel = procurementLabel(t, "supplierType", supplier.supplierType, supplierTypeLabels[supplier.supplierType]);
 
   return (
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Suppliers", href: "/procurement/suppliers" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.suppliers"), href: "/procurement/suppliers" },
           { label: supplier.name },
         ]}
         title={supplier.name}
         subtitle={supplier.code ?? supplier.legalName ?? undefined}
         status={supplier.status}
-        badges={<Badge tone="neutral">{supplierTypeLabels[supplier.supplierType]}</Badge>}
+        badges={<Badge tone="neutral">{typeLabel}</Badge>}
         meta={[
-          { label: "Open orders", value: String(supplier.openOrders) },
+          { label: t("suppliers.openOrders"), value: String(supplier.openOrders) },
           {
-            label: "Payment terms",
+            label: t("suppliers.paymentTerms"),
             value:
-              supplier.paymentTermsDays === null ? "Not set" : `${supplier.paymentTermsDays} days`,
+              supplier.paymentTermsDays === null ? t("common.notSet") : t("common.days", { count: supplier.paymentTermsDays }),
           },
-          { label: "Country", value: orDash(supplier.country) },
+          { label: t("common.country"), value: orDash(supplier.country) },
         ]}
         actions={<SupplierActions supplier={supplier} />}
       />
 
       {supplier.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This supplier is archived and cannot be named on new buying. Restore it first.
+          {t("suppliers.archivedNotice")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("common.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Legal name", value: orDash(supplier.legalName) },
-                { label: "Type", value: supplierTypeLabels[supplier.supplierType] },
-                { label: "Tax number", value: orDash(supplier.taxId) },
-                { label: "Registration number", value: orDash(supplier.registrationNumber) },
+                { label: t("suppliers.legalName"), value: orDash(supplier.legalName) },
+                { label: t("common.type"), value: typeLabel },
+                { label: t("suppliers.taxNumber"), value: orDash(supplier.taxId) },
+                { label: t("suppliers.registrationNumber"), value: orDash(supplier.registrationNumber) },
                 {
-                  label: "Email",
+                  label: t("suppliers.email"),
                   value: supplier.email ? (
                     <a href={`mailto:${supplier.email}`} className="hover:text-accent">
                       {supplier.email}
@@ -94,7 +98,7 @@ export default async function SupplierDetailPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Phone",
+                  label: t("suppliers.phone"),
                   value: supplier.phone ? (
                     <a href={`tel:${supplier.phone}`} className="hover:text-accent">
                       {supplier.phone}
@@ -104,7 +108,7 @@ export default async function SupplierDetailPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Website",
+                  label: t("suppliers.website"),
                   value: supplier.website ? (
                     // Only http(s) reaches this point; the schema refuses
                     // anything else (PRD #19 §26).
@@ -120,25 +124,25 @@ export default async function SupplierDetailPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: "Default currency", value: orDash(supplier.defaultCurrency) },
+                { label: t("suppliers.defaultCurrency"), value: orDash(supplier.defaultCurrency) },
               ]}
             />
 
             <div className="mt-6 border-t border-line pt-5">
-              <h3 className="text-table font-semibold text-fg">Address</h3>
+              <h3 className="text-table font-semibold text-fg">{t("suppliers.address")}</h3>
               <DetailGrid
                 className="mt-3"
                 items={[
-                  { label: "Address", value: orDash(supplier.address) },
-                  { label: "City", value: orDash(supplier.city) },
-                  { label: "Country", value: orDash(supplier.country) },
+                  { label: t("suppliers.address"), value: orDash(supplier.address) },
+                  { label: t("suppliers.city"), value: orDash(supplier.city) },
+                  { label: t("common.country"), value: orDash(supplier.country) },
                 ]}
               />
             </div>
 
             {supplier.notes ? (
               <div className="mt-6 border-t border-line pt-5">
-                <h3 className="text-table font-semibold text-fg">Notes</h3>
+                <h3 className="text-table font-semibold text-fg">{t("common.notes")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {supplier.notes}
                 </p>
@@ -148,16 +152,16 @@ export default async function SupplierDetailPage({ params }: Params) {
 
           {recentOrders.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Orders</h2>
+              <h2 className="text-card font-semibold text-fg">{t("suppliers.orders")}</h2>
               {(recentOrders.total ?? recentOrders.length) > recentOrders.length ? (
                 <p className="text-meta text-fg-subtle" data-testid="supplier-orders-scope">
-                  The {recentOrders.length} most recent of {recentOrders.total} orders.
+                  {t("common.mostRecentOrders", { shown: recentOrders.length, total: recentOrders.total ?? recentOrders.length })}
                 </p>
               ) : null}
               <OrderTable
                 orders={recentOrders}
                 showSupplier={false}
-                caption={`Orders with ${supplier.name}`}
+                caption={t("suppliers.ordersWith", { name: supplier.name })}
                 listId="procurement.supplier-orders"
               />
             </section>
@@ -166,21 +170,21 @@ export default async function SupplierDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Activity so far</h2>
+            <h2 className="text-card font-semibold text-fg">{t("suppliers.activity")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Orders" value={String(supplier.counts.orders)} />
-              <Meta label="Quotes" value={String(supplier.counts.quotes)} />
-              <Meta label="Deliveries" value={String(supplier.counts.receipts)} />
+              <Meta label={t("suppliers.orders")} value={String(supplier.counts.orders)} />
+              <Meta label={t("suppliers.quotes")} value={String(supplier.counts.quotes)} />
+              <Meta label={t("suppliers.deliveries")} value={String(supplier.counts.receipts)} />
             </dl>
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Added" value={formatDateTime(supplier.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(supplier.updatedAt)} />
+              <Meta label={t("suppliers.added")} value={formatDateTime(supplier.createdAt)} />
+              <Meta label={t("common.updated")} value={formatDateTime(supplier.updatedAt)} />
               {supplier.archivedAt ? (
-                <Meta label="Archived" value={formatDateTime(supplier.archivedAt)} />
+                <Meta label={t("suppliers.archived")} value={formatDateTime(supplier.archivedAt)} />
               ) : null}
             </dl>
           </section>

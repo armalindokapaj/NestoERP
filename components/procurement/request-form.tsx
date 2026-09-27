@@ -19,6 +19,8 @@ import {
 } from "@/lib/modules/procurement/procurement.status";
 import { LineItemsEditor, type LineValue } from "./line-items";
 import { withSavedOption } from "@/components/finance/saved-option";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import { useProcurementTranslations } from "./procurement-text";
 
 export type RequestFormValues = {
   title: string;
@@ -64,9 +66,10 @@ export function RequestForm({
   pendingLabel: string;
 }) {
   // Saved links the pickers no longer offer stay on this request (FV-10).
-  const projectOptions = withSavedOption(projects, values?.projectId, "Current project (no longer available for new requests)");
-  const departmentOptions = withSavedOption(departments, values?.departmentId, "Current department (archived)");
-  const memberOptions = withSavedOption(members, values?.ownerMemberId, "Current buyer (no longer active — choose another to save)");
+  const t = useProcurementTranslations();
+  const projectOptions = withSavedOption(projects, values?.projectId, t("requests.savedProject"));
+  const departmentOptions = withSavedOption(departments, values?.departmentId, t("requests.savedDepartment"));
+  const memberOptions = withSavedOption(members, values?.ownerMemberId, t("requests.savedBuyer"));
 
   return (
     <RecordForm
@@ -78,14 +81,14 @@ export function RequestForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="What is needed"
-        description="A request is an ask, not a commitment. Nothing is owed to anybody until an order is issued."
+        title={t("requests.formSection")}
+        description={t("requests.formDescription")}
       >
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("common.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={250} />
         </Field>
 
-        <Field label="Priority" name="priority" required>
+        <Field label={t("common.priority")} name="priority" required>
           <select
             id="priority"
             name="priority"
@@ -94,13 +97,13 @@ export function RequestForm({
           >
             {PRIORITIES.map((priority) => (
               <option key={priority} value={priority}>
-                {priorityLabels[priority]}
+                {procurementLabel(t, "priority", priority, priorityLabels[priority])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Needed by" name="requiredDate">
+        <Field label={t("requests.neededBy")} name="requiredDate">
           <Input
             id="requiredDate"
             name="requiredDate"
@@ -109,7 +112,7 @@ export function RequestForm({
           />
         </Field>
 
-        <Field label="Notes" name="description" className="sm:col-span-2">
+        <Field label={t("common.notes")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -121,17 +124,17 @@ export function RequestForm({
       </FormSection>
 
       <FormSection
-        title="Where it belongs"
-        description="A request with no project is a company-general ask — office equipment, insurance, and the like."
+        title={t("common.whereItBelongs")}
+        description={t("requests.belongsDescription")}
       >
-        <Field label="Project" name="projectId">
+        <Field label={t("common.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project</option>
+            <option value="">{t("common.noProject")}</option>
             {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -140,14 +143,14 @@ export function RequestForm({
           </select>
         </Field>
 
-        <Field label="Department" name="departmentId">
+        <Field label={t("common.department")} name="departmentId">
           <select
             id="departmentId"
             name="departmentId"
             className={selectClass}
             defaultValue={values?.departmentId ?? ""}
           >
-            <option value="">Not set</option>
+            <option value="">{t("common.notSet")}</option>
             {departmentOptions.map((department) => (
               <option key={department.value} value={department.value}>
                 {department.label}
@@ -156,14 +159,14 @@ export function RequestForm({
           </select>
         </Field>
 
-        <Field label="Buyer" name="ownerMemberId" hint="Who will source this">
+        <Field label={t("requests.buyer")} name="ownerMemberId" hint={t("requests.buyerHint")}>
           <select
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
             defaultValue={values?.ownerMemberId ?? ""}
           >
-            <option value="">Not assigned</option>
+            <option value="">{t("requests.notAssigned")}</option>
             {memberOptions.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -172,14 +175,14 @@ export function RequestForm({
           </select>
         </Field>
 
-        <Field label="Currency" name="currency" hint="For the estimates below">
+        <Field label={t("common.currency")} name="currency" hint={t("requests.currencyHint")}>
           <select
             id="currency"
             name="currency"
             className={selectClass}
             defaultValue={values?.currency ?? "EUR"}
           >
-            <option value="">Not set</option>
+            <option value="">{t("common.notSet")}</option>
             {currencyOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -190,8 +193,8 @@ export function RequestForm({
       </FormSection>
 
       <FormSection
-        title="Lines"
-        description="What is being asked for, and roughly what it is expected to cost. A line with no estimate contributes nothing to the total rather than zero."
+        title={t("common.lines")}
+        description={t("requests.linesDescription")}
       >
         <div className="sm:col-span-2">
           <LineItemsEditor
@@ -199,9 +202,9 @@ export function RequestForm({
             columns={["quantity", "unit", "estimatedUnitPrice", "category"]}
             categories={CATEGORIES.map((category) => ({
               value: category,
-              label: categoryLabels[category],
+              label: procurementLabel(t, "category", category, categoryLabels[category]),
             }))}
-            priceLabel="Estimated unit price"
+            priceLabel={t("requests.estimatedUnitPrice")}
             priceField="estimatedUnitPrice"
           />
         </div>

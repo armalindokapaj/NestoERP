@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { getTranslations } from "@/lib/i18n/server";
 
 import type {
   ProcurementCompanyFiguresDTO,
@@ -14,7 +15,7 @@ import { ScrollRegion } from "@/components/ui/scroll-region";
  * permission is missing would be a claim about the world rather than about
  * their access (PRD #19 §259).
  */
-export function ProcurementKpiGrid({
+export async function ProcurementKpiGrid({
   overview,
   group = false,
 }: {
@@ -22,58 +23,59 @@ export function ProcurementKpiGrid({
   /** The Group workspace: a card whose page belongs to one company is not a link there (Workspace Context §25, §29). */
   group?: boolean;
 }) {
+  const t = await getTranslations("procurement");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.requests) {
     cards.push({
-      label: "Open requests",
+      label: t("kpis.openRequests"),
       value: String(overview.openRequests),
-      hint: `${overview.requestsAwaitingApproval} awaiting approval`,
+      hint: t("kpis.awaitingApprovalHint", { count: overview.requestsAwaitingApproval }),
       href: "/procurement/requests",
     });
   }
 
   if (overview.visible.orders) {
     cards.push({
-      label: "Awaiting receipt",
+      label: t("kpis.awaitingReceipt"),
       value: String(overview.ordersAwaitingReceipt),
       hint:
         overview.overdueOrders > 0
-          ? `${overview.overdueOrders} past their date`
-          : "All on schedule",
+          ? t("kpis.pastTheirDateHint", { count: overview.overdueOrders })
+          : t("kpis.allOnSchedule"),
       href: "/procurement/orders?view=receiving",
     });
     cards.push({
-      label: "Orders to approve",
+      label: t("kpis.ordersToApprove"),
       value: String(overview.ordersAwaitingApproval),
-      hint: `${overview.issuedOrders} issued`,
+      hint: t("kpis.issuedHint", { count: overview.issuedOrders }),
       href: "/procurement/orders?view=pending",
     });
   }
 
   if (overview.committedValue) {
     cards.push({
-      label: "Committed value",
+      label: t("kpis.committedValue"),
       value: totalsLabel(overview.committedValue),
       hint: group
-        ? "Ordered, not paid. Added per currency across companies, never between currencies."
-        : "Ordered, not paid. Grouped by currency.",
+        ? t("kpis.committedGroupHint")
+        : t("kpis.committedHint"),
       href: "/procurement/reports",
     });
   }
 
   if (overview.openRfqs > 0 || overview.rfqsAwaitingResponse > 0) {
     cards.push({
-      label: "Open enquiries",
+      label: t("kpis.openEnquiries"),
       value: String(overview.openRfqs),
-      hint: `${overview.rfqsAwaitingResponse} still awaiting a reply`,
+      hint: t("kpis.awaitingReplyHint", { count: overview.rfqsAwaitingResponse }),
       href: group ? undefined : "/procurement/rfqs?view=issued",
     });
   }
 
   if (overview.visible.suppliers) {
     cards.push({
-      label: "Active suppliers",
+      label: t("kpis.activeSuppliers"),
       value: String(overview.activeSuppliers),
       href: "/procurement/suppliers",
     });
@@ -118,22 +120,23 @@ export function ProcurementKpiGrid({
  * committed value is in its own currencies; the rows are never added into a
  * single figure here.
  */
-export function ProcurementCompanyBreakdown({ companies }: { companies: ProcurementCompanyFiguresDTO[] }) {
+export async function ProcurementCompanyBreakdown({ companies }: { companies: ProcurementCompanyFiguresDTO[] }) {
   if (companies.length === 0) return null;
+  const t = await getTranslations("procurement");
 
   return (
     <section className="nesto-card p-5" data-testid="procurement-company-breakdown">
-      <h2 className="text-card font-semibold text-fg">By company</h2>
-      <ScrollRegion label="Procurement figures by company" className="mt-3">
+      <h2 className="text-card font-semibold text-fg">{t("kpis.byCompany")}</h2>
+      <ScrollRegion label={t("kpis.figuresByCompany")} className="mt-3">
         <table className="w-full text-table">
-          <caption className="sr-only">Procurement figures by company</caption>
+          <caption className="sr-only">{t("kpis.figuresByCompany")}</caption>
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
-              <th scope="col" className="pb-2 pr-3 font-medium">Company</th>
-              <th scope="col" className="pb-2 pr-3 text-right font-medium">Open requests</th>
-              <th scope="col" className="pb-2 pr-3 text-right font-medium">Awaiting receipt</th>
-              <th scope="col" className="pb-2 pr-3 text-right font-medium">Past their date</th>
-              <th scope="col" className="pb-2 text-right font-medium">Committed value</th>
+              <th scope="col" className="pb-2 pr-3 font-medium">{t("common.company")}</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">{t("kpis.openRequests")}</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">{t("kpis.awaitingReceipt")}</th>
+              <th scope="col" className="pb-2 pr-3 text-right font-medium">{t("kpis.pastTheirDate")}</th>
+              <th scope="col" className="pb-2 text-right font-medium">{t("kpis.committedValue")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

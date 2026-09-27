@@ -1,5 +1,6 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -22,6 +23,7 @@ import {
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 import { dueLabel, formatAmount } from "@/components/procurement/procurement-format";
 import { RecordTasks } from "@/components/tasks/record-tasks";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 type Params = { params: Promise<{ requestId: string }> };
 
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const request = await requests.getRequest(context, requestId);
     return { title: `${request.requestNumber} — ${request.title}` };
   } catch {
-    return { title: "Purchase request" };
+    return { title: (await getTranslations("procurement"))("meta.request") };
   }
 }
 
@@ -60,6 +62,9 @@ export default async function RequestDetailPage({ params }: Params) {
     request.capabilities.canApprove || request.capabilities.canReject
       ? await pendingCycle(context, "PURCHASE_REQUEST", request.id)
       : null;
+  const t = await getTranslations("procurement");
+  const priority = procurementLabel(t, "priority", request.priority, priorityLabels[request.priority]);
+  const category = (value: keyof typeof categoryLabels) => procurementLabel(t, "category", value, categoryLabels[value]);
   const currency = request.currency;
   const money = (value: string) => (currency ? formatAmount(value, currency) : value);
 
@@ -67,8 +72,8 @@ export default async function RequestDetailPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Requests", href: "/procurement/requests" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.requests"), href: "/procurement/requests" },
           { label: request.requestNumber },
         ]}
         title={request.title}
@@ -76,22 +81,22 @@ export default async function RequestDetailPage({ params }: Params) {
         status={request.status}
         badges={
           <>
-            <Badge tone="neutral">{priorityLabels[request.priority]}</Badge>
+            <Badge tone="neutral">{priority}</Badge>
             {request.attention.overdue ? (
-              <Badge tone="warning">{dueLabel(request.attention.daysToRequired)}</Badge>
+              <Badge tone="warning">{dueLabel(t, request.attention.daysToRequired)}</Badge>
             ) : null}
-            {request.attention.unsourced ? <Badge tone="info">Not yet sourced</Badge> : null}
+            {request.attention.unsourced ? <Badge tone="info">{t("requests.notSourced")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Raised by", value: <PersonLink memberId={request.requestedBy.memberId} name={request.requestedBy.fullName} /> },
+          { label: t("common.raisedBy"), value: <PersonLink memberId={request.requestedBy.memberId} name={request.requestedBy.fullName} /> },
           {
-            label: "Estimated",
-            value: currency ? money(request.estimatedTotal) : "Not priced",
+            label: t("requests.estimated"),
+            value: currency ? money(request.estimatedTotal) : t("requests.notPriced"),
           },
           {
-            label: "Needed",
-            value: request.requiredDate ? formatDate(request.requiredDate) : "No date",
+            label: t("requests.needed"),
+            value: request.requiredDate ? formatDate(request.requiredDate) : t("common.noDate"),
           },
         ]}
         actions={
@@ -104,13 +109,13 @@ export default async function RequestDetailPage({ params }: Params) {
 
       {request.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This request is archived and read-only. Restore it to make changes.
+          {t("requests.archivedNotice")}
         </p>
       ) : null}
 
       {request.rejectionReason ? (
         <p className="rounded-md bg-warning-soft px-4 py-3 text-table text-warning-strong">
-          <span className="font-medium">Rejected:</span> {request.rejectionReason}
+          <span className="font-medium">{t("common.rejectedPrefix")}</span> {request.rejectionReason}
         </p>
       ) : null}
 
@@ -118,22 +123,22 @@ export default async function RequestDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 p-5">
-              <h2 className="text-card font-semibold text-fg">What is being asked for</h2>
+              <h2 className="text-card font-semibold text-fg">{t("requests.asked")}</h2>
               <span className="text-meta text-fg-subtle">
-                {request.items.length} line{request.items.length === 1 ? "" : "s"}
+                {t("common.lineCount", { count: request.items.length })}
               </span>
             </div>
 
-            <ScrollRegion label="Request lines" className="hidden md:block">
+            <ScrollRegion label={t("requests.linesLabel")} className="hidden md:block">
               <table className="w-full text-table">
-                <caption className="sr-only">Request lines</caption>
+                <caption className="sr-only">{t("requests.linesLabel")}</caption>
                 <thead>
                   <tr className="border-y border-line text-left text-meta text-fg-subtle">
-                    <th scope="col" className="px-5 py-2 font-medium">Description</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Quantity</th>
-                    <th scope="col" className="px-5 py-2 font-medium">Unit</th>
-                    <th scope="col" className="px-5 py-2 font-medium">Category</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Estimate</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.description")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.quantity")}</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.unit")}</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.category")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("requests.estimate")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -150,7 +155,7 @@ export default async function RequestDetailPage({ params }: Params) {
                       <td className="px-5 py-3 text-right tabular-nums text-fg">{item.quantity}</td>
                       <td className="px-5 py-3 text-fg-muted">{item.unit}</td>
                       <td className="px-5 py-3 text-fg-muted">
-                        {item.category ? categoryLabels[item.category] : "—"}
+                        {item.category ? category(item.category) : "—"}
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-fg">
                         {item.estimatedUnitPrice === null ? "—" : money(item.estimatedAmount)}
@@ -161,24 +166,24 @@ export default async function RequestDetailPage({ params }: Params) {
                 <tfoot>
                   <tr className="border-t border-line">
                     <td colSpan={4} className="px-5 py-3 text-right font-medium text-fg">
-                      Estimated total
+                      {t("requests.estimatedTotal")}
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums font-semibold text-fg">
-                      {currency ? money(request.estimatedTotal) : "Not priced"}
+                      {currency ? money(request.estimatedTotal) : t("requests.notPriced")}
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </ScrollRegion>
             {/* Phones read each line as a card and the estimate under the list, not a sideways-scrolling table (AUD-04 §5, MW-05). */}
-            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label="Request lines" data-testid="request-line-cards">
+            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label={t("requests.linesLabel")} data-testid="request-line-cards">
               {request.items.map((item) => (
                 <li key={item.id} className="space-y-1 px-5 py-3 text-table">
                   <p className="break-words text-fg">{item.description}</p>
                   {item.specification ? <p className="break-words text-meta text-fg-subtle">{item.specification}</p> : null}
                   <p className="tabular-nums text-fg-muted">
                     {item.quantity} {item.unit}
-                    {item.category ? ` · ${categoryLabels[item.category]}` : ""}
+                    {item.category ? ` · ${category(item.category)}` : ""}
                     {item.estimatedUnitPrice === null ? null : (
                       <>
                         {" "}
@@ -190,14 +195,14 @@ export default async function RequestDetailPage({ params }: Params) {
               ))}
             </ul>
             <div className="flex justify-between gap-3 border-t border-line px-5 py-3 text-table md:hidden">
-              <span className="font-medium text-fg">Estimated total</span>
-              <span className="font-semibold tabular-nums text-fg">{currency ? money(request.estimatedTotal) : "Not priced"}</span>
+              <span className="font-medium text-fg">{t("requests.estimatedTotal")}</span>
+              <span className="font-semibold tabular-nums text-fg">{currency ? money(request.estimatedTotal) : t("requests.notPriced")}</span>
             </div>
           </section>
 
           {request.description ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("common.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {request.description}
               </p>
@@ -205,20 +210,20 @@ export default async function RequestDetailPage({ params }: Params) {
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Approval history</h2>
+            <h2 className="text-card font-semibold text-fg">{t("common.approvalHistory")}</h2>
             <ProcurementApprovalHistory approvals={request.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Where it belongs</h2>
+            <h2 className="text-card font-semibold text-fg">{t("common.whereItBelongs")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
               items={[
                 {
-                  label: "Project",
+                  label: t("common.project"),
                   value: request.projectLink ? (
                     request.projectLink.href ? (
                       <Link href={request.projectLink.href} className="text-accent-strong">
@@ -228,38 +233,38 @@ export default async function RequestDetailPage({ params }: Params) {
                       request.projectLink.label
                     )
                   ) : (
-                    <span className="text-fg-subtle">Company-general</span>
+                    <span className="text-fg-subtle">{t("requests.companyGeneral")}</span>
                   ),
                 },
-                { label: "Department", value: orDash(request.department?.name ?? null) },
-                { label: "Buyer", value: request.owner ? <PersonLink memberId={request.owner.memberId} name={request.owner.fullName} /> : "—" },
-                { label: "Priority", value: priorityLabels[request.priority] },
+                { label: t("common.department"), value: orDash(request.department?.name ?? null) },
+                { label: t("requests.buyer"), value: request.owner ? <PersonLink memberId={request.owner.memberId} name={request.owner.fullName} /> : "—" },
+                { label: t("common.priority"), value: priority },
               ]}
             />
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Sourcing</h2>
+            <h2 className="text-card font-semibold text-fg">{t("requests.sourcing")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Enquiries" value={String(request.sourcing.rfqs)} />
-              <Meta label="Orders raised" value={String(request.sourcing.orders)} />
+              <Meta label={t("requests.enquiries")} value={String(request.sourcing.rfqs)} />
+              <Meta label={t("requests.ordersRaised")} value={String(request.sourcing.orders)} />
               {request.sourcing.orderedValue && currency ? (
-                <Meta label="Ordered value" value={money(request.sourcing.orderedValue)} />
+                <Meta label={t("requests.orderedValue")} value={money(request.sourcing.orderedValue)} />
               ) : null}
             </dl>
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created" value={formatDateTime(request.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(request.updatedAt)} />
+              <Meta label={t("common.created")} value={formatDateTime(request.createdAt)} />
+              <Meta label={t("common.updated")} value={formatDateTime(request.updatedAt)} />
               {request.dates.submittedAt ? (
-                <Meta label="Submitted" value={formatDateTime(request.dates.submittedAt)} />
+                <Meta label={t("common.submitted")} value={formatDateTime(request.dates.submittedAt)} />
               ) : null}
               {request.dates.approvedAt ? (
                 <Meta
-                  label="Approved"
+                  label={t("common.approved")}
                   value={
                     <>
                       {formatDateTime(request.dates.approvedAt)}
@@ -277,7 +282,7 @@ export default async function RequestDetailPage({ params }: Params) {
           </section>
         </div>
       </div>
-      <RecordDocuments context={context} entityType="purchase_request" entityId={requestId} title="Documents" emptyDescription="Specifications, quotations and justifications attached to this request appear here." />
+      <RecordDocuments context={context} entityType="purchase_request" entityId={requestId} title={t("common.documents")} emptyDescription={t("requests.documentsEmpty")} />
       {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
       <RecordTasks context={context} parentType="purchase_request" parentId={requestId} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}

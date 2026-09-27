@@ -13,6 +13,7 @@ import { decideApprovalAction } from "@/lib/actions/procurement";
 import type { ProcurementApprovalDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
 import { moneyLabel } from "./procurement-format";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * The procurement approval queue (PRD #19 §152, §186, §187).
@@ -37,6 +38,8 @@ export function ProcurementApprovalQueue({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState<ProcurementApprovalDTO | null>(null);
   const [, startTransition] = React.useTransition();
@@ -65,10 +68,10 @@ export function ProcurementApprovalQueue({
       );
       setPendingId(null);
       if (result.ok) {
-        toast({ title: `${approval.recordReference} approved.`, tone: "success" });
+        toast({ title: t("approvals.approvedToast", { reference: approval.recordReference }), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -81,14 +84,14 @@ export function ProcurementApprovalQueue({
             <div className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="neutral">
-                  {approval.recordType === "PURCHASE_REQUEST" ? "Request" : "Order"}
+                  {approval.recordType === "PURCHASE_REQUEST" ? t("approvals.request") : t("approvals.order")}
                 </Badge>
                 <Link href={href(approval)} className="text-table font-medium text-accent-strong">
                   {approval.recordReference}
                 </Link>
                 {approval.status !== "PENDING" ? (
                   <Badge tone={approval.status === "APPROVED" ? "success" : "danger"}>
-                    {approval.status === "APPROVED" ? "Approved" : "Rejected"}
+                    {approval.status === "APPROVED" ? t("labels.approvalStatus.APPROVED") : t("labels.approvalStatus.REJECTED")}
                   </Badge>
                 ) : null}
               </div>
@@ -96,7 +99,7 @@ export function ProcurementApprovalQueue({
               <p className="text-table text-fg max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate">{approval.recordTitle}</p>
 
               <p className="text-meta text-fg-subtle">
-                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "Somebody"} · submitted{" "}
+                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : t("approvals.somebody")} · {t("approvals.submitted")}{" "}
                 {formatDate(approval.submittedAt)}
                 {approval.project ? ` · ${approval.project.code}` : ""}
                 {showValue && approval.value ? ` · ${moneyLabel(approval.value)}` : ""}
@@ -116,7 +119,7 @@ export function ProcurementApprovalQueue({
                     disabled={pendingId === approval.id}
                     onClick={() => setRejecting(approval)}
                   >
-                    Reject
+                    {t("common.reject")}
                   </Button>
                 ) : null}
                 {approval.capabilities.canApprove ? (
@@ -125,7 +128,7 @@ export function ProcurementApprovalQueue({
                     disabled={pendingId === approval.id}
                     onClick={() => approve(approval)}
                   >
-                    Approve
+                    {t("common.approve")}
                   </Button>
                 ) : null}
               </div>
@@ -137,7 +140,7 @@ export function ProcurementApprovalQueue({
       <RejectDialog
         open={rejecting !== null}
         onOpenChange={(open) => !open && setRejecting(null)}
-        title={rejecting ? `Reject ${rejecting.recordReference}?` : "Reject"}
+        title={rejecting ? t("approvals.rejectTitle", { reference: rejecting.recordReference }) : t("common.reject")}
         onReject={async (reason) => {
           if (!rejecting) return false;
           const result = await decideApprovalAction(
@@ -148,12 +151,12 @@ export function ProcurementApprovalQueue({
             cycleOf(rejecting),
           );
           if (result.ok) {
-            toast({ title: `${rejecting.recordReference} rejected.`, tone: "success" });
+            toast({ title: t("approvals.rejectedToast", { reference: rejecting.recordReference }), tone: "success" });
             setRejecting(null);
             router.refresh();
             return true;
           }
-          toast({ title: result.error, tone: "danger" });
+          toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           return false;
         }}
       />

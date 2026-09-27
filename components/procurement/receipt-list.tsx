@@ -18,6 +18,7 @@ import type {
 } from "@/lib/modules/inventory/inventory.options";
 import type { ReceiptDTO } from "@/lib/modules/procurement/procurement.types";
 import { formatDate } from "@/lib/utils/format";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * What the Inventory handoff needs to offer a mapping (PRD #20 §11).
@@ -59,6 +60,8 @@ export function ReceiptList({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [voiding, setVoiding] = React.useState<ReceiptDTO | null>(null);
 
   return (
@@ -76,7 +79,7 @@ export function ReceiptList({
                   {formatDate(receipt.receiptDate)}
                   {receipt.receivedBy ? (
                     <>
-                      {" · received by "}
+                      {t("receipts.receivedBy")}
                       <PersonLink memberId={receipt.receivedBy.memberId} name={receipt.receivedBy.fullName} />
                     </>
                   ) : null}
@@ -85,13 +88,13 @@ export function ReceiptList({
 
               <div className="flex items-center gap-2">
                 {receipt.status === "VOIDED" ? (
-                  <Badge tone="danger">Voided</Badge>
+                  <Badge tone="danger">{t("receipts.voided")}</Badge>
                 ) : (
-                  <Badge tone="success">Recorded</Badge>
+                  <Badge tone="success">{t("receipts.recordedBadge")}</Badge>
                 )}
                 {receipt.capabilities.canVoid ? (
                   <Button variant="ghost" size="sm" onClick={() => setVoiding(receipt)}>
-                    Void
+                    {t("receipts.void")}
                   </Button>
                 ) : null}
               </div>
@@ -99,20 +102,20 @@ export function ReceiptList({
 
             {receipt.voidReason ? (
               <p className="mt-2 text-meta text-fg-muted">
-                <span className="font-medium">Voided:</span> {receipt.voidReason}
+                <span className="font-medium">{t("receipts.voidedPrefix")}</span> {receipt.voidReason}
               </p>
             ) : null}
 
             {/* Bounded: a long line or "1250.5000 tonne" pans here instead of widening the page (AUD-04 §5, MW-05). */}
-            <ScrollRegion label={`Lines on delivery ${receipt.receiptNumber}`} className="mt-4">
+            <ScrollRegion label={t("receipts.linesOn", { number: receipt.receiptNumber })} className="mt-4">
             <table className="w-full text-table">
-              <caption className="sr-only">Lines on delivery {receipt.receiptNumber}</caption>
+              <caption className="sr-only">{t("receipts.linesOn", { number: receipt.receiptNumber })}</caption>
               <thead>
                 <tr className="text-left text-meta text-fg-subtle">
-                  <th scope="col" className="pb-2 font-medium">Line</th>
-                  <th scope="col" className="pb-2 text-right font-medium">Received</th>
-                  <th scope="col" className="pb-2 text-right font-medium">Accepted</th>
-                  <th scope="col" className="pb-2 text-right font-medium">Rejected</th>
+                  <th scope="col" className="pb-2 font-medium">{t("receipts.line")}</th>
+                  <th scope="col" className="pb-2 text-right font-medium">{t("common.received")}</th>
+                  <th scope="col" className="pb-2 text-right font-medium">{t("receipts.accepted")}</th>
+                  <th scope="col" className="pb-2 text-right font-medium">{t("common.rejected")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -167,23 +170,23 @@ export function ReceiptList({
       <RejectDialog
         open={voiding !== null}
         onOpenChange={(open) => !open && setVoiding(null)}
-        title={voiding ? `Void ${voiding.receiptNumber}?` : "Void delivery"}
-        description="The receipt stays on the record, marked void, and stops counting toward what has arrived."
-        label="Reason"
-        placeholder="Why is this being voided?"
-        confirmLabel="Void delivery"
-        pendingLabel="Voiding…"
-        emptyMessage="Say why it is being voided."
+        title={voiding ? t("receipts.voidTitle", { number: voiding.receiptNumber }) : t("receipts.voidFallback")}
+        description={t("receipts.voidDescription")}
+        label={t("common.reason")}
+        placeholder={t("receipts.voidPlaceholder")}
+        confirmLabel={t("receipts.voidConfirm")}
+        pendingLabel={t("receipts.voiding")}
+        emptyMessage={t("receipts.voidEmpty")}
         onReject={async (reason) => {
           if (!voiding) return false;
           const result = await voidReceiptAction(orderId, voiding.id, reason);
           if (result.ok) {
-            toast({ title: "Delivery voided.", tone: "success" });
+            toast({ title: t("receipts.voidedToast"), tone: "success" });
             setVoiding(null);
             router.refresh();
             return true;
           }
-          toast({ title: result.error, tone: "danger" });
+          toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           return false;
         }}
       />
