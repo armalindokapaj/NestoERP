@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { PersonAvatar } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 
 export type PickedPerson = { memberId: string; fullName: string; avatarUrl: string | null; jobTitle?: string | null };
 
@@ -17,7 +18,7 @@ export function PeoplePicker({
   id,
   exclude,
   onPick,
-  placeholder = "Add people by name",
+  placeholder,
   includeSelf = false,
 }: {
   id: string;
@@ -26,6 +27,7 @@ export function PeoplePicker({
   placeholder?: string;
   includeSelf?: boolean;
 }) {
+  const t = useMeetingsTranslations();
   const [query, setQuery] = React.useState("");
   const [people, setPeople] = React.useState<PickedPerson[]>([]);
   const [active, setActive] = React.useState(0);
@@ -79,7 +81,7 @@ export function PeoplePicker({
             pick(options[active]);
           }
         }}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("form.addPeople")}
         autoComplete="off"
         className="pl-9"
         role="combobox"
@@ -87,7 +89,7 @@ export function PeoplePicker({
         aria-controls={`${id}-options`}
       />
       {options.length > 0 ? (
-        <ul id={`${id}-options`} role="listbox" aria-label="People" className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-menu">
+        <ul id={`${id}-options`} role="listbox" aria-label={t("form.peopleList")} className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-menu">
           {options.map((person, index) => (
             <li key={person.memberId}>
               <button

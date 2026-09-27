@@ -16,9 +16,11 @@ import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import type { MeetingDetailDTO, MeetingMinutesSectionDTO } from "@/lib/modules/meetings/meeting.types";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PlainText } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 
 /**
  * Minutes (PRD #40 §42-§49, §108-§110, §215, §250).
@@ -34,6 +36,7 @@ const SUGGESTED = ["Summary", "Discussion", "Key Points", "Risks / Issues", "Fol
 
 export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; compact?: boolean }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const caps = meeting.capabilities;
   const final = meeting.minutesStatus === "FINAL";
   const [pending, setPending] = React.useState<string | null>(null);
@@ -48,7 +51,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
       if (success) toast({ title: success, tone: "success" });
       return true;
     } catch (error) {
-      toast({ title: failureMessage(error, "The minutes could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("minutes.failed")), tone: "danger" });
       return false;
     } finally {
       setPending(null);
@@ -63,26 +66,26 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="minutes-heading" className="flex items-center gap-2 text-card font-semibold text-fg">
-            Minutes
+            {t("minutes.title")}
             {final ? (
               <Badge tone="success" data-testid="minutes-status">
-                <FileCheck2 aria-hidden="true" className="size-3" /> Final
+                <FileCheck2 aria-hidden="true" className="size-3" /> {t("minutes.final")}
               </Badge>
             ) : (
-              <Badge data-testid="minutes-status">Draft</Badge>
+              <Badge data-testid="minutes-status">{t("minutes.draft")}</Badge>
             )}
           </h2>
           <p className="mt-1 text-meta text-fg-subtle">
             {final && meeting.minutesFinalizedAt ? (
               <>
-                Finalized {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }).format(new Date(meeting.minutesFinalizedAt))}
-                {meeting.minutesFinalizedBy ? <> by <PersonLink memberId={meeting.minutesFinalizedByMemberId} name={meeting.minutesFinalizedBy} /></> : null}
+                {t("minutes.finalizedAt", { when: new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }).format(new Date(meeting.minutesFinalizedAt)) })}
+                {meeting.minutesFinalizedBy ? <>{t("minutes.by")}<PersonLink memberId={meeting.minutesFinalizedByMemberId} name={meeting.minutesFinalizedBy} /></> : null}
               </>
             ) : caps.canEditMinutes
                 ? meeting.status === "COMPLETED"
-                  ? "The formal record of the meeting. Finalize it when it is complete."
-                  : "The formal record of the meeting. It can be finalized once the meeting is completed."
-                : "Not yet final."}
+                  ? t("minutes.hintCompleted")
+                  : t("minutes.hintOpen")
+                : t("minutes.notFinal")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -90,27 +93,27 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
             <Button asChild size="sm" variant="secondary">
               <Link href={`/meetings/${meeting.id}/print`} target="_blank">
                 <Printer aria-hidden="true" />
-                Print
+                {t("minutes.print")}
               </Link>
             </Button>
           ) : null}
           {caps.canReopenMinutes ? (
             <Button type="button" size="sm" variant="secondary" onClick={() => setReopening(true)}>
               <LockOpen aria-hidden="true" />
-              Reopen
+              {t("minutes.reopen")}
             </Button>
           ) : null}
           {caps.canFinalizeMinutes ? (
             <Button type="button" size="sm" onClick={() => setConfirmFinal(true)} disabled={meeting.minutes.every((section) => !section.body.trim())}>
               <FileCheck2 aria-hidden="true" />
-              Finalize minutes
+              {t("minutes.finalize")}
             </Button>
           ) : null}
         </div>
       </div>
 
       {meeting.minutes.length === 0 && !caps.canEditMinutes ? (
-        <p className="rounded-xl border border-dashed border-line-strong bg-surface-muted px-5 py-8 text-center text-table text-fg-muted">No minutes have been written.</p>
+        <p className="rounded-xl border border-dashed border-line-strong bg-surface-muted px-5 py-8 text-center text-table text-fg-muted">{t("minutes.noneWritten")}</p>
       ) : null}
 
       {caps.canEditMinutes ? (
@@ -119,7 +122,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
             <SectionEditor key={section.id} meetingId={meeting.id} section={section} onChange={onChange} onDelete={() => setDeleting(section)} compact={compact} />
           ))}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-meta text-fg-subtle">Add section</span>
+            <span className="mr-1 text-meta text-fg-subtle">{t("minutes.addSection")}</span>
             {[...suggestions, "Other"].map((title) => (
               <button
                 key={title}
@@ -129,7 +132,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
                 className="inline-flex h-8 items-center gap-1 rounded-full border border-line px-2.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg disabled:opacity-50"
               >
                 {pending === `add-${title}` ? <Loader2 aria-hidden="true" className="size-3 animate-spin" /> : <Plus aria-hidden="true" className="size-3" />}
-                {title}
+                {meetingsLabel(t, "minutesSection", title, title)}
               </button>
             ))}
           </div>
@@ -150,31 +153,31 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
       <ConfirmDialog
         open={confirmFinal}
         onOpenChange={setConfirmFinal}
-        title="Finalize the minutes?"
-        description="They become the formal record of this meeting and are locked. Participants are told the minutes are ready."
-        confirmLabel="Finalize"
+        title={t("minutes.finalizeTitle")}
+        description={t("minutes.finalizeDescription")}
+        confirmLabel={t("minutes.finalizeConfirm")}
         destructive={false}
         pending={pending === "finalize"}
         onConfirm={async () => {
-          if (await call("finalize", `/api/meetings/${meeting.id}/minutes/finalize`, { method: "POST" }, "Minutes finalized")) setConfirmFinal(false);
+          if (await call("finalize", `/api/meetings/${meeting.id}/minutes/finalize`, { method: "POST" }, t("minutes.finalized"))) setConfirmFinal(false);
         }}
       />
 
       <Dialog open={reopening} onOpenChange={setReopening}>
         <DialogContent>
-          <DialogTitle>Reopen the minutes?</DialogTitle>
-          <DialogDescription>They become a draft again so they can be corrected, then finalized again. The reason is kept in the audit trail.</DialogDescription>
+          <DialogTitle>{t("minutes.reopenTitle")}</DialogTitle>
+          <DialogDescription>{t("minutes.reopenDescription")}</DialogDescription>
           {/* Inside the dialog, so the reason belongs to its guarded close (AUD-03 §5). */}
-          <ReopenForm pending={pending === "reopen"} reopen={(reason) => call("reopen", `/api/meetings/${meeting.id}/minutes/reopen`, { body: { reason } }, "Minutes reopened")} onDone={() => setReopening(false)} />
+          <ReopenForm pending={pending === "reopen"} reopen={(reason) => call("reopen", `/api/meetings/${meeting.id}/minutes/reopen`, { body: { reason } }, t("minutes.reopened"))} onDone={() => setReopening(false)} />
         </DialogContent>
       </Dialog>
 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => (open ? null : setDeleting(null))}
-        title="Remove this section?"
-        description={`“${deleting?.title ?? ""}” and its text come out of the draft minutes.`}
-        confirmLabel="Remove section"
+        title={t("minutes.removeTitle")}
+        description={t("minutes.removeDescription", { title: deleting?.title ?? "" })}
+        confirmLabel={t("minutes.removeConfirm")}
         pending={pending !== null}
         onConfirm={async () => {
           if (deleting && (await call(deleting.id, `/api/meetings/${meeting.id}/minutes/sections/${deleting.id}`, { method: "DELETE" }))) setDeleting(null);
@@ -186,8 +189,9 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
 
 /** Reopening is a workflow step with a reason: the prompt never reopens (AUD-03 §3). */
 function ReopenForm({ pending, reopen, onDone }: { pending: boolean; reopen: (reason: string) => Promise<boolean>; onDone: () => void }) {
+  const t = useMeetingsTranslations();
   const [reason, setReason] = React.useState("");
-  const editor = useUnsavedEditor({ module: "meetings", saveKind: "none", workflow: "Reopen minutes", label: "Reopen the minutes" });
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "none", workflow: t("minutes.reopenWorkflow"), label: t("minutes.reopenLabel") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
   React.useEffect(() => setSaving(pending), [pending, setSaving]);
@@ -195,13 +199,13 @@ function ReopenForm({ pending, reopen, onDone }: { pending: boolean; reopen: (re
   return (
     <>
       <div className="mt-4 space-y-1.5">
-        <Label htmlFor="reopen-reason">Reason</Label>
-        <Textarea id="reopen-reason" rows={3} maxLength={1000} value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} placeholder="Correct the pour date in the summary" />
+        <Label htmlFor="reopen-reason">{t("minutes.reason")}</Label>
+        <Textarea id="reopen-reason" rows={3} maxLength={1000} value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} placeholder={t("minutes.reasonPlaceholder")} />
       </div>
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            Cancel
+            {t("common.cancel")}
           </Button>
         </DialogClose>
         <Button
@@ -215,7 +219,7 @@ function ReopenForm({ pending, reopen, onDone }: { pending: boolean; reopen: (re
             }
           }}
         >
-          Reopen minutes
+          {t("minutes.reopenConfirm")}
         </Button>
       </DialogFooter>
     </>
@@ -238,6 +242,7 @@ function SectionEditor({
   onDelete: () => void;
   compact: boolean;
 }) {
+  const t = useMeetingsTranslations();
   const [title, setTitle] = React.useState(section.title);
   const [body, setBody] = React.useState(section.body);
   const [state, setState] = React.useState<SaveState>("idle");
@@ -260,7 +265,7 @@ function SectionEditor({
   // yet sent (the 1.2 s pause) or failed to save, and saving while one is in
   // flight — the pause timer dies with the page, so leaving asks first.
   const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "committed" }));
-  const editor = useUnsavedEditor({ module: "meetings", saveKind: "save", label: () => `Minutes: ${latest.current.title.trim() || savedRef.current.title}`, save: () => run.current() });
+  const editor = useUnsavedEditor({ module: "meetings", saveKind: "save", label: () => t("minutes.editorLabel", { title: latest.current.title.trim() || savedRef.current.title }), save: () => run.current() });
   const { setDirty, setSaving, setUnresolved } = editor;
   const unsent = (title.trim() || saved.title) !== saved.title || body !== saved.body;
   React.useEffect(() => setDirty(unsent), [unsent, setDirty]);
@@ -306,7 +311,7 @@ function SectionEditor({
     <div className="rounded-xl border border-line bg-surface p-4 focus-within:border-accent/40" data-testid="minutes-section">
       <div className="flex items-center gap-2">
         <Label htmlFor={`section-title-${section.id}`} className="sr-only">
-          Section title
+          {t("minutes.sectionTitle")}
         </Label>
         <Input
           id={`section-title-${section.id}`}
@@ -320,9 +325,9 @@ function SectionEditor({
           className="h-8 border-transparent px-1 text-meta font-semibold uppercase tracking-[0.1em] text-fg-muted shadow-none hover:border-line focus:border-accent"
         />
         <span className={cn("shrink-0 text-meta", state === "error" ? "text-danger-strong" : "text-fg-subtle")} aria-live="polite">
-          {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? "Not saved" : ""}
+          {state === "saving" ? t("minutes.saving") : state === "saved" ? t("minutes.saved") : state === "error" ? t("minutes.notSaved") : ""}
         </span>
-        <button type="button" aria-label={`Remove section ${section.title}`} onClick={onDelete} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
+        <button type="button" aria-label={t("minutes.removeSection", { title: section.title })} onClick={onDelete} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
           <Trash2 aria-hidden="true" className="size-4" />
         </button>
       </div>
@@ -339,7 +344,7 @@ function SectionEditor({
           setState("dirty");
         }}
         onBlur={() => void save()}
-        placeholder="Write what was discussed…"
+        placeholder={t("minutes.placeholder")}
         className="mt-2 min-h-[120px] resize-y border-transparent px-1 text-body leading-relaxed shadow-none hover:border-line focus:border-accent"
       />
     </div>

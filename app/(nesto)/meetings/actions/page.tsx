@@ -16,12 +16,17 @@ import { CompanyTag } from "@/components/workspace/company-tag";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { actionListQuerySchema } from "@/lib/modules/meetings/meeting.schema";
 import { listActionItemsForWorkspace, meetingCompanyOptions, meetingExperience } from "@/lib/modules/meetings/meeting.workspace";
 import { ACTION_STATUS_LABELS } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "Meeting actions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meetings");
+  return { title: t("meta.actions") };
+}
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 
@@ -40,6 +45,7 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
   const experience = meetingExperience(context);
   const params = await searchParams;
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("meetings");
   const query = actionListQuerySchema.parse({ mine: one(params.mine), status: one(params.status), company: one(params.company), page: one(params.page) });
   const [result, companies] = await Promise.all([listActionItemsForWorkspace(context, query), meetingCompanyOptions(context)]);
   // A company id in the address only ever narrows to a company the list already offers.
@@ -68,7 +74,7 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
           <Button asChild size="sm">
             <Link href="/meetings/new">
               <Plus aria-hidden="true" />
-              New meeting
+              {t("common.newMeeting")}
             </Link>
           </Button>
         ) : null
@@ -76,19 +82,19 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <nav aria-label="Whose actions" className="flex gap-1.5">
+          <nav aria-label={t("actionsPage.whose")} className="flex gap-1.5">
             <Link href={link({ mine: "" })} className={chip(query.mine)} aria-current={query.mine ? "page" : undefined}>
-              Mine
+              {t("actionsPage.mine")}
             </Link>
             <Link href={link({ mine: "false" })} className={chip(!query.mine)} aria-current={!query.mine ? "page" : undefined}>
-              Everyone&apos;s
+              {t("actionsPage.everyone")}
             </Link>
           </nav>
           <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
-          <nav aria-label="Action status" className="flex gap-1.5">
+          <nav aria-label={t("actionsPage.statusNav")} className="flex gap-1.5">
             {(["open", "done", "all"] as const).map((status) => (
               <Link key={status} href={link({ status: status === "open" ? "" : status })} className={chip(query.status === status)} aria-current={query.status === status ? "page" : undefined}>
-                {status === "open" ? "Open" : status === "done" ? "Done" : "All"}
+                {t(`actionsPage.${status}`)}
               </Link>
             ))}
           </nav>
@@ -96,9 +102,9 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
           {group && companies.length > 1 ? (
             <>
               <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
-              <nav aria-label="Company" className="flex flex-wrap gap-1.5">
+              <nav aria-label={t("actionsPage.company")} className="flex flex-wrap gap-1.5">
                 <Link href={link({ company: "" })} className={chip(!company)} aria-current={!company ? "page" : undefined}>
-                  All companies
+                  {t("actionsPage.allCompanies")}
                 </Link>
                 {companies.map((option) => (
                   <Link key={option.id} href={link({ company: option.id })} className={chip(company === option.id)} aria-current={company === option.id ? "page" : undefined}>
@@ -113,8 +119,8 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
         {result.data.length === 0 ? (
           <EmptyState
             icon={<ListChecks />}
-            title={query.status === "open" ? "No open actions." : "No actions here."}
-            description={group ? "No accessible data for this module." : query.mine ? "Actions assigned to you in meetings appear here." : "Actions from meetings you can open appear here."}
+            title={query.status === "open" ? t("actionsPage.noOpen") : t("actionsPage.noneHere")}
+            description={group ? t("common.noAccessibleData") : query.mine ? t("actionsPage.mineEmpty") : t("actionsPage.everyoneEmpty")}
           />
         ) : (
           <ul className="nesto-card divide-y divide-line" data-testid="action-list">
@@ -144,25 +150,25 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
                     action.task.href ? (
                       action.company ? (
                         <CompanyRecordLink companyId={action.company.id} companyName={action.company.name} href={action.task.href} className="text-meta font-medium text-accent-strong hover:underline">
-                          Task
+                          {t("actionsPage.task")}
                         </CompanyRecordLink>
                       ) : (
                         <Link href={action.task.href} className="text-meta font-medium text-accent-strong hover:underline">
-                          Task
+                          {t("actionsPage.task")}
                         </Link>
                       )
                     ) : (
-                      <span className="text-meta text-fg-subtle">Task</span>
+                      <span className="text-meta text-fg-subtle">{t("actionsPage.task")}</span>
                     )
                   ) : null}
                   {action.dueDate ? (
                     <span className={cn("text-meta tabular-nums", action.overdue ? "font-medium text-danger-strong" : "text-fg-muted")}>
-                      {action.overdue ? "Overdue · " : "Due "}
+                      {action.overdue ? t("actionsPage.overdue") : t("actionsPage.due")}
                       {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${action.dueDate}T12:00:00Z`))}
                     </span>
                   ) : null}
-                  {action.status === "IN_PROGRESS" ? <Badge tone="info">{ACTION_STATUS_LABELS.IN_PROGRESS}</Badge> : null}
-                  {action.status === "CANCELLED" ? <Badge>{ACTION_STATUS_LABELS.CANCELLED}</Badge> : null}
+                  {action.status === "IN_PROGRESS" ? <Badge tone="info">{meetingsLabel(t, "actionStatus", "IN_PROGRESS", ACTION_STATUS_LABELS.IN_PROGRESS)}</Badge> : null}
+                  {action.status === "CANCELLED" ? <Badge>{meetingsLabel(t, "actionStatus", "CANCELLED", ACTION_STATUS_LABELS.CANCELLED)}</Badge> : null}
                   {action.owner && !query.mine ? (
                     <span className="flex items-center gap-1.5 text-meta text-fg-muted" title={action.owner.fullName}>
                       <PersonAvatar person={action.owner} />

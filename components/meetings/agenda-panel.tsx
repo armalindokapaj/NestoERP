@@ -12,10 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { AGENDA_STATUS_LABELS, AGENDA_TEMPLATES, type MeetingAgendaItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
 import { cn } from "@/lib/utils/cn";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { durationLabel, PlainText } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
@@ -33,6 +35,7 @@ const sameDraft = (a: Draft, b: Draft) => a.title === b.title && a.description =
 
 export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; variant?: "full" | "focus" }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const editable = meeting.capabilities.canManageAgenda;
   const live = meeting.status === "IN_PROGRESS";
   const [items, setItems] = React.useState(meeting.agenda);
@@ -61,7 +64,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
       if (success) toast({ title: success, tone: "success" });
       return { kind: "committed" };
     } catch (error) {
-      toast({ title: failureMessage(error, "The agenda could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("agenda.failed")), tone: "danger" });
       return meetingFailureOutcome(error);
     } finally {
       setPending(null);
@@ -82,7 +85,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
 
   // The topic being added and the one being edited are unsaved work (AUD-03 §3).
   const adder = useMeetingDraft({
-    label: "New agenda topic",
+    label: t("agenda.newTopic"),
     saveKind: "create",
     dirty: !sameDraft(draft, EMPTY),
     send: async () => {
@@ -93,7 +96,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
     },
   });
   const editor = useMeetingDraft({
-    label: () => `Agenda topic: ${edit.title.trim() || editBase.title}`,
+    label: () => t("agenda.editing", { title: edit.title.trim() || editBase.title }),
     saveKind: "save",
     dirty: editing !== null && !sameDraft(edit, editBase),
     send: async () => {
@@ -124,7 +127,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
   async function reorder(next: MeetingAgendaItemDTO[], moved?: MeetingAgendaItemDTO) {
     const previous = items;
     setItems(next);
-    if (moved) setAnnouncement(`${moved.title} moved to position ${next.findIndex((item) => item.id === moved.id) + 1} of ${next.length}.`);
+    if (moved) setAnnouncement(t("agenda.moved", { title: moved.title, position: next.findIndex((item) => item.id === moved.id) + 1, total: next.length }));
     const ok = await call("reorder", `/api/meetings/${meeting.id}/agenda/reorder`, { body: { itemIds: next.map((item) => item.id) } });
     if (!ok) setItems(previous);
   }
@@ -152,17 +155,17 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
   const form = (value: Draft, change: (value: Draft) => void, idPrefix: string) => (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_110px]">
       <div className="space-y-1 sm:col-span-3">
-        <Label htmlFor={`${idPrefix}-title`}>Topic</Label>
-        <Input id={`${idPrefix}-title`} autoFocus value={value.title} maxLength={180} onChange={(event) => change({ ...value, title: event.target.value })} placeholder="Site progress" />
+        <Label htmlFor={`${idPrefix}-title`}>{t("agenda.topic")}</Label>
+        <Input id={`${idPrefix}-title`} autoFocus value={value.title} maxLength={180} onChange={(event) => change({ ...value, title: event.target.value })} placeholder={t("agenda.topicPlaceholder")} />
       </div>
       <div className="space-y-1 sm:col-span-1">
-        <Label htmlFor={`${idPrefix}-description`}>Notes (optional)</Label>
+        <Label htmlFor={`${idPrefix}-description`}>{t("agenda.notes")}</Label>
         <Textarea id={`${idPrefix}-description`} rows={1} maxLength={5000} value={value.description} onChange={(event) => change({ ...value, description: event.target.value })} />
       </div>
       <div className="space-y-1">
-        <Label htmlFor={`${idPrefix}-presenter`}>Presenter</Label>
+        <Label htmlFor={`${idPrefix}-presenter`}>{t("agenda.presenter")}</Label>
         <select id={`${idPrefix}-presenter`} className={selectClass} value={value.presenterMemberId} onChange={(event) => change({ ...value, presenterMemberId: event.target.value })}>
-          <option value="">No presenter</option>
+          <option value="">{t("agenda.noPresenter")}</option>
           {presenters.map((person) => (
             <option key={person.memberId} value={person.memberId}>
               {person.fullName}
@@ -171,7 +174,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
         </select>
       </div>
       <div className="space-y-1">
-        <Label htmlFor={`${idPrefix}-minutes`}>Minutes</Label>
+        <Label htmlFor={`${idPrefix}-minutes`}>{t("agenda.minutes")}</Label>
         <Input id={`${idPrefix}-minutes`} type="number" min={1} max={1440} value={value.plannedMinutes} onChange={(event) => change({ ...value, plannedMinutes: event.target.value })} />
       </div>
     </div>
@@ -182,19 +185,19 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 id={`agenda-${variant}`} className="text-card font-semibold text-fg">
-            Agenda
+            {t("agenda.title")}
           </h2>
           {items.length > 0 ? (
             <p className={cn("text-meta", planned > length ? "text-warning-strong" : "text-fg-subtle")}>
-              {items.length} {items.length === 1 ? "topic" : "topics"}
-              {planned > 0 ? ` · ${durationLabel("2000-01-01T00:00:00Z", new Date(Date.UTC(2000, 0, 1, 0, planned)).toISOString())} planned of ${durationLabel(meeting.startsAt, meeting.endsAt)}` : ""}
+              {t("agenda.topics", { count: items.length })}
+              {planned > 0 ? t("agenda.planned", { planned: durationLabel("2000-01-01T00:00:00Z", new Date(Date.UTC(2000, 0, 1, 0, planned)).toISOString()), length: durationLabel(meeting.startsAt, meeting.endsAt) }) : ""}
             </p>
           ) : null}
         </div>
         {editable && !adding && variant === "full" ? (
           <Button type="button" size="sm" variant="secondary" onClick={() => setAdding(true)}>
             <Plus aria-hidden="true" />
-            Add topic
+            {t("agenda.addTopic")}
           </Button>
         ) : null}
       </div>
@@ -205,26 +208,26 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line-strong bg-surface-muted px-5 py-8 text-center">
-          <p className="text-table font-medium text-fg">No agenda yet.</p>
-          <p className="mt-1 text-meta text-fg-muted">Structured topics keep a meeting on time. Start from a template or add topics one by one.</p>
+          <p className="text-table font-medium text-fg">{t("agenda.empty")}</p>
+          <p className="mt-1 text-meta text-fg-muted">{t("agenda.emptyHint")}</p>
           {editable ? (
             <div className="mx-auto mt-4 flex max-w-sm flex-col gap-2 sm:flex-row">
-              <select aria-label="Agenda template" className={selectClass} value={template} onChange={(event) => setTemplate(event.target.value)}>
+              <select aria-label={t("agenda.template")} className={selectClass} value={template} onChange={(event) => setTemplate(event.target.value)}>
                 {AGENDA_TEMPLATES.map((row) => (
                   <option key={row.key} value={row.key}>
-                    {row.label}
+                    {meetingsLabel(t, "template", row.key, row.label)}
                   </option>
                 ))}
               </select>
-              <Button type="button" variant="secondary" disabled={pending !== null} onClick={() => void call("template", `/api/meetings/${meeting.id}/agenda/template`, { body: { template } }, "Template added")}>
+              <Button type="button" variant="secondary" disabled={pending !== null} onClick={() => void call("template", `/api/meetings/${meeting.id}/agenda/template`, { body: { template } }, t("agenda.templateAdded"))}>
                 {pending === "template" ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-                Use template
+                {t("agenda.useTemplate")}
               </Button>
             </div>
           ) : null}
         </div>
       ) : (
-        <ol className={cn("space-y-2", variant === "focus" && "mt-3")} aria-label="Agenda topics">
+        <ol className={cn("space-y-2", variant === "focus" && "mt-3")} aria-label={t("agenda.topicsList")}>
           {items.map((item, index) => {
             const isCurrent = current?.id === item.id;
             const done = item.status !== "PENDING";
@@ -257,10 +260,10 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                     {form(edit, setEdit, `agenda-edit-${item.id}`)}
                     <div className="flex justify-end gap-2">
                       <Button type="button" size="sm" variant="ghost" onClick={() => void editor.dismiss(() => setEditing(null))}>
-                        Cancel
+                        {t("common.cancel")}
                       </Button>
                       <Button type="submit" size="sm" disabled={pending === item.id || !edit.title.trim()}>
-                        Save
+                        {t("common.save")}
                       </Button>
                     </div>
                   </form>
@@ -282,23 +285,23 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                     <div className="min-w-0 flex-1">
                       <p className={cn("text-body font-medium text-fg", (item.status === "SKIPPED" || item.status === "DEFERRED") && "text-fg-muted")}>
                         {item.title}
-                        {done ? <span className="ml-2 text-meta font-normal text-fg-subtle">{AGENDA_STATUS_LABELS[item.status]}</span> : null}
-                        {isCurrent ? <span className="ml-2 text-meta font-medium text-accent-strong">Now</span> : null}
+                        {done ? <span className="ml-2 text-meta font-normal text-fg-subtle">{meetingsLabel(t, "agendaStatus", item.status, AGENDA_STATUS_LABELS[item.status])}</span> : null}
+                        {isCurrent ? <span className="ml-2 text-meta font-medium text-accent-strong">{t("agenda.now")}</span> : null}
                       </p>
                       <p className="mt-0.5 text-meta text-fg-subtle">
                         {item.presenter ? <PersonLink memberId={item.presenter.memberId} name={item.presenter.fullName} /> : null}
                         {item.presenter && item.plannedMinutes ? " · " : null}
-                        {item.plannedMinutes ? `${item.plannedMinutes} min` : null}
+                        {item.plannedMinutes ? t("common.minutes", { count: item.plannedMinutes }) : null}
                       </p>
                       {item.description ? <PlainText text={item.description} className="mt-1.5 text-table text-fg-muted" /> : null}
 
                       {editable && (live || meeting.status === "COMPLETED") ? (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={`Mark ${item.title}`}>
+                        <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={t("agenda.mark", { title: item.title })}>
                           {(
                             [
-                              ["DISCUSSED", "Discussed", Check],
-                              ["SKIPPED", "Skip", SkipForward],
-                              ["DEFERRED", "Defer", CornerUpRight],
+                              ["DISCUSSED", t("agenda.discussed"), Check],
+                              ["SKIPPED", t("agenda.skip"), SkipForward],
+                              ["DEFERRED", t("agenda.defer"), CornerUpRight],
                             ] as const
                           ).map(([status, label, Icon]) => (
                             <button
@@ -321,21 +324,21 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                     </div>
                     {editable && variant === "full" ? (
                       <div className="flex shrink-0 items-center gap-0.5">
-                        <button type="button" aria-label={`Move ${item.title} up`} disabled={index === 0 || pending === "reorder"} onClick={() => move(index, -1)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-30">
+                        <button type="button" aria-label={t("agenda.moveUp", { title: item.title })} disabled={index === 0 || pending === "reorder"} onClick={() => move(index, -1)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-30">
                           <ArrowUp aria-hidden="true" className="size-4" />
                         </button>
-                        <button type="button" aria-label={`Move ${item.title} down`} disabled={index === items.length - 1 || pending === "reorder"} onClick={() => move(index, 1)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-30">
+                        <button type="button" aria-label={t("agenda.moveDown", { title: item.title })} disabled={index === items.length - 1 || pending === "reorder"} onClick={() => move(index, 1)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-30">
                           <ArrowDown aria-hidden="true" className="size-4" />
                         </button>
                         <button
                           type="button"
-                          aria-label={`Edit ${item.title}`}
+                          aria-label={t("agenda.edit", { title: item.title })}
                           onClick={() => startEdit(item)}
                           className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-fg"
                         >
                           <Pencil aria-hidden="true" className="size-4" />
                         </button>
-                        <button type="button" aria-label={`Remove ${item.title}`} onClick={() => setDeleting(item)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
+                        <button type="button" aria-label={t("agenda.remove", { title: item.title })} onClick={() => setDeleting(item)} className="rounded-md p-1.5 text-fg-subtle hover:bg-hover hover:text-danger-strong">
                           <Trash2 aria-hidden="true" className="size-4" />
                         </button>
                       </div>
@@ -363,11 +366,11 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                 })
               }
             >
-              Done
+              {t("common.done")}
             </Button>
             <Button type="submit" size="sm" disabled={pending === "add" || !draft.title.trim()}>
               {pending === "add" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
-              Add topic
+              {t("agenda.addTopic")}
             </Button>
           </div>
         </form>
@@ -376,9 +379,9 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => (open ? null : setDeleting(null))}
-        title="Remove this topic?"
-        description={`“${deleting?.title ?? ""}” comes off the agenda.`}
-        confirmLabel="Remove topic"
+        title={t("agenda.removeTitle")}
+        description={t("agenda.removeDescription", { title: deleting?.title ?? "" })}
+        confirmLabel={t("agenda.removeConfirm")}
         pending={pending !== null}
         onConfirm={async () => {
           if (deleting && (await call(deleting.id, `/api/meetings/${meeting.id}/agenda/${deleting.id}`, { method: "DELETE" }))) setDeleting(null);

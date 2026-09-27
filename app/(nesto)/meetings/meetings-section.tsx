@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { meetingTimezone } from "@/lib/modules/meetings/meeting.repository";
 import { meetingListQuerySchema } from "@/lib/modules/meetings/meeting.schema";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
@@ -17,12 +19,6 @@ type SearchParams = Record<string, string | string[] | undefined>;
 type Section = "upcoming" | "mine" | "past";
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
-
-const EMPTY: Record<Section, { title: string; description: string }> = {
-  upcoming: { title: "Nothing scheduled.", description: "Meetings you can open appear here, soonest first." },
-  mine: { title: "No meetings on your calendar.", description: "Meetings you organize or are invited to appear here." },
-  past: { title: "No past meetings yet.", description: "Held and cancelled meetings stay here, with their minutes and actions." },
-};
 
 /**
  * The body behind Upcoming, My Meetings and Past (PRD #40 §90-§92, §121, §122):
@@ -45,6 +41,7 @@ export async function MeetingsSection({ context, section, searchParams, basePath
     page: one(searchParams.page),
   });
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("meetings");
   const [result, zone, { projects, companies }] = await Promise.all([
     listMeetingsForWorkspace(context, query),
     meetingTimezone(context.companyId),
@@ -58,12 +55,12 @@ export async function MeetingsSection({ context, section, searchParams, basePath
 
   const filters: FilterConfig[] = [
     // Group only: a refinement of the list, not the workspace (Workspace Context §86, §87).
-    ...(group ? [{ param: "company", label: "Company", options: companies.map((company) => ({ value: company.id, label: company.name })) }] : []),
-    { param: "type", label: "Type", options: MEETING_TYPES.map((type) => ({ value: type, label: MEETING_TYPE_LABELS[type] })) },
+    ...(group ? [{ param: "company", label: t("list.company"), options: companies.map((company) => ({ value: company.id, label: company.name })) }] : []),
+    { param: "type", label: t("list.type"), options: MEETING_TYPES.map((type) => ({ value: type, label: meetingsLabel(t, "type", type, MEETING_TYPE_LABELS[type]) })) },
     ...(section === "past"
-      ? [{ param: "status", label: "Status", options: (["COMPLETED", "CANCELLED", "SCHEDULED"] as const).map((status) => ({ value: status, label: MEETING_STATUS_LABELS[status] })) }]
-      : [{ param: "status", label: "Status", options: (["SCHEDULED", "IN_PROGRESS", "DRAFT"] as const).map((status) => ({ value: status, label: MEETING_STATUS_LABELS[status] })) }]),
-    ...(projects.length ? [{ param: "projectId", label: "Project", options: projects.map((project) => ({ value: project.id, label: project.name })) }] : []),
+      ? [{ param: "status", label: t("list.status"), options: (["COMPLETED", "CANCELLED", "SCHEDULED"] as const).map((status) => ({ value: status, label: meetingsLabel(t, "status", status, MEETING_STATUS_LABELS[status]) })) }]
+      : [{ param: "status", label: t("list.status"), options: (["SCHEDULED", "IN_PROGRESS", "DRAFT"] as const).map((status) => ({ value: status, label: meetingsLabel(t, "status", status, MEETING_STATUS_LABELS[status]) })) }]),
+    ...(projects.length ? [{ param: "projectId", label: t("list.project"), options: projects.map((project) => ({ value: project.id, label: project.name })) }] : []),
   ];
   const filtered = Boolean(query.q || query.type?.length || query.status?.length || query.projectId || (group && query.company));
 
@@ -72,16 +69,16 @@ export async function MeetingsSection({ context, section, searchParams, basePath
 
   return (
     <div className="space-y-4">
-      <ListToolbar searchPlaceholder="Search meetings…" searchParam="q" filters={filters} />
+      <ListToolbar searchPlaceholder={t("list.search")} searchParam="q" filters={filters} />
       {result.data.length === 0 ? (
         filtered ? (
-          <EmptyState icon={<MeetingEmptyIcon />} title="No meetings match these filters." description="Adjust or clear the filters to see more." action={{ label: "Clear filters", href: basePath }} />
+          <EmptyState icon={<MeetingEmptyIcon />} title={t("list.noMatchTitle")} description={t("list.noMatchDescription")} action={{ label: t("list.clearFilters"), href: basePath }} />
         ) : (
           <EmptyState
             icon={<MeetingEmptyIcon />}
-            title={EMPTY[section].title}
-            description={group ? "No accessible data for this module." : EMPTY[section].description}
-            action={section !== "past" && !group && can(context, "meeting.create") ? { label: "New meeting", href: "/meetings/new" } : undefined}
+            title={t(`list.empty.${section}.title`)}
+            description={group ? t("common.noAccessibleData") : t(`list.empty.${section}.description`)}
+            action={section !== "past" && !group && can(context, "meeting.create") ? { label: t("common.newMeeting"), href: "/meetings/new" } : undefined}
           />
         )
       ) : (

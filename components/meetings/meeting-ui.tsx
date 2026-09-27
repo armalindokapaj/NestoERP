@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MEETING_STATUS_LABELS, RESPONSE_LABELS, type MeetingPersonDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
+import { MeetingsLabel } from "./meetings-text";
 
 /**
  * Meeting presentation pieces shared by the list, the workspace and the print
@@ -23,7 +24,7 @@ export function MeetingStatusBadge({ status, className }: { status: MeetingStatu
   return (
     <Badge tone={STATUS_TONE[status]} className={cn(status === "CANCELLED" && "line-through decoration-fg-subtle/60", className)} data-testid="meeting-status">
       {status === "IN_PROGRESS" ? <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-info-strong" /> : null}
-      {MEETING_STATUS_LABELS[status]}
+      <MeetingsLabel group="status" value={status} fallback={MEETING_STATUS_LABELS[status]} />
     </Badge>
   );
 }
@@ -36,7 +37,7 @@ const RESPONSE_TONE: Record<MeetingResponseStatus, "default" | "success" | "warn
 };
 
 export function ResponseBadge({ response }: { response: MeetingResponseStatus }) {
-  return <Badge tone={RESPONSE_TONE[response]}>{RESPONSE_LABELS[response]}</Badge>;
+  return <Badge tone={RESPONSE_TONE[response]}><MeetingsLabel group="response" value={response} fallback={RESPONSE_LABELS[response]} /></Badge>;
 }
 
 function split(fullName: string): { firstName: string; lastName: string } {
@@ -49,11 +50,12 @@ export function PersonAvatar({ person, size = "sm", className }: { person: Pick<
 }
 
 /** First few faces and a count (PRD #40 §131). */
-export function AvatarStack({ people, total, max = 4 }: { people: Array<Pick<MeetingPersonDTO, "memberId" | "fullName" | "avatarUrl">>; total: number; max?: number }) {
+/** `label` is the count in the reader's language ("3 people"); English when not given. */
+export function AvatarStack({ people, total, max = 4, label }: { people: Array<Pick<MeetingPersonDTO, "memberId" | "fullName" | "avatarUrl">>; total: number; max?: number; label?: string }) {
   const shown = people.slice(0, max);
   const more = total - shown.length;
   return (
-    <span className="flex items-center" role="img" aria-label={`${total} ${total === 1 ? "person" : "people"}`}>
+    <span className="flex items-center" role="img" aria-label={label ?? `${total} ${total === 1 ? "person" : "people"}`}>
       {shown.map((person, index) => (
         <span key={person.memberId} className={cn("relative rounded-full ring-2 ring-surface", index > 0 && "-ml-1.5")} style={{ zIndex: shown.length - index }} title={person.fullName}>
           <PersonAvatar person={person} />

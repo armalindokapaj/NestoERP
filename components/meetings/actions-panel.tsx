@@ -14,11 +14,13 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { ACTION_STATUS_LABELS, type ActionTaskHandoff, type MeetingActionItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
 import { statusLabel } from "@/lib/utils/status";
+import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
 import { cn } from "@/lib/utils/cn";
 import { ActionStatusToggle } from "./action-status-toggle";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api";
 import { PersonAvatar } from "./meeting-ui";
+import { useMeetingsTranslations } from "./meetings-text";
 import { useMeetingDraft } from "./use-meeting-draft";
 
 /**
@@ -36,6 +38,7 @@ function dueLabel(date: string): string {
 
 export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; openOnly?: boolean; limit?: number }) {
   const toast = useToast();
+  const t = useMeetingsTranslations();
   const caps = meeting.capabilities;
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
@@ -55,11 +58,11 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
       const { taskHandoff, ...detail } = await meetingApi<MeetingDetailDTO & { taskHandoff?: ActionTaskHandoff | null }>(url, init);
       onChange(detail);
       // The action committed; a task that could not be created is said so, with why (AUD-10 §7).
-      if (taskHandoff && !taskHandoff.created) toast({ title: "Action added. The task was not created.", description: taskHandoff.message, tone: "warning" });
+      if (taskHandoff && !taskHandoff.created) toast({ title: t("actions.taskNotCreated"), description: taskHandoff.message, tone: "warning" });
       else if (success) toast({ title: success, tone: "success" });
       return { kind: "committed" };
     } catch (error) {
-      toast({ title: failureMessage(error, "The action could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("actions.failed")), tone: "danger" });
       return meetingFailureOutcome(error);
     } finally {
       setPending(null);
@@ -73,7 +76,7 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
   // The action being captured is unsaved work (AUD-03 §3). The owner stays
   // for the next one after an add, so it is part of the baseline then.
   const adder = useMeetingDraft({
-    label: "New action item",
+    label: t("actions.editorLabel"),
     saveKind: "create",
     dirty: title !== "" || owner !== ownerBase || due !== "" || createTask,
     send: async () => {
@@ -82,7 +85,7 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
         "add",
         `/api/meetings/${meeting.id}/actions`,
         { body: { title: title.trim(), description: null, ownerMemberId: owner || null, dueDate: due || null, createTask } },
-        createTask ? "Action and task created" : "Action added",
+        createTask ? t("actions.addedWithTask") : t("actions.added"),
       );
       if (outcome.kind === "committed") {
         setTitle("");
@@ -98,12 +101,12 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
     <section aria-labelledby={`actions-heading-${openOnly ? "open" : "all"}`} className="space-y-3" data-testid="actions-panel">
       <div className="flex items-center justify-between gap-2">
         <h2 id={`actions-heading-${openOnly ? "open" : "all"}`} className="text-card font-semibold text-fg">
-          {openOnly ? "Next actions" : "Action items"} <span className="ml-1 text-table font-normal text-fg-subtle">{openOnly ? openCount : meeting.actions.length}</span>
+          {openOnly ? t("actions.next") : t("actions.items")} <span className="ml-1 text-table font-normal text-fg-subtle">{openOnly ? openCount : meeting.actions.length}</span>
         </h2>
         {caps.canCreateAction && !open && !openOnly ? (
           <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <Plus aria-hidden="true" />
-            Action item
+            {t("actions.newItem")}
           </Button>
         ) : null}
       </div>
@@ -119,14 +122,14 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="action-title">What needs doing</Label>
-            <Input id="action-title" autoFocus value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} placeholder="Issue revised façade drawings" />
+            <Label htmlFor="action-title">{t("actions.what")}</Label>
+            <Input id="action-title" autoFocus value={title} maxLength={180} onChange={(event) => setTitle(event.target.value)} placeholder={t("actions.whatPlaceholder")} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="action-owner">Owner</Label>
+              <Label htmlFor="action-owner">{t("actions.owner")}</Label>
               <select id="action-owner" className={selectClass} value={owner} onChange={(event) => setOwner(event.target.value)}>
-                <option value="">Unassigned</option>
+                <option value="">{t("common.unassigned")}</option>
                 {owners.map((person) => (
                   <option key={person.memberId} value={person.memberId}>
                     {person.fullName}
@@ -135,15 +138,15 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="action-due">Due</Label>
+              <Label htmlFor="action-due">{t("actions.due")}</Label>
               <Input id="action-due" type="date" value={due} onChange={(event) => setDue(event.target.value)} />
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             {caps.canConvertToTask ? (
               <label className="flex items-center gap-2 text-table text-fg">
-                <Switch checked={createTask} onCheckedChange={setCreateTask} aria-label="Create a task" />
-                Create a task
+                <Switch checked={createTask} onCheckedChange={setCreateTask} aria-label={t("actions.createTask")} />
+                {t("actions.createTask")}
               </label>
             ) : (
               <span />
@@ -163,11 +166,11 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
                   })
                 }
               >
-                Done
+                {t("common.done")}
               </Button>
               <Button type="submit" size="sm" disabled={pending === "add" || !title.trim()}>
                 {pending === "add" ? <Loader2 aria-hidden="true" className="animate-spin" /> : <ListPlus aria-hidden="true" />}
-                Add action
+                {t("actions.addAction")}
               </Button>
             </div>
           </div>
@@ -175,11 +178,11 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
       ) : null}
 
       {shown.length === 0 ? (
-        <p className="text-table text-fg-subtle">{openOnly ? "Nothing open." : "No action items yet."}</p>
+        <p className="text-table text-fg-subtle">{openOnly ? t("actions.nothingOpen") : t("actions.none")}</p>
       ) : (
         <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
           {shown.map((action) => (
-            <ActionRow key={action.id} meeting={meeting} action={action} pending={pending === action.id} onChange={onChange} onConvert={() => void call(action.id, `/api/meetings/${meeting.id}/actions/${action.id}/create-task`, { method: "POST" }, "Task created")} />
+            <ActionRow key={action.id} meeting={meeting} action={action} pending={pending === action.id} onChange={onChange} onConvert={() => void call(action.id, `/api/meetings/${meeting.id}/actions/${action.id}/create-task`, { method: "POST" }, t("actions.taskCreated"))} />
           ))}
         </ul>
       )}
@@ -200,13 +203,14 @@ function ActionRow({
   onChange: (detail: MeetingDetailDTO) => void;
   onConvert: () => void;
 }) {
+  const t = useMeetingsTranslations();
   const closed = action.status === "DONE" || action.status === "CANCELLED";
   return (
     <li
       className="flex items-start gap-3 px-3.5 py-3 sm:px-4"
       data-testid="meeting-action"
       // A linked action's status, owner and due date are its task's (AUD-10 §5): shown, not edited here.
-      title={action.capabilities.followsTask ? "Status, owner and due date follow the linked task." : undefined}
+      title={action.capabilities.followsTask ? t("actions.followsTask") : undefined}
     >
       <span className="pt-0.5">
         <ActionStatusToggle
@@ -227,11 +231,11 @@ function ActionRow({
               <PersonLink memberId={action.owner.memberId} name={action.owner.fullName} />
             </span>
           ) : (
-            <span className="text-fg-subtle">Unassigned</span>
+            <span className="text-fg-subtle">{t("common.unassigned")}</span>
           )}
-          {action.dueDate ? <span className={cn("tabular-nums", action.overdue && "font-medium text-danger-strong")}>{action.overdue ? `Overdue · ${dueLabel(action.dueDate)}` : `Due ${dueLabel(action.dueDate)}`}</span> : null}
-          {action.status === "IN_PROGRESS" ? <Badge tone="info">{ACTION_STATUS_LABELS.IN_PROGRESS}</Badge> : null}
-          {action.status === "CANCELLED" ? <Badge>{ACTION_STATUS_LABELS.CANCELLED}</Badge> : null}
+          {action.dueDate ? <span className={cn("tabular-nums", action.overdue && "font-medium text-danger-strong")}>{action.overdue ? t("actions.overdueDate", { date: dueLabel(action.dueDate) }) : t("actions.dueDate", { date: dueLabel(action.dueDate) })}</span> : null}
+          {action.status === "IN_PROGRESS" ? <Badge tone="info">{meetingsLabel(t, "actionStatus", "IN_PROGRESS", ACTION_STATUS_LABELS.IN_PROGRESS)}</Badge> : null}
+          {action.status === "CANCELLED" ? <Badge>{meetingsLabel(t, "actionStatus", "CANCELLED", ACTION_STATUS_LABELS.CANCELLED)}</Badge> : null}
         </span>
       </span>
       <span className="flex shrink-0 items-center gap-2">
@@ -241,19 +245,19 @@ function ActionRow({
               href={action.task.href}
               className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-meta font-medium text-fg hover:border-line-strong"
               data-testid="action-task-link"
-              aria-label={`Linked task, ${statusLabel(action.task.status)}. This action's status, owner and due date follow the task.`}
+              aria-label={t("actions.linkedTask", { status: statusLabel(action.task.status) })}
             >
               <SquareCheckBig aria-hidden="true" className="size-3.5 text-fg-subtle" />
               {statusLabel(action.task.status)}
               <ArrowUpRight aria-hidden="true" className="size-3 text-fg-subtle" />
             </Link>
           ) : (
-            <span className="text-meta text-fg-subtle">Task · {statusLabel(action.task.status)}</span>
+            <span className="text-meta text-fg-subtle">{t("actions.taskStatus", { status: statusLabel(action.task.status) })}</span>
           )
         ) : action.capabilities.canConvertToTask ? (
           <Button type="button" size="sm" variant="ghost" onClick={onConvert} disabled={pending}>
             {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <SquareCheckBig aria-hidden="true" />}
-            Create task
+            {t("actions.convert")}
           </Button>
         ) : null}
       </span>
