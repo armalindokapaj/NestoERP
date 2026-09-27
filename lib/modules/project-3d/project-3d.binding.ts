@@ -6,6 +6,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { bindingChangeSummary, project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DUnitBindingsReplace } from "./project-3d.schema";
 
@@ -144,9 +145,12 @@ export async function replaceProject3DUnitBindings(
   }
 
   return prisma.$transaction(async (tx) => {
-    const beforeCount = await tx.project3DUnitMeshBinding.count({
+    const previous = await tx.project3DUnitMeshBinding.findMany({
       where: { modelVersionId: version.id, projectId, companyId: version.companyId },
+      select: { meshName: true, projectUnitId: true },
     });
+    const beforeCount = previous.length;
+    const change = bindingChangeSummary(previous, input.bindings);
     await tx.project3DUnitMeshBinding.deleteMany({
       where: { modelVersionId: version.id, projectId, companyId: version.companyId },
     });
@@ -174,6 +178,7 @@ export async function replaceProject3DUnitBindings(
       before: { projectId, versionId: version.id, bindingCount: beforeCount },
       after: { projectId, versionId: version.id, bindingCount: input.bindings.length },
       reason: input.reason,
+      metadata: project3DAuditMetadata("UNIT_BINDINGS_UPDATED", change.summary, { created: change.created, updated: change.updated, removed: change.removed }),
     }, { tx });
 
     return tx.project3DUnitMeshBinding.findMany({

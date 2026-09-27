@@ -6,6 +6,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { floorKeyOf, floorRank, generateUnitCodes, planFloorRange, structureKey } from "@/lib/modules/project-structure/structure.rules";
+import { project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DStructureCreate, Project3DStructureUpdate } from "./project-3d.schema";
 
@@ -30,7 +31,7 @@ function knownWriteConflict(error: unknown): never {
   throw error;
 }
 
-async function audit(context: PlatformContext, parentGroupId: string, tx: Tx, projectId: string, entity: { type: string; id: string; label: string }, operation: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, reason: string) {
+async function audit(context: PlatformContext, parentGroupId: string, tx: Tx, projectId: string, entity: { type: string; id: string; label: string }, operation: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, reason: string | null) {
   await recordPlatformAction(context, parentGroupId, {
     actionKey: AuditAction.PLATFORM_THREE_D_STRUCTURE_CHANGED,
     entity,
@@ -38,7 +39,14 @@ async function audit(context: PlatformContext, parentGroupId: string, tx: Tx, pr
     before: before ? { projectId, operation, ...before } : null,
     after: after ? { projectId, operation, ...after } : null,
     reason,
+    metadata: structureMetadata(operation, entity.label),
   }, { tx });
+}
+
+function structureMetadata(operation: string, label: string) {
+  if (operation.endsWith(".delete")) return project3DAuditMetadata("STRUCTURE_DELETED", `${label} deleted`, { structureOperation: operation });
+  if (operation.endsWith(".update")) return project3DAuditMetadata("STRUCTURE_UPDATED", `${label} updated`, { structureOperation: operation });
+  return project3DAuditMetadata("STRUCTURE_CREATED", `${label} created`, { structureOperation: operation });
 }
 
 export async function getPlatformProjectStructure(context: PlatformContext, projectId: string) {
@@ -143,7 +151,7 @@ export async function updatePlatformProjectStructure(context: PlatformContext, p
   } catch (error) { return knownWriteConflict(error); }
 }
 
-export async function deletePlatformProjectStructure(context: PlatformContext, projectId: string, kind: "building" | "floor" | "unit", recordId: string, reason: string) {
+export async function deletePlatformProjectStructure(context: PlatformContext, projectId: string, kind: "building" | "floor" | "unit", recordId: string, reason: string | null = null) {
   const project = await requireStructureProject(context, projectId);
   return prisma.$transaction(async (tx) => {
     if (kind === "building") {

@@ -43,7 +43,6 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }:
   const [experienceName, setExperienceName] = React.useState("");
   const [internalNotes, setInternalNotes] = React.useState("");
   const [structureMode, setStructureMode] = React.useState<StructureMode>("CREATE_LATER");
-  const [reason, setReason] = React.useState("Provision new 3D Experience");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -56,7 +55,7 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }:
   function reset() {
     setStep(1); setGroupId(""); setCompanyId(""); setProjectId("");
     setExperienceName(""); setInternalNotes(""); setStructureMode("CREATE_LATER");
-    setReason("Provision new 3D Experience"); setError(null);
+    setError(null);
   }
 
   function chooseProject(value: string) {
@@ -78,12 +77,11 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }:
 
   async function create() {
     if (!group || !company || !project) return setError("Choose a valid Project.");
-    if (reason.trim().length < 3) return setError("Give a reason for provisioning.");
     setPending(true); setError(null);
     try {
       const result = await engineeringApi<{ openPath: string }>("/api/platform/3d/experiences", {
         method: "POST",
-        body: { parentGroupId: group.id, companyId: company.id, projectId: project.id, experienceName, internalNotes: internalNotes.trim() || null, activateEntitlement: true, structureMode, reason },
+        body: { parentGroupId: group.id, companyId: company.id, projectId: project.id, experienceName, internalNotes: internalNotes.trim() || null, activateEntitlement: true, structureMode },
       });
       toast({ title: "3D Experience created.", tone: "success" });
       setOpen(false); reset();
@@ -125,7 +123,6 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }:
 
         {step === 4 && project && group && company ? <div className="space-y-4">
           <dl className="grid gap-3 rounded-xl border border-line bg-surface-muted p-4 sm:grid-cols-2"><Review label="Experience" value={experienceName} /><Review label="Project" value={`${project.code} · ${project.name}`} /><Review label="Organization" value={`${group.name} · ${company.name}`} /><Review label="Structure" value={structureMode === "USE_EXISTING" ? "Use existing" : structureMode === "CREATE_NOW" ? "Create now" : "Create later"} /><Review label="Entitlement" value="Active · viewer enabled" /></dl>
-          <Field label="Provisioning reason"><Textarea className="min-h-20" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} /></Field>
         </div> : null}
       </div>
 

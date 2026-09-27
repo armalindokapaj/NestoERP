@@ -282,6 +282,13 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   throw new AccessError("VALIDATION_ERROR", "Expected a JSON object body.");
 }
 
+/** `readJson` for requests whose body is optional: no body at all reads as `{}`. */
+export async function readOptionalJson(request: Request): Promise<Record<string, unknown>> {
+  const text = await request.text();
+  if (!text.trim()) return {};
+  return readJson(new Request(request.url, { method: "POST", body: text }));
+}
+
 /**
  * `{ data, meta: { contextKey } }` for answers the shell's controllers keep
  * (NAV-03 RUNTIME-02, §12): the key is the shell's own, over the same

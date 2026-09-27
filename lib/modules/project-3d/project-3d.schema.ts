@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { MAX_MODEL_BYTES } from "@/lib/3d/platform/model-upload";
 
-const reason = z.string().trim().min(3, "Give a reason for this action.").max(500);
+/**
+ * An optional note kept with the audit event. No 3D authoring action asks for
+ * one (Experience Editor no-reason PRD §1-§5): the audit records who, what,
+ * when and where by itself. Old clients that still send a reason keep working.
+ */
+const reason = z.string().trim().max(500).nullish().transform((value) => value || null);
+/** Entitlement changes decide whether a company may see its 3D viewer at all: they still say why. */
+const entitlementReason = z.string().trim().min(3, "Give a reason for this action.").max(500);
 
 export const project3DEntitlementUpdateSchema = z
   .object({
@@ -10,7 +17,7 @@ export const project3DEntitlementUpdateSchema = z
     planKey: z.string().trim().min(1).max(80).nullable().optional(),
     activatedAt: z.coerce.date().nullable().optional(),
     expiresAt: z.coerce.date().nullable().optional(),
-    reason,
+    reason: entitlementReason,
   })
   .refine((value) => !value.activatedAt || !value.expiresAt || value.expiresAt > value.activatedAt, {
     message: "Expiry must be after activation.",
@@ -129,6 +136,8 @@ export const project3DUnitBindingsReplaceSchema = z.object({
 export const project3DExperienceUpdateSchema = z.object({
   expectedRevision: z.number().int().positive(),
   config: z.record(z.string(), z.unknown()),
+  /** This save follows "Reset defaults", so the audit names it that way (§16). */
+  resetToDefaults: z.boolean().optional(),
   reason,
 });
 
@@ -201,6 +210,9 @@ export const project3DReleasePublishSchema = z.object({
 });
 
 export const project3DReleaseActivateSchema = z.object({ reason });
+
+/** Permanent removal of a model version and its files from the Model Library (§13, §33). */
+export const project3DModelVersionDeleteSchema = z.object({ confirmPermanentDelete: z.literal(true) });
 
 export type Project3DSlotCreate = z.infer<typeof project3DSlotCreateSchema>;
 export type Project3DUploadCreate = z.infer<typeof project3DUploadCreateSchema>;

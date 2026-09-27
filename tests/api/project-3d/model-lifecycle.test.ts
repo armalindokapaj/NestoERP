@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
 import { setStorageProvider, storageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { getProject3DEditorWorkspace } from "@/lib/modules/project-3d/project-3d.editor";
+import { getProject3DEditorWorkspace, updateProject3DModelSettings } from "@/lib/modules/project-3d/project-3d.editor";
 import {
   completeProject3DModelUpload,
   createProject3DModelSlot,
@@ -13,8 +13,10 @@ import {
   project3DProcessingInRequest,
   retryProject3DModelProcessing,
 } from "@/lib/modules/project-3d/project-3d.ingestion";
+import { deleteProject3DModelVersion, getProject3DModelVersionUsage } from "@/lib/modules/project-3d/project-3d.model-library";
 import { publishProject3DRelease } from "@/lib/modules/project-3d/project-3d.release";
-import { updateProject3DEntitlement } from "@/lib/modules/project-3d/project-3d.service";
+import { project3DModelSettingsUpdateSchema, project3DSlotCreateSchema, project3DUploadCreateSchema } from "@/lib/modules/project-3d/project-3d.schema";
+import { listProject3DModels, updateProject3DEntitlement } from "@/lib/modules/project-3d/project-3d.service";
 import { cleanupSessions, loginAsPlatformAdmin, prisma } from "@/tests/helpers";
 
 /**
@@ -59,9 +61,11 @@ describe("Project 3D model lifecycle", () => {
   let projectId: string;
   let buildingSlotId: string;
 
-  async function uploaded(slotId: string, reason: string) {
+  async function uploaded(slotId: string, reason: string | null) {
     const bytes = oneTriangleGlb();
-    const intent = await createProject3DModelUpload(admin, projectId, slotId, { fileName: "tower.glb", sizeBytes: bytes.length, scale: 1, rotationDeg: 0, altitudeOffset: 0, positionX: 0, positionZ: 0, rotationXDeg: 0, rotationZDeg: 0, reason });
+    // Through the request schema, so a body without a reason is what is tested.
+    const input = project3DUploadCreateSchema.parse({ fileName: "tower.glb", sizeBytes: bytes.length, ...(reason ? { reason } : {}) });
+    const intent = await createProject3DModelUpload(admin, projectId, slotId, input);
     const version = await prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: intent.versionId }, select: { sourceStorageKey: true } });
     await storageProvider().putObject(version.sourceStorageKey, bytes, "model/gltf-binary");
     await completeProject3DModelUpload(admin, projectId, intent.versionId, reason);
@@ -177,5 +181,57 @@ describe("Project 3D model lifecycle", () => {
     } finally {
       setStorageProvider(local);
     }
+  });
+
+  it("takes every authoring action without a reason, and audits who, what and which version by itself", async () => {
+    const annex = await createProject3DModelSlot(admin, projectId, project3DSlotCreateSchema.parse({ role: "CUSTOM", slotKey: "annex", displayName: "Annex" }));
+    const first = await uploaded(annex.id, null);
+    await expect(processProject3DModelVersion(first)).resolves.toBe("READY");
+    const second = await uploaded(annex.id, null);
+    await expect(processProject3DModelVersion(second)).resolves.toBe("READY");
+
+    const row = await prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: second } });
+    await updateProject3DModelSettings(admin, projectId, second, project3DModelSettingsUpdateSchema.parse({
+      expectedUpdatedAt: row.updatedAt.toISOString(), scale: 2, rotationDeg: row.rotationDeg, altitudeOffset: row.altitudeOffset, positionX: row.positionX, positionZ: row.positionZ,
+      rotationXDeg: row.rotationXDeg, rotationZDeg: row.rotationZDeg, visible: row.visible, castShadow: row.castShadow, receiveShadow: row.receiveShadow, selectable: row.selectable, transformLocked: row.transformLocked, nodeOverrides: [],
+    }));
+
+    // The admin's own actions; preparing the file is audited as the system's.
+    const events = await prisma.auditEvent.findMany({ where: { projectId, actorType: "USER", OR: [{ entityId: annex.id }, { entityId: { in: [first, second] } }] }, orderBy: [{ occurredAt: "asc" }, { id: "asc" }] });
+    expect(events.every((event) => event.reason === null && event.actorUserId === admin.userId && event.actorDisplayNameSnapshot === admin.fullName)).toBe(true);
+    const operations = events.map((event) => (event.metadataJson as { operation?: string } | null)?.operation);
+    expect(operations).toEqual(["MODEL_ATTACHED", "MODEL_UPLOAD_STARTED", "MODEL_UPLOAD_COMPLETED", "MODEL_REPLACED", "MODEL_UPLOAD_COMPLETED", "MODEL_SETTINGS_UPDATED"]);
+    expect(events[3].metadataJson).toMatchObject({ oldVersion: 1, newVersion: 2, summary: "Annex: version 1 → 2" });
+    expect(events[5].metadataJson).toMatchObject({ summary: "1 model property changed", changedProperties: ["scale"] });
+  });
+
+  it("deletes a model file permanently only when nothing still uses it", async () => {
+    const annex = await prisma.project3DModelSlot.findFirstOrThrow({ where: { projectId, slotKey: "annex" }, include: { versions: { orderBy: { version: "asc" } } } });
+    const [older, newest] = annex.versions;
+
+    // The version the Experience shows must be removed from it first.
+    await expect(getProject3DModelVersionUsage(admin, newest.id)).resolves.toMatchObject({ blockers: ["SHOWN_IN_EXPERIENCE"], shownInExperience: true, releases: [] });
+    await expect(deleteProject3DModelVersion(admin, newest.id)).rejects.toMatchObject({ code: "CONFLICT", details: { code: "MODEL_IN_USE", blockers: ["SHOWN_IN_EXPERIENCE"] } });
+
+    // A released version stays restorable, even after its model left the Experience.
+    const released = await prisma.project3DModelVersion.findFirstOrThrow({ where: { projectId, status: "PUBLISHED" } });
+    await expect(getProject3DModelVersionUsage(admin, released.id)).resolves.toMatchObject({ blockers: ["RELEASED"], releases: [1] });
+    await expect(deleteProject3DModelVersion(admin, released.id)).rejects.toMatchObject({ details: { code: "MODEL_IN_USE" } });
+    await expect(storageProvider().headObject(released.runtimeStorageKey!)).resolves.not.toBeNull();
+
+    // Permission first: confirmation never replaces it.
+    const withoutDelete = { ...admin, permissions: admin.permissions.filter((permission) => permission !== "platform.3d.model.delete") };
+    await expect(deleteProject3DModelVersion(withoutDelete, older.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    await expect(getProject3DModelVersionUsage(admin, older.id)).resolves.toMatchObject({ blockers: [], bindingCount: 0 });
+    await expect(deleteProject3DModelVersion(admin, older.id)).resolves.toEqual({ id: older.id, unitBindingsRemoved: 0 });
+    await expect(prisma.project3DModelVersion.findUniqueOrThrow({ where: { id: older.id } })).resolves.toMatchObject({ deletedByUserId: admin.userId, deletedAt: expect.any(Date) });
+    await expect(storageProvider().headObject(older.sourceStorageKey)).resolves.toBeNull();
+    await expect(storageProvider().headObject(older.runtimeStorageKey!)).resolves.toBeNull();
+    expect((await listProject3DModels(admin)).some((model) => model.id === older.id)).toBe(false);
+    const audit = await prisma.auditEvent.findFirstOrThrow({ where: { entityId: older.id }, orderBy: { occurredAt: "desc" } });
+    expect(audit).toMatchObject({ reason: null, actorUserId: admin.userId });
+    expect(audit.metadataJson).toMatchObject({ operation: "MODEL_FILE_DELETED" });
+    await expect(deleteProject3DModelVersion(admin, older.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

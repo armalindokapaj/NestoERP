@@ -41,6 +41,7 @@ export const PLATFORM_PERMISSIONS = [
   "platform.3d.model.manage",
   "platform.3d.binding.manage",
   "platform.3d.publish",
+  "platform.3d.model.delete",
   "platform.operations.view",
   "platform.security.view",
   "platform.support.view",

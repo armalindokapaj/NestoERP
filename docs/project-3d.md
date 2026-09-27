@@ -37,13 +37,14 @@ node overrides, and canonical unit bindings. Rollback moves only
 ## Ownership and authorization
 
 Platform APIs live under `/api/platform/3d` and resolve `PlatformContext` before
-parsing or looking up domain data. The five permissions are:
+parsing or looking up domain data. The six permissions are:
 
 - `platform.3d.view`
 - `platform.3d.configure`
 - `platform.3d.model.manage`
 - `platform.3d.binding.manage`
 - `platform.3d.publish`
+- `platform.3d.model.delete` (permanent deletion from the Model Library)
 
 These permissions are never part of a Company role. The Platform page tree is
 guarded by the Platform layout; the Experience Editor tab, which that layout
@@ -110,7 +111,7 @@ was cut off, the worker crashed). The editor then offers **Retry preparation**
 
 The Scene panel and the Models page share one upload component. Choose **A new
 model** (named from the file unless you type a name, with its purpose) or **New
-version of** an existing model, add a reason, choose a GLB, and upload. The
+version of** an existing model, choose a GLB, and upload. The
 bytes go straight to the signed private storage grant with measured progress —
 never through the app server, never as base64. The browser reads only the
 12-byte header first; the server verifies size and header again, then the
@@ -133,9 +134,39 @@ Models that are not ready cannot be edited, and their state, validation issues
 and actions are in the Properties panel. Uploading never publishes.
 
 **Remove model** (Scene panel or Models page) takes a model out of the
-Experience: its versions stay, the published viewer keeps showing it until the
-next release, and publishing no longer asks for a version of it. Without it, a
-model created by mistake blocked every release.
+Experience after a simple confirmation: its versions and files stay, the
+published viewer keeps showing it until the next release, and publishing no
+longer asks for a version of it. Without it, a model created by mistake blocked
+every release.
+
+**Delete permanently** (Model Library, `platform.3d.model.delete`) is a separate
+action. It first reads where the version is still used and refuses — rather
+than cascading — while it is part of any published release (older releases must
+stay restorable), is the version its Experience currently shows, or is still
+uploading or being prepared. Otherwise a strong confirmation removes the source
+and runtime files from storage, drops its unit links and marks the row deleted,
+so history still names it.
+
+### No reasons, automatic audit
+
+No 3D authoring action asks for a typed reason: saving, model upload, replace,
+remove and delete, unit links, structure, releases and restore, Experience
+details and provisioning. Accountability comes from the audit event each
+persisted action writes in the same transaction: the server-derived actor and
+time, the request id, the target, the Experience's project and, in metadata, a
+system-written `operation` (`EXPERIENCE_CONFIGURATION_SAVED`,
+`EXPERIENCE_DEFAULTS_RESET`, `MODEL_ATTACHED`, `MODEL_DETACHED`,
+`MODEL_REPLACED` with old and new version, `MODEL_FILE_DELETED`,
+`UNIT_BINDINGS_UPDATED`, `RELEASE_ACTIVATED`, …) and a `summary` such as
+"3 Experience settings changed". The Platform audit shows that summary in its
+Details column; events that carried a reason still show it. A `reason` is still
+accepted by the APIs and kept, so older clients work. Entitlement changes are
+the exception: they decide whether a company sees its viewer at all, and still
+ask why. Destructive steps confirm instead: remove model, unbind units, delete a
+structure record, restore a release, reset defaults, delete permanently.
+Counters: `experience_save_total`, `experience_save_failure_total`,
+`model_detach_total`, `model_delete_total`,
+`model_delete_blocked_dependency_total`.
 
 Ordinary GLBs get the lossless geometry passes; output larger than the source
 is dropped in favour of the source bytes. Draco and Meshopt GLBs keep their
@@ -218,7 +249,7 @@ under `app/platform-admin`. Inside the editor the renderer itself loads through
 **Save is not Publish.** Save writes the authoring document through
 `PUT /api/platform/3d/projects/{id}/config` (optimistic `expectedRevision`) and
 each edited model version through `PATCH …/versions/{versionId}`
-(`expectedUpdatedAt`), both with the reason for the change and audited. Only a
+(`expectedUpdatedAt`), both audited automatically — no reason is asked. Only a
 release changes what Company users see. The top bar says which release is live.
 
 Unsaved work is protected: the save state reads Saved, Unsaved changes, Saving…

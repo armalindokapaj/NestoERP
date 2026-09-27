@@ -9,6 +9,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { project3DAuditMetadata } from "./project-3d.audit";
 import { isProject3DEntitlementActive } from "./project-3d.entitlement";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DReleasePublish } from "./project-3d.schema";
@@ -144,12 +145,14 @@ export async function publishProject3DRelease(
         entity: { type: "Project3DRelease", id: release.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
         before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
         after: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber, manifestHash: hash }, reason: input.reason,
+        metadata: project3DAuditMetadata("RELEASE_PUBLISHED", `Release ${releaseNumber} published with ${input.versionIds.length} model${input.versionIds.length === 1 ? "" : "s"}`, { versionIds: input.versionIds }),
       }, { tx });
       await recordPlatformAction(context, config.project.company.parentGroupId, {
         actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_ACTIVATED,
         entity: { type: "Project3DRelease", id: release.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
         before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
         after: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber }, reason: input.reason,
+        metadata: project3DAuditMetadata("RELEASE_ACTIVATED", `Release ${releaseNumber} is live`),
       }, { tx });
       return { id: release.id, releaseNumber, manifestHash: hash, active: true };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -159,7 +162,7 @@ export async function publishProject3DRelease(
   }
 }
 
-export async function activateProject3DRelease(context: PlatformContext, projectId: string, releaseId: string, reason: string) {
+export async function activateProject3DRelease(context: PlatformContext, projectId: string, releaseId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.publish");
   const now = new Date();
   return prisma.$transaction(async (tx) => {
@@ -177,6 +180,7 @@ export async function activateProject3DRelease(context: PlatformContext, project
       entity: { type: "Project3DRelease", id: target.id, label: `${config.project.name} release ${target.releaseNumber}` }, projectId,
       before: { projectId, configurationId: config.id, releaseId: config.activeReleaseId },
       after: { projectId, configurationId: config.id, releaseId: target.id, releaseNumber: target.releaseNumber }, reason,
+      metadata: project3DAuditMetadata("RELEASE_ACTIVATED", `Release ${target.releaseNumber} is live`),
     }, { tx });
     return { id: target.id, releaseNumber: target.releaseNumber, active: true };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

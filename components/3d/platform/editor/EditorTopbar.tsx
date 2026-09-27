@@ -6,7 +6,6 @@ import { ExternalLink, MoreHorizontal, RotateCcw, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { SAVE_STATUS_LABEL, type EditorSaveStatus } from "./save-state";
 
 const STATUS_TONE = { saved: "success", unsaved: "warning", saving: "info", failed: "danger" } as const;
@@ -18,15 +17,14 @@ const STATUS_TONE = { saved: "success", unsaved: "warning", saving: "info", fail
  * Project — with no admin breadcrumb. The chip says what the published viewer
  * shows, so Save is never mistaken for Publish. The overflow links open the
  * management pages in a new tab: leaving this tab would drop unsaved work.
+ * Save asks for nothing: who saved what, and when, is audited by the server
+ * (Experience Editor no-reason PRD §2, §32).
  */
 export function EditorTopbar({
   experienceName,
   context,
   activeRelease,
   status,
-  reason,
-  onReasonChange,
-  reasonRef,
   canEdit,
   onSave,
   onReset,
@@ -36,9 +34,6 @@ export function EditorTopbar({
   context: string;
   activeRelease: { releaseNumber: number } | null;
   status: EditorSaveStatus;
-  reason: string;
-  onReasonChange: (value: string) => void;
-  reasonRef: React.Ref<HTMLInputElement>;
   canEdit: boolean;
   onSave: () => void;
   onReset: () => void;
@@ -58,15 +53,6 @@ export function EditorTopbar({
       <span role="status" aria-live="polite" className="shrink-0">
         <Badge tone={STATUS_TONE[status]} data-testid="editor-save-status">{SAVE_STATUS_LABEL[status]}</Badge>
       </span>
-      <Input
-        ref={reasonRef}
-        aria-label="Reason for this change"
-        className="h-8 w-56 shrink border-neutral-700 bg-neutral-900 text-xs text-neutral-100 xl:w-64"
-        value={reason}
-        onChange={(event) => onReasonChange(event.target.value)}
-        placeholder="Reason for this change"
-        disabled={saving || !canEdit}
-      />
       <Button type="button" variant="ghost" size="sm" className="shrink-0 text-neutral-300 hover:text-white" onClick={onReset} disabled={saving || !canEdit}>
         <RotateCcw aria-hidden="true" /> Reset defaults
       </Button>
