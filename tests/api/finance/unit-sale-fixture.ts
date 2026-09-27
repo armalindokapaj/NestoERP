@@ -10,6 +10,7 @@ import { activatePaymentSchedule, createPaymentSchedule } from "@/lib/modules/fi
 import { commercialDetailsSchema, reserveSchema } from "@/lib/modules/sales/units/unit-sales.schema";
 import { changeSaleStatus, reserveUnit, updateCommercialDetails } from "@/lib/modules/sales/units/unit-sales.service";
 import { DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * A unit sale from reservation to schedule, against the real database (E-05F
@@ -106,7 +107,7 @@ export class SaleFixture {
     const { legal, owner } = this.roles();
     await contracts.submitForReview(legal, contractId);
     await contracts.submitForApproval(legal, contractId);
-    await contracts.approveContract(owner, contractId, null);
+    await contracts.approveContract(owner, contractId, null, await shownCycle("contracts", contractId));
     await contracts.markSent(legal, contractId);
     await contracts.markSigned(legal, contractId, { signedDate: new Date(), acknowledgeMissingDocument: true });
     if (options.activate) await contracts.activateContract(legal, contractId, new Date());

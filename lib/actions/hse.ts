@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
@@ -72,7 +73,7 @@ function revalidateHse(recordPath?: string) {
 function toResult(error: unknown): HseActionResult {
   if (error instanceof AccessError) {
     const details = error.details as { code?: string; gaps?: unknown } | undefined;
-    return { ok: false, error: error.message, code: details?.code, gaps: details?.gaps };
+    return { ok: false, error: error.message, code: details?.code ?? error.code, gaps: details?.gaps };
   }
 
   console.error("[hse] action failed", error);
@@ -333,14 +334,21 @@ export async function submitInspectionAction(
   return committed(`/hse/inspections/${inspectionId}`);
 }
 
+/*
+ * HSE decisions name the approval cycle the page displayed (`cycle`); the
+ * service refuses a missing cycle (428 APPROVAL_CYCLE_REQUIRED) or one since
+ * replaced by a resubmission (409 APPROVAL_SOURCE_CHANGED) inside its
+ * transaction (AUD-10 §4, CW-02, CW-05).
+ */
 export async function approveInspectionAction(
   inspectionId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await inspections.approveInspection(context, inspectionId, decisionNote || null);
+    await inspections.approveInspection(context, inspectionId, decisionNote || null, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -352,6 +360,7 @@ export async function approveInspectionAction(
 export async function rejectInspectionAction(
   inspectionId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
@@ -360,7 +369,7 @@ export async function rejectInspectionAction(
   }
 
   try {
-    await inspections.rejectInspection(context, inspectionId, decisionNote);
+    await inspections.rejectInspection(context, inspectionId, decisionNote, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -673,11 +682,12 @@ export async function submitIncidentCloseAction(
 export async function closeIncidentAction(
   incidentId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await incidents.closeIncident(context, incidentId, decisionNote || null);
+    await incidents.closeIncident(context, incidentId, decisionNote || null, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -797,11 +807,12 @@ export async function submitRiskAssessmentAction(
 export async function approveRiskAssessmentAction(
   assessmentId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await risk.approveRiskAssessment(context, assessmentId, decisionNote || null);
+    await risk.approveRiskAssessment(context, assessmentId, decisionNote || null, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -813,13 +824,14 @@ export async function approveRiskAssessmentAction(
 export async function rejectRiskAssessmentAction(
   assessmentId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   if (!decisionNote.trim()) return { ok: false, error: "Say why it is being sent back." };
 
   try {
-    await risk.rejectRiskAssessment(context, assessmentId, decisionNote);
+    await risk.rejectRiskAssessment(context, assessmentId, decisionNote, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -1125,11 +1137,12 @@ export async function submitPermitAction(permitId: string): Promise<HseActionRes
 export async function approvePermitAction(
   permitId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   try {
-    await permits.approvePermit(context, permitId, decisionNote || null);
+    await permits.approvePermit(context, permitId, decisionNote || null, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -1141,13 +1154,14 @@ export async function approvePermitAction(
 export async function rejectPermitAction(
   permitId: string,
   decisionNote: string,
+  cycle?: PendingCycle | null,
 ): Promise<HseActionResult> {
   const context = await requireCompanyContext();
 
   if (!decisionNote.trim()) return { ok: false, error: "Say why it is being refused." };
 
   try {
-    await permits.rejectPermit(context, permitId, decisionNote);
+    await permits.rejectPermit(context, permitId, decisionNote, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }

@@ -328,8 +328,14 @@ const DEFINITIONS: NotificationEventDefinition[] = [
     },
     title: (payload) => `“${text(payload, "title", "A task")}” is overdue`,
     body: (payload) => (payload.dueDate ? `It was due ${text(payload, "dueDate")}` : null),
-    // Once per due date: a reminder a day, not one per scheduler run.
-    dedupe: (event, memberId, payload) => `TASK_OVERDUE:${event.entityId}:${memberId}:${text(payload, "dueDate")}`,
+    // Once per due date and completion cycle: a reminder a day, not one per
+    // scheduler run — and a task reopened and overdue again on the same date
+    // is told again, not suppressed by its first cycle (AUD-10 §7). The first
+    // cycle keeps the key it always had.
+    dedupe: (event, memberId, payload) => {
+      const cycle = typeof payload.reopenCycle === "number" && payload.reopenCycle > 0 ? `:r${payload.reopenCycle}` : "";
+      return `TASK_OVERDUE:${event.entityId}:${memberId}:${text(payload, "dueDate")}${cycle}`;
+    },
   },
 
   /* Collaboration --------------------------------------------------------- */

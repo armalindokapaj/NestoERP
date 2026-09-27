@@ -14,7 +14,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
-import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { settleStep } from "@/lib/core/approvals/approval-steps";
 import { assertChainHasApprovers, planOrderChain, resolveApprovalPolicy } from "../approvals/approval.policy";
 import {
@@ -908,7 +908,7 @@ export async function approveOrder(
   context: UserContext,
   orderId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
 
@@ -982,7 +982,7 @@ export async function rejectOrder(
   context: UserContext,
   orderId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   await endOrderApproval(context, orderId, reason, "REJECTED", guard);
 }
@@ -996,7 +996,7 @@ export async function returnOrder(
   context: UserContext,
   orderId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   await endOrderApproval(context, orderId, reason, "RETURNED", guard);
 }
@@ -1007,9 +1007,11 @@ async function endOrderApproval(
   orderId: string,
   reason: string,
   outcome: "REJECTED" | "RETURNED",
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(reason);
 
   const existing = await loadForWrite(context, orderId);
 

@@ -11,6 +11,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { expenseBreadcrumbs, expenseLabel, loadExpense } from "./expense-context";
 import { FinanceRecordTabs } from "../../invoices/[invoiceId]/record-tabs";
@@ -36,9 +37,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  */
 export default async function ExpenseDetailPage({ params }: Params) {
   const { expenseId } = await params;
-  const { expense } = await loadExpense(expenseId);
+  const { context, expense } = await loadExpense(expenseId);
 
   const may = expense.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "EXPENSE", expense.id) : null;
 
   return (
     <div className="space-y-5">
@@ -64,6 +67,7 @@ export default async function ExpenseDetailPage({ params }: Params) {
             expenseId={expense.id}
             label={expenseLabel(expense)}
             capabilities={may}
+            cycle={cycle}
           />
         }
       />

@@ -3,7 +3,7 @@ import type { LeaveRequestStatus, Prisma } from "@prisma/client";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { approveLeave, rejectLeave } from "@/lib/modules/hr/leave/leave.service";
+import { approveLeave, leaveSubmissionVersion, rejectLeave } from "@/lib/modules/hr/leave/leave.service";
 import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { approvalDocuments } from "../approvals.documents";
@@ -14,7 +14,7 @@ import {
   memberNames,
   notFound,
   personOrUnknown,
-  translateSourceError,
+  translateDecisionError,
   type ApprovalProvider,
   type ProviderDetail,
   type ProviderItem,
@@ -28,9 +28,11 @@ import { excludesAmountFilter, formatDate, startOfToday } from "./shared";
  * HR leave approvals in the Center (PRD #41 §68, §69, §138, §181, §263).
  *
  * The leave request is its own approval: HR keeps no separate cycle table, so
- * each submission is counted from HR's own activity trail, and that count is
- * the version a decision is checked against — a request rejected and sent
- * again is a new submission, never a stale approval of the old one.
+ * each submission is identified by the `submittedAt` it stamps, and that stamp
+ * (epoch milliseconds) is the version a decision is checked against — inside
+ * HR's own deciding transaction, under the row lock, exactly as the HR page's
+ * decision is (AUD-10 §4, A2). A request rejected and sent again is a new
+ * submission, never a stale approval of the old one.
  *
  * Privacy first: what an approver sees is who, which kind of leave, which
  * days and how many — never the reason unless `hr.leave.reason.view` allows
@@ -82,22 +84,9 @@ function mayDecide(context: UserContext): boolean {
   return can(context, "hr.leave.approve") || can(context, "hr.leave.reject");
 }
 
-async function submissionCounts(ids: string[]): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const rows = await prisma.activity.groupBy({
-    by: ["entityId"],
-    where: { entityType: "LeaveRequest", entityId: { in: ids }, action: "HR_LEAVE_SUBMITTED" },
-    _count: { _all: true },
-  });
-  return new Map(rows.map((row) => [row.entityId, row._count._all]));
-}
-
 async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; sortAt: Date }>): Promise<ProviderItem[]> {
   const rows = entries.map((entry) => entry.row);
-  const [names, versions] = await Promise.all([
-    memberNames(context.companyId, rows.flatMap((row) => [row.companyMemberId, row.approvedByMemberId, row.rejectedByMemberId])),
-    submissionCounts(rows.map((row) => row.id)),
-  ]);
+  const names = await memberNames(context.companyId, rows.flatMap((row) => [row.companyMemberId, row.approvedByMemberId, row.rejectedByMemberId]));
   const today = startOfToday();
   return entries.flatMap(({ row, sortAt }) => {
     const status = STATUS[row.status];
@@ -140,7 +129,7 @@ async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; 
         requiresStrongConfirmation: false,
         blockedReason: pending ? (own ? "This is your own leave, so somebody else decides it." : mayDecide(context) ? null : "Waiting for an approver.") : null,
         onBehalfOf: null,
-        version: Math.max(1, versions.get(row.id) ?? 1),
+        version: leaveSubmissionVersion(row.submittedAt),
         sortAt: sortAt.toISOString(),
       },
     ];
@@ -321,15 +310,29 @@ export const hrApprovalProvider: ApprovalProvider = {
     if (row.companyMemberId === context.membershipId) {
       throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "This is your own leave, so somebody else has to decide it.", "FORBIDDEN");
     }
-    if (input.expectedVersion !== undefined) {
-      const version = Math.max(1, (await submissionCounts([row.id])).get(row.id) ?? 1);
-      if (version !== input.expectedVersion) throw approvalError("APPROVAL_SOURCE_CHANGED", "This leave request was resubmitted since you opened it. Review the latest version.");
+    // The submission the reviewer saw; HR checks it again under its own row lock.
+    // Without one, the submission just read — never "whatever is pending" at write time.
+    const submission = { submittedAt: input.expectedVersion !== undefined ? new Date(input.expectedVersion) : row.submittedAt };
+    if (submission.submittedAt.getTime() !== row.submittedAt.getTime()) {
+      throw approvalError("APPROVAL_SOURCE_CHANGED", "This leave request was resubmitted since you opened it. Reload to review the latest version.");
     }
     try {
-      if (decision === "APPROVE") await approveLeave(context, row.id, input.note);
-      else await rejectLeave(context, row.id, input.note ?? "");
+      if (decision === "APPROVE") await approveLeave(context, row.id, input.note, submission);
+      else await rejectLeave(context, row.id, input.note ?? "", submission);
     } catch (error) {
-      translateSourceError(error);
+      // Asked of the database, not inferred from wording (AUD-10 §4, A9): the
+      // submission decided is closed once the request left PENDING, or once a
+      // resubmission replaced it — which is also "a newer one is waiting".
+      await translateDecisionError(error, async () => {
+        const after = await prisma.leaveRequest.findFirst({
+          where: { id: row.id, companyId: context.companyId },
+          select: { status: true, submittedAt: true, approvedByMemberId: true, rejectedByMemberId: true },
+        });
+        if (!after) return null;
+        const sameSubmission = after.submittedAt?.getTime() === submission.submittedAt.getTime();
+        if (!sameSubmission) return { status: "SUPERSEDED", decidedByMemberId: null, newerPending: after.status === "PENDING" };
+        return { status: after.status, decidedByMemberId: after.approvedByMemberId ?? after.rejectedByMemberId, newerPending: false };
+      });
     }
     return { outcome: wanted, alreadyApplied: false };
   },

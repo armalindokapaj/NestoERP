@@ -14,6 +14,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
 import { permitTypeLabels } from "@/lib/modules/hse/hse.status";
 import { formatDateTime } from "@/lib/utils/format";
@@ -45,6 +46,8 @@ export default async function PermitPage({ params }: Params) {
   }
 
   const may = permit.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "WORK_PERMIT", permit.id) : null;
   // Who it covers — people with or without a login, or whole crews (E-04 §74).
   const [workers, options] = await Promise.all([listPermitWorkers(context, permit.id), may.canEdit ? hseEmploymentOptions(context) : Promise.resolve({ employees: [], crews: [] })]);
   const lapsed = permit.effectiveStatus === "EXPIRED" && permit.status !== "EXPIRED";
@@ -78,7 +81,7 @@ export default async function PermitPage({ params }: Params) {
           },
           { label: "Window", value: <PermitClock hoursRemaining={permit.hoursRemaining} /> },
         ]}
-        actions={<PermitActions permit={permit} />}
+        actions={<PermitActions permit={permit} cycle={cycle} />}
       />
 
       {/*

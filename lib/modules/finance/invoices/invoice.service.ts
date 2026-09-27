@@ -688,7 +688,7 @@ export async function approveInvoice(
   context: UserContext,
   invoiceId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "INVOICE");
@@ -734,7 +734,7 @@ export async function rejectInvoice(
   context: UserContext,
   invoiceId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "INVOICE");
@@ -780,7 +780,7 @@ export async function returnInvoice(
   context: UserContext,
   invoiceId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "INVOICE");

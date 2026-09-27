@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { ACTION_STATUS_LABELS, type MeetingActionItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
+import { ACTION_STATUS_LABELS, type ActionTaskHandoff, type MeetingActionItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
 import { statusLabel } from "@/lib/utils/status";
 import { cn } from "@/lib/utils/cn";
 import { ActionStatusToggle } from "./action-status-toggle";
@@ -52,8 +52,11 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
   async function send(key: string, url: string, init: { method?: string; body?: unknown }, success?: string): Promise<SaveOutcome> {
     setPending(key);
     try {
-      onChange(await meetingApi<MeetingDetailDTO>(url, init));
-      if (success) toast({ title: success, tone: "success" });
+      const { taskHandoff, ...detail } = await meetingApi<MeetingDetailDTO & { taskHandoff?: ActionTaskHandoff | null }>(url, init);
+      onChange(detail);
+      // The action committed; a task that could not be created is said so, with why (AUD-10 §7).
+      if (taskHandoff && !taskHandoff.created) toast({ title: "Action added. The task was not created.", description: taskHandoff.message, tone: "warning" });
+      else if (success) toast({ title: success, tone: "success" });
       return { kind: "committed" };
     } catch (error) {
       toast({ title: failureMessage(error, "The action could not be saved."), tone: "danger" });
@@ -199,7 +202,12 @@ function ActionRow({
 }) {
   const closed = action.status === "DONE" || action.status === "CANCELLED";
   return (
-    <li className="flex items-start gap-3 px-3.5 py-3 sm:px-4" data-testid="meeting-action">
+    <li
+      className="flex items-start gap-3 px-3.5 py-3 sm:px-4"
+      data-testid="meeting-action"
+      // A linked action's status, owner and due date are its task's (AUD-10 §5): shown, not edited here.
+      title={action.capabilities.followsTask ? "Status, owner and due date follow the linked task." : undefined}
+    >
       <span className="pt-0.5">
         <ActionStatusToggle
           meetingId={meeting.id}
@@ -229,7 +237,12 @@ function ActionRow({
       <span className="flex shrink-0 items-center gap-2">
         {action.task ? (
           action.task.href ? (
-            <Link href={action.task.href} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-meta font-medium text-fg hover:border-line-strong" data-testid="action-task-link">
+            <Link
+              href={action.task.href}
+              className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-meta font-medium text-fg hover:border-line-strong"
+              data-testid="action-task-link"
+              aria-label={`Linked task, ${statusLabel(action.task.status)}. This action's status, owner and due date follow the task.`}
+            >
               <SquareCheckBig aria-hidden="true" className="size-3.5 text-fg-subtle" />
               {statusLabel(action.task.status)}
               <ArrowUpRight aria-hidden="true" className="size-3 text-fg-subtle" />

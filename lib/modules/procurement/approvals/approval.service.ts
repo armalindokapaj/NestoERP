@@ -3,7 +3,7 @@ import { Prisma, type ProcurementApprovalRecordType } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import {
   closeOpenSteps,
   createApprovalSteps,
@@ -187,12 +187,18 @@ export async function requirePendingApproval(
   context: UserContext,
   type: ProcurementApprovalRecordType,
   recordId: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<{ id: string; submittedByMemberId: string }> {
-  const approval = await tx.procurementApproval.findFirst({
-    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
-    select: { id: true, submittedByMemberId: true },
-  });
+  requireDecisionGuard(guard);
+  // Newest first, and never one of two at random (AUD-10 §4, A6).
+  const approval = singlePending(
+    await tx.procurementApproval.findMany({
+      where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+      orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+      take: 2,
+      select: { id: true, submittedByMemberId: true },
+    }),
+  );
 
   if (!approval) {
     throw new AccessError(
@@ -203,9 +209,31 @@ export async function requirePendingApproval(
   }
 
   // A resubmission since the review opened is a different cycle (PRD #41 §187).
-  assertApprovalGuard(guard, approval);
+  assertDecisionGuard(guard, approval);
 
   return approval;
+}
+
+/**
+ * The cycle a source page puts its decision controls against (AUD-10 §4,
+ * CW-02, CW-05): the page names it back when somebody decides, and the
+ * decision is refused if it is no longer the pending one. Ids only — whether
+ * this reader may decide is the record's capabilities' business.
+ */
+export async function pendingCycle(
+  context: UserContext,
+  type: ProcurementApprovalRecordType,
+  recordId: string,
+): Promise<PendingCycle | null> {
+  const row = await prisma.procurementApproval.findFirst({
+    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+    orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true },
+  });
+  if (!row) return null;
+  // In a chain the step shown is the step decided (AUD-10 §4, CW-04).
+  const current = currentStepOf(await loadApprovalSteps(PROVIDER_KEY, row.id));
+  return { approvalId: row.id, stepNumber: current?.stepNumber ?? null };
 }
 
 export async function decideApproval(
@@ -273,7 +301,7 @@ export async function requireActionableStep(
   context: UserContext,
   approval: { id: string; submittedByMemberId: string },
   orderId: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<ActionableStep | null> {
   const steps = await loadApprovalSteps(PROVIDER_KEY, approval.id, tx);
   if (steps.length === 0) return null;
@@ -282,7 +310,9 @@ export async function requireActionableStep(
   if (!step) {
     throw new AccessError("CONFLICT", "That decision has already been made.", { code: "APPROVAL_ALREADY_DECIDED" });
   }
-  assertApprovalGuard(guard, approval, step.stepNumber);
+  // A chain step is named as well as the cycle: a page that showed step one
+  // cannot approve step two (AUD-10 §4, CW-04).
+  assertDecisionGuard(guard, approval, step.stepNumber);
 
   const verdict = await stepEligibility(context, step, {
     providerKey: PROVIDER_KEY,
@@ -362,6 +392,21 @@ export async function advanceChain(
     submittedBy: submitter ? { memberId: input.submittedByMemberId, name: `${submitter.user.firstName} ${submitter.user.lastName}` } : undefined,
   });
   return true;
+}
+
+/**
+ * The current chain step of each pending cycle, for the module's own queue:
+ * a row names the step it showed when it is decided, so it cannot approve the
+ * next one (AUD-10 §4, CW-04). Cycles without a chain are absent.
+ */
+export async function currentStepNumbers(approvalIds: string[]): Promise<Record<string, number>> {
+  const chains = await loadApprovalStepsFor(PROVIDER_KEY, approvalIds);
+  const result: Record<string, number> = {};
+  for (const [approvalId, steps] of chains) {
+    const current = currentStepOf(steps);
+    if (current) result[approvalId] = current.stepNumber;
+  }
+  return result;
 }
 
 /** Whether this person could decide the current step of each chain, for the module's own queue. */

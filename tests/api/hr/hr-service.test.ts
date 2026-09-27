@@ -30,6 +30,7 @@ import { permissionsForRole } from "@/config/role-defaults";
 import { resolveContextForSession } from "@/lib/context/build-context";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsPlatformAdmin, prisma } from "../../helpers";
 import { snapshotEmployments } from "./employment-fixture";
+import { shownSubmission } from "../approvals/aud10-cycles";
 
 /**
  * HR authorisation and lifecycle tests (PRD #16 §272–§295, §342).
@@ -509,7 +510,7 @@ describe("leave self-service (PRD #16 §74, §275)", () => {
     const own = await leave.getLeave(hr, created.id);
     expect(own.capabilities.canApprove).toBe(false);
 
-    await expectError(leave.approveLeave(hr, created.id, null), "FORBIDDEN");
+    await expectError(leave.approveLeave(hr, created.id, null, await shownSubmission(created.id)), "FORBIDDEN");
   });
 
   it("shows a self-service reader their own requests only", async () => {
@@ -597,7 +598,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
 
-    await leave.approveLeave(hr, created.id, "Enjoy it.");
+    await leave.approveLeave(hr, created.id, "Enjoy it.", await shownSubmission(created.id));
     const approved = await leave.getLeave(hr, created.id);
     expect(approved.status).toBe("APPROVED");
     expect(approved.decidedBy).toBeTruthy();
@@ -623,7 +624,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.approveLeave(hr, created.id, null);
+    await leave.approveLeave(hr, created.id, null, await shownSubmission(created.id));
     await leave.cancelLeave(hr, created.id);
 
     const after = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
@@ -644,7 +645,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.rejectLeave(hr, created.id, "Clashes with the handover week.");
+    await leave.rejectLeave(hr, created.id, "Clashes with the handover week.", await shownSubmission(created.id));
 
     const after = await leave.getBalances(hr, await employmentOf(engineer.membershipId), year);
     expect(Number(after.find((row) => row.leaveType === "ANNUAL")!.usedDays)).toBe(usedBefore);
@@ -669,7 +670,7 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "SICK", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.approveLeave(hr, created.id, null);
+    await leave.approveLeave(hr, created.id, null, await shownSubmission(created.id));
 
     const balances = await leave.getBalances(hr, await employmentOf(engineer.membershipId), range.year);
     expect(balances.find((row) => row.leaveType === "SICK")?.tracked).toBe(false);
@@ -696,8 +697,8 @@ describe("leave approval and balance (PRD #16 §277, §279)", () => {
     // two approvers signing off at the same moment cannot both be told there is
     // room (PRD #16 §91, §196).
     const results = await Promise.allSettled([
-      leave.approveLeave(hr, a.id, null),
-      leave.approveLeave(hr, b.id, null),
+      leave.approveLeave(hr, a.id, null, await shownSubmission(a.id)),
+      leave.approveLeave(hr, b.id, null, await shownSubmission(b.id)),
     ]);
 
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
@@ -801,7 +802,7 @@ describe("leave writes attendance (PRD #16 §108, §283)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.approveLeave(hr, created.id, null);
+    await leave.approveLeave(hr, created.id, null, await shownSubmission(created.id));
 
     const rows = await prisma.attendanceRecord.findMany({
       where: { sourceEntityId: created.id },
@@ -822,7 +823,7 @@ describe("leave writes attendance (PRD #16 §108, §283)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.approveLeave(hr, created.id, null);
+    await leave.approveLeave(hr, created.id, null, await shownSubmission(created.id));
     await leave.cancelLeave(hr, created.id);
 
     const rows = await prisma.attendanceRecord.count({ where: { sourceEntityId: created.id } });
@@ -850,7 +851,7 @@ describe("leave writes attendance (PRD #16 §108, §283)", () => {
       data: { status: "PRESENT", source: "MANUAL" },
     });
 
-    await expectError(leave.approveLeave(hr, created.id, null), "CONFLICT");
+    await expectError(leave.approveLeave(hr, created.id, null, await shownSubmission(created.id)), "CONFLICT");
   });
 });
 
@@ -986,7 +987,7 @@ describe("attendance (PRD #16 §281, §282)", () => {
     const created = await leave.createLeave(engineer, leaveInput({ leaveType: "ANNUAL", ...range }));
     createdLeave.push(created.id);
     await leave.submitLeave(engineer, created.id);
-    await leave.approveLeave(hr, created.id, null);
+    await leave.approveLeave(hr, created.id, null, await shownSubmission(created.id));
 
     const row = await prisma.attendanceRecord.findFirstOrThrow({
       where: { sourceEntityId: created.id },

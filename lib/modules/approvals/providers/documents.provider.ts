@@ -15,7 +15,7 @@ import {
   memberNames,
   notFound,
   personOrUnknown,
-  translateSourceError,
+  translateDecisionError,
   type ApprovalProvider,
   type ProviderDetail,
   type ProviderItem,
@@ -355,7 +355,11 @@ export const documentReviewProvider: ApprovalProvider = {
     try {
       await decideReview(context, row.id, wanted, input.note ?? undefined);
     } catch (error) {
-      translateSourceError(error);
+      // A conflict is read against the review row, not the refusal's wording (AUD-10 §4, A9).
+      await translateDecisionError(error, async () => {
+        const after = await prisma.documentReview.findFirst({ where: { id: row.id, companyId: context.companyId }, select: { status: true, decidedByMemberId: true } });
+        return after ? { status: after.status, decidedByMemberId: after.decidedByMemberId, newerPending: false } : null;
+      });
     }
     return { outcome: wanted, alreadyApplied: false };
   },

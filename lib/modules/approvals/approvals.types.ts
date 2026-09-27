@@ -207,6 +207,14 @@ export type ApprovalCounts = {
   /** A source reached its window, so there are at least this many (§251, §253). */
   capped: boolean;
   /**
+   * Some source could not be read, so these figures are what the others said and
+   * the real total is unknown — never "0 waiting" or "all caught up" (AUD-10 §4,
+   * CW-03). Always false when `unavailable` is empty.
+   */
+  partial: boolean;
+  /** The sources missing from these figures, named (and, in the group, by company). */
+  unavailable: ApprovalProviderSummary[];
+  /**
    * Group workspace only: the same three figures per company the person may
    * read approvals in, by company name — "ARLIS 7 · IDEAL 4 · UNICO 6" (§33).
    * The totals above are exactly the sum of these.
@@ -214,7 +222,8 @@ export type ApprovalCounts = {
   byCompany?: ApprovalCompanyCounts[];
 };
 
-export type ApprovalCompanyCounts = { company: ApprovalCompany; waiting: number; overdue: number; critical: number; capped: boolean };
+/** One company's figures; `partial` when one of its sources could not be read (AUD-10 §4). */
+export type ApprovalCompanyCounts = { company: ApprovalCompany; waiting: number; overdue: number; critical: number; capped: boolean; partial: boolean };
 
 /** A source of approvals; in the Group workspace also the company whose copy of it could not be read. */
 export type ApprovalProviderSummary = { key: ApprovalProviderKey; label: string; moduleKey: string; company?: ApprovalCompany };

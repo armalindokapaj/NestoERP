@@ -62,23 +62,27 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
     decision: "approve" | "reject",
     note: string | null,
   ): Promise<HseActionResult> {
+    // The row is one approval cycle and its decision names it, so a row left
+    // open while the record was resubmitted cannot decide the new cycle
+    // (AUD-10 §4, CW-05).
+    const cycle = { approvalId: item.id };
     switch (item.recordType) {
       case "INSPECTION":
         return decision === "approve"
-          ? approveInspectionAction(item.recordId, note ?? "")
-          : rejectInspectionAction(item.recordId, note ?? "");
+          ? approveInspectionAction(item.recordId, note ?? "", cycle)
+          : rejectInspectionAction(item.recordId, note ?? "", cycle);
       case "RISK_ASSESSMENT":
         return decision === "approve"
-          ? approveRiskAssessmentAction(item.recordId, note ?? "")
-          : rejectRiskAssessmentAction(item.recordId, note ?? "");
+          ? approveRiskAssessmentAction(item.recordId, note ?? "", cycle)
+          : rejectRiskAssessmentAction(item.recordId, note ?? "", cycle);
       case "WORK_PERMIT":
         return decision === "approve"
-          ? approvePermitAction(item.recordId, note ?? "")
-          : rejectPermitAction(item.recordId, note ?? "");
+          ? approvePermitAction(item.recordId, note ?? "", cycle)
+          : rejectPermitAction(item.recordId, note ?? "", cycle);
       case "INCIDENT_CLOSE":
         // An incident close has no "reject": sending it back means reopening
         // the investigation, which is its own act (PRD #22 §96).
-        return closeIncidentAction(item.recordId, note ?? "");
+        return closeIncidentAction(item.recordId, note ?? "", cycle);
     }
   }
 

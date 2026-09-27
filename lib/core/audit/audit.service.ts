@@ -119,10 +119,29 @@ export async function recordAuditEvent(
   const policy = findAuditPolicy(input.actionKey);
   const client = options.tx ?? prisma;
 
-  try {
+  // Required evidence commits with the mutation or not at all: its failure is
+  // the business operation's failure (PRD #28 §49, AUD-10 §6).
+  if (policy?.required) {
     await write(client, context, input);
+    return;
+  }
+
+  /*
+   * Optional evidence inside the caller's transaction runs under its own
+   * SAVEPOINT (AUD-10 §6, gap 12). A failed statement aborts a PostgreSQL
+   * transaction: catching the error alone would report the audit as skipped
+   * while every later statement of the business write failed with "current
+   * transaction is aborted". Rolling back to the savepoint undoes only the
+   * audit insert, and the caller's transaction carries on. Outside a
+   * transaction the insert is its own statement and needs none.
+   */
+  const savepoint = options.tx && isTransactionClient(options.tx);
+  try {
+    if (savepoint) await options.tx!.$executeRawUnsafe(`SAVEPOINT ${OPTIONAL_AUDIT_SAVEPOINT}`);
+    await write(client, context, input);
+    if (savepoint) await options.tx!.$executeRawUnsafe(`RELEASE SAVEPOINT ${OPTIONAL_AUDIT_SAVEPOINT}`);
   } catch (error) {
-    if (policy?.required) throw error;
+    if (savepoint) await options.tx!.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${OPTIONAL_AUDIT_SAVEPOINT}`);
     // Informational audit must never take a working feature down with it.
     console.error("audit.write.failed", {
       actionKey: input.actionKey,
@@ -130,6 +149,14 @@ export async function recordAuditEvent(
       error: error instanceof Error ? error.message : "unknown",
     });
   }
+}
+
+/** A fixed name: savepoints nest by name, so a re-entrant optional write releases its own. */
+const OPTIONAL_AUDIT_SAVEPOINT = "nesto_optional_audit";
+
+/** An interactive transaction's client has no `$transaction` of its own; the root client does. */
+function isTransactionClient(client: Prisma.TransactionClient | typeof prisma): boolean {
+  return !("$transaction" in client);
 }
 
 /** Convenience wrapper for the common case: a user did something. */

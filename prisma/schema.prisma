@@ -3765,6 +3765,9 @@ model Document {
   employeeDocumentLink    EmployeeDocumentLink? @relation("EmployeeDocumentLinkDocument")
   supportedQualifications PersonQualification[] @relation("PersonQualificationDocument")
 
+  // AUD-10 §3: how this file sits in a daily log's evidence — a reference to the canonical document, same company.
+  dailyLogLinks DailyLogDocumentLink[] @relation("DailyLogDocumentLinkDocument")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -11100,6 +11103,8 @@ model DailyLog {
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, projectId, workDate])
+  /// The target of company-scoped foreign keys from the log's children (AUD-10 §3).
+  @@unique([id, companyId])
   @@index([companyId, status, workDate])
   @@index([companyId, reviewerMemberId, status])
   @@index([companyId, workDate])
@@ -11336,12 +11341,17 @@ model DailyLogDocumentLink {
   takenAt   DateTime?
   sortOrder Int?
 
-  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  /// Both ends in the link's own company (AUD-10 §3, migration 20260927120000). A
+  /// placeholder document that never finished uploading is removed outright by the
+  /// upload cleanup; its evidence metadata goes with it rather than wedging it.
+  dailyLog DailyLog @relation(fields: [dailyLogId, companyId], references: [id, companyId], onDelete: Cascade)
+  document Document @relation("DailyLogDocumentLinkDocument", fields: [documentId, companyId], references: [id, companyId], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@id([dailyLogId, documentId])
+  @@index([documentId, companyId])
   @@map("daily_log_document_links")
 }
 

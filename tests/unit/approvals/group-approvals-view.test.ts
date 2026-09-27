@@ -58,7 +58,7 @@ const item = (id: string, company?: ApprovalCompany): UnifiedApprovalItem => ({
 const base: ApprovalQueueResult = {
   items: [],
   nextCursor: null,
-  counts: { waiting: 0, overdue: 0, critical: 0, capped: false },
+  counts: { waiting: 0, overdue: 0, critical: 0, capped: false, partial: false, unavailable: [] },
   failedProviders: [],
   windowed: false,
   providers: [{ key: "finance", label: "Finance", moduleKey: "finance" }],
@@ -93,9 +93,11 @@ describe("the Group workspace's Approvals Center", () => {
       overdue: 0,
       critical: 0,
       capped: false,
+      partial: false,
+      unavailable: [],
       byCompany: [
-        { company: A, waiting: 1, overdue: 0, critical: 0, capped: false },
-        { company: B, waiting: 1, overdue: 0, critical: 0, capped: false },
+        { company: A, waiting: 1, overdue: 0, critical: 0, capped: false, partial: false },
+        { company: B, waiting: 1, overdue: 0, critical: 0, capped: false, partial: false },
       ],
     },
     failedProviders: [{ key: "sales", label: "Sales", moduleKey: "sales", company: B }],
@@ -129,11 +131,51 @@ describe("the Group workspace's Approvals Center", () => {
   });
 
   it("leaves a company workspace as it was: selectable rows, the review panel and delegation, no company labels", () => {
-    const html = render({ ...base, items: [item("1"), item("2")], counts: { waiting: 2, overdue: 0, critical: 0, capped: false } }, false);
+    const html = render({ ...base, items: [item("1"), item("2")], counts: { waiting: 2, overdue: 0, critical: 0, capped: false, partial: false, unavailable: [] } }, false);
     expect(html).toContain("Delegation");
     expect(html).toContain("Approval review");
     expect(html).toMatch(/<button[^>]*data-testid="approval-row"/);
     expect(html).not.toContain("company-tag");
     expect(html).not.toContain("approvals-by-company");
+  });
+});
+
+/** AUD-10 §4, CW-03: a source that could not be read is never "0 waiting" or "all caught up". */
+describe("an incomplete queue", () => {
+  const finance = { key: "finance" as const, label: "Finance", moduleKey: "finance" };
+
+  it("positive control: a complete, empty queue is all caught up", () => {
+    const html = render(base, false);
+    expect(html).toContain("You’re all caught up");
+    expect(html).not.toContain("approvals-incomplete");
+  });
+
+  it("names the missing source and never says all caught up when nothing else waits", () => {
+    const html = render({ ...base, counts: { ...base.counts, partial: true, unavailable: [finance] } }, false);
+    expect(html).not.toContain("all caught up");
+    expect(html).toContain("Some approvals could not be loaded");
+    expect(html).toContain("The total is incomplete: Finance could not be loaded.");
+    expect(html).toContain('data-testid="approvals-unavailable"');
+    expect(html).toContain("Nothing to show from the sources that loaded.");
+    expect(html).not.toContain("No approvals require your decision.");
+  });
+
+  it("gives an at-least total when other sources still answered, and marks the company that is short", () => {
+    const counts = {
+      waiting: 2,
+      overdue: 0,
+      critical: 0,
+      capped: false,
+      partial: true,
+      unavailable: [{ ...finance, company: B }],
+      byCompany: [
+        { company: A, waiting: 1, overdue: 0, critical: 0, capped: false, partial: false },
+        { company: B, waiting: 1, overdue: 0, critical: 0, capped: false, partial: true },
+      ],
+    };
+    const html = render({ ...base, items: [item("1", A), item("2", B)], counts, canManageDelegation: false, companies: [A, B] }, true);
+    expect(html).toContain("At least 2 waiting for you");
+    expect(html).toContain('data-testid="approvals-by-company">ARLIS 1 · IDEAL 1+<');
+    expect(html).toContain("Finance (IDEAL)");
   });
 });

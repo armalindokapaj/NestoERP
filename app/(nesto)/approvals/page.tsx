@@ -8,7 +8,7 @@ import { AccessError } from "@/lib/access/guards";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { loadRecord } from "@/lib/core/records/record.registry";
-import { approvalQuerySchema, parseApprovalRef } from "@/lib/modules/approvals/approvals.schema";
+import { approvalQuerySchema, parseApprovalRef, providerKeySchema } from "@/lib/modules/approvals/approvals.schema";
 import { listApprovalsForWorkspace } from "@/lib/modules/approvals/approvals.group";
 import { findApprovalForRecord, getApprovalDetail } from "@/lib/modules/approvals/approvals.service";
 import type { UnifiedApprovalDetail } from "@/lib/modules/approvals/approvals.types";
@@ -44,7 +44,7 @@ export default async function ApprovalsPage({ searchParams }: Params) {
   const record = group ? undefined : one(params.record);
   if (record) {
     const [type, id] = record.split(":");
-    const ref = type && id ? await findApprovalForRecord(context, type, id) : null;
+    const ref = type && id ? await findApprovalForRecord(context, type, id, { providerKey: providerKeySchema.safeParse(one(params.provider)).data ?? null }) : null;
     if (ref) redirect(`/approvals?approval=${encodeURIComponent(ref)}`);
     const readable = type && id ? await loadRecord(context, type, id) : null;
     redirect(readable?.href ?? "/approvals");

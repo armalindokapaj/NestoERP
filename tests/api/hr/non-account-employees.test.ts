@@ -24,6 +24,7 @@ import * as provisioning from "@/lib/modules/organization/provisioning/provision
 import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
 import { endWorkforce } from "@/lib/modules/workforce/workforce.end";
 import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { shownSubmission } from "../approvals/aud10-cycles";
 
 /**
  * Employees without a NESTO account (E-04 §5, §14, §88-§92, §228-§230).
@@ -271,7 +272,7 @@ describe("leave and attendance for somebody who never signs in (E-04 §115, §12
 
     // HR asked for it, so somebody else with the grant decides it.
     const owner = await loginAs("OWNER");
-    await leave.approveLeave(owner, requested.id, null);
+    await leave.approveLeave(owner, requested.id, null, await shownSubmission(requested.id));
     const rows = await prisma.attendanceRecord.findMany({ where: { sourceEntityId: requested.id }, select: { status: true, employeeProfileId: true, companyMemberId: true } });
     expect(rows).toHaveLength(2);
     expect(rows.every((row) => row.status === "ON_LEAVE" && row.employeeProfileId === created.id && row.companyMemberId === null)).toBe(true);

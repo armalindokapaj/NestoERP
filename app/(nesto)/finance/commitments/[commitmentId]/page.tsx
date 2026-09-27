@@ -9,6 +9,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { commitmentBreadcrumbs, commitmentLabel, loadCommitment } from "./commitment-context";
 import { FinanceRecordTabs } from "../../invoices/[invoiceId]/record-tabs";
@@ -34,9 +35,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  */
 export default async function CommitmentDetailPage({ params }: Params) {
   const { commitmentId } = await params;
-  const { commitment } = await loadCommitment(commitmentId);
+  const { context, commitment } = await loadCommitment(commitmentId);
 
   const may = commitment.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "COMMITMENT", commitment.id) : null;
 
   return (
     <div className="space-y-5">
@@ -72,6 +75,7 @@ export default async function CommitmentDetailPage({ params }: Params) {
             commitmentId={commitment.id}
             label={commitmentLabel(commitment)}
             capabilities={may}
+            cycle={cycle}
           />
         }
       />

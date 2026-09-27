@@ -16,7 +16,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
-import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { dateString, loadMemberRef, loadMembers, toProjectRef } from "../hse.dto";
 import { nextHseNumber } from "../hse.numbering";
 import {
@@ -484,7 +484,7 @@ export async function approvePermit(
   context: UserContext,
   permitId: string,
   decisionNote: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "WORK_PERMIT");
@@ -530,9 +530,11 @@ export async function rejectPermit(
   context: UserContext,
   permitId: string,
   decisionNote: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(decisionNote);
   approvals.assertCanReject(context, "WORK_PERMIT");
 
   const existing = await requirePermit(context, permitId);
@@ -562,7 +564,9 @@ export async function rejectPermit(
       module: MODULE,
       entityType: ENTITY,
       entityId: permitId,
-      action: "HSE_PERMIT_SUBMITTED",
+      // Its own action, not the submission's: the trail read "submitted" for a
+      // refusal (AUD-10 §6, found reviewing A1).
+      action: "HSE_PERMIT_REJECTED",
       message: `sent work permit ${existing.permitNumber} back`,
     });
   });

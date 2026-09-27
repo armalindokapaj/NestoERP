@@ -18,6 +18,7 @@ import {
   supplierListQuerySchema,
 } from "@/lib/modules/procurement/procurement.schema";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * Procurement authorisation and lifecycle tests (PRD #19 §308–§340).
@@ -445,7 +446,7 @@ describe("purchase requests (PRD #19 §309–§311)", () => {
     await requests.submitRequest(buyer, SEED.draftRequest);
     expect((await requests.getRequest(buyer, SEED.draftRequest)).status).toBe("PENDING_APPROVAL");
 
-    await requests.approveRequest(ceo, SEED.draftRequest, "Agreed.");
+    await requests.approveRequest(ceo, SEED.draftRequest, "Agreed.", await shownCycle("procurement", SEED.draftRequest));
     expect((await requests.getRequest(buyer, SEED.draftRequest)).status).toBe("APPROVED");
   });
 
@@ -459,7 +460,7 @@ describe("purchase requests (PRD #19 §309–§311)", () => {
 
     if (can(buyer, "procurement.request.approve")) {
       await expect(
-        requests.approveRequest(buyer, SEED.pendingRequest, null),
+        requests.approveRequest(buyer, SEED.pendingRequest, null, await shownCycle("procurement", SEED.pendingRequest)),
       ).rejects.toBeInstanceOf(AccessError);
     }
 
@@ -473,8 +474,8 @@ describe("purchase requests (PRD #19 §309–§311)", () => {
     await rememberRequest(SEED.pendingRequest);
     touchedApprovals.push({ id: "procurement_approval_001" });
 
-    await requests.approveRequest(ceo, SEED.pendingRequest, "Agreed.");
-    await expect(requests.approveRequest(ceo, SEED.pendingRequest, null)).rejects.toBeInstanceOf(
+    await requests.approveRequest(ceo, SEED.pendingRequest, "Agreed.", await shownCycle("procurement", SEED.pendingRequest));
+    await expect(requests.approveRequest(ceo, SEED.pendingRequest, null, await shownCycle("procurement", SEED.pendingRequest))).rejects.toBeInstanceOf(
       AccessError,
     );
   });
@@ -656,7 +657,7 @@ describe("purchase orders (PRD #19 §315–§319)", () => {
     created.orders.push(order.id);
 
     await orders.submitOrder(buyer, order.id);
-    await orders.approveOrder(ceo, order.id, "Agreed.");
+    await orders.approveOrder(ceo, order.id, "Agreed.", await shownCycle("procurement", order.id));
 
     const approved = await orders.getOrder(buyer, order.id);
     expect(approved.status).toBe("APPROVED");
@@ -686,7 +687,7 @@ describe("purchase orders (PRD #19 §315–§319)", () => {
     created.orders.push(order.id);
 
     await orders.submitOrder(buyer, order.id);
-    await orders.approveOrder(ceo, order.id, null);
+    await orders.approveOrder(ceo, order.id, null, await shownCycle("procurement", order.id));
     await orders.cancelOrder(buyer, order.id, "No longer needed.");
 
     const commitment = await prisma.commitment.findFirst({
@@ -993,8 +994,12 @@ describe("company isolation (PRD #19 §307, §334)", () => {
   it("allows the same order number in another company (PRD #19 §99)", async () => {
     // Company B's fixture carries PO-2026-0001 too: uniqueness is per company,
     // and a global constraint would leak the other company's numbering.
-    const both = await prisma.purchaseOrder.count({ where: { poNumber: "PO-2026-0001" } });
-    expect(both).toBe(2);
+    // Other seeded tenants (the ARMAAR demo group) number from 0001 as well, so
+    // the claim is: A and B both hold it, and no company holds it twice.
+    const holders = await prisma.purchaseOrder.findMany({ where: { poNumber: "PO-2026-0001" }, select: { companyId: true } });
+    const companies = holders.map((row) => row.companyId);
+    expect(companies).toEqual(expect.arrayContaining([COMPANY.a, COMPANY.tenant]));
+    expect(new Set(companies).size).toBe(companies.length);
   });
 
   it("keeps Company B out of search and the enquiry list", async () => {

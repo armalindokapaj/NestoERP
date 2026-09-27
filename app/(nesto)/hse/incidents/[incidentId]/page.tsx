@@ -18,6 +18,7 @@ import { RecordTasks } from "@/components/tasks/record-tasks";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
 import { incidentClosureGapLabels, incidentTypeLabels } from "@/lib/modules/hse/hse.status";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
@@ -49,6 +50,8 @@ export default async function IncidentPage({ params }: Params) {
   }
 
   const may = incident.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canClose && incident.status === "PENDING_CLOSE" ? await pendingCycle(context, "INCIDENT_CLOSE", incident.id) : null;
   // Who it involved — employees with or without a login, or a name (E-04 §73).
   const [people, options] = await Promise.all([listIncidentPeople(context, incident.id), may.canEdit ? hseEmploymentOptions(context) : Promise.resolve({ employees: [], crews: [] })]);
 
@@ -93,7 +96,7 @@ export default async function IncidentPage({ params }: Params) {
           <div className="flex flex-wrap items-center gap-2">
             <RecordFavorite context={context} entityType="incident" entityId={incident.id} />
             {may.canAssign ? <AssignControl kind="incident" recordId={incident.id} /> : null}
-            <IncidentActions incident={incident} />
+            <IncidentActions incident={incident} cycle={cycle} />
           </div>
         }
       />

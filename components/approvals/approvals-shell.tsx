@@ -211,6 +211,32 @@ export function ApprovalsShell({
     }
   }, []);
 
+  /*
+   * Another tab — or the module's own page — may have decided something here.
+   * Coming back to this tab re-reads the list and its counts, so they converge on
+   * the committed state without a real-time channel (AUD-10 §4, CW-20). Never
+   * while a decision is in flight, and not more than every few seconds; the
+   * review itself is left alone so a note being written is not replaced.
+   */
+  const stateRef = React.useRef(state);
+  stateRef.current = state;
+  const pendingRef = React.useRef(pending);
+  pendingRef.current = pending;
+  React.useEffect(() => {
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || pendingRef.current || Date.now() - last < 5_000) return;
+      last = Date.now();
+      void loadList(stateRef.current);
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadList]);
+
   const loadDetail = React.useCallback(async (id: string) => {
     const [providerKey, approvalId] = id.split(":");
     setDetailLoading(true);
@@ -352,11 +378,24 @@ export function ApprovalsShell({
   }
 
   const counts = data.counts;
-  // "ARLIS 7 · IDEAL 4": only the companies where something waits (§33).
-  const byCompany = (counts.byCompany ?? []).filter((row) => row.waiting > 0);
+  // "ARLIS 7 · IDEAL 4": only the companies where something waits, or whose figure is incomplete (§33, AUD-10 §4).
+  const byCompany = (counts.byCompany ?? []).filter((row) => row.waiting > 0 || row.partial);
+  // Every source missing from what is shown — from the list read or from the header's —
+  // named once; with any of them the total is incomplete, never "all caught up" (AUD-10 §4, CW-03).
+  const unavailable = [...data.failedProviders, ...(counts.unavailable ?? [])].filter(
+    (source, index, all) => all.findIndex((other) => other.key === source.key && other.company?.id === source.company?.id) === index,
+  );
+  const partial = Boolean(counts.partial) || unavailable.length > 0;
+  const unavailableNames = unavailable.map((provider) => (provider.company ? `${provider.label} (${provider.company.name})` : provider.label)).join(", ");
+  const waitingText = partial ? (counts.waiting > 0 ? `${counts.waiting}+` : "?") : `${counts.waiting}${counts.capped ? "+" : ""}`;
   const filterCount = activeFilterCount(state.filters);
   const visibleTabs = TABS.filter((tab) => tab.key !== "history" || data.canViewHistory);
-  const empty = group && data.companies?.length === 0 ? { title: "No accessible data for this module.", body: "None of your companies offers approvals to you." } : EMPTY[state.tab];
+  const empty =
+    group && data.companies?.length === 0
+      ? { title: "No accessible data for this module.", body: "None of your companies offers approvals to you." }
+      : partial
+        ? { title: "Nothing to show from the sources that loaded.", body: `${unavailableNames} could not be loaded, so there may be approvals this list cannot show yet.` }
+        : EMPTY[state.tab];
   const sheetOpen = !group && !desktop && selectedId !== null;
 
   return (
@@ -365,18 +404,28 @@ export function ApprovalsShell({
         <div className="min-w-0">
           <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-fg-subtle">Approvals</p>
           <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
-            {counts.waiting === 0 ? "You’re all caught up" : `${counts.waiting}${counts.capped ? "+" : ""} waiting for you`}
+            {partial
+              ? counts.waiting > 0
+                ? `At least ${counts.waiting} waiting for you`
+                : "Some approvals could not be loaded"
+              : counts.waiting === 0
+                ? "You’re all caught up"
+                : `${counts.waiting}${counts.capped ? "+" : ""} waiting for you`}
           </h1>
           <p className="mt-1 flex flex-wrap gap-x-3 text-table text-fg-muted">
             {counts.overdue > 0 ? <span className="font-medium text-danger-strong">{counts.overdue} overdue</span> : null}
             {counts.critical > 0 ? <span className="font-medium text-warning-strong">{counts.critical} critical</span> : null}
-            {counts.overdue === 0 && counts.critical === 0 ? (
+            {partial ? (
+              <span className="font-medium text-warning-strong" data-testid="approvals-incomplete">
+                The total is incomplete: {unavailableNames} could not be loaded.
+              </span>
+            ) : counts.overdue === 0 && counts.critical === 0 ? (
               <span>{group ? "Every decision waiting in the companies you work in, in one place." : "Every decision from every module you work in, in one place."}</span>
             ) : null}
           </p>
           {group && byCompany.length > 0 ? (
             <p className="mt-1 text-table text-fg-muted" data-testid="approvals-by-company">
-              {byCompany.map((row) => `${row.company.name} ${row.waiting}${row.capped ? "+" : ""}`).join(" · ")}
+              {byCompany.map((row) => `${row.company.name} ${row.partial ? (row.waiting > 0 ? `${row.waiting}+` : "?") : `${row.waiting}${row.capped ? "+" : ""}`}`).join(" · ")}
             </p>
           ) : null}
         </div>
@@ -427,8 +476,13 @@ export function ApprovalsShell({
               )}
             >
               {tab.label}
-              {tab.key === "waiting" && counts.waiting > 0 ? (
-                <span className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}>{counts.waiting}</span>
+              {tab.key === "waiting" && (counts.waiting > 0 || partial) ? (
+                <span
+                  className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}
+                  aria-label={partial ? `${counts.waiting > 0 ? `At least ${counts.waiting}` : "An unknown number"}, some sources could not be loaded` : undefined}
+                >
+                  {waitingText}
+                </span>
               ) : null}
             </button>
           );
@@ -507,12 +561,15 @@ export function ApprovalsShell({
         onChange={(filters) => update({ filters })}
       />
 
-      {data.failedProviders.length > 0 ? (
-        <div role="status" className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3">
+      {unavailable.length > 0 ? (
+        <div role="status" className="flex flex-wrap items-start gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3" data-testid="approvals-unavailable">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
-          <p className="text-table text-fg">
-            Some approval sources could not be loaded: {data.failedProviders.map((provider) => (provider.company ? `${provider.label} (${provider.company.name})` : provider.label)).join(", ")}. Their items are not shown and not counted.
+          <p className="min-w-0 flex-1 text-table text-fg">
+            Some approval sources could not be loaded: {unavailableNames}. Their items are not shown, so the list and the total are incomplete.
           </p>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void loadList(state)} disabled={listLoading}>
+            Try again
+          </Button>
         </div>
       ) : null}
 

@@ -22,6 +22,7 @@ import {
   rejectProposalAction,
   type ProposalLifecycleAction,
 } from "@/lib/actions/sales";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { ProposalDetailDTO } from "@/lib/modules/sales/sales.types";
 
 /**
@@ -31,7 +32,14 @@ import type { ProposalDetailDTO } from "@/lib/modules/sales/sales.types";
  * that the person who submitted a price cannot approve it — which is why an
  * approver never sees Approve on their own proposal (PRD #17 §20).
  */
-export function ProposalActions({ proposal }: { proposal: ProposalDetailDTO }) {
+export function ProposalActions({
+  proposal,
+  cycle,
+}: {
+  proposal: ProposalDetailDTO;
+  /** The approval cycle on screen; approve and reject name it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -48,7 +56,7 @@ export function ProposalActions({ proposal }: { proposal: ProposalDetailDTO }) {
 
   function run(action: ProposalLifecycleAction, success: string) {
     startTransition(async () => {
-      const result = await proposalLifecycleAction(proposal.id, action);
+      const result = await proposalLifecycleAction(proposal.id, action, undefined, cycle);
       setConfirming(null);
       if (result.ok) {
         toast({ title: success, tone: "success" });
@@ -212,7 +220,7 @@ export function ProposalActions({ proposal }: { proposal: ProposalDetailDTO }) {
         description="The reason is recorded against the approval and shown to whoever submitted the price."
         placeholder="What needs to change before this price can go to the client?"
         onReject={async (reason) => {
-          const result = await rejectProposalAction(proposal.id, reason);
+          const result = await rejectProposalAction(proposal.id, reason, cycle);
           if (result.ok) {
             toast({ title: "Proposal rejected." });
             setRejecting(false);

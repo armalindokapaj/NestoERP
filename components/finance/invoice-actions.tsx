@@ -2,6 +2,7 @@
 
 import { FinanceRecordActions } from "@/components/finance/record-actions";
 import { invoiceLifecycleAction, rejectInvoiceAction } from "@/lib/actions/finance";
+import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { RecordCapabilities } from "@/lib/modules/finance/finance.types";
 import type { InvoiceAction } from "@/lib/actions/finance";
 
@@ -10,10 +11,13 @@ export function InvoiceActions({
   invoiceId,
   invoiceNumber,
   capabilities,
+  cycle,
 }: {
   invoiceId: string;
   invoiceNumber: string;
   capabilities: RecordCapabilities;
+  /** The approval cycle on screen; a decision names it back (AUD-10 §4, CW-05). */
+  cycle: PendingCycle | null;
 }) {
   return (
     <FinanceRecordActions
@@ -21,8 +25,8 @@ export function InvoiceActions({
       label={invoiceNumber}
       capabilities={capabilities}
       editHref={`/finance/invoices/${invoiceId}/edit`}
-      lifecycle={(action) => invoiceLifecycleAction(invoiceId, action as InvoiceAction)}
-      reject={(reason) => rejectInvoiceAction(invoiceId, reason)}
+      lifecycle={(action) => invoiceLifecycleAction(invoiceId, action as InvoiceAction, undefined, cycle)}
+      reject={(reason) => rejectInvoiceAction(invoiceId, reason, cycle)}
     />
   );
 }

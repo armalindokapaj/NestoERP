@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type { ModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
 import { DB_NOW } from "@/lib/database/clock";
+import { currentRequestContext } from "@/lib/core/observability/request-context";
 
 /**
  * Business activity (PRD #8 §45, PRD #10 §153).
@@ -11,6 +12,11 @@ import { DB_NOW } from "@/lib/database/clock";
  * changes (PRD #10 §238). Activity is written inside the same transaction as
  * the change it describes, so a rolled-back write leaves no orphan entry
  * (PRD #8 §92).
+ *
+ * Each row carries the request's correlation id, the same one its outbox event,
+ * audit event, worker attempt and resulting notifications carry, so a command
+ * can be followed end to end (AUD-10 §8, gap 9). Only the id: no names or
+ * payloads reach a log or metric label through it.
  */
 export type ActivityInput = {
   module: ModuleKey | string;
@@ -39,6 +45,7 @@ export async function recordActivity(
       actorMemberId: context.membershipId,
       actorUserId: context.userId,
       metadata: input.metadata,
+      correlationId: currentRequestContext()?.correlationId ?? null,
     },
   });
   await touchProjectActivity(tx, context.companyId, input);
@@ -69,6 +76,7 @@ export async function recordActorActivity(
       actorMemberId: actor.memberId,
       actorUserId: actor.userId,
       metadata: input.metadata,
+      correlationId: currentRequestContext()?.correlationId ?? null,
     },
   });
   await touchProjectActivity(tx, actor.companyId, input);

@@ -3,7 +3,7 @@ import { Prisma, type HseApprovalRecordType } from "@prisma/client";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
-import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
@@ -202,12 +202,18 @@ export async function requirePendingApproval(
   context: UserContext,
   type: HseApprovalRecordType,
   recordId: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<{ id: string; submittedByMemberId: string }> {
-  const approval = await tx.hseApproval.findFirst({
-    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
-    select: { id: true, submittedByMemberId: true },
-  });
+  requireDecisionGuard(guard);
+  // Newest first, and never one of two at random (AUD-10 §4, A6).
+  const approval = singlePending(
+    await tx.hseApproval.findMany({
+      where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+      orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+      take: 2,
+      select: { id: true, submittedByMemberId: true },
+    }),
+  );
 
   if (!approval) {
     throw new AccessError("CONFLICT", "There is no decision waiting on this record.", {
@@ -216,9 +222,29 @@ export async function requirePendingApproval(
   }
 
   // A resubmission since the review opened is a different cycle (PRD #41 §187).
-  assertApprovalGuard(guard, approval);
+  assertDecisionGuard(guard, approval);
 
   return approval;
+}
+
+/**
+ * The cycle a source page puts its decision controls against (AUD-10 §4,
+ * CW-02, CW-05): the page names it back when somebody decides, and the
+ * decision is refused if it is no longer the pending one. Ids only — whether
+ * this reader may decide is the record's capabilities' business.
+ */
+export async function pendingCycle(
+  context: UserContext,
+  type: HseApprovalRecordType,
+  recordId: string,
+): Promise<PendingCycle | null> {
+  const row = await prisma.hseApproval.findFirst({
+    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+    orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true },
+  });
+  if (!row) return null;
+  return { approvalId: row.id };
 }
 
 export async function decideApproval(

@@ -4,6 +4,7 @@ import { GET as listTasks, POST as createTask } from "@/app/api/tasks/route";
 import { authenticateCredentials } from "@/lib/auth/credentials";
 import * as maintenance from "@/lib/core/maintenance/platform-maintenance";
 import { counterValue, Metric } from "@/lib/core/observability/metrics";
+import { REQUEST_METHOD_HEADER, REQUEST_SIGNATURE_HEADER, signRequestMethod } from "@/lib/core/security/request-method";
 import { prisma as app } from "@/lib/database/prisma";
 import { maintenanceState } from "@/lib/modules/platform/platform-control.query";
 import { saveMaintenanceSetting } from "@/lib/modules/platform/platform-control.service";
@@ -17,8 +18,14 @@ vi.mock("@/lib/context/resolve-user-context", () => import("@/tests/security/har
 const request = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock("next/headers", () => ({ headers: async () => request.headers, cookies: async () => ({ get: () => undefined, getAll: () => [] }) }));
 
-function asRequest(method: string, path: string) {
-  request.headers = new Headers({ "x-nesto-request-method": method, "x-nesto-request-path": path });
+/** The headers middleware forwards, signed as middleware signs them (AUD-06 §3): an unsigned method reads as a write. */
+async function asRequest(method: string, path: string) {
+  const signature = await signRequestMethod(method, path);
+  request.headers = new Headers({
+    [REQUEST_METHOD_HEADER]: method,
+    "x-nesto-request-path": path,
+    ...(signature ? { [REQUEST_SIGNATURE_HEADER]: signature } : {}),
+  });
 }
 
 /**
@@ -98,11 +105,11 @@ describe("each switch refuses the next admission it governs (M08)", () => {
   it("read-only mode refuses a write and still answers a read", async () => {
     actAs(await loginAs("PROJECT_MANAGER"));
     await saveMaintenanceSetting(admin, { key: "maintenance.readOnly", enabled: true, reason: "Migration" });
-    asRequest("POST", "/api/tasks");
+    await asRequest("POST", "/api/tasks");
     const write = await createTask(new Request("http://localhost/api/tasks", { method: "POST", body: "{}" }));
     expect(write.status).toBe(409);
     expect((await write.json()).error.message).toMatch(/read-only/i);
-    asRequest("GET", "/api/tasks");
+    await asRequest("GET", "/api/tasks");
     const read = await listTasks(new Request("http://localhost/api/tasks"));
     expect(read.status).toBe(200);
   });
@@ -110,11 +117,11 @@ describe("each switch refuses the next admission it governs (M08)", () => {
   it("disabling uploads refuses an upload and leaves other writes alone", async () => {
     actAs(await loginAs("PROJECT_MANAGER"));
     await saveMaintenanceSetting(admin, { key: "maintenance.disableUploads", enabled: true, reason: "Storage move" });
-    asRequest("POST", "/api/documents/upload");
+    await asRequest("POST", "/api/documents/upload");
     const upload = await createTask(new Request("http://localhost/api/documents/upload", { method: "POST", body: "{}" }));
     expect(upload.status).toBe(409);
     expect((await upload.json()).error.message).toMatch(/uploads/i);
-    asRequest("POST", "/api/tasks");
+    await asRequest("POST", "/api/tasks");
     const write = await createTask(new Request("http://localhost/api/tasks", { method: "POST", body: "{}" }));
     expect(write.status).not.toBe(409);
   });

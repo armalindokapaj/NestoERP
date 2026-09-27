@@ -29,6 +29,7 @@ import { getUnitSales, markUnitSold } from "@/lib/modules/sales/units/unit-sales
 import { updateSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { cleanupSessions, prisma } from "../../helpers";
 import { COMPANY_A, isoDay, loginRoles, refused, RIVERSIDE, SaleFixture, type Roles } from "./unit-sale-fixture";
+import { shownCycle } from "../approvals/aud10-cycles";
 
 /**
  * Collecting a unit's sale against the real database (E-05F §18-§41, §76-§85,
@@ -208,7 +209,7 @@ describe("invoices for installments (§26, §27, §86)", () => {
     expect(invoice).toMatchObject({ totalAmount: "50000.00", paidAmount: "20000.00", outstandingAmount: "30000.00", status: "DRAFT" });
 
     await submitInvoice(roles.finance, invoiceId);
-    await approveInvoice(roles.owner, invoiceId, null);
+    await approveInvoice(roles.owner, invoiceId, null, await shownCycle("finance", invoiceId));
     await markInvoiceSent(roles.finance, invoiceId);
     // Recorded through the Finance module against the invoice, it still settles the installment (§31).
     await recordPayment(roles.finance, createPaymentSchema.parse({ invoiceId, amount: "30000", paymentDate: isoDay(0), method: "BANK_TRANSFER" }));

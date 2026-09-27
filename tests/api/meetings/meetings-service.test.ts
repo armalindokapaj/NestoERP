@@ -497,7 +497,11 @@ describe("action items and tasks (§53-§62, §233, §290, §298)", () => {
     // The task's own assignment notice is the one the owner gets (§62).
     expect(await prisma.notificationEventOutbox.count({ where: { entityId: meeting.id, eventType: "MEETING_ACTION_ASSIGNED" } })).toBe(0);
 
-    await expectCode(convertActionToTask(pm, meeting.id, action.id), "CONFLICT");
+    // AUD-10 §5, CW-07 (deliberate change): retrying a finished conversion is
+    // answered with the same canonical task, not CONFLICT and not a second task.
+    const retry = await convertActionToTask(pm, meeting.id, action.id);
+    expect(retry).toMatchObject({ taskId: task.id, created: false });
+    expect(retry.meeting.actions[0].task?.id).toBe(task.id);
     expect(await prisma.task.count({ where: { entityType: "meeting", entityId: meeting.id } })).toBe(1);
     await expectCode(updateActionItem(pm, meeting.id, action.id, { status: "DONE" }), "CONFLICT");
 
@@ -517,11 +521,13 @@ describe("action items and tasks (§53-§62, §233, §290, §298)", () => {
     const hse = await loginAs("HSE");
     // The architect runs a project meeting but may only assign project work to the project team, which Sales is not on.
     const meeting = await heldMeeting(architect, [{ memberId: hse.membershipId }], { visibility: "PROJECT", projectId: PROJECT.a });
-    const outcome = await createActionItem(architect, meeting.id, { title: "Check the site", description: null, ownerMemberId: sales.membershipId, createTask: true }).then(
-      () => "created",
-      (error: AccessError) => error.code,
-    );
-    expect(["FORBIDDEN", "VALIDATION_ERROR"]).toContain(outcome);
+    // AUD-10 §7 (deliberate change): the action commits and the answer says the
+    // task did not, with the task service's reason — not an error that reads as
+    // "nothing was saved". The owner hears about the action itself, once.
+    const outcome = await createActionItem(architect, meeting.id, { title: "Check the site", description: null, ownerMemberId: sales.membershipId, createTask: true });
+    expect(outcome.taskHandoff).toMatchObject({ created: false });
+    expect(["FORBIDDEN", "VALIDATION_ERROR"]).toContain((outcome.taskHandoff as { code: string }).code);
+    expect(await prisma.notificationEventOutbox.count({ where: { entityId: meeting.id, eventType: "MEETING_ACTION_ASSIGNED" } })).toBe(1);
     const after = await getMeeting(architect, meeting.id);
     expect(after.actions).toHaveLength(1);
     expect(after.actions[0].task).toBeNull();

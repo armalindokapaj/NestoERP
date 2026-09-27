@@ -319,7 +319,7 @@ export async function approveAmendment(
   context: UserContext,
   amendmentId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "AMENDMENT");
@@ -348,7 +348,7 @@ export async function rejectAmendment(
   context: UserContext,
   amendmentId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "AMENDMENT");
@@ -382,7 +382,7 @@ export async function returnAmendment(
   context: UserContext,
   amendmentId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanReject(context, "AMENDMENT");

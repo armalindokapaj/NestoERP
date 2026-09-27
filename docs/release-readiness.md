@@ -3481,3 +3481,71 @@ All on lanes cloned from the seeded template; nothing against `nesto_erp`.
 - The actor recheck is in `createTask` and `mutateTask`; other services adopt `runInTransaction({ actor })` as they are touched.
 - Open product questions: an Engineer can complete a colleague's task on a shared project; a locked daily log or meeting answers 409 before 403. The welcome header still shows the anchor membership's role label.
 - `verify:roles` needs a running server and the E2E suite has not run; both are in the final pass.
+
+## 44. AUD-10 — Cross-module workflow reliability
+
+AUD-10 makes the modules that hand work to each other agree: an approval
+decided anywhere decides the cycle the person saw; the Approvals Center never
+shows a source it could not read as "nothing waiting"; a meeting action and its
+task, and every "create a task from this record", keep one canonical task. The
+contract for every link is in [workflow-matrix.md](integration/workflow-matrix.md)
+(CW-01), checked by a test against the provider and record registries.
+
+### 44.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Source pages, module queues and module API routes decided "whatever is pending" (the cycle guard was optional) | Every decision names its cycle, and its step on a purchase-order chain. The 33 domain decision functions require the guard. Missing: 428 `APPROVAL_CYCLE_REQUIRED`. Replaced cycle or step: 409 `APPROVAL_SOURCE_CHANGED` ("reload"). Two pending cycles: `APPROVAL_CYCLE_AMBIGUOUS` |
+| HR leave: no precondition in the transaction; the Center's version counted activity rows; a rejected leave could not be resubmitted | Decided against the `submittedAt` the page showed, re-read under a row lock. REJECTED → PENDING added to the leave machine |
+| A failed approval source counted as 0 ("You're all caught up") in the Center, the dashboards and the Group figures | Counts carry `partial` and `unavailable` end to end: "At least N", "N+", "—", named missing sources, Try again |
+| No database rule of one pending cycle per record in six approval tables | Partial unique indexes; the migration lists duplicates and stops rather than choosing |
+| Unit publishing and unit sales shared a record type; the Center published without the unit version; HSE counted people the domain refuses; any "already" message read as "already decided"; the idempotency receipt raced | Provider-aware lookup and links (`&provider=`); the unit version checked under the unit lock; separation-of-duty exclusions in the Center; conflicts classified against the cycle row; the receipt reserved inside the decision |
+| Retrying a finished meeting-action conversion was a conflict; a linked action's owner and due date could be edited apart from its task; double completes wrote twice | A retry returns the same task; the task owns status, owner and due date (`ACTION_FOLLOWS_TASK`); locked re-reads, one history row and one notification per real transition; the task's due date syncs to its action |
+| Daily-log, planning and obligation "create task" committed the task, then linked it | Task and link in one transaction; the source is claimed only while empty, so concurrent clicks make one task and a retry returns it |
+| A reopened task overdue on the same date was never reminded again | The overdue key includes the completion cycle |
+| `daily_log_document_links` had no document or company key | Company-scoped foreign keys (the migration refuses on orphans) |
+| Optional audit failures inside a transaction aborted it; placeholder cleanup threw on unlisted references; correlation ids never reached activity or notification rows | Savepoint around optional audit; referencing tables read from the database's foreign keys; one correlation id from command to notification |
+| Nothing checked cross-module consistency | `verify:workflows` (107 read-only checks; ids and codes only, never names) |
+
+Migrations (both additive, conflict-checked, rollback in their headers):
+`20260927110000_one_pending_approval_per_record_aud_10`,
+`20260927120000_daily_log_document_link_fks_aud_10`. **`nesto_erp` has neither,
+nor AUD-01's or AUD-02's.**
+
+### 44.2 The evidence
+
+Lanes `nesto_a6a`, `nesto_a6b`, `nesto_a6c`, `nesto_a10d`, migrated with
+`migrate deploy`; `db:drift` against its own disposable shadow reports no drift.
+
+- **New tests:**
+  - `tests/api/approvals/aud10-source-guard-*` (83): each of 15 record types plus HR leave. A page approval by the designated approver; a stale page after send-back and resubmit refused with nothing written; a missing id refused; the Center and the page on the same cycle behind a real lock barrier give one transition. Procurement step, A4, A12 and A13 cases.
+  - `aud10-center-providers` (15): all 11 providers, each with a positive control, a refusal, and exact activity, audit and outbox counts.
+  - `aud10-center-integrity` (18): partial counts (CW-03), races and replays (CW-04), a failure injected after each of six writes rolling everything back (CW-06), and the source page matching the Center (CW-02).
+  - `aud10-center-query-budget` (CW-23): 175 statements before and after adding 12 items.
+  - `tests/api/meetings/aud10-meeting-task` (16, CW-07..CW-11), plus daily log, planning, task-from-record and overdue-cycle (13, CW-12/CW-13).
+  - `tests/integration/integrity/workflow-consistency` (11, CW-21): each injected inconsistency found, sanctioned exceptions not reported, 32 table hashes unchanged.
+  - `tests/integration/delivery` (13, CW-15/CW-16/CW-17, correlation ids, optional audit).
+  - `aud10-shared-document`, `aud10-link-states` and `aud10-cleanup-references` (11, CW-14/CW-19).
+  - `workflow-matrix` (5).
+- **Full vitest across the four lanes** (all of `tests/api`, `tests/security`, `tests/integration`, `tests/unit`): 3,985 tests.
+  - The first pass failed 23. Most were "too many clients": four suites plus the AUD-07 baseline server exceeded Postgres's 100 connections, and a leftover E2E server was stopped.
+  - All failed files were rerun and pass, after three real fixes:
+    - `maintenance-propagation` now signs the method as middleware does. AUD-06 made an unsigned method a write.
+    - The procurement order-number test now asserts per-company uniqueness. The ARMAAR seed also numbers from 0001.
+    - The CW-01 matrix statuses were updated.
+  - Still failing, and failing on 324a3ca9 too: the 3D viewer shell (another workstream) and the navigation-telemetry series budget (AUD-07).
+- **Gates:**
+  - Pass: `tsc` 0 errors; eslint clean; `verify:authorization` (a receipt update now uses its company-scoped key); `verify:state` (the sync write spells out its columns); `ownership` (cascade exception recorded for the daily-log evidence link: caption metadata on the log's own document); `workers`, `production-guards`, `company-integrity`, `organization`, `employee-integrity`, `security:matrix --check`, `security:access-manifest:check`.
+  - `verify:workflows`: clean on three lanes. On the fourth it reports one pending HSE approval whose permit a test fixture deleted before this work (row from 00:12, before the clone). The verifier found it, which is what it is for.
+  - `verify:employment`: fails on two lanes, for one employee whose start date was changed by an exploratory sweep that no longer exists (AUD-06, 00:10, before these tests). On a fresh clone, every `tests/security` file run one by one leaves that row unchanged, and both `verify:employment` and `verify:workflows` pass afterwards.
+- **E2E:** `tests/e2e/workflows/aud10-journeys.spec.ts` (CW-22, the three multi-user journeys and a phone variant) is written. It runs in the single final pass, with CW-20's refresh-on-focus.
+
+### 44.3 Limits
+
+- Server actions set no request context, so activity they write has no correlation id; API routes do.
+- Outbox payloads still copy record titles (the dispatcher rechecks the recipient before delivery); marked *untested* in the matrix.
+- An overdue task reopened long after its due date is outside the overdue sweep's window, so it is not reminded again (product decision).
+- Open product questions:
+  - A timesheet approver with Return but not Approve cannot decide at all.
+  - Delegation lookups cost one query per chain row.
+  - HSE risk rejection is logged as an update.

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { AccessError } from "@/lib/access/guards";
+import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
@@ -58,7 +59,7 @@ function revalidateContracts(recordPath?: string) {
 function toResult(error: unknown): ContractActionResult {
   if (error instanceof AccessError) {
     const details = error.details as { code?: string } | undefined;
-    return { ok: false, error: error.message, code: details?.code };
+    return { ok: false, error: error.message, code: details?.code ?? error.code };
   }
 
   console.error("[contracts] action failed", error);
@@ -150,17 +151,23 @@ export type ContractLifecycleAction =
   | "archive"
   | "restore";
 
+/**
+ * `cycle` is the approval cycle the page displayed: approving and rejecting
+ * name it, and the service refuses a missing or replaced one inside its
+ * transaction (AUD-10 §4, CW-02, CW-05). Other steps ignore it.
+ */
 export async function contractLifecycleAction(
   contractId: string,
   action: ContractLifecycleAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<ContractActionResult> {
   const context = await requireCompanyContext();
 
   try {
     if (action === "submit-review") await contracts.submitForReview(context, contractId);
     else if (action === "submit-approval") await contracts.submitForApproval(context, contractId);
-    else if (action === "approve") await contracts.approveContract(context, contractId, note ?? null);
+    else if (action === "approve") await contracts.approveContract(context, contractId, note ?? null, approvalGuardFrom(cycle));
     else if (action === "mark-sent") await contracts.markSent(context, contractId);
     else if (action === "expire") await contracts.expireContract(context, contractId);
     else if (action === "archive") await contracts.archiveContract(context, contractId);
@@ -192,6 +199,7 @@ export async function returnToDraftAction(
 export async function rejectContractAction(
   contractId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<ContractActionResult> {
   const context = await requireCompanyContext();
 
@@ -199,7 +207,7 @@ export async function rejectContractAction(
   if (!parsed.success) return invalid(parsed.error);
 
   try {
-    await contracts.rejectContract(context, contractId, parsed.data.note);
+    await contracts.rejectContract(context, contractId, parsed.data.note, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }
@@ -471,6 +479,7 @@ export async function amendmentLifecycleAction(
   amendmentId: string,
   action: AmendmentLifecycleAction,
   note?: string,
+  cycle?: PendingCycle | null,
 ): Promise<ContractActionResult> {
   const context = await requireCompanyContext();
 
@@ -478,7 +487,7 @@ export async function amendmentLifecycleAction(
     await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
     if (action === "submit") await amendments.submitAmendment(context, amendmentId);
     else if (action === "approve") {
-      await amendments.approveAmendment(context, amendmentId, note ?? null);
+      await amendments.approveAmendment(context, amendmentId, note ?? null, approvalGuardFrom(cycle));
     } else if (action === "mark-sent") await amendments.markAmendmentSent(context, amendmentId);
     else if (action === "activate") await amendments.activateAmendment(context, amendmentId);
     else if (action === "cancel") {
@@ -496,6 +505,7 @@ export async function rejectAmendmentAction(
   contractId: string,
   amendmentId: string,
   reason: string,
+  cycle?: PendingCycle | null,
 ): Promise<ContractActionResult> {
   const context = await requireCompanyContext();
 
@@ -504,7 +514,7 @@ export async function rejectAmendmentAction(
 
   try {
     await amendments.assertAmendmentOnContract(context, contractId, amendmentId);
-    await amendments.rejectAmendment(context, amendmentId, parsed.data.note);
+    await amendments.rejectAmendment(context, amendmentId, parsed.data.note, approvalGuardFrom(cycle));
   } catch (error) {
     return toResult(error);
   }

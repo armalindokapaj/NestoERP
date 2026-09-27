@@ -12,6 +12,7 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { AccessError } from "@/lib/access/guards";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
+import { pendingCycle } from "@/lib/modules/contracts/approvals/approval.service";
 import { formatDate } from "@/lib/utils/format";
 import { contractBreadcrumbs, contractContext } from "../../contract-context";
 
@@ -45,6 +46,11 @@ export default async function AmendmentDetailPage({ params }: Params) {
   // than quietly rendering under a contract it does not belong to.
   if (amendment.contractId !== contract.id) notFound();
 
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle =
+    amendment.capabilities.canApprove || amendment.capabilities.canReject
+      ? await pendingCycle(context, "AMENDMENT", amendment.id)
+      : null;
   const currency = contract.commercial?.currency ?? null;
   const money = (value: string | null) =>
     value === null || currency === null ? "—" : formatAmount(value, currency);
@@ -56,7 +62,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
         title={amendment.title}
         subtitle={`${contract.contractNumber} · ${amendment.amendmentNumber}`}
         status={amendment.status}
-        actions={<AmendmentActions contractId={contract.id} amendment={amendment} />}
+        actions={<AmendmentActions contractId={contract.id} amendment={amendment} cycle={cycle} />}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">

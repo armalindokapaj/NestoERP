@@ -24,8 +24,16 @@ import { moneyLabel } from "./procurement-format";
  */
 export function ProcurementApprovalQueue({
   approvals,
+  steps = {},
 }: {
   approvals: ProcurementApprovalDTO[];
+  /**
+   * The current chain step of each waiting row, by approval id. A decision
+   * names the row's cycle and that step, so a row left open while the order
+   * moved on cannot decide its next step or a resubmission (AUD-10 §4, CW-04,
+   * CW-05).
+   */
+  steps?: Record<string, number>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -34,6 +42,10 @@ export function ProcurementApprovalQueue({
   const [, startTransition] = React.useTransition();
 
   const showValue = approvals.some((approval) => approval.value !== null);
+
+  function cycleOf(approval: ProcurementApprovalDTO) {
+    return { approvalId: approval.id, stepNumber: steps[approval.id] ?? null };
+  }
 
   function href(approval: ProcurementApprovalDTO) {
     return approval.recordType === "PURCHASE_REQUEST"
@@ -48,6 +60,8 @@ export function ProcurementApprovalQueue({
         approval.recordType,
         approval.recordId,
         "approve",
+        undefined,
+        cycleOf(approval),
       );
       setPendingId(null);
       if (result.ok) {
@@ -131,6 +145,7 @@ export function ProcurementApprovalQueue({
             rejecting.recordId,
             "reject",
             reason,
+            cycleOf(rejecting),
           );
           if (result.ok) {
             toast({ title: `${rejecting.recordReference} rejected.`, tone: "success" });

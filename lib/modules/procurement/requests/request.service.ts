@@ -10,7 +10,7 @@ import { prisma } from "@/lib/database/prisma";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta, searchClause, skipFor } from "@/lib/modules/shared/list-query";
 import * as approvals from "../approvals/approval.service";
-import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { requireDecisionNote, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import {
   dateString,
   loadMemberRef,
@@ -710,7 +710,7 @@ export async function approveRequest(
   context: UserContext,
   requestId: string,
   note: string | null,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
   approvals.assertCanApprove(context, "PURCHASE_REQUEST");
@@ -751,9 +751,11 @@ export async function rejectRequest(
   context: UserContext,
   requestId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(reason);
   approvals.assertCanReject(context, "PURCHASE_REQUEST");
 
   const existing = await loadForWrite(context, requestId);
@@ -795,9 +797,11 @@ export async function returnRequest(
   context: UserContext,
   requestId: string,
   reason: string,
-  guard?: ApprovalGuard,
+  guard: ApprovalGuard | undefined,
 ): Promise<void> {
   assertModule(context, MODULE);
+  // The dialog asks for a reason; so does the service behind it (AUD-10 §4, A13).
+  requireDecisionNote(reason);
   approvals.assertCanReject(context, "PURCHASE_REQUEST");
 
   const existing = await loadForWrite(context, requestId);

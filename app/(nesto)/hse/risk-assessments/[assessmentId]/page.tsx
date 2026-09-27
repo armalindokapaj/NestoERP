@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as risk from "@/lib/modules/hse/risk-assessments/risk.service";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
@@ -44,6 +45,8 @@ export default async function RiskAssessmentPage({ params }: Params) {
   }
 
   const may = assessment.capabilities;
+  // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
+  const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "RISK_ASSESSMENT", assessment.id) : null;
 
   return (
     <div className="space-y-5">
@@ -90,7 +93,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
             value: assessment.reviewDate ? formatDate(assessment.reviewDate) : "No date",
           },
         ]}
-        actions={<RiskAssessmentActions assessment={assessment} />}
+        actions={<RiskAssessmentActions assessment={assessment} cycle={cycle} />}
       />
 
       {/* Flagged, never invalidated: a person decides (PRD #22 §359). */}

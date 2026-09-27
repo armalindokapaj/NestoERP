@@ -53,8 +53,8 @@ export async function enqueueDueNotifications(options: { now?: Date; since?: Dat
       const tasks = await eachRow(
         companyId,
         "task",
-        (afterId) =>
-          prisma.task.findMany({
+        async (afterId) =>
+          withReopenCycles(companyId, await prisma.task.findMany({
             where: {
               companyId,
               archivedAt: null,
@@ -68,17 +68,22 @@ export async function enqueueDueNotifications(options: { now?: Date; since?: Dat
             select: { id: true, title: true, projectId: true, dueDate: true, assigneeMemberId: true },
             orderBy: { id: "asc" },
             take: BATCH,
-          }),
+          })),
         (task) => {
           const dueDate = isoDate(task.dueDate!);
-          return enqueueOnce(companyId, `task:${task.id}:${dueDate}`, {
+          // One reminder per due date per completion cycle (AUD-10 §7): a replay
+          // is the same key, a task reopened and overdue again is a new one. The
+          // first cycle keeps the key it always had, so nothing already sent is
+          // sent again.
+          const cycle = task.reopenCycle > 0 ? `:r${task.reopenCycle}` : "";
+          return enqueueOnce(companyId, `task:${task.id}:${dueDate}${cycle}`, {
             companyId,
             eventType: NotificationEvent.TASK_OVERDUE,
             moduleKey: "tasks",
             entityType: "task",
             entityId: task.id,
             projectId: task.projectId,
-            payload: { title: task.title, dueDate, assigneeMemberId: task.assigneeMemberId },
+            payload: { title: task.title, dueDate, assigneeMemberId: task.assigneeMemberId, reopenCycle: task.reopenCycle },
           });
         },
       );
@@ -174,6 +179,29 @@ async function eachRow<Row extends { id: string }>(
     afterId = rows[rows.length - 1].id;
   }
   return outcome;
+}
+
+/**
+ * How many times each task has been reopened from Completed — by the Reopen
+ * command or by the edit form — read from the task's own immutable history in
+ * one query per batch. A completion cycle, not the version: an edit to the
+ * title is not a second time the work fell overdue (AUD-10 §7).
+ */
+async function withReopenCycles<Row extends { id: string }>(companyId: string, rows: Row[]): Promise<Array<Row & { reopenCycle: number }>> {
+  if (rows.length === 0) return [];
+  const counts = await prisma.$queryRaw<Array<{ entityId: string; cycles: number }>>`
+    SELECT "entityId", count(*)::int AS "cycles"
+    FROM "activities"
+    WHERE "companyId" = ${companyId}
+      AND "entityType" = 'Task'
+      AND "entityId" = ANY(${rows.map((row) => row.id)}::text[])
+      AND (
+        "action" = 'TASK_REOPENED'
+        OR ("action" = 'TASK_STATUS_CHANGED' AND "metadata"->'changes'->'status'->>'from' = 'COMPLETED')
+      )
+    GROUP BY "entityId"`;
+  const byTask = new Map(counts.map((row) => [row.entityId, row.cycles]));
+  return rows.map((row) => ({ ...row, reopenCycle: byTask.get(row.id) ?? 0 }));
 }
 
 function isoDate(value: Date): string {

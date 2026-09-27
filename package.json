@@ -41,6 +41,7 @@
     "verify:employment": "tsx scripts/verify-employment.ts",
     "verify:employee-integrity": "tsx scripts/verify-employee-integrity.ts",
     "verify:demo": "tsx scripts/verify-demo.ts",
+    "verify:workflows": "tsx scripts/verify-workflow-consistency.ts",
     "repair:employment": "tsx scripts/repair-employment.ts",
     "security:matrix": "tsx scripts/security/api-matrix.ts",
     "security:access-manifest": "tsx scripts/security/access-manifest.ts",

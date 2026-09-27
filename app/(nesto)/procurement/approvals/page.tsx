@@ -30,6 +30,8 @@ export default async function ApprovalsPage() {
     approvals.listApprovals(context, { status: "PENDING", limit: 50 }),
     approvals.listApprovals(context, { status: "DECIDED", limit: 20 }),
   ]);
+  // The chain step each waiting row shows, which its decision names back (AUD-10 §4, CW-04).
+  const steps = await approvals.currentStepNumbers(pending.data.map((row) => row.id));
 
   return (
     <ModulePage
@@ -58,7 +60,7 @@ export default async function ApprovalsPage() {
               description="Requests and orders submitted for approval appear here."
             />
           ) : (
-            <ProcurementApprovalQueue approvals={pending.data} />
+            <ProcurementApprovalQueue approvals={pending.data} steps={steps} />
           )}
         </section>
 
