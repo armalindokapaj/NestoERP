@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils/cn";
 import { CATEGORY_META } from "./calendar-model";
 import { categoryStyle } from "./event-card";
 import { useIsPhone } from "./use-is-phone";
+import { calendarLabel, useCalendarTranslations, useDayWords } from "./calendar-text";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * The event drawer (PRD #39 §32-§34): right side on a desktop, a sheet on a
@@ -25,8 +27,14 @@ import { useIsPhone } from "./use-is-phone";
  */
 
 const FREQUENCY_LABEL: Record<string, string> = { DAILY: "Repeats every day", WEEKLY: "Repeats every week", MONTHLY: "Repeats every month", YEARLY: "Repeats every year" };
-const REMINDER_LABEL = (minutes: number) =>
-  minutes === 0 ? "At the time" : minutes < 60 ? `${minutes} minutes before` : minutes < 1440 ? `${minutes / 60} hour before` : minutes === 1440 ? "1 day before" : "1 week before";
+const REMINDER_LABEL = (t: Translate<"calendar">, minutes: number) =>
+  minutes === 0 || minutes === 10 || minutes === 30 || minutes === 60 || minutes === 1440
+    ? t(`labels.reminder.${minutes}`)
+    : minutes < 60
+      ? t("drawer.minutesBefore", { count: minutes })
+      : minutes < 1440
+        ? t("drawer.hourBefore", { count: minutes / 60 })
+        : t("labels.reminder.10080");
 
 export function EventDrawer({
   event,
@@ -43,6 +51,8 @@ export function EventDrawer({
 }) {
   const phone = useIsPhone();
   const toast = useToast();
+  const t = useCalendarTranslations();
+  const words = useDayWords();
   const [detail, setDetail] = React.useState<CalendarEventDetailDTO | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -71,7 +81,7 @@ export function EventDrawer({
   if (!event) return null;
   const busy = event.privacyMode === "BUSY_ONLY";
   const meta = CATEGORY_META[event.category];
-  const when = describeWhen(new Date(event.startsAt), event.endsAt ? new Date(event.endsAt) : null, event.allDay, zone);
+  const when = describeWhen(new Date(event.startsAt), event.endsAt ? new Date(event.endsAt) : null, event.allDay, zone, { locale: words.locale, allDay: t("allDayLower") });
 
   async function respond(status: "ACCEPTED" | "DECLINED" | "TENTATIVE") {
     if (!detail) return;
@@ -79,11 +89,11 @@ export function EventDrawer({
     const response = await fetch(`/api/calendar/events/${detail.id}/respond`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) }).catch(() => null);
     setPending(false);
     if (!response?.ok) {
-      toast({ title: "Your reply could not be saved.", tone: "danger" });
+      toast({ title: t("drawer.replyFailed"), tone: "danger" });
       return;
     }
     setDetail(((await response.json()) as { data: CalendarEventDetailDTO }).data);
-    toast({ title: status === "ACCEPTED" ? "Accepted" : status === "DECLINED" ? "Declined" : "Marked as maybe", tone: "success" });
+    toast({ title: status === "ACCEPTED" ? t("drawer.accepted") : status === "DECLINED" ? t("drawer.declined") : t("drawer.maybe"), tone: "success" });
   }
 
   async function archive() {
@@ -93,10 +103,10 @@ export function EventDrawer({
     setPending(false);
     setConfirmArchive(false);
     if (!response?.ok) {
-      toast({ title: "The event could not be archived.", tone: "danger" });
+      toast({ title: t("drawer.archiveFailed"), tone: "danger" });
       return;
     }
-    toast({ title: "Event archived", tone: "success" });
+    toast({ title: t("drawer.archived"), tone: "success" });
     onChanged({ archived: detail.id });
     onOpenChange(false);
   }
@@ -109,7 +119,7 @@ export function EventDrawer({
             {busy ? null : (
               <p className="mb-2 flex items-center gap-1.5 text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
                 <span aria-hidden="true" className="size-2 rounded-full bg-[var(--cal)]" />
-                {event.metadata?.sourceLabel ?? meta.label}
+                {event.metadata?.sourceLabel ?? calendarLabel(t, "category", event.category, meta.label)}
               </p>
             )}
             <DrawerTitle className="text-section font-semibold text-fg">{event.title}</DrawerTitle>
@@ -118,20 +128,20 @@ export function EventDrawer({
               {when}
             </DrawerDescription>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {event.status === "OVERDUE" ? <Badge tone="warning">Overdue</Badge> : null}
-              {event.severity === "critical" ? <Badge tone="danger">Critical</Badge> : null}
-              {event.occurrence?.recurring && detail?.recurrence ? <Badge tone="neutral">{FREQUENCY_LABEL[detail.recurrence.frequency]}</Badge> : null}
-              {detail?.archived ? <Badge tone="neutral">Archived</Badge> : null}
+              {event.status === "OVERDUE" ? <Badge tone="warning">{t("overdue")}</Badge> : null}
+              {event.severity === "critical" ? <Badge tone="danger">{t("critical")}</Badge> : null}
+              {event.occurrence?.recurring && detail?.recurrence ? <Badge tone="neutral">{calendarLabel(t, "repeats", detail.recurrence.frequency, FREQUENCY_LABEL[detail.recurrence.frequency])}</Badge> : null}
+              {detail?.archived ? <Badge tone="neutral">{t("drawer.archivedBadge")}</Badge> : null}
             </div>
           </div>
-          <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
+          <button type="button" aria-label={t("drawer.close")} onClick={() => onOpenChange(false)} className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
             <X aria-hidden="true" className="size-4" />
           </button>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5 text-table">
           {busy ? (
-            <p className="text-fg-muted">This person is unavailable at this time. Details are private.</p>
+            <p className="text-fg-muted">{t("drawer.busyOnly")}</p>
           ) : (
             <>
               {event.subtitle && !owned ? <p className="text-body text-fg">{event.subtitle}</p> : null}
@@ -149,26 +159,26 @@ export function EventDrawer({
               ) : null}
               {owned && loading ? (
                 <p className="flex items-center gap-2 text-fg-subtle">
-                  <Loader2 aria-hidden="true" className="size-4 animate-spin" /> Loading details…
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" /> {t("drawer.loading")}
                 </p>
               ) : null}
-              {owned && failed ? <p className="text-danger-strong">This event is no longer available.</p> : null}
+              {owned && failed ? <p className="text-danger-strong">{t("drawer.unavailable")}</p> : null}
               {detail?.description ? <p className="whitespace-pre-wrap text-body text-fg">{detail.description}</p> : null}
 
               {detail ? (
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
-                    <Users aria-hidden="true" className="size-3.5" /> People
+                    <Users aria-hidden="true" className="size-3.5" /> {t("drawer.people")}
                   </h3>
                   <ul className="space-y-1">
                     <li className="flex justify-between gap-3 text-fg">
                       <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.fullName} />
-                      <span className="text-fg-subtle">Organiser</span>
+                      <span className="text-fg-subtle">{t("drawer.organiser")}</span>
                     </li>
                     {detail.participants.map((person) => (
                       <li key={person.memberId} className="flex justify-between gap-3 text-fg">
                         <PersonLink memberId={person.memberId} name={person.fullName} />
-                        <span className="text-fg-subtle">{person.status === "INVITED" ? "Invited" : person.status === "ACCEPTED" ? "Going" : person.status === "TENTATIVE" ? "Maybe" : "Declined"}</span>
+                        <span className="text-fg-subtle">{t(`labels.participantStatus.${person.status === "INVITED" || person.status === "ACCEPTED" || person.status === "TENTATIVE" ? person.status : "DECLINED"}`)}</span>
                       </li>
                     ))}
                   </ul>
@@ -190,14 +200,14 @@ export function EventDrawer({
               {detail?.reminders.length ? (
                 <p className="flex items-center gap-2 text-fg-muted">
                   <Bell aria-hidden="true" className="size-4 text-fg-subtle" />
-                  {detail.reminders.map((reminder) => REMINDER_LABEL(reminder.minutesBefore)).join(", ")}
+                  {detail.reminders.map((reminder) => REMINDER_LABEL(t, reminder.minutesBefore)).join(", ")}
                 </p>
               ) : null}
 
               {detail?.capabilities.canRespond ? (
                 <section>
-                  <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Going?</h3>
-                  <div className="flex gap-2" role="group" aria-label="Your reply">
+                  <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("drawer.going")}</h3>
+                  <div className="flex gap-2" role="group" aria-label={t("drawer.yourReply")}>
                     {(["ACCEPTED", "TENTATIVE", "DECLINED"] as const).map((status) => (
                       <Button
                         key={status}
@@ -208,7 +218,7 @@ export function EventDrawer({
                         disabled={pending}
                         onClick={() => void respond(status)}
                       >
-                        {status === "ACCEPTED" ? "Yes" : status === "TENTATIVE" ? "Maybe" : "No"}
+                        {t(`labels.reply.${status}`)}
                       </Button>
                     ))}
                   </div>
@@ -223,19 +233,19 @@ export function EventDrawer({
             {detail?.capabilities.canArchive ? (
               <Button type="button" variant="ghost" onClick={() => setConfirmArchive(true)} disabled={pending}>
                 <Archive aria-hidden="true" />
-                Archive
+                {t("drawer.archive")}
               </Button>
             ) : null}
             {detail?.capabilities.canEdit ? (
               <Button type="button" variant="secondary" onClick={() => onEdit(detail)} disabled={pending}>
                 <Pencil aria-hidden="true" />
-                Edit
+                {t("drawer.edit")}
               </Button>
             ) : null}
             {!owned && event.href ? (
               <Button asChild>
                 <Link href={event.href}>
-                  Open {(event.metadata?.sourceLabel ?? "record").toLowerCase()}
+                  {t("drawer.open", { what: event.metadata?.sourceLabel ? event.metadata.sourceLabel.toLowerCase() : t("drawer.record") })}
                   <ArrowUpRight aria-hidden="true" />
                 </Link>
               </Button>
@@ -246,9 +256,9 @@ export function EventDrawer({
         <ConfirmDialog
           open={confirmArchive}
           onOpenChange={setConfirmArchive}
-          title="Archive this event?"
-          description={detail?.recurrence ? "Every occurrence of the series is removed from calendars. People on it are told." : "It is removed from calendars, and people on it are told."}
-          confirmLabel="Archive event"
+          title={t("drawer.archiveTitle")}
+          description={detail?.recurrence ? t("drawer.archiveSeries") : t("drawer.archiveOne")}
+          confirmLabel={t("drawer.archiveConfirm")}
           pending={pending}
           onConfirm={() => void archive()}
         />

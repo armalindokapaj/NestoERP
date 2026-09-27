@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { PROVISIONING_STATUSES, provisioningListQuerySchema } from "@/lib/modules/organization/provisioning/provisioning.schema";
 import { listProvisioningRequests } from "@/lib/modules/organization/provisioning/provisioning.service";
 import { cn } from "@/lib/utils/cn";
@@ -17,7 +18,9 @@ import { statusLabel } from "@/lib/utils/status";
 import { Pagination } from "@/components/data/pagination";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "User provisioning" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("organization"))("provisioning.metaTitle") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -35,6 +38,7 @@ export default async function ProvisioningPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = provisioningListQuerySchema.parse({ status: one(params.status), page: one(params.page) });
   const list = await listProvisioningRequests(context, query);
+  const t = await getTranslations("organization");
   // Every request is reachable page by page — the page used to show the first 25 and no way on (AUD-08 §4, DT-05).
   if (list.meta.page !== query.page) redirect(listPageRedirect("/organization/provisioning", params, list.meta.page));
   const chip = (active: boolean) =>
@@ -44,13 +48,13 @@ export default async function ProvisioningPage({ searchParams }: Props) {
     <ModulePage
       experience={resolveModuleExperience(context, "organization")}
       activeSection="provisioning"
-      title="User provisioning"
-      description="NESTO accounts HR has asked for. Approved requests are created by Group IT from the HR record, without retyping it."
+      title={t("provisioning.title")}
+      description={t("provisioning.description")}
     >
       <div className="space-y-4">
-        <nav aria-label="Request status" className="flex flex-wrap gap-2">
+        <nav aria-label={t("provisioning.requestStatus")} className="flex flex-wrap gap-2">
           <Link href="/organization/provisioning" className={chip(!query.status)}>
-            All
+            {t("provisioning.all")}
           </Link>
           {PROVISIONING_STATUSES.map((status) => (
             <Link key={status} href={`/organization/provisioning?status=${status}`} className={chip(query.status === status)}>
@@ -60,18 +64,18 @@ export default async function ProvisioningPage({ searchParams }: Props) {
         </nav>
 
         {list.data.length === 0 ? (
-          <EmptyState title="No account requests here" description="Requests HR submits appear here for approval and for Group IT." />
+          <EmptyState title={t("provisioning.empty")} description={t("provisioning.emptyDescription")} />
         ) : (
           <section className="nesto-card p-0">
-            <Table flush aria-label="Account requests">
+            <Table flush aria-label={t("provisioning.requests")}>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Person</TableHeaderCell>
-                  <TableHeaderCell>Company</TableHeaderCell>
-                  <TableHeaderCell>Department</TableHeaderCell>
-                  <TableHeaderCell>Role</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Submitted</TableHeaderCell>
+                  <TableHeaderCell>{t("common.person")}</TableHeaderCell>
+                  <TableHeaderCell>{t("common.company")}</TableHeaderCell>
+                  <TableHeaderCell>{t("common.department")}</TableHeaderCell>
+                  <TableHeaderCell>{t("common.role")}</TableHeaderCell>
+                  <TableHeaderCell>{t("common.status")}</TableHeaderCell>
+                  <TableHeaderCell>{t("provisioning.submitted")}</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>

@@ -20,6 +20,7 @@ import { addLocalDays, instantFromLocal, localDate, localTime } from "@/lib/modu
 import type { CalendarEventDetailDTO, ConflictDTO, RecurrenceFrequency } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
 import { useIsPhone } from "./use-is-phone";
+import { calendarLabel, useCalendarTranslations } from "./calendar-text";
 
 /**
  * Create and edit a Calendar-owned event (PRD #39 §147-§150, §89, §90).
@@ -155,6 +156,7 @@ export function EventFormDrawer({
 }) {
   const phone = useIsPhone();
   const toast = useToast();
+  const t = useCalendarTranslations();
   const [state, setState] = React.useState<FormState | null>(null);
   const [options, setOptions] = React.useState<CalendarFormOptions | null>(null);
   const [more, setMore] = React.useState(false);
@@ -269,21 +271,21 @@ export function EventFormDrawer({
         const details = (json?.error?.details ?? {}) as Record<string, unknown>;
         const fieldErrors: Record<string, string> = {};
         for (const [key, value] of Object.entries(details)) if (Array.isArray(value) && typeof value[0] === "string") fieldErrors[key] = value[0];
-        setErrors({ form: json?.error?.message ?? "The event could not be saved.", ...fieldErrors });
+        setErrors({ form: json?.error?.message ?? t("form.saveFailed"), ...fieldErrors });
         setUnresolved(false);
         return outcomeOf({ ok: false, code: typeof details.code === "string" ? details.code : json?.error?.code, error: json?.error?.message });
       }
       // Clean before it stops saving: nothing is left to ask about as it closes.
       setBaseline(state);
       setUnresolved(false);
-      toast({ title: mode.kind === "edit" ? "Event updated" : "Event created", tone: "success" });
+      toast({ title: mode.kind === "edit" ? t("form.updated") : t("form.created"), tone: "success" });
       onSaved(json.event as CalendarEventDetailDTO, (json.conflicts ?? []) as ConflictDTO[]);
       onOpenChange(false);
       return { kind: "committed" };
     } catch {
       // It may have saved: say so, and never send it again by itself (AUD-03 §6).
       setUnresolved(true);
-      setErrors({ form: "The event could not be saved. Check your connection and try again.", outcome: OUTCOME_COPY.unknown });
+      setErrors({ form: t("form.saveFailedOffline"), outcome: OUTCOME_COPY.unknown });
       return { kind: "unknown" };
     } finally {
       setPending(false);
@@ -305,7 +307,7 @@ export function EventFormDrawer({
       <DrawerContent side={phone ? "bottom" : "right"} className={cn("bg-surface", phone === false && "sm:max-w-[480px]")} aria-describedby="event-form-description">
         {/* Inside the drawer, so its values belong to its guarded close (AUD-03 §5). */}
         <DrawerEditor
-          label={mode.kind === "edit" ? "Edit event" : "New event"}
+          label={mode.kind === "edit" ? t("form.editEvent") : t("form.newEvent")}
           saveKind={mode.kind === "edit" ? "save" : "create"}
           dirty={dirty}
           saving={pending}
@@ -315,13 +317,13 @@ export function EventFormDrawer({
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5">
             <div>
-              <DrawerTitle className="text-section font-semibold text-fg">{mode.kind === "edit" ? "Edit event" : "New event"}</DrawerTitle>
+              <DrawerTitle className="text-section font-semibold text-fg">{mode.kind === "edit" ? t("form.editEvent") : t("form.newEvent")}</DrawerTitle>
               <DrawerDescription id="event-form-description" className="mt-1 text-table text-fg-muted">
-                Times are in the company&apos;s time zone ({zone.replace("_", " ")}).
+                {t("form.timeZone", { zone: zone.replace("_", " ") })}
               </DrawerDescription>
             </div>
             <DrawerClose asChild>
-              <button type="button" aria-label="Close" className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
+              <button type="button" aria-label={t("form.close")} className="grid shrink-0 place-items-center rounded-md p-1 text-fg-subtle hover:bg-hover hover:text-fg touch:size-11 touch:p-0">
                 <X aria-hidden="true" className="size-4" />
               </button>
             </DrawerClose>
@@ -329,14 +331,14 @@ export function EventFormDrawer({
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             <div className="space-y-1.5">
-              <Label htmlFor="event-title">Title</Label>
-              <Input id="event-title" autoFocus value={state.title} maxLength={180} onChange={(change) => set("title", change.target.value)} placeholder="What is happening?" />
+              <Label htmlFor="event-title">{t("form.title")}</Label>
+              <Input id="event-title" autoFocus value={state.title} maxLength={180} onChange={(change) => set("title", change.target.value)} placeholder={t("form.titlePlaceholder")} />
               {fieldError("title")}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="event-type">Type</Label>
+                <Label htmlFor="event-type">{t("form.type")}</Label>
                 <select
                   id="event-type"
                   className={selectClass}
@@ -358,17 +360,17 @@ export function EventFormDrawer({
                 >
                   {types.map((type) => (
                     <option key={type} value={type}>
-                      {TYPE_LABEL[type]}
+                      {calendarLabel(t, "eventType", type, TYPE_LABEL[type])}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="event-visibility">Who can see it</Label>
+                <Label htmlFor="event-visibility">{t("form.whoCanSee")}</Label>
                 <select id="event-visibility" className={selectClass} value={state.visibility} onChange={(change) => set("visibility", change.target.value)}>
                   {visibilities.map((visibility) => (
                     <option key={visibility} value={visibility}>
-                      {VISIBILITY_LABEL[visibility]}
+                      {calendarLabel(t, "visibility", visibility, VISIBILITY_LABEL[visibility])}
                     </option>
                   ))}
                 </select>
@@ -377,12 +379,12 @@ export function EventFormDrawer({
 
             <div className="space-y-3 rounded-xl border border-line p-4">
               <label className="flex items-center justify-between gap-3">
-                <span className="text-table font-medium text-fg">All day</span>
-                <Switch checked={state.allDay} onCheckedChange={(checked) => set("allDay", checked)} aria-label="All day" />
+                <span className="text-table font-medium text-fg">{t("form.allDay")}</span>
+                <Switch checked={state.allDay} onCheckedChange={(checked) => set("allDay", checked)} aria-label={t("form.allDay")} />
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="event-start-date">{state.allDay ? "From" : "Date"}</Label>
+                  <Label htmlFor="event-start-date">{state.allDay ? t("form.from") : t("form.date")}</Label>
                   <Input
                     id="event-start-date"
                     type="date"
@@ -395,17 +397,17 @@ export function EventFormDrawer({
                 </div>
                 {state.allDay ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor="event-end-date">To</Label>
+                    <Label htmlFor="event-end-date">{t("form.to")}</Label>
                     <Input id="event-end-date" type="date" min={state.startDate} value={state.endDate} onChange={(change) => set("endDate", change.target.value)} />
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="event-start-time">Start</Label>
+                      <Label htmlFor="event-start-time">{t("form.start")}</Label>
                       <Input id="event-start-time" type="time" step={900} value={state.startTime} onChange={(change) => set("startTime", change.target.value)} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="event-end-time">End</Label>
+                      <Label htmlFor="event-end-time">{t("form.end")}</Label>
                       <Input id="event-end-time" type="time" step={900} value={state.endTime} onChange={(change) => set("endTime", change.target.value)} />
                     </div>
                   </div>
@@ -419,7 +421,7 @@ export function EventFormDrawer({
             ) : null}
             {state.visibility === "DEPARTMENT" && options && options.departments.length > 1 ? (
               <div className="space-y-1.5">
-                <Label htmlFor="event-department">Department</Label>
+                <Label htmlFor="event-department">{t("form.department")}</Label>
                 <select id="event-department" className={selectClass} value={state.departmentId || options.myDepartmentId || ""} onChange={(change) => set("departmentId", change.target.value)}>
                   {options.departments.map((department) => (
                     <option key={department.id} value={department.id}>
@@ -438,7 +440,7 @@ export function EventFormDrawer({
               className="flex items-center gap-1.5 text-table font-medium text-fg-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronDown aria-hidden="true" className={cn("size-4 transition-transform", more && "rotate-180")} />
-              More options
+              {t("form.moreOptions")}
             </button>
 
             {more ? (
@@ -448,7 +450,7 @@ export function EventFormDrawer({
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="event-people">People</Label>
+                  <Label htmlFor="event-people">{t("form.people")}</Label>
                   {state.participants.length > 0 ? (
                     <ul className="flex flex-wrap gap-1.5">
                       {state.participants.map((person) => (
@@ -456,7 +458,7 @@ export function EventFormDrawer({
                           {person.fullName}
                           <button
                             type="button"
-                            aria-label={`Remove ${person.fullName}`}
+                            aria-label={t("form.remove", { name: person.fullName })}
                             onClick={() => set("participants", state.participants.filter((row) => row.memberId !== person.memberId))}
                             className="rounded-full p-0.5 text-fg-subtle hover:bg-hover hover:text-fg"
                           >
@@ -466,9 +468,9 @@ export function EventFormDrawer({
                       ))}
                     </ul>
                   ) : null}
-                  <Input id="event-people" value={query} onChange={(change) => setQuery(change.target.value)} placeholder="Add people by name" autoComplete="off" />
+                  <Input id="event-people" value={query} onChange={(change) => setQuery(change.target.value)} placeholder={t("form.peoplePlaceholder")} autoComplete="off" />
                   {people.length > 0 ? (
-                    <ul role="listbox" aria-label="People you can invite" className="max-h-48 overflow-y-auto rounded-md border border-line bg-surface p-1 shadow-menu">
+                    <ul role="listbox" aria-label={t("form.peopleOptions")} className="max-h-48 overflow-y-auto rounded-md border border-line bg-surface p-1 shadow-menu">
                       {people
                         .filter((person) => !state.participants.some((row) => row.memberId === person.memberId))
                         .map((person) => (
@@ -496,16 +498,18 @@ export function EventFormDrawer({
                   <div role="status" className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5 text-table text-warning-strong">
                     <p className="flex items-center gap-1.5 font-medium">
                       <TriangleAlert aria-hidden="true" className="size-4" />
-                      {conflicts.length === 1 ? "1 person has a conflict" : `${conflicts.length} people have conflicts`}
+                      {t("form.conflicts", { count: conflicts.length })}
                     </p>
                     <ul className="mt-1 space-y-0.5 text-meta">
                       {conflicts.map((conflict) => (
                         <li key={conflict.memberId}>
-                          {conflict.fullName} — Busy{" "}
-                          {conflict.busy
-                            .slice(0, 2)
-                            .map((slot) => `${formatClock(new Date(slot.startsAt), zone)}–${formatClock(new Date(slot.endsAt), zone)}`)
-                            .join(", ")}
+                          {t("form.busy", {
+                            name: conflict.fullName,
+                            slots: conflict.busy
+                              .slice(0, 2)
+                              .map((slot) => `${formatClock(new Date(slot.startsAt), zone)}–${formatClock(new Date(slot.endsAt), zone)}`)
+                              .join(", "),
+                          })}
                         </li>
                       ))}
                     </ul>
@@ -513,40 +517,40 @@ export function EventFormDrawer({
                 ) : null}
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="event-location">Location</Label>
-                  <Input id="event-location" value={state.location} maxLength={200} onChange={(change) => set("location", change.target.value)} placeholder="Site, room or link" />
+                  <Label htmlFor="event-location">{t("form.location")}</Label>
+                  <Input id="event-location" value={state.location} maxLength={200} onChange={(change) => set("location", change.target.value)} placeholder={t("form.locationPlaceholder")} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="event-description">Description</Label>
+                  <Label htmlFor="event-description">{t("form.description")}</Label>
                   <Textarea id="event-description" rows={3} maxLength={5000} value={state.description} onChange={(change) => set("description", change.target.value)} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="event-reminder">Reminder</Label>
+                    <Label htmlFor="event-reminder">{t("form.reminder")}</Label>
                     <select id="event-reminder" className={selectClass} value={state.reminder} onChange={(change) => set("reminder", change.target.value)}>
                       {REMINDERS.map((reminder) => (
                         <option key={reminder.value} value={reminder.value}>
-                          {reminder.label}
+                          {reminder.value === "" ? t("form.noReminder") : calendarLabel(t, "reminder", reminder.value, reminder.label)}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="event-repeat">Repeat</Label>
+                    <Label htmlFor="event-repeat">{t("form.repeat")}</Label>
                     <select id="event-repeat" className={selectClass} value={state.frequency} onChange={(change) => set("frequency", change.target.value as FormState["frequency"])}>
-                      <option value="">Does not repeat</option>
-                      <option value="DAILY">Every day</option>
-                      <option value="WEEKLY">Every week</option>
-                      <option value="MONTHLY">Every month</option>
-                      <option value="YEARLY">Every year</option>
+                      <option value="">{t("form.doesNotRepeat")}</option>
+                      <option value="DAILY">{t("labels.frequency.DAILY")}</option>
+                      <option value="WEEKLY">{t("labels.frequency.WEEKLY")}</option>
+                      <option value="MONTHLY">{t("labels.frequency.MONTHLY")}</option>
+                      <option value="YEARLY">{t("labels.frequency.YEARLY")}</option>
                     </select>
                   </div>
                 </div>
                 {state.frequency ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor="event-until">Repeat until</Label>
+                    <Label htmlFor="event-until">{t("form.repeatUntil")}</Label>
                     <Input id="event-until" type="date" min={addLocalDays(state.startDate, 1)} value={state.until} onChange={(change) => set("until", change.target.value)} />
-                    <p className="text-meta text-fg-subtle">Changes to a repeating event apply to the whole series.</p>
+                    <p className="text-meta text-fg-subtle">{t("form.seriesNote")}</p>
                     {fieldError("recurrence")}
                   </div>
                 ) : null}
@@ -564,12 +568,12 @@ export function EventFormDrawer({
           <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
             <DrawerClose asChild>
               <Button type="button" variant="secondary" disabled={pending}>
-                Cancel
+                {t("form.cancel")}
               </Button>
             </DrawerClose>
             <Button type="submit" disabled={pending || !state.title.trim()}>
               {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-              {mode.kind === "edit" ? "Save changes" : "Create event"}
+              {mode.kind === "edit" ? t("form.saveChanges") : t("form.createEvent")}
             </Button>
           </div>
         </form>
@@ -608,11 +612,12 @@ function ProjectField({
   optional?: boolean;
   error: React.ReactNode;
 }) {
+  const t = useCalendarTranslations();
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="event-project">Project{optional ? " (optional)" : ""}</Label>
+      <Label htmlFor="event-project">{optional ? t("form.projectOptional") : t("form.project")}</Label>
       <select id="event-project" className={selectClass} value={state.projectId} onChange={(change) => set("projectId", change.target.value)}>
-        <option value="">{optional ? "No project" : "Choose a project"}</option>
+        <option value="">{optional ? t("form.noProject") : t("form.chooseProject")}</option>
         {(options?.projects ?? []).map((project) => (
           <option key={project.id} value={project.id}>
             {project.code} · {project.name}

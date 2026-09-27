@@ -117,8 +117,11 @@ function rendersText(children: ts.NodeArray<ts.JsxChild>): boolean {
   });
 }
 
-/** Components that render their children as text (rich-text runs), not icons. */
-const TEXT_COMPONENT = /^(InlineNodes|Trans)$/;
+/**
+ * Components that render text, not icons: rich-text runs, and the translation
+ * leaves (`StatusText`, `UiText`, `HseLabel`…) that print a dictionary string.
+ */
+const TEXT_COMPONENT = /^(InlineNodes|Trans|\w+Text|\w+Label)$/;
 
 describe("AUD-11 module semantics (§3, AV-06)", () => {
   it("scans a meaningful partition", () => {
@@ -256,7 +259,7 @@ describe("AUD-11 module status and focus (§4, §5; AV-04, AV-06)", () => {
   it("says unread and billable state in text, not only a coloured dot", () => {
     expect(SOURCES.get("components/activity/activity-view.tsx")).toMatch(/sr-only">, \{t\("unread"\)\}/);
     expect(SOURCES.get("components/announcements/announcement-list.tsx")).toMatch(/<span className="sr-only">Unread<\/span>/);
-    expect(SOURCES.get("components/timesheets/timesheet-grid.tsx")).toMatch(/sr-only">\{row\.billableMinutes > 0 \? "Billable" : "Not billable"\}/);
+    expect(SOURCES.get("components/timesheets/timesheet-grid.tsx")).toMatch(/sr-only">\{row\.billableMinutes > 0 \? t\("common\.billable"\) : t\("common\.notBillable"\)\}/);
   });
 
   it("places focus on a surviving row after an in-place delete", () => {

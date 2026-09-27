@@ -9,6 +9,7 @@ import { ScrollRegion } from "@/components/ui/scroll-region";
 import { cn } from "@/lib/utils/cn";
 import { eventsByDay, minutesFromTime, placeTimedEvents, visibleDays } from "./calendar-model";
 import { categoryStyle, EventCard } from "./event-card";
+import { useCalendarTranslations, useDayWords } from "./calendar-text";
 
 /**
  * Week and Day (PRD #39 §25, §26, §83, §84, §91-§96, §151, §152).
@@ -56,6 +57,8 @@ export function TimeGridView({
   onCreate?: (date: string, time: string) => void;
   onMove: (event: CalendarEventDTO, startsAt: Date, endsAt: Date) => void;
 }) {
+  const t = useCalendarTranslations();
+  const words = useDayWords();
   const days = visibleDays(view, date, zone);
   const byDay = React.useMemo(() => eventsByDay(events, days, zone), [events, days, zone]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -152,7 +155,7 @@ export function TimeGridView({
   const phoneWeek = days.length > 1 ? "min-w-[calc(56px+7*4.75rem)] md:min-w-0" : "";
 
   return (
-    <ScrollRegion label={days.length > 1 ? "Week" : "Day"} className="flex min-h-0 flex-1 flex-col">
+    <ScrollRegion label={days.length > 1 ? t("grid.week") : t("grid.day")} className="flex min-h-0 flex-1 flex-col">
     <div className={cn("flex min-h-0 flex-1 flex-col", phoneWeek)} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}>
       {/* Day headers and the all-day row stay put while hours scroll. */}
       <div className="grid border-b border-line" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }}>
@@ -163,7 +166,7 @@ export function TimeGridView({
           return (
             <div key={day} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 border-l border-line px-2 py-2">
               <span className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
-                {new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "short" }).format(noon)}
+                {new Intl.DateTimeFormat(words.locale, { timeZone: zone, weekday: "short" }).format(noon)}
               </span>
               <span
                 className={cn(
@@ -179,7 +182,7 @@ export function TimeGridView({
       </div>
       {allDayCount > 0 ? (
         <div className="grid border-b border-line bg-surface-muted/40" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }}>
-          <div className="px-2 py-1.5 text-right text-micro text-fg-subtle">All day</div>
+          <div className="px-2 py-1.5 text-right text-micro text-fg-subtle">{t("allDay")}</div>
           {days.map((day) => (
             <div key={day} className="flex min-w-0 flex-col gap-1 border-l border-line p-1">
               {(byDay.get(day) ?? [])
@@ -189,7 +192,7 @@ export function TimeGridView({
                   <EventCard key={`${event.id}:${day}`} event={event} zone={zone} onOpen={onOpen} />
                 ))}
               {(byDay.get(day) ?? []).filter((event) => event.allDay).length > 4 ? (
-                <span className="px-1 text-micro text-fg-muted">+{(byDay.get(day) ?? []).filter((event) => event.allDay).length - 4} more</span>
+                <span className="px-1 text-micro text-fg-muted">{t("more", { count: (byDay.get(day) ?? []).filter((event) => event.allDay).length - 4 })}</span>
               ) : null}
             </div>
           ))}
@@ -304,7 +307,7 @@ export function TimeGridView({
         </div>
       </div>
       <p className="sr-only" aria-live="polite">
-        {drag?.moved ? `Moving ${drag.event.title}` : ""}
+        {drag?.moved ? t("grid.moving", { title: drag.event.title }) : ""}
       </p>
     </div>
     </ScrollRegion>

@@ -7,7 +7,9 @@ import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
+import type { Translate } from "@/lib/i18n/translator";
 import { CATEGORY_META } from "./calendar-model";
+import { calendarLabel, englishCalendar, useCalendarTranslations } from "./calendar-text";
 
 /**
  * One event, in the Quiet Luxury card (PRD #39 §19, §99, §153-§155).
@@ -25,10 +27,11 @@ export function categoryStyle(event: CalendarEventDTO): React.CSSProperties {
   return { ["--cal" as string]: token, ["--cal-rail" as string]: rail } as React.CSSProperties;
 }
 
-export function eventAccessibleLabel(event: CalendarEventDTO, zone: string): string {
-  const time = event.allDay ? "all day" : `${formatClock(new Date(event.startsAt), zone)}${event.endsAt ? ` to ${formatClock(new Date(event.endsAt), zone)}` : ""}`;
-  const kind = event.privacyMode === "BUSY_ONLY" ? "" : `${CATEGORY_META[event.category].label}: `;
-  const extra = [event.status === "OVERDUE" ? "overdue" : null, event.severity === "critical" ? "critical" : null].filter(Boolean).join(", ");
+export function eventAccessibleLabel(event: CalendarEventDTO, zone: string, t: Translate<"calendar"> = englishCalendar): string {
+  const start = formatClock(new Date(event.startsAt), zone);
+  const time = event.allDay ? t("allDayLower") : event.endsAt ? t("card.to", { start, end: formatClock(new Date(event.endsAt), zone) }) : start;
+  const kind = event.privacyMode === "BUSY_ONLY" ? "" : `${calendarLabel(t, "category", event.category, CATEGORY_META[event.category].label)}: `;
+  const extra = [event.status === "OVERDUE" ? t("card.overdue") : null, event.severity === "critical" ? t("card.critical") : null].filter(Boolean).join(", ");
   return `${kind}${event.title}, ${time}${extra ? `, ${extra}` : ""}`;
 }
 
@@ -43,6 +46,7 @@ export const EventCard = React.forwardRef<
     onOpen: (event: CalendarEventDTO) => void;
   } & Omit<React.ComponentProps<"button">, "onClick">
 >(function EventCard({ event, zone, variant = "chip", selected, showTime = true, onOpen, className, style, ...props }, ref) {
+  const t = useCalendarTranslations();
   const Icon = event.privacyMode === "BUSY_ONLY" ? null : CATEGORY_META[event.category].icon;
   const busy = event.privacyMode === "BUSY_ONLY";
   const time = !event.allDay && showTime ? formatClock(new Date(event.startsAt), zone) : null;
@@ -53,7 +57,7 @@ export const EventCard = React.forwardRef<
       type="button"
       data-testid="calendar-event"
       data-source={event.sourceType}
-      aria-label={eventAccessibleLabel(event, zone)}
+      aria-label={eventAccessibleLabel(event, zone, t)}
       onClick={(clickEvent) => {
         clickEvent.stopPropagation();
         onOpen(event);
@@ -95,9 +99,9 @@ export const EventCard = React.forwardRef<
           {time ? <span className="shrink-0 text-micro text-fg-muted tabular-nums">{time}</span> : null}
           <span className={cn("min-w-0 truncate", variant === "row" ? "text-table font-medium" : "text-meta leading-4")}>{event.title}</span>
           {event.status === "OVERDUE" ? (
-            <Badge tone="warning" className="ml-auto shrink-0 px-1.5 py-0">Overdue</Badge>
+            <Badge tone="warning" className="ml-auto shrink-0 px-1.5 py-0">{t("overdue")}</Badge>
           ) : event.severity === "critical" ? (
-            <Badge tone="danger" className="ml-auto shrink-0 px-1.5 py-0">Critical</Badge>
+            <Badge tone="danger" className="ml-auto shrink-0 px-1.5 py-0">{t("critical")}</Badge>
           ) : null}
         </>
       )}

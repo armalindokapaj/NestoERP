@@ -18,13 +18,18 @@ import { MEMBERSHIP_ROLE_KEYS, isMembershipRoleKey, positionLabels, roleLabel, r
 import { can, canAny } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
+import { moduleName, organizationLabel } from "@/lib/i18n/modules/organization/labels";
+import type { Translate } from "@/lib/i18n/translator";
 import type { UserContext } from "@/lib/context/types";
 import { accessCheckOptions, accessCheckQuerySchema, diagnoseAccess, type AccessDiagnosisDTO } from "@/lib/modules/organization/access-diagnostics.service";
 import { grantListQuerySchema, grantOptions, listAccessGrants, type GrantStatus } from "@/lib/modules/organization/access-grant.service";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "Access & roles" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("organization"))("access.metaTitle") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -35,8 +40,17 @@ const SCOPE_LABELS: Record<DataScope, string> = { SELF: "own", ASSIGNED: "assign
 const STATUS_TONES: Record<GrantStatus, "success" | "info" | "default"> = { LIVE: "success", SCHEDULED: "info", EXPIRED: "default", REVOKED: "default" };
 const SOURCE_LABELS: Record<string, string> = { ROLE: "Role", POSITION: "Position", GRANT: "Delegated", DISABLED: "Module off", NONE: "—", BLOCKED: "Blocked" };
 
-function access(cell: { accessLevel: AccessLevel; scope: DataScope }) {
-  return cell.accessLevel === "NONE" ? "—" : `${LEVEL_LABELS[cell.accessLevel]}, ${SCOPE_LABELS[cell.scope]}`;
+type T = Translate<"organization">;
+type Modules = Translate<"modules">;
+
+const level = (t: T, value: AccessLevel) => organizationLabel(t, "level", value, LEVEL_LABELS[value]);
+
+function access(t: T, cell: { accessLevel: AccessLevel; scope: DataScope }) {
+  return cell.accessLevel === "NONE" ? "—" : `${level(t, cell.accessLevel)}, ${organizationLabel(t, "scope", cell.scope, SCOPE_LABELS[cell.scope])}`;
+}
+
+function grantStatus(t: T, status: GrantStatus) {
+  return organizationLabel(t, "grantStatus", status, status === "LIVE" ? "In force" : status.charAt(0) + status.slice(1).toLowerCase());
 }
 
 /**
@@ -53,6 +67,7 @@ export default async function AccessPage({ searchParams }: Props) {
   if (!keeps && !delegates) redirect("/access-denied");
 
   const params = await searchParams;
+  const t = await getTranslations("organization");
   const requested = one(params.view);
   const view = keeps && (requested === "roles" || requested === "check") ? requested : "grants";
   const tab = (active: boolean) =>
@@ -62,30 +77,30 @@ export default async function AccessPage({ searchParams }: Props) {
     <ModulePage
       experience={resolveModuleExperience(context, "organization")}
       activeSection="access"
-      title={keeps ? "Access & roles" : "Delegated access"}
+      title={keeps ? t("access.title") : t("access.delegatedTitle")}
       description={
         keeps
-          ? "What each role opens, what has been delegated on top of it, and why somebody can or cannot do something."
-          : "Access you have delegated to your department's people, on top of what their roles give them."
+          ? t("access.description")
+          : t("access.delegatedDescription")
       }
     >
       <div className="space-y-4">
         {keeps ? (
-          <nav aria-label="Access views" className="flex flex-wrap gap-2">
+          <nav aria-label={t("access.views")} className="flex flex-wrap gap-2">
             <Link href="/organization/access" className={tab(view === "grants")}>
-              Delegated access
+              {t("access.delegated")}
             </Link>
             <Link href="/organization/access?view=roles" className={tab(view === "roles")}>
-              Roles
+              {t("access.roles")}
             </Link>
             <Link href="/organization/access?view=check" className={tab(view === "check")}>
-              Check access
+              {t("access.check")}
             </Link>
           </nav>
         ) : null}
 
         {view === "grants" ? <GrantsView context={context} status={one(params.status)} /> : null}
-        {view === "roles" ? <RolesView role={one(params.role)} /> : null}
+        {view === "roles" ? <RolesView role={one(params.role)} t={t} /> : null}
         {view === "check" ? <CheckView context={context} params={params} /> : null}
       </div>
     </ModulePage>
@@ -94,66 +109,66 @@ export default async function AccessPage({ searchParams }: Props) {
 
 async function GrantsView({ context, status }: { context: UserContext; status: string | undefined }) {
   const query = grantListQuerySchema.parse({ status: status === "all" ? "all" : "live" });
-  const [grants, options] = await Promise.all([listAccessGrants(context, query), grantOptions(context)]);
+  const [grants, options, t, modules] = await Promise.all([listAccessGrants(context, query), grantOptions(context), getTranslations("organization"), getTranslations("modules")]);
   const chip = (active: boolean) =>
     cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   return (
-    <section className="space-y-3" aria-label="Delegated access">
+    <section className="space-y-3" aria-label={t("access.delegated")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <nav aria-label="Grant status" className="flex flex-wrap gap-2">
+        <nav aria-label={t("access.grantStatus")} className="flex flex-wrap gap-2">
           <Link href="/organization/access" className={chip(query.status === "live")}>
-            In force
+            {t("access.inForce")}
           </Link>
           <Link href="/organization/access?status=all" className={chip(query.status === "all")}>
-            All, with history
+            {t("access.allHistory")}
           </Link>
         </nav>
         {options ? <GrantAccessButton options={options} /> : null}
       </div>
       {grants.length === 0 ? (
-        <EmptyState title="Nothing delegated" description="Everybody works with what their role and position give them." />
+        <EmptyState title={t("access.nothingDelegated")} description={t("access.nothingDelegatedDescription")} />
       ) : (
         <>
         {/*
           * Phones get one card per grant with every column's value and Revoke
           * on the card, not ~900px to the right (AUD-04 §5, D-07-19, MW-05).
           */}
-        <ul className="space-y-3 md:hidden" aria-label="Delegated access">
+        <ul className="space-y-3 md:hidden" aria-label={t("access.delegated")}>
           {grants.map((grant) => (
             <li key={grant.id} className="nesto-card space-y-1.5 px-4 py-3" data-testid="grant-card">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
                   <PersonLink userId={grant.holder.userId} name={grant.holder.name} />
                 </span>
-                <Badge tone={STATUS_TONES[grant.status]}>{grant.status === "LIVE" ? "In force" : grant.status.charAt(0) + grant.status.slice(1).toLowerCase()}</Badge>
+                <Badge tone={STATUS_TONES[grant.status]}>{grantStatus(t, grant.status)}</Badge>
               </div>
               <p className="text-table text-fg">
-                {grant.module.label} · {LEVEL_LABELS[grant.accessLevel]} · {grant.scope.type === "GROUP" ? "Every company" : (grant.scope.company?.name ?? "—")}
+                {moduleName(modules, grant.module.key, grant.module.label)} · {level(t, grant.accessLevel)} · {grant.scope.type === "GROUP" ? t("access.everyCompany") : (grant.scope.company?.name ?? "—")}
               </p>
               <p className="text-meta text-fg-muted [overflow-wrap:anywhere]">
-                Delegated by <PersonLink userId={grant.grantedBy.userId} name={grant.grantedBy.name} />
+                {t("access.delegatedBy")} <PersonLink userId={grant.grantedBy.userId} name={grant.grantedBy.name} />
                 {grant.reason ? ` — ${grant.reason}` : ""}
               </p>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-meta text-fg-muted">{grant.revokedAt ? `Revoked ${formatDate(grant.revokedAt)}` : grant.expiresAt ? `Until ${formatDate(grant.expiresAt)}` : "Until revoked"}</p>
-                {grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={grant.module.label} /> : null}
+                <p className="text-meta text-fg-muted">{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt) }) : grant.expiresAt ? t("access.untilDate", { date: formatDate(grant.expiresAt) }) : t("access.untilRevoked")}</p>
+                {grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={moduleName(modules, grant.module.key, grant.module.label)} /> : null}
               </div>
             </li>
           ))}
         </ul>
         <div className="nesto-card hidden p-0 md:block">
-          <Table flush label="Delegated access" aria-label="Delegated access">
+          <Table flush label={t("access.delegated")} aria-label={t("access.delegated")}>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Person</TableHeaderCell>
-                <TableHeaderCell>Module</TableHeaderCell>
-                <TableHeaderCell>Access</TableHeaderCell>
-                <TableHeaderCell>Where</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Delegated by</TableHeaderCell>
-                <TableHeaderCell>Until</TableHeaderCell>
+                <TableHeaderCell>{t("common.person")}</TableHeaderCell>
+                <TableHeaderCell>{t("common.module")}</TableHeaderCell>
+                <TableHeaderCell>{t("access.access")}</TableHeaderCell>
+                <TableHeaderCell>{t("common.where")}</TableHeaderCell>
+                <TableHeaderCell>{t("common.status")}</TableHeaderCell>
+                <TableHeaderCell>{t("access.delegatedBy")}</TableHeaderCell>
+                <TableHeaderCell>{t("common.until")}</TableHeaderCell>
                 <TableHeaderCell>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("access.actions")}</span>
                 </TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -163,11 +178,11 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
                   <TableCell className="font-medium">
                     <PersonLink userId={grant.holder.userId} name={grant.holder.name} />
                   </TableCell>
-                  <TableCell>{grant.module.label}</TableCell>
-                  <TableCell>{LEVEL_LABELS[grant.accessLevel]}</TableCell>
-                  <TableCell>{grant.scope.type === "GROUP" ? "Every company" : (grant.scope.company?.name ?? "—")}</TableCell>
+                  <TableCell>{moduleName(modules, grant.module.key, grant.module.label)}</TableCell>
+                  <TableCell>{level(t, grant.accessLevel)}</TableCell>
+                  <TableCell>{grant.scope.type === "GROUP" ? t("access.everyCompany") : (grant.scope.company?.name ?? "—")}</TableCell>
                   <TableCell>
-                    <Badge tone={STATUS_TONES[grant.status]}>{grant.status === "LIVE" ? "In force" : grant.status.charAt(0) + grant.status.slice(1).toLowerCase()}</Badge>
+                    <Badge tone={STATUS_TONES[grant.status]}>{grantStatus(t, grant.status)}</Badge>
                   </TableCell>
                   <TableCell>
                     <span className="block">
@@ -175,8 +190,8 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
                     </span>
                     {grant.reason ? <span className="block text-meta text-fg-subtle">{grant.reason}</span> : null}
                   </TableCell>
-                  <TableCell>{grant.revokedAt ? `Revoked ${formatDate(grant.revokedAt)}` : grant.expiresAt ? formatDate(grant.expiresAt) : "Until revoked"}</TableCell>
-                  <TableCell className="text-right">{grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={grant.module.label} /> : null}</TableCell>
+                  <TableCell>{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt) }) : grant.expiresAt ? formatDate(grant.expiresAt) : t("access.untilRevoked")}</TableCell>
+                  <TableCell className="text-right">{grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={moduleName(modules, grant.module.key, grant.module.label)} /> : null}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -188,47 +203,56 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
   );
 }
 
-function RolesView({ role: requested }: { role: string | undefined }) {
+async function RolesView({ role: requested, t }: { role: string | undefined; t: T }) {
+  const [roleNames, modules] = await Promise.all([getTranslations("roles"), getTranslations("modules")]);
+  const roleName = (key: RoleKey) => {
+    const text = roleNames(`${key}.label`);
+    return text === `${key}.label` ? roleLabel(key) : text;
+  };
+  const roleDescription = (key: RoleKey) => {
+    const text = roleNames(`${key}.description`);
+    return text === `${key}.description` ? roles[key].description : text;
+  };
   const role: RoleKey = requested && isMembershipRoleKey(requested) ? requested : "OWNER";
   const chip = (active: boolean) =>
     cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   const rows = MODULE_KEYS.filter((key) => key !== "dashboard")
-    .map((key) => ({ key, label: moduleRegistry[key].label, member: defaultAccessFor(role, key, "MEMBER"), manager: defaultAccessFor(role, key, "COMPANY_MANAGER"), head: defaultAccessFor(role, key, "GROUP_HEAD") }))
+    .map((key) => ({ key, label: moduleName(modules, key, moduleRegistry[key].label), member: defaultAccessFor(role, key, "MEMBER"), manager: defaultAccessFor(role, key, "COMPANY_MANAGER"), head: defaultAccessFor(role, key, "GROUP_HEAD") }))
     .filter((row) => row.member.accessLevel !== "NONE" || row.manager.accessLevel !== "NONE" || row.head.accessLevel !== "NONE");
   return (
-    <section className="space-y-3" aria-label="Roles">
-      <nav aria-label="Role" className="flex flex-wrap gap-2">
+    <section className="space-y-3" aria-label={t("access.roles")}>
+      <nav aria-label={t("access.role")} className="flex flex-wrap gap-2">
         {MEMBERSHIP_ROLE_KEYS.map((key) => (
           <Link key={key} href={`/organization/access?view=roles&role=${key}`} className={chip(key === role)}>
-            {roleLabel(key)}
+            {roleName(key)}
           </Link>
         ))}
       </nav>
       <div className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{roleLabel(role)}</h2>
-        <p className="mt-1 text-table text-fg-muted">{roles[role].description}</p>
+        <h2 className="text-card font-semibold text-fg">{roleName(role)}</h2>
+        <p className="mt-1 text-table text-fg-muted">{roleDescription(role)}</p>
         <p className="mt-2 text-meta text-fg-subtle">
-          A position is held with the role: managing a company branch or heading the group department widens it where the person works as {roleLabel(role)}, and nowhere else.
-          {roles[role].readOnly ? " This role is read-only at every position." : ""}
+          {t("access.positionNote", { role: roleName(role) })}
+          {roles[role].readOnly ? t("access.readOnly") : ""}
         </p>
       </div>
       <div className="nesto-card p-0">
-        <Table flush aria-label={`${roleLabel(role)} by position`}>
+        <Table flush aria-label={t("access.byPosition", { role: roleName(role) })}>
           <TableHead>
             <TableRow>
-              <TableHeaderCell>Module</TableHeaderCell>
-              <TableHeaderCell>{positionLabels.MEMBER}</TableHeaderCell>
-              <TableHeaderCell>{positionLabels.COMPANY_MANAGER}</TableHeaderCell>
-              <TableHeaderCell>{positionLabels.GROUP_HEAD}</TableHeaderCell>
+              <TableHeaderCell>{t("common.module")}</TableHeaderCell>
+              <TableHeaderCell>{organizationLabel(t, "positionLevel", "MEMBER", positionLabels.MEMBER)}</TableHeaderCell>
+              <TableHeaderCell>{organizationLabel(t, "positionLevel", "COMPANY_MANAGER", positionLabels.COMPANY_MANAGER)}</TableHeaderCell>
+              <TableHeaderCell>{organizationLabel(t, "positionLevel", "GROUP_HEAD", positionLabels.GROUP_HEAD)}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.key}>
                 <TableCell className="font-medium">{row.label}</TableCell>
-                <TableCell>{access(row.member)}</TableCell>
-                <TableCell className={cn(access(row.manager) !== access(row.member) && "font-medium text-accent-strong")}>{access(row.manager)}</TableCell>
-                <TableCell className={cn(access(row.head) !== access(row.manager) && "font-medium text-accent-strong")}>{access(row.head)}</TableCell>
+                <TableCell>{access(t, row.member)}</TableCell>
+                <TableCell className={cn(access(t, row.manager) !== access(t, row.member) && "font-medium text-accent-strong")}>{access(t, row.manager)}</TableCell>
+                <TableCell className={cn(access(t, row.head) !== access(t, row.manager) && "font-medium text-accent-strong")}>{access(t, row.head)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -239,7 +263,7 @@ function RolesView({ role: requested }: { role: string | undefined }) {
 }
 
 async function CheckView({ context, params }: { context: UserContext; params: Record<string, string | string[] | undefined> }) {
-  const options = await accessCheckOptions(context);
+  const [options, t, modules] = await Promise.all([accessCheckOptions(context), getTranslations("organization"), getTranslations("modules")]);
   const parsed = accessCheckQuerySchema.safeParse({ userId: one(params.userId), targetCompanyId: one(params.targetCompanyId), permission: one(params.permission) });
   let diagnosis: AccessDiagnosisDTO | null = null;
   let notFound = false;
@@ -251,13 +275,13 @@ async function CheckView({ context, params }: { context: UserContext; params: Re
     }
   }
   return (
-    <section className="space-y-4" aria-label="Check access">
+    <section className="space-y-4" aria-label={t("access.check")}>
       <form method="get" action="/organization/access" className="nesto-card grid gap-4 p-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
         <input type="hidden" name="view" value="check" />
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
-          Person
+          {t("common.person")}
           <select name="userId" defaultValue={one(params.userId) ?? ""} className={selectClass} required>
-            <option value="">Choose a person</option>
+            <option value="">{t("access.choosePerson")}</option>
             {options.people.map((person) => (
               <option key={person.userId} value={person.userId}>
                 {person.name} ({person.username})
@@ -266,7 +290,7 @@ async function CheckView({ context, params }: { context: UserContext; params: Re
           </select>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
-          Company
+          {t("common.company")}
           <select name="targetCompanyId" defaultValue={one(params.targetCompanyId) ?? context.companyId} className={selectClass} required>
             {options.companies.map((company) => (
               <option key={company.id} value={company.id}>
@@ -276,19 +300,19 @@ async function CheckView({ context, params }: { context: UserContext; params: Re
           </select>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
-          Permission (optional)
+          {t("access.permission")}
           <Input name="permission" defaultValue={one(params.permission) ?? ""} placeholder="finance.payment.approve" />
         </label>
-        <Button type="submit">Check</Button>
+        <Button type="submit">{t("access.checkButton")}</Button>
       </form>
 
-      {notFound ? <EmptyState title="Nothing to check" description="That person or company is not part of your group." /> : null}
-      {diagnosis ? <Diagnosis diagnosis={diagnosis} /> : null}
+      {notFound ? <EmptyState title={t("access.nothingToCheck")} description={t("access.notInGroup")} /> : null}
+      {diagnosis ? <Diagnosis diagnosis={diagnosis} t={t} modules={modules} /> : null}
     </section>
   );
 }
 
-function Diagnosis({ diagnosis }: { diagnosis: AccessDiagnosisDTO }) {
+function Diagnosis({ diagnosis, t, modules }: { diagnosis: AccessDiagnosisDTO; t: T; modules: Modules }) {
   const reasons: Record<string, string> = {
     HELD: "Held.",
     BLOCKED: "Not held: nothing works until the blockers above are cleared.",
@@ -302,14 +326,24 @@ function Diagnosis({ diagnosis }: { diagnosis: AccessDiagnosisDTO }) {
       <div className="nesto-card space-y-3 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-card font-semibold text-fg">
-            <PersonLink userId={diagnosis.person.userId} name={diagnosis.person.name} /> in {diagnosis.company.name}
+            {(() => {
+              // The person's link sits where the sentence puts it.
+              const [before, after] = t("access.inCompany", { company: diagnosis.company.name }).split("{person}");
+              return (
+                <>
+                  {before}
+                  <PersonLink userId={diagnosis.person.userId} name={diagnosis.person.name} />
+                  {after}
+                </>
+              );
+            })()}
           </h2>
           <span className="text-meta text-fg-subtle">
-            {diagnosis.membership ? `${diagnosis.membership.role.label} · ${diagnosis.position.label}` : "No membership"}
+            {diagnosis.membership ? `${diagnosis.membership.role.label} · ${diagnosis.position.label}` : t("access.noMembership")}
           </span>
         </div>
         {diagnosis.blockers.length > 0 ? (
-          <ul className="space-y-1" aria-label="Blockers">
+          <ul className="space-y-1" aria-label={t("access.blockers")}>
             {diagnosis.blockers.map((blocker) => (
               <li key={blocker.code} className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
                 {blocker.message}
@@ -317,45 +351,45 @@ function Diagnosis({ diagnosis }: { diagnosis: AccessDiagnosisDTO }) {
             ))}
           </ul>
         ) : (
-          <p className="text-table text-fg-muted">Nothing blocks this person here: the account, the membership, the company and the group are all active.</p>
+          <p className="text-table text-fg-muted">{t("access.nothingBlocks")}</p>
         )}
         {diagnosis.position.heldThrough.length > 0 ? (
           <p className="text-table text-fg-muted">
-            Position held through:{" "}
+            {t("access.heldThrough")}{" "}
             {diagnosis.position.heldThrough.map((row) => `${row.level}, ${row.department} (${row.where})`).join("; ")}.
           </p>
         ) : null}
         {diagnosis.grants.length > 0 ? (
           <p className="text-table text-fg-muted">
-            Delegated here: {diagnosis.grants.map((grant) => `${grant.moduleLabel} ${LEVEL_LABELS[grant.accessLevel]} (${grant.scope === "GROUP" ? "group" : "company"})`).join(", ")}.
+            {t("access.delegatedHere", { grants: diagnosis.grants.map((grant) => `${moduleName(modules, grant.moduleKey, grant.moduleLabel)} ${level(t, grant.accessLevel)} (${grant.scope === "GROUP" ? t("access.group") : t("access.company")})`).join(", ") })}
           </p>
         ) : null}
         {diagnosis.permission ? (
           <p className={cn("rounded-md border px-3 py-2 text-table", diagnosis.permission.held ? "border-success/30 bg-success-soft text-success-strong" : "border-line bg-surface-2 text-fg")} data-testid="permission-answer">
-            <span className="font-mono">{diagnosis.permission.key}</span>: {reasons[diagnosis.permission.reason]}
+            <span className="font-mono">{diagnosis.permission.key}</span>: {organizationLabel(t, "reason", diagnosis.permission.reason, reasons[diagnosis.permission.reason])}
           </p>
         ) : null}
       </div>
 
       <div className="nesto-card p-0">
-        <Table flush aria-label="Module access">
+        <Table flush aria-label={t("access.moduleAccess")}>
           <TableHead>
             <TableRow>
-              <TableHeaderCell>Module</TableHeaderCell>
-              <TableHeaderCell>By role</TableHeaderCell>
-              <TableHeaderCell>With position</TableHeaderCell>
-              <TableHeaderCell>In effect</TableHeaderCell>
-              <TableHeaderCell>Because of</TableHeaderCell>
+              <TableHeaderCell>{t("common.module")}</TableHeaderCell>
+              <TableHeaderCell>{t("access.byRole")}</TableHeaderCell>
+              <TableHeaderCell>{t("access.withPosition")}</TableHeaderCell>
+              <TableHeaderCell>{t("access.inEffect")}</TableHeaderCell>
+              <TableHeaderCell>{t("access.becauseOf")}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {opened.map((row) => (
               <TableRow key={row.key}>
-                <TableCell className="font-medium">{row.label}</TableCell>
-                <TableCell>{access(row.role)}</TableCell>
-                <TableCell>{access(row.position)}</TableCell>
-                <TableCell className="font-medium">{access(row.effective)}</TableCell>
-                <TableCell>{SOURCE_LABELS[row.source]}</TableCell>
+                <TableCell className="font-medium">{moduleName(modules, row.key, row.label)}</TableCell>
+                <TableCell>{access(t, row.role)}</TableCell>
+                <TableCell>{access(t, row.position)}</TableCell>
+                <TableCell className="font-medium">{access(t, row.effective)}</TableCell>
+                <TableCell>{organizationLabel(t, "source", row.source, SOURCE_LABELS[row.source])}</TableCell>
               </TableRow>
             ))}
           </TableBody>
