@@ -10,6 +10,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Release validation can be run by hand on any branch.
+  workflow_dispatch:
+
+# Least privilege (AUD-12 §7, DX-14): every job reads the repository and
+# nothing more unless it says so. No job uses pull_request_target, and no
+# deployment secret or production database is referenced anywhere in this file,
+# so a pull request from a fork runs with the read-only token GitHub gives it.
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,9 +37,47 @@ env:
   NESTO_DEMO_PASSWORD: ci-demo-password
   NODE_ENV: test
 
+# Jobs, by the AUD-12 §7 gate table:
+#   static   — frozen install, lint, typecheck (no database).
+#   verify   — the domain, security, smoke and integrity gates. They share one
+#              migrated and seeded database, so they stay sequential in one job
+#              rather than racing on shared fixtures (§6).
+#   security — dependency audit, secret scan, CodeQL.
+#   release  — migration replay/upgrade and seed rerun, each in its own
+#              nesto_a12_* databases on a disposable server. Runs on push to
+#              main and on manual dispatch, not on pull requests.
+# All-browser runs and performance measurements are not in this workflow; see
+# docs/dev/testing.md.
 jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm's version comes from package.json "packageManager", Node's from
+      # .nvmrc — the same pins a developer uses (AUD-12 §5).
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Client bundle excludes server-only code
+        run: pnpm check:client-bundle
+
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     services:
       postgres:
@@ -51,22 +98,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm's version comes from package.json "packageManager", Node's from
+      # .nvmrc — the same pins a developer uses (AUD-12 §5).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm typecheck
 
       - name: Shadow database
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c "create database nesto_shadow"
@@ -229,8 +270,57 @@ jobs:
             test-results/
           retention-days: 7
 
+  release:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # The tests create and drop their own nesto_a12_* databases on this server.
+      AUD12_PG_SERVER: postgresql://postgres:postgres@localhost:5432
+      AUD12_MIGRATION_REPLAY: "1"
+      AUD12_SEED_RERUN: "1"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nesto_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Migration replay and upgrade
+        # Empty-database replay, and upgrade of a populated database that is
+        # held back by recent migrations (AUD-12 DX-09).
+        run: pnpm exec vitest run tests/integration/aud12-migration-replay.test.ts
+
+      - name: Demo seed rerun
+        # A second seed duplicates nothing and keeps unrelated data (DX-10).
+        run: pnpm exec vitest run tests/integration/aud12-seed-rerun.test.ts
+
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # CodeQL uploads its results to code scanning.
+      security-events: write
+      actions: read
     # Runs alongside verify rather than after it: a dependency advisory should
     # not wait on a Playwright run (PRD #34 §363).
     steps:
@@ -238,13 +328,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # pnpm's version comes from package.json "packageManager", Node's from
+      # .nvmrc — the same pins a developer uses (AUD-12 §5).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile

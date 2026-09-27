@@ -9,6 +9,43 @@
 
 <!-- One or two sentences. Link the PRD sections. -->
 
+## AUD requirements affected
+
+<!-- IDs from docs/dev/aud-test-map.md (e.g. FA-07, TR-12, DX-08), or "none". -->
+
+- [ ] Each affected ID has a test that names it, or the evidence is linked here
+- [ ] `docs/dev/aud-test-map.md` regenerated if tests were added or renamed
+
+## Change summary
+
+- [ ] Ownership: which domain owns what this writes; any new cross-domain door or exception (with reason and owner)
+- [ ] Permissions: new or changed permission keys, roles, modules or scope rules
+- [ ] State: new or changed states, transitions or guards
+- [ ] No architecture baseline raised (`scripts/architecture/*.baseline.json`); if one was, why and who owns removing it
+
+## Migration risk
+
+<!-- "No migration", or: what it changes, LOW/MEDIUM/HIGH per docs/runbooks/database-migrations.md -->
+
+- [ ] Additive / expand-contract, safe while the previous release still runs (a push to main applies it)
+- [ ] Backfill, NOT NULL, UNIQUE or FK changes checked against existing data; locks and runtime considered
+- [ ] Rollback or forward-repair written down; no applied migration edited
+
+## Test evidence
+
+<!-- Commands run and their results. Say what was NOT run and why. -->
+
+## Documentation
+
+- [ ] README / `docs/dev/*` / module docs still true (commands, env vars, destructive flags)
+
+## Refactors only
+
+- [ ] Invariant preserved: <!-- which rule, and the characterization test that proves it -->
+- [ ] Callers migrated: <!-- all / list of remaining ones -->
+- [ ] Rollback: <!-- revert is safe? any data written in the new shape? -->
+- [ ] Not mixed with unrelated feature work
+
 ## Authorization
 
 - [ ] Company-scoped — every query starts from `context.companyId`, no lookup by id alone

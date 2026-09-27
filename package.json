@@ -50,6 +50,7 @@
     "postinstall": "prisma generate",
     "db:drift": "tsx scripts/db/drift.ts",
     "verify:production-guards": "tsx scripts/verify-production-guards.ts",
+    "check:client-bundle": "tsx scripts/check-client-bundle.ts",
     "retention:dry-run": "tsx scripts/retention.ts --dry-run",
     "storage:maintenance": "tsx scripts/storage-maintenance.ts",
     "storage:maintenance:apply": "tsx scripts/storage-maintenance.ts --apply",
@@ -117,5 +118,9 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "pnpm": ">=9.15.4 <10"
   }
 }

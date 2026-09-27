@@ -3979,3 +3979,39 @@ AUD-07 makes slow, failed and interrupted requests recover honestly, and makes t
 - **Needs a review:** meetings, approvals and planning templates use 30–60 s transaction timeouts. These exceed the read deadline.
 - **No alert rules yet:** the thresholds are proposed in [performance-and-stability.md](runbooks/performance-and-stability.md).
 - **Not generated:** the Group data sets with 1, 5 and 10 companies.
+
+## 51. AUD-12 — Maintainability and developer experience (rest)
+
+§42 covered the database safeguards (§5). This section covers the rest.
+
+### 51.1 Delivered
+
+- **Debt ledger (DX-01):** [debt-ledger.md](debt-ledger.md) lists 13 observed problems, security and data integrity first. None are fixed here.
+- **Gate failure injection (DX-02, DX-13):** `tests/architecture/aud12-gate-injection.test.ts` plants violations and runs the real ownership, state, authorization and worker gates. Each must fail and name the file, line and fix. Baseline and allowlist files are checked unchanged by hash.
+- **Client bundle (DX-04):** `pnpm check:client-bundle` (`scripts/check-client-bundle.ts`) follows imports from every `"use client"` file and refuses Node built-ins, `@/lib/database/*`, `PrismaClient`, server packages and non-`NEXT_PUBLIC_` environment reads. It runs in the CI `static` job. One allowlisted exception: `lib/core/storage/scanner.ts` (configuration, not a secret).
+- **Migration replay and upgrade (DX-09):** `tests/integration/aud12-migration-replay.test.ts`, opt-in (`AUD12_MIGRATION_REPLAY=1`). All 82 migrations apply from empty, their checksums match and a rerun does nothing. Upgrading from 6 migrations back keeps the inserted rows and links.
+- **Seed rerun (DX-10):** `tests/integration/aud12-seed-rerun.test.ts`, opt-in (`AUD12_SEED_RERUN=1`). A second seed run changes no key-table count, and an unrelated user survives.
+- **Build seed (DX-11):** `tests/integration/aud12-build-seed.test.ts` runs `scripts/vercel-build.sh`'s eligibility check. It refuses production, an unnamed target and a target naming another database.
+- **CI (DX-14):**
+  - The workflow is read-only by default; only the security job gets the extra permissions CodeQL needs.
+  - It uses no `pull_request_target`, no deploy secrets and no `continue-on-error`.
+  - Installs use a frozen lockfile.
+  - Artifacts are kept 7 days, and every job has a time limit.
+  - Jobs: `static`, `verify`, `release` (a throwaway Postgres running the replay and seed-rerun tests on push to main) and `security`.
+- **Toolchain:** `.nvmrc` 22 and `packageManager` pnpm@9.15.4, which CI reads.
+- **Docs (DX-15):**
+  - The README is rewritten.
+  - [dev/](dev/) gains local setup, the environment matrix, the command matrix (read-only / writes / DESTRUCTIVE), testing, workers, troubleshooting, release and rollback, and the [AUD test map](dev/aud-test-map.md).
+  - The PR template gains the AUD checklist.
+
+### 51.2 Still open
+
+- DX-06: a setup run on a clean machine has not been recorded.
+- DX-16: the combined regression, which is the final E2E pass.
+- DX-03, DX-05, DX-12: no new tests beyond the existing contract and characterization suites.
+- **Owner action:**
+  - Confirm the Vercel Node version before adding `engines.node`.
+  - Make the CI checks required in branch protection; that is a repository setting.
+- **Decisions pending:**
+  - The seed refuses a database that has any extra parent group.
+  - Split the storage constants so the uploader stops pulling in `scanner.ts`.
