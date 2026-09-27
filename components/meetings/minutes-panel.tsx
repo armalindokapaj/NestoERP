@@ -139,7 +139,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
           <div className="space-y-6">
             {meeting.minutes.map((section) => (
               <div key={section.id}>
-                <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-fg-subtle">{section.title}</h3>
+                <h3 className="text-meta font-semibold uppercase tracking-[0.1em] text-fg-subtle">{section.title}</h3>
                 {section.body.trim() ? <PlainText text={section.body} className="mt-2 text-body leading-relaxed text-fg" /> : <p className="mt-2 text-table text-fg-subtle">—</p>}
               </div>
             ))}
@@ -317,7 +317,7 @@ function SectionEditor({
             setState("dirty");
           }}
           onBlur={() => void save()}
-          className="h-8 border-transparent px-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-fg-muted shadow-none hover:border-line focus:border-accent"
+          className="h-8 border-transparent px-1 text-meta font-semibold uppercase tracking-[0.1em] text-fg-muted shadow-none hover:border-line focus:border-accent"
         />
         <span className={cn("shrink-0 text-meta", state === "error" ? "text-danger-strong" : "text-fg-subtle")} aria-live="polite">
           {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? "Not saved" : ""}

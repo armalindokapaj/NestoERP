@@ -2,6 +2,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
+import { warnUnnamedIconControl } from "@/lib/a11y/accessible-name";
 import { cn } from "@/lib/utils/cn";
 
 const buttonVariants = cva(
@@ -14,7 +15,8 @@ const buttonVariants = cva(
         ghost: "text-fg-muted hover:bg-hover hover:text-fg",
         subtle: "bg-hover text-fg hover:bg-line",
         accent: "bg-accent text-accent-fg hover:opacity-90",
-        danger: "bg-danger text-white hover:opacity-90",
+        // danger-fg: white on the light red, near-black on the dark one; both >= 4.5:1 (AUD-11 AV-10).
+        danger: "bg-danger text-danger-fg hover:opacity-90",
         link: "text-accent-strong underline-offset-4 hover:underline",
       },
       /*
@@ -44,7 +46,10 @@ export type ButtonProps = React.ComponentProps<"button"> &
 
 export function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
-  return <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+  // Icon-only sizes need a contextual name; development warns (AUD-11 §3, AV-06).
+  if (process.env.NODE_ENV !== "production" && (size === "icon" || size === "icon-sm")) warnUnnamedIconControl("Button", props);
+  // Marked so a dialog never lands initial focus on it (AUD-11 §4, AV-05; lib/a11y/overlay-focus.ts).
+  return <Comp data-variant={variant === "danger" ? "danger" : undefined} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }
 
 export { buttonVariants };

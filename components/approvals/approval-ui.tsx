@@ -158,7 +158,7 @@ export function initials(name: string): string {
 
 export function PersonMark({ name, className }: { name: string; className?: string }) {
   return (
-    <span aria-hidden="true" className={cn("inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-muted text-[9px] font-semibold text-fg-muted ring-1 ring-line", className)}>
+    <span aria-hidden="true" className={cn("inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-muted text-micro font-semibold text-fg-muted ring-1 ring-line", className)}>
       {initials(name)}
     </span>
   );

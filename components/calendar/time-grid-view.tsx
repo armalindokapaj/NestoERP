@@ -162,7 +162,7 @@ export function TimeGridView({
           const isToday = day === today;
           return (
             <div key={day} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 border-l border-line px-2 py-2">
-              <span className="text-[12px] font-medium uppercase tracking-[0.08em] text-fg-subtle">
+              <span className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
                 {new Intl.DateTimeFormat("en-GB", { timeZone: zone, weekday: "short" }).format(noon)}
               </span>
               <span
@@ -179,7 +179,7 @@ export function TimeGridView({
       </div>
       {allDayCount > 0 ? (
         <div className="grid border-b border-line bg-surface-muted/40" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }}>
-          <div className="px-2 py-1.5 text-right text-[11px] text-fg-subtle">All day</div>
+          <div className="px-2 py-1.5 text-right text-micro text-fg-subtle">All day</div>
           {days.map((day) => (
             <div key={day} className="flex min-w-0 flex-col gap-1 border-l border-line p-1">
               {(byDay.get(day) ?? [])
@@ -189,7 +189,7 @@ export function TimeGridView({
                   <EventCard key={`${event.id}:${day}`} event={event} zone={zone} onOpen={onOpen} />
                 ))}
               {(byDay.get(day) ?? []).filter((event) => event.allDay).length > 4 ? (
-                <span className="px-1 text-[11px] text-fg-muted">+{(byDay.get(day) ?? []).filter((event) => event.allDay).length - 4} more</span>
+                <span className="px-1 text-micro text-fg-muted">+{(byDay.get(day) ?? []).filter((event) => event.allDay).length - 4} more</span>
               ) : null}
             </div>
           ))}
@@ -200,7 +200,7 @@ export function TimeGridView({
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))`, height: 24 * HOUR_HEIGHT }}>
           <div className="relative">
             {Array.from({ length: 24 }, (_, hour) => (
-              <div key={hour} className="absolute right-2 -translate-y-1/2 text-[11px] text-fg-subtle tabular-nums" style={{ top: hour * HOUR_HEIGHT }}>
+              <div key={hour} className="absolute right-2 -translate-y-1/2 text-micro text-fg-subtle tabular-nums" style={{ top: hour * HOUR_HEIGHT }}>
                 {hour === 0 ? "" : `${String(hour).padStart(2, "0")}:00`}
               </div>
             ))}
@@ -256,7 +256,12 @@ export function TimeGridView({
                         onOpen={event.draggable ? () => undefined : onOpen}
                         className={cn(event.draggable && "cursor-grab active:cursor-grabbing")}
                         onKeyDown={(key) => {
-                          if (event.draggable && key.key === "Enter") onOpen(event);
+                          // A draggable card ignores the click that ends a drag, so the keyboard
+                          // opens it on both Enter and Space (AUD-11 §3, AV-03).
+                          if (event.draggable && (key.key === "Enter" || key.key === " ")) {
+                            key.preventDefault();
+                            onOpen(event);
+                          }
                         }}
                       />
                       {event.resizable ? (
@@ -277,7 +282,7 @@ export function TimeGridView({
                     className="pointer-events-none absolute inset-x-1 z-20 rounded-[9px] border border-dashed border-[var(--cal)] bg-[color-mix(in_oklab,var(--cal)_14%,var(--nesto-surface))] px-2 py-1 shadow-menu"
                     style={{ ...categoryStyle(drag.event), top: preview(drag).start * MINUTE, height: Math.max(18, preview(drag).duration * MINUTE) }}
                   >
-                    <span className="text-[11px] font-medium tabular-nums text-fg">
+                    <span className="text-micro font-medium tabular-nums text-fg">
                       {(() => {
                         const next = preview(drag);
                         const start = instantFromLocal(day, `${String(Math.floor(next.start / 60)).padStart(2, "0")}:${String(next.start % 60).padStart(2, "0")}`, zone);

@@ -15,6 +15,7 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { TRADE_NAME_MAX, type TradeDTO } from "@/lib/modules/workforce/workforce.types";
 
 import { cn } from "@/lib/utils/cn";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
  * The company's trades (E-04 §11): add, rename, order, retire and bring back.
@@ -47,13 +48,15 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
   const replace = (next: TradeDTO) => setTrades((current) => current.map((type) => (type.id === next.id ? next : type)));
 
   const adding = useUnsavedEditor({ module: "workforce", saveKind: "create", label: "New trade", save: () => add() });
-  React.useEffect(() => adding.setDirty(newName !== ""), [newName, adding.setDirty]);
-  React.useEffect(() => adding.setSaving(pending === "add"), [pending, adding.setSaving]);
+  const { setDirty: setAddingDirty, setSaving: setAddingSaving } = adding;
+  React.useEffect(() => setAddingDirty(newName !== ""), [newName, setAddingDirty]);
+  React.useEffect(() => setAddingSaving(pending === "add"), [pending, setAddingSaving]);
 
   const renamed = editing ? trades.find((type) => type.id === editing.id) : undefined;
   const renaming = useUnsavedEditor({ module: "workforce", saveKind: "save", label: renamed ? `Rename ${renamed.name}` : "Trade name", save: () => rename() });
-  React.useEffect(() => renaming.setDirty(Boolean(editing && renamed && editing.name !== renamed.name)), [editing, renamed, renaming.setDirty]);
-  React.useEffect(() => renaming.setSaving(Boolean(editing && pending === editing.id)), [editing, pending, renaming.setSaving]);
+  const { setDirty: setRenamingDirty, setSaving: setRenamingSaving } = renaming;
+  React.useEffect(() => setRenamingDirty(Boolean(editing && renamed && editing.name !== renamed.name)), [editing, renamed, setRenamingDirty]);
+  React.useEffect(() => setRenamingSaving(Boolean(editing && pending === editing.id)), [editing, pending, setRenamingSaving]);
 
   async function add(): Promise<SaveOutcome> {
     if (pending === "add") return { kind: "unknown" };
@@ -136,6 +139,9 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
     }
   }
 
+  // Focus goes to the next trade, not <body>, once a row is deleted (AUD-11 §4, AV-04).
+  const refocus = React.useRef<(() => void) | null>(null);
+
   async function remove() {
     if (!deleteTarget) return;
     setPending(deleteTarget.id);
@@ -143,6 +149,7 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
       await announcementApi(`/api/workforce/trades/${deleteTarget.id}`, { method: "DELETE" });
       setTrades((current) => current.filter((type) => type.id !== deleteTarget.id));
       setDeleteTarget(null);
+      refocus.current?.();
     } catch (error) {
       toast({ title: failureMessage(error, "The trade could not be deleted."), tone: "danger" });
     } finally {
@@ -269,7 +276,10 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
                         <span className="sr-only"> {type.name}</span>
                       </Button>
                       {type.employeeCount + type.crewCount === 0 ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={() => setDeleteTarget(type)} disabled={pending !== null}>
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={(event) => {
+                          refocus.current = planFocusAfterRemoval(event.currentTarget);
+                          setDeleteTarget(type);
+                        }} disabled={pending !== null}>
                           <Trash2 />
                         </Button>
                       ) : null}

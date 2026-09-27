@@ -2,6 +2,9 @@ import * as React from "react";
 import { cookies } from "next/headers";
 
 import { DevAccessPanel } from "@/components/layout/dev-access-panel";
+import { LiveAnnouncer } from "@/components/layout/live-announcer";
+import { RouteFocus } from "@/components/layout/route-focus";
+import { SkipLink } from "@/components/layout/skip-link";
 import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
@@ -77,6 +80,11 @@ export async function AppShell({
   return (
     <TooltipProvider delayDuration={200}>
       <ToastProvider>
+        {/* First in the tab order: Skip to main content (AUD-11 §3, AV-02). The two stable
+            live regions and focus placement after an accepted navigation (§4, §5). */}
+        <SkipLink />
+        <LiveAnnouncer />
+        <RouteFocus />
         <WorkspaceSync />
         {/* Unsaved work (AUD-03): the one prompt, the unload guard, Back/Forward,
             and what happens when this tab's context stops being the server's.

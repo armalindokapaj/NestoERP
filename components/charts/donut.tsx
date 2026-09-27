@@ -50,14 +50,16 @@ export function Donut({
           viewBox="0 0 100 100"
           role="img"
           aria-label={`${caption}: ${description}`}
-          className="size-28 -rotate-90"
+          // Series colours are data: kept in forced colours, where the legend's text carries them (AUD-11 AV-15, AV-16).
+          className="size-28 -rotate-90 forced-color-adjust-none"
         >
           <circle
             cx="50"
             cy="50"
             r={radius}
             fill="none"
-            stroke="var(--nesto-hover)"
+            // As a style, not an attribute, so the token resolves for the current scheme (AUD-11 §7, AV-14).
+            style={{ stroke: "var(--nesto-hover)" }}
             strokeWidth="12"
           />
           {segments.map((segment) => (
@@ -67,7 +69,7 @@ export function Donut({
               cy="50"
               r={radius}
               fill="none"
-              stroke={segment.color}
+              style={{ stroke: segment.color }}
               strokeWidth="12"
               strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
               strokeDashoffset={-segment.offset}
@@ -97,7 +99,7 @@ export function Donut({
           <li key={segment.label} className="flex items-center gap-2.5 text-table">
             <span
               aria-hidden="true"
-              className="size-2 shrink-0 rounded-full"
+              className="size-2 shrink-0 rounded-full forced-color-adjust-none"
               style={{ backgroundColor: segment.color }}
             />
             {/* Wraps rather than truncating: the legend is the chart's text alternative (AUD-04 §5, SP-14). */}

@@ -13,7 +13,8 @@ export function Checkbox({
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer relative size-4 shrink-0 rounded-[4px] border border-line-strong bg-surface",
+        // The 3:1 control border: an unchecked box is visible on every ground (AUD-11 AV-10).
+        "peer relative size-4 shrink-0 rounded-[4px] border border-control bg-surface",
         // A 44px hit area under touch without a bigger box (AUD-04 §3, MW-19):
         // an invisible square around the 16px control.
         "touch:after:absolute touch:after:-inset-3.5 touch:after:content-['']",

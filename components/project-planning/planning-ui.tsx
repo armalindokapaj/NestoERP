@@ -61,8 +61,16 @@ export function Variance({ days, short = false, className }: { days: number | nu
   if (days === null) return <span className={cn("text-fg-subtle", className)}>—</span>;
   const tone = days > 0 ? "text-danger-strong" : days < 0 ? "text-success-strong" : "text-fg-muted";
   return (
-    <span className={cn("tabular-nums", tone, className)} data-testid="milestone-variance" aria-label={varianceLabel(days)}>
-      {short ? shortVariance(days) : varianceLabel(days)}
+    // aria-label on a bare span is not read; the short form is shown and the full one spoken (AUD-11 §5).
+    <span className={cn("tabular-nums", tone, className)} data-testid="milestone-variance">
+      {short ? (
+        <>
+          <span aria-hidden="true">{shortVariance(days)}</span>
+          <span className="sr-only">{varianceLabel(days)}</span>
+        </>
+      ) : (
+        varianceLabel(days)
+      )}
     </span>
   );
 }

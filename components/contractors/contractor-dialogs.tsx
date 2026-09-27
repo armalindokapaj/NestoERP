@@ -182,13 +182,13 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
   );
 }
 
-export function EditAssignmentButton({ projectId, assignment }: { projectId: string; assignment: { id: string; contractorId: string; version: number; status: string; scopeSummary: string | null; contractId: string | null; internalManagerMemberId: string | null; primaryContractorContactId: string | null; startDate: string | null; endDate: string | null } }) {
+export function EditAssignmentButton({ projectId, assignment, subject }: { projectId: string; subject?: string; assignment: { id: string; contractorId: string; version: number; status: string; scopeSummary: string | null; contractId: string | null; internalManagerMemberId: string | null; primaryContractorContactId: string | null; startDate: string | null; endDate: string | null } }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<AssignmentOptions>(`/api/projects/${projectId}/contractors/options`, { contractors: [], members: [], contracts: [] });
   return (
     <>
-      <Button type="button" size="icon-sm" variant="ghost" aria-label="Edit assignment" data-testid="edit-assignment" onClick={() => void options.load().then((next) => next && setOpen(true))}>
+      <Button type="button" size="icon-sm" variant="ghost" aria-label={subject ? `Edit assignment for ${subject}` : "Edit assignment"} data-testid="edit-assignment" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
       </Button>
       {options.loaded ? (

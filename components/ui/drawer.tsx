@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
+import { restoreFocusAfterClose, safeInitialFocus } from "@/lib/a11y/overlay-focus";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -40,6 +41,8 @@ export function DrawerContent({
   className,
   side = "left",
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & { side?: DrawerSide }) {
   return (
@@ -58,6 +61,15 @@ export function DrawerContent({
           sideClasses[side],
           className,
         )}
+        // The same focus rules as Dialog (AUD-11 §4, AV-05).
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          safeInitialFocus(event);
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event);
+          restoreFocusAfterClose(event);
+        }}
         {...props}
       >
         {children}

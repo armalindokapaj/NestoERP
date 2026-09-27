@@ -212,6 +212,8 @@ export function TimesheetGrid({
                     <th scope="row" className="sticky left-0 z-[1] bg-surface px-4 py-2 text-left font-normal group-hover:bg-row-hover">
                       <span className="flex items-center gap-2">
                         <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", row.billableMinutes > 0 ? "bg-accent" : "bg-line-strong")} title={row.billableMinutes > 0 ? "Billable" : "Not billable"} />
+                        {/* The dot's colour is the only visual cue; give the state in text (AUD-11 §5, AV-06). */}
+                        <span className="sr-only">{row.billableMinutes > 0 ? "Billable" : "Not billable"}</span>
                         <span className="min-w-0">
                           <span className="block truncate text-table font-medium text-fg">{label.primary}</span>
                           {label.secondary ? <span className="block truncate text-meta text-fg-muted">{label.secondary}</span> : null}

@@ -112,7 +112,7 @@ export function PlatformShell({ user, actions, children }: { user: string; actio
           <div className="ml-auto flex items-center gap-3"><span className="hidden text-table text-fg-muted xl:inline">{user}</span>{actions}</div>
         </div>
       </header>
-      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+      <main id="nesto-main" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8">{children}</main>
     </div>
   </div>;
 }

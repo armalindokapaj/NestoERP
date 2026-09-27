@@ -85,7 +85,7 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
       >
         <Bell aria-hidden="true" className="size-[18px]" />
         {total > 0 ? (
-          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ring-2 ring-surface", critical ? "bg-danger text-white" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
             {total > 99 ? "99+" : total}
           </span>
         ) : null}

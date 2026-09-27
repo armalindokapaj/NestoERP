@@ -358,7 +358,7 @@ function PaymentMenu({ payment, caps, onOpen }: { payment: ContractPaymentDTO; c
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Payment actions" className="ml-auto">
+        <Button variant="ghost" size="icon" aria-label={`Actions for the payment of ${amountLabel(payment.amount, payment.currency)} on ${formatDate(payment.paymentDate)}`} className="ml-auto">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>

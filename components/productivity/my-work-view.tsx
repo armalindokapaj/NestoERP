@@ -19,6 +19,7 @@ import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { publishMyWorkChange, subscribeMyWork } from "@/lib/productivity/client";
 import { cn } from "@/lib/utils/cn";
 import { ENTITY_ICON, relativeTime } from "./record-icons";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 export type MyWorkQuery = { companyId?: string; module?: string; projectId?: string; q?: string; range?: string; from?: string; to?: string };
 
@@ -291,7 +292,11 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                   <span className="hidden text-meta tabular-nums text-fg-subtle md:block" title={item.at}>
                     {now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now)) : ""}
                   </span>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={tab === "favorites" ? `Remove ${item.title} from favorites` : `Remove ${item.title} from recent work`} onClick={() => void remove(item)}>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={tab === "favorites" ? `Remove ${item.title} from favorites` : `Remove ${item.title} from recent work`} onClick={(event) => {
+                    // The row leaves at once; focus the next one, not <body> (AUD-11 §4, AV-04).
+                    planFocusAfterRemoval(event.currentTarget)();
+                    void remove(item);
+                  }}>
                     {tab === "favorites" ? <Star className="fill-warning text-warning" /> : <X />}
                   </Button>
                 </li>

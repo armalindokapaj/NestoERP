@@ -44,7 +44,8 @@ export function DropdownMenuItem({
       className={cn(
         // 44px rows under touch (AUD-04 §3, MW-19); desktop rows unchanged.
         "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-body text-fg outline-none touch:min-h-11",
-        "focus:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        // Keyboard focus also draws the ring inside the row; a pointer highlight stays the quiet tint (AUD-11 AV-04).
+        "focus:bg-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-muted",
         variant === "destructive" && "text-danger-strong focus:bg-danger-soft [&_svg]:text-danger-strong",
         className,

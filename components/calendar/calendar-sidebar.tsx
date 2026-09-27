@@ -49,7 +49,7 @@ export function MiniCalendar({
       </div>
       <div className="grid grid-cols-7 text-center" role="grid" aria-label={label}>
         {["M", "T", "W", "T", "F", "S", "S"].map((weekday, index) => (
-          <span key={index} className="py-1 text-[11px] font-medium text-fg-subtle">
+          <span key={index} className="py-1 text-micro font-medium text-fg-subtle">
             {weekday}
           </span>
         ))}
@@ -61,7 +61,7 @@ export function MiniCalendar({
             aria-label={dayHeading(day, zone, today)}
             aria-current={day === date ? "date" : undefined}
             className={cn(
-              "relative mx-auto grid size-8 place-items-center rounded-full text-[12px] tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+              "relative mx-auto grid size-8 place-items-center rounded-full text-meta tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
               day.slice(0, 7) !== month.slice(0, 7) ? "text-fg-subtle/70" : "text-fg",
               day === date ? "bg-primary text-primary-fg" : day === today ? "font-semibold text-accent-strong" : "hover:bg-hover",
             )}
@@ -105,7 +105,7 @@ export function CalendarFilters({
       </label>
 
       <fieldset>
-        <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Categories</legend>
+        <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Categories</legend>
         <div className="flex flex-col gap-1">
           {FILTER_CATEGORIES.map((category) => {
             const meta = CATEGORY_META[category];
@@ -125,7 +125,7 @@ export function CalendarFilters({
 
       {projects.length > 0 ? (
         <fieldset>
-          <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-subtle">Projects</legend>
+          <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Projects</legend>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
             {projects.map((project) => {
               const id = `calendar-project-${project.id}`;

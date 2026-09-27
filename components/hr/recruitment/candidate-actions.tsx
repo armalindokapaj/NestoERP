@@ -55,7 +55,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
         </Button>
       ) : null}
       {actions.canReject ? (
-        <Button size="sm" variant="ghost" onClick={() => setOpen("reject")}>
+        <Button size="sm" variant="secondary" onClick={() => setOpen("reject")}>
           Reject
         </Button>
       ) : null}

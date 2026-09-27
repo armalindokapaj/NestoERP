@@ -122,7 +122,7 @@ export function AssignmentTable({ items, view }: { items: AssignmentDTO[]; view:
   const manage = (row: AssignmentDTO) =>
     row.canManage ? (
       <div className="flex flex-wrap justify-end gap-1">
-        <EditAssignmentButton projectId={row.project.id} assignment={{ id: row.id, contractorId: row.contractor.id, version: row.version, status: row.status, scopeSummary: row.scopeSummary, contractId: row.contract?.id ?? null, internalManagerMemberId: row.internalManager?.id ?? null, primaryContractorContactId: row.primaryContact?.id ?? null, startDate: row.startDate, endDate: row.endDate }} />
+        <EditAssignmentButton projectId={row.project.id} subject={view === "project" ? row.contractor.label : row.project.label} assignment={{ id: row.id, contractorId: row.contractor.id, version: row.version, status: row.status, scopeSummary: row.scopeSummary, contractId: row.contract?.id ?? null, internalManagerMemberId: row.internalManager?.id ?? null, primaryContractorContactId: row.primaryContact?.id ?? null, startDate: row.startDate, endDate: row.endDate }} />
         <CommandBar
           className="flex"
           commands={[{ url: `/api/project-contractor-assignments/${row.id}/terminate`, label: "Terminate", variant: "ghost", success: "Assignment terminated.", testId: "terminate-assignment", body: { expectedVersion: row.version }, reason: { title: `Terminate ${row.contractor.label} on ${row.project.label}`, description: "Its history stays; no new work packages, RFIs or submittals can name it on this project.", confirmLabel: "Terminate", extraFields: [{ name: "endDate", label: "End date", type: "date" }] } }]}

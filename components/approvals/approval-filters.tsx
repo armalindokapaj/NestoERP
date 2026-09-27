@@ -348,7 +348,7 @@ export function FilterChips({
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" aria-label="Active filters">
+    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" role="group" aria-label="Active filters">
       {chips.map((chip) => (
         <button
           key={chip.key}

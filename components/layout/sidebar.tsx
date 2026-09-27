@@ -41,11 +41,12 @@ export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[];
       {isDemo ? (
         <p
           title={DEMO_DISCLAIMER}
-          aria-label={DEMO_DISCLAIMER}
           data-testid="demo-notice-rail"
           className="nesto-rail-only mx-auto mb-4 w-fit shrink-0 rounded-full border border-line px-1.5 py-px text-micro font-medium text-fg-muted"
         >
-          Demo
+          {/* aria-label is not honoured on a paragraph; the disclaimer is its text instead (AUD-11 AV-06). */}
+          <span aria-hidden="true">Demo</span>
+          <span className="sr-only">{DEMO_DISCLAIMER}</span>
         </p>
       ) : null}
     </aside>

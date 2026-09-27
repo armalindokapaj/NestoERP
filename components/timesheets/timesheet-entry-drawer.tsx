@@ -350,7 +350,7 @@ function EntryForm({
             aria-invalid={Boolean(errors.duration)}
             aria-describedby={errors.duration ? "entry-duration-error" : "entry-duration-hint"}
           />
-          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick durations">
+          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Quick durations">
             {QUICK_DURATIONS.map((value) => (
               <button
                 key={value}

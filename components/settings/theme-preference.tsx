@@ -26,6 +26,22 @@ const OPTIONS = [
 export function ThemePreference({ initial }: { initial: ThemeChoice }) {
   const [choice, setChoice] = React.useState<ThemeChoice>(initial);
   const t = useTranslations("settings");
+  const group = React.useRef<HTMLDivElement>(null);
+
+  /*
+   * A radio group behaves like one (AUD-11 §3): one Tab stop — the checked
+   * option — and the arrow keys move and select, wrapping at the ends.
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    const edge = event.key === "Home" ? 0 : event.key === "End" ? OPTIONS.length - 1 : undefined;
+    if (step === undefined && edge === undefined) return;
+    event.preventDefault();
+    const current = OPTIONS.findIndex((option) => option.value === choice);
+    const next = edge ?? (current + step! + OPTIONS.length) % OPTIONS.length;
+    select(OPTIONS[next].value);
+    group.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+  }
 
   function select(next: ThemeChoice) {
     setChoice(next);
@@ -38,8 +54,10 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
 
   return (
     <div
+      ref={group}
       role="radiogroup"
       aria-label={t("appearance.colourScheme")}
+      onKeyDown={onKeyDown}
       className="inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5"
     >
       {OPTIONS.map((option) => {
@@ -51,6 +69,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
             type="button"
             role="radio"
             aria-checked={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => select(option.value)}
             /*
              * The same selected treatment as an active sidebar item, rather

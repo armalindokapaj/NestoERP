@@ -122,7 +122,7 @@ export function ApprovalDetailView({
             <SourceIcon provider={item.providerKey} className="mt-0.5" />
             <div className="min-w-0 flex-1">
               <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{item.sourceLabel} approval</p>
-              <h2 className="mt-1 text-[20px] font-semibold leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
+              <h2 className="mt-1 text-section font-semibold leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
                 {item.title}
               </h2>
               {item.subtitle ? <p className="mt-0.5 text-table text-fg-muted">{item.subtitle}</p> : null}
@@ -591,7 +591,7 @@ function Discussion({ parentType, parentId }: { parentType: string; parentId: st
 
 function DetailSkeleton({ variant, onClose }: { variant: "panel" | "sheet"; onClose: () => void }) {
   return (
-    <div className="space-y-5 px-5 py-5 sm:px-6" aria-busy="true" aria-label="Loading approval">
+    <div className="space-y-5 px-5 py-5 sm:px-6" role="status" aria-busy="true" aria-label="Loading approval">
       {variant === "sheet" ? (
         <Button type="button" variant="ghost" size="sm" className="-ml-2" onClick={onClose}>
           <ArrowLeft aria-hidden="true" />

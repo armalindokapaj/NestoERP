@@ -15,8 +15,19 @@ export function CardHeader({ className, ...props }: React.ComponentProps<"div">)
   );
 }
 
-export function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return <h3 className={cn("text-card font-semibold text-fg", className)} {...props} />;
+/**
+ * A card's heading (AUD-11 §3, AV-02). An h2 by default, because a card sits
+ * directly under the page's h1; `as` picks the level that fits the outline
+ * ("h3" for a card inside a titled section, "p" for a label that is not a
+ * heading). The look is the same whatever the element: the level is structure,
+ * never font size.
+ */
+export function CardTitle({
+  className,
+  as: Heading = "h2",
+  ...props
+}: React.ComponentProps<"h2"> & { as?: "h2" | "h3" | "h4" | "p" }) {
+  return <Heading className={cn("text-card font-semibold text-fg", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: React.ComponentProps<"p">) {

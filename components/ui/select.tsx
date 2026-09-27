@@ -18,8 +18,9 @@ export function SelectTrigger({
     <SelectPrimitive.Trigger
       className={cn(
         // 44px tall under touch (AUD-04 §3, MW-19).
-        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-line-strong bg-surface px-3 text-body text-fg touch:h-11",
-        "transition-colors hover:bg-hover focus:border-accent focus-visible:outline-none",
+        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11",
+        // The outline was removed with only a 1px border change left; a solid 2px ring now (AUD-11 AV-04).
+        "transition-colors hover:bg-hover focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
@@ -67,7 +68,8 @@ export function SelectItem({
     <SelectPrimitive.Item
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-md py-2 pl-2.5 pr-8 text-body text-fg outline-none touch:min-h-11",
-        "focus:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        // Keyboard focus also draws the ring inside the row; a pointer highlight stays the quiet tint (AUD-11 AV-04).
+        "focus:bg-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}

@@ -62,6 +62,7 @@ import { EntryDialog, type EntryOptions } from "./entry-dialog";
 import { entriesOf, payloadFromValues, valuesFromEntry } from "./entry-fields";
 import { EvidenceGallery } from "./evidence-gallery";
 import { WorkforceSuggestions } from "./workforce-suggestions";
+import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
  * The daily log workspace (PRD #43 §145-§160, §201, §214-§221).
@@ -584,7 +585,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       ) : null}
 
       {/* Summary cards (§146, §153) */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" aria-label="Daily summary">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label="Daily summary">
         <Stat label="Workforce" value={log.counts.workforce} testId="count-workforce" />
         <Stat label="Activities" value={log.counts.activities} />
         <Stat label="Deliveries" value={log.counts.deliveries} />
@@ -676,7 +677,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                       {record.detail ? <span className="ml-2 text-meta text-fg-muted">{record.detail}</span> : null}
                     </span>
                     {(record.domain === "hse" ? caps.sections.hse : caps.sections.qaqc) ? (
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove link" onClick={() => void run("Unlinking", () => dailyLogApi(`${base}/record-links/${record.linkId}`, { method: "DELETE" }))}>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove link to ${record.label}`} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run("Unlinking", () => dailyLogApi(`${base}/record-links/${record.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
                         <X />
                       </Button>
                     ) : null}
@@ -726,7 +727,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                       <span className="block text-meta text-fg-muted">{joined(TASK_LINK_TYPE_LABELS[task.linkType], task.status)}</span>
                     </span>
                     {caps.sections.tasks ? (
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Unlink task" onClick={() => void run("Unlinking", () => dailyLogApi(`${base}/tasks/${task.linkId}`, { method: "DELETE" }))}>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Unlink task ${task.title}`} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run("Unlinking", () => dailyLogApi(`${base}/tasks/${task.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
                         <X />
                       </Button>
                     ) : null}
