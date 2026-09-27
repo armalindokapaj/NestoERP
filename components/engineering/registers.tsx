@@ -202,7 +202,7 @@ export function SubmittalRegister({ items, showProject = false, emptyTitle = "No
 }
 
 export function DocumentRegister({ items, drawings = false, showProject = false, emptyTitle }: { items: EngineeringDocumentRowDTO[]; drawings?: boolean; showProject?: boolean; emptyTitle?: string }) {
-  if (!items.length) return <EmptyState icon={<DraftingCompass />} title={emptyTitle ?? (drawings ? "No drawings registered." : "No engineering documents registered.")} description="Register a document, then add its revisions as files arrive." />;
+  if (!items.length) return <EmptyState icon={<DraftingCompass />} title={emptyTitle ?? (drawings ? "No drawings registered." : "No engineering documents registered.")} description="Registered documents appear here with their current revision; revisions are added as files arrive." />;
   return (
     <>
       <div className="hidden md:block">

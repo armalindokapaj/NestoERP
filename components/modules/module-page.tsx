@@ -1,8 +1,10 @@
 import * as React from "react";
 
+import { HelpEntry } from "@/components/help/help-entry";
 import { ModuleTabs } from "@/components/modules/module-tabs";
 import { headerActionsClass } from "@/components/ui/page-header";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The structure every NESTO module uses (PRD #7 §5, §12, §93).
@@ -15,8 +17,14 @@ import type { ResolvedModuleExperience } from "@/lib/access/module-access";
  *
  * The actions wrap within the page on a narrow screen instead of widening it
  * (AUD-04 §3, D-02-03, D-04-02, MW-01); none is hidden.
+ *
+ * Orientation (AUD-05 §3, §4, §7): the default heading and description are the
+ * module's name and line as the sidebar gives them, in the reader's language,
+ * so the menu, the heading and the breadcrumb agree (UX-07). The header ends
+ * with the module's Help entry, a quiet link after the page's own actions: the
+ * primary action stays the one that stands out (UX-16).
  */
-export function ModulePage({
+export async function ModulePage({
   experience,
   activeSection,
   title,
@@ -35,18 +43,23 @@ export function ModulePage({
   toolbar?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const names = await getTranslations("modules");
+  const moduleLabel = names(`${experience.module}.label`);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title ?? experience.label}</h1>
+          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title ?? moduleLabel}</h1>
           {description === null ? null : (
             <p className="mt-1.5 text-body text-fg-muted">
-              {description ?? experience.description}
+              {description ?? names(`${experience.module}.description`)}
             </p>
           )}
         </div>
-        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
+        <div className={headerActionsClass}>
+          {actions}
+          <HelpEntry moduleKey={experience.module} moduleLabel={moduleLabel} />
+        </div>
       </div>
 
       <ModuleTabs experience={experience} activeSection={activeSection} />

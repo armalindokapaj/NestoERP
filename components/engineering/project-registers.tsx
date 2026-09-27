@@ -1,5 +1,6 @@
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { listEngineeringDocuments, projectEngineeringOptions } from "@/lib/modules/engineering/engineering.documents";
@@ -62,6 +63,9 @@ function Pager({ base, params, result }: { base: string; params: Params; result:
   return <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref(base, params, page)} />;
 }
 
+/** Search or a filter narrows the register: nothing found is "no matches", not an empty register (AUD-05 §6, UX-11). */
+const narrowed = (params: Params, filters: FilterConfig[]) => hasActiveFilters(params, ["q", ...filters.map((filter) => filter.param)]);
+
 async function contractorFilter(context: UserContext, projectId: string): Promise<FilterConfig[]> {
   const options = await projectEngineeringOptions(context, projectId, "rfi.respond").catch(() => null);
   return options?.contractors.length ? [{ param: "contractorId", label: "Contractor", options: options.contractors.map((item) => ({ value: item.id, label: item.label })) }] : [];
@@ -86,7 +90,7 @@ export async function ProjectDocumentRegister({ context, projectId, params, draw
         action={can(context, "engineering_document.create") ? <NewDocumentButton projectId={projectId} drawing={drawings} /> : null}
       />
       <ListToolbar searchPlaceholder={drawings ? "Search drawing number or title…" : "Search number or title…"} searchParam="q" filters={filters} />
-      <DocumentRegister items={result.items} drawings={drawings} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={drawings ? "drawings" : "documents"} clearHref={base} /> : <DocumentRegister items={result.items} drawings={drawings} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
@@ -108,7 +112,7 @@ export async function ProjectRfiRegister({ context, projectId, params }: { conte
     <div className="space-y-4">
       <Heading title="RFIs" description="Questions to the design team, their answers and how long they took." action={can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null} />
       <ListToolbar searchPlaceholder="Search RFI number or subject…" searchParam="q" filters={filters} />
-      <RfiRegister items={result.items} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun="RFIs" clearHref={base} /> : <RfiRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
@@ -136,7 +140,7 @@ export async function ProjectSubmittalRegister({ context, projectId, params, vie
     <div className="space-y-4">
       <Heading title={spec.title} description={spec.description} action={can(context, "submittal.create") ? <NewSubmittalButton projectId={projectId} defaultType={spec.defaultType} label={spec.create} /> : null} />
       <ListToolbar searchPlaceholder="Search number, title or product…" searchParam="q" filters={filters} />
-      <SubmittalRegister items={result.items} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={spec.title.toLowerCase()} clearHref={base} /> : <SubmittalRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );
@@ -156,7 +160,7 @@ export async function ProjectTransmittalRegister({ context, projectId, params }:
     <div className="space-y-4">
       <Heading title="Transmittals" description="Formal issues of documents, with the exact versions each one carried." action={can(context, "transmittal.create") ? <NewTransmittalButton projectId={projectId} /> : null} />
       <ListToolbar searchPlaceholder="Search number, recipient or document number…" searchParam="q" filters={filters} />
-      <TransmittalRegister items={result.items} />
+      {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun="transmittals" clearHref={base} /> : <TransmittalRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
     </div>
   );

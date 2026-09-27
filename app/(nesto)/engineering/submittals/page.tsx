@@ -5,6 +5,7 @@ import { Pagination } from "@/components/data/pagination";
 import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { SubmittalRegister } from "@/components/engineering/registers";
 import { ModulePage } from "@/components/modules/module-page";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listSubmittals } from "@/lib/modules/engineering/engineering.submittals";
@@ -26,8 +27,12 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   return (
     <ModulePage experience={experience} activeSection="submittals" title="Submittals" description="Submittals, method statements and material submittals across your projects.">
       <div className="space-y-4">
-        <ListToolbar searchPlaceholder="Search number or title…" searchParam="q" filters={[{ param: "status", label: "Status", options: SUBMITTAL_STATUSES.map((value) => ({ value, label: REVIEW_STATUS_LABELS[value] })) }, { param: "type", label: "Type", options: SUBMITTAL_TYPES.map((value) => ({ value, label: SUBMITTAL_TYPE_LABELS[value] })) }, { param: "reviewer", label: "Reviewer", options: [{ value: "me", label: "Assigned to me" }] }]} />
-        <SubmittalRegister items={result.items} showProject />
+        <ListToolbar searchPlaceholder="Search number, title or product…" searchParam="q" filters={[{ param: "status", label: "Status", options: SUBMITTAL_STATUSES.map((value) => ({ value, label: REVIEW_STATUS_LABELS[value] })) }, { param: "type", label: "Type", options: SUBMITTAL_TYPES.map((value) => ({ value, label: SUBMITTAL_TYPE_LABELS[value] })) }, { param: "reviewer", label: "Reviewer", options: [{ value: "me", label: "Assigned to me" }] }]} />
+        {result.items.length === 0 && hasActiveFilters(params, ["q", "status", "type", "reviewer"]) ? (
+          <NoResultsState noun="submittals" clearHref="/engineering/submittals" />
+        ) : (
+          <SubmittalRegister items={result.items} showProject />
+        )}
         <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/engineering/submittals", params, page)} />
       </div>
     </ModulePage>

@@ -1,11 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 
+import { HelpIndex } from "@/components/help/help-page";
 import { ModulePage } from "@/components/modules/module-page";
 import { RecordList } from "@/components/modules/record-list";
 import { modules, sectionRoute, type ModuleKey } from "@/config/modules";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience, resolveSection } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { helpAccess } from "@/lib/help/help-access";
 import { findRecordSection } from "@/lib/modules/records/registry";
 import { ModuleOverview } from "./module-overview";
 
@@ -52,6 +54,16 @@ export async function ModuleSectionPage({
     return (
       <ModulePage experience={experience} activeSection={section.key}>
         <ModuleOverview context={context} moduleKey={moduleKey} />
+      </ModulePage>
+    );
+  }
+
+  // Support's Help tab is the module Help index, not a second copy of Support's overview (AUD-05 §7, UX-16).
+  if (moduleKey === "support" && section.key === "help") {
+    const access = await helpAccess(context);
+    return (
+      <ModulePage experience={experience} activeSection={section.key}>
+        <HelpIndex modules={access.modules} embedded />
       </ModulePage>
     );
   }

@@ -6,6 +6,7 @@ import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { ModulePage } from "@/components/modules/module-page";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listCompliance } from "@/lib/modules/contractors/contractor.compliance";
@@ -37,7 +38,11 @@ export default async function CompliancePage({ searchParams }: { searchParams: S
             { param: "type", label: "Type", options: COMPLIANCE_TYPES.map((value) => ({ value, label: COMPLIANCE_TYPE_LABELS[value] })) },
           ]}
         />
-        <CompliancePanel contractorId={null} items={result.items} canManage={false} canUpload={false} showContractor />
+        {result.items.length === 0 && hasActiveFilters(params, ["q", "alerts", "status", "type"]) ? (
+          <NoResultsState noun="compliance records" clearHref="/contractors/compliance" />
+        ) : (
+          <CompliancePanel contractorId={null} items={result.items} canManage={false} canUpload={false} showContractor />
+        )}
         <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/contractors/compliance", params, page)} />
       </div>
     </ModulePage>

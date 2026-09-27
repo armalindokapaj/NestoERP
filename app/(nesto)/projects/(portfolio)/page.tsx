@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ModulePage } from "@/components/modules/module-page";
 import { projectCountLabel } from "@/components/projects/portfolio/gallery";
 import { ProjectsPortfolio, ProjectsPortfolioSkeleton } from "@/components/projects/portfolio/projects-portfolio";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import type { UserContext } from "@/lib/context/types";
@@ -60,7 +61,18 @@ async function ProjectsBody({ session, q }: { session: UserContext; q: string })
 
   return (
     <ProjectsFrame session={session} description={headerCount(result.meta)}>
-      <ProjectsPortfolio initial={result} q={q} canCreate={creatable.length > 0} />
+      <div className="space-y-4">
+        {/* Group versus Company results is the first question on this page (AUD-05 §7, UX-15). */}
+        <WhatIsThis id="workspace.scope.projects" title="Which projects are listed here">
+          <p>
+            {session.workspace.scopeType === "GROUP"
+              ? "In the Group workspace this page lists the projects you can open in every company you work in, each card naming its company. Searching also matches the company name."
+              : "In a company workspace this page lists only that company's projects you can open. Projects of any other company you belong to are not included here."}
+          </p>
+          <p>Search matches a project&apos;s name, code, city or country. Opening a project takes you into its own workspace of tabs.</p>
+        </WhatIsThis>
+        <ProjectsPortfolio initial={result} q={q} canCreate={creatable.length > 0} />
+      </div>
     </ProjectsFrame>
   );
 }

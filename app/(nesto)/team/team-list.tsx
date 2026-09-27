@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { TeamTable } from "@/components/team/team-table";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseTeamListQuery, type TeamQueryDefaults } from "@/lib/modules/team/team.query";
@@ -51,7 +51,8 @@ export async function TeamList({
     teamFilterOptions(context),
   ]);
 
-  const hasFilters = Boolean(query.search || query.roleId || query.departmentId);
+  // A status chosen in the URL narrows the list; the variant's default does not (AUD-05 §6, UX-11).
+  const hasFilters = Boolean(query.search || query.roleId || query.departmentId || hasActiveFilters(searchParams, ["status"]));
 
   const filters: FilterConfig[] = [
     // Role and department options come from the members this reader can

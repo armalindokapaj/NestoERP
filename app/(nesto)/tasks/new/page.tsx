@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { TaskForm } from "@/components/tasks/task-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createTaskAction } from "@/lib/actions/tasks";
@@ -91,6 +92,18 @@ export default async function NewTaskPage({
         <p className="mt-1.5 text-body text-fg-muted">
           Track a piece of work, on a project or on its own.
         </p>
+        {/* Project choice and assignment are where a first task goes wrong (AUD-05 §7, UX-13, UX-15). */}
+        <WhatIsThis id="tasks.create.project" title="Project and assignee" className="mt-2">
+          <p>
+            Choose a project to keep the task with that project&apos;s work: only active projects you can open are listed. Leave it empty for a
+            task that belongs to no project.
+          </p>
+          <p>
+            {options.mayAssignOthers
+              ? "The assignee list follows the project you choose, so pick the project first. The person you assign sees the task in My tasks."
+              : "Your tasks are assigned to you; someone who may assign work can hand them to others."}
+          </p>
+        </WhatIsThis>
       </div>
 
       <TaskForm

@@ -16,12 +16,16 @@ export type QuickActionDefinition = {
   icon: string;
   module: ModuleKey;
   permission: Permission;
+  /** Further grants the destination checks, so the tile is never a door that refuses (AUD-05 §4). */
+  alsoRequires?: Permission[];
 };
 
 /**
  * A dashboard tile for a create action takes its route, module and permission
  * from the Quick Create registry, so the two surfaces cannot drift apart (Quick
- * Create §126-§128). Only the tile's wording and icon are its own.
+ * Create §126-§128). Only the tile's wording and icon are its own, and the
+ * wording is the module page's own button: "New <noun>", except Documents'
+ * established "Add document" (AUD-05 §4, UX-07; docs/ux/glossary.md).
  */
 function fromQuickCreate(key: string, actionKey: string, label: string, icon: string): QuickActionDefinition {
   const action = QUICK_CREATE_BY_KEY.get(actionKey);
@@ -32,9 +36,9 @@ function fromQuickCreate(key: string, actionKey: string, label: string, icon: st
 export const quickActions: Record<string, QuickActionDefinition> = {
   newProject: fromQuickCreate("newProject", "projects.project.create", "New project", "FolderKanban"),
   newTask: fromQuickCreate("newTask", "tasks.task.create", "New task", "ListChecks"),
-  newClient: fromQuickCreate("newClient", "clients.client.create", "Add client", "Users"),
+  newClient: fromQuickCreate("newClient", "clients.client.create", "New client", "Users"),
   uploadDocument: fromQuickCreate("uploadDocument", "documents.document.create", "Add document", "Upload"),
-  newInvoice: fromQuickCreate("newInvoice", "finance.invoice.create", "Create invoice", "ReceiptText"),
+  newInvoice: fromQuickCreate("newInvoice", "finance.invoice.create", "New invoice", "ReceiptText"),
   requestLeave: {
     key: "requestLeave",
     label: "Request leave",
@@ -55,19 +59,25 @@ export const quickActions: Record<string, QuickActionDefinition> = {
   newContract: {
     key: "newContract",
     label: "New contract",
-    href: "/contracts/contracts/new",
+    // The canonical create page is /contracts/new; /contracts/contracts/new never existed (AUD-05 §4, UX-09).
+    href: "/contracts/new",
     icon: "Scale",
     module: "contracts",
     permission: "legal.contract.create",
   },
-  newPurchaseRequest: fromQuickCreate("newPurchaseRequest", "procurement.purchase_request.create", "Purchase request", "ShoppingCart"),
-  newMovement: {
-    key: "newMovement",
-    label: "Record movement",
-    href: "/inventory/movements/new",
-    icon: "ArrowLeftRight",
+  newPurchaseRequest: fromQuickCreate("newPurchaseRequest", "procurement.purchase_request.create", "New purchase request", "ShoppingCart"),
+  /*
+   * Movements are a ledger written by receipts, issues, returns, transfers and
+   * adjustments; /inventory/movements/new never existed, so the tile led
+   * nowhere. Stock arriving is the everyday start (AUD-05 §4, UX-09).
+   */
+  newReceipt: {
+    key: "newReceipt",
+    label: "New receipt",
+    href: "/inventory/receipts/new",
+    icon: "PackageCheck",
     module: "inventory",
-    permission: "inventory.movement.create",
+    permission: "inventory.receipt.create",
   },
   newQualityRecord: {
     key: "newQualityRecord",
@@ -77,7 +87,7 @@ export const quickActions: Record<string, QuickActionDefinition> = {
     module: "qaqc",
     permission: "qaqc.inspection.create",
   },
-  reportIncident: fromQuickCreate("reportIncident", "hse.incident.create", "Report incident", "TriangleAlert"),
+  reportIncident: fromQuickCreate("reportIncident", "hse.incident.create", "Report an incident", "TriangleAlert"),
   /*
    * Reporting a hazard is one tap from wherever somebody is standing, on
    * purpose: a critical report form buried three levels down is a report that
@@ -85,27 +95,25 @@ export const quickActions: Record<string, QuickActionDefinition> = {
    */
   reportHazard: {
     key: "reportHazard",
-    label: "Report hazard",
+    label: "Report a hazard",
     href: "/hse/hazards/new",
     icon: "ShieldAlert",
     module: "hse",
     permission: "hse.hazard.create",
   },
+  /*
+   * The Team page's own "Invite member" at /team/invite, which needs both
+   * grants; /team/new never existed (AUD-05 §4, UX-09). There is no support
+   * request form in V0.1, so no tile offers one.
+   */
   inviteUser: {
     key: "inviteUser",
-    label: "Add team member",
-    href: "/team/new",
+    label: "Invite member",
+    href: "/team/invite",
     icon: "UserPlus",
     module: "team",
-    permission: "team.manage",
-  },
-  newSupportRequest: {
-    key: "newSupportRequest",
-    label: "Raise a request",
-    href: "/support/requests/new",
-    icon: "LifeBuoy",
-    module: "support",
-    permission: "support.request.create",
+    permission: "team.member.invite",
+    alsoRequires: ["team.member.role.assign"],
   },
 };
 

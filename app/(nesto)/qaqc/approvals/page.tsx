@@ -6,7 +6,7 @@ import { ApprovalQueue } from "@/components/qaqc/approval-queue";
 import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { ModulePage } from "@/components/modules/module-page";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -86,17 +86,17 @@ export default async function QaqcApprovalsPage({
         />
 
         {result.data.length === 0 ? (
-          <EmptyState
-            icon={<CheckCheck />}
-            title={
-              query.view === "pending" ? "Nothing is waiting." : "Nothing matches this view."
-            }
-            description={
-              query.view === "pending"
-                ? "Inspections and NCRs appear here when somebody submits them for a decision."
-                : "Adjust the filters to see more."
-            }
-          />
+          // "Nothing is waiting" only for the unfiltered queue; a kind or another
+          // view that matches nothing says so and offers the way back (AUD-05 §6, UX-11).
+          query.view === "pending" && !query.recordType ? (
+            <EmptyState
+              icon={<CheckCheck />}
+              title="Nothing is waiting."
+              description="Inspections and NCRs appear here when somebody submits them for a decision."
+            />
+          ) : (
+            <NoResultsState noun="approvals" clearHref="/qaqc/approvals" />
+          )
         ) : (
           <>
             <ApprovalQueue approvals={result.data} />

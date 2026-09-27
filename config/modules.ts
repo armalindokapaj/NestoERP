@@ -313,7 +313,8 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     writePermission: "rfi.create",
     defaultSection: "overview",
     sections: [
-      { key: "overview", label: "My Work" },
+      // Not "My Work": that is the top bar's cross-module page (/my-work); one label, one destination (AUD-05 §4, UX-07).
+      { key: "overview", label: "My engineering work" },
       { key: "rfis", label: "RFIs" },
       { key: "submittals", label: "Submittals", permission: "submittal.view" },
       { key: "drawings", label: "Drawings", permission: "engineering_document.view" },

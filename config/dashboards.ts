@@ -72,7 +72,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "companyModules",
       "recentActivity",
     ],
-    quickActions: ["newSupportRequest"],
+    quickActions: [],
   },
   HR: {
     focus: "People operations, records and absence.",
@@ -271,7 +271,7 @@ export const dashboards: Record<RoleKey, DashboardConfig> = {
       "purchaseRequests",
       "recentActivity",
     ],
-    quickActions: ["newMovement", "uploadDocument"],
+    quickActions: ["newReceipt", "uploadDocument"],
   },
   QAQC: {
     focus: "Quality control across inspections and non-conformances.",

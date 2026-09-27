@@ -8,6 +8,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { TaskActions } from "@/components/tasks/task-actions";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { Badge } from "@/components/ui/badge";
 import { can, canAccessModule } from "@/lib/access/can";
 import * as tasks from "@/lib/modules/tasks/task.service";
@@ -116,9 +117,24 @@ export default async function TaskDetailPage({ params }: Params) {
 
       {archived ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          This task is archived and read-only. Restore it to make changes.
+          {/* "Restore" only to someone who may: never an instruction the reader cannot follow (AUD-05 §4, UX-08). */}
+          {task.capabilities.canRestore
+            ? "This task is archived and read-only. Restore it to make changes."
+            : "This task is archived and read-only."}
         </p>
       ) : null}
+
+      {/* Status and assignment are the task's high-confusion points (AUD-05 §7, UX-13, UX-15). */}
+      <WhatIsThis id="tasks.detail.status" title="Task status and assignment">
+        <p>
+          A task moves from To Do to In Progress to Completed. Blocked means it cannot move until the recorded reason is resolved; an archived
+          task is read-only. The buttons at the top show only the next steps you may take.
+        </p>
+        <p>
+          The assignee is the one person responsible. A task on a project shows under that project&apos;s Tasks tab; a task with no project is a
+          personal task.
+        </p>
+      </WhatIsThis>
 
       {task.blocked ? (
         <div role="note" className="rounded-md border border-warning bg-warning-soft px-4 py-3" data-testid="task-blocked-reason">

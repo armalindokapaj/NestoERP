@@ -114,7 +114,7 @@ async function ReservationList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search by number or item…"
+        searchPlaceholder="Search by reservation number…"
         filters={filters}
         sortOptions={[
           { value: "created-desc", label: "Newest first" },

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Inbox, ListFilter, Rows3, Rows4, SlidersHorizontal, TriangleAlert, UserRoundCog } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
@@ -28,6 +29,7 @@ import { activeFilterCount, EMPTY_FILTERS, FilterChips, FilterDrawer, type Appro
 import { ApprovalList, ListSkeleton, type Density } from "./approval-list";
 import { approvalsApi, failureMessage, isFailure, newIdempotencyKey } from "./approvals-api";
 import { DelegationDialog } from "./delegation-dialog";
+import { HelpEntry } from "@/components/help/help-entry";
 
 /**
  * The Approvals Center (PRD #41 §6, §7, §74-§102, §197-§205).
@@ -430,21 +432,33 @@ export function ApprovalsShell({
               {byCompany.map((row) => `${row.company.name} ${row.partial ? (row.waiting > 0 ? `${row.waiting}+` : "?") : `${row.waiting}${row.capped ? "+" : ""}`}`).join(" · ")}
             </p>
           ) : null}
+          {/* The queue is the high-confusion point of first use (AUD-05 §7, UX-15). */}
+          <WhatIsThis id="approvals.queue" title="The approvals queue" className="mt-2">
+            <p>
+              {group
+                ? "Decisions waiting for you in each company you work in. Open one in its company to decide it; the Group view only counts and lists them."
+                : "Every request that needs your decision, from every module you work in. “Waiting for me” is yours to decide now; the other tabs show what you asked for and what was already decided."}
+            </p>
+            <p>The decision buttons on an approval are the action: Approve, Reject or Return for revision. You never see them on a request you submitted yourself.</p>
+          </WhatIsThis>
         </div>
-        {group ? null : (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setDelegationOpen(true);
-              syncUrl(state, selectedId, "delegation");
-            }}
-          >
-            <UserRoundCog aria-hidden="true" />
-            Delegation
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {group ? null : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setDelegationOpen(true);
+                syncUrl(state, selectedId, "delegation");
+              }}
+            >
+              <UserRoundCog aria-hidden="true" />
+              Delegation
+            </Button>
+          )}
+          <HelpEntry moduleKey="approvals" moduleLabel="Approvals" />
+        </div>
       </header>
 
       <div role="tablist" aria-label="Approval views" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
@@ -593,6 +607,21 @@ export function ApprovalsShell({
               </span>
               <p className="mt-3 text-body font-semibold text-fg">{filterCount || state.q ? "Nothing matches these filters." : empty.title}</p>
               <p className="mt-1 max-w-sm text-table text-fg-muted">{filterCount || state.q ? "Remove a filter or search for something else." : empty.body}</p>
+              {filterCount || state.q ? (
+                // No results offers the way back to the queue, never "create" (AUD-05 §6, UX-11).
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearch("");
+                    update({ filters: EMPTY_FILTERS, q: "" });
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
             </div>
           ) : (
             <div className={cn(listLoading && "opacity-60 transition-opacity")}>
