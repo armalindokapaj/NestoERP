@@ -6,13 +6,17 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { createCommitmentAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { prisma } from "@/lib/database/prisma";
 import {
   buildFinanceProjectWhere,
   hasCompanyFinanceScope,
 } from "@/lib/modules/finance/finance.scope";
 
-export const metadata: Metadata = { title: "New commitment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.newCommitment") };
+}
 
 export default async function NewCommitmentPage({
   searchParams,
@@ -24,6 +28,7 @@ export default async function NewCommitmentPage({
   if (!can(context, "finance.commitment.create")) redirect("/access-denied");
 
   const params = await searchParams;
+  const t = await getTranslations("finance");
   const projects = await prisma.project.findMany({
     where: buildFinanceProjectWhere(context),
     select: { id: true, code: true, name: true },
@@ -39,12 +44,12 @@ export default async function NewCommitmentPage({
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Finance", href: "/finance" },
-          { label: "Commitments", href: "/finance/commitments" },
-          { label: "New commitment" },
+          { label: t("crumbs.finance"), href: "/finance" },
+          { label: t("crumbs.commitments"), href: "/finance/commitments" },
+          { label: t("commitments.new") },
         ]}
-        title="New commitment"
-        subtitle="Saved as a draft. It counts toward forecast cost once it has been approved."
+        title={t("commitments.new")}
+        subtitle={t("commitments.newSubtitle")}
       />
 
       <CommitmentForm
@@ -70,8 +75,8 @@ export default async function NewCommitmentPage({
             : undefined
         }
         cancelHref="/finance/commitments"
-        submitLabel="Create commitment"
-        pendingLabel="Creating…"
+        submitLabel={t("commitments.create")}
+        pendingLabel={t("revise.creating")}
       />
     </div>
   );

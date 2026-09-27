@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -10,7 +11,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Team" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.team") };
+}
 
 /** Project team (PRD #10 §69, §70). */
 export default async function ProjectTeamPage({ params }: Params) {
@@ -45,7 +48,7 @@ export default async function ProjectTeamPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Team")}
+        breadcrumbs={await projectBreadcrumbs(project, "Team")}
         title={project.name}
         subtitle={project.code}
         status={project.status}

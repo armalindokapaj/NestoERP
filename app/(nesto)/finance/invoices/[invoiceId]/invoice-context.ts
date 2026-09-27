@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
 import { AccessError } from "@/lib/access/guards";
+import { getTranslations } from "@/lib/i18n/server";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
@@ -26,10 +27,11 @@ export async function loadInvoice(
   }
 }
 
-export function invoiceBreadcrumbs(invoice: InvoiceDetailDTO, trailing?: string): Crumb[] {
+export async function invoiceBreadcrumbs(invoice: InvoiceDetailDTO, trailing?: string): Promise<Crumb[]> {
+  const t = await getTranslations("finance");
   const crumbs: Crumb[] = [
-    { label: "Finance", href: "/finance" },
-    { label: "Invoices", href: "/finance/invoices" },
+    { label: t("crumbs.finance"), href: "/finance" },
+    { label: t("crumbs.invoices"), href: "/finance/invoices" },
     trailing
       ? { label: invoice.invoiceNumber, href: `/finance/invoices/${invoice.id}` }
       : { label: invoice.invoiceNumber },

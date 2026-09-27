@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Scale } from "lucide-react";
@@ -15,7 +16,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project contracts" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabPages.contractsTitle") };
+}
 
 /**
  * The agreements attached to one project (PRD #18 §11, §440).
@@ -28,6 +31,7 @@ export const metadata: Metadata = { title: "Project contracts" };
 export default async function ProjectContractsPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewContracts) redirect("/access-denied");
@@ -44,14 +48,14 @@ export default async function ProjectContractsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Contracts")}
+        breadcrumbs={await projectBreadcrumbs(project, "Contracts")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           mayCreate ? (
             <Button asChild size="sm">
-              <Link href={createHref}>New contract</Link>
+              <Link href={createHref}>{t("tabPages.newContract")}</Link>
             </Button>
           ) : null
         }
@@ -86,15 +90,15 @@ export default async function ProjectContractsPage({ params }: Params) {
       {rows.length === 0 ? (
         <EmptyState
           icon={<Scale />}
-          title="No contracts on this project."
-          description="Agreements attached to this project appear here, with their parties, value and dates."
-          action={mayCreate ? { label: "New contract", href: createHref } : undefined}
+          title={t("tabPages.noContractsTitle")}
+          description={t("tabPages.noContractsBody")}
+          action={mayCreate ? { label: t("tabPages.newContract"), href: createHref } : undefined}
         />
       ) : (
         <ContractTable
           contracts={rows}
           showProject={false}
-          caption={`Contracts on ${project.name}`}
+          caption={t("tabPages.contractsCaption", { name: project.name })}
         />
       )}
     </div>

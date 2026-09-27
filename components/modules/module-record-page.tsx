@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { ApprovalActions } from "@/components/modules/approval-actions";
@@ -48,6 +49,7 @@ export async function ModuleRecordPage({
   recordId: string;
 }) {
   const { context, section, records, record } = await loadModuleRecord(moduleKey, requestedSection, recordId);
+  const t = await getTranslations("common");
 
   const canDecide = Boolean(
     records.approvePermission && records.decide && can(context, records.approvePermission),
@@ -71,14 +73,14 @@ export async function ModuleRecordPage({
               moduleKey={moduleKey}
               section={section.key}
               recordId={record.id}
-              labels={closing ? { approve: "Close", reject: "Reopen" } : undefined}
+              closing={closing}
             />
           ) : null
         }
       />
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Details</h2>
+        <h2 className="text-card font-semibold text-fg">{t("details")}</h2>
         {record.description ? (
           <p className="mt-3 text-body text-fg-muted">{record.description}</p>
         ) : null}
@@ -86,7 +88,7 @@ export async function ModuleRecordPage({
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Record</h2>
+        <h2 className="text-card font-semibold text-fg">{t("record")}</h2>
         <DetailGrid className="mt-4" columns={3} items={record.meta} />
       </section>
     </div>

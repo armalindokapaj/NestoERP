@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { UnitDocuments } from "@/components/project-structure/unit-page/unit-documents";
@@ -8,7 +9,9 @@ import { loadUnitPage, UnitShell } from "../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string }> };
 
-export const metadata: Metadata = { title: "Unit documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("unitPage.documentsTitle") };
+}
 
 /** The unit's Sales Plan and technical documents, as canonical files (E-05D §33-§39, §63, §94). */
 export default async function UnitDocumentsPage({ params }: Params) {

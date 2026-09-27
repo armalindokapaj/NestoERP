@@ -5,12 +5,17 @@ import { FinanceRecordDocuments } from "@/components/finance/record-documents";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { expenseBreadcrumbs, expenseLabel, loadExpense } from "../expense-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ expenseId: string }> };
 
-export const metadata: Metadata = { title: "Expense documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.expenseDocuments") };
+}
 
 export default async function ExpenseDocumentsPage({ params }: Params) {
+  const t = await getTranslations("finance");
   const { expenseId } = await params;
   const { context, expense } = await loadExpense(expenseId);
 
@@ -19,7 +24,7 @@ export default async function ExpenseDocumentsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={expenseBreadcrumbs(expense, "Documents")}
+        breadcrumbs={await expenseBreadcrumbs(expense, t("crumbs.documents"))}
         title={expenseLabel(expense)}
         status={expense.status}
       />

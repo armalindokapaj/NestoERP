@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Ban } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -26,29 +27,30 @@ export function VoidPaymentButton({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useFinanceTranslations();
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <Ban aria-hidden="true" />
-        Void
+        {t("voidPayment.button")}
       </Button>
 
       <RejectDialog
         open={open}
         onOpenChange={setOpen}
-        title={`Void ${reference}`}
-        description="The payment keeps its row and stops counting towards what has been settled. The reason is recorded against it."
-        label="Reason"
-        placeholder="Why is this payment being voided?"
-        confirmLabel="Void payment"
-        pendingLabel="Voiding…"
-        emptyMessage="Say why the payment is being voided."
+        title={t("voidPayment.title", { reference })}
+        description={t("voidPayment.description")}
+        label={t("voidPayment.label")}
+        placeholder={t("voidPayment.placeholder")}
+        confirmLabel={t("voidPayment.confirm")}
+        pendingLabel={t("voidPayment.pending")}
+        emptyMessage={t("voidPayment.empty")}
         onReject={async (reason) => {
           const result = await voidPaymentAction(paymentId, reason);
           if (result.ok) {
-            toast({ title: "Payment voided.", tone: "success" });
+            toast({ title: t("voidPayment.done"), tone: "success" });
             router.refresh();
             return true;
           }

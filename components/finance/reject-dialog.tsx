@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, useDialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -93,6 +94,7 @@ function ReasonForm({
   onDone: () => void;
 }) {
   const close = useDialogClose();
+  const tUi = useTranslations("ui");
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -160,7 +162,7 @@ function ReasonForm({
       <div className="flex flex-wrap items-center justify-end gap-2">
         {/* The guarded close, like the X: never a direct setOpen(false) (§5). */}
         <Button type="button" variant="secondary" onClick={close} disabled={pending}>
-          Cancel
+          {tUi("cancel")}
         </Button>
         <Button type="submit" disabled={pending}>
           {pending ? pendingLabel : confirmLabel}

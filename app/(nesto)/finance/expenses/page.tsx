@@ -9,10 +9,14 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { financeExperience } from "@/lib/modules/finance/finance.workspace";
 import { ExpensesList } from "./expenses-list";
 
-export const metadata: Metadata = { title: "Expenses" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.expenses") };
+}
 
 export default async function ExpensesPage({
   searchParams,
@@ -26,6 +30,7 @@ export default async function ExpensesPage({
   const group = inGroupWorkspace(context);
   if (!group && !can(context, "finance.expense.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = await financeExperience(context);
   const params = await searchParams;
   const archived = params.archived === "1";
@@ -38,12 +43,12 @@ export default async function ExpensesPage({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={archived ? "/finance/expenses" : "/finance/expenses?archived=1"}>
-              {archived ? "Active expenses" : "Archived"}
+              {archived ? t("expenses.active") : t("list.archived")}
             </Link>
           </Button>
           {!group && can(context, "finance.expense.create") ? (
             <Button asChild size="sm">
-              <Link href="/finance/expenses/new">New expense</Link>
+              <Link href="/finance/expenses/new">{t("expenses.new")}</Link>
             </Button>
           ) : null}
         </div>

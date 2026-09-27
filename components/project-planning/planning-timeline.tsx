@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ChevronRight } from "lucide-react";
 
-import { addLocalDays, dateLabel, daysBetween, MONTHS, varianceLabel } from "@/lib/modules/project-planning/planning.dates";
-import { STATUS_LABELS, type DependencyEdgeDTO, type MilestoneSummaryDTO, type PhaseSummaryDTO } from "@/lib/modules/project-planning/planning.types";
+import { addLocalDays, dateLabel, daysBetween, MONTHS } from "@/lib/modules/project-planning/planning.dates";
+import { type DependencyEdgeDTO, type MilestoneSummaryDTO, type PhaseSummaryDTO } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
-import { markerColor } from "./planning-ui";
+import { markerColor, useVarianceLabel } from "./planning-ui";
 
 /**
  * The lightweight timeline (PRD #44 §97-§108, §160, §243-§245, §304).
@@ -96,6 +97,8 @@ export function PlanningTimeline({
   onOpenPhase: (id: string) => void;
   showPhasesWithoutMatches?: boolean;
 }) {
+  const t = useTranslations("projects");
+  const varianceLabel = useVarianceLabel();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const noteId = React.useId();
   const [viewport, setViewport] = React.useState({ top: 0, height: 600 });
@@ -111,11 +114,11 @@ export function PlanningTimeline({
     }
     const loose = milestones.filter((milestone) => !milestone.phaseId || !phases.some((phase) => phase.id === milestone.phaseId));
     if (loose.length) {
-      result.push({ kind: "group", id: "group:none", label: "No phase" });
+      result.push({ kind: "group", id: "group:none", label: t("timeline.noPhase") });
       for (const milestone of loose) result.push({ kind: "milestone", id: milestone.id, milestone });
     }
     return result;
-  }, [phases, milestones, showPhasesWithoutMatches]);
+  }, [phases, milestones, showPhasesWithoutMatches, t]);
 
   const [start, end] = React.useMemo(() => {
     const dates = [today, projectStart, projectEnd, ...phases.flatMap((phase) => [phase.span?.start, phase.span?.end]), ...milestones.flatMap((milestone) => [milestone.displayDate, milestone.baselineDate])].filter((date): date is string => Boolean(date)).sort();
@@ -171,18 +174,18 @@ export function PlanningTimeline({
   return (
     <div className="nesto-card overflow-hidden" data-testid="planning-timeline">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
-        <p className="text-table font-medium text-fg">Timeline</p>
+        <p className="text-table font-medium text-fg">{t("timeline.timeline")}</p>
         <span className="flex items-center gap-3 text-meta text-fg-muted" aria-hidden="true">
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-5 rounded-full bg-line" /> Phase</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-accent" /> Milestone</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] border-[1.5px] border-fg-subtle bg-surface" /> Baseline</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-px bg-accent" /> Today</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-5 rounded-full bg-line" /> {t("timeline.phase")}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-accent" /> {t("timeline.milestone")}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] border-[1.5px] border-fg-subtle bg-surface" /> {t("timeline.baseline")}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-px bg-accent" /> {t("timeline.today")}</span>
         </span>
         <span className="flex-1" />
-        <div role="group" aria-label="Zoom" className="flex rounded-md border border-line p-0.5">
+        <div role="group" aria-label={t("timeline.zoom")} className="flex rounded-md border border-line p-0.5">
           {(["week", "month", "quarter"] as const).map((level) => (
             <button key={level} type="button" onClick={() => onZoom(level)} aria-pressed={zoom === level} className={cn("rounded px-2.5 py-1 text-meta font-medium capitalize transition-colors touch:min-h-11 touch:px-3", zoom === level ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:text-fg")}>
-              {level}
+              {t(`timeline.zoomLevel.${level}`)}
             </button>
           ))}
         </div>
@@ -195,14 +198,14 @@ export function PlanningTimeline({
         MW-17).
       */}
       <p id={noteId} className="sr-only">
-        Scroll with the arrow keys. The Milestones view lists every phase and milestone date as text.
+        {t("timeline.note")}
       </p>
-      <div ref={scrollRef} role="region" aria-label="Plan timeline" aria-describedby={noteId} className="relative max-h-[70vh] overflow-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" tabIndex={0}>
+      <div ref={scrollRef} role="region" aria-label={t("timeline.region")} aria-describedby={noteId} className="relative max-h-[70vh] overflow-auto overscroll-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" tabIndex={0}>
         <div className="relative" style={{ width: LEFT + width, height: heightPx }}>
           {/* Header */}
           <div className="sticky top-0 z-20 flex border-b border-line bg-surface" style={{ height: HEADER, width: LEFT + width }}>
             <div className="sticky left-0 z-10 flex items-center border-r border-line bg-surface px-4 text-meta font-medium text-fg-muted" style={{ width: LEFT, minWidth: LEFT }}>
-              Plan
+              {t("timeline.plan")}
             </div>
             <div className="relative" style={{ width }}>
               {tickList.map((tick) => (
@@ -257,7 +260,7 @@ export function PlanningTimeline({
               const progress = phase.progressPercent ?? phase.suggestedProgress ?? 0;
               return (
                 <div key={row.id} className="absolute left-0 flex border-b border-line/60 bg-surface-muted/40" style={{ top, height: ROW, width: LEFT + width }}>
-                  <button type="button" onClick={() => onOpenPhase(phase.id)} className="sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-surface-muted px-4 text-left text-table font-semibold text-fg hover:text-accent-strong" style={{ width: LEFT, minWidth: LEFT }} aria-label={`Phase ${phase.name}, ${STATUS_LABELS[phase.status]}, ${progress}% progress`}>
+                  <button type="button" onClick={() => onOpenPhase(phase.id)} className="sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-surface-muted px-4 text-left text-table font-semibold text-fg hover:text-accent-strong" style={{ width: LEFT, minWidth: LEFT }} aria-label={t("timeline.phaseLabel", { name: phase.name, status: t(`milestoneStatus.${phase.status}`), progress })}>
                     <ChevronRight aria-hidden="true" className="size-3.5 text-fg-subtle" />
                     <span className="truncate">{phase.name}</span>
                     <span className="ml-auto shrink-0 text-meta font-normal tabular-nums text-fg-muted">{phase.completedCount}/{phase.milestoneCount}</span>
@@ -269,7 +272,7 @@ export function PlanningTimeline({
                         onClick={() => onOpenPhase(phase.id)}
                         className="absolute top-1/2 h-3.5 -translate-y-1/2 overflow-hidden rounded-full border border-line-strong/60 bg-line/70 hover:border-line-strong"
                         style={{ left: x(span.start), width: Math.max(8, (daysBetween(span.start, span.end) + 1) * perDay) }}
-                        title={`${phase.name}: ${dateLabel(span.start)} – ${dateLabel(span.end)} · ${STATUS_LABELS[phase.status]} · ${progress}%`}
+                        title={`${phase.name}: ${dateLabel(span.start)} – ${dateLabel(span.end)} · ${t(`milestoneStatus.${phase.status}`)} · ${progress}%`}
                         aria-hidden="true"
                         tabIndex={-1}
                         data-testid="timeline-phase-bar"
@@ -285,18 +288,18 @@ export function PlanningTimeline({
             const date = milestone.displayDate;
             const color = markerColor(milestone.status, milestone.delayed);
             const baselineShown = milestone.baselineDate && date && milestone.baselineDate !== date;
-            const label = `${milestone.name}, ${date ? dateLabel(date) : "no date"}, ${milestone.delayed ? "Delayed" : STATUS_LABELS[milestone.status]}${milestone.critical ? ", critical" : ""}, ${varianceLabel(milestone.varianceDays)}`;
+            const label = `${milestone.name}, ${date ? dateLabel(date) : t("timeline.noDate")}, ${milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${milestone.status}`)}${milestone.critical ? t("timeline.criticalSuffix") : ""}, ${varianceLabel(milestone.varianceDays)}`;
             return (
               <div key={row.id} className="absolute left-0 flex border-b border-line/40" style={{ top, height: ROW, width: LEFT + width }} data-testid="timeline-row">
                 <button type="button" onClick={() => onOpenMilestone(milestone.id)} className="sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-surface pl-9 pr-4 text-left text-table text-fg hover:text-accent-strong" style={{ width: LEFT, minWidth: LEFT }} aria-label={label}>
                   <span className="truncate">{milestone.name}</span>
-                  {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">Critical</span> : null}
+                  {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">{t("timeline.critical")}</span> : null}
                 </button>
                 <div className="relative" style={{ width }}>
                   {baselineShown ? (
                     <>
                       <span aria-hidden="true" className="absolute top-1/2 h-px bg-fg-subtle/50" style={{ left: Math.min(centre(milestone.baselineDate!), centre(date!)), width: Math.abs(centre(date!) - centre(milestone.baselineDate!)) }} />
-                      <span aria-hidden="true" className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] border-[1.5px] border-fg-subtle bg-surface" style={{ left: centre(milestone.baselineDate!) }} title={`Baseline ${dateLabel(milestone.baselineDate)}`} />
+                      <span aria-hidden="true" className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] border-[1.5px] border-fg-subtle bg-surface" style={{ left: centre(milestone.baselineDate!) }} title={t("timeline.baselineOn", { date: dateLabel(milestone.baselineDate) })} />
                     </>
                   ) : null}
                   {date ? (
@@ -329,10 +332,10 @@ export function PlanningTimeline({
         <div role="tooltip" className="pointer-events-none fixed z-[70] w-64 rounded-lg border border-line bg-surface px-3 py-2 shadow-dialog" style={{ left: Math.min(hover.x + 14, window.innerWidth - 272), top: hover.y + 14 }}>
           <p className="text-table font-medium text-fg">{hover.milestone.name}</p>
           <p className="text-meta text-fg-muted">
-            {hover.milestone.status === "COMPLETED" ? "Achieved" : "Forecast"} {dateLabel(hover.milestone.displayDate)} · {hover.milestone.delayed ? "Delayed" : STATUS_LABELS[hover.milestone.status]}
+            {hover.milestone.status === "COMPLETED" ? t("timeline.achieved") : t("timeline.forecast")} {dateLabel(hover.milestone.displayDate)} · {hover.milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${hover.milestone.status}`)}
           </p>
           <p className="text-meta text-fg-muted">
-            {hover.milestone.owner ? hover.milestone.owner.name : "No owner"} · {varianceLabel(hover.milestone.varianceDays)}
+            {hover.milestone.owner ? hover.milestone.owner.name : t("timeline.noOwner")} · {varianceLabel(hover.milestone.varianceDays)}
           </p>
         </div>
       ) : null}

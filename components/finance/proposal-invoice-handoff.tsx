@@ -1,11 +1,13 @@
 import Link from "@/components/navigation/nav-link";
 import { Receipt, TriangleAlert } from "lucide-react";
 
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/finance/money";
 import { InvoiceFromProposalButton } from "@/components/finance/invoice-from-proposal-button";
 import { can, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { getTranslations } from "@/lib/i18n/server";
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
 
 /**
@@ -35,6 +37,7 @@ export async function ProposalInvoiceHandoff({
   if (!isModuleEnabled(context, "finance")) return null;
   if (!can(context, "finance.invoice.view")) return null;
 
+  const t = await getTranslations("finance");
   const existing = await invoices.listInvoicesForProposal(context, proposalId);
   const mayCreate = can(context, "finance.invoice.create") && proposalStatus === "ACCEPTED";
 
@@ -44,18 +47,21 @@ export async function ProposalInvoiceHandoff({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">Invoice</h2>
+          <h2 className="text-card font-semibold text-fg">{t("proposal.title")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {existing.length === 0
-              ? "Bill what the client accepted. The lines are copied across and the invoice opens as a draft."
-              : "Already raised from this proposal."}
+              ? t("proposal.none")
+              : t("proposal.already")}
           </p>
         </div>
         {mayCreate ? (
-          <InvoiceFromProposalButton
-            proposalId={proposalId}
-            label={existing.length > 0 ? "Raise another" : "Raise invoice"}
-          />
+          // The Sales page carries no Finance strings; the button's own come with it.
+          <ModuleMessages namespaces={["finance"]}>
+            <InvoiceFromProposalButton
+              proposalId={proposalId}
+              label={existing.length > 0 ? t("proposal.raiseAnother") : t("proposal.raise")}
+            />
+          </ModuleMessages>
         ) : null}
       </div>
 
@@ -65,8 +71,8 @@ export async function ProposalInvoiceHandoff({
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>
               {existing.length === 1
-                ? "An invoice has already been raised from this proposal. Raise another only for a genuinely separate stage of billing."
-                : `${existing.length} invoices have already been raised from this proposal.`}
+                ? t("proposal.warningOne")
+                : t("proposal.warningMany", { count: existing.length })}
             </span>
           </p>
           <ul className="mt-3 divide-y divide-line border-t border-line">

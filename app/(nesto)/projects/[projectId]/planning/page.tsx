@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -11,7 +12,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Project planning" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("structurePages.planningTitle") };
+}
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || null;
 const VIEWS = ["overview", "timeline", "milestones", "dependencies"] as const;
@@ -26,6 +29,7 @@ export default async function ProjectPlanningPage({ params, searchParams }: Para
   const { projectId } = await params;
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewPlanning) redirect("/access-denied");
 
@@ -39,7 +43,7 @@ export default async function ProjectPlanningPage({ params, searchParams }: Para
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={projectBreadcrumbs(project, "Planning")} title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Planning")} title={project.name} subtitle={project.code} status={project.status} />
       <ProjectTabs
         projectId={project.id}
         active="planning"
@@ -65,7 +69,7 @@ export default async function ProjectPlanningPage({ params, searchParams }: Para
           activity: actions.canViewActivity,
         }}
       />
-      {overview.project.archived ? <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">This project is archived. Its plan is kept as history and cannot be changed.</p> : null}
+      {overview.project.archived ? <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">{t("structurePages.planningArchived")}</p> : null}
       <PlanningShell
         initial={overview}
         initialView={(VIEWS as readonly string[]).includes(view ?? "") ? (view as (typeof VIEWS)[number]) : null}

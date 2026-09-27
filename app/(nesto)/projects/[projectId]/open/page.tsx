@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { OpenProjectInCompany } from "@/components/projects/open-project-in-company";
 import { requireUserContext } from "@/lib/context/current-user";
 import { findPortfolioProject } from "@/lib/modules/projects/project.portfolio";
 
-export const metadata: Metadata = { title: "Opening project" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("pages.opening") };
+}
 
 type Props = {
   params: Promise<{ projectId: string }>;

@@ -10,6 +10,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
@@ -47,6 +48,7 @@ export function CommitmentForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useFinanceTranslations();
   return (
     <RecordForm
       action={action}
@@ -57,10 +59,10 @@ export function CommitmentForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Commitment"
-        description="Money the company has undertaken to spend, but has not yet incurred."
+        title={t("commitmentForm.title")}
+        description={t("commitmentForm.hint")}
       >
-        <Field label="Description" name="description" required className="sm:col-span-2">
+        <Field label={t("form.description")} name="description" required className="sm:col-span-2">
           <Input
             id="description"
             name="description"
@@ -68,11 +70,11 @@ export function CommitmentForm({
             minLength={2}
             maxLength={500}
             defaultValue={values?.description ?? ""}
-            placeholder="Superstructure frame package"
+            placeholder={t("commitmentForm.descriptionPlaceholder")}
           />
         </Field>
 
-        <Field label="Counterparty" name="counterpartyName">
+        <Field label={t("commitmentForm.counterparty")} name="counterpartyName">
           <Input
             id="counterpartyName"
             name="counterpartyName"
@@ -81,7 +83,7 @@ export function CommitmentForm({
           />
         </Field>
 
-        <Field label="Reference" name="reference" hint="Optional internal number.">
+        <Field label={t("form.reference")} name="reference" hint={t("form.internalNumber")}>
           <Input
             id="reference"
             name="reference"
@@ -91,29 +93,29 @@ export function CommitmentForm({
           />
         </Field>
 
-        <Field label="Category" name="category" required>
+        <Field label={t("form.category")} name="category" required>
           <select
             id="category"
             name="category"
             className={selectClass}
             defaultValue={values?.category ?? "SUBCONTRACTOR"}
           >
-            {Object.entries(expenseCategoryLabels).map(([value, label]) => (
+            {Object.keys(expenseCategoryLabels).map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`category.${value as keyof typeof expenseCategoryLabels}`)}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Project"
+          label={t("form.project")}
           name="projectId"
           required={!canCreateCompanyWide}
           hint={
             canCreateCompanyWide
-              ? "Leave empty for a company-wide commitment."
-              : "Your finance access is limited to your projects, so a project is required."
+              ? t("commitmentForm.projectHint")
+              : t("form.projectRequired")
           }
         >
           <select
@@ -123,10 +125,10 @@ export function CommitmentForm({
             required={!canCreateCompanyWide}
             defaultValue={values?.projectId ?? ""}
           >
-            {canCreateCompanyWide ? <option value="">Company-wide</option> : null}
+            {canCreateCompanyWide ? <option value="">{t("companyWide")}</option> : null}
             {!canCreateCompanyWide ? (
               <option value="" disabled>
-                Choose a project
+                {t("form.chooseProject")}
               </option>
             ) : null}
             {projects.map((project) => (
@@ -137,7 +139,7 @@ export function CommitmentForm({
           </select>
         </Field>
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("form.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -152,7 +154,7 @@ export function CommitmentForm({
           </select>
         </Field>
 
-        <Field label="Amount" name="amount" required>
+        <Field label={t("form.amount")} name="amount" required>
           <Input
             id="amount"
             name="amount"
@@ -162,7 +164,7 @@ export function CommitmentForm({
           />
         </Field>
 
-        <Field label="Expected date" name="expectedDate" hint="When the cost is expected to land.">
+        <Field label={t("commitmentForm.expectedDate")} name="expectedDate" hint={t("commitmentForm.expectedHint")}>
           <Input
             id="expectedDate"
             name="expectedDate"
@@ -171,7 +173,7 @@ export function CommitmentForm({
           />
         </Field>
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("form.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

@@ -12,6 +12,7 @@ import type { UserContext } from "@/lib/context/types";
 import { canReadFinance, financeExperience } from "@/lib/modules/finance/finance.workspace";
 import type { CompanyRef, CurrencyTotal, FinanceOverviewDTO } from "@/lib/modules/finance/finance.types";
 import { getGroupFinanceOverview } from "@/lib/modules/finance/overview/overview.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { budgetVsActualAcross } from "@/lib/modules/finance/reports/reports.service";
 
 /**
@@ -30,6 +31,7 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
   // it asks only the companies where the reader holds the grant, and is shown
   // only where the overview says project budgets are the reader's to see.
   const budgetReport = budgetVsActualAcross(context).then((report) => report.rows);
+  const t = await getTranslations("finance");
   const [experience, overview, canInvoices, canExpenses, budgetRows] = await Promise.all([
     financeExperience(context),
     getGroupFinanceOverview(context),
@@ -51,21 +53,21 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
   const cards = [
     ...(visible.receivables
       ? [
-          { label: "Outstanding receivables", totals: totals.receivables, href: "/finance/invoices?settlement=UNPAID,PARTIALLY_PAID,OVERDUE" },
-          { label: "Overdue", totals: totals.overdueReceivables, href: "/finance/invoices?settlement=OVERDUE" },
+          { key: "outstanding", label: t("overview.outstandingReceivables"), totals: totals.receivables, href: "/finance/invoices?settlement=UNPAID,PARTIALLY_PAID,OVERDUE" },
+          { key: "overdue", label: t("overview.overdue"), totals: totals.overdueReceivables, href: "/finance/invoices?settlement=OVERDUE" },
         ]
       : []),
     ...(visible.payables
-      ? [{ label: "Payables", totals: totals.payables, href: "/finance/expenses?status=APPROVED&settlement=UNPAID,PARTIALLY_PAID" }]
+      ? [{ key: "payables", label: t("overview.payables"), totals: totals.payables, href: "/finance/expenses?status=APPROVED&settlement=UNPAID,PARTIALLY_PAID" }]
       : []),
     // The commitments list belongs to one company; the group reads them in the report.
-    ...(visible.commitments ? [{ label: "Open commitments", totals: totals.openCommitments, href: "/finance/reports?report=commitment-summary" }] : []),
+    ...(visible.commitments ? [{ key: "commitments", label: t("overview.openCommitments"), totals: totals.openCommitments, href: "/finance/reports?report=commitment-summary" }] : []),
   ];
 
   const columns: TableColumn<(typeof overview.companies)[number]>[] = [
     {
       key: "company",
-      label: "Company",
+      label: t("group.company"),
       primary: true,
       render: ({ company }) => (
         <GroupRecordLink company={company} href="/finance">
@@ -75,16 +77,16 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
     },
     ...(visible.receivables
       ? [
-          figure("receivables", "Receivables", (o) => o.receivables, (o) => o.visible.receivables),
-          figure("overdue", "Overdue", (o) => o.overdueReceivables, (o) => o.visible.receivables, "lg"),
+          figure("receivables", t("overview.receivables"), (o) => o.receivables, (o) => o.visible.receivables),
+          figure("overdue", t("overview.overdue"), (o) => o.overdueReceivables, (o) => o.visible.receivables, "lg"),
         ]
       : []),
-    ...(visible.payables ? [figure("payables", "Payables", (o) => o.payables, (o) => o.visible.payables, "lg")] : []),
-    ...(visible.commitments ? [figure("commitments", "Open commitments", (o) => o.openCommitments, (o) => o.visible.commitments, "xl")] : []),
+    ...(visible.payables ? [figure("payables", t("overview.payables"), (o) => o.payables, (o) => o.visible.payables, "lg")] : []),
+    ...(visible.commitments ? [figure("commitments", t("overview.openCommitments"), (o) => o.openCommitments, (o) => o.visible.commitments, "xl")] : []),
     ...(visible.cashflow
       ? [
-          figure("cash-in", "Received this month", (o) => o.cashIn, (o) => o.visible.cashflow, "xl"),
-          figure("cash-out", "Paid out this month", (o) => o.cashOut, (o) => o.visible.cashflow, "xl"),
+          figure("cash-in", t("overview.receivedThisMonth"), (o) => o.cashIn, (o) => o.visible.cashflow, "xl"),
+          figure("cash-out", t("overview.paidOutThisMonth"), (o) => o.cashOut, (o) => o.visible.cashflow, "xl"),
         ]
       : []),
   ];
@@ -96,37 +98,36 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
           <div className="space-y-2">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {cards.map((card) => (
-                <Link key={card.label} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
+                <Link key={card.key} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
                   <p className="text-table text-fg-muted">{card.label}</p>
                   <Totals totals={card.totals} className="mt-2 text-page font-semibold text-fg" />
                 </Link>
               ))}
             </div>
             <p className="text-meta text-fg-subtle">
-              Across {overview.companies.length === 1 ? "1 company" : `${overview.companies.length} companies`}. Amounts are added within a currency only; each company keeps its own
-              currency, so nothing here is converted.
+              {t("overview.across", { count: overview.companies.length })}
             </p>
           </div>
         ) : (
-          <EmptyState icon={<Wallet />} title="No finance figures in your view." description="Your access covers project budgets and cost summaries rather than company finance." />
+          <EmptyState icon={<Wallet />} title={t("overview.noFigures")} description={t("overview.noFiguresBody")} />
         )}
 
-        {cards.length > 0 ? <DataTable caption="Finance by company" columns={columns} records={overview.companies} rowKey={(row) => row.company.id} /> : null}
+        {cards.length > 0 ? <DataTable caption={t("overview.byCompany")} columns={columns} records={overview.companies} rowKey={(row) => row.company.id} /> : null}
 
         <div className="grid gap-4 lg:grid-cols-2">
           {visible.cashflow ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Cash this month</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.cashThisMonth")}</h2>
                 <Link href="/finance/reports?report=cashflow" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
-                  Cashflow
+                  {t("overview.cashflow")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
                 </Link>
               </div>
               <dl className="mt-4 divide-y divide-line">
-                <Row label="Received" totals={totals.cashIn} />
-                <Row label="Paid out" totals={totals.cashOut} />
-                <Row label="Net" totals={totals.netCashflow} emphasis />
+                <Row label={t("overview.received")} totals={totals.cashIn} />
+                <Row label={t("overview.paidOut")} totals={totals.cashOut} />
+                <Row label={t("overview.net")} totals={totals.netCashflow} emphasis />
               </dl>
             </section>
           ) : null}
@@ -134,9 +135,9 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
           {visible.projectBudgets && budgets.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Project budgets</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.projectBudgets")}</h2>
                 <Link href="/finance/reports?report=budget-vs-actual" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
-                  Budget vs actual
+                  {t("overview.budgetVsActual")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
                 </Link>
               </div>
@@ -158,13 +159,13 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
         </div>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">What needs attention</h2>
+          <h2 className="text-card font-semibold text-fg">{t("overview.attention")}</h2>
           <dl className="mt-4 divide-y divide-line">
-            {canInvoices ? <Count label="Draft invoices" value={overview.counts.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
+            {canInvoices ? <Count label={t("overview.draftInvoices")} value={overview.counts.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
             {/* Approvals are decided in one company's queue: counted here, opened there. */}
-            {visible.approvals ? <Count label="Waiting for a decision" value={overview.counts.pendingApprovals} /> : null}
-            {canInvoices ? <Count label="Overdue invoices" value={overview.counts.overdueInvoices} href="/finance/invoices?settlement=OVERDUE" /> : null}
-            {canExpenses ? <Count label="Approved expenses" value={overview.counts.unpaidExpenses} href="/finance/expenses?status=APPROVED" /> : null}
+            {visible.approvals ? <Count label={t("overview.waiting")} value={overview.counts.pendingApprovals} /> : null}
+            {canInvoices ? <Count label={t("overview.overdueInvoices")} value={overview.counts.overdueInvoices} href="/finance/invoices?settlement=OVERDUE" /> : null}
+            {canExpenses ? <Count label={t("overview.approvedExpenses")} value={overview.counts.unpaidExpenses} href="/finance/expenses?status=APPROVED" /> : null}
           </dl>
         </section>
       </div>

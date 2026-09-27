@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
@@ -24,7 +25,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project finance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("financeTab.title") };
+}
 
 /**
  * Project finance (PRD #15 §181–§184).
@@ -37,6 +40,7 @@ export const metadata: Metadata = { title: "Project finance" };
 export default async function ProjectFinancePage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewFinance) redirect("/access-denied");
@@ -69,14 +73,14 @@ export default async function ProjectFinancePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Finance")}
+        breadcrumbs={await projectBreadcrumbs(project, "Finance")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           can(context, "finance.budget.create") && summary && !summary.hasApprovedBudget ? (
             <Button asChild size="sm">
-              <Link href={`/finance/budgets/new?projectId=${project.id}`}>Create budget</Link>
+              <Link href={`/finance/budgets/new?projectId=${project.id}`}>{t("financeTab.createBudget")}</Link>
             </Button>
           ) : null
         }
@@ -114,7 +118,7 @@ export default async function ProjectFinancePage({ params }: Params) {
         summary.hasApprovedBudget ? (
           <section className="nesto-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">Budget vs actual</h2>
+              <h2 className="text-card font-semibold text-fg">{t("financeTab.budgetVsActual")}</h2>
               <BudgetRiskBadge
                 risk={summary.risk}
                 utilizationPercent={summary.utilizationPercent}
@@ -122,36 +126,35 @@ export default async function ProjectFinancePage({ params }: Params) {
             </div>
 
             <dl className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <Figure label="Budget">
+              <Figure label={t("financeTab.budget")}>
                 <Money amount={summary.budgetAmount} currency={summary.currency} emphasis />
               </Figure>
-              <Figure label="Actual cost">
+              <Figure label={t("financeTab.actualCost")}>
                 <Money amount={summary.actualCost} currency={summary.currency} />
               </Figure>
-              <Figure label="Open commitments">
+              <Figure label={t("financeTab.openCommitments")}>
                 <Money amount={summary.openCommitments} currency={summary.currency} />
               </Figure>
-              <Figure label="Forecast">
+              <Figure label={t("financeTab.forecast")}>
                 <Money amount={summary.forecastCost} currency={summary.currency} emphasis />
               </Figure>
-              <Figure label="Variance">
+              <Figure label={t("financeTab.variance")}>
                 <Variance amount={summary.variance} currency={summary.currency} />
               </Figure>
             </dl>
 
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">
-              Actual cost is approved expenses; forecast adds open commitments. Payments are cash
-              events and do not change what has been spent.
+              {t("financeTab.note")}
             </p>
           </section>
         ) : (
           <EmptyState
             icon={<Wallet />}
-            title="No approved budget."
-            description="Every variance figure on a project is measured against its approved budget."
+            title={t("financeTab.noBudgetTitle")}
+            description={t("financeTab.noBudgetBody")}
             action={
               can(context, "finance.budget.create")
-                ? { label: "Create budget", href: `/finance/budgets/new?projectId=${project.id}` }
+                ? { label: t("financeTab.createBudget"), href: `/finance/budgets/new?projectId=${project.id}` }
                 : undefined
             }
           />
@@ -160,9 +163,9 @@ export default async function ProjectFinancePage({ params }: Params) {
 
       {budgetList && budgetList.data.length > 0 ? (
         <Panel
-          title="Budget versions"
+          title={t("financeTab.budgetVersions")}
           href={`/finance/budgets?projectId=${project.id}`}
-          linkLabel="All budgets"
+          linkLabel={t("financeTab.allBudgets")}
           shown={budgetList.data.length}
           total={budgetList.pagination.total}
         >
@@ -175,7 +178,7 @@ export default async function ProjectFinancePage({ params }: Params) {
                 >
                   v{budget.version}
                   {budget.name ? ` · ${budget.name}` : ""}
-                  {budget.isCurrent ? " · current" : ""}
+                  {budget.isCurrent ? t("financeTab.current") : ""}
                 </Link>
                 <Money amount={budget.budgetAmount} currency={budget.currency} />
               </li>
@@ -186,9 +189,9 @@ export default async function ProjectFinancePage({ params }: Params) {
 
       {commitmentList && commitmentList.data.length > 0 ? (
         <Panel
-          title="Open commitments"
+          title={t("financeTab.openCommitments")}
           href={`/finance/commitments?projectId=${project.id}&open=1`}
-          linkLabel="All commitments"
+          linkLabel={t("financeTab.allCommitments")}
           shown={commitmentList.data.length}
           total={commitmentList.pagination.total}
         >
@@ -198,9 +201,9 @@ export default async function ProjectFinancePage({ params }: Params) {
 
       {expenseList && expenseList.data.length > 0 ? (
         <Panel
-          title="Expenses"
+          title={t("financeTab.expenses")}
           href={`/finance/expenses?projectId=${project.id}`}
-          linkLabel="All expenses"
+          linkLabel={t("financeTab.allExpenses")}
           shown={expenseList.data.length}
           total={expenseList.pagination.total}
         >
@@ -210,9 +213,9 @@ export default async function ProjectFinancePage({ params }: Params) {
 
       {invoiceList && invoiceList.data.length > 0 ? (
         <Panel
-          title="Invoices"
+          title={t("financeTab.invoices")}
           href={`/finance/invoices?projectId=${project.id}`}
-          linkLabel="All invoices"
+          linkLabel={t("financeTab.allInvoices")}
           shown={invoiceList.data.length}
           total={invoiceList.pagination.total}
         >
@@ -232,7 +235,7 @@ function Figure({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-function Panel({
+async function Panel({
   title,
   href,
   linkLabel,
@@ -248,6 +251,7 @@ function Panel({
   total: number;
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("projects");
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -256,11 +260,11 @@ function Panel({
           <span className="text-table text-fg-muted" data-testid="preview-count">
             {shown < total ? (
               <>
-                Latest <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span>
+                {t("financeTab.latest")} <span className="tabular-nums">{shown}</span> {t("financeTab.of")} <span className="tabular-nums">{total}</span>
               </>
             ) : (
               <>
-                <span className="tabular-nums">{total}</span> in total
+                <span className="tabular-nums">{total}</span> {t("financeTab.inTotal")}
               </>
             )}
           </span>

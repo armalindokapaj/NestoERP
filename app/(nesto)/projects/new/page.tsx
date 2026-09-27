@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Building2, ChevronRight } from "lucide-react";
@@ -11,9 +12,11 @@ import { requireUserContext } from "@/lib/context/current-user";
 import { contextForCompany, creatableCompanies } from "@/lib/modules/projects/project.portfolio";
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
 import { projectTypeChoices } from "@/lib/modules/projects/project-type.service";
-import { EDITABLE_STATUSES, projectStatusLabels } from "@/lib/modules/projects/project.status";
+import { EDITABLE_STATUSES } from "@/lib/modules/projects/project.status";
 
-export const metadata: Metadata = { title: "New project" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("pages.newProject") };
+}
 
 type Props = { searchParams: Promise<{ company?: string | string[] }> };
 
@@ -28,6 +31,7 @@ type Props = { searchParams: Promise<{ company?: string | string[] }> };
  */
 export default async function NewProjectPage({ searchParams }: Props) {
   const session = await requireUserContext();
+  const t = await getTranslations("projects");
   const companies = await creatableCompanies(session);
   if (companies.length === 0) redirect("/access-denied");
 
@@ -38,7 +42,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
   if (!chosen) {
     return (
       <div className="mx-auto max-w-3xl space-y-5">
-        <Header description="Choose the company the project belongs to. Its clients, people and numbering come with it." />
+        <Header description={t("pages.chooseCompany")} />
         <ul className="nesto-card divide-y divide-line p-0" data-testid="new-project-companies">
           {companies.map((company) => (
             <li key={company.id}>
@@ -51,7 +55,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body font-medium text-fg">{company.name}</span>
-                  {company.isCurrent ? <span className="block text-meta text-fg-subtle">Current company</span> : null}
+                  {company.isCurrent ? <span className="block text-meta text-fg-subtle">{t("pages.currentCompany")}</span> : null}
                 </span>
                 <ChevronRight aria-hidden="true" className="size-4 text-fg-subtle" />
               </Link>
@@ -72,7 +76,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Header description="Create a project record. You can add the team, documents and a cover image afterwards." />
+      <Header description={t("pages.createIntro")} />
 
       <ProjectForm
         mode="create"
@@ -84,7 +88,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
         statuses={
           // Starting a project anywhere but Pending is the status decision (E-05A §31).
           can(context, "project.status.manage")
-            ? EDITABLE_STATUSES.map((status) => ({ value: status, label: projectStatusLabels[status] }))
+            ? EDITABLE_STATUSES.map((status) => ({ value: status, label: t(`status.${status}`) }))
             : []
         }
         initial={{
@@ -111,11 +115,12 @@ export default async function NewProjectPage({ searchParams }: Props) {
   );
 }
 
-function Header({ description }: { description: string }) {
+async function Header({ description }: { description: string }) {
+  const t = await getTranslations("projects");
   return (
     <div>
-      <Breadcrumbs items={[{ label: "Projects", href: "/projects" }, { label: "New project" }]} />
-      <h1 className="mt-3 text-page font-semibold text-fg">New project</h1>
+      <Breadcrumbs items={[{ label: t("meta.projects"), href: "/projects" }, { label: t("pages.newProject") }]} />
+      <h1 className="mt-3 text-page font-semibold text-fg">{t("pages.newProject")}</h1>
       <p className="mt-1.5 text-body text-fg-muted">{description}</p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { Star } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -23,6 +24,7 @@ export function ProjectFavoriteButton({
   pending: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations("projects");
   return (
     <button
       type="button"
@@ -32,8 +34,8 @@ export function ProjectFavoriteButton({
         if (!pending) onToggle();
       }}
       aria-pressed={isFavorite}
-      aria-label={isFavorite ? `Remove ${projectName} from favorites` : `Add ${projectName} to favorites`}
-      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      aria-label={isFavorite ? t("portfolio.removeNamedFavorite", { name: projectName }) : t("portfolio.addNamedFavorite", { name: projectName })}
+      title={isFavorite ? t("portfolio.removeFavorite") : t("portfolio.addFavorite")}
       data-testid="project-favorite"
       data-pending={pending ? "true" : undefined}
       // 44 px where a finger aims it, 36 px under a mouse — keyed to the pointer, not the width, so touch tablets get 44 (§153, §154; AUD-04 §3, MW-19).

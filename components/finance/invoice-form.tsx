@@ -10,6 +10,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { localToday } from "./local-date";
@@ -79,6 +80,7 @@ export function InvoiceForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useFinanceTranslations();
   const startDay = today ?? localToday();
   const [currency, setCurrency] = React.useState(values?.currency || defaultCurrency);
   const [clientId, setClientId] = React.useState(values?.clientId ?? "");
@@ -94,13 +96,13 @@ export function InvoiceForm({
   const projectOptions = React.useMemo(() => {
     const saved = values?.projectId;
     if (!saved || projects.some((project) => project.value === saved)) return projects;
-    return [...projects, { value: saved, label: "Current project (no longer available for new invoices)", clientId: values?.clientId ?? null }];
-  }, [projects, values?.projectId, values?.clientId]);
+    return [...projects, { value: saved, label: t("invoiceForm.currentProject"), clientId: values?.clientId ?? null }];
+  }, [projects, values?.projectId, values?.clientId, t]);
   const clientOptions = React.useMemo(() => {
     const saved = values?.clientId;
     if (!saved || clients.some((client) => client.value === saved)) return clients;
-    return [...clients, { value: saved, label: "Current client (no longer available for new invoices)" }];
-  }, [clients, values?.clientId]);
+    return [...clients, { value: saved, label: t("invoiceForm.currentClient") }];
+  }, [clients, values?.clientId, t]);
 
   function onProjectChange(next: string) {
     setProjectId(next);
@@ -108,7 +110,7 @@ export function InvoiceForm({
     if (project?.clientId && project.clientId !== clientId) {
       setClientId(project.clientId);
       const label = clientOptions.find((client) => client.value === project.clientId)?.label;
-      setLinkNote(`Client set to ${label ?? "the project's client"}: an invoice bills its project's own client.`);
+      setLinkNote(t("invoiceForm.clientSet", { client: label ?? t("invoiceForm.projectsClient") }));
     } else {
       setLinkNote(null);
     }
@@ -119,7 +121,7 @@ export function InvoiceForm({
     const project = projectOptions.find((entry) => entry.value === projectId);
     if (project?.clientId && project.clientId !== next) {
       setProjectId("");
-      setLinkNote(`Project cleared: ${project.label} belongs to another client.`);
+      setLinkNote(t("invoiceForm.projectCleared", { project: project.label }));
     } else {
       setLinkNote(null);
     }
@@ -136,7 +138,7 @@ export function InvoiceForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title="Invoice details" description="Who is being billed, and for what.">
+      <FormSection title={t("invoiceForm.details")} description={t("invoiceForm.detailsHint")}>
         {/*
           * Not asked for when the company numbers invoices automatically: the
           * service allocates under a row lock and would discard anything typed
@@ -144,13 +146,13 @@ export function InvoiceForm({
           * (PRD #24 §114).
           */}
         {autoNumbered ? (
-          <Field label="Invoice number" name="invoiceNumber">
+          <Field label={t("invoiceForm.number")} name="invoiceNumber">
             <p className="text-body text-fg-muted">
-              {values?.invoiceNumber ?? "Allocated automatically when the invoice is saved."}
+              {values?.invoiceNumber ?? t("invoiceForm.autoNumber")}
             </p>
           </Field>
         ) : (
-          <Field label="Invoice number" name="invoiceNumber" required>
+          <Field label={t("invoiceForm.number")} name="invoiceNumber" required>
             <Input
               id="invoiceNumber"
               name="invoiceNumber"
@@ -162,7 +164,7 @@ export function InvoiceForm({
           </Field>
         )}
 
-        <Field label="Currency" name="currency" required>
+        <Field label={t("invoiceForm.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -178,7 +180,7 @@ export function InvoiceForm({
           </select>
         </Field>
 
-        <Field label="Project" name="projectId" hint="Optional. Selecting one fixes the client.">
+        <Field label={t("invoiceForm.project")} name="projectId" hint={t("invoiceForm.projectHint")}>
           <select
             id="projectId"
             name="projectId"
@@ -187,7 +189,7 @@ export function InvoiceForm({
             aria-describedby={linkNote ? "invoice-link-note" : undefined}
             onChange={(event) => onProjectChange(event.target.value)}
           >
-            <option value="">No project</option>
+            <option value="">{t("invoiceForm.noProject")}</option>
             {projectOptions.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -196,7 +198,7 @@ export function InvoiceForm({
           </select>
         </Field>
 
-        <Field label="Client" name="clientId" required>
+        <Field label={t("invoiceForm.client")} name="clientId" required>
           <select
             id="clientId"
             name="clientId"
@@ -207,7 +209,7 @@ export function InvoiceForm({
             onChange={(event) => onClientChange(event.target.value)}
           >
             <option value="" disabled>
-              {clientOptions.length === 0 ? "No clients available" : "Choose a client"}
+              {clientOptions.length === 0 ? t("invoiceForm.noClients") : t("invoiceForm.chooseClient")}
             </option>
             {clientOptions.map((client) => (
               <option key={client.value} value={client.value}>
@@ -223,7 +225,7 @@ export function InvoiceForm({
           </p>
         ) : null}
 
-        <Field label="Issue date" name="issueDate" required>
+        <Field label={t("invoiceForm.issueDate")} name="issueDate" required>
           <Input
             id="issueDate"
             name="issueDate"
@@ -235,13 +237,13 @@ export function InvoiceForm({
         </Field>
 
         <Field
-          label="Due date"
+          label={t("invoiceForm.dueDate")}
           name="dueDate"
           required
           hint={
             dueBeforeIssue
               ? undefined
-              : `On or after the issue date. Default terms: ${defaultPaymentTermsDays} days.`
+              : t("invoiceForm.dueHint", { days: defaultPaymentTermsDays })
           }
         >
           <Input
@@ -257,7 +259,7 @@ export function InvoiceForm({
           />
           {dueBeforeIssue ? (
             <p id="dueDate-order" className="text-meta text-danger-strong">
-              The due date cannot be before the issue date.
+              {t("invoiceForm.dueBeforeIssue")}
             </p>
           ) : null}
         </Field>
@@ -269,8 +271,8 @@ export function InvoiceForm({
         defaultTaxRate={defaultTaxRate}
       />
 
-      <FormSection title="Notes" description="Shown on the invoice record, not on a document.">
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+      <FormSection title={t("invoiceForm.notes")} description={t("invoiceForm.notesHint")}>
+        <Field label={t("invoiceForm.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

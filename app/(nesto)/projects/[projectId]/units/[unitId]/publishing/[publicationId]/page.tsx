@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
-import { UNIT_TYPE_CATEGORY_LABELS } from "@/config/unit-types";
 import { AccessError } from "@/lib/access/guards";
-import { AREA_FIELDS, AREA_LABELS, FLOOR_LEVEL_LABELS, ORIENTATION_LABELS, POSITION_LABELS, UNIT_ATTRIBUTES, type UnitAttributeKey } from "@/lib/modules/project-structure/structure.types";
+import { AREA_FIELDS, UNIT_ATTRIBUTES, type UnitAttributeKey } from "@/lib/modules/project-structure/structure.types";
 import { getUnitPublication } from "@/lib/modules/project-structure/unit-publishing.service";
 import { UNIT_MEDIA_CATEGORY_LABELS } from "@/lib/modules/project-structure/unit-publishing.types";
 import { formatDateTime } from "@/lib/utils/format";
@@ -14,7 +14,9 @@ import { loadUnitPage, UnitShell } from "../../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string; publicationId: string }> };
 
-export const metadata: Metadata = { title: "Published version" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("unitPage.publishedVersion") };
+}
 
 const dash = (value: string | number | null | undefined) => (value === null || value === undefined || value === "" ? "—" : value);
 
@@ -26,6 +28,7 @@ const dash = (value: string | number | null | undefined) => (value === null || v
 export default async function PublicationDetailPage({ params }: Params) {
   const { projectId, unitId, publicationId } = await params;
   const page = await loadUnitPage(projectId, unitId);
+  const t = await getTranslations("projects");
   if (!page.publishing.capabilities.canViewHistory) notFound();
   const publication = await getUnitPublication(page.context, page.unit.id, publicationId).catch((error: unknown) => {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
@@ -39,41 +42,41 @@ export default async function PublicationDetailPage({ params }: Params) {
       <section className="nesto-card p-5" aria-labelledby="publication-detail" data-testid="publication-detail">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="publication-detail" className="text-card font-semibold text-fg">
-            Version {publication.versionNumber}
-            {publication.isCurrent ? <span className="ml-2 text-meta font-medium text-success-strong">Current</span> : null}
+            {t("unitPage.version", { version: publication.versionNumber })}
+            {publication.isCurrent ? <span className="ml-2 text-meta font-medium text-success-strong">{t("unitPage.current")}</span> : null}
           </h2>
           <Link href={`${base}/publishing`} className="text-meta font-medium text-accent-strong hover:underline">
-            All versions
+            {t("unitPage.allVersions")}
           </Link>
         </div>
         <p className="mt-1 text-table text-fg-muted">
-          Published {formatDateTime(publication.publishedAt)}
-          {publication.publishedBy ? <> by <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
+          {t("unitPage.published", { date: formatDateTime(publication.publishedAt) })}
+          {publication.publishedBy ? <> {t("unitPage.by")} <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
         </p>
         <DetailGrid
           className="mt-5"
           columns={3}
           items={[
-            { label: "Unit code", value: snapshot.unitCode },
-            { label: "Name", value: dash(snapshot.name) },
-            { label: "Type", value: `${snapshot.unitType.name} · ${UNIT_TYPE_CATEGORY_LABELS[snapshot.unitType.category]}` },
-            { label: "Building", value: snapshot.building.name },
-            { label: "Floor", value: `${snapshot.floor.name} · ${FLOOR_LEVEL_LABELS[snapshot.floor.levelType]}` },
-            { label: "Position", value: snapshot.position ? POSITION_LABELS[snapshot.position] : "—" },
-            { label: "Orientation", value: snapshot.orientation ? ORIENTATION_LABELS[snapshot.orientation] : "—" },
-            { label: "Rooms", value: dash(snapshot.rooms) },
-            { label: "Bedrooms", value: dash(snapshot.bedrooms) },
-            { label: "Bathrooms", value: dash(snapshot.bathrooms) },
-            ...AREA_FIELDS.filter((field) => snapshot.areas[field] !== null).map((field) => ({ label: AREA_LABELS[field], value: <span className="tabular-nums">{Number(snapshot.areas[field]).toFixed(2)} m²</span> })),
+            { label: t("unitPage.unitCode"), value: snapshot.unitCode },
+            { label: t("unitPage.name"), value: dash(snapshot.name) },
+            { label: t("unitPage.type"), value: `${snapshot.unitType.name} · ${t(`unitCategory.${snapshot.unitType.category}`)}` },
+            { label: t("unitPage.building"), value: snapshot.building.name },
+            { label: t("unitPage.floor"), value: `${snapshot.floor.name} · ${t(`floorLevel.${snapshot.floor.levelType}`)}` },
+            { label: t("unitPage.position"), value: snapshot.position ? t(`position.${snapshot.position}`) : "—" },
+            { label: t("unitPage.orientation"), value: snapshot.orientation ? t(`orientation.${snapshot.orientation}`) : "—" },
+            { label: t("count.rooms"), value: dash(snapshot.rooms) },
+            { label: t("count.bedrooms"), value: dash(snapshot.bedrooms) },
+            { label: t("count.bathrooms"), value: dash(snapshot.bathrooms) },
+            ...AREA_FIELDS.filter((field) => snapshot.areas[field] !== null).map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{Number(snapshot.areas[field]).toFixed(2)} m²</span> })),
             ...(Object.keys(snapshot.attributes) as UnitAttributeKey[]).map((key) => {
               const value = snapshot.attributes[key];
-              return { label: UNIT_ATTRIBUTES[key]?.label ?? key, value: typeof value === "boolean" ? (value ? "Yes" : "No") : dash(value) };
+              return { label: key in UNIT_ATTRIBUTES ? t(`attribute.${key}`) : key, value: typeof value === "boolean" ? (value ? t("unitPage.yes") : t("unitPage.no")) : dash(value) };
             }),
             {
-              label: "Sales Plan",
+              label: t("unitPage.salesPlan"),
               value: snapshot.salesPlan ? (
                 <Link href={`/documents/${snapshot.salesPlan.documentId}`} className="text-accent-strong hover:underline">
-                  {snapshot.salesPlan.fileName ?? "Sales Plan"}
+                  {snapshot.salesPlan.fileName ?? t("unitPage.salesPlan")}
                   {snapshot.salesPlan.versionNumber ? ` · v${snapshot.salesPlan.versionNumber}` : ""}
                 </Link>
               ) : (
@@ -81,7 +84,7 @@ export default async function PublicationDetailPage({ params }: Params) {
               ),
             },
             {
-              label: "Primary image",
+              label: t("unitPage.primaryImage"),
               value: snapshot.primaryImage ? (
                 <Link href={`/documents/${snapshot.primaryImage.documentId}`} className="text-accent-strong hover:underline">
                   {snapshot.primaryImage.caption ?? UNIT_MEDIA_CATEGORY_LABELS[snapshot.primaryImage.category]}
@@ -94,7 +97,7 @@ export default async function PublicationDetailPage({ params }: Params) {
         />
         {snapshot.description ? (
           <div className="mt-5">
-            <p className="nesto-eyebrow text-fg-subtle">Technical notes</p>
+            <p className="nesto-eyebrow text-fg-subtle">{t("unitPage.technicalNotes")}</p>
             <p className="mt-1 whitespace-pre-line text-body text-fg">{snapshot.description}</p>
           </div>
         ) : null}

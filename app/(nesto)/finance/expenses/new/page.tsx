@@ -8,9 +8,13 @@ import { createExpenseAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
 import { buildFinanceProjectWhere, hasCompanyFinanceScope } from "@/lib/modules/finance/finance.scope";
+import { getTranslations } from "@/lib/i18n/server";
 import { baseCurrency, companyToday } from "@/lib/modules/finance/finance.settings";
 
-export const metadata: Metadata = { title: "New expense" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.newExpense") };
+}
 
 export default async function NewExpensePage({
   searchParams,
@@ -22,6 +26,7 @@ export default async function NewExpensePage({
   if (!can(context, "finance.expense.create")) redirect("/access-denied");
 
   const params = await searchParams;
+  const t = await getTranslations("finance");
   const [projects, currency, today] = await Promise.all([
     prisma.project.findMany({
       where: buildFinanceProjectWhere(context),
@@ -41,12 +46,12 @@ export default async function NewExpensePage({
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Finance", href: "/finance" },
-          { label: "Expenses", href: "/finance/expenses" },
-          { label: "New expense" },
+          { label: t("crumbs.finance"), href: "/finance" },
+          { label: t("crumbs.expenses"), href: "/finance/expenses" },
+          { label: t("expenses.new") },
         ]}
-        title="New expense"
-        subtitle="Saved as a draft. It becomes actual cost once it has been approved. Attach the receipt from the expense’s Documents tab once it is saved."
+        title={t("expenses.new")}
+        subtitle={t("expenses.newSubtitle")}
       />
 
       <ExpenseForm
@@ -75,8 +80,8 @@ export default async function NewExpensePage({
             : undefined
         }
         cancelHref="/finance/expenses"
-        submitLabel="Create expense"
-        pendingLabel="Creating…"
+        submitLabel={t("expenses.create")}
+        pendingLabel={t("revise.creating")}
       />
     </div>
   );

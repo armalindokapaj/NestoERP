@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { PRIORITY_TONES, statusLabel, statusTone } from "@/lib/utils/status";
+import { StatusText } from "@/components/i18n/common-text";
+import { PRIORITY_TONES, statusTone } from "@/lib/utils/status";
 
 /**
  * The single status badge (PRD #7 §92).
@@ -12,14 +13,14 @@ import { PRIORITY_TONES, statusLabel, statusTone } from "@/lib/utils/status";
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   return (
     <Badge tone={statusTone(status)} className={className}>
-      {statusLabel(status)}
+      <StatusText status={status} />
     </Badge>
   );
 }
 
 export function PriorityBadge({ priority }: { priority: string | null }) {
   if (!priority) return <span className="text-fg-subtle">—</span>;
-  return <Badge tone={PRIORITY_TONES[priority] ?? "default"}>{statusLabel(priority)}</Badge>;
+  return <Badge tone={PRIORITY_TONES[priority] ?? "default"}><StatusText status={priority} /></Badge>;
 }
 
 export { statusLabel, statusTone } from "@/lib/utils/status";

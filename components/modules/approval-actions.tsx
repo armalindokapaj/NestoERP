@@ -7,6 +7,7 @@ import { BadgeCheck, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { decideRecordAction } from "@/lib/actions/records";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 
 /**
  * The approval shell's controls (PRD #7 §50, §51).
@@ -20,13 +21,16 @@ export function ApprovalActions({
   moduleKey,
   section,
   recordId,
-  labels = { approve: "Approve", reject: "Reject" },
+  closing = false,
 }: {
   moduleKey: string;
   section: string;
   recordId: string;
-  labels?: { approve: string; reject: string };
+  /** QA/QC and HSE records are closed and reopened rather than approved and rejected. */
+  closing?: boolean;
 }) {
+  const t = useCommonTranslations();
+  const labels = closing ? { approve: t("close"), reject: t("reopen") } : { approve: t("approve"), reject: t("reject") };
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -36,7 +40,7 @@ export function ApprovalActions({
       const result = await decideRecordAction(moduleKey, section, recordId, decision);
       if (result.ok) {
         toast({
-          title: decision === "APPROVE" ? `${labels.approve}d.` : `${labels.reject}ed.`,
+          title: decision === "APPROVE" ? t(closing ? "closed" : "approved") : t(closing ? "reopened" : "rejected"),
         });
         router.refresh();
       } else {

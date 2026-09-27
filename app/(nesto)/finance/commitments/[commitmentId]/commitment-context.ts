@@ -3,6 +3,7 @@ import type { Crumb } from "@/components/ui/breadcrumbs";
 
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
 import type { CommitmentDetailDTO } from "@/lib/modules/finance/finance.types";
@@ -25,14 +26,15 @@ export function commitmentLabel(commitment: CommitmentDetailDTO): string {
   return commitment.reference ?? commitment.description;
 }
 
-export function commitmentBreadcrumbs(
+export async function commitmentBreadcrumbs(
   commitment: CommitmentDetailDTO,
   trailing?: string,
-): Crumb[] {
+): Promise<Crumb[]> {
+  const t = await getTranslations("finance");
   const label = commitmentLabel(commitment);
   const crumbs: Crumb[] = [
-    { label: "Finance", href: "/finance" },
-    { label: "Commitments", href: "/finance/commitments" },
+    { label: t("crumbs.finance"), href: "/finance" },
+    { label: t("crumbs.commitments"), href: "/finance/commitments" },
     trailing ? { label, href: `/finance/commitments/${commitment.id}` } : { label },
   ];
   if (trailing) crumbs.push({ label: trailing });

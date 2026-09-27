@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Package } from "lucide-react";
@@ -29,7 +30,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project inventory" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("inventoryTab.title") };
+}
 
 /**
  * Material on one project (PRD #20 §10, §182–§185).
@@ -46,6 +49,7 @@ export const metadata: Metadata = { title: "Project inventory" };
 export default async function ProjectInventoryPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewInventory) redirect("/access-denied");
@@ -86,7 +90,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
   const consumptionColumns: TableColumn<ProjectConsumptionRow>[] = [
     {
       key: "item",
-      label: "Item",
+      label: t("inventoryTab.item"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -102,13 +106,13 @@ export default async function ProjectInventoryPage({ params }: Params) {
     },
     {
       key: "issued",
-      label: "Issued",
+      label: t("inventoryTab.issued"),
       align: "right",
       render: (row) => <span className="tabular-nums">{formatQuantity(row.issued)}</span>,
     },
     {
       key: "returned",
-      label: "Returned",
+      label: t("inventoryTab.returned"),
       align: "right",
       hideBelow: "md",
       render: (row) => (
@@ -117,7 +121,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
     },
     {
       key: "netIssued",
-      label: "Consumed",
+      label: t("inventoryTab.consumed"),
       align: "right",
       render: (row) => (
         <span className="tabular-nums font-medium">
@@ -136,14 +140,14 @@ export default async function ProjectInventoryPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Inventory")}
+        breadcrumbs={await projectBreadcrumbs(project, "Inventory")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           mayIssue ? (
             <Button asChild size="sm">
-              <Link href={`/inventory/issues/new?projectId=${project.id}`}>Issue material</Link>
+              <Link href={`/inventory/issues/new?projectId=${project.id}`}>{t("inventoryTab.issueMaterial")}</Link>
             </Button>
           ) : null
         }
@@ -178,12 +182,12 @@ export default async function ProjectInventoryPage({ params }: Params) {
       {nothingAtAll ? (
         <EmptyState
           icon={<Package />}
-          title="No material on this project."
-          description="Issues, returns and reservations against this project appear here as they are posted."
+          title={t("inventoryTab.emptyTitle")}
+          description={t("inventoryTab.emptyBody")}
           action={
             mayIssue
               ? {
-                  label: "Issue material",
+                  label: t("inventoryTab.issueMaterial"),
                   href: `/inventory/issues/new?projectId=${project.id}`,
                 }
               : undefined
@@ -194,7 +198,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
           {consumption.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">Consumption</h2>
+                <h2 className="text-card font-semibold text-fg">{t("inventoryTab.consumption")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
                   Issued less returned, per item. This is what the project actually used — NESTO
                   does not put a cost on it in V0.1.
@@ -205,36 +209,36 @@ export default async function ProjectInventoryPage({ params }: Params) {
                 columns={consumptionColumns}
                 records={consumption}
                 rowKey={(row) => row.item.id}
-                caption={`Material consumed on ${project.name}`}
+                caption={t("inventoryTab.consumedOn", { name: project.name })}
               />
             </section>
           ) : null}
 
           {issueRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Issued</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.issued")}</h2>
               <IssueTable
                 issues={issueRows}
                 showProject={false}
-                caption={`Issues to ${project.name}`}
+                caption={t("inventoryTab.issuesTo", { name: project.name })}
               />
             </section>
           ) : null}
 
           {returnRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Returned</h2>
-              <ReturnTable returns={returnRows} caption={`Returns from ${project.name}`} />
+              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.returned")}</h2>
+              <ReturnTable returns={returnRows} caption={t("inventoryTab.returnsFrom", { name: project.name })} />
               <PreviewCount shown={returnRows.length} total={returnList.total} />
             </section>
           ) : null}
 
           {reservationRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Reserved</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.reserved")}</h2>
               <ReservationTable
                 reservations={reservationRows}
-                caption={`Stock held for ${project.name}`}
+                caption={t("inventoryTab.heldFor", { name: project.name })}
               />
               <PreviewCount shown={reservationRows.length} total={reservationList.total} href={`/inventory/reservations?projectId=${project.id}`} />
             </section>
@@ -242,10 +246,10 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
           {movementRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Recent movements</h2>
+              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.movements")}</h2>
               <MovementTable
                 movements={movementRows}
-                caption={`Stock movements on ${project.name}`}
+                caption={t("inventoryTab.movementsOn", { name: project.name })}
               />
               <PreviewCount shown={movementRows.length} total={movementList.total} href={`/inventory/movements?projectId=${project.id}`} />
             </section>
@@ -257,24 +261,25 @@ export default async function ProjectInventoryPage({ params }: Params) {
 }
 
 /** A preview's honest count: "Latest 20 of 57", with the full list when there is one (AUD-08 §4). */
-function PreviewCount({ shown, total, href }: { shown: number; total: number; href?: string }) {
+async function PreviewCount({ shown, total, href }: { shown: number; total: number; href?: string }) {
+  const t = await getTranslations("projects");
   return (
     <p className="text-table text-fg-muted" data-testid="preview-count">
       {shown < total ? (
         <>
-          Latest <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span>
+          {t("financeTab.latest")} <span className="tabular-nums">{shown}</span> {t("financeTab.of")} <span className="tabular-nums">{total}</span>
           {href ? (
             <>
               {" · "}
               <Link href={href} className="font-medium text-accent-strong hover:underline">
-                View all
+                {t("inventoryTab.viewAll")}
               </Link>
             </>
           ) : null}
         </>
       ) : (
         <>
-          <span className="tabular-nums">{total}</span> in total
+          <span className="tabular-nums">{total}</span> {t("financeTab.inTotal")}
         </>
       )}
     </p>

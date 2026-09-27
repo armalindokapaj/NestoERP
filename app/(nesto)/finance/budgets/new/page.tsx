@@ -8,9 +8,13 @@ import { createBudgetAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { buildFinanceProjectWhere } from "@/lib/modules/finance/finance.scope";
 
-export const metadata: Metadata = { title: "New budget" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.newBudget") };
+}
 
 export default async function NewBudgetPage({
   searchParams,
@@ -22,6 +26,7 @@ export default async function NewBudgetPage({
   if (!can(context, "finance.budget.create")) redirect("/access-denied");
 
   const params = await searchParams;
+  const t = await getTranslations("finance");
 
   const projects = await prisma.project.findMany({
     where: buildFinanceProjectWhere(context),
@@ -52,12 +57,12 @@ export default async function NewBudgetPage({
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Finance", href: "/finance" },
-          { label: "Budgets", href: "/finance/budgets" },
-          { label: "New budget" },
+          { label: t("crumbs.finance"), href: "/finance" },
+          { label: t("crumbs.budgets"), href: "/finance/budgets" },
+          { label: t("budgets.new") },
         ]}
-        title="New project budget"
-        subtitle="Saved as a draft. It becomes the project's current budget once approved."
+        title={t("budgets.newTitle")}
+        subtitle={t("budgets.newSubtitle")}
       />
 
       <BudgetForm
@@ -79,8 +84,8 @@ export default async function NewBudgetPage({
         }
         lockedCurrency={approvedCurrency}
         cancelHref="/finance/budgets"
-        submitLabel="Create budget"
-        pendingLabel="Creating…"
+        submitLabel={t("budgets.create")}
+        pendingLabel={t("revise.creating")}
       />
     </div>
   );

@@ -3,11 +3,15 @@ import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { ReviseBudgetForm } from "@/components/finance/revise-budget-form";
+import { getTranslations } from "@/lib/i18n/server";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "../budget-context";
 
 type Params = { params: Promise<{ budgetId: string }> };
 
-export const metadata: Metadata = { title: "Revise budget" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.reviseBudget") };
+}
 
 /**
  * Opening the next budget version (PRD #15 §115).
@@ -21,12 +25,13 @@ export default async function ReviseBudgetPage({ params }: Params) {
   const { budget } = await loadBudget(budgetId);
 
   if (!budget.capabilities.canRevise) redirect(`/finance/budgets/${budgetId}`);
+  const t = await getTranslations("finance");
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={budgetBreadcrumbs(budget, "Revise")}
-        title={`Revise ${budgetLabel(budget)}`}
+        breadcrumbs={await budgetBreadcrumbs(budget, t("budgets.revise"))}
+        title={t("budgets.reviseTitle", { label: budgetLabel(budget, t) })}
         subtitle={budget.project.name}
         status={budget.status}
       />

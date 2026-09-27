@@ -3,19 +3,22 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
-import { projectCountLabel } from "@/components/projects/portfolio/gallery";
 import { ProjectsPortfolio, ProjectsPortfolioSkeleton } from "@/components/projects/portfolio/projects-portfolio";
 import { WhatIsThis } from "@/components/help/what-is-this";
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import type { UserContext } from "@/lib/context/types";
+import { getTranslations } from "@/lib/i18n/server";
 import { creatableCompanies, listPortfolioProjects } from "@/lib/modules/projects/project.portfolio";
 import { canonicalPortfolioHref, parsePortfolioQuery } from "@/lib/modules/projects/project.query";
 import { PORTFOLIO_PAGE_SIZE } from "@/lib/modules/projects/project.schema";
 import type { PortfolioListDTO } from "@/lib/modules/projects/project.types";
 import { requireProjectPortfolio } from "../portfolio-access";
 
-export const metadata: Metadata = { title: { absolute: "Projects · NESTO" } };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("projects");
+  return { title: { absolute: `${t("meta.projects")} · NESTO` } };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -58,18 +61,19 @@ async function ProjectsBody({ session, q }: { session: UserContext; q: string })
     listPortfolioProjects(session, { q: q || undefined, limit: PORTFOLIO_PAGE_SIZE }),
     creatableCompanies(session),
   ]);
+  const t = await getTranslations("projects");
 
   return (
-    <ProjectsFrame session={session} description={headerCount(result.meta)}>
+    <ProjectsFrame session={session} description={headerCount(result.meta, t)}>
       <div className="space-y-4">
         {/* Group versus Company results is the first question on this page (AUD-05 §7, UX-15). */}
-        <WhatIsThis id="workspace.scope.projects" title="Which projects are listed here">
+        <WhatIsThis id="workspace.scope.projects" title={t("portfolio.scopeTitle")}>
           <p>
             {session.workspace.scopeType === "GROUP"
-              ? "In the Group workspace this page lists the projects you can open in every company you work in, each card naming its company. Searching also matches the company name."
-              : "In a company workspace this page lists only that company's projects you can open. Projects of any other company you belong to are not included here."}
+              ? t("portfolio.scopeGroup")
+              : t("portfolio.scopeCompany")}
           </p>
-          <p>Search matches a project&apos;s name, code, city or country. Opening a project takes you into its own workspace of tabs.</p>
+          <p>{t("portfolio.scopeSearch")}</p>
         </WhatIsThis>
         <ProjectsPortfolio initial={result} q={q} canCreate={creatable.length > 0} />
       </div>
@@ -84,10 +88,10 @@ async function ProjectsBody({ session, q }: { session: UserContext; q: string })
  * §18, §19), and unmoved by a search. No line at all when there are none: the
  * empty state says so.
  */
-function headerCount(meta: PortfolioListDTO["meta"]): string | null {
+function headerCount(meta: PortfolioListDTO["meta"], t: Awaited<ReturnType<typeof getTranslations<"projects">>>): string | null {
   if (meta.visibleProjectCount === 0) return null;
-  const projects = projectCountLabel(meta.visibleProjectCount);
-  return meta.onlyCompany ? `${projects} in ${meta.onlyCompany.name}` : `${projects} across ${meta.visibleCompanyCount} companies`;
+  const projects = t("portfolio.count", { count: meta.visibleProjectCount });
+  return meta.onlyCompany ? t("portfolio.countIn", { projects, company: meta.onlyCompany.name }) : t("portfolio.countAcross", { projects, companies: meta.visibleCompanyCount });
 }
 
 /**
@@ -97,7 +101,7 @@ function headerCount(meta: PortfolioListDTO["meta"]): string | null {
  * (Workspace Context §25). No "New project" beside the title: the top bar's
  * + Create is where projects are started (§74, §75).
  */
-function ProjectsFrame({ session, description, children }: { session: UserContext; description: React.ReactNode; children: React.ReactNode }) {
+async function ProjectsFrame({ session, description, children }: { session: UserContext; description: React.ReactNode; children: React.ReactNode }) {
   if (session.workspace.scopeType === "COMPANY" && isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
     return (
       <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description}>
@@ -105,10 +109,11 @@ function ProjectsFrame({ session, description, children }: { session: UserContex
       </ModulePage>
     );
   }
+  const t = await getTranslations("projects");
   return (
     <div className="space-y-5">
       <div className="min-w-0">
-        <h1 className="text-page font-semibold text-fg">Projects</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.projects")}</h1>
         {description === null ? null : <p className="mt-1.5 text-body text-fg-muted">{description}</p>}
       </div>
       {children}

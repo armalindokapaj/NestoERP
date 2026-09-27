@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { MoveRight, Pencil, Trash2 } from "lucide-react";
 
@@ -19,6 +20,7 @@ import { UnitDialog } from "./unit-dialog";
 export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; types: UnitTypeOption[]; buildings: Array<{ id: string; name: string; floors: Array<{ id: string; name: string }> }> }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("projects");
   const [open, setOpen] = React.useState<"edit" | "move" | "delete" | null>(null);
   const [pending, setPending] = React.useState(false);
   const { capabilities } = unit;
@@ -27,11 +29,11 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
     setPending(true);
     try {
       await structureApi(`/api/project-units/${unit.id}`, { method: "DELETE" });
-      toast({ title: `${unit.unitCode} deleted.` });
+      toast({ title: t("unitTable.deleted", { code: unit.unitCode }) });
       router.push(`/projects/${unit.projectId}/units?floor=${unit.floor.id}`);
     } catch (error) {
       setOpen(null);
-      toast({ title: failureMessage(error, "The unit could not be deleted."), tone: "danger" });
+      toast({ title: failureMessage(error, t("unitTable.deleteFailed")), tone: "danger" });
     } finally {
       setPending(false);
     }
@@ -44,17 +46,17 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
       {capabilities.canUpdateUnit ? (
         <Button variant="secondary" onClick={() => setOpen("edit")}>
           <Pencil aria-hidden="true" />
-          Edit
+          {t("unitTable.edit")}
         </Button>
       ) : null}
       {capabilities.canMoveUnit ? (
         <Button variant="secondary" onClick={() => setOpen("move")}>
           <MoveRight aria-hidden="true" />
-          Move
+          {t("unitTable.move")}
         </Button>
       ) : null}
       {capabilities.canDeleteUnit ? (
-        <Button variant="ghost" size="icon" aria-label={`Delete ${unit.unitCode}`} onClick={() => setOpen("delete")}>
+        <Button variant="ghost" size="icon" aria-label={t("unitTable.deleteNamed", { code: unit.unitCode })} onClick={() => setOpen("delete")}>
           <Trash2 />
         </Button>
       ) : null}
@@ -67,7 +69,7 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
           unit={{ id: unit.id, unitCode: unit.unitCode, version: unit.version, floorId: unit.floor.id, buildingId: unit.building.id }}
           buildings={buildings}
           onMoved={() => {
-            toast({ title: `${unit.unitCode} moved. Its code and page are unchanged.` });
+            toast({ title: t("workspace.unitMoved", { code: unit.unitCode }) });
             router.refresh();
           }}
         />
@@ -75,8 +77,8 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
       <ConfirmDialog
         open={open === "delete"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={`Delete ${unit.unitCode}?`}
-        description="The unit and its page are removed. Deactivate it instead to keep it on record. This cannot be undone."
+        title={t("unitTable.deleteTitle", { code: unit.unitCode })}
+        description={t("workspace.deleteUnitBody")}
         pending={pending}
         onConfirm={() => void remove()}
       />

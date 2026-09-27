@@ -11,15 +11,20 @@ import { listPageRedirect } from "@/lib/modules/shared/list-query";
 import { formatDateTime } from "@/lib/utils/format";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "../budget-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = {
   params: Promise<{ budgetId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Budget activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.budgetActivity") };
+}
 
 export default async function BudgetActivityPage({ params, searchParams }: Params) {
+  const t = await getTranslations("finance");
   const { budgetId } = await params;
   const { context, budget } = await loadBudget(budgetId);
 
@@ -39,8 +44,8 @@ export default async function BudgetActivityPage({ params, searchParams }: Param
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={budgetBreadcrumbs(budget, "Activity")}
-        title={budgetLabel(budget)}
+        breadcrumbs={await budgetBreadcrumbs(budget, t("crumbs.activity"))}
+        title={budgetLabel(budget, t)}
         subtitle={budget.project.name}
         status={budget.status}
       />
@@ -54,8 +59,8 @@ export default async function BudgetActivityPage({ params, searchParams }: Param
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this budget version will be listed here."
+          title={t("activity.empty")}
+          description={t("activity.budgetBody")}
         />
       ) : (
         <>
@@ -63,7 +68,7 @@ export default async function BudgetActivityPage({ params, searchParams }: Param
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

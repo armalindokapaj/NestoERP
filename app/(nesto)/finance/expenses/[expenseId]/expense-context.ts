@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
 import { AccessError } from "@/lib/access/guards";
+import { getTranslations } from "@/lib/i18n/server";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
@@ -25,11 +26,12 @@ export function expenseLabel(expense: ExpenseDetailDTO): string {
   return expense.expenseNumber ?? expense.description;
 }
 
-export function expenseBreadcrumbs(expense: ExpenseDetailDTO, trailing?: string): Crumb[] {
+export async function expenseBreadcrumbs(expense: ExpenseDetailDTO, trailing?: string): Promise<Crumb[]> {
+  const t = await getTranslations("finance");
   const label = expenseLabel(expense);
   const crumbs: Crumb[] = [
-    { label: "Finance", href: "/finance" },
-    { label: "Expenses", href: "/finance/expenses" },
+    { label: t("crumbs.finance"), href: "/finance" },
+    { label: t("crumbs.expenses"), href: "/finance/expenses" },
     trailing ? { label, href: `/finance/expenses/${expense.id}` } : { label },
   ];
   if (trailing) crumbs.push({ label: trailing });

@@ -11,7 +11,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "./invoice-context";
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { invoice } = await loadInvoice(invoiceId);
     return { title: invoice.invoiceNumber };
   } catch {
-    return { title: "Invoice" };
+    return { title: (await getTranslations("finance"))("kind.invoice") };
   }
 }
 
@@ -48,33 +48,34 @@ export default async function InvoiceDetailPage({ params }: Params) {
   const { context, invoice } = await loadInvoice(invoiceId);
 
   const may = invoice.capabilities;
+  const t = await getTranslations("finance");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "INVOICE", invoice.id) : null;
 
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={invoiceBreadcrumbs(invoice)}
+        breadcrumbs={await invoiceBreadcrumbs(invoice)}
         title={invoice.invoiceNumber}
         subtitle={invoice.client.name}
         status={invoice.status}
         badges={
           <Badge tone={SETTLEMENT_TONES[invoice.settlementStatus]}>
-            {settlementLabels[invoice.settlementStatus]}
+            {t(`settlement.${invoice.settlementStatus}`)}
           </Badge>
         }
         meta={[
           {
-            label: "Total",
+            label: t("columns.total"),
             value: <Money amount={invoice.totalAmount} currency={invoice.currency} emphasis />,
           },
           {
-            label: "Outstanding",
+            label: t("columns.outstanding"),
             value: (
               <Money amount={invoice.outstandingAmount} currency={invoice.currency} />
             ),
           },
-          { label: "Due", value: formatDate(invoice.dueDate) },
+          { label: t("columns.due"), value: formatDate(invoice.dueDate) },
         ]}
         actions={
           <>
@@ -97,41 +98,40 @@ export default async function InvoiceDetailPage({ params }: Params) {
 
       {invoice.status === "ARCHIVED" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This invoice is archived and read-only. Restore it to make changes.
+          {t("invoices.archivedNote")}
         </p>
       ) : null}
 
       {invoice.status === "APPROVED" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Approved and ready to go out. Mark it sent once the client has it — NESTO does not
-          deliver invoices itself.
+          {t("invoices.approvedNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Line items</h2>
+          <h2 className="text-card font-semibold text-fg">{t("lines.lineItems")}</h2>
 
           {/* A labelled, keyboard-scrollable region: five figures a line do not fit a phone (AUD-04 §5, D-02-10). */}
-          <div className="mt-4 overflow-x-auto" role="region" aria-label="Invoice line items" tabIndex={0}>
+          <div className="mt-4 overflow-x-auto" role="region" aria-label={t("invoices.lineItems")} tabIndex={0}>
             <table className="w-full min-w-[32rem] text-table">
-              <caption className="sr-only">Invoice line items</caption>
+              <caption className="sr-only">{t("invoices.lineItems")}</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
                 <tr>
                   <th scope="col" className="py-2 text-left font-medium">
-                    Description
+                    {t("lines.description")}
                   </th>
                   <th scope="col" className="py-2 text-right font-medium">
-                    Qty
+                    {t("invoices.qty")}
                   </th>
                   <th scope="col" className="py-2 text-right font-medium">
-                    Unit price
+                    {t("lines.unitPrice")}
                   </th>
                   <th scope="col" className="py-2 text-right font-medium">
-                    Tax
+                    {t("lines.tax")}
                   </th>
                   <th scope="col" className="py-2 text-right font-medium">
-                    Total
+                    {t("columns.total")}
                   </th>
                 </tr>
               </thead>
@@ -159,26 +159,26 @@ export default async function InvoiceDetailPage({ params }: Params) {
           </div>
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
-            <SummaryRow label="Subtotal">
+            <SummaryRow label={t("lines.subtotal")}>
               <Money amount={invoice.subtotal} currency={invoice.currency} />
             </SummaryRow>
-            <SummaryRow label="Tax">
+            <SummaryRow label={t("lines.tax")}>
               <Money amount={invoice.taxAmount} currency={invoice.currency} />
             </SummaryRow>
-            <SummaryRow label="Total">
+            <SummaryRow label={t("columns.total")}>
               <Money amount={invoice.totalAmount} currency={invoice.currency} emphasis />
             </SummaryRow>
-            <SummaryRow label="Paid">
+            <SummaryRow label={t("columns.paid")}>
               <Money amount={invoice.paidAmount} currency={invoice.currency} />
             </SummaryRow>
-            <SummaryRow label="Outstanding">
+            <SummaryRow label={t("columns.outstanding")}>
               <Money amount={invoice.outstandingAmount} currency={invoice.currency} emphasis />
             </SummaryRow>
           </dl>
 
           {invoice.notes ? (
             <div className="mt-4 border-t border-line pt-4">
-              <h3 className="text-table font-medium text-fg">Notes</h3>
+              <h3 className="text-table font-medium text-fg">{t("form.notes")}</h3>
               <p className="mt-1 whitespace-pre-wrap text-table text-fg-muted">{invoice.notes}</p>
             </div>
           ) : null}
@@ -186,12 +186,12 @@ export default async function InvoiceDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Client",
+                  label: t("invoiceForm.client"),
                   value: (
                     <Link href={`/clients/${invoice.client.id}`} className="hover:text-accent">
                       {invoice.client.name}
@@ -199,7 +199,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Project",
+                  label: t("form.project"),
                   value: invoice.project ? (
                     <Link href={`/projects/${invoice.project.id}`} className="hover:text-accent">
                       {invoice.project.name}
@@ -208,20 +208,20 @@ export default async function InvoiceDetailPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: "Issued", value: formatDate(invoice.issueDate) },
-                { label: "Due", value: formatDate(invoice.dueDate) },
-                { label: "Currency", value: invoice.currency },
+                { label: t("columns.issued"), value: formatDate(invoice.issueDate) },
+                { label: t("columns.due"), value: formatDate(invoice.dueDate) },
+                { label: t("form.currency"), value: invoice.currency },
                 {
-                  label: "Sent",
-                  value: invoice.sentAt ? formatDateTime(invoice.sentAt) : "Not yet",
+                  label: t("invoices.sent"),
+                  value: invoice.sentAt ? formatDateTime(invoice.sentAt) : t("invoices.notYet"),
                 },
-                { label: "Raised by", value: invoice.createdBy ? <PersonLink memberId={invoice.createdBy.memberId} name={invoice.createdBy.fullName} /> : "—" },
+                { label: t("invoices.raisedBy"), value: invoice.createdBy ? <PersonLink memberId={invoice.createdBy.memberId} name={invoice.createdBy.fullName} /> : "—" },
               ]}
             />
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Approvals</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
             <ApprovalHistory approvals={invoice.approvals} />
           </section>
         </div>
@@ -229,10 +229,10 @@ export default async function InvoiceDetailPage({ params }: Params) {
 
       <section className="nesto-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-card font-semibold text-fg">Payments</h2>
+          <h2 className="text-card font-semibold text-fg">{t("captions.payments")}</h2>
           {may.canRecordPayment ? (
             <Button asChild size="sm">
-              <Link href={`/finance/payments/new?invoiceId=${invoice.id}`}>Record payment</Link>
+              <Link href={`/finance/payments/new?invoiceId=${invoice.id}`}>{t("panel.recordPayment")}</Link>
             </Button>
           ) : null}
         </div>
@@ -240,8 +240,8 @@ export default async function InvoiceDetailPage({ params }: Params) {
         {invoice.payments.length === 0 ? (
           <p className="mt-4 text-table text-fg-subtle">
             {invoice.status === "SENT"
-              ? "Nothing received against this invoice yet."
-              : "Payments can be recorded once the invoice has been sent."}
+              ? t("invoices.nothingReceived")
+              : t("invoices.paymentsAfterSent")}
           </p>
         ) : (
           <div className="mt-4">

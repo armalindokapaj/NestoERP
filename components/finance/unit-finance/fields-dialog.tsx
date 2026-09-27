@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Field } from "@/components/project-structure/structure-ui";
 import { FormDialog, requestOutcome, useDialogRequest, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,6 +68,7 @@ export function FieldsDialog({
   module?: string;
 }) {
   const request = useDialogRequest((target, payload, message) => submit(target, payload, message, method));
+  const t = useFinanceTranslations();
   const [values, setValues] = React.useState<Record<string, string | boolean>>({});
   const [touched, setTouched] = React.useState(false);
 
@@ -84,7 +86,7 @@ export function FieldsDialog({
   /** The dialog's one path to the server, for its button and "Save and continue" alike. */
   async function confirm(): Promise<unknown> {
     setTouched(true);
-    if (missing.length) return { code: "VALIDATION_ERROR", message: "This is required." };
+    if (missing.length) return { code: "VALIDATION_ERROR", message: t("unit.required") };
     const payload: Record<string, unknown> = { ...body };
     for (const field of fields) {
       const value = values[field.name];
@@ -112,7 +114,7 @@ export function FieldsDialog({
     >
       {fields.map((field) => {
         const id = `dialog-${field.name}`;
-        const error = (touched && missing.includes(field.name) ? (field.kind === "date" ? "Choose a date." : "This is required.") : undefined) ?? request.fields[field.name];
+        const error = (touched && missing.includes(field.name) ? (field.kind === "date" ? t("unit.chooseDate") : t("unit.required")) : undefined) ?? request.fields[field.name];
         if (field.kind === "checkbox") {
           return (
             <label key={field.name} htmlFor={id} className="flex items-start gap-2 text-table text-fg">

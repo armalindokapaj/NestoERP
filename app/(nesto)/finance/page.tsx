@@ -14,12 +14,16 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadFinanceOverviewDomains, netOf, planFinanceOverview } from "@/lib/modules/finance/overview/overview.service";
 import { budgetVsActual } from "@/lib/modules/finance/reports/reports.service";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { GroupFinanceOverview } from "./group-overview";
 
-export const metadata: Metadata = { title: "Finance" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.overview") };
+}
 
 /**
  * The Finance overview (PRD #15 §21–§27; NAV-03 STREAM-02, STREAM-05).
@@ -44,6 +48,7 @@ export default async function FinanceOverviewPage() {
   const context = await requireModule("finance");
   if (inGroupWorkspace(context)) return <GroupFinanceOverview context={context} />;
 
+  const t = await getTranslations("finance");
   const experience = resolveModuleExperience(context, "finance");
   const plan = planFinanceOverview(context);
   const { visible } = plan;
@@ -71,7 +76,7 @@ export default async function FinanceOverviewPage() {
       actions={
         can(context, "finance.invoice.create") ? (
           <Button asChild size="sm">
-            <Link href="/finance/invoices/new">New invoice</Link>
+            <Link href="/finance/invoices/new">{t("overview.newInvoice")}</Link>
           </Button>
         ) : null
       }
@@ -89,14 +94,14 @@ export default async function FinanceOverviewPage() {
             {visible.payables ? (
               <SectionBoundary className="nesto-card">
                 <Suspense fallback={<CardSkeleton />}>
-                  <TotalsCard label="Payables" href="/finance/expenses?status=APPROVED&settlement=UNPAID,PARTIALLY_PAID" totals={domains.payables} base={base} primary={primary === "payables"} />
+                  <TotalsCard label={t("overview.payables")} href="/finance/expenses?status=APPROVED&settlement=UNPAID,PARTIALLY_PAID" totals={domains.payables} base={base} primary={primary === "payables"} />
                 </Suspense>
               </SectionBoundary>
             ) : null}
             {visible.commitments ? (
               <SectionBoundary className="nesto-card">
                 <Suspense fallback={<CardSkeleton />}>
-                  <TotalsCard label="Open commitments" href="/finance/commitments?open=1" totals={domains.commitments} base={base} primary={primary === "commitments"} />
+                  <TotalsCard label={t("overview.openCommitments")} href="/finance/commitments?open=1" totals={domains.commitments} base={base} primary={primary === "commitments"} />
                 </Suspense>
               </SectionBoundary>
             ) : null}
@@ -106,22 +111,22 @@ export default async function FinanceOverviewPage() {
         {nothingVisible ? (
           <EmptyState
             icon={<Wallet />}
-            title="No finance figures in your view."
-            description="Your access covers project budgets and cost summaries rather than company finance."
+            title={t("overview.noFigures")}
+            description={t("overview.noFiguresBody")}
           />
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-2">
           {visible.cashflow ? (
             <SectionBoundary className="nesto-card">
-              <Suspense fallback={<ListSectionSkeleton title="Cash this month" rows={3} />}>
+              <Suspense fallback={<ListSectionSkeleton title={t("overview.cashThisMonth")} rows={3} />}>
                 <Cashflow cash={domains.cash} base={base} primary={primary === "cashflow"} />
               </Suspense>
             </SectionBoundary>
           ) : null}
           {budgets ? (
             <SectionBoundary className="nesto-card">
-              <Suspense fallback={<ListSectionSkeleton title="Project budgets" rows={6} />}>
+              <Suspense fallback={<ListSectionSkeleton title={t("overview.projectBudgets")} rows={6} />}>
                 <ProjectBudgets budgets={budgets} primary={primary === "budgets"} />
               </Suspense>
             </SectionBoundary>
@@ -129,7 +134,7 @@ export default async function FinanceOverviewPage() {
         </div>
 
         <SectionBoundary className="nesto-card">
-          <Suspense fallback={<ListSectionSkeleton title="What needs attention" rows={4} />}>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.attention")} rows={4} />}>
             <AttentionCounts
               counts={domains.counts}
               invoices={can(context, "finance.invoice.view")}
@@ -147,15 +152,15 @@ export default async function FinanceOverviewPage() {
 type Domains = ReturnType<typeof loadFinanceOverviewDomains>;
 
 async function ReceivableCards({ receivables, base, primary }: { receivables: Domains["receivables"]; base: Domains["baseCurrency"]; primary: boolean }) {
-  const [value, currency] = await Promise.all([receivables, base]);
+  const [value, currency, t] = await Promise.all([receivables, base, getTranslations("finance")]);
   const cards = [
-    { label: "Outstanding receivables", totals: value.outstanding, href: "/finance/invoices?settlement=UNPAID,PARTIALLY_PAID,OVERDUE" },
-    { label: "Overdue", totals: value.overdue, href: "/finance/invoices?settlement=OVERDUE" },
+    { key: "outstanding", label: t("overview.outstandingReceivables"), totals: value.outstanding, href: "/finance/invoices?settlement=UNPAID,PARTIALLY_PAID,OVERDUE" },
+    { key: "overdue", label: t("overview.overdue"), totals: value.overdue, href: "/finance/invoices?settlement=OVERDUE" },
   ];
   return (
     <div className="grid gap-4 sm:grid-cols-2" data-section={primary ? "primary" : undefined}>
       {cards.map((card) => (
-        <Link key={card.label} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
+        <Link key={card.key} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
           <p className="text-table text-fg-muted">{card.label}</p>
           <CurrencyTotals totals={card.totals} baseCurrency={currency} className="mt-2 text-page font-semibold text-fg" />
         </Link>
@@ -175,38 +180,38 @@ async function TotalsCard({ label, href, totals, base, primary }: { label: strin
 }
 
 async function Cashflow({ cash, base, primary }: { cash: Domains["cash"]; base: Domains["baseCurrency"]; primary: boolean }) {
-  const [value, currency] = await Promise.all([cash, base]);
+  const [value, currency, t] = await Promise.all([cash, base, getTranslations("finance")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">Cash this month</h2>
+        <h2 className="text-card font-semibold text-fg">{t("overview.cashThisMonth")}</h2>
         <Link href="/finance/reports?report=cashflow" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
-          Cashflow
+          {t("overview.cashflow")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>
       <dl className="mt-4 divide-y divide-line">
-        <Row label="Received" totals={value.in} base={currency} />
-        <Row label="Paid out" totals={value.out} base={currency} />
-        <Row label="Net" totals={netOf(value.in, value.out)} base={currency} emphasis />
+        <Row label={t("overview.received")} totals={value.in} base={currency} />
+        <Row label={t("overview.paidOut")} totals={value.out} base={currency} />
+        <Row label={t("overview.net")} totals={netOf(value.in, value.out)} base={currency} emphasis />
       </dl>
     </section>
   );
 }
 
 async function ProjectBudgets({ budgets, primary }: { budgets: ReturnType<typeof budgetVsActual>; primary: boolean }) {
-  const rows = await budgets;
+  const [rows, t] = await Promise.all([budgets, getTranslations("finance")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">Project budgets</h2>
+        <h2 className="text-card font-semibold text-fg">{t("overview.projectBudgets")}</h2>
         <Link href="/finance/reports?report=budget-vs-actual" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
-          Budget vs actual
+          {t("overview.budgetVsActual")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-4 text-table text-fg-subtle">No project budgets in your view.</p>
+        <p className="mt-4 text-table text-fg-subtle">{t("overview.noBudgets")}</p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {rows.slice(0, 6).map((row) => (
@@ -224,15 +229,15 @@ async function ProjectBudgets({ budgets, primary }: { budgets: ReturnType<typeof
 }
 
 async function AttentionCounts({ counts, invoices, approvals, expenses, primary }: { counts: Domains["counts"]; invoices: boolean; approvals: boolean; expenses: boolean; primary: boolean }) {
-  const value = await counts;
+  const [value, t] = await Promise.all([counts, getTranslations("finance")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
-      <h2 className="text-card font-semibold text-fg">What needs attention</h2>
+      <h2 className="text-card font-semibold text-fg">{t("overview.attention")}</h2>
       <dl className="mt-4 divide-y divide-line">
-        {invoices ? <Count label="Draft invoices" value={value.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
-        {approvals ? <Count label="Waiting for a decision" value={value.pendingApprovals} href="/finance/approvals" /> : null}
-        {invoices ? <Count label="Overdue invoices" value={value.overdueInvoices} href="/finance/invoices?settlement=OVERDUE" /> : null}
-        {expenses ? <Count label="Approved expenses" value={value.unpaidExpenses} href="/finance/expenses?status=APPROVED" /> : null}
+        {invoices ? <Count label={t("overview.draftInvoices")} value={value.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
+        {approvals ? <Count label={t("overview.waiting")} value={value.pendingApprovals} href="/finance/approvals" /> : null}
+        {invoices ? <Count label={t("overview.overdueInvoices")} value={value.overdueInvoices} href="/finance/invoices?settlement=OVERDUE" /> : null}
+        {expenses ? <Count label={t("overview.approvedExpenses")} value={value.unpaidExpenses} href="/finance/expenses?status=APPROVED" /> : null}
       </dl>
     </section>
   );

@@ -8,15 +8,10 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { WorkingStatus } from "@/lib/modules/projects/project.machine";
 import { cn } from "@/lib/utils/cn";
-
-const CHOICES: Record<WorkingStatus, { label: string; description: string }> = {
-  PENDING: { label: "Pending", description: "Set up, but normal work has not started." },
-  ACTIVE: { label: "Active", description: "Being worked on." },
-  FINISHED: { label: "Finished", description: "Its normal working life is complete. It stays in the project list." },
-};
 
 /**
  * Change Status (E-05A §12, §40).
@@ -77,11 +72,12 @@ function StatusForm({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const t = useTranslations("projects");
   const [choice, setChoice] = React.useState<WorkingStatus | null>(moves[0] ?? null);
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const editor = useUnsavedEditor({ module: "projects", saveKind: "none", workflow: "Change status", label: `Status of ${project.name}` });
+  const editor = useUnsavedEditor({ module: "projects", saveKind: "none", workflow: "Change status", label: t("statusDialog.editorLabel", { name: project.name }) });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(choice !== (moves[0] ?? null) || reason !== ""), [choice, reason, moves, setDirty]);
@@ -92,7 +88,7 @@ function StatusForm({
     event.preventDefault();
     if (!choice) return;
     if (needsReason && !reason.trim()) {
-      setError("Give a reason for returning this project to Pending.");
+      setError(t("statusDialog.reasonRequired"));
       return;
     }
     setPending(true);
@@ -103,12 +99,12 @@ function StatusForm({
       setUnresolved(false);
       setDirty(false);
       onChanged(project.id, choice);
-      toast({ title: `${project.name} is now ${CHOICES[choice].label}.` });
+      toast({ title: t("statusDialog.changed", { name: project.name, status: t(`status.${choice}`) }) });
       onDone();
     } catch (failure) {
       // A lost connection may have changed the status: its outcome is unknown (AUD-03 §6).
       setUnresolved(!isFailure(failure) || failure.status === 0);
-      setError(failureMessage(failure, "The status could not be changed."));
+      setError(failureMessage(failure, t("statusDialog.failed")));
     } finally {
       setPending(false);
       setSaving(false);
@@ -118,14 +114,14 @@ function StatusForm({
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="pr-6">
-        <DialogTitle>Change status</DialogTitle>
+        <DialogTitle>{t("statusDialog.title")}</DialogTitle>
         <DialogDescription>
           {project.name} · {project.companyName}
         </DialogDescription>
       </div>
 
       <fieldset className="space-y-2" disabled={pending}>
-        <legend className="sr-only">New status</legend>
+        <legend className="sr-only">{t("statusDialog.newStatus")}</legend>
         {moves.map((status) => (
           <label
             key={status}
@@ -143,8 +139,8 @@ function StatusForm({
               className="mt-0.5 accent-[var(--color-accent)]"
             />
             <span>
-              <span className="block text-body font-medium text-fg">{CHOICES[status].label}</span>
-              <span className="block text-table text-fg-muted">{CHOICES[status].description}</span>
+              <span className="block text-body font-medium text-fg">{t(`status.${status}`)}</span>
+              <span className="block text-table text-fg-muted">{t(`statusDialog.${status}`)}</span>
             </span>
           </label>
         ))}
@@ -152,9 +148,9 @@ function StatusForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="status-reason">
-          Reason{needsReason ? <span className="ml-0.5 text-danger-strong">*</span> : <span className="ml-1 font-normal text-fg-subtle">(optional)</span>}
+          {t("statusDialog.reason")}{needsReason ? <span className="ml-0.5 text-danger-strong">*</span> : <span className="ml-1 font-normal text-fg-subtle">{t("statusDialog.optional")}</span>}
         </Label>
-        <Textarea id="status-reason" rows={3} maxLength={500} value={reason} disabled={pending} onChange={(event) => setReason(event.target.value)} placeholder="Project handover completed" />
+        <Textarea id="status-reason" rows={3} maxLength={500} value={reason} disabled={pending} onChange={(event) => setReason(event.target.value)} placeholder={t("statusDialog.reasonPlaceholder")} />
       </div>
 
       {error ? (
@@ -166,11 +162,11 @@ function StatusForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("statusDialog.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending || !choice}>
-          {pending ? "Saving…" : "Change status"}
+          {pending ? t("statusDialog.saving") : t("statusDialog.title")}
         </Button>
       </DialogFooter>
     </form>

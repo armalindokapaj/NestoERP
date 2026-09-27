@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, Wallet, WifiOff, X, type LucideIcon } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { QUICK_CREATE_GROUP_LABELS, QUICK_CREATE_GROUPS } from "@/config/quick-create";
 import type { QuickCreateActionDTO, QuickCreateCompany } from "@/lib/modules/quick-create/quick-create.service";
 import { cn } from "@/lib/utils/cn";
@@ -51,6 +52,7 @@ export type QuickCreateBodyProps = {
 export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
   const { panelId, headingId, step, menuState, recent, query, setQuery, active, setActive, launching, company, setCompany, project, setProject, projects, stepNotice, searchRef, choose, continueWithCompany, backToMenu, launch, loadProjects, loadMenu, close } = props;
   const t = useTranslations("shell");
+  const tc = useCommonTranslations();
   const menu = menuState.status === "ready" ? menuState.menu : null;
   const actions = React.useMemo(() => menu?.actions ?? [], [menu]);
   const text = query.trim().toLowerCase();
@@ -177,7 +179,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                   setQuery(event.target.value);
                   setActive(0);
                 }}
-                placeholder="Search actions…"
+                placeholder={tc("shell.searchActions")}
                 aria-controls={`${panelId}-list`}
                 className="h-9 w-full rounded-md border border-control bg-surface pl-8 pr-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
               />
@@ -186,8 +188,8 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
         ) : null}
         <div id={`${panelId}-list`} className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {recentActions.length ? (
-            <section aria-label="Recent">
-              <p className="px-2 pb-0.5 pt-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">Recent</p>
+            <section aria-label={tc("shell.recent")}>
+              <p className="px-2 pb-0.5 pt-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{tc("shell.recent")}</p>
               <ul>{recentActions.map((action) => row(action, "recent"))}</ul>
             </section>
           ) : null}
@@ -230,9 +232,9 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
               }}
             >
               <label className="block space-y-1">
-                <span className="text-meta font-medium text-fg">Company</span>
+                <span className="text-meta font-medium text-fg">{tc("shell.company")}</span>
                 <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-company" required>
-                  <option value="">Choose a company…</option>
+                  <option value="">{tc("shell.chooseCompany")}</option>
                   {step.action.companies?.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name}
@@ -277,7 +279,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                   <span className="block text-table text-fg-muted">{t("quickCreate.noProjects")}</span>
                 ) : (
                   <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-project" required>
-                    <option value="">Choose a project…</option>
+                    <option value="">{tc("shell.chooseProject")}</option>
                     {projects.items.map((entry) => (
                       <option key={entry.id} value={entry.id}>
                         {entry.name}

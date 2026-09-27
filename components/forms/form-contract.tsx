@@ -1,5 +1,7 @@
 "use client";
 
+import { englishCommon, useCommonTranslations } from "@/components/i18n/common-text";
+import type { Translate } from "@/lib/i18n/translator";
 import * as React from "react";
 
 import { parseOptionalDateOnly, type DateOnlyRule } from "@/lib/forms/dates";
@@ -103,7 +105,7 @@ function controlsNamed(form: HTMLFormElement, name: string): FormControl[] {
 
 function labelText(control: FormControl): string {
   const label = control.labels?.[0]?.textContent ?? control.getAttribute("aria-label") ?? control.name;
-  return label.replace(/\s*\*\s*$/, "").replace(/\s*\(optional\)\s*$/i, "").trim() || control.name;
+  return label.replace(/\s*\*\s*$/, "").replace(/\s*\((optional|opsionale)\)\s*$/i, "").trim() || control.name;
 }
 
 function decimalsOf(step: string): number | null {
@@ -117,35 +119,35 @@ function decimalsOf(step: string): number | null {
  * rather than the browser's (which follow the browser's language, not the
  * app's, and differ between browsers).
  */
-export function messageForValidity(control: FormControl, label: string): string | null {
+export function messageForValidity(control: FormControl, label: string, t: Translate<"common"> = englishCommon): string | null {
   const validity = control.validity;
   if (validity.valid) return null;
   if (validity.customError) return control.validationMessage;
   const choice = control instanceof HTMLSelectElement || (control instanceof HTMLInputElement && ["checkbox", "radio"].includes(control.type));
-  if (validity.valueMissing) return choice ? `Choose ${label.toLowerCase()}.` : `Enter ${label.toLowerCase()}.`;
+  if (validity.valueMissing) return t(choice ? "form.choose" : "form.enter", { label: label.toLowerCase() });
   if (control instanceof HTMLInputElement) {
     if (validity.badInput) {
-      if (control.type === "number") return `${label} must be a number, e.g. 1234.50.`;
-      if (control.type.startsWith("date") || control.type === "time" || control.type === "month") return `${label} must be a real date.`;
-      return `${label} is not valid.`;
+      if (control.type === "number") return t("form.number", { label });
+      if (control.type.startsWith("date") || control.type === "time" || control.type === "month") return t("form.realDate", { label });
+      return t("form.invalid", { label });
     }
     if (validity.typeMismatch) {
-      if (control.type === "email") return "Enter an email address like name@example.com.";
-      if (control.type === "url") return "Enter a web address like https://example.com.";
+      if (control.type === "email") return t("form.email");
+      if (control.type === "url") return t("form.url");
     }
     const dated = control.type.startsWith("date") || control.type === "time" || control.type === "month";
-    if (validity.rangeUnderflow) return dated ? `${label} must be on or after ${control.min}.` : `${label} must be ${control.min} or more.`;
-    if (validity.rangeOverflow) return dated ? `${label} must be on or before ${control.max}.` : `${label} must be ${control.max} or less.`;
+    if (validity.rangeUnderflow) return t(dated ? "form.onOrAfter" : "form.orMore", { label, min: control.min });
+    if (validity.rangeOverflow) return t(dated ? "form.onOrBefore" : "form.orLess", { label, max: control.max });
     if (validity.stepMismatch) {
       const decimals = decimalsOf(control.step);
-      if (decimals === 0) return `${label} must be a whole number.`;
-      if (decimals !== null) return `${label} can have at most ${decimals} decimal place${decimals === 1 ? "" : "s"}.`;
+      if (decimals === 0) return t("form.wholeNumber", { label });
+      if (decimals !== null) return t("form.decimals", { label, count: decimals });
     }
-    if (validity.patternMismatch) return control.title || `${label} is not in the expected format.`;
+    if (validity.patternMismatch) return control.title || t("form.format", { label });
   }
-  if (validity.tooShort) return `${label} must be at least ${(control as HTMLInputElement).minLength} characters.`;
-  if (validity.tooLong) return `${label} must be ${(control as HTMLInputElement).maxLength} characters or fewer.`;
-  return control.validationMessage || `${label} is not valid.`;
+  if (validity.tooShort) return t("form.tooShort", { label, min: (control as HTMLInputElement).minLength });
+  if (validity.tooLong) return t("form.tooLong", { label, max: (control as HTMLInputElement).maxLength });
+  return control.validationMessage || t("form.invalid", { label });
 }
 
 /** A field validator from a `lib/forms` decimal rule: the same parse the server schema runs. Empty is left to `required`. */
@@ -207,6 +209,7 @@ export function useFormContract(
   formRef: React.RefObject<HTMLFormElement | null>,
   { serverErrors = NO_ERRORS, scoped = false }: { serverErrors?: Record<string, string[] | undefined>; scoped?: boolean } = {},
 ): FormContract {
+  const t = useCommonTranslations();
   const prefix = `f${React.useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
   const registrations = React.useRef(new Map<string, Registration>());
   const touched = React.useRef(new Set<string>());
@@ -239,11 +242,11 @@ export function useFormContract(
     applyRule(name);
     for (const control of controlsNamed(form, name)) {
       if (!validatable(control)) continue;
-      const message = messageForValidity(control, labelFor(name, control));
+      const message = messageForValidity(control, labelFor(name, control), t);
       if (message) return message;
     }
     return null;
-  }, [formRef, applyRule, labelFor]);
+  }, [formRef, applyRule, labelFor, t]);
 
   const setOne = React.useCallback((name: string, message: string | null) => {
     setClientErrors((current) => {
@@ -271,11 +274,11 @@ export function useFormContract(
     for (const name of registrations.current.keys()) applyRule(name);
     for (const element of form.elements) {
       if (!isControl(element) || !validatable(element) || result[element.name]) continue;
-      const message = messageForValidity(element, labelFor(element.name, element));
+      const message = messageForValidity(element, labelFor(element.name, element), t);
       if (message) result[element.name] = message;
     }
     return result;
-  }, [formRef, applyRule, labelFor]);
+  }, [formRef, applyRule, labelFor, t]);
 
   const visibleServer = React.useCallback((name: string) => (retired.has(name) ? undefined : serverErrors[name]?.[0]), [retired, serverErrors]);
 
@@ -359,7 +362,7 @@ export function useFormContract(
     const target = event.target;
     if (!isControl(target) || !target.name) return;
     touched.current.add(target.name);
-    const message = messageForValidity(target, labelFor(target.name, target));
+    const message = messageForValidity(target, labelFor(target.name, target), t);
     if (!message) return;
     if (!invalidBatch.current) {
       invalidBatch.current = {};
@@ -373,7 +376,7 @@ export function useFormContract(
       });
     }
     invalidBatch.current[target.name] ??= message;
-  }, [labelFor, formRef]);
+  }, [labelFor, formRef, t]);
 
   useSubmitOnlyButton(formRef);
 
@@ -415,7 +418,8 @@ export function useFormContract(
  * row, a rule over the whole form) is listed as text. A live region, because
  * it appears on submit — never per keystroke.
  */
-export function FormErrorSummary({ contract, title = "Check the highlighted fields" }: { contract: Pick<FormContract, "summary" | "summaryRef">; title?: string }) {
+export function FormErrorSummary({ contract, title }: { contract: Pick<FormContract, "summary" | "summaryRef">; title?: string }) {
+  const t = useCommonTranslations();
   const { visible, entries } = contract.summary;
   if (!visible) return null;
   return (
@@ -427,7 +431,7 @@ export function FormErrorSummary({ contract, title = "Check the highlighted fiel
       className="space-y-1.5 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong outline-none"
     >
       <p className="font-medium">
-        {title} ({entries.length})
+        {title ?? t("form.summaryTitle")} ({entries.length})
       </p>
       <ul className="list-disc space-y-0.5 pl-5">
         {entries.map((entry) => (

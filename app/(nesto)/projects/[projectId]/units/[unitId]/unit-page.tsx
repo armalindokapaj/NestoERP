@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { getTranslations } from "@/lib/i18n/server";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "@/components/navigation/nav-link";
 import { notFound, redirect } from "next/navigation";
@@ -53,19 +54,20 @@ export const loadUnitPage = cache(async function loadUnitPage(projectId: string,
 
 type Page = Awaited<ReturnType<typeof loadUnitPage>>;
 
-const SECTIONS: Array<{ key: UnitSection; label: string; suffix: string }> = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "documents", label: "Documents", suffix: "/documents" },
-  { key: "media", label: "Media", suffix: "/media" },
-  { key: "publishing", label: "Publishing", suffix: "/publishing" },
-  { key: "sales", label: "Sales", suffix: "/sales" },
-  { key: "legal", label: "Legal", suffix: "/legal" },
-  { key: "finance", label: "Finance", suffix: "/finance" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+const SECTIONS: Array<{ key: UnitSection; suffix: string }> = [
+  { key: "overview", suffix: "" },
+  { key: "documents", suffix: "/documents" },
+  { key: "media", suffix: "/media" },
+  { key: "publishing", suffix: "/publishing" },
+  { key: "sales", suffix: "/sales" },
+  { key: "legal", suffix: "/legal" },
+  { key: "finance", suffix: "/finance" },
+  { key: "activity", suffix: "/activity" },
 ];
 
 export async function UnitShell({ page, active, children }: { page: Page; active: UnitSection; children: React.ReactNode }) {
   const { project, actions, unit, publishing } = page;
+  const t = await getTranslations("projects");
   const writes = unit.capabilities.canUpdateUnit || unit.capabilities.canMoveUnit;
   const structure = writes ? await getProjectStructure(page.context, project.id) : null;
   const units = `/projects/${project.id}/units`;
@@ -84,7 +86,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
       <RecordHeader
         breadcrumbs={[
           // Projects / company / project / building / floor / unit, each level a link (§8; E-05A §9).
-          { label: "Projects", href: "/projects" },
+          { label: t("meta.projects"), href: "/projects" },
           { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
           { label: project.name, href: `/projects/${project.id}` },
           { label: unit.building.name, href: `${units}?building=${unit.building.id}` },
@@ -97,15 +99,15 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           <>
             <PublicationBadge status={publishing.status} versionNumber={publishing.currentPublication?.versionNumber} />
             <CommercialStatusBadge status={unit.commercialStatus} />
-            {publishing.status !== "PUBLISHED" && publishing.currentPublication ? <Badge tone="default">Last published v{publishing.currentPublication.versionNumber}</Badge> : null}
+            {publishing.status !== "PUBLISHED" && publishing.currentPublication ? <Badge tone="default">{t("unitPage.lastPublished", { version: publishing.currentPublication.versionNumber })}</Badge> : null}
             {publishing.hasUnpublishedChanges ? <UnpublishedChangesBadge /> : null}
-            {publishing.pendingRequest ? <Badge tone="info">Waiting for review</Badge> : null}
-            {unit.isActive ? null : <Badge>Inactive</Badge>}
+            {publishing.pendingRequest ? <Badge tone="info">{t("unitPage.waitingReview")}</Badge> : null}
+            {unit.isActive ? null : <Badge>{t("unitPage.inactive")}</Badge>}
           </>
         }
         meta={[
-          { label: "Location", value: <span data-testid="unit-location">{`${unit.building.name} · ${unit.floor.name}`}</span> },
-          ...(unit.name ? [{ label: "Name", value: unit.name }] : []),
+          { label: t("unitPage.location"), value: <span data-testid="unit-location">{`${unit.building.name} · ${unit.floor.name}`}</span> },
+          ...(unit.name ? [{ label: t("unitPage.name"), value: unit.name }] : []),
         ]}
         actions={
           <>
@@ -140,7 +142,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           activity: actions.canViewActivity,
         }}
       />
-      <nav aria-label={`${unit.unitCode} sections`} className="-mx-1 overflow-x-auto">
+      <nav aria-label={t("unitPage.sectionsLabel", { code: unit.unitCode })} className="-mx-1 overflow-x-auto">
         <ul className="flex min-w-max gap-1 px-1">
           {visible.map((section) => {
             const current = section.key === active;
@@ -151,7 +153,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
                   aria-current={current ? "page" : undefined}
                   className={cn("inline-flex h-9 items-center rounded-md px-3 text-table font-medium transition-colors touch:h-11", current ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
                 >
-                  {section.label}
+                  {t(`unitPage.sections.${section.key}`)}
                 </Link>
               </li>
             );

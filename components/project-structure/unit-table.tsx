@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
 
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { ORIENTATION_LABELS, POSITION_LABELS, type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
+import { type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
 import { areaText, countText } from "./structure-ui";
 import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
 import { PublicationBadge } from "./unit-page/publication-badge";
@@ -35,11 +36,12 @@ export type UnitRowActions = {
 
 function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: string; index: number; count: number; actions: UnitRowActions }) {
   // A reader with nothing to do but open the unit already has the link.
+  const t = useTranslations("projects");
   if (!actions.canUpdate && !actions.canMove && !actions.canDelete && !actions.canReorder) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${unit.unitCode}`}>
+        <Button variant="ghost" size="icon-sm" aria-label={t("unitTable.actionsFor", { code: unit.unitCode })}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -47,37 +49,37 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
         <DropdownMenuItem asChild>
           <Link href={href}>
             <ExternalLink aria-hidden="true" />
-            Open unit
+            {t("unitTable.openUnit")}
           </Link>
         </DropdownMenuItem>
         {actions.canUpdate ? (
           <DropdownMenuItem onSelect={() => actions.onEdit(unit)}>
             <Pencil aria-hidden="true" />
-            Edit
+            {t("unitTable.edit")}
           </DropdownMenuItem>
         ) : null}
         {actions.canMove ? (
           <DropdownMenuItem onSelect={() => actions.onMove(unit)}>
             <MoveRight aria-hidden="true" />
-            Move to another floor
+            {t("unitTable.moveToFloor")}
           </DropdownMenuItem>
         ) : null}
         {actions.canReorder ? (
           <>
             <DropdownMenuItem disabled={index === 0} onSelect={() => actions.onReorder(unit, -1)}>
               <ArrowUp aria-hidden="true" />
-              Move up
+              {t("workspace.moveUp")}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={index === count - 1} onSelect={() => actions.onReorder(unit, 1)}>
               <ArrowDown aria-hidden="true" />
-              Move down
+              {t("workspace.moveDown")}
             </DropdownMenuItem>
           </>
         ) : null}
         {actions.canDelete ? (
           <DropdownMenuItem className="text-danger-strong" onSelect={() => actions.onDelete(unit)}>
             <Trash2 aria-hidden="true" />
-            Delete
+            {t("unitTable.delete")}
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -87,6 +89,7 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
 
 export function UnitTable({ projectId, list, showLocation, actions, onPage, loading }: { projectId: string; list: UnitListDTO; showLocation: boolean; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
+  const t = useTranslations("projects");
   // "1–50 of 73", "0 results", and a count on a single page too (AUD-08 §4, DT-05).
   const range = pageWindow(list.total, list.page, list.pageSize);
   const first = range.from;
@@ -96,27 +99,27 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
       <div className="hidden md:block">
-        <Table label="Units" data-testid="unit-table">
+        <Table label={t("unitTable.units")} data-testid="unit-table">
           <TableHead>
             <tr>
-              <TableHeaderCell>Unit</TableHeaderCell>
-              <TableHeaderCell>Type</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.unit")}</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.type")}</TableHeaderCell>
               {showLocation ? (
                 <>
-                  <TableHeaderCell>Building</TableHeaderCell>
-                  <TableHeaderCell>Floor</TableHeaderCell>
+                  <TableHeaderCell>{t("unitTable.building")}</TableHeaderCell>
+                  <TableHeaderCell>{t("unitTable.floor")}</TableHeaderCell>
                 </>
               ) : null}
-              <TableHeaderCell>Publication</TableHeaderCell>
-              <TableHeaderCell>Sales</TableHeaderCell>
-              <TableHeaderCell>Position</TableHeaderCell>
-              <TableHeaderCell>Orientation</TableHeaderCell>
-              <TableHeaderCell className="text-right">Internal</TableHeaderCell>
-              <TableHeaderCell className="text-right">Saleable</TableHeaderCell>
-              <TableHeaderCell className="text-right">Rooms</TableHeaderCell>
-              <TableHeaderCell className="text-right">Bedrooms</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.publication")}</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.sales")}</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.position")}</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.orientation")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.internal")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.saleable")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.rooms")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.bedrooms")}</TableHeaderCell>
               <TableHeaderCell className="w-12">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("unitTable.actions")}</span>
               </TableHeaderCell>
             </tr>
           </TableHead>
@@ -128,7 +131,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                     {unit.unitCode}
                   </Link>
                   {unit.name ? <span className="block text-meta text-fg-subtle">{unit.name}</span> : null}
-                  {unit.isActive ? null : <Badge className="ml-2">Inactive</Badge>}
+                  {unit.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
                 </TableCell>
                 <TableCell>{unit.unitType.name}</TableCell>
                 {showLocation ? (
@@ -139,13 +142,13 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 ) : null}
                 <TableCell className="whitespace-nowrap">
                   <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
-                  {unit.publication.hasUnpublishedChanges ? <span className="ml-1.5 text-meta text-warning-strong">Changed</span> : null}
+                  {unit.publication.hasUnpublishedChanges ? <span className="ml-1.5 text-meta text-warning-strong">{t("unitTable.changed")}</span> : null}
                 </TableCell>
                 <TableCell>
                   <CommercialStatusBadge status={unit.commercialStatus} />
                 </TableCell>
-                <TableCell className="text-fg-muted">{unit.position ? POSITION_LABELS[unit.position] : "—"}</TableCell>
-                <TableCell className="text-fg-muted">{unit.orientation ? ORIENTATION_LABELS[unit.orientation] : "—"}</TableCell>
+                <TableCell className="text-fg-muted">{unit.position ? t(`position.${unit.position}`) : "—"}</TableCell>
+                <TableCell className="text-fg-muted">{unit.orientation ? t(`orientation.${unit.orientation}`) : "—"}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.saleableArea)}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.rooms)}</TableCell>
@@ -168,17 +171,17 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 <span className="text-table text-fg-muted">{unit.unitType.name}</span>
                 <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
                 {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
-                {unit.isActive ? null : <Badge>Inactive</Badge>}
+                {unit.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
               </span>
               <span className="mt-0.5 block text-meta text-fg-subtle">
                 {showLocation ? `${unit.building.name} · ${unit.floor.name} · ` : ""}
-                {areaText(unit.areas.saleableArea)} saleable
-                {unit.bedrooms !== null ? ` · ${unit.bedrooms} bed` : ""}
+                {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea) })}
+                {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
               </span>
               {/* The table's remaining columns, which the list can still be filtered and sorted by (AUD-04 §5, MW-05). */}
               {unit.orientation || unit.position || unit.areas.internalArea !== null || unit.rooms !== null ? (
                 <span className="block text-meta text-fg-subtle" data-testid="unit-card-more">
-                  {[unit.orientation ? ORIENTATION_LABELS[unit.orientation] : null, unit.position ? POSITION_LABELS[unit.position] : null, unit.areas.internalArea !== null ? `${areaText(unit.areas.internalArea)} internal` : null, unit.rooms !== null ? `${countText(unit.rooms)} rooms` : null]
+                  {[unit.orientation ? t(`orientation.${unit.orientation}`) : null, unit.position ? t(`position.${unit.position}`) : null, unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea) }) : null, unit.rooms !== null ? t("unitTable.roomsSuffix", { count: countText(unit.rooms) }) : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
@@ -190,23 +193,23 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
       </ul>
 
       {pages > 1 ? (
-        <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label={t("unitTable.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
             <span className="tabular-nums">
               {first}–{last}
             </span>{" "}
-            of <span className="tabular-nums">{list.total}</span>
+            {t("unitTable.of")} <span className="tabular-nums">{list.total}</span>
           </p>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" disabled={list.page <= 1 || loading} onClick={() => onPage(list.page - 1)}>
               <ChevronLeft aria-hidden="true" />
-              Previous
+              {t("unitTable.previous")}
             </Button>
             <span className="text-table tabular-nums text-fg-subtle">
-              Page {range.page} of {pages}
+              {t("unitTable.page", { page: range.page, pages })}
             </span>
             <Button variant="secondary" size="sm" disabled={list.page >= pages || loading} onClick={() => onPage(list.page + 1)}>
-              Next
+              {t("unitTable.next")}
               <ChevronRight aria-hidden="true" />
             </Button>
           </div>
@@ -215,14 +218,14 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
         <p className="mt-3 text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
           {list.total === 0 ? (
             <>
-              <span className="tabular-nums">0</span> results
+              <span className="tabular-nums">0</span> {t("unitTable.results")}
             </>
           ) : (
             <>
               <span className="tabular-nums">
                 {first}–{last}
               </span>{" "}
-              of <span className="tabular-nums">{list.total}</span>
+              {t("unitTable.of")} <span className="tabular-nums">{list.total}</span>
             </>
           )}
         </p>

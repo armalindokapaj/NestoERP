@@ -8,9 +8,13 @@ import { createInvoiceAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
 import { isAutoNumbered } from "@/lib/core/numbering/numbering.service";
 import { companyToday, resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
+import { getTranslations } from "@/lib/i18n/server";
 import { invoiceFormOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 
-export const metadata: Metadata = { title: "New invoice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.newInvoice") };
+}
 
 export default async function NewInvoicePage({
   searchParams,
@@ -28,6 +32,7 @@ export default async function NewInvoicePage({
     companyToday(context.companyId),
   ]);
   const params = await searchParams;
+  const t = await getTranslations("finance");
 
   async function action(formData: FormData) {
     "use server";
@@ -38,12 +43,12 @@ export default async function NewInvoicePage({
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Finance", href: "/finance" },
-          { label: "Invoices", href: "/finance/invoices" },
-          { label: "New invoice" },
+          { label: t("crumbs.finance"), href: "/finance" },
+          { label: t("crumbs.invoices"), href: "/finance/invoices" },
+          { label: t("overview.newInvoice") },
         ]}
-        title="New invoice"
-        subtitle="Saved as a draft. It goes out only once it has been approved and marked sent."
+        title={t("overview.newInvoice")}
+        subtitle={t("invoices.newSubtitle")}
       />
 
       <InvoiceForm
@@ -74,8 +79,8 @@ export default async function NewInvoicePage({
         defaultCurrency={settings.baseCurrency}
         today={today}
         cancelHref="/finance/invoices"
-        submitLabel="Create invoice"
-        pendingLabel="Creating…"
+        submitLabel={t("invoices.create")}
+        pendingLabel={t("revise.creating")}
       />
     </div>
   );

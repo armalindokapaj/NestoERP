@@ -25,7 +25,10 @@ export async function getModuleDictionaries<N extends ModuleNamespace>(
   namespaces: readonly N[],
 ): Promise<Pick<ModuleMessages, N>> {
   const all = moduleMessages[await getLocale()];
-  return Object.fromEntries(namespaces.map((ns) => [ns, all[ns]])) as Pick<ModuleMessages, N>;
+  // `common` holds the module components every module shares (status badges,
+  // record panels), so every boundary carries it.
+  const names = [...new Set<ModuleNamespace>(["common", ...namespaces])];
+  return Object.fromEntries(names.map((ns) => [ns, all[ns]])) as Pick<ModuleMessages, N>;
 }
 
 /** The public site's copy in the reader's language (see lib/i18n/site/en.ts). */

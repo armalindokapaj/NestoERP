@@ -9,6 +9,7 @@ import { announcementApi, failureMessage } from "@/components/announcements/anno
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { publishMyWorkChange, subscribeMyWork } from "@/lib/productivity/client";
 import { cn } from "@/lib/utils/cn";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 
 /**
  * ☆ Favorite / ★ Favorited on a record header (PRD #45 §75-§77). One click, no
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils/cn";
  */
 export function FavoriteButton({ entityType, entityId, initial, compact = false }: { entityType: NavigableType; entityId: string; initial: boolean; compact?: boolean }) {
   const toast = useToast();
+  const t = useCommonTranslations();
   const [favorite, setFavorite] = React.useState(initial);
   const [pending, setPending] = React.useState(false);
 
@@ -35,15 +37,15 @@ export function FavoriteButton({ entityType, entityId, initial, compact = false 
       publishMyWorkChange({ kind: "favorite", entityType, entityId, favorite: next });
     } catch (error) {
       setFavorite(!next);
-      toast({ title: failureMessage(error, "Could not update Favorite."), tone: "danger" });
+      toast({ title: failureMessage(error, t("favorite.updateFailed")), tone: "danger" });
     } finally {
       setPending(false);
     }
   }
 
-  const label = favorite ? "Favorited" : "Favorite";
+  const label = favorite ? t("favorite.favorited") : t("favorite.favorite");
   return (
-    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={favorite ? "Remove from favorites" : "Add to favorites"} title={favorite ? "Remove from favorites" : "Add to favorites"} data-testid="favorite-button">
+    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={favorite ? t("favorite.remove") : t("favorite.add")} title={favorite ? t("favorite.remove") : t("favorite.add")} data-testid="favorite-button">
       <Star aria-hidden="true" className={cn("transition-colors", favorite ? "fill-warning text-warning" : "text-fg-subtle")} />
       {compact ? null : <span>{label}</span>}
     </Button>

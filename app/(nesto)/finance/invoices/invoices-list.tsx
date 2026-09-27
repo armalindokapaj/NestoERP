@@ -18,7 +18,7 @@ import { companyFilterOptions, financeContexts, financeExportEligibility } from 
 import { invoiceCurrenciesAcross, invoiceFilterOptions } from "@/lib/modules/finance/invoices/invoice.repository";
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
 import type { InvoiceListQuery } from "@/lib/modules/finance/invoices/invoice.schema";
-import { invoiceStatusLabels, settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { firstValue } from "@/lib/modules/shared/list-query";
 import { INVOICE_SORT_KEYS } from "@/lib/modules/finance/invoices/invoice.schema";
 
@@ -51,6 +51,7 @@ export async function InvoicesList({
   archived?: boolean;
   basePath: string;
 }) {
+  const t = await getTranslations("finance");
   const group = inGroupWorkspace(context);
   const company = group ? firstValue(searchParams.company) : undefined;
   const readable = group ? await financeContexts(context, "finance.invoice.view") : [];
@@ -88,28 +89,28 @@ export async function InvoicesList({
 
   const statusOptions = (["DRAFT", "PENDING_APPROVAL", "APPROVED", "SENT", "REJECTED", "CANCELLED"] as const).map((value) => ({
     value,
-    label: invoiceStatusLabels[value],
+    label: t(`recordStatus.${value}`),
   }));
   const settlementOptions = (["UNPAID", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const).map((value) => ({
     value,
-    label: settlementLabels[value],
+    label: t(`settlement.${value}`),
   }));
 
   const filters: FilterConfig[] = [
-    ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
-    ...(archived ? [] : [{ param: "status", label: "Status", options: combinedOption(statusOptions, query.status) }]),
-    { param: "settlement", label: "Settlement", options: combinedOption(settlementOptions, query.settlement) },
+    ...(group ? [{ param: "company", label: t("group.company"), options: companyFilterOptions(readable) }] : []),
+    ...(archived ? [] : [{ param: "status", label: t("columns.status"), options: combinedOption(statusOptions, query.status) }]),
+    { param: "settlement", label: t("columns.settlement"), options: combinedOption(settlementOptions, query.settlement) },
     ...(group
       ? []
       : [
           {
             param: "clientId",
-            label: "Client",
+            label: t("invoiceForm.client"),
             options: options.clients.map((client) => ({ value: client.id, label: client.name })),
           },
           {
             param: "projectId",
-            label: "Project",
+            label: t("form.project"),
             options: options.projects.map((project) => ({ value: project.id, label: project.name })),
           },
         ]),
@@ -117,7 +118,7 @@ export async function InvoicesList({
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("form.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -141,15 +142,15 @@ export async function InvoicesList({
     <div className="space-y-4">
       {canonical !== searchString(searchParams) ? <CanonicalUrl href={canonical ? `${basePath}?${canonical}` : basePath} /> : null}
       <ListToolbar
-        searchPlaceholder="Search number, client or project…"
+        searchPlaceholder={t("invoices.search")}
         filters={filters}
         sortOptions={[
-          { value: "issue-desc", label: "Newest first" },
-          { value: "issue-asc", label: "Oldest first" },
-          { value: "due-asc", label: "Due soonest" },
-          { value: "amount-desc", label: "Largest first" },
-          { value: "amount-asc", label: "Smallest first" },
-          { value: "number-asc", label: "Invoice number" },
+          { value: "issue-desc", label: t("sort.newest") },
+          { value: "issue-asc", label: t("sort.oldest") },
+          { value: "due-asc", label: t("sort.dueSoonest") },
+          { value: "amount-desc", label: t("sort.largest") },
+          { value: "amount-asc", label: t("sort.smallest") },
+          { value: "number-asc", label: t("sort.invoiceNumber") },
         ]}
       />
 
@@ -165,22 +166,22 @@ export async function InvoicesList({
           hasFilters ? (
             <EmptyState
               icon={<ReceiptText />}
-              title="No invoices match these filters."
-              description="Adjust or clear the filters to see more."
-              action={{ label: "Clear filters", href: registerHref(basePath, archived) }}
+              title={t("invoices.noMatch")}
+              description={t("list.noMatchBody")}
+              action={{ label: t("list.clearFilters"), href: registerHref(basePath, archived) }}
             />
           ) : (
             <EmptyState
               icon={<ReceiptText />}
-              title={archived ? "No archived invoices." : "No invoices yet."}
+              title={archived ? t("invoices.noArchived") : t("invoices.none")}
               description={
                 archived
-                  ? "Invoices removed from active lists will appear here."
-                  : "Invoices you can see will appear here."
+                  ? t("invoices.noArchivedBody")
+                  : t("invoices.noneBody")
               }
               action={
                 !archived && !group && can(context, "finance.invoice.create")
-                  ? { label: "New invoice", href: "/finance/invoices/new" }
+                  ? { label: t("overview.newInvoice"), href: "/finance/invoices/new" }
                   : undefined
               }
             />

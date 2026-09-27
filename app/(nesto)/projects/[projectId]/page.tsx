@@ -25,6 +25,7 @@ import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { formatDate, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadProject, projectBreadcrumbs } from "./project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
@@ -35,12 +36,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { project } = await loadProject(projectId);
     return { title: project.name };
   } catch {
-    return { title: "Project" };
+    return { title: (await getTranslations("projects"))("meta.project") };
   }
 }
 
 const workIcons = { tasks: CheckCircle2, approvals: ClipboardCheck, meetings: CalendarDays, documents: FileWarning };
-const upcomingLabels: Record<ProjectUpcomingItem["kind"], string> = { meeting: "Meeting", milestone: "Milestone", deadline: "Project deadline" };
 
 function projectProgress(planning: Awaited<ReturnType<typeof projectPlanningSummary>>): number | null {
   if (!planning) return null;
@@ -72,6 +72,7 @@ function ExperienceTile({ href, title, detail, icon, large = false, newTab = fal
 export default async function ProjectOverviewPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
 
@@ -117,19 +118,16 @@ export default async function ProjectOverviewPage({ params }: Params) {
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Breadcrumbs items={projectBreadcrumbs(project)} className="min-w-0 flex-1" />
+        <Breadcrumbs items={await projectBreadcrumbs(project)} className="min-w-0 flex-1" />
         <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} companyName={project.company.name} statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
       </div>
 
-      {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />This project is archived and read-only.</p> : null}
+      {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
 
       {/* How a project's records hang together is the relationship question of first use (AUD-05 §7, UX-13, UX-15). */}
-      <WhatIsThis id="projects.detail.relationships" title="How this project's records connect">
-        <p>
-          Everything recorded for this project — its tasks, documents, finance, contracts, site records and team — belongs to {project.company.name} and
-          opens from the tabs of this project. You see only the tabs your role allows.
-        </p>
-        <p>The same records also appear in their own modules, filtered to the projects you can open, and each names the project it belongs to.</p>
+      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")}>
+        <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
+        <p>{t("overview.relationshipsBody2")}</p>
       </WhatIsThis>
 
       <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm lg:flex" aria-labelledby="project-title" data-section="primary">
@@ -139,7 +137,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
           </Suspense>
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" aria-hidden="true" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65"><span>{project.code}</span><span aria-hidden="true">·</span><span>{project.status}</span></div>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65"><span>{project.code}</span><span aria-hidden="true">·</span><span>{t(`status.${project.status}`)}</span></div>
             <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">{project.name}</h1>
             <p className="mt-2 text-sm font-medium text-white/70">{project.company.name}</p>
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{project.projectType.name}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
@@ -163,14 +161,14 @@ export default async function ProjectOverviewPage({ params }: Params) {
 
       <section className="nesto-card p-5 sm:p-6" aria-labelledby="summary-title">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,2fr)]">
-          <div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">Project</p><h2 id="summary-title" className="mt-1 text-section font-semibold text-fg">Project summary</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">No project description.</p>}</div>
+          <div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("overview.project")}</p><h2 id="summary-title" className="mt-1 text-section font-semibold text-fg">{t("overview.summary")}</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">{t("overview.noDescription")}</p>}</div>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
-            <Summary label="Project manager" value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">Inactive</Badge> : null}</span> : "Unassigned"} />
-            <Summary label="Expected completion" value={project.schedule.endDate ? formatDate(project.schedule.endDate) : "Not set"} />
-            <Summary label="Location" value={orDash([project.location.city, project.location.country].filter(Boolean).join(", "))} />
-            <Summary label="Project type" value={project.projectType?.name ?? "Not set"} />
-            <Summary label="Total area" value={project.builtArea === null ? "Not set" : `${project.builtArea.toLocaleString("en-US")} m²`} />
-            <Summary label="Progress" value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
+            <Summary label={t("overview.projectManager")} value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}</span> : t("overview.unassigned")} />
+            <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate) : t("overview.notSet")} />
+            <Summary label={t("overview.location")} value={orDash([project.location.city, project.location.country].filter(Boolean).join(", "))} />
+            <Summary label={t("overview.projectType")} value={project.projectType?.name ?? t("overview.notSet")} />
+            <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${project.builtArea.toLocaleString("en-US")} m²`} />
+            <Summary label={t("overview.progress")} value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
             {sourceOpportunity ? (
               <Suspense fallback={null}>
                 <SourceOpportunity opportunity={sourceOpportunity} />
@@ -182,23 +180,23 @@ export default async function ProjectOverviewPage({ params }: Params) {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <SectionBoundary className="nesto-card">
-          <Suspense fallback={<ListSectionSkeleton title="My project work" rows={4} />}>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.myWork")} rows={4} />}>
             <MyWork myWork={myWork} />
           </Suspense>
         </SectionBoundary>
         <SectionBoundary className="nesto-card">
-          <Suspense fallback={<ListSectionSkeleton title="Upcoming" rows={4} />}>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.upcoming")} rows={4} />}>
             <Upcoming upcoming={upcoming} />
           </Suspense>
         </SectionBoundary>
         {activity ? (
           <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title="Recent activity" rows={4} />}>
+            <Suspense fallback={<ListSectionSkeleton title={t("overview.recentActivity")} rows={4} />}>
               <RecentActivity projectId={project.id} activity={activity} />
             </Suspense>
           </SectionBoundary>
         ) : (
-          <section className="nesto-card p-5"><h2 className="text-card font-semibold text-fg">Recent activity</h2><p className="mt-4 text-table text-fg-subtle">No recent project activity.</p></section>
+          <section className="nesto-card p-5"><h2 className="text-card font-semibold text-fg">{t("overview.recentActivity")}</h2><p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p></section>
         )}
       </div>
 
@@ -221,28 +219,33 @@ type Media = ReturnType<typeof listProjectMedia>;
 
 async function HeroCover({ project, media }: { project: Project; media: Media }) {
   const value = await media.catch(() => null);
+  const t = await getTranslations("projects");
   const coverUrl = value?.cover?.thumbnailUrl ?? (value?.capabilities.canView && project.coverImageDocumentId ? `/api/projects/${project.id}/cover` : null);
-  return coverUrl ? <img src={coverUrl} alt={`${project.name} cover render`} className="absolute inset-0 h-full w-full object-cover" fetchPriority="high" sizes="(min-width: 1024px) 50vw, 100vw" /> : null;
+  return coverUrl ? <img src={coverUrl} alt={t("overview.coverAlt", { name: project.name })} className="absolute inset-0 h-full w-full object-cover" fetchPriority="high" sizes="(min-width: 1024px) 50vw, 100vw" /> : null;
 }
 
 async function ProgressText({ progress }: { progress: Promise<number | null> }) {
   const value = await progress;
-  return value !== null ? <span>{value}% complete</span> : null;
+  const t = await getTranslations("projects");
+  return value !== null ? <span>{t("overview.percentComplete", { value })}</span> : null;
 }
 
 async function ProgressBar({ progress }: { progress: Promise<number | null> }) {
   const value = await progress;
-  return value !== null ? <div className="h-1.5 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-label="Project progress" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-white" style={{ width: `${value}%` }} /></div> : null;
+  const t = await getTranslations("projects");
+  return value !== null ? <div className="h-1.5 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-label={t("overview.progressLabel")} aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-white" style={{ width: `${value}%` }} /></div> : null;
 }
 
 async function ProgressValue({ progress }: { progress: Promise<number | null> }) {
   const value = await progress;
-  return <>{value === null ? "Not set" : `${value}%`}</>;
+  const t = await getTranslations("projects");
+  return <>{value === null ? t("overview.notSet") : `${value}%`}</>;
 }
 
 async function SourceOpportunity({ opportunity }: { opportunity: Promise<{ id: string; name: string } | null> }) {
   const value = await opportunity.catch(() => null);
-  return value ? <Summary label="From opportunity" value={<Link href={`/sales/opportunities/${value.id}`} className="text-fg transition-colors hover:text-accent">{value.name}</Link>} /> : null;
+  const t = await getTranslations("projects");
+  return value ? <Summary label={t("overview.fromOpportunity")} value={<Link href={`/sales/opportunities/${value.id}`} className="text-fg transition-colors hover:text-accent">{value.name}</Link>} /> : null;
 }
 
 /** 3D and media in the hero's reserved column; the column closes when there is nothing to offer. */
@@ -251,38 +254,43 @@ async function Experiences({ projectId, threeD, media }: { projectId: string; th
   const renders = library?.counts.renders ?? 0;
   const animations = library?.counts.animations ?? 0;
   if (!viewer && !renders && !animations) return null;
+  const t = await getTranslations("projects");
   return (
     <div className="grid sm:grid-cols-2 lg:w-1/2">
-      {viewer?.viewerUrl ? <ExperienceTile href={viewer.viewerUrl} title="View in 3D" detail="Published Project Explorer" icon={<Box className="size-5" />} large newTab /> : null}
-      {renders ? <ExperienceTile href={`/projects/${projectId}/media?type=renders`} title="View renders" detail={`${renders} ${renders === 1 ? "render" : "renders"}`} icon={<ImageIcon className="size-5" />} large={!viewer && !animations} /> : null}
-      {animations ? <ExperienceTile href={`/projects/${projectId}/media?type=animations`} title="View animations" detail={`${animations} ${animations === 1 ? "animation" : "animations"}`} icon={<Film className="size-5" />} large={!viewer && !renders} /> : null}
+      {viewer?.viewerUrl ? <ExperienceTile href={viewer.viewerUrl} title={t("overview.viewIn3d")} detail={t("overview.publishedExplorer")} icon={<Box className="size-5" />} large newTab /> : null}
+      {renders ? <ExperienceTile href={`/projects/${projectId}/media?type=renders`} title={t("overview.viewRenders")} detail={t("overview.renders", { count: renders })} icon={<ImageIcon className="size-5" />} large={!viewer && !animations} /> : null}
+      {animations ? <ExperienceTile href={`/projects/${projectId}/media?type=animations`} title={t("overview.viewAnimations")} detail={t("overview.animations", { count: animations })} icon={<Film className="size-5" />} large={!viewer && !renders} /> : null}
     </div>
   );
 }
 
 async function MyWork({ myWork }: { myWork: Promise<ProjectWorkItem[]> }) {
   const items = await myWork;
-  return <section className="nesto-card p-5" aria-labelledby="my-work-title"><h2 id="my-work-title" className="text-card font-semibold text-fg">My project work</h2>{items.length ? <ul className="mt-4 space-y-2">{items.map((item) => { const Icon = workIcons[item.key]; return <li key={item.key}><Link href={item.href} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-hover"><span className="grid size-9 place-items-center rounded-lg bg-surface-muted text-fg-muted"><Icon className="size-4" /></span><span className="min-w-0 flex-1 text-table text-fg">{item.label}</span><span className="text-card font-semibold tabular-nums text-fg" title={item.partial ? "Some approvals could not be loaded" : undefined}>{item.partial ? (item.count ? `${item.count}+` : "—") : item.count}</span></Link></li>; })}</ul> : <p className="mt-4 text-table text-fg-subtle">Nothing needs your attention here.</p>}</section>;
+  const t = await getTranslations("projects");
+  return <section className="nesto-card p-5" aria-labelledby="my-work-title"><h2 id="my-work-title" className="text-card font-semibold text-fg">{t("overview.myWork")}</h2>{items.length ? <ul className="mt-4 space-y-2">{items.map((item) => { const Icon = workIcons[item.key]; return <li key={item.key}><Link href={item.href} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-hover"><span className="grid size-9 place-items-center rounded-lg bg-surface-muted text-fg-muted"><Icon className="size-4" /></span><span className="min-w-0 flex-1 text-table text-fg">{t(`overview.workKind.${item.key}`)}</span><span className="text-card font-semibold tabular-nums text-fg" title={item.partial ? t("overview.approvalsPartial") : undefined}>{item.partial ? (item.count ? `${item.count}+` : "—") : item.count}</span></Link></li>; })}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.nothingNeedsYou")}</p>}</section>;
 }
 
 async function Upcoming({ upcoming }: { upcoming: Promise<ProjectUpcomingItem[]> }) {
   const items = await upcoming;
-  return <section className="nesto-card p-5" aria-labelledby="upcoming-title"><h2 id="upcoming-title" className="text-card font-semibold text-fg">Upcoming</h2>{items.length ? <ul className="mt-4 divide-y divide-line">{items.map((item) => <li key={item.id}><Link href={item.href} className="flex gap-3 py-3 first:pt-0 hover:text-accent-strong"><Clock3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /><span className="min-w-0"><span className="block truncate text-table font-medium text-fg">{item.title}</span><span className="mt-0.5 block text-meta text-fg-subtle">{upcomingLabels[item.kind]} · {formatDate(item.at)}</span></span></Link></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">No upcoming project dates.</p>}</section>;
+  const t = await getTranslations("projects");
+  return <section className="nesto-card p-5" aria-labelledby="upcoming-title"><h2 id="upcoming-title" className="text-card font-semibold text-fg">{t("overview.upcoming")}</h2>{items.length ? <ul className="mt-4 divide-y divide-line">{items.map((item) => <li key={item.id}><Link href={item.href} className="flex gap-3 py-3 first:pt-0 hover:text-accent-strong"><Clock3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /><span className="min-w-0"><span className="block truncate text-table font-medium text-fg">{item.title}</span><span className="mt-0.5 block text-meta text-fg-subtle">{t(`overview.upcomingKind.${item.kind}`)} · {formatDate(item.at)}</span></span></Link></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noUpcoming")}</p>}</section>;
 }
 
 async function RecentActivity({ projectId, activity }: { projectId: string; activity: Promise<{ data: ProjectActivityDTO[] }> }) {
   const entries = (await activity).data;
-  return <section className="nesto-card p-5" aria-labelledby="activity-title"><div className="flex items-center justify-between gap-3"><h2 id="activity-title" className="text-card font-semibold text-fg">Recent activity</h2>{entries.length ? <Link href={`/projects/${projectId}/activity`} className="text-meta font-medium text-accent-strong">View all</Link> : null}</div>{entries.length ? <ul className="mt-4 space-y-4">{entries.map((entry) => <li key={entry.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" /><p className="min-w-0 text-table text-fg"><span className="font-medium">{entry.actor ?? "NESTO"}</span> {entry.message}<span className="mt-0.5 block text-meta text-fg-subtle">{formatDate(entry.createdAt)}</span></p></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">No recent project activity.</p>}</section>;
+  const t = await getTranslations("projects");
+  return <section className="nesto-card p-5" aria-labelledby="activity-title"><div className="flex items-center justify-between gap-3"><h2 id="activity-title" className="text-card font-semibold text-fg">{t("overview.recentActivity")}</h2>{entries.length ? <Link href={`/projects/${projectId}/activity`} className="text-meta font-medium text-accent-strong">{t("overview.viewAll")}</Link> : null}</div>{entries.length ? <ul className="mt-4 space-y-4">{entries.map((entry) => <li key={entry.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" /><p className="min-w-0 text-table text-fg"><span className="font-medium">{entry.actor ?? "NESTO"}</span> {entry.message}<span className="mt-0.5 block text-meta text-fg-subtle">{formatDate(entry.createdAt)}</span></p></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p>}</section>;
 }
 
 async function MediaLibrary({ projectId, media }: { projectId: string; media: Media }) {
   const library = await media;
   if (!library.renders.length && !library.animations.length) return null;
+  const t = await getTranslations("projects");
   return (
     <section className="space-y-4" aria-labelledby="media-title">
-      <div className="flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">Visual library</p><h2 id="media-title" className="mt-1 text-section font-semibold text-fg">Project media</h2></div><Link href={`/projects/${projectId}/media`} className="text-table font-medium text-accent-strong hover:underline">View all media</Link></div>
-      {library.renders.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{library.renders.slice(0, 4).map((item, index) => <Link key={item.id} href={`/projects/${projectId}/media?type=renders`} className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-accent">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : null}{index === 3 && library.renders.length > 4 ? <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-semibold text-white">+{library.renders.length - 4}</span> : null}<span className="sr-only">Open {item.title}</span></Link>)}</div> : null}
-      {library.animations.length ? <div className="grid gap-3 sm:grid-cols-2">{library.animations.slice(0, 2).map((item) => <Link key={item.id} href={`/projects/${projectId}/media?type=animations`} className="group flex items-center gap-4 overflow-hidden rounded-xl border border-line bg-surface p-3 outline-none hover:border-line-strong focus-visible:ring-2 focus-visible:ring-accent"><span className="relative grid aspect-video w-32 shrink-0 place-items-center overflow-hidden rounded-lg bg-neutral-900">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}<span className="relative grid size-9 place-items-center rounded-full bg-black/60 text-white"><Play className="ml-0.5 size-4 fill-current" /></span></span><span className="min-w-0"><span className="block truncate font-medium text-fg">{item.title}</span><span className="mt-1 block text-meta text-fg-muted">Animation{item.durationSeconds ? ` · ${Math.floor(item.durationSeconds / 60)}:${String(item.durationSeconds % 60).padStart(2, "0")}` : ""}</span></span></Link>)}</div> : null}
+      <div className="flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("overview.visualLibrary")}</p><h2 id="media-title" className="mt-1 text-section font-semibold text-fg">{t("overview.projectMedia")}</h2></div><Link href={`/projects/${projectId}/media`} className="text-table font-medium text-accent-strong hover:underline">{t("overview.viewAllMedia")}</Link></div>
+      {library.renders.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{library.renders.slice(0, 4).map((item, index) => <Link key={item.id} href={`/projects/${projectId}/media?type=renders`} className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-accent">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : null}{index === 3 && library.renders.length > 4 ? <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-semibold text-white">+{library.renders.length - 4}</span> : null}<span className="sr-only">{t("overview.open", { title: item.title })}</span></Link>)}</div> : null}
+      {library.animations.length ? <div className="grid gap-3 sm:grid-cols-2">{library.animations.slice(0, 2).map((item) => <Link key={item.id} href={`/projects/${projectId}/media?type=animations`} className="group flex items-center gap-4 overflow-hidden rounded-xl border border-line bg-surface p-3 outline-none hover:border-line-strong focus-visible:ring-2 focus-visible:ring-accent"><span className="relative grid aspect-video w-32 shrink-0 place-items-center overflow-hidden rounded-lg bg-neutral-900">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}<span className="relative grid size-9 place-items-center rounded-full bg-black/60 text-white"><Play className="ml-0.5 size-4 fill-current" /></span></span><span className="min-w-0"><span className="block truncate font-medium text-fg">{item.title}</span><span className="mt-1 block text-meta text-fg-muted">{t("overview.animation")}{item.durationSeconds ? ` · ${Math.floor(item.durationSeconds / 60)}:${String(item.durationSeconds % 60).padStart(2, "0")}` : ""}</span></span></Link>)}</div> : null}
     </section>
   );
 }

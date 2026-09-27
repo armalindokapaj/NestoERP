@@ -7,11 +7,15 @@ import { updateInvoiceAction } from "@/lib/actions/finance";
 import { isAutoNumbered } from "@/lib/core/numbering/numbering.service";
 import { companyToday, resolveFinanceSettings } from "@/lib/modules/finance/finance.settings";
 import { invoiceFormOptions } from "@/lib/modules/finance/invoices/invoice.repository";
+import { getTranslations } from "@/lib/i18n/server";
 import { invoiceBreadcrumbs, loadInvoice } from "../invoice-context";
 
 type Params = { params: Promise<{ invoiceId: string }> };
 
-export const metadata: Metadata = { title: "Edit invoice" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.editInvoice") };
+}
 
 /**
  * Editing is only ever a draft or a rejected invoice (PRD #15 §59, §60).
@@ -24,6 +28,7 @@ export default async function EditInvoicePage({ params }: Params) {
   const { context, invoice } = await loadInvoice(invoiceId);
 
   if (!invoice.capabilities.canEdit) redirect(`/finance/invoices/${invoiceId}`);
+  const t = await getTranslations("finance");
 
   const [options, settings, autoNumbered, today] = await Promise.all([
     invoiceFormOptions(context),
@@ -40,8 +45,8 @@ export default async function EditInvoicePage({ params }: Params) {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={invoiceBreadcrumbs(invoice, "Edit")}
-        title={`Edit ${invoice.invoiceNumber}`}
+        breadcrumbs={await invoiceBreadcrumbs(invoice, t("crumbs.edit"))}
+        title={t("edit.title", { label: invoice.invoiceNumber })}
         subtitle={invoice.client.name}
         status={invoice.status}
       />
@@ -76,8 +81,8 @@ export default async function EditInvoicePage({ params }: Params) {
         today={today}
         versionUpdatedAt={invoice.updatedAt}
         cancelHref={`/finance/invoices/${invoice.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("edit.save")}
+        pendingLabel={t("settings.saving")}
       />
     </div>
   );

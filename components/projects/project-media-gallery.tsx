@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ChevronLeft, ChevronRight, Film, Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ function durationLabel(seconds: number | null): string | null {
 
 export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[]; type: "renders" | "animations" }) {
   const [selected, setSelected] = React.useState<number | null>(null);
+  const t = useTranslations("projects");
   const current = selected === null ? null : items[selected];
 
   const move = React.useCallback((step: number) => {
@@ -35,11 +37,11 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
 
   return (
     <>
-      <ul className={type === "renders" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid gap-4 lg:grid-cols-2"} aria-label={type === "renders" ? "Project renders" : "Project animations"}>
+      <ul className={type === "renders" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid gap-4 lg:grid-cols-2"} aria-label={type === "renders" ? t("gallery.rendersLabel") : t("gallery.animationsLabel")}>
         {items.map((item, index) => (
           <li key={item.id} className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
             {type === "renders" ? (
-              <button type="button" className="group block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setSelected(index)} aria-label={`Open render ${item.title}`}>
+              <button type="button" className="group block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setSelected(index)} aria-label={t("gallery.openRender", { title: item.title })}>
                 <div className="aspect-[4/3] overflow-hidden bg-surface-muted">
                   {item.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- authenticated media route cannot be fetched by the image optimizer.
@@ -56,7 +58,7 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
                 <div className="relative aspect-video bg-neutral-950">
                   <video className="h-full w-full object-contain" controls preload="metadata" poster={item.thumbnailUrl ?? undefined} aria-label={item.title}>
                     <source src={item.contentUrl} type={item.document.mimeType ?? undefined} />
-                    Your browser cannot play this video.
+                    {t("gallery.noVideo")}
                   </video>
                   {!item.thumbnailUrl ? <Film aria-hidden="true" className="pointer-events-none absolute left-4 top-4 size-5 text-white/40" /> : null}
                 </div>
@@ -75,16 +77,16 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
 
       <Dialog open={current !== null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent className="max-w-6xl p-4 sm:p-6">
-          <DialogTitle>{current?.title ?? "Project render"}</DialogTitle>
-          <DialogDescription>{current?.description ?? `${selected === null ? 0 : selected + 1} of ${items.length}`}</DialogDescription>
+          <DialogTitle>{current?.title ?? t("gallery.render")}</DialogTitle>
+          <DialogDescription>{current?.description ?? t("gallery.position", { index: selected === null ? 0 : selected + 1, total: items.length })}</DialogDescription>
           {current ? (
             <div className="relative mt-4 flex max-h-[min(75dvh,calc(100dvh-12rem))] min-h-40 sm:min-h-64 items-center justify-center overflow-hidden rounded-xl bg-neutral-950">
               {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, authorized content route. */}
               <img src={current.contentUrl} alt={current.title} className="max-h-[min(75dvh,calc(100dvh-12rem))] max-w-full object-contain" />
               {items.length > 1 ? (
                 <>
-                  <Button type="button" size="icon" variant="secondary" className="absolute left-3" onClick={() => move(-1)} aria-label="Previous render"><ChevronLeft /></Button>
-                  <Button type="button" size="icon" variant="secondary" className="absolute right-3" onClick={() => move(1)} aria-label="Next render"><ChevronRight /></Button>
+                  <Button type="button" size="icon" variant="secondary" className="absolute left-3" onClick={() => move(-1)} aria-label={t("gallery.previous")}><ChevronLeft /></Button>
+                  <Button type="button" size="icon" variant="secondary" className="absolute right-3" onClick={() => move(1)} aria-label={t("gallery.next")}><ChevronRight /></Button>
                 </>
               ) : null}
             </div>
@@ -92,10 +94,10 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
           <DialogFooter className="justify-between">
             {/* The image leaves room for the title and footer, so Close stays on screen in landscape (AUD-04 §6, MW-10); the key hint is for keyboards only. */}
             <span className="mr-auto text-meta text-fg-subtle">
-              {selected === null ? "" : `${selected + 1} of ${items.length}`}
-              <span className="[@media(pointer:coarse)]:hidden"> · Use arrow keys to navigate</span>
+              {selected === null ? "" : t("gallery.position", { index: selected + 1, total: items.length })}
+              <span className="[@media(pointer:coarse)]:hidden">{t("gallery.arrows")}</span>
             </span>
-            <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
+            <Button variant="secondary" onClick={() => setSelected(null)}>{t("gallery.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

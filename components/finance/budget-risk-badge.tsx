@@ -1,5 +1,6 @@
+import { FinanceText } from "@/components/finance/finance-text";
 import { Badge } from "@/components/ui/badge";
-import { budgetRiskLabels, type BudgetRisk } from "@/lib/modules/finance/budgets/budget.status";
+import type { BudgetRisk } from "@/lib/modules/finance/budgets/budget.status";
 
 /**
  * Budget risk (PRD #15 §123).
@@ -22,11 +23,11 @@ export function BudgetRiskBadge({
   risk: BudgetRisk | null;
   utilizationPercent: string | null;
 }) {
-  if (!risk) return <span className="text-fg-subtle">No approved budget</span>;
+  if (!risk) return <span className="text-fg-subtle"><FinanceText k="noApprovedBudget" /></span>;
 
   return (
     <span className="inline-flex items-center gap-2">
-      <Badge tone={TONES[risk]}>{budgetRiskLabels[risk]}</Badge>
+      <Badge tone={TONES[risk]}><FinanceText k={`risk.${risk}`} /></Badge>
       {utilizationPercent ? (
         <span className="tabular-nums text-meta text-fg-muted">{utilizationPercent}%</span>
       ) : null}

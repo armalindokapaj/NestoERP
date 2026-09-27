@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { CalendarDays } from "lucide-react";
@@ -16,7 +17,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project calendar" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabPages.calendarTitle") };
+}
 
 /**
  * A project's schedule (PRD #39 §103, §159): the calendar service with a project
@@ -27,6 +30,7 @@ export const metadata: Metadata = { title: "Project calendar" };
 export default async function ProjectCalendarPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewCalendar) redirect("/access-denied");
 
@@ -39,7 +43,7 @@ export default async function ProjectCalendarPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Calendar")}
+        breadcrumbs={await projectBreadcrumbs(project, "Calendar")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -47,7 +51,7 @@ export default async function ProjectCalendarPage({ params }: Params) {
           <Button asChild size="sm" variant="secondary">
             <Link href="/calendar?view=month">
               <CalendarDays aria-hidden="true" />
-              Open calendar
+              {t("tabPages.openCalendar")}
             </Link>
           </Button>
         }

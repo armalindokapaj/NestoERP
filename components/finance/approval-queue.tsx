@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Money } from "@/components/finance/money";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { StatusBadge } from "@/components/modules/status-badge";
@@ -40,16 +41,25 @@ const ROUTES: Record<FinanceApprovalDTO["recordType"], string> = {
   COMMITMENT: "/finance/commitments",
 };
 
-const TYPE_LABELS: Record<FinanceApprovalDTO["recordType"], string> = {
-  INVOICE: "Invoice",
-  EXPENSE: "Expense",
-  BUDGET: "Budget",
-  COMMITMENT: "Commitment",
-};
+const TYPE_KEYS = {
+  INVOICE: "kind.invoice",
+  EXPENSE: "kind.expense",
+  BUDGET: "kind.budget",
+  COMMITMENT: "kind.commitment",
+} as const;
+
+/** The record as the subject of a sentence ("Invoice approved."). */
+const SUBJECT_KEYS = {
+  INVOICE: "kindSubject.invoice",
+  EXPENSE: "kindSubject.expense",
+  BUDGET: "kindSubject.budget",
+  COMMITMENT: "kindSubject.commitment",
+} as const;
 
 export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useFinanceTranslations();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState<FinanceApprovalDTO | null>(null);
   const [busy, startTransition] = React.useTransition();
@@ -60,7 +70,7 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
       const result = await decide(approval, "approve");
       setPendingId(null);
       if (result.ok) {
-        toast({ title: `${TYPE_LABELS[approval.recordType]} approved.`, tone: "success" });
+        toast({ title: t("actions.approved", { kind: t(SUBJECT_KEYS[approval.recordType]) }), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -81,7 +91,7 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="neutral">{TYPE_LABELS[approval.recordType]}</Badge>
+                  <Badge tone="neutral">{t(TYPE_KEYS[approval.recordType])}</Badge>
                   <Link
                     href={`${ROUTES[approval.recordType]}/${approval.recordId}`}
                     className="truncate text-table font-medium text-fg hover:text-accent"
@@ -92,18 +102,18 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                 </div>
 
                 <p className="mt-1 text-meta text-fg-subtle">
-                  {approval.record.projectName ?? "Company-wide"}
+                  {approval.record.projectName ?? t("companyWide")}
                   {approval.record.counterpartyName
                     ? ` · ${approval.record.counterpartyName}`
                     : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  Submitted by <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> ·{" "}
+                  {t("queue.submittedBy")} <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> ·{" "}
                   {formatDateTime(approval.submittedAt)}
                 </p>
                 {approval.decision ? (
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    Decided by <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} /> ·{" "}
+                    {t("queue.decidedBy")} <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} /> ·{" "}
                     {formatDateTime(approval.decision.decidedAt)}
                     {approval.decision.note ? ` · ${approval.decision.note}` : ""}
                   </p>
@@ -122,7 +132,7 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" onClick={() => approve(approval)} disabled={rowBusy}>
                       <ThumbsUp aria-hidden="true" />
-                      {rowBusy ? "Working…" : "Approve"}
+                      {rowBusy ? t("queue.working") : t("queue.approve")}
                     </Button>
                     <Button
                       variant="secondary"
@@ -131,13 +141,13 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                       disabled={rowBusy}
                     >
                       <ThumbsDown aria-hidden="true" />
-                      Reject
+                      {t("queue.reject")}
                     </Button>
                   </div>
                 ) : approval.status === "PENDING" ? (
                   // Saying why the buttons are absent is more useful than
                   // silently omitting them (PRD #15 §19).
-                  <span className="text-meta text-fg-subtle">Awaiting another approver</span>
+                  <span className="text-meta text-fg-subtle">{t("queue.awaiting")}</span>
                 ) : null}
               </div>
             </li>
@@ -150,12 +160,18 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
         onOpenChange={(open) => {
           if (!open) setRejecting(null);
         }}
-        title={rejecting ? `Reject ${rejecting.record.reference}?` : "Reject"}
+        title={rejecting ? t("queue.rejectTitle", { label: rejecting.record.reference }) : t("queue.reject")}
+        description={t("reject.description")}
+        label={t("reject.label")}
+        placeholder={t("reject.placeholder")}
+        confirmLabel={t("reject.confirm")}
+        pendingLabel={t("reject.pending")}
+        emptyMessage={t("reject.empty")}
         onReject={async (reason) => {
           if (!rejecting) return false;
           const result = await rejectFor(rejecting, reason);
           if (result.ok) {
-            toast({ title: `${TYPE_LABELS[rejecting.recordType]} rejected.` });
+            toast({ title: t("actions.rejected", { kind: t(SUBJECT_KEYS[rejecting.recordType]) }) });
             setRejecting(null);
             router.refresh();
           } else {

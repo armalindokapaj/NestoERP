@@ -14,7 +14,7 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { financeContexts, financeExperience } from "@/lib/modules/finance/finance.workspace";
 import * as reports from "@/lib/modules/finance/reports/reports.service";
 import { cn } from "@/lib/utils/cn";
@@ -26,7 +26,10 @@ import {
   GroupCommitmentReport,
 } from "./group-reports";
 
-export const metadata: Metadata = { title: "Finance reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.reports") };
+}
 
 /**
  * The built-in reports (PRD #15 §147, §148).
@@ -41,11 +44,11 @@ export const metadata: Metadata = { title: "Finance reports" };
  * (Workspace Context §41, §72). See `group-reports.tsx`.
  */
 const REPORTS = [
-  { key: "receivables-aging", label: "Receivables aging", permission: "finance.receivables.view" },
-  { key: "budget-vs-actual", label: "Budget vs actual", permission: "finance.project_budget.view" },
-  { key: "expenses-by-category", label: "Expenses by category", permission: "finance.expense.view" },
-  { key: "cashflow", label: "Cashflow", permission: "finance.cashflow.view" },
-  { key: "commitment-summary", label: "Commitments", permission: "finance.commitment.view" },
+  { key: "receivables-aging", label: "reports.tab.aging", permission: "finance.receivables.view" },
+  { key: "budget-vs-actual", label: "reports.tab.budget", permission: "finance.project_budget.view" },
+  { key: "expenses-by-category", label: "reports.tab.category", permission: "finance.expense.view" },
+  { key: "cashflow", label: "reports.tab.cashflow", permission: "finance.cashflow.view" },
+  { key: "commitment-summary", label: "reports.tab.commitments", permission: "finance.commitment.view" },
 ] as const;
 
 type ReportKey = (typeof REPORTS)[number]["key"];
@@ -60,6 +63,7 @@ export default async function FinanceReportsPage({
 
   if (!group && !can(context, "finance.report.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = await financeExperience(context);
   const { report: requested, period } = await searchParams;
 
@@ -83,8 +87,8 @@ export default async function FinanceReportsPage({
       <ModulePage experience={experience} activeSection="reports">
         <EmptyState
           icon={<ChartColumn />}
-          title="No reports in your view."
-          description="Reports follow the same permissions as the lists they summarise."
+          title={t("reports.none")}
+          description={t("reports.noneBody")}
         />
       </ModulePage>
     );
@@ -96,7 +100,7 @@ export default async function FinanceReportsPage({
   return (
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
-        <nav aria-label="Reports" className="border-b border-line">
+        <nav aria-label={t("reports.nav")} className="border-b border-line">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
             {available.map((entry) => (
               <li key={entry.key}>
@@ -110,7 +114,7 @@ export default async function FinanceReportsPage({
                       : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                   )}
                 >
-                  {entry.label}
+                  {t(entry.label)}
                 </Link>
               </li>
             ))}
@@ -142,14 +146,15 @@ export default async function FinanceReportsPage({
 /* Receivables aging (PRD #15 §149, §150) ----------------------------------- */
 
 async function AgingReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const rows = await reports.receivablesAging(context);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="Nothing outstanding."
-        description="Every sent invoice in your view has been settled."
+        title={t("reports.agingNone")}
+        description={t("reports.agingNoneBody")}
       />
     );
   }
@@ -159,24 +164,23 @@ async function AgingReport({ context }: { context: UserContext }) {
       {/* Grouped by currency and never combined: V0.1 has no FX engine, and a
           total across currencies would be arithmetic that means nothing. */}
       <p className="text-meta text-fg-subtle">
-        Outstanding on sent invoices, by how far past the due date they are. Currencies are
-        reported separately.
+        {t("reports.agingHint")}
       </p>
-      <ScrollRegion label="Receivables aging" className="nesto-card">
+      <ScrollRegion label={t("reports.tab.aging")} className="nesto-card">
         <table className="w-full text-table">
-          <caption className="sr-only">Receivables aging</caption>
+          <caption className="sr-only">{t("reports.tab.aging")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                Currency
+                {t("form.currency")}
               </th>
               {reports.AGING_BUCKETS.map((bucket) => (
                 <th key={bucket} scope="col" className="px-4 py-2.5 text-right font-medium">
-                  {reports.agingBucketLabels[bucket]}
+                  {t(`aging.${bucket}`)}
                 </th>
               ))}
               <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Total
+                {t("columns.total")}
               </th>
             </tr>
           </thead>
@@ -206,14 +210,15 @@ async function AgingReport({ context }: { context: UserContext }) {
 /* Budget vs actual (PRD #15 §151) ------------------------------------------ */
 
 async function BudgetReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const rows = await reports.budgetVsActual(context);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No approved budgets in your view."
-        description="A project needs an approved budget before its variance means anything."
+        title={t("reports.budgetNone")}
+        description={t("reports.budgetNoneBody")}
       />
     );
   }
@@ -221,7 +226,7 @@ async function BudgetReport({ context }: { context: UserContext }) {
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "project",
-      label: "Project",
+      label: t("form.project"),
       primary: true,
       render: (row) => (
         <span className="min-w-0">
@@ -232,13 +237,13 @@ async function BudgetReport({ context }: { context: UserContext }) {
     },
     {
       key: "budget",
-      label: "Budget",
+      label: t("columns.budget"),
       align: "right",
       render: (row) => <Money amount={row.budget} currency={row.currency} emphasis />,
     },
     {
       key: "actual",
-      label: "Actual",
+      label: t("columns.actual"),
       align: "right",
       render: (row) => (
         <Money amount={row.actual} currency={row.currency} className="text-fg-muted" />
@@ -246,7 +251,7 @@ async function BudgetReport({ context }: { context: UserContext }) {
     },
     {
       key: "committed",
-      label: "Committed",
+      label: t("columns.committed"),
       align: "right",
       hideBelow: "lg",
       render: (row) => (
@@ -255,7 +260,7 @@ async function BudgetReport({ context }: { context: UserContext }) {
     },
     {
       key: "forecast",
-      label: "Forecast",
+      label: t("columns.forecast"),
       align: "right",
       hideBelow: "md",
       render: (row) => (
@@ -264,13 +269,13 @@ async function BudgetReport({ context }: { context: UserContext }) {
     },
     {
       key: "variance",
-      label: "Variance",
+      label: t("columns.variance"),
       align: "right",
       render: (row) => <Variance amount={row.variance} currency={row.currency} />,
     },
     {
       key: "risk",
-      label: "Utilisation",
+      label: t("budgets.utilisation"),
       render: (row) => (
         <BudgetRiskBadge risk={row.risk} utilizationPercent={row.utilizationPercent} />
       ),
@@ -279,7 +284,7 @@ async function BudgetReport({ context }: { context: UserContext }) {
 
   return (
     <DataTable
-      caption="Budget vs actual"
+      caption={t("reports.tab.budget")}
       columns={columns}
       records={rows}
       rowKey={(row) => row.projectId}
@@ -291,14 +296,15 @@ async function BudgetReport({ context }: { context: UserContext }) {
 /* Expenses by category (PRD #15 §153) -------------------------------------- */
 
 async function CategoryReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const rows = await reports.expensesByCategory(context);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No approved cost yet."
-        description="Approved expenses are what actual cost is calculated from."
+        title={t("reports.categoryNone")}
+        description={t("reports.categoryNoneBody")}
       />
     );
   }
@@ -306,20 +312,20 @@ async function CategoryReport({ context }: { context: UserContext }) {
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "category",
-      label: "Category",
+      label: t("form.category"),
       primary: true,
-      render: (row) => expenseCategoryLabels[row.category as keyof typeof expenseCategoryLabels],
+      render: (row) => t(`category.${row.category as "OTHER"}`),
     },
-    { key: "currency", label: "Currency", render: (row) => row.currency },
+    { key: "currency", label: t("form.currency"), render: (row) => row.currency },
     {
       key: "actual",
-      label: "Actual cost",
+      label: t("reports.actualCost"),
       align: "right",
       render: (row) => <Money amount={row.actual} currency={row.currency} emphasis />,
     },
     {
       key: "committed",
-      label: "Open commitments",
+      label: t("overview.openCommitments"),
       align: "right",
       render: (row) => (
         <Money amount={row.committed} currency={row.currency} className="text-fg-muted" />
@@ -329,7 +335,7 @@ async function CategoryReport({ context }: { context: UserContext }) {
 
   return (
     <DataTable
-      caption="Expenses by category"
+      caption={t("reports.tab.category")}
       columns={columns}
       records={rows}
       rowKey={(row) => `${row.category}-${row.currency}`}
@@ -346,13 +352,14 @@ async function CashflowReport({
   context: UserContext;
   period?: string;
 }) {
+  const t = await getTranslations("finance");
   const known = (reports.CASHFLOW_PERIODS as readonly string[]).includes(period ?? "");
   const selected = known ? (period as reports.CashflowPeriod) : "this-month";
   const report = await reports.cashflowSummary(context, selected);
 
   return (
     <div className="space-y-3">
-      <nav aria-label="Cashflow period" className="flex flex-wrap gap-2">
+      <nav aria-label={t("reports.period")} className="flex flex-wrap gap-2">
         {reports.CASHFLOW_PERIODS.map((entry) => (
           <Link
             key={entry}
@@ -365,38 +372,38 @@ async function CashflowReport({
                 : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
             )}
           >
-            {reports.cashflowPeriodLabels[entry]}
+            {t(`cashflowPeriod.${entry}`)}
           </Link>
         ))}
       </nav>
 
       <p className="text-meta text-fg-subtle">
-        Recorded payments between {report.from} and {report.to}. Voided payments are excluded.
+        {t("reports.cashflowHint", { from: report.from, to: report.to })}
       </p>
 
       {report.rows.length === 0 ? (
         <EmptyState
           icon={<ChartColumn />}
-          title="No cash movement in this period."
-          description="Try a wider period, or record a payment against an invoice or expense."
+          title={t("reports.cashflowNone")}
+          description={t("reports.cashflowNoneBody")}
         />
       ) : (
-        <ScrollRegion label="Cashflow summary" className="nesto-card">
+        <ScrollRegion label={t("reports.cashflowSummary")} className="nesto-card">
           <table className="w-full text-table">
-            <caption className="sr-only">Cashflow summary</caption>
+            <caption className="sr-only">{t("reports.cashflowSummary")}</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                  Currency
+                  {t("form.currency")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Received
+                  {t("overview.received")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Paid out
+                  {t("overview.paidOut")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Net
+                  {t("overview.net")}
                 </th>
               </tr>
             </thead>
@@ -428,14 +435,15 @@ async function CashflowReport({
 /* Commitment summary (PRD #15 §156) ---------------------------------------- */
 
 async function CommitmentReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const { rows, totals } = await reports.commitmentSummary(context);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No open commitments."
-        description="Approved commitments that have not been closed appear here."
+        title={t("reports.commitmentNone")}
+        description={t("reports.commitmentNoneBody")}
       />
     );
   }
@@ -443,19 +451,19 @@ async function CommitmentReport({ context }: { context: UserContext }) {
   const columns: TableColumn<(typeof rows)[number]>[] = [
     {
       key: "project",
-      label: "Project",
+      label: t("form.project"),
       primary: true,
       render: (row) => row.projectName,
     },
     {
       key: "category",
-      label: "Category",
-      render: (row) => expenseCategoryLabels[row.category as keyof typeof expenseCategoryLabels],
+      label: t("form.category"),
+      render: (row) => t(`category.${row.category as "OTHER"}`),
     },
-    { key: "currency", label: "Currency", hideBelow: "md", render: (row) => row.currency },
+    { key: "currency", label: t("form.currency"), hideBelow: "md", render: (row) => row.currency },
     {
       key: "amount",
-      label: "Open commitment",
+      label: t("reports.openCommitment"),
       align: "right",
       render: (row) => <Money amount={row.amount} currency={row.currency} emphasis />,
     },
@@ -464,13 +472,13 @@ async function CommitmentReport({ context }: { context: UserContext }) {
   return (
     <div className="space-y-3">
       <DataTable
-        caption="Commitment summary"
+        caption={t("reports.commitmentSummary")}
         columns={columns}
         records={rows}
         rowKey={(row) => `${row.projectId ?? "company"}-${row.category}-${row.currency}`}
       />
       <p className="text-right text-table text-fg-muted">
-        Total open commitment:{" "}
+        {t("reports.totalOpen")}{" "}
         {totals.map((total) => (
           <span key={total.currency} className="ml-2 font-semibold text-fg">
             <Money amount={total.amount} currency={total.currency} />

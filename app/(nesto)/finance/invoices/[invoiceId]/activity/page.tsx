@@ -8,6 +8,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { listRecordActivity } from "@/lib/modules/finance/finance.activity";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDateTime } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "../invoice-context";
 import { FinanceRecordTabs } from "../record-tabs";
@@ -17,7 +18,10 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Invoice activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.invoiceActivity") };
+}
 
 /** The invoice's own history (PRD #15 §193). */
 export default async function InvoiceActivityPage({ params, searchParams }: Params) {
@@ -27,6 +31,7 @@ export default async function InvoiceActivityPage({ params, searchParams }: Para
   if (!invoice.capabilities.canViewActivity) notFound();
 
   const query = await searchParams;
+  const t = await getTranslations("finance");
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
@@ -37,7 +42,7 @@ export default async function InvoiceActivityPage({ params, searchParams }: Para
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={invoiceBreadcrumbs(invoice, "Activity")}
+        breadcrumbs={await invoiceBreadcrumbs(invoice, t("crumbs.activity"))}
         title={invoice.invoiceNumber}
         subtitle={invoice.client.name}
         status={invoice.status}
@@ -52,8 +57,8 @@ export default async function InvoiceActivityPage({ params, searchParams }: Para
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this invoice will be listed here."
+          title={t("activity.empty")}
+          description={t("activity.invoiceBody")}
         />
       ) : (
         <>
@@ -61,7 +66,7 @@ export default async function InvoiceActivityPage({ params, searchParams }: Para
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

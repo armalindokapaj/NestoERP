@@ -1,9 +1,7 @@
+import { FinanceText } from "@/components/finance/finance-text";
 import { Badge } from "@/components/ui/badge";
 import { UNIT_CONTRACT_STATUS_LABELS, type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
 import {
-  INSTALLMENT_STATUS_LABELS,
-  PAYMENT_SCHEDULE_STATUS_LABELS,
-  UNIT_FINANCIAL_STATUS_LABELS,
   type InstallmentStatus,
   type PaymentScheduleStatus,
   type UnitFinancialStatus,
@@ -30,7 +28,7 @@ const FINANCIAL_TONES: Record<UnitFinancialStatus, Tone> = {
 export function FinancialStatusBadge({ status, className }: { status: UnitFinancialStatus; className?: string }) {
   return (
     <Badge tone={FINANCIAL_TONES[status]} className={className} data-testid="financial-status" data-status={status}>
-      {UNIT_FINANCIAL_STATUS_LABELS[status]}
+      <FinanceText k={`unitStatus.${status}`} />
     </Badge>
   );
 }
@@ -40,7 +38,7 @@ const INSTALLMENT_TONES: Record<InstallmentStatus, Tone> = { UPCOMING: "default"
 export function InstallmentStatusBadge({ status }: { status: InstallmentStatus }) {
   return (
     <Badge tone={INSTALLMENT_TONES[status]} data-testid="installment-status" data-status={status}>
-      {INSTALLMENT_STATUS_LABELS[status]}
+      <FinanceText k={`installmentStatus.${status}`} />
     </Badge>
   );
 }
@@ -48,7 +46,7 @@ export function InstallmentStatusBadge({ status }: { status: InstallmentStatus }
 const SCHEDULE_TONES: Record<PaymentScheduleStatus, Tone> = { DRAFT: "neutral", ACTIVE: "success", SUPERSEDED: "default", COMPLETED: "success", CANCELLED: "default" };
 
 export function ScheduleStatusBadge({ status }: { status: PaymentScheduleStatus }) {
-  return <Badge tone={SCHEDULE_TONES[status]}>{PAYMENT_SCHEDULE_STATUS_LABELS[status]}</Badge>;
+  return <Badge tone={SCHEDULE_TONES[status]}><FinanceText k={`scheduleStatus.${status}`} /></Badge>;
 }
 
 const CONTRACT_TONES: Partial<Record<ContractStatusKey, Tone>> = {

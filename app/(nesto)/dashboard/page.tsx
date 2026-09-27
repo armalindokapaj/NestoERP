@@ -25,6 +25,7 @@ import {
 } from "@/lib/modules/dashboard/dashboard.service";
 import type { UserContext } from "@/lib/context/types";
 import { cn } from "@/lib/utils/cn";
+import { widgetText } from "@/components/dashboard/config-text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("dashboard");
@@ -48,6 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function DashboardPage() {
   const context = await requireUserContext();
+  const t = await getTranslations("dashboard");
   const plan = await planDashboard(context);
   // The group's banner is the Group workspace's (D-01 §26, §66; Workspace Context §18).
   const group = groupIdentity(context).catch(() => null);
@@ -97,7 +99,7 @@ export default async function DashboardPage() {
               >
                 <SectionBoundary className="nesto-card flex-1">
                   <Suspense
-                    fallback={<WidgetSkeleton title={definition.title} />}
+                    fallback={<WidgetSkeleton title={widgetText(t, definition.key, "title", definition.title)} />}
                   >
                     <Widget context={context} definition={definition} />
                   </Suspense>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -25,7 +26,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project workforce" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("workforceTab.title") };
+}
 
 /**
  * Who works on the project (E-04 §33-§42, §181): its sites, its crews, and the
@@ -36,6 +39,7 @@ export const metadata: Metadata = { title: "Project workforce" };
 export default async function ProjectWorkforcePage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewWorkforce) redirect("/access-denied");
 
@@ -59,11 +63,11 @@ export default async function ProjectWorkforcePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Workforce")}
+        breadcrumbs={await projectBreadcrumbs(project, "Workforce")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
-        actions={manage && project.status !== "ARCHIVED" ? <AssignProjectButton projectId={project.id} workers={workers} sites={activeSites} trades={trades} label="Assign worker" variant="primary" /> : null}
+        actions={manage && project.status !== "ARCHIVED" ? <AssignProjectButton projectId={project.id} workers={workers} sites={activeSites} trades={trades} label={t("workforceTab.assignWorker")} variant="primary" /> : null}
       />
       <ProjectTabs
         projectId={project.id}
@@ -94,24 +98,24 @@ export default async function ProjectWorkforcePage({ params }: Params) {
       <section className="nesto-card p-0" aria-labelledby="assigned-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
           <h2 id="assigned-heading" className="text-card font-semibold text-fg">
-            Working here
+            {t("workforceTab.workingHere")}
           </h2>
           <Link href={`/workforce/attendance?projectId=${project.id}`} className="text-table font-medium text-accent-strong hover:underline">
-            Record attendance
+            {t("workforceTab.recordAttendance")}
           </Link>
         </div>
         {assigned.length === 0 ? (
-          <p className="px-5 py-6 text-table text-fg-muted">Nobody is assigned to this project yet.</p>
+          <p className="px-5 py-6 text-table text-fg-muted">{t("workforceTab.nobody")}</p>
         ) : (
-          <Table flush aria-label="Working here">
+          <Table flush aria-label={t("workforceTab.workingHere")}>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Name</TableHeaderCell>
-                <TableHeaderCell>Trade</TableHeaderCell>
-                <TableHeaderCell>Site</TableHeaderCell>
-                <TableHeaderCell>Role</TableHeaderCell>
-                <TableHeaderCell>From</TableHeaderCell>
-                {manage ? <TableHeaderCell className="sr-only">Actions</TableHeaderCell> : null}
+                <TableHeaderCell>{t("workforceTab.name")}</TableHeaderCell>
+                <TableHeaderCell>{t("workforceTab.trade")}</TableHeaderCell>
+                <TableHeaderCell>{t("workforceTab.site")}</TableHeaderCell>
+                <TableHeaderCell>{t("workforceTab.role")}</TableHeaderCell>
+                <TableHeaderCell>{t("workforceTab.from")}</TableHeaderCell>
+                {manage ? <TableHeaderCell className="sr-only">{t("workforceTab.actions")}</TableHeaderCell> : null}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -119,18 +123,18 @@ export default async function ProjectWorkforcePage({ params }: Params) {
                 <TableRow key={row.id} data-testid="project-worker" data-worker-name={row.worker.name}>
                   <TableCell className="font-medium">
                     <PersonLink personId={row.worker.personId} name={row.worker.name} tab="workforce" />
-                    {row.isPrimary ? <span className="ml-2 text-meta text-fg-subtle">main project</span> : null}
+                    {row.isPrimary ? <span className="ml-2 text-meta text-fg-subtle">{t("workforceTab.mainProject")}</span> : null}
                   </TableCell>
                   <TableCell>{orDash(row.tradeName)}</TableCell>
-                  <TableCell>{row.site?.name ?? "Whole project"}</TableCell>
+                  <TableCell>{row.site?.name ?? t("workforceTab.wholeProject")}</TableCell>
                   <TableCell>{orDash(row.role)}</TableCell>
                   <TableCell className="tabular-nums">
                     {row.startDate}
-                    {row.current ? null : <span className="block text-meta text-fg-subtle">starts then</span>}
+                    {row.current ? null : <span className="block text-meta text-fg-subtle">{t("workforceTab.startsThen")}</span>}
                   </TableCell>
                   {manage ? (
                     <TableCell className="text-right">
-                      {row.canManage ? <EndMembershipButton employeeId={row.worker.employeeId} membershipId={row.id} what={`${row.worker.name}'s assignment`} url="project-assignments" /> : null}
+                      {row.canManage ? <EndMembershipButton employeeId={row.worker.employeeId} membershipId={row.id} what={t("workforceTab.assignmentOf", { name: row.worker.name })} url="project-assignments" /> : null}
                     </TableCell>
                   ) : null}
                 </TableRow>
@@ -155,9 +159,9 @@ export default async function ProjectWorkforcePage({ params }: Params) {
 
       <section className="space-y-2" aria-labelledby="crews-heading">
         <h2 id="crews-heading" className="text-card font-semibold text-fg">
-          Crews
+          {t("workforceTab.crews")}
         </h2>
-        {crews.length === 0 ? <p className="nesto-card px-5 py-6 text-table text-fg-muted">No crews on this project.</p> : <CrewTable crews={crews} />}
+        {crews.length === 0 ? <p className="nesto-card px-5 py-6 text-table text-fg-muted">{t("workforceTab.noCrews")}</p> : <CrewTable crews={crews} />}
       </section>
     </div>
   );

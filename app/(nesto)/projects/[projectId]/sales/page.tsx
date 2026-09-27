@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
@@ -14,7 +15,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Sales" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.sales") };
+}
 
 function refuse(error: unknown): never {
   if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
@@ -31,6 +34,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
   const { projectId } = await params;
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewUnitSales) redirect("/access-denied");
 
@@ -59,7 +63,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={projectBreadcrumbs(project, "Sales")} title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Sales")} title={project.name} subtitle={project.code} status={project.status} />
       <ProjectTabs
         projectId={project.id}
         active="sales"
@@ -87,7 +91,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
       />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="sales-empty">
-          This project has no units yet. Units are added under Units, and published before Sales offers them.
+          {t("structurePages.salesNoUnits")}
         </p>
       ) : (
         <SalesInventory

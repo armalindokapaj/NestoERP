@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { MoreHorizontal, UserPlus } from "lucide-react";
 
@@ -74,6 +75,7 @@ export function ProjectTeam({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("projects");
   const [pending, startTransition] = React.useTransition();
 
   const [addOpen, setAddOpen] = React.useState(false);
@@ -87,7 +89,7 @@ export function ProjectTeam({
     startTransition(async () => {
       const result = await removeProjectMemberAction(projectId, memberId);
       if (result.ok) {
-        toast({ title: "Member removed." });
+        toast({ title: t("team.removed") });
         setRemoving(null);
         router.refresh();
       } else {
@@ -100,20 +102,20 @@ export function ProjectTeam({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-table text-fg-muted">
-          {active.length} active member{active.length === 1 ? "" : "s"}
+          {t("team.activeMembers", { count: active.length })}
         </p>
         {canAdd ? (
           <Button size="sm" onClick={() => setAddOpen(true)} disabled={assignable.length === 0}>
             <UserPlus aria-hidden="true" />
-            Add member
+            {t("team.addMember")}
           </Button>
         ) : null}
       </div>
 
       {active.length === 0 ? (
         <EmptyState
-          title="No one is on this project yet."
-          description="Add company members to give them project access."
+          title={t("team.emptyTitle")}
+          description={t("team.emptyBody")}
         />
       ) : (
         <ul className="nesto-card divide-y divide-line">
@@ -129,9 +131,9 @@ export function ProjectTeam({
                 <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
                   <PersonLink memberId={member.companyMemberId} name={member.fullName} />
                   {member.companyMemberId === managerMemberId ? (
-                    <Badge tone="info">Project manager</Badge>
+                    <Badge tone="info">{t("team.projectManager")}</Badge>
                   ) : null}
-                  {!member.membershipActive ? <Badge tone="warning">Inactive</Badge> : null}
+                  {!member.membershipActive ? <Badge tone="warning">{t("team.inactive")}</Badge> : null}
                 </p>
                 <p className="truncate text-meta text-fg-subtle">
                   {[member.projectRole ?? member.jobTitle, member.roleLabel, member.department]
@@ -146,7 +148,7 @@ export function ProjectTeam({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Actions for ${member.fullName}`}
+                      aria-label={t("team.actionsFor", { name: member.fullName })}
                     >
                       <MoreHorizontal />
                     </Button>
@@ -159,7 +161,7 @@ export function ProjectTeam({
                           setEditing(member);
                         }}
                       >
-                        Edit project role
+                        {t("team.editRole")}
                       </DropdownMenuItem>
                     ) : null}
                     {canRemove && member.companyMemberId !== managerMemberId ? (
@@ -169,7 +171,7 @@ export function ProjectTeam({
                           setRemoving(member);
                         }}
                       >
-                        Remove from project
+                        {t("team.removeFromProject")}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -182,14 +184,14 @@ export function ProjectTeam({
 
       {past.length > 0 ? (
         <section>
-          <h2 className="text-table font-semibold text-fg-muted">Previous members</h2>
+          <h2 className="text-table font-semibold text-fg-muted">{t("team.previous")}</h2>
           <ul className="mt-2 nesto-card divide-y divide-line">
             {past.map((member) => (
               <li key={member.id} className="flex items-center justify-between gap-3 p-4">
                 <span className="text-table text-fg-muted">
                   <PersonLink memberId={member.companyMemberId} name={member.fullName} />
                 </span>
-                <Badge>Left the project</Badge>
+                <Badge>{t("team.leftProject")}</Badge>
               </li>
             ))}
           </ul>
@@ -199,29 +201,29 @@ export function ProjectTeam({
       {/* Add member ------------------------------------------------------- */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
-          <DialogTitle>Add a team member</DialogTitle>
+          <DialogTitle>{t("team.addTitle")}</DialogTitle>
           <DialogDescription>
-            Only active members of your company can be added to a project.
+            {t("team.addBody")}
           </DialogDescription>
 
           <MemberForm
-            label="New team member"
+            label={t("team.newMemberLabel")}
             saveKind="create"
             action={(formData) => addProjectMemberAction(projectId, formData)}
-            success="Member added."
-            submitLabel="Add member"
-            pendingLabel="Adding…"
+            success={t("team.added")}
+            submitLabel={t("team.addMember")}
+            pendingLabel={t("team.adding")}
             onDone={() => setAddOpen(false)}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="companyMemberId">Team member</Label>
+              <Label htmlFor="companyMemberId">{t("team.member")}</Label>
               <select
                 id="companyMemberId"
                 name="companyMemberId"
                 required
                 className="h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
               >
-                <option value="">Select a person…</option>
+                <option value="">{t("team.selectPerson")}</option>
                 {assignable.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name} — {member.detail}
@@ -231,15 +233,15 @@ export function ProjectTeam({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="projectRole">Project role</Label>
+              <Label htmlFor="projectRole">{t("team.projectRole")}</Label>
               <Input
                 id="projectRole"
                 name="projectRole"
-                placeholder="Lead Architect, Site Engineer…"
+                placeholder={t("team.rolePlaceholder")}
                 maxLength={120}
               />
               <p className="text-meta text-fg-subtle">
-                The role on this project, which is separate from their company role.
+                {t("team.roleHint")}
               </p>
             </div>
           </MemberForm>
@@ -249,21 +251,21 @@ export function ProjectTeam({
       {/* Edit project role ------------------------------------------------ */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
-          <DialogTitle>Edit project role</DialogTitle>
+          <DialogTitle>{t("team.editRole")}</DialogTitle>
           <DialogDescription>{editing?.fullName}</DialogDescription>
 
           {editing ? (
             <MemberForm
-              label={`Project role of ${editing.fullName}`}
+              label={t("team.roleOf", { name: editing.fullName })}
               saveKind="save"
               action={(formData) => updateProjectMemberAction(projectId, editing.id, formData)}
-              success="Project role updated."
-              submitLabel="Save"
-              pendingLabel="Saving…"
+              success={t("team.roleUpdated")}
+              submitLabel={t("team.save")}
+              pendingLabel={t("team.saving")}
               onDone={() => setEditing(null)}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="editProjectRole">Project role</Label>
+                <Label htmlFor="editProjectRole">{t("team.projectRole")}</Label>
                 <Input
                   id="editProjectRole"
                   name="projectRole"
@@ -280,13 +282,13 @@ export function ProjectTeam({
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
-        title={`Remove ${removing?.fullName ?? "this person"} from the project?`}
+        title={t("team.removeTitle", { name: removing?.fullName ?? t("team.thisPerson") })}
         description={
           removing && openTaskCounts[removing.companyMemberId]
-            ? `This member has ${openTaskCounts[removing.companyMemberId]} open project task(s). Removing them will not reassign those tasks.`
-            : "They keep their company account and their project history is preserved."
+            ? t("team.removeOpenTasks", { count: openTaskCounts[removing.companyMemberId]! })
+            : t("team.removeBody")
         }
-        confirmLabel="Remove from project"
+        confirmLabel={t("team.removeFromProject")}
         pending={pending}
         onConfirm={() => remove(removing!.id)}
       />
@@ -320,6 +322,7 @@ function MemberForm({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("projects");
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({
     formRef,
@@ -345,7 +348,7 @@ function MemberForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={save.pending}>
-            Cancel
+            {t("team.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={save.pending}>

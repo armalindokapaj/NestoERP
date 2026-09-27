@@ -1,13 +1,10 @@
+"use client";
+
 import type { ProjectStatus } from "@prisma/client";
 
-import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
-const LABELS: Record<ProjectStatus, string> = {
-  PENDING: "Pending",
-  ACTIVE: "Active",
-  FINISHED: "Finished",
-  ARCHIVED: "Archived",
-};
+import { cn } from "@/lib/utils/cn";
 
 const DOTS: Record<ProjectStatus, string> = {
   PENDING: "bg-warning",
@@ -24,6 +21,7 @@ const DOTS: Record<ProjectStatus, string> = {
  * status is not carried by colour alone.
  */
 export function ProjectStatusBadge({ status, className }: { status: ProjectStatus; className?: string }) {
+  const t = useTranslations("projects");
   return (
     <span
       className={cn(
@@ -33,7 +31,7 @@ export function ProjectStatusBadge({ status, className }: { status: ProjectStatu
       data-testid="project-status"
     >
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOTS[status])} />
-      {LABELS[status]}
+      {t(`status.${status}`)}
     </span>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { UnitSalesPanel } from "@/components/sales/unit-sales/unit-sales-panel";
@@ -8,7 +9,9 @@ import { loadUnitPage, UnitShell } from "../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Unit sales" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("unitPage.salesTitle") };
+}
 
 /** The unit's commercial side, on the unit's own page (E-05E §15): no separate Sales unit page. */
 export default async function UnitSalesPage({ params, searchParams }: Params) {

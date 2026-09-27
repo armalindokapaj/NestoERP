@@ -12,13 +12,17 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import { parsePaymentQuery } from "@/lib/modules/finance/finance.query";
 import * as payments from "@/lib/modules/finance/payments/payment.service";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { PAYMENT_SORT_KEYS } from "@/lib/modules/finance/payments/payment.schema";
 
-export const metadata: Metadata = { title: "Payments" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.payments") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -57,6 +61,7 @@ async function PaymentsList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("finance");
   const query = parsePaymentQuery(searchParams);
   const result = await payments.listPayments(context, query);
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
@@ -73,40 +78,40 @@ async function PaymentsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search reference, invoice or expense…"
+        searchPlaceholder={t("payments.search")}
         filters={[
           {
             param: "direction",
-            label: "Direction",
+            label: t("payments.direction"),
             options: [
-              { value: "RECEIPT", label: "Received" },
-              { value: "DISBURSEMENT", label: "Paid out" },
+              { value: "RECEIPT", label: t("paymentRow.received") },
+              { value: "DISBURSEMENT", label: t("paymentRow.paidOut") },
             ],
           },
           {
             param: "status",
-            label: "Status",
+            label: t("columns.status"),
             options: [
-              { value: "RECORDED", label: "Recorded" },
-              { value: "VOIDED", label: "Voided" },
+              { value: "RECORDED", label: t("paymentStatus.RECORDED") },
+              { value: "VOIDED", label: t("paymentStatus.VOIDED") },
             ],
           },
           {
             param: "method",
-            label: "Method",
+            label: t("columns.method"),
             options: [
-              { value: "BANK_TRANSFER", label: "Bank transfer" },
-              { value: "CARD", label: "Card" },
-              { value: "CASH", label: "Cash" },
-              { value: "CHECK", label: "Cheque" },
-              { value: "OTHER", label: "Other" },
+              { value: "BANK_TRANSFER", label: t("method.BANK_TRANSFER") },
+              { value: "CARD", label: t("method.CARD") },
+              { value: "CASH", label: t("method.CASH") },
+              { value: "CHECK", label: t("method.CHECK") },
+              { value: "OTHER", label: t("method.OTHER") },
             ],
           },
         ]}
         sortOptions={[
-          { value: "date-desc", label: "Newest first" },
-          { value: "date-asc", label: "Oldest first" },
-          { value: "amount-desc", label: "Largest first" },
+          { value: "date-desc", label: t("sort.newest") },
+          { value: "date-asc", label: t("sort.oldest") },
+          { value: "amount-desc", label: t("sort.largest") },
         ]}
       />
 
@@ -114,15 +119,15 @@ async function PaymentsList({
         hasFilters ? (
           <EmptyState
             icon={<Banknote />}
-            title="No payments match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/finance/payments" }}
+            title={t("payments.noMatch")}
+            description={t("list.noMatchBody")}
+            action={{ label: t("list.clearFilters"), href: "/finance/payments" }}
           />
         ) : (
           <EmptyState
             icon={<Banknote />}
-            title="No payments recorded."
-            description="Payments are recorded against a sent invoice or an approved expense."
+            title={t("payments.none")}
+            description={t("payments.noneBody")}
           />
         )
       ) : (

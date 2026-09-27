@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { isAborted } from "@/lib/client/api-request";
 import { useLatestRequest } from "@/lib/client/latest-request";
 import type { PortfolioListDTO, ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { cn } from "@/lib/utils/cn";
-import { GALLERY_GRID, projectCountLabel } from "./gallery";
+import { GALLERY_GRID } from "./gallery";
 import { ProjectCard, ProjectCardSkeleton } from "./project-card";
 
 /** Server-side search, so a short pause before asking (Projects Workspace Grid §180). */
@@ -47,6 +48,7 @@ export function ProjectsPortfolio({
   const feedback = useNavigationFeedback();
   const pathname = usePathname();
   const toast = useToast();
+  const t = useTranslations("projects");
   const [navigating, startNavigation] = React.useTransition();
 
   const [items, setItems] = React.useState(initial.items);
@@ -96,7 +98,7 @@ export function ProjectsPortfolio({
       });
       setCursor(page.pageInfo.nextCursor);
     } catch (failure) {
-      if (ticket.current() && !isAborted(failure)) setLoadError("Projects could not be loaded.");
+      if (ticket.current() && !isAborted(failure)) setLoadError(t("portfolio.loadFailed"));
     } finally {
       if (ticket.current()) setLoadingMore(false);
     }
@@ -111,7 +113,7 @@ export function ProjectsPortfolio({
       await announcementApi(`/api/projects/${project.id}/favorite`, { method: next ? "POST" : "DELETE" });
     } catch (error) {
       patch(project.id, { isFavorite: !next });
-      toast({ title: failureMessage(error, "Favorites could not be updated."), tone: "danger" });
+      toast({ title: failureMessage(error, t("portfolio.favoritesFailed")), tone: "danger" });
     } finally {
       setPendingFavorites((current) => {
         const remaining = new Set(current);
@@ -127,14 +129,14 @@ export function ProjectsPortfolio({
     return (
       <EmptyState
         icon={<FolderKanban />}
-        title="No projects available in this workspace."
+        title={t("portfolio.emptyTitle")}
         // Purpose, and "create" only to someone who may (AUD-05 §6, UX-11, UX-15).
         description={
           canCreate
-            ? "A project holds its tasks, documents, finance and team. Create the first one to start."
-            : "Projects appear here once you are added to one."
+            ? t("portfolio.emptyCreate")
+            : t("portfolio.emptyJoin")
         }
-        action={canCreate ? { label: "Create project", href: "/projects/new" } : undefined}
+        action={canCreate ? { label: t("portfolio.createProject"), href: "/projects/new" } : undefined}
       />
     );
   }
@@ -148,7 +150,7 @@ export function ProjectsPortfolio({
         <ProjectsSearch value={q} onSearch={search} />
         {/* The count of what the search found, only while there is one (§148). */}
         <p className="text-table text-fg-muted" aria-live="polite" data-testid="projects-result-count">
-          {navigating ? <span className="sr-only">Loading projects</span> : q && total > 0 ? `${projectCountLabel(total)} found` : null}
+          {navigating ? <span className="sr-only">{t("portfolio.loading")}</span> : q && total > 0 ? t("portfolio.found", { projects: t("portfolio.count", { count: total }) }) : null}
         </p>
       </div>
 
@@ -157,9 +159,9 @@ export function ProjectsPortfolio({
           // A search that matches nothing offers the way back, never "create" (AUD-05 §6, UX-11).
           <EmptyState
             icon={<SearchX />}
-            title="No projects found."
-            description="No project you can open matches this search."
-            action={{ label: "Clear search", href: pathname }}
+            title={t("portfolio.noneFound")}
+            description={t("portfolio.noneMatch")}
+            action={{ label: t("portfolio.clearSearch"), href: pathname }}
             className="py-12"
           />
         ) : (
@@ -185,11 +187,11 @@ export function ProjectsPortfolio({
             </p>
           ) : (
             <p className="text-meta text-fg-subtle">
-              Showing {shown} of {total}
+              {t("portfolio.showing", { shown, total })}
             </p>
           )}
           <Button type="button" variant="secondary" onClick={() => void loadMore()} disabled={loadingMore} data-testid="projects-load-more">
-            {loadError ? "Retry" : loadingMore ? "Loading…" : "Load more projects"}
+            {loadError ? t("portfolio.retry") : loadingMore ? t("portfolio.loadingMore") : t("portfolio.loadMore")}
           </Button>
         </div>
       ) : null}
@@ -206,6 +208,7 @@ export function ProjectsPortfolio({
 function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
   const [text, setText] = React.useState(value);
   const lastSent = React.useRef(value);
+  const t = useTranslations("projects");
 
   // A search changed from outside (Back, a link) shows here. The page's answer
   // to this field's own search is not one: resetting the text to it would drop
@@ -231,8 +234,8 @@ function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: stri
       value={text}
       onChange={(event) => setText(event.target.value)}
       onClear={() => setText("")}
-      placeholder="Search projects…"
-      aria-label="Search projects"
+      placeholder={t("portfolio.searchPlaceholder")}
+      aria-label={t("portfolio.searchLabel")}
       className="sm:max-w-sm"
       maxLength={200}
       data-testid="projects-search"
@@ -242,8 +245,9 @@ function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: stri
 
 /** What the page shows while the first page is on its way: the same cards, the same shape (§101-§103). */
 export function ProjectsPortfolioSkeleton() {
+  const t = useTranslations("projects");
   return (
-    <div className="space-y-5" role="status" aria-busy="true" aria-label="Loading projects">
+    <div className="space-y-5" role="status" aria-busy="true" aria-label={t("portfolio.loading")}>
       <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted sm:max-w-sm motion-reduce:animate-none" />
       <div className={GALLERY_GRID}>
         {Array.from({ length: 8 }, (_, index) => (

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -22,7 +23,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project contractors" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("contractorsTab.title") };
+}
 
 /**
  * Who builds the project (PRD #46 §9, §161): each contractor's assignment,
@@ -32,6 +35,7 @@ export const metadata: Metadata = { title: "Project contractors" };
 export default async function ProjectContractorsPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewContractors) redirect("/access-denied");
 
@@ -49,7 +53,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
 
   return (
     <div className="space-y-6">
-      <RecordContextHeader breadcrumbs={projectBreadcrumbs(project, "Contractors")} title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Contractors")} title={project.name} subtitle={project.code} status={project.status} />
       <ProjectTabs
         projectId={project.id}
         active="contractors"
@@ -76,18 +80,18 @@ export default async function ProjectContractorsPage({ params }: Params) {
         }}
       />
       <MetricStrip className="xl:grid-cols-5">
-        <Metric label="Active contractors" value={assignments.filter((row) => row.status === "ACTIVE").length} testId="metric-active-contractors" />
-        <Metric label="Open work packages" value={packages.filter((row) => ["PLANNED", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(row.status)).length} href={`/projects/${project.id}/work-packages`} />
-        <Metric label="Open RFIs" value={openRfis} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/rfis?open=1` : undefined} />
-        <Metric label="Open submittals" value={openSubmittals} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/submittals` : undefined} />
-        <Metric label="Compliance alerts" value={compliance.length} tone="warning" testId="metric-project-compliance" />
+        <Metric label={t("contractorsTab.activeContractors")} value={assignments.filter((row) => row.status === "ACTIVE").length} testId="metric-active-contractors" />
+        <Metric label={t("contractorsTab.openWorkPackages")} value={packages.filter((row) => ["PLANNED", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(row.status)).length} href={`/projects/${project.id}/work-packages`} />
+        <Metric label={t("contractorsTab.openRfis")} value={openRfis} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/rfis?open=1` : undefined} />
+        <Metric label={t("contractorsTab.openSubmittals")} value={openSubmittals} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/submittals` : undefined} />
+        <Metric label={t("contractorsTab.complianceAlerts")} value={compliance.length} tone="warning" testId="metric-project-compliance" />
       </MetricStrip>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">Contractors</h2>
-            <p className="mt-0.5 text-table text-fg-muted">Each assignment has its own status, scope, contract and internal manager.</p>
+            <h2 className="text-section font-semibold text-fg">{t("contractorsTab.contractors")}</h2>
+            <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.contractorsBody")}</p>
           </div>
           {!archived && can(context, "project_contractor.manage") ? <AssignContractorButton projectId={project.id} /> : null}
         </div>
@@ -98,12 +102,12 @@ export default async function ProjectContractorsPage({ params }: Params) {
         <section className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-section font-semibold text-fg">Work packages</h2>
-              <p className="mt-0.5 text-table text-fg-muted">Scope units tying contractor, contract, dates and records together.</p>
+              <h2 className="text-section font-semibold text-fg">{t("contractorsTab.workPackages")}</h2>
+              <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.workPackagesBody")}</p>
             </div>
             <div className="flex gap-2">
               <Button asChild size="sm" variant="secondary">
-                <Link href={`/projects/${project.id}/work-packages`}>All work packages</Link>
+                <Link href={`/projects/${project.id}/work-packages`}>{t("contractorsTab.allWorkPackages")}</Link>
               </Button>
               {!archived && can(context, "work_package.create") ? <NewWorkPackageButton projectId={project.id} /> : null}
             </div>
@@ -115,8 +119,8 @@ export default async function ProjectContractorsPage({ params }: Params) {
       {contractorsOpen(context, "contractor_compliance.view") ? (
         <section className="space-y-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">Compliance alerts</h2>
-            <p className="mt-0.5 text-table text-fg-muted">Expiring, expired or missing items for the contractors working on this project.</p>
+            <h2 className="text-section font-semibold text-fg">{t("contractorsTab.complianceAlerts")}</h2>
+            <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.complianceBody")}</p>
           </div>
           <CompliancePanel contractorId={null} items={compliance} canManage={false} canUpload={false} showContractor />
         </section>

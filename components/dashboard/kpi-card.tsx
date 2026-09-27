@@ -5,6 +5,7 @@ import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { ResolvedKpi } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
+import { kpiLabel } from "./config-text";
 
 /**
  * A single KPI card (PRD #4 §16).
@@ -32,7 +33,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
         </span>
         {/* Two lines, not an ellipsis: a 2-up phone grid leaves ~90px for "Open Quality Items" (AUD-04 §4, MW-01). */}
         <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">
-          {kpi.definition.label}
+          {kpiLabel(t, kpi.definition.key, kpi.definition.label)}
         </p>
       </div>
 

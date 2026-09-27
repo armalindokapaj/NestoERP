@@ -14,6 +14,7 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import * as commitments from "@/lib/modules/finance/commitments/commitment.service";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
@@ -21,7 +22,10 @@ import { parseCommitmentQuery } from "@/lib/modules/finance/finance.query";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { COMMITMENT_SORT_KEYS } from "@/lib/modules/finance/commitments/commitment.schema";
 
-export const metadata: Metadata = { title: "Commitments" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.commitments") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,6 +38,7 @@ export default async function CommitmentsPage({
 
   if (!can(context, "finance.commitment.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = resolveModuleExperience(context, "finance");
   const params = await searchParams;
 
@@ -44,7 +49,7 @@ export default async function CommitmentsPage({
       actions={
         can(context, "finance.commitment.create") ? (
           <Button asChild size="sm">
-            <Link href="/finance/commitments/new">New commitment</Link>
+            <Link href="/finance/commitments/new">{t("commitments.new")}</Link>
           </Button>
         ) : null
       }
@@ -63,6 +68,7 @@ async function CommitmentsList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("finance");
   const query = parseCommitmentQuery(searchParams);
 
   const [result, options] = await Promise.all([
@@ -81,36 +87,36 @@ async function CommitmentsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search description, counterparty or reference…"
+        searchPlaceholder={t("commitments.search")}
         filters={[
           {
             param: "status",
-            label: "Status",
+            label: t("columns.status"),
             options: [
-              { value: "DRAFT", label: "Draft" },
-              { value: "PENDING_APPROVAL", label: "Pending approval" },
-              { value: "APPROVED", label: "Approved" },
-              { value: "CLOSED", label: "Closed" },
-              { value: "REJECTED", label: "Rejected" },
-              { value: "CANCELLED", label: "Cancelled" },
+              { value: "DRAFT", label: t("recordStatus.DRAFT") },
+              { value: "PENDING_APPROVAL", label: t("recordStatus.PENDING_APPROVAL") },
+              { value: "APPROVED", label: t("recordStatus.APPROVED") },
+              { value: "CLOSED", label: t("recordStatus.CLOSED") },
+              { value: "REJECTED", label: t("recordStatus.REJECTED") },
+              { value: "CANCELLED", label: t("recordStatus.CANCELLED") },
             ],
           },
           {
             param: "open",
-            label: "Forecast",
-            options: [{ value: "1", label: "Counts toward forecast" }],
+            label: t("columns.forecast"),
+            options: [{ value: "1", label: t("commitments.countsToward") }],
           },
           {
             param: "category",
-            label: "Category",
-            options: Object.entries(expenseCategoryLabels).map(([value, label]) => ({
+            label: t("columns.category"),
+            options: (Object.keys(expenseCategoryLabels) as (keyof typeof expenseCategoryLabels)[]).map((value) => ({
               value,
-              label,
+              label: t(`category.${value}`),
             })),
           },
           {
             param: "projectId",
-            label: "Project",
+            label: t("form.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: project.name,
@@ -118,10 +124,10 @@ async function CommitmentsList({
           },
         ]}
         sortOptions={[
-          { value: "expected-asc", label: "Expected soonest" },
-          { value: "expected-desc", label: "Expected latest" },
-          { value: "amount-desc", label: "Largest first" },
-          { value: "updated-desc", label: "Recently updated" },
+          { value: "expected-asc", label: t("sort.expectedSoonest") },
+          { value: "expected-desc", label: t("sort.expectedLatest") },
+          { value: "amount-desc", label: t("sort.largest") },
+          { value: "updated-desc", label: t("sort.updated") },
         ]}
       />
 
@@ -129,18 +135,18 @@ async function CommitmentsList({
         hasFilters ? (
           <EmptyState
             icon={<Handshake />}
-            title="No commitments match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/finance/commitments" }}
+            title={t("commitments.noMatch")}
+            description={t("list.noMatchBody")}
+            action={{ label: t("list.clearFilters"), href: "/finance/commitments" }}
           />
         ) : (
           <EmptyState
             icon={<Handshake />}
-            title="No commitments yet."
-            description="Money the company has undertaken to spend, but has not yet incurred."
+            title={t("commitments.none")}
+            description={t("commitmentForm.hint")}
             action={
               can(context, "finance.commitment.create")
-                ? { label: "New commitment", href: "/finance/commitments/new" }
+                ? { label: t("commitments.new"), href: "/finance/commitments/new" }
                 : undefined
             }
           />
