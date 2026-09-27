@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { RequestForm } from "@/components/qaqc/qaqc-forms";
@@ -9,11 +10,15 @@ import { createRequestAction } from "@/lib/actions/qaqc";
 import * as requests from "@/lib/modules/qaqc/requests/request.service";
 import { formatDate } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "Request an inspection" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.requestInspection") };
+}
 
 /** Ask for an inspection (PRD #21 §43). */
 export default async function NewRequestPage() {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.request.create")) notFound();
 
   const options = await requests.requestFormOptions(context);
@@ -22,25 +27,24 @@ export default async function NewRequestPage() {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Requests", href: "/qaqc/requests" },
-          { label: "New request" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.requests"), href: "/qaqc/requests" },
+          { label: t("crumbs.newRequest") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Request an inspection</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.requestInspection")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Asking for an inspection is not the inspection. Somebody from quality picks this up,
-          carries it out and records a verdict.
+          {t("requestPage.newIntro")}
         </p>
       </div>
 
       <RequestForm
         action={createRequestAction}
         cancelHref="/qaqc/requests"
-        submitLabel="Raise request"
-        pendingLabel="Raising…"
+        submitLabel={t("requestPage.raise")}
+        pendingLabel={t("common.raising")}
         canAssign={can(context, "qaqc.request.assign")}
         projects={options.projects.map((project) => ({
           value: project.id,

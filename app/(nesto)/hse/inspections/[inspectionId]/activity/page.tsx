@@ -7,8 +7,12 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Inspection activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.inspectionActivity") };
+}
 
 type Params = {
   params: Promise<{ inspectionId: string }>;
@@ -21,6 +25,7 @@ export default async function InspectionActivityPage({ params, searchParams }: P
   const { page } = paginationSchema.parse({ page: typeof query.page === "string" ? query.page : undefined });
   const basePath = `/hse/inspections/${inspectionId}/activity`;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let inspection;
   try {
@@ -37,14 +42,14 @@ export default async function InspectionActivityPage({ params, searchParams }: P
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
           { label: inspection.inspectionNumber, href: `/hse/inspections/${inspectionId}` },
-          { label: "Activity" },
+          { label: t("record.activity") },
         ]}
       />
 
       <h1 className="text-page font-semibold text-fg">
-        Activity on {inspection.inspectionNumber}
+        {t("page.activityOn", { number: inspection.inspectionNumber })}
       </h1>
 
       <HseActivityFeed

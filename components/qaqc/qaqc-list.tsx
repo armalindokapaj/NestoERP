@@ -31,17 +31,10 @@ import {
   PRIORITIES,
   REQUEST_STATUSES,
   SEVERITIES,
-  correctiveActionStatusLabels,
-  defectStatusLabels,
-  inspectionResultLabels,
-  inspectionStatusLabels,
-  inspectionTypeLabels,
-  ncrCategoryLabels,
-  ncrStatusLabels,
-  priorityLabels,
-  requestStatusLabels,
-  severityLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
+import { getTranslations } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/translator";
+import { qaqcLabel } from "./qaqc-labels";
 import {
   CorrectiveActionTable,
   DefectTable,
@@ -76,119 +69,106 @@ export type QaqcListKind =
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-const EMPTY_COPY: Record<QaqcListKind, { title: string; description: string }> = {
-  requests: {
-    title: "No inspection requests.",
-    description:
-      "A request is somebody asking for an inspection. Quality picks it up and carries it out.",
-  },
-  inspections: {
-    title: "No inspections yet.",
-    description:
-      "An inspection is the act of looking, with a verdict. It can be raised from a request or started directly.",
-  },
-  defects: {
-    title: "No defects.",
-    description:
-      "A defect is a fault on a job that somebody must fix. If it also needs a root cause, escalate it to an NCR.",
-  },
-  ncrs: {
-    title: "No non-conformances.",
-    description:
-      "An NCR is a formal statement that a requirement was not met. It closes only once the cause is understood and the fix verified.",
-  },
-  "corrective-actions": {
-    title: "No corrective actions.",
-    description:
-      "A corrective action is what somebody actually does about a non-conformance — and the reason an NCR can close.",
-  },
+type QaqcKey = MessageKey<"qaqc">;
+
+const EMPTY_COPY: Record<QaqcListKind, { title: QaqcKey; description: QaqcKey }> = {
+  requests: { title: "list.empty.requests", description: "list.empty.requestsBody" },
+  inspections: { title: "list.empty.inspections", description: "list.empty.inspectionsBody" },
+  defects: { title: "list.empty.defects", description: "list.empty.defectsBody" },
+  ncrs: { title: "list.empty.ncrs", description: "list.empty.ncrsBody" },
+  "corrective-actions": { title: "list.empty.actions", description: "list.empty.actionsBody" },
 };
 
-/** What each list's search really matches, per its service (AUD-05 §5, UX-10). */
-const SEARCH_HINT: Record<QaqcListKind, string> = {
-  requests: "Search number, title or location…",
-  inspections: "Search number, summary, location or work reference…",
-  defects: "Search number, title or location…",
-  ncrs: "Search NCR number or title…",
-  "corrective-actions": "Search number or title…",
+/**
+ * What each list's search really matches, per its service (AUD-05 §5, UX-10).
+ * In English: requests and defects "Search number, title or location…";
+ * inspections "Search number, summary, location or work reference…";
+ * NCRs "Search NCR number or title…"; actions "Search number or title…".
+ */
+const SEARCH_HINT: Record<QaqcListKind, QaqcKey> = {
+  requests: "list.search.requests",
+  inspections: "list.search.inspections",
+  defects: "list.search.defects",
+  ncrs: "list.search.ncrs",
+  "corrective-actions": "list.search.actions",
 };
 
-const VIEW_OPTIONS: Record<QaqcListKind, { value: string; label: string }[]> = {
+const VIEW_OPTIONS: Record<QaqcListKind, { value: string; label: QaqcKey }[]> = {
   requests: [
-    { value: "all", label: "All requests" },
-    { value: "open", label: "Still open" },
-    { value: "unassigned", label: "Unassigned" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allRequests" },
+    { value: "open", label: "list.view.open" },
+    { value: "unassigned", label: "list.view.unassigned" },
+    { value: "mine", label: "list.view.mine" },
   ],
   inspections: [
-    { value: "all", label: "All inspections" },
-    { value: "open", label: "Still open" },
-    { value: "awaiting-approval", label: "Awaiting approval" },
-    { value: "reinspections", label: "Reinspections" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allInspections" },
+    { value: "open", label: "list.view.open" },
+    { value: "awaiting-approval", label: "list.view.awaitingApproval" },
+    { value: "reinspections", label: "list.view.reinspections" },
+    { value: "mine", label: "list.view.mine" },
   ],
   defects: [
-    { value: "all", label: "All defects" },
-    { value: "open", label: "Still open" },
-    { value: "overdue", label: "Overdue" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allDefects" },
+    { value: "open", label: "list.view.open" },
+    { value: "overdue", label: "list.view.overdue" },
+    { value: "mine", label: "list.view.mine" },
   ],
   ncrs: [
-    { value: "all", label: "All NCRs" },
-    { value: "open", label: "Still open" },
-    { value: "overdue", label: "Overdue" },
-    { value: "awaiting-approval", label: "Awaiting approval" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allNcrs" },
+    { value: "open", label: "list.view.open" },
+    { value: "overdue", label: "list.view.overdue" },
+    { value: "awaiting-approval", label: "list.view.awaitingApproval" },
+    { value: "mine", label: "list.view.mine" },
   ],
   "corrective-actions": [
-    { value: "all", label: "All actions" },
-    { value: "open", label: "Still open" },
-    { value: "awaiting-verification", label: "Awaiting verification" },
-    { value: "overdue", label: "Overdue" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allActions" },
+    { value: "open", label: "list.view.open" },
+    { value: "awaiting-verification", label: "list.view.awaitingVerification" },
+    { value: "overdue", label: "list.view.overdue" },
+    { value: "mine", label: "list.view.mine" },
   ],
 };
 
-const SORT_OPTIONS: Record<QaqcListKind, { value: string; label: string }[]> = {
+const SORT_OPTIONS: Record<QaqcListKind, { value: string; label: QaqcKey }[]> = {
   requests: [
-    { value: "created-desc", label: "Newest first" },
-    { value: "required-asc", label: "Needed soonest" },
-    { value: "priority-desc", label: "Most urgent" },
-    { value: "number-asc", label: "By number" },
+    { value: "created-desc", label: "list.sort.newest" },
+    { value: "required-asc", label: "list.sort.neededSoonest" },
+    { value: "priority-desc", label: "list.sort.mostUrgent" },
+    { value: "number-asc", label: "list.sort.byNumber" },
   ],
   inspections: [
-    { value: "created-desc", label: "Newest first" },
-    { value: "date-desc", label: "Inspected most recently" },
-    { value: "date-asc", label: "Inspected longest ago" },
-    { value: "number-asc", label: "By number" },
+    { value: "created-desc", label: "list.sort.newest" },
+    { value: "date-desc", label: "list.sort.inspectedRecent" },
+    { value: "date-asc", label: "list.sort.inspectedOldest" },
+    { value: "number-asc", label: "list.sort.byNumber" },
   ],
   defects: [
-    { value: "created-desc", label: "Newest first" },
-    { value: "due-asc", label: "Due soonest" },
-    { value: "severity-desc", label: "Most severe" },
-    { value: "number-asc", label: "By number" },
+    { value: "created-desc", label: "list.sort.newest" },
+    { value: "due-asc", label: "list.sort.dueSoonest" },
+    { value: "severity-desc", label: "list.sort.mostSevere" },
+    { value: "number-asc", label: "list.sort.byNumber" },
   ],
   ncrs: [
-    { value: "created-desc", label: "Newest first" },
-    { value: "due-asc", label: "Due soonest" },
-    { value: "severity-desc", label: "Most severe" },
-    { value: "number-asc", label: "By number" },
+    { value: "created-desc", label: "list.sort.newest" },
+    { value: "due-asc", label: "list.sort.dueSoonest" },
+    { value: "severity-desc", label: "list.sort.mostSevere" },
+    { value: "number-asc", label: "list.sort.byNumber" },
   ],
   "corrective-actions": [
-    { value: "created-desc", label: "Newest first" },
-    { value: "due-asc", label: "Due soonest" },
-    { value: "number-asc", label: "By number" },
+    { value: "created-desc", label: "list.sort.newest" },
+    { value: "due-asc", label: "list.sort.dueSoonest" },
+    { value: "number-asc", label: "list.sort.byNumber" },
   ],
 };
 
 const CREATE = {
-  requests: { permission: "qaqc.request.create", label: "Request an inspection" },
-  inspections: { permission: "qaqc.inspection.create", label: "New inspection" },
-  defects: { permission: "qaqc.defect.create", label: "New defect" },
-  ncrs: { permission: "qaqc.ncr.create", label: "New NCR" },
+  requests: { permission: "qaqc.request.create", key: "common.requestInspection" },
+  inspections: { permission: "qaqc.inspection.create", key: "common.newInspection" },
+  defects: { permission: "qaqc.defect.create", key: "common.newDefect" },
+  ncrs: { permission: "qaqc.ncr.create", key: "common.newNcr" },
   "corrective-actions": {
     permission: "qaqc.corrective_action.create",
-    label: "New corrective action",
+    key: "common.newCorrectiveAction",
   },
 } as const;
 
@@ -237,6 +217,9 @@ export async function QaqcListSection({
   /** Query values the page fixes (a section, an inspection type): applied, never offered. */
   fixed?: Record<string, string>;
 }) {
+  const t = await getTranslations("qaqc");
+  const options = (list: { value: string; label: QaqcKey }[]) =>
+    list.map((option) => ({ value: option.value, label: t(option.label) }));
   // The fixed values win over anything in the URL, and are part of the query.
   const searchParams: SearchParams = { ...urlParams, ...fixed };
   const shared = {
@@ -253,7 +236,7 @@ export async function QaqcListSection({
   const projectOptions = PROJECT_OPTIONS[kind]?.(context);
 
   const filters: FilterConfig[] = [
-    { param: "view", label: "View", options: VIEW_OPTIONS[kind] },
+    { param: "view", label: t("list.filter.view"), options: options(VIEW_OPTIONS[kind]) },
   ];
 
   let rendered: React.ReactNode;
@@ -276,18 +259,18 @@ export async function QaqcListSection({
     filters.push(
       {
         param: "status",
-        label: "Status",
-        options: REQUEST_STATUSES.map((value) => ({ value, label: requestStatusLabels[value] })),
+        label: t("list.filter.status"),
+        options: REQUEST_STATUSES.map((value) => ({ value, label: qaqcLabel(t, "requestStatus", value) })),
       },
       {
         param: "type",
-        label: "Type",
-        options: INSPECTION_TYPES.map((value) => ({ value, label: inspectionTypeLabels[value] })),
+        label: t("list.filter.type"),
+        options: INSPECTION_TYPES.map((value) => ({ value, label: qaqcLabel(t, "inspectionType", value) })),
       },
       {
         param: "priority",
-        label: "Priority",
-        options: PRIORITIES.map((value) => ({ value, label: priorityLabels[value] })),
+        label: t("list.filter.priority"),
+        options: PRIORITIES.map((value) => ({ value, label: qaqcLabel(t, "priority", value) })),
       },
     );
     rendered = <RequestTable requests={result.data} listId={listId} sort={sortConfig(query.sort)} />;
@@ -306,25 +289,25 @@ export async function QaqcListSection({
     filters.push(
       {
         param: "status",
-        label: "Status",
+        label: t("list.filter.status"),
         options: INSPECTION_STATUSES.map((value) => ({
           value,
-          label: inspectionStatusLabels[value],
+          label: qaqcLabel(t, "inspectionStatus", value),
         })),
       },
       {
         // Separate from status on purpose: they answer different questions.
         param: "result",
-        label: "Result",
+        label: t("list.filter.result"),
         options: INSPECTION_RESULTS.map((value) => ({
           value,
-          label: inspectionResultLabels[value],
+          label: qaqcLabel(t, "inspectionResult", value),
         })),
       },
       {
         param: "type",
-        label: "Type",
-        options: INSPECTION_TYPES.map((value) => ({ value, label: inspectionTypeLabels[value] })),
+        label: t("list.filter.type"),
+        options: INSPECTION_TYPES.map((value) => ({ value, label: qaqcLabel(t, "inspectionType", value) })),
       },
     );
     rendered = <InspectionTable inspections={result.data} listId={listId} sort={sortConfig(query.sort)} />;
@@ -342,13 +325,13 @@ export async function QaqcListSection({
     filters.push(
       {
         param: "status",
-        label: "Status",
-        options: DEFECT_STATUSES.map((value) => ({ value, label: defectStatusLabels[value] })),
+        label: t("list.filter.status"),
+        options: DEFECT_STATUSES.map((value) => ({ value, label: qaqcLabel(t, "defectStatus", value) })),
       },
       {
         param: "severity",
-        label: "Severity",
-        options: SEVERITIES.map((value) => ({ value, label: severityLabels[value] })),
+        label: t("list.filter.severity"),
+        options: SEVERITIES.map((value) => ({ value, label: qaqcLabel(t, "severity", value) })),
       },
     );
     rendered = <DefectTable defects={result.data} listId={listId} sort={sortConfig(query.sort)} />;
@@ -367,18 +350,18 @@ export async function QaqcListSection({
     filters.push(
       {
         param: "status",
-        label: "Status",
-        options: NCR_STATUSES.map((value) => ({ value, label: ncrStatusLabels[value] })),
+        label: t("list.filter.status"),
+        options: NCR_STATUSES.map((value) => ({ value, label: qaqcLabel(t, "ncrStatus", value) })),
       },
       {
         param: "category",
-        label: "Category",
-        options: NCR_CATEGORIES.map((value) => ({ value, label: ncrCategoryLabels[value] })),
+        label: t("list.filter.category"),
+        options: NCR_CATEGORIES.map((value) => ({ value, label: qaqcLabel(t, "ncrCategory", value) })),
       },
       {
         param: "severity",
-        label: "Severity",
-        options: SEVERITIES.map((value) => ({ value, label: severityLabels[value] })),
+        label: t("list.filter.severity"),
+        options: SEVERITIES.map((value) => ({ value, label: qaqcLabel(t, "severity", value) })),
       },
     );
     rendered = <NcrTable ncrs={result.data} listId={listId} sort={sortConfig(query.sort)} />;
@@ -395,10 +378,10 @@ export async function QaqcListSection({
     appliedSortValue = query.sort;
     filters.push({
       param: "status",
-      label: "Status",
+      label: t("list.filter.status"),
       options: CORRECTIVE_ACTION_STATUSES.map((value) => ({
         value,
-        label: correctiveActionStatusLabels[value],
+        label: qaqcLabel(t, "actionStatus", value),
       })),
     });
     rendered = <CorrectiveActionTable actions={result.data} listId={listId} sort={sortConfig(query.sort)} />;
@@ -410,7 +393,7 @@ export async function QaqcListSection({
   if (projectList) {
     filters.push({
       param: "projectId",
-      label: "Project",
+      label: t("list.filter.project"),
       options: projectList.map((project) => ({ value: project.id, label: `${project.code} — ${project.name}` })),
     });
   }
@@ -444,9 +427,9 @@ export async function QaqcListSection({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder={SEARCH_HINT[kind]}
+        searchPlaceholder={t(SEARCH_HINT[kind])}
         filters={toolbarFilters}
-        sortOptions={SORT_OPTIONS[kind]}
+        sortOptions={options(SORT_OPTIONS[kind])}
         extraFilterParams={extraFilterKeys}
         applied={{ sort: appliedSortValue }}
       />
@@ -455,18 +438,18 @@ export async function QaqcListSection({
         hasFilters ? (
           <EmptyState
             icon={<ClipboardCheck />}
-            title="Nothing matches these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: cleared ? `${basePath}?${cleared}` : basePath }}
+            title={t("list.noMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: cleared ? `${basePath}?${cleared}` : basePath }}
           />
         ) : (
           <EmptyState
             icon={<ClipboardCheck />}
-            title={copy.title}
-            description={copy.description}
+            title={t(copy.title)}
+            description={t(copy.description)}
             action={
               can(context, create.permission)
-                ? { label: create.label, href: `/qaqc/${kind}/new` }
+                ? { label: t(create.key), href: `/qaqc/${kind}/new` }
                 : undefined
             }
           />

@@ -8,8 +8,12 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Execute inspection" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.executeInspection") };
+}
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
@@ -22,6 +26,7 @@ type Params = { params: Promise<{ inspectionId: string }> };
 export default async function ExecuteInspectionPage({ params }: Params) {
   const { inspectionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.inspection.execute")) notFound();
 
   let inspection;
@@ -39,9 +44,9 @@ export default async function ExecuteInspectionPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
           { label: inspection.inspectionNumber, href: `/hse/inspections/${inspectionId}` },
-          { label: "Execute" },
+          { label: t("page.crumbExecute") },
         ]}
       />
 
@@ -51,7 +56,7 @@ export default async function ExecuteInspectionPage({ params }: Params) {
           {inspection.locationText
             ? `${inspection.locationText} · `
             : ""}
-          {inspection.project?.name ?? "Company-wide"}
+          {inspection.project?.name ?? t("record.companyWide")}
         </p>
       </div>
 

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -12,7 +13,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Corrective actions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.correctiveActions") };
+}
 
 /** Corrective actions: What somebody actually does about a non-conformance — and the reason an NCR can close. */
 export default async function QaqcCorrectiveActionsPage({
@@ -21,6 +25,7 @@ export default async function QaqcCorrectiveActionsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.corrective_action.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -35,7 +40,7 @@ export default async function QaqcCorrectiveActionsPage({
     <ModulePage
       experience={experience}
       activeSection="corrective-actions"
-      description="What somebody actually does about a non-conformance — and the reason an NCR can close."
+      description={t("descriptions.correctiveActions")}
       actions={
         <>
           {can(context, "qaqc.export") ? (
@@ -43,7 +48,7 @@ export default async function QaqcCorrectiveActionsPage({
           ) : null}
           {can(context, "qaqc.corrective_action.create") ? (
             <Button asChild size="sm">
-              <Link href="/qaqc/corrective-actions/new">New corrective action</Link>
+              <Link href="/qaqc/corrective-actions/new">{t("common.newCorrectiveAction")}</Link>
             </Button>
           ) : null}
         </>

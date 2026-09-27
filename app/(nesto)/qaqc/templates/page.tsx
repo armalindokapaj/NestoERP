@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
@@ -22,11 +23,13 @@ import { clearListFilters } from "@/lib/tables/list-url";
 import {
   INSPECTION_TYPES,
   TEMPLATE_STATUSES,
-  inspectionTypeLabels,
-  templateStatusLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 
-export const metadata: Metadata = { title: "Inspection templates" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.templates") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -43,6 +46,7 @@ export default async function TemplatesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.template.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -52,11 +56,11 @@ export default async function TemplatesPage({
     <ModulePage
       experience={experience}
       activeSection="templates"
-      description="The checklists inspections are carried out against. Editing one that has been used writes a new version and leaves the old one alone."
+      description={t("descriptions.templates")}
       actions={
         can(context, "qaqc.template.create") ? (
           <Button asChild size="sm">
-            <Link href="/qaqc/templates/new">New template</Link>
+            <Link href="/qaqc/templates/new">{t("common.newTemplate")}</Link>
           </Button>
         ) : null
       }
@@ -75,6 +79,7 @@ async function TemplateList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("qaqc");
   const read = (key: string) =>
     typeof searchParams[key] === "string" ? (searchParams[key] as string) : undefined;
 
@@ -103,13 +108,13 @@ async function TemplateList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
-      options: TEMPLATE_STATUSES.map((value) => ({ value, label: templateStatusLabels[value] })),
+      label: t("list.filter.status"),
+      options: TEMPLATE_STATUSES.map((value) => ({ value, label: qaqcLabel(t, "templateStatus", value) })),
     },
     {
       param: "type",
-      label: "Type",
-      options: INSPECTION_TYPES.map((value) => ({ value, label: inspectionTypeLabels[value] })),
+      label: t("list.filter.type"),
+      options: INSPECTION_TYPES.map((value) => ({ value, label: qaqcLabel(t, "inspectionType", value) })),
     },
   ];
 
@@ -120,12 +125,12 @@ async function TemplateList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search code or name…"
+        searchPlaceholder={t("list.search.templates")}
         filters={filters}
         sortOptions={[
-          { value: "code-asc", label: "By code" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "updated-desc", label: "Recently updated" },
+          { value: "code-asc", label: t("list.sort.byCode") },
+          { value: "name-asc", label: t("list.sort.nameAz") },
+          { value: "updated-desc", label: t("list.sort.recentlyUpdated") },
         ]}
         applied={{ sort: query.sort }}
       />
@@ -134,18 +139,18 @@ async function TemplateList({
         hasFilters ? (
           <EmptyState
             icon={<ClipboardList />}
-            title="No templates match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: cleared ? `/qaqc/templates?${cleared}` : "/qaqc/templates" }}
+            title={t("list.noTemplatesMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: cleared ? `/qaqc/templates?${cleared}` : "/qaqc/templates" }}
           />
         ) : (
           <EmptyState
             icon={<ClipboardList />}
-            title="No templates yet."
-            description="A template is the checklist an inspection is carried out against. Keeping one list means two sites cannot quietly hold the same work to different standards."
+            title={t("list.noTemplates")}
+            description={t("list.noTemplatesBody")}
             action={
               can(context, "qaqc.template.create")
-                ? { label: "New template", href: "/qaqc/templates/new" }
+                ? { label: t("common.newTemplate"), href: "/qaqc/templates/new" }
                 : undefined
             }
           />

@@ -6,14 +6,19 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Hazard documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.hazardDocuments") };
+}
 
 type Params = { params: Promise<{ hazardId: string }> };
 
 export default async function HazardDocumentsPage({ params }: Params) {
   const { hazardId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let hazard;
   try {
@@ -30,13 +35,13 @@ export default async function HazardDocumentsPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber, href: `/hse/hazards/${hazardId}` },
-          { label: "Documents" },
+          { label: t("record.documents") },
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">Documents on {hazard.hazardNumber}</h1>
+      <h1 className="text-page font-semibold text-fg">{t("page.documentsOn", { number: hazard.hazardNumber })}</h1>
 
       <HseRecordDocuments context={context} entityType="hazard" entityId={hazard.id} />
     </div>

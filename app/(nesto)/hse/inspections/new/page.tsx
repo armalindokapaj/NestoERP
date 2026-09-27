@@ -8,12 +8,18 @@ import { requireModule } from "@/lib/context/current-user";
 import { createInspectionAction } from "@/lib/actions/hse";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 import { inspectionTypeLabels } from "@/lib/modules/hse/hse.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
-export const metadata: Metadata = { title: "New inspection" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.inspections") };
+}
 
 /** Raising a safety inspection (PRD #22 §39, §47). */
 export default async function NewInspectionPage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.inspection.create")) redirect("/access-denied");
 
   const options = await inspections.inspectionFormOptions(context);
@@ -23,23 +29,23 @@ export default async function NewInspectionPage() {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
-          { label: "New" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New safety inspection</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.newSafetyInspection")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Pick a checklist and it is copied onto this inspection. Editing the checklist later will not change what was answered here.
+          {t("page.inspectionIntro")}
         </p>
       </div>
 
       <InspectionForm
         action={createInspectionAction}
         cancelHref="/hse/inspections"
-        submitLabel="Raise inspection"
-        pendingLabel="Raising…"
+        submitLabel={t("page.raiseInspection")}
+        pendingLabel={t("page.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,
@@ -50,7 +56,7 @@ export default async function NewInspectionPage() {
         }))}
         templates={options.templates.map((template) => ({
           value: template.id,
-          label: `${template.code} — ${template.name} (${inspectionTypeLabels[template.inspectionType]}, v${template.version})`,
+          label: `${template.code} — ${template.name} (${hseLabel(t, "inspectionType", template.inspectionType, inspectionTypeLabels[template.inspectionType])}, v${template.version})`,
         }))}
       />
     </div>

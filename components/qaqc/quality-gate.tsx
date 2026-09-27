@@ -5,7 +5,9 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import * as materials from "@/lib/modules/qaqc/materials/material.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { inspectionResultLabels } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "./qaqc-labels";
 
 /**
  * The quality position on a delivery, shown where it matters
@@ -26,6 +28,7 @@ export async function QualityGate({
   goodsReceiptId: string;
 }) {
   if (!can(context, "qaqc.material.view")) return null;
+  const t = await getTranslations("qaqc");
 
   const status = await materials.materialQualityStatus(context, goodsReceiptId);
   if (!status) return null;
@@ -33,7 +36,7 @@ export async function QualityGate({
   if (!status.inspectionId) {
     return (
       <p className="text-meta text-fg-subtle">
-        Quality is not gating this delivery — no material inspection has been raised against it.
+        {t("gate.notGating")}
       </p>
     );
   }
@@ -42,7 +45,7 @@ export async function QualityGate({
     <div className="rounded-md border border-line bg-surface-muted px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex flex-wrap items-center gap-2 text-table text-fg">
-          <span className="font-medium">Quality</span>
+          <span className="font-medium">{t("gate.quality")}</span>
           {can(context, "qaqc.inspection.view") ? (
             <Link
               href={`/qaqc/inspections/${status.inspectionId}`}
@@ -56,22 +59,22 @@ export async function QualityGate({
           {status.inspectionStatus ? <StatusBadge status={status.inspectionStatus} /> : null}
           {status.result && status.result !== "NOT_SET" ? (
             <Badge tone={status.result === "PASS" ? "success" : status.result === "FAIL" ? "danger" : "warning"}>
-              {inspectionResultLabels[status.result]}
+              {qaqcLabel(t, "inspectionResult", status.result, inspectionResultLabels[status.result])}
             </Badge>
           ) : null}
         </p>
 
         {status.clearedForPosting ? (
-          <Badge tone="success">Cleared for stock</Badge>
+          <Badge tone="success">{t("gate.cleared")}</Badge>
         ) : (
-          <Badge tone="warning">Not cleared</Badge>
+          <Badge tone="warning">{t("gate.notCleared")}</Badge>
         )}
       </div>
 
       <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-        <Figure label="Released" value={status.releasedQuantity} />
-        <Figure label="Rejected" value={status.rejectedQuantity} />
-        <Figure label="Conditional" value={status.conditionalQuantity} />
+        <Figure label={t("gate.released")} value={status.releasedQuantity} />
+        <Figure label={t("gate.rejected")} value={status.rejectedQuantity} />
+        <Figure label={t("gate.conditional")} value={status.conditionalQuantity} />
       </dl>
 
       {status.blockedReason ? (

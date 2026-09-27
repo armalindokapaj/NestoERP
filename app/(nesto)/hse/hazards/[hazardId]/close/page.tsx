@@ -9,8 +9,12 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
 import { hazardClosureGapLabels } from "@/lib/modules/hse/hse.status";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Close hazard" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.closeHazard") };
+}
 
 type Params = { params: Promise<{ hazardId: string }> };
 
@@ -18,6 +22,7 @@ type Params = { params: Promise<{ hazardId: string }> };
 export default async function CloseHazardPage({ params }: Params) {
   const { hazardId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.hazard.close")) notFound();
 
   let hazard;
@@ -41,22 +46,21 @@ export default async function CloseHazardPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber, href: `/hse/hazards/${hazardId}` },
-          { label: "Close" },
+          { label: t("page.crumbClose") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Close {hazard.hazardNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.closeNumber", { number: hazard.hazardNumber })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          A hazard closes when the control is genuinely in — not when somebody is tired of looking
-          at it.
+          {t("page.closeHazardIntro")}
         </p>
       </div>
 
       <BlockedList
-        title="Still outstanding"
+        title={t("page.stillOutstanding")}
         reasons={outstanding.map((gap) => hazardClosureGapLabels[gap])}
       />
 

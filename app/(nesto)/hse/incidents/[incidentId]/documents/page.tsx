@@ -6,14 +6,19 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Incident documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.incidentDocuments") };
+}
 
 type Params = { params: Promise<{ incidentId: string }> };
 
 export default async function IncidentDocumentsPage({ params }: Params) {
   const { incidentId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let incident;
   try {
@@ -30,21 +35,21 @@ export default async function IncidentDocumentsPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Incidents", href: "/hse/incidents" },
+          { label: t("pages.incidents.title"), href: "/hse/incidents" },
           { label: incident.incidentNumber, href: `/hse/incidents/${incidentId}` },
-          { label: "Documents" },
+          { label: t("record.documents") },
         ]}
       />
 
       <h1 className="text-page font-semibold text-fg">
-        Documents on {incident.incidentNumber}
+        {t("page.documentsOn", { number: incident.incidentNumber })}
       </h1>
 
       <HseRecordDocuments
         context={context}
         entityType="incident"
         entityId={incident.id}
-        emptyDescription="Photographs and investigation reports appear here. Medical records do not belong in NESTO."
+        emptyDescription={t("incident.detail.documentsEmpty")}
       />
     </div>
   );

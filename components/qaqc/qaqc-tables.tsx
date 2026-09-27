@@ -4,11 +4,8 @@ import { DataTable, type TableColumn, type TableSortConfig } from "@/components/
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
-import {
-  inspectionTypeLabels,
-  ncrCategoryLabels,
-  priorityLabels,
-} from "@/lib/modules/qaqc/qaqc.status";
+import { getTranslations } from "@/lib/i18n/server";
+import { qaqcLabel } from "./qaqc-labels";
 import type {
   CorrectiveActionSummaryDTO,
   DefectSummaryDTO,
@@ -102,19 +99,20 @@ const CORRECTIVE_ACTION_COLUMNS: Record<string, ColumnMeta> = {
   status: STATUS,
 };
 
-export function RequestTable({
+export async function RequestTable({
   listId,
   sort,
   requests,
-  caption = "Inspection requests",
+  caption,
 }: ListProps & {
   requests: RequestSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<RequestSummaryDTO>[] = [
     {
       key: "title",
-      label: "Request",
+      label: t("table.request"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -125,31 +123,31 @@ export function RequestTable({
     },
     {
       key: "inspectionType",
-      label: "Type",
+      label: t("table.type"),
       hideBelow: "lg",
-      render: (row) => inspectionTypeLabels[row.inspectionType],
+      render: (row) => qaqcLabel(t, "inspectionType", row.inspectionType),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.project"),
       hideBelow: "md",
       render: (row) =>
-        row.project ? row.project.code : <span className="text-fg-subtle">Company</span>,
+        row.project ? row.project.code : <span className="text-fg-subtle">{t("common.company")}</span>,
     },
     {
       key: "assignedInspector",
-      label: "Inspector",
+      label: t("table.inspector"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedInspector ? (
           <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
         ) : (
-          <span className="text-warning-strong">Unassigned</span>
+          <span className="text-warning-strong">{t("common.unassigned")}</span>
         ),
     },
     {
       key: "requiredByDate",
-      label: "Needed by",
+      label: t("table.neededBy"),
       hideBelow: "lg",
       render: (row) =>
         row.requiredByDate ? (
@@ -162,13 +160,13 @@ export function RequestTable({
     },
     {
       key: "priority",
-      label: "Priority",
+      label: t("table.priority"),
       hideBelow: "xl",
-      render: (row) => priorityLabels[row.priority],
+      render: (row) => qaqcLabel(t, "priority", row.priority),
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -181,49 +179,50 @@ export function RequestTable({
       records={requests}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/requests/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.requestsCaption")}
     />
   );
 }
 
-export function InspectionTable({
+export async function InspectionTable({
   listId,
   sort,
   inspections,
-  caption = "Inspections",
+  caption,
 }: ListProps & {
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<InspectionSummaryDTO>[] = [
     {
       key: "inspectionNumber",
-      label: "Inspection",
+      label: t("table.inspection"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
           <span className="flex flex-wrap items-center gap-1.5 font-medium text-fg">
             {row.inspectionNumber}
             {row.reinspectionSequence ? (
-              <Badge tone="info">Reinspection {row.reinspectionSequence}</Badge>
+              <Badge tone="info">{t("common.reinspectionN", { n: row.reinspectionSequence })}</Badge>
             ) : null}
           </span>
           <span className="text-meta text-fg-subtle">
-            {row.templateName ?? inspectionTypeLabels[row.inspectionType]}
+            {row.templateName ?? qaqcLabel(t, "inspectionType", row.inspectionType)}
           </span>
         </span>
       ),
     },
     {
       key: "project",
-      label: "Project",
+      label: t("table.project"),
       hideBelow: "md",
       render: (row) =>
-        row.project ? row.project.code : <span className="text-fg-subtle">Company</span>,
+        row.project ? row.project.code : <span className="text-fg-subtle">{t("common.company")}</span>,
     },
     {
       key: "assignedInspector",
-      label: "Inspector",
+      label: t("table.inspector"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedInspector ? (
@@ -234,7 +233,7 @@ export function InspectionTable({
     },
     {
       key: "inspectionDate",
-      label: "Date",
+      label: t("table.date"),
       hideBelow: "lg",
       render: (row) =>
         row.inspectionDate ? formatDate(row.inspectionDate) : <span className="text-fg-subtle">—</span>,
@@ -242,12 +241,12 @@ export function InspectionTable({
     {
       // Two columns on purpose: where it is, and what was found (§65).
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "result",
-      label: "Result",
+      label: t("table.result"),
       render: (row) => <ResultBadge result={row.result} />,
     },
   ];
@@ -260,24 +259,25 @@ export function InspectionTable({
       records={inspections}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/inspections/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.inspectionsCaption")}
     />
   );
 }
 
-export function TemplateTable({
+export async function TemplateTable({
   listId,
   sort,
   templates,
-  caption = "Inspection templates",
+  caption,
 }: ListProps & {
   templates: TemplateSummaryDTO[];
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<TemplateSummaryDTO>[] = [
     {
       key: "name",
-      label: "Template",
+      label: t("table.template"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -290,26 +290,26 @@ export function TemplateTable({
     },
     {
       key: "inspectionType",
-      label: "Type",
+      label: t("table.type"),
       hideBelow: "md",
-      render: (row) => inspectionTypeLabels[row.inspectionType],
+      render: (row) => qaqcLabel(t, "inspectionType", row.inspectionType),
     },
     {
       key: "itemCount",
-      label: "Checks",
+      label: t("table.checks"),
       align: "right",
       render: (row) => <span className="tabular-nums">{row.itemCount}</span>,
     },
     {
       key: "usageCount",
-      label: "Used",
+      label: t("table.used"),
       align: "right",
       hideBelow: "lg",
       render: (row) => <span className="tabular-nums">{row.usageCount}</span>,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
@@ -322,26 +322,27 @@ export function TemplateTable({
       records={templates}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/templates/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.templatesCaption")}
     />
   );
 }
 
-export function DefectTable({
+export async function DefectTable({
   listId,
   sort,
   defects,
   showProject = true,
-  caption = "Defects",
+  caption,
 }: ListProps & {
   defects: DefectSummaryDTO[];
   showProject?: boolean;
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<DefectSummaryDTO>[] = [
     {
       key: "title",
-      label: "Defect",
+      label: t("table.defect"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -355,7 +356,7 @@ export function DefectTable({
   if (showProject) {
     columns.push({
       key: "project",
-      label: "Project",
+      label: t("table.project"),
       hideBelow: "md",
       render: (row) => row.project.code,
     });
@@ -364,7 +365,7 @@ export function DefectTable({
   columns.push(
     {
       key: "assignedTo",
-      label: "Assigned to",
+      label: t("table.assignedTo"),
       hideBelow: "xl",
       render: (row) =>
         row.assignedTo ? (
@@ -375,7 +376,7 @@ export function DefectTable({
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.due"),
       hideBelow: "lg",
       render: (row) =>
         row.dueDate ? (
@@ -388,12 +389,12 @@ export function DefectTable({
     },
     {
       key: "severity",
-      label: "Severity",
+      label: t("table.severity"),
       render: (row) => <SeverityBadge severity={row.severity} />,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   );
@@ -406,26 +407,27 @@ export function DefectTable({
       records={defects}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/defects/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.defectsCaption")}
     />
   );
 }
 
-export function NcrTable({
+export async function NcrTable({
   listId,
   sort,
   ncrs,
   showProject = true,
-  caption = "Non-conformance reports",
+  caption,
 }: ListProps & {
   ncrs: NcrSummaryDTO[];
   showProject?: boolean;
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<NcrSummaryDTO>[] = [
     {
       key: "title",
-      label: "NCR",
+      label: t("table.ncr"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -436,33 +438,33 @@ export function NcrTable({
     },
     {
       key: "category",
-      label: "Category",
+      label: t("table.category"),
       hideBelow: "lg",
-      render: (row) => ncrCategoryLabels[row.category],
+      render: (row) => qaqcLabel(t, "ncrCategory", row.category),
     },
   ];
 
   if (showProject) {
     columns.push({
       key: "project",
-      label: "Project",
+      label: t("table.project"),
       hideBelow: "md",
       render: (row) =>
-        row.project ? row.project.code : <span className="text-fg-subtle">Company</span>,
+        row.project ? row.project.code : <span className="text-fg-subtle">{t("common.company")}</span>,
     });
   }
 
   columns.push(
     {
       key: "openActions",
-      label: "Open actions",
+      label: t("table.openActions"),
       align: "right",
       hideBelow: "xl",
       render: (row) => <span className="tabular-nums">{row.openActions}</span>,
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.due"),
       hideBelow: "lg",
       render: (row) =>
         row.dueDate ? (
@@ -475,12 +477,12 @@ export function NcrTable({
     },
     {
       key: "severity",
-      label: "Severity",
+      label: t("table.severity"),
       render: (row) => <SeverityBadge severity={row.severity} />,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   );
@@ -493,26 +495,27 @@ export function NcrTable({
       records={ncrs}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/ncrs/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.ncrsCaption")}
     />
   );
 }
 
-export function CorrectiveActionTable({
+export async function CorrectiveActionTable({
   listId,
   sort,
   actions,
   showParent = true,
-  caption = "Corrective actions",
+  caption,
 }: ListProps & {
   actions: CorrectiveActionSummaryDTO[];
   showParent?: boolean;
   caption?: string;
 }) {
+  const t = await getTranslations("qaqc");
   const columns: TableColumn<CorrectiveActionSummaryDTO>[] = [
     {
       key: "title",
-      label: "Action",
+      label: t("table.action"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -526,7 +529,7 @@ export function CorrectiveActionTable({
   if (showParent) {
     columns.push({
       key: "parent",
-      label: "Raised against",
+      label: t("table.raisedAgainst"),
       hideBelow: "md",
       render: (row) => {
         if (!row.parent) return <span className="text-fg-subtle">—</span>;
@@ -549,7 +552,7 @@ export function CorrectiveActionTable({
   columns.push(
     {
       key: "assignedTo",
-      label: "Assigned to",
+      label: t("table.assignedTo"),
       hideBelow: "lg",
       render: (row) =>
         row.assignedTo ? (
@@ -560,7 +563,7 @@ export function CorrectiveActionTable({
     },
     {
       key: "dueDate",
-      label: "Due",
+      label: t("table.due"),
       hideBelow: "xl",
       render: (row) =>
         row.dueDate ? (
@@ -573,7 +576,7 @@ export function CorrectiveActionTable({
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.status} />,
     },
   );
@@ -586,7 +589,7 @@ export function CorrectiveActionTable({
       records={actions}
       rowKey={(row) => row.id}
       rowHref={(row) => `/qaqc/corrective-actions/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.actionsCaption")}
     />
   );
 }

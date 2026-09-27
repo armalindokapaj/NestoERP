@@ -8,12 +8,17 @@ import { requireModule } from "@/lib/context/current-user";
 import { createToolboxTalkAction } from "@/lib/actions/hse";
 import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Record a toolbox talk" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.toolbox-talks") };
+}
 
 /** A short safety briefing, and who was there (PRD #22 §136). */
 export default async function NewToolboxTalkPage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.toolbox.create")) notFound();
 
   const options = await toolbox.toolboxFormOptions(context);
@@ -23,23 +28,23 @@ export default async function NewToolboxTalkPage() {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Toolbox talks", href: "/hse/toolbox-talks" },
-          { label: "New" },
+          { label: t("pages.toolboxTalks.title"), href: "/hse/toolbox-talks" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Record a toolbox talk</h1>
+        <h1 className="text-page font-semibold text-fg">{t("list.create.toolbox-talks")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          What was covered and who was there. Not a training record — no course, no certificate.
+          {t("page.toolboxIntro")}
         </p>
       </div>
 
       <ToolboxForm
         action={createToolboxTalkAction}
         cancelHref="/hse/toolbox-talks"
-        submitLabel="Record talk"
-        pendingLabel="Recording…"
+        submitLabel={t("page.recordTalk")}
+        pendingLabel={t("page.recording")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

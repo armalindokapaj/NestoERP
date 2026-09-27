@@ -8,6 +8,7 @@ import { PersonLink } from "@/components/people/person-link";
 import type { UserContext } from "@/lib/context/types";
 import * as activity from "@/lib/modules/hse/hse.activity";
 import { formatRelativeTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * One record's history (PRD #22 §196, §197).
@@ -37,6 +38,7 @@ export async function HseActivityFeed({
   moreHref?: string;
 }) {
   const result = await activity.listRecordActivity(context, entityType, entityId, { page, limit: 50 });
+  const t = await getTranslations("hse");
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (buildHref && result.pagination.page !== page) redirect(buildHref(result.pagination.page));
 
@@ -44,8 +46,8 @@ export async function HseActivityFeed({
     return (
       <EmptyState
         icon={<History />}
-        title="Nothing recorded yet."
-        description="Changes to this record appear here as they happen."
+        title={t("activity.emptyTitle")}
+        description={t("activity.emptyDescription")}
       />
     );
   }
@@ -56,7 +58,7 @@ export async function HseActivityFeed({
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
           <p className="min-w-0 text-table text-fg">
             <span className="font-medium">
-              {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : "Somebody"}
+              {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("activity.somebody")}
             </span>{" "}
             <span className="text-fg-muted">{entry.message ?? entry.action}</span>
           </p>
@@ -83,13 +85,12 @@ export async function HseActivityFeed({
     <div className="space-y-2">
       {feed}
       <p className="text-meta text-fg-muted" data-testid="activity-count">
-        Showing the latest <span className="tabular-nums">{result.data.length}</span> of{" "}
-        <span className="tabular-nums">{result.pagination.total}</span> entries.
+        {t("activity.showing", { shown: result.data.length, total: result.pagination.total })}
         {moreHref ? (
           <>
             {" "}
             <Link href={moreHref} className="text-accent hover:underline">
-              See the full history
+              {t("activity.seeFull")}
             </Link>
           </>
         ) : null}

@@ -15,6 +15,8 @@ import { inspectionLifecycleAction, ncrLifecycleAction } from "@/lib/actions/qaq
 import type { QualityApprovalDTO } from "@/lib/modules/qaqc/qaqc.types";
 import { formatRelativeTime } from "@/lib/utils/format";
 
+import { useQaqcTranslations } from "./qaqc-text";
+
 /**
  * The quality approval queue (PRD #21 §164, §165).
  *
@@ -29,6 +31,7 @@ import { formatRelativeTime } from "@/lib/utils/format";
  */
 export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [deciding, setDeciding] = React.useState<{
@@ -47,7 +50,7 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
         if (result.ok) {
           setDeciding(null);
           toast({
-            title: action === "approve" ? "Approved." : "Rejected.",
+            title: action === "approve" ? t("queue.approved") : t("queue.rejected"),
             tone: "success",
           });
           router.refresh();
@@ -75,17 +78,17 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
                     {approval.recordNumber}
                   </Link>
                   <Badge tone="neutral">
-                    {approval.recordType === "INSPECTION" ? "Inspection" : "NCR"}
+                    {approval.recordType === "INSPECTION" ? t("queue.inspection") : t("queue.ncr")}
                   </Badge>
                   <StatusBadge status={approval.status} />
                 </p>
                 <p className="mt-0.5 text-table text-fg-muted">{approval.recordTitle}</p>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  Submitted by{" "}
+                  {t("queue.submittedBy")}{" "}
                   {approval.submittedBy ? (
                     <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
                   ) : (
-                    "somebody"
+                    t("common.somebody")
                   )}{" "}
                   {formatRelativeTime(approval.submittedAt)}
                 </p>
@@ -99,7 +102,7 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
                       disabled={pending}
                       onClick={() => setDeciding({ approval, action: "approve" })}
                     >
-                      Approve
+                      {t("common.approve")}
                     </Button>
                     <Button
                       variant="secondary"
@@ -107,12 +110,12 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
                       disabled={pending}
                       onClick={() => setDeciding({ approval, action: "reject" })}
                     >
-                      Reject
+                      {t("common.reject")}
                     </Button>
                   </div>
                 ) : (
                   <p className="shrink-0 text-meta text-fg-subtle">
-                    You submitted this, so somebody else decides.
+                    {t("queue.ownSubmission")}
                   </p>
                 )
               ) : null}
@@ -120,7 +123,7 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
 
             {approval.decisionNote ? (
               <p className="mt-3 text-meta text-fg-muted">
-                <span className="font-medium">Decision:</span> {approval.decisionNote}
+                <span className="font-medium">{t("queue.decision")}</span> {approval.decisionNote}
               </p>
             ) : null}
           </li>
@@ -130,14 +133,14 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
       <ConfirmDialog
         open={deciding?.action === "approve"}
         onOpenChange={(open) => !open && setDeciding(null)}
-        title={deciding ? `Approve ${deciding.approval.recordNumber}?` : "Approve"}
+        title={deciding ? t("queue.approveTitle", { number: deciding.approval.recordNumber }) : t("common.approve")}
         description={
           deciding?.approval.recordType === "INSPECTION"
-            ? "You are agreeing with the inspector's findings."
-            : "You are agreeing that the root cause is understood and the corrective actions genuinely fixed it."
+            ? t("queue.approveInspection")
+            : t("queue.approveNcr")
         }
-        confirmLabel="Approve"
-        cancelLabel="Not yet"
+        confirmLabel={t("common.approve")}
+        cancelLabel={t("common.notYet")}
         destructive={false}
         pending={pending}
         onConfirm={() => deciding && void run(deciding.approval, "approve", null)}
@@ -146,12 +149,13 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
       <RejectDialog
         open={deciding?.action === "reject"}
         onOpenChange={(open) => !open && setDeciding(null)}
-        title={deciding ? `Reject ${deciding.approval.recordNumber}?` : "Reject"}
-        description="The reason is recorded against the approval and shown to whoever submitted it."
-        placeholder="What needs to change?"
-        confirmLabel="Reject"
-        pendingLabel="Rejecting…"
-        emptyMessage="Say what needs to change."
+        title={deciding ? t("queue.rejectTitle", { number: deciding.approval.recordNumber }) : t("common.reject")}
+        description={t("queue.rejectBody")}
+        label={t("common.reason")}
+        placeholder={t("queue.rejectPlaceholder")}
+        confirmLabel={t("common.reject")}
+        pendingLabel={t("common.rejecting")}
+        emptyMessage={t("queue.rejectEmpty")}
         onReject={(reason) => (deciding ? run(deciding.approval, "reject", reason) : Promise.resolve(false))}
       />
     </>

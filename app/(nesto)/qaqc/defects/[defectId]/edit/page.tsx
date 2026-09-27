@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DefectForm } from "@/components/qaqc/qaqc-forms";
@@ -10,12 +11,16 @@ import * as defects from "@/lib/modules/qaqc/defects/defect.service";
 
 type Params = { params: Promise<{ defectId: string }> };
 
-export const metadata: Metadata = { title: "Edit defect" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.editDefect") };
+}
 
 /** Edit a defect that is not yet closed (PRD #21 §116). */
 export default async function EditDefectPage({ params }: Params) {
   const { defectId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let defect;
   try {
@@ -38,15 +43,15 @@ export default async function EditDefectPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Defects", href: "/qaqc/defects" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.defects"), href: "/qaqc/defects" },
           { label: defect.defectNumber, href: `/qaqc/defects/${defect.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit defect</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editDefect")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{defect.defectNumber}</p>
       </div>
 
@@ -54,8 +59,8 @@ export default async function EditDefectPage({ params }: Params) {
         action={action}
         versionUpdatedAt={defect.updatedAt}
         cancelHref={`/qaqc/defects/${defect.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -8,17 +9,33 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { qaqcReports } from "@/lib/modules/qaqc/reports/reports.service";
 import {
+  INSPECTION_TYPES,
   correctiveActionStatusLabels,
+  inspectionTypeLabels,
   ncrCategoryLabels,
-  severityLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
-import type {
-  CorrectiveActionStatus,
-  NCRCategory,
-  QualitySeverity,
-} from "@prisma/client";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
+import type { CorrectiveActionStatus, NCRCategory } from "@prisma/client";
+import type { Translate } from "@/lib/i18n/translator";
 
-export const metadata: Metadata = { title: "Quality reports" };
+/** The report service's aging buckets, named by their English label. */
+const AGING_KEYS: Record<string, "underWeek" | "weeks" | "months" | "overMonths"> = {
+  "Under a week": "underWeek",
+  "1–4 weeks": "weeks",
+  "1–3 months": "months",
+  "Over 3 months": "overMonths",
+};
+
+/** A pass-rate row's type, named by its English label; project rows keep theirs. */
+function typeLabel(t: Translate<"qaqc">, label: string): string {
+  const type = INSPECTION_TYPES.find((value) => inspectionTypeLabels[value] === label);
+  return type ? qaqcLabel(t, "inspectionType", type) : label;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.reports") };
+}
 
 /**
  * Built-in quality reports (PRD #21 §191–§200).
@@ -32,6 +49,7 @@ export const metadata: Metadata = { title: "Quality reports" };
  */
 export default async function QaqcReportsPage() {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.report.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -41,15 +59,12 @@ export default async function QaqcReportsPage() {
     <ModulePage
       experience={experience}
       activeSection="reports"
-      description="Counted through your own access. Two people on this page can see different totals, and both are right."
+      description={t("descriptions.reports")}
     >
       <div className="space-y-6">
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Pass rate</h2>
-          <p className="mt-1 text-meta text-fg-subtle">
-            Decided inspections only. One that nobody has signed off is not yet a pass or a
-            failure.
-          </p>
+          <h2 className="text-card font-semibold text-fg">{t("reports.passRate")}</h2>
+          <p className="mt-1 text-meta text-fg-subtle">{t("reports.passRateBody")}</p>
 
           <div className="mt-4 flex flex-wrap items-baseline gap-3">
             <span className="text-page font-semibold tabular-nums text-fg">
@@ -59,8 +74,12 @@ export default async function QaqcReportsPage() {
             </span>
             <span className="text-table text-fg-muted">
               {reports.passRateOverall.total === 0
-                ? "Nothing decided yet"
-                : `${reports.passRateOverall.passed} passed, ${reports.passRateOverall.failed} failed, ${reports.passRateOverall.conditional} conditional`}
+                ? t("reports.nothingDecided")
+                : t("reports.passSummary", {
+                    passed: reports.passRateOverall.passed,
+                    failed: reports.passRateOverall.failed,
+                    conditional: reports.passRateOverall.conditional,
+                  })}
             </span>
           </div>
 
@@ -68,7 +87,7 @@ export default async function QaqcReportsPage() {
             <dl className="mt-5 space-y-2.5 border-t border-line pt-4">
               {reports.passRateByType.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3">
-                  <dt className="text-table text-fg-muted">{row.label}</dt>
+                  <dt className="text-table text-fg-muted">{typeLabel(t, row.label)}</dt>
                   <dd className="text-table tabular-nums text-fg">
                     {row.percent === null ? "—" : `${row.percent}%`}{" "}
                     <span className="text-fg-subtle">({row.total})</span>
@@ -81,7 +100,7 @@ export default async function QaqcReportsPage() {
 
         {reports.passRateByProject.length > 0 ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Quality by project</h2>
+            <h2 className="text-card font-semibold text-fg">{t("reports.byProject")}</h2>
             {/* Long project names wrap instead of being cut (AUD-04 §8, D-04-05, MW-17). */}
             <dl className="mt-4 space-y-2.5">
               {reports.passRateByProject.map((row) => (
@@ -99,33 +118,33 @@ export default async function QaqcReportsPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <AgingPanel
-            title="How long defects have been open"
-            rows={reports.defectAging}
-            emptyLabel="No defects are open."
+            title={t("reports.defectAging")}
+            rows={reports.defectAging.map((row) => ({ ...row, label: AGING_KEYS[row.label] ? t(`labels.aging.${AGING_KEYS[row.label]}`) : row.label }))}
+            emptyLabel={t("reports.noDefectsOpen")}
           />
           <AgingPanel
-            title="How long NCRs have been open"
-            rows={reports.ncrAging}
-            emptyLabel="No NCRs are open."
+            title={t("reports.ncrAging")}
+            rows={reports.ncrAging.map((row) => ({ ...row, label: AGING_KEYS[row.label] ? t(`labels.aging.${AGING_KEYS[row.label]}`) : row.label }))}
+            emptyLabel={t("reports.noNcrsOpen")}
           />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <CountPanel
-            title="NCRs by category"
-            emptyLabel="No NCRs are visible to you."
+            title={t("reports.ncrsByCategory")}
+            emptyLabel={t("reports.noNcrs")}
             rows={reports.ncrsByCategory.map((row) => ({
               key: row.category,
-              label: ncrCategoryLabels[row.category as NCRCategory] ?? row.category,
+              label: qaqcLabel(t, "ncrCategory", row.category, ncrCategoryLabels[row.category as NCRCategory] ?? row.category),
               count: row.count,
             }))}
           />
           <CountPanel
-            title="Open defects by severity"
-            emptyLabel="No defects are open."
+            title={t("reports.defectsBySeverity")}
+            emptyLabel={t("reports.noDefectsOpen")}
             rows={reports.defectsBySeverity.map((row) => ({
               key: row.severity,
-              label: severityLabels[row.severity as QualitySeverity],
+              label: qaqcLabel(t, "severity", row.severity),
               count: row.count,
             }))}
           />
@@ -133,29 +152,27 @@ export default async function QaqcReportsPage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <CountPanel
-            title="Corrective actions"
-            emptyLabel="No corrective actions are visible to you."
+            title={t("reports.correctiveActions")}
+            emptyLabel={t("reports.noActions")}
             rows={reports.correctiveActions.map((row) => ({
               key: row.status,
               label:
-                correctiveActionStatusLabels[row.status as CorrectiveActionStatus] ?? row.status,
+                qaqcLabel(t, "actionStatus", row.status, correctiveActionStatusLabels[row.status as CorrectiveActionStatus] ?? row.status),
               count: row.count,
             }))}
           />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Reinspections</h2>
-            <p className="mt-1 text-meta text-fg-subtle">
-              Work that had to be looked at again, and how often the second look passed.
-            </p>
+            <h2 className="text-card font-semibold text-fg">{t("reports.reinspections")}</h2>
+            <p className="mt-1 text-meta text-fg-subtle">{t("reports.reinspectionsBody")}</p>
             <div className="mt-4 flex flex-wrap items-baseline gap-3">
               <span className="text-page font-semibold tabular-nums text-fg">
                 {reports.reinspections.total}
               </span>
               <span className="text-table text-fg-muted">
                 {reports.reinspections.total === 0
-                  ? "None yet"
-                  : `${reports.reinspections.passed} passed on re-look`}
+                  ? t("reports.noneYet")
+                  : t("reports.passedRelook", { count: reports.reinspections.passed })}
               </span>
             </div>
           </section>
@@ -163,22 +180,19 @@ export default async function QaqcReportsPage() {
 
         {reports.supplierQuality && reports.supplierQuality.length > 0 ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Quality by supplier</h2>
-            <p className="mt-1 text-meta text-fg-subtle">
-              What quality found on the deliveries you can see. This is not a supplier scorecard
-              — it counts inspections, not performance.
-            </p>
+            <h2 className="text-card font-semibold text-fg">{t("reports.bySupplier")}</h2>
+            <p className="mt-1 text-meta text-fg-subtle">{t("reports.bySupplierBody")}</p>
 
-            <ScrollRegion label="Quality by supplier" className="mt-4">
+            <ScrollRegion label={t("reports.bySupplier")} className="mt-4">
               <table className="w-full text-table">
-                <caption className="sr-only">Quality outcomes by supplier</caption>
+                <caption className="sr-only">{t("reports.bySupplierCaption")}</caption>
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-subtle">
-                    <th scope="col" className="py-2 pr-4 font-medium">Supplier</th>
-                    <th scope="col" className="py-2 pr-4 text-right font-medium">Inspections</th>
-                    <th scope="col" className="py-2 pr-4 text-right font-medium">Pass rate</th>
-                    <th scope="col" className="py-2 pr-4 text-right font-medium">Rejected</th>
-                    <th scope="col" className="py-2 text-right font-medium">NCRs</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">{t("reports.supplier")}</th>
+                    <th scope="col" className="py-2 pr-4 text-right font-medium">{t("reports.inspections")}</th>
+                    <th scope="col" className="py-2 pr-4 text-right font-medium">{t("reports.passRate")}</th>
+                    <th scope="col" className="py-2 pr-4 text-right font-medium">{t("reports.rejected")}</th>
+                    <th scope="col" className="py-2 text-right font-medium">{t("reports.ncrs")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -205,18 +219,14 @@ export default async function QaqcReportsPage() {
 
         {reports.materialReleases ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Material decisions</h2>
-            <p className="mt-1 text-meta text-fg-subtle">
-              Summed across every material decision you can see. These are quantities of different
-              things, so this answers &ldquo;how much did quality turn away&rdquo; rather than
-              &ldquo;how much of what&rdquo; — the per-line detail is on each inspection.
-            </p>
+            <h2 className="text-card font-semibold text-fg">{t("reports.materialDecisions")}</h2>
+            <p className="mt-1 text-meta text-fg-subtle">{t("reports.materialBody")}</p>
             <dl className="mt-4 space-y-2.5">
-              <Row label="Accepted" value={reports.materialReleases.released} />
-              <Row label="Rejected" value={reports.materialReleases.rejected} />
-              <Row label="Accepted with a condition" value={reports.materialReleases.conditional} />
+              <Row label={t("reports.accepted")} value={reports.materialReleases.released} />
+              <Row label={t("reports.rejected")} value={reports.materialReleases.rejected} />
+              <Row label={t("reports.acceptedCondition")} value={reports.materialReleases.conditional} />
               <Row
-                label="Inspections involved"
+                label={t("reports.inspectionsInvolved")}
                 value={String(reports.materialReleases.inspections)}
               />
             </dl>

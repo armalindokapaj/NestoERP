@@ -6,14 +6,19 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Inspection documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.inspectionDocuments") };
+}
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
 export default async function InspectionDocumentsPage({ params }: Params) {
   const { inspectionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let inspection;
   try {
@@ -30,14 +35,14 @@ export default async function InspectionDocumentsPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Inspections", href: "/hse/inspections" },
+          { label: t("pages.inspections.title"), href: "/hse/inspections" },
           { label: inspection.inspectionNumber, href: `/hse/inspections/${inspectionId}` },
-          { label: "Documents" },
+          { label: t("record.documents") },
         ]}
       />
 
       <h1 className="text-page font-semibold text-fg">
-        Documents on {inspection.inspectionNumber}
+        {t("page.documentsOn", { number: inspection.inspectionNumber })}
       </h1>
 
       <HseRecordDocuments context={context} entityType="hse_inspection" entityId={inspection.id} />

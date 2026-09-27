@@ -7,8 +7,12 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Investigation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("incident.detail.investigation") };
+}
 
 type Params = { params: Promise<{ incidentId: string }> };
 
@@ -21,6 +25,7 @@ type Params = { params: Promise<{ incidentId: string }> };
 export default async function IncidentInvestigationPage({ params }: Params) {
   const { incidentId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.incident.investigate")) notFound();
 
   let incident;
@@ -38,20 +43,20 @@ export default async function IncidentInvestigationPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Incidents", href: "/hse/incidents" },
+          { label: t("pages.incidents.title"), href: "/hse/incidents" },
           { label: incident.incidentNumber, href: `/hse/incidents/${incidentId}` },
-          { label: "Investigation" },
+          { label: t("incident.detail.investigation") },
         ]}
       />
 
       <div>
         <h1 className="text-page font-semibold text-fg">
-          Investigating {incident.incidentNumber}
+          {t("page.investigating", { number: incident.incidentNumber })}
         </h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {incident.severity === "HIGH" || incident.severity === "CRITICAL"
-            ? "A high or critical incident cannot close without a root cause. “Operative was careless” is not one."
-            : "What happened, why, and what the company takes from it."}
+            ? t("page.investigationSerious")
+            : t("page.investigationIntro")}
         </p>
       </div>
 

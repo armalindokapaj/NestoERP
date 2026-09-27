@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { NcrForm } from "@/components/qaqc/qaqc-forms";
@@ -8,7 +9,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { createNcrAction } from "@/lib/actions/qaqc";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 
-export const metadata: Metadata = { title: "New NCR" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.newNcr") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -19,6 +23,7 @@ export default async function NewNcrPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.ncr.create")) notFound();
 
   const params = await searchParams;
@@ -30,25 +35,24 @@ export default async function NewNcrPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "NCRs", href: "/qaqc/ncrs" },
-          { label: "New NCR" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.ncrs"), href: "/qaqc/ncrs" },
+          { label: t("crumbs.newNcr") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New non-conformance report</h1>
+        <h1 className="text-page font-semibold text-fg">{t("ncrPage.newTitle")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          A formal statement that a requirement was not met. It starts as a draft and cannot be
-          closed until the root cause is recorded and a corrective action has been verified.
+          {t("ncrPage.newIntro")}
         </p>
       </div>
 
       <NcrForm
         action={createNcrAction}
         cancelHref="/qaqc/ncrs"
-        submitLabel="Raise NCR"
-        pendingLabel="Raising…"
+        submitLabel={t("ncrPage.raise")}
+        pendingLabel={t("common.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

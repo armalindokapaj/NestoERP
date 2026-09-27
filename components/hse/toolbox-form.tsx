@@ -19,6 +19,8 @@ import { ATTENDANCE_STATUSES, attendanceLabels } from "@/lib/modules/hse/hse.sta
 import type { Option } from "./hse-forms";
 import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "./hse-forms";
+import { useHseTranslations } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * A toolbox talk and who was there (PRD #22 §130, §132, §320).
@@ -78,6 +80,7 @@ export function ToolboxForm({
   /** Workers without a NESTO login, as `employee:<id>` (E-04 §71). Participants only: they do not give talks. */
   workers?: Option[];
 }) {
+  const t = useHseTranslations();
   const [participants, setParticipants] = React.useState<ParticipantValue[]>(
     values?.participants && values.participants.length > 0
       ? values.participants
@@ -100,32 +103,32 @@ export function ToolboxForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Talk"
-        description="A short briefing on one subject. Not a training record — no course, no certificate, no compliance score."
+        title={t("forms.talk")}
+        description={t("forms.talkIntro")}
       >
-        <Field label="Title" name="title" required>
+        <Field label={t("forms.title")} name="title" required>
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Topic" name="topic" required>
+        <Field label={t("toolbox.detail.topic")} name="topic" required>
           <Input
             id="topic"
             name="topic"
             defaultValue={values?.topic ?? ""}
             required
             maxLength={200}
-            placeholder="Working at height"
+            placeholder={t("forms.topicPlaceholder")}
           />
         </Field>
 
-        <Field label="Project" name="projectId">
+        <Field label={t("record.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project — company-wide</option>
+            <option value="">{t("forms.noProject")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -134,7 +137,7 @@ export function ToolboxForm({
           </select>
         </Field>
 
-        <Field label="Conducted by" name="conductedByMemberId" required>
+        <Field label={t("toolbox.detail.conductedBy")} name="conductedByMemberId" required>
           <select
             id="conductedByMemberId"
             name="conductedByMemberId"
@@ -142,7 +145,7 @@ export function ToolboxForm({
             defaultValue={values?.conductedByMemberId ?? ""}
             required
           >
-            <option value="">Choose who gave the talk</option>
+            <option value="">{t("forms.chooseGaveTalk")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -151,7 +154,7 @@ export function ToolboxForm({
           </select>
         </Field>
 
-        <Field label="Date" name="talkDate" required>
+        <Field label={t("toolbox.detail.date")} name="talkDate" required>
           <Input
             id="talkDate"
             name="talkDate"
@@ -161,7 +164,7 @@ export function ToolboxForm({
           />
         </Field>
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -170,7 +173,7 @@ export function ToolboxForm({
           />
         </Field>
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("record.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"
@@ -182,16 +185,16 @@ export function ToolboxForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Who was there</h2>
+        <h2 className="text-card font-semibold text-fg">{t("toolbox.detail.whoWasThere")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
-          Pick a colleague, or type a name for anybody who is not on the system.
+          {t("forms.pickColleague")}
         </p>
 
         <div className="mt-4 space-y-3">
           {participants.map((row, index) => (
             <div key={index} className="rounded-md border border-line p-4">
               <div className="flex items-start justify-between gap-3">
-                <p className="nesto-eyebrow text-fg-subtle">Person {index + 1}</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("forms.personN", { n: index + 1 })}</p>
                 {participants.length > 1 ? (
                   <Button
                     type="button"
@@ -204,14 +207,14 @@ export function ToolboxForm({
                     }
                   >
                     <Trash2 aria-hidden="true" />
-                    <span className="sr-only">Remove person {index + 1}</span>
+                    <span className="sr-only">{t("forms.removePersonN", { n: index + 1 })}</span>
                   </Button>
                 ) : null}
               </div>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-4">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`participant-member-${index}`}>Colleague</Label>
+                  <Label htmlFor={`participant-member-${index}`}>{t("forms.colleague")}</Label>
                   <select
                     id={`participant-member-${index}`}
                     name={`participants[${index}][companyMemberId]`}
@@ -221,14 +224,14 @@ export function ToolboxForm({
                       update(index, { companyMemberId: event.target.value, externalName: "" })
                     }
                   >
-                    <option value="">Not a colleague</option>
+                    <option value="">{t("forms.notColleague")}</option>
                     {members.map((member) => (
                       <option key={member.value} value={member.value}>
                         {member.label}
                       </option>
                     ))}
                     {workers.length > 0 ? (
-                      <optgroup label="Workers without a NESTO account">
+                      <optgroup label={t("forms.workersNoAccount")}>
                         {workers.map((worker) => (
                           <option key={worker.value} value={worker.value}>
                             {worker.label}
@@ -242,7 +245,7 @@ export function ToolboxForm({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`participant-name-${index}`}>Or a name</Label>
+                  <Label htmlFor={`participant-name-${index}`}>{t("people.orName")}</Label>
                   <Input
                     id={`participant-name-${index}`}
                     name={`participants[${index}][externalName]`}
@@ -251,12 +254,12 @@ export function ToolboxForm({
                       update(index, { externalName: event.target.value, companyMemberId: "" })
                     }
                     maxLength={200}
-                    placeholder="Subcontractor or visitor"
+                    placeholder={t("people.subOrVisitor")}
                   />
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`participant-attendance-${index}`}>Attendance</Label>
+                  <Label htmlFor={`participant-attendance-${index}`}>{t("forms.attendance")}</Label>
                   <select
                     id={`participant-attendance-${index}`}
                     name={`participants[${index}][attendanceStatus]`}
@@ -266,7 +269,7 @@ export function ToolboxForm({
                   >
                     {ATTENDANCE_STATUSES.map((value) => (
                       <option key={value} value={value}>
-                        {attendanceLabels[value]}
+                        {hseLabel(t, "attendance", value, attendanceLabels[value])}
                       </option>
                     ))}
                   </select>
@@ -286,7 +289,7 @@ export function ToolboxForm({
                     htmlFor={`participant-signature-${index}`}
                     className="mb-1.5 text-body font-normal text-fg-muted"
                   >
-                    Signed the sheet
+                    {t("forms.signedSheet")}
                   </Label>
                 </div>
               </div>
@@ -302,7 +305,7 @@ export function ToolboxForm({
           onClick={() => setParticipants((current) => [...current, { ...EMPTY }])}
         >
           <Plus aria-hidden="true" />
-          Add somebody
+          {t("forms.addSomebody")}
         </Button>
       </section>
     </RecordForm>

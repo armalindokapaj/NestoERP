@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DefectForm } from "@/components/qaqc/qaqc-forms";
@@ -8,7 +9,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { createDefectAction } from "@/lib/actions/qaqc";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
 
-export const metadata: Metadata = { title: "New defect" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.newDefect") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -19,6 +23,7 @@ export default async function NewDefectPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.defect.create")) notFound();
 
   const params = await searchParams;
@@ -30,25 +35,24 @@ export default async function NewDefectPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Defects", href: "/qaqc/defects" },
-          { label: "New defect" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.defects"), href: "/qaqc/defects" },
+          { label: t("crumbs.newDefect") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New defect</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newDefect")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          Something on a job that needs putting right. If it also needs a root cause and a formal
-          response, escalate it to an NCR once it is raised.
+          {t("defectPage.newIntro")}
         </p>
       </div>
 
       <DefectForm
         action={createDefectAction}
         cancelHref="/qaqc/defects"
-        submitLabel="Raise defect"
-        pendingLabel="Raising…"
+        submitLabel={t("defectPage.raise")}
+        pendingLabel={t("common.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

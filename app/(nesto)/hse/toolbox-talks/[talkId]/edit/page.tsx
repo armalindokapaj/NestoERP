@@ -9,14 +9,19 @@ import { requireModule } from "@/lib/context/current-user";
 import { updateToolboxTalkAction } from "@/lib/actions/hse";
 import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit toolbox talk" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editToolboxTalk") };
+}
 
 type Params = { params: Promise<{ talkId: string }> };
 
 export default async function EditToolboxTalkPage({ params }: Params) {
   const { talkId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.toolbox.update")) notFound();
 
   let talk;
@@ -37,21 +42,21 @@ export default async function EditToolboxTalkPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Toolbox talks", href: "/hse/toolbox-talks" },
+          { label: t("pages.toolboxTalks.title"), href: "/hse/toolbox-talks" },
           { label: talk.talkNumber, href: `/hse/toolbox-talks/${talkId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {talk.talkNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: talk.talkNumber })}</h1>
       </div>
 
       <ToolboxForm
         action={update}
         cancelHref={`/hse/toolbox-talks/${talkId}`}
-        submitLabel="Save talk"
-        pendingLabel="Saving…"
+        submitLabel={t("page.saveTalk")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={talk.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

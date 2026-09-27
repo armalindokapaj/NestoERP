@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CorrectiveActionForm } from "@/components/qaqc/qaqc-forms";
@@ -10,12 +11,16 @@ import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
 
 type Params = { params: Promise<{ actionId: string }> };
 
-export const metadata: Metadata = { title: "Edit corrective action" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.editCorrectiveAction") };
+}
 
 /** Edit an action that has not been verified (PRD #21 §144). */
 export default async function EditCorrectiveActionPage({ params }: Params) {
   const { actionId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let record;
   try {
@@ -38,15 +43,15 @@ export default async function EditCorrectiveActionPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Corrective actions", href: "/qaqc/corrective-actions" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.correctiveActions"), href: "/qaqc/corrective-actions" },
           { label: record.actionNumber, href: `/qaqc/corrective-actions/${record.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit corrective action</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editCorrectiveAction")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{record.actionNumber}</p>
       </div>
 
@@ -54,8 +59,8 @@ export default async function EditCorrectiveActionPage({ params }: Params) {
         action={action}
         versionUpdatedAt={record.updatedAt}
         cancelHref={`/qaqc/corrective-actions/${record.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         parentLabel={record.parent?.label ?? null}
         projects={options.projects.map((project) => ({
           value: project.id,

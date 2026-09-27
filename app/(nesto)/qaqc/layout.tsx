@@ -1,3 +1,4 @@
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { requireModule } from "@/lib/context/current-user";
 
 /**
@@ -8,5 +9,5 @@ import { requireModule } from "@/lib/context/current-user";
  */
 export default async function ModuleLayout({ children }: { children: React.ReactNode }) {
   await requireModule("qaqc");
-  return <>{children}</>;
+  return <ModuleMessages namespaces={["qaqc"]}>{children}</ModuleMessages>;
 }

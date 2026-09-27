@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { HardHat } from "lucide-react";
@@ -33,7 +34,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project HSE" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("hseTab.title") };
+}
 
 /**
  * Safety on one project (PRD #22 §12, §31, §215).
@@ -54,6 +57,7 @@ export const metadata: Metadata = { title: "Project HSE" };
 export default async function ProjectHsePage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const projectActions = projects.projectActions(context);
 
   if (!projectActions.canViewHse) redirect("/access-denied");
@@ -100,14 +104,14 @@ export default async function ProjectHsePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "HSE")}
+        breadcrumbs={await projectBreadcrumbs(project, "HSE")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           mayReport ? (
             <Button asChild size="sm">
-              <Link href={`/hse/hazards/new?projectId=${project.id}`}>Report a hazard</Link>
+              <Link href={`/hse/hazards/new?projectId=${project.id}`}>{t("hseTab.reportHazard")}</Link>
             </Button>
           ) : null
         }
@@ -151,11 +155,11 @@ export default async function ProjectHsePage({ params }: Params) {
       {nothing ? (
         <EmptyState
           icon={<HardHat />}
-          title="No safety records on this project."
-          description="Hazards, incidents, inspections and permits raised against this project appear here."
+          title={t("hseTab.emptyTitle")}
+          description={t("hseTab.emptyBody")}
           action={
             mayReport
-              ? { label: "Report a hazard", href: `/hse/hazards/new?projectId=${project.id}` }
+              ? { label: t("hseTab.reportHazard"), href: `/hse/hazards/new?projectId=${project.id}` }
               : undefined
           }
         />
@@ -163,45 +167,45 @@ export default async function ProjectHsePage({ params }: Params) {
         <div className="space-y-6">
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
-              label="Inspection pass rate"
+              label={t("hseTab.passRate")}
               value={summary.passRate === null ? "—" : `${summary.passRate}%`}
               hint={
                 summary.inspections > 0
-                  ? `${summary.inspections} inspection${summary.inspections === 1 ? "" : "s"}`
-                  : "Nothing inspected yet"
+                  ? t("hseTab.inspections", { count: summary.inspections })
+                  : t("hseTab.nothingInspected")
               }
             />
             <Stat
-              label="Open hazards"
+              label={t("hseTab.openHazards")}
               value={String(summary.openHazards)}
               hint={
                 summary.criticalHazards > 0
-                  ? `${summary.criticalHazards} critical`
-                  : "None critical"
+                  ? t("hseTab.critical", { count: summary.criticalHazards })
+                  : t("hseTab.noneCritical")
               }
             />
             <Stat
-              label="Incidents"
+              label={t("hseTab.incidents")}
               value={String(summary.incidents)}
-              hint={`${summary.nearMisses} near ${summary.nearMisses === 1 ? "miss" : "misses"}`}
+              hint={t("hseTab.nearMisses", { count: summary.nearMisses })}
             />
             <Stat
-              label="Active permits"
+              label={t("hseTab.activePermits")}
               value={String(summary.activePermits)}
               hint={
                 summary.overdueActions > 0
-                  ? `${summary.overdueActions} overdue actions`
-                  : "No overdue actions"
+                  ? t("hseTab.overdueActions", { count: summary.overdueActions })
+                  : t("hseTab.noOverdue")
               }
             />
           </section>
 
           {stopWorkRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Stop-work</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.stopWork")}</h2>
               <StopWorkTable
                 records={stopWorkRows}
-                caption={`Stop-work on ${project.name}`}
+                caption={t("hseTab.stopWorkOn", { name: project.name })}
                 listId="projects.hse-stop-work"
               />
             </section>
@@ -209,10 +213,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {hazardRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Hazards</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.hazards")}</h2>
               <HazardTable
                 hazards={hazardRows.data}
-                caption={`Hazards on ${project.name}`}
+                caption={t("hseTab.hazardsOn", { name: project.name })}
                 listId="projects.hse-hazards"
               />
               <PreviewFooter
@@ -226,10 +230,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {incidentRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Incidents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.incidents")}</h2>
               <IncidentTable
                 incidents={incidentRows.data}
-                caption={`Incidents on ${project.name}`}
+                caption={t("hseTab.incidentsOn", { name: project.name })}
                 listId="projects.hse-incidents"
               />
               <PreviewFooter
@@ -243,10 +247,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {inspectionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Inspections</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.inspectionsHeading")}</h2>
               <InspectionTable
                 inspections={inspectionRows.data}
-                caption={`Inspections on ${project.name}`}
+                caption={t("hseTab.inspectionsOn", { name: project.name })}
                 listId="projects.hse-inspections"
               />
               <PreviewFooter
@@ -260,10 +264,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {actionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.actions")}</h2>
               <ActionTable
                 actions={actionRows.data}
-                caption={`HSE actions on ${project.name}`}
+                caption={t("hseTab.actionsOn", { name: project.name })}
                 listId="projects.hse-actions"
               />
               <PreviewFooter
@@ -277,10 +281,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {permitRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Permits</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.permits")}</h2>
               <PermitTable
                 permits={permitRows.data}
-                caption={`Permits on ${project.name}`}
+                caption={t("hseTab.permitsOn", { name: project.name })}
                 listId="projects.hse-permits"
               />
               <PreviewFooter
@@ -294,10 +298,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {toolboxRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Toolbox talks</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.toolbox")}</h2>
               <ToolboxTable
                 talks={toolboxRows.data}
-                caption={`Toolbox talks on ${project.name}`}
+                caption={t("hseTab.toolboxOn", { name: project.name })}
                 listId="projects.hse-toolbox-talks"
               />
               <PreviewFooter
@@ -311,10 +315,10 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {observationRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Environmental</h2>
+              <h2 className="text-card font-semibold text-fg">{t("hseTab.environmental")}</h2>
               <ObservationTable
                 observations={observationRows.data}
-                caption={`Environmental observations on ${project.name}`}
+                caption={t("hseTab.environmentalOn", { name: project.name })}
                 listId="projects.hse-environment"
               />
               <PreviewFooter

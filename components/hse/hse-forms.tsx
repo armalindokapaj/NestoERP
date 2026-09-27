@@ -38,6 +38,8 @@ import {
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
 import { localDay, localMinute } from "@/components/hr/local-day";
+import { useHseTranslations, type HseKey } from "@/components/hse/hse-text";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
 /**
  * The HSE record forms (PRD #22 §311–§324).
@@ -100,7 +102,7 @@ function RiskPicker({
   likelihood,
   severity,
   onChange,
-  label = "Risk",
+  label,
   optional = false,
 }: {
   likelihoodName: string;
@@ -111,13 +113,15 @@ function RiskPicker({
   label?: string;
   optional?: boolean;
 }) {
+  const t = useHseTranslations();
+  const heading = label ?? t("forms.risk");
   const both = likelihood !== "" && severity !== "";
   const score = both ? Number(likelihood) * Number(severity) : null;
   const level = score === null ? null : calculateRiskLevel(score);
 
   return (
     <>
-      <Field label={`${label} — likelihood`} name={likelihoodName} required={!optional}>
+      <Field label={t("forms.likelihoodOf", { label: heading })} name={likelihoodName} required={!optional}>
         <select
           id={likelihoodName}
           name={likelihoodName}
@@ -126,16 +130,16 @@ function RiskPicker({
           onChange={(event) => onChange({ likelihood: event.target.value })}
           required={!optional}
         >
-          {optional ? <option value="">Not assessed</option> : null}
+          {optional ? <option value="">{t("forms.notAssessed")}</option> : null}
           {AXIS.map((value) => (
             <option key={value} value={value}>
-              {value} — {likelihoodLabels[value]}
+              {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
             </option>
           ))}
         </select>
       </Field>
 
-      <Field label={`${label} — severity`} name={severityName} required={!optional}>
+      <Field label={t("forms.severityOf", { label: heading })} name={severityName} required={!optional}>
         <select
           id={severityName}
           name={severityName}
@@ -144,10 +148,10 @@ function RiskPicker({
           onChange={(event) => onChange({ severity: event.target.value })}
           required={!optional}
         >
-          {optional ? <option value="">Not assessed</option> : null}
+          {optional ? <option value="">{t("forms.notAssessed")}</option> : null}
           {AXIS.map((value) => (
             <option key={value} value={value}>
-              {value} — {axisLabels[value]}
+              {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
             </option>
           ))}
         </select>
@@ -157,15 +161,14 @@ function RiskPicker({
         <p className="text-meta text-fg-muted" aria-live="polite">
           {level === null ? (
             optional ? (
-              "Give both to record the risk left after the controls."
+              t("forms.giveBoth")
             ) : (
-              "Pick a likelihood and a severity."
+              t("forms.pickBoth")
             )
           ) : (
             <>
-              Score <strong className="text-fg">{score}</strong> ·{" "}
-              <strong className="text-fg">{riskLevelLabels[level]}</strong> risk
-              {level === "CRITICAL" ? " — an immediate control is required." : ""}
+              {t("forms.scoreLine", { score: String(score), level: hseLabel(t, "riskLevel", level, riskLevelLabels[level]) })}
+              {level === "CRITICAL" ? t("forms.criticalNeedsControl") : ""}
             </>
           )}
         </p>
@@ -185,8 +188,9 @@ function ProjectField({
   required?: boolean;
   hint?: string;
 }) {
+  const t = useHseTranslations();
   return (
-    <Field label="Project" name="projectId" required={required} hint={hint}>
+    <Field label={t("record.project")} name="projectId" required={required} hint={hint}>
       <select
         id="projectId"
         name="projectId"
@@ -195,9 +199,9 @@ function ProjectField({
         required={required}
       >
         {required ? (
-          <option value="">Choose a project</option>
+          <option value="">{t("forms.chooseProject")}</option>
         ) : (
-          <option value="">No project — company-wide</option>
+          <option value="">{t("forms.noProject")}</option>
         )}
         {projects.map((project) => (
           <option key={project.value} value={project.value}>
@@ -216,7 +220,7 @@ function MemberField({
   label,
   value,
   required = false,
-  emptyLabel = "Nobody yet",
+  emptyLabel,
 }: {
   members: Option[];
   name: string;
@@ -225,6 +229,7 @@ function MemberField({
   required?: boolean;
   emptyLabel?: string;
 }) {
+  const t = useHseTranslations();
   return (
     <Field label={label} name={name} required={required}>
       <select
@@ -234,7 +239,7 @@ function MemberField({
         defaultValue={value ?? ""}
         required={required}
       >
-        <option value="">{emptyLabel}</option>
+        <option value="">{emptyLabel ?? t("forms.nobodyYet")}</option>
         {members.map((member) => (
           <option key={member.value} value={member.value}>
             {member.label}
@@ -255,8 +260,9 @@ function MemberField({
  * AUD-09: candidate for lib/forms.
  */
 export function CurrentOption({ value, options }: { value?: string | null; options: Option[] }) {
+  const t = useHseTranslations();
   if (!value || options.some((option) => option.value === value)) return null;
-  return <option value={value}>Current choice — no longer available for new records</option>;
+  return <option value={value}>{t("forms.currentChoice")}</option>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -299,6 +305,7 @@ export function HazardForm({
   members: Option[];
   canAssign: boolean;
 }) {
+  const t = useHseTranslations();
   const [likelihood, setLikelihood] = React.useState(values?.likelihood ?? "3");
   const [severity, setSeverity] = React.useState(values?.severity ?? "3");
 
@@ -314,14 +321,14 @@ export function HazardForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="What did you see"
-        description="Anybody on site can report a hazard. Say what it is and where; the risk score decides how fast it gets dealt with."
+        title={t("forms.whatDidYouSee")}
+        description={t("forms.hazardIntro")}
       >
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Description" name="description" required className="sm:col-span-2">
+        <Field label={t("record.description")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -332,7 +339,7 @@ export function HazardForm({
           />
         </Field>
 
-        <Field label="Category" name="hazardCategory" required>
+        <Field label={t("record.category")} name="hazardCategory" required>
           <select
             id="hazardCategory"
             name="hazardCategory"
@@ -342,7 +349,7 @@ export function HazardForm({
           >
             {HAZARD_CATEGORIES.map((value) => (
               <option key={value} value={value}>
-                {hazardCategoryLabels[value]}
+                {hseLabel(t, "hazardCategory", value, hazardCategoryLabels[value])}
               </option>
             ))}
           </select>
@@ -350,17 +357,17 @@ export function HazardForm({
 
         <ProjectField projects={projects} value={values?.projectId} />
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
             defaultValue={values?.locationText ?? ""}
             maxLength={200}
-            placeholder="Level 3, east stair"
+            placeholder={t("forms.locationPlaceholder")}
           />
         </Field>
 
-        <Field label="Observed" name="observedAt" required>
+        <Field label={t("record.observed")} name="observedAt" required>
           <Input
             id="observedAt"
             name="observedAt"
@@ -372,8 +379,8 @@ export function HazardForm({
       </FormSection>
 
       <FormSection
-        title="Risk"
-        description="How likely is it to happen, and how bad would it be. The score and the band are worked out from these two."
+        title={t("forms.risk")}
+        description={t("forms.riskIntro")}
       >
         <RiskPicker
           likelihoodName="likelihood"
@@ -388,18 +395,18 @@ export function HazardForm({
       </FormSection>
 
       <FormSection
-        title="Controls"
-        description="What was done about it, and what will be."
+        title={t("hazard.detail.controls")}
+        description={t("forms.controlsIntro")}
       >
         <Field
-          label="Immediate control"
+          label={t("forms.immediateControl")}
           name="immediateControl"
           required={critical}
           className="sm:col-span-2"
           hint={
             critical
-              ? "A critical hazard needs the control that was put in place now — barricade, isolation, stop work."
-              : "What was done straight away, if anything."
+              ? t("forms.criticalControlHint")
+              : t("forms.straightAway")
           }
         >
           <Textarea
@@ -412,7 +419,7 @@ export function HazardForm({
           />
         </Field>
 
-        <Field label="Control measure" name="controlMeasure" className="sm:col-span-2">
+        <Field label={t("forms.controlMeasure")} name="controlMeasure" className="sm:col-span-2">
           <Textarea
             id="controlMeasure"
             name="controlMeasure"
@@ -426,9 +433,9 @@ export function HazardForm({
           <MemberField
             members={members}
             name="assignedToMemberId"
-            label="Assign to"
+            label={t("forms.assignTo")}
             value={values?.assignedToMemberId}
-            emptyLabel="Unassigned"
+            emptyLabel={t("table.unassigned")}
           />
         ) : (
           // Not the reader's to change, so the edit carries the assignee it opened with — the
@@ -437,7 +444,7 @@ export function HazardForm({
           <input type="hidden" name="assignedToMemberId" value={values?.assignedToMemberId ?? ""} />
         )}
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("record.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
       </FormSection>
@@ -484,6 +491,7 @@ export function IncidentForm({
   pendingLabel: string;
   projects: Option[];
 }) {
+  const t = useHseTranslations();
   const [severity, setSeverity] = React.useState(values?.severity ?? "MEDIUM");
   const serious = severity === "HIGH" || severity === "CRITICAL";
 
@@ -497,10 +505,10 @@ export function IncidentForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="What happened"
-        description="A near miss goes here too — same record, different type. It is the one worth reporting before it becomes the other."
+        title={t("incident.detail.whatHappened")}
+        description={t("forms.incidentIntro")}
       >
-        <Field label="Type" name="incidentType" required>
+        <Field label={t("record.type")} name="incidentType" required>
           <select
             id="incidentType"
             name="incidentType"
@@ -510,13 +518,13 @@ export function IncidentForm({
           >
             {INCIDENT_TYPES.map((value) => (
               <option key={value} value={value}>
-                {incidentTypeLabels[value]}
+                {hseLabel(t, "incidentType", value, incidentTypeLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Severity" name="severity" required>
+        <Field label={t("record.severity")} name="severity" required>
           <select
             id="severity"
             name="severity"
@@ -527,17 +535,17 @@ export function IncidentForm({
           >
             {SEVERITIES.map((value) => (
               <option key={value} value={value}>
-                {severityLabels[value]}
+                {hseLabel(t, "severity", value, severityLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Description" name="description" required className="sm:col-span-2">
+        <Field label={t("record.description")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -550,7 +558,7 @@ export function IncidentForm({
 
         <ProjectField projects={projects} value={values?.projectId} />
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -559,7 +567,7 @@ export function IncidentForm({
           />
         </Field>
 
-        <Field label="Occurred" name="occurredAt" required>
+        <Field label={t("incident.detail.occurred")} name="occurredAt" required>
           <Input
             id="occurredAt"
             name="occurredAt"
@@ -569,35 +577,35 @@ export function IncidentForm({
           />
         </Field>
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("record.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
       </FormSection>
 
       <FormSection
-        title="What resulted"
+        title={t("incident.detail.whatResulted")}
         // The whole of what V0.1 records about somebody being hurt. No
         // diagnosis field exists to fill in (PRD #22 §22, §87).
-        description="Operational flags only. NESTO does not hold medical details, and this is not the place to write any."
+        description={t("forms.flagsIntro")}
       >
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
-          <Flag name="injuryOccurred" label="Somebody was injured" defaultChecked={values?.injuryOccurred} />
-          <Flag name="firstAidRequired" label="First aid was needed" defaultChecked={values?.firstAidRequired} />
-          <Flag name="medicalTreatmentRequired" label="Medical treatment was needed" defaultChecked={values?.medicalTreatmentRequired} />
-          <Flag name="lostTime" label="Time was lost" defaultChecked={values?.lostTime} />
-          <Flag name="propertyDamage" label="Property was damaged" defaultChecked={values?.propertyDamage} />
-          <Flag name="environmentalImpact" label="There was an environmental impact" defaultChecked={values?.environmentalImpact} />
+          <Flag name="injuryOccurred" label={t("forms.flag.injury")} defaultChecked={values?.injuryOccurred} />
+          <Flag name="firstAidRequired" label={t("forms.flag.firstAid")} defaultChecked={values?.firstAidRequired} />
+          <Flag name="medicalTreatmentRequired" label={t("forms.flag.medical")} defaultChecked={values?.medicalTreatmentRequired} />
+          <Flag name="lostTime" label={t("forms.flag.lostTime")} defaultChecked={values?.lostTime} />
+          <Flag name="propertyDamage" label={t("forms.flag.property")} defaultChecked={values?.propertyDamage} />
+          <Flag name="environmentalImpact" label={t("forms.flag.environment")} defaultChecked={values?.environmentalImpact} />
         </div>
 
         <Field
-          label="Immediate action"
+          label={t("incident.detail.immediateAction")}
           name="immediateAction"
           required={serious}
           className="sm:col-span-2"
           hint={
             serious
-              ? "A high or critical incident needs what was done about it straight away."
-              : "What was done straight away, if anything."
+              ? t("forms.seriousActionHint")
+              : t("forms.straightAway")
           }
         >
           <Textarea
@@ -649,6 +657,7 @@ export function InspectionForm({
   members: Option[];
   templates: Option[];
 }) {
+  const t = useHseTranslations();
   return (
     <RecordForm
       module="hse"
@@ -659,10 +668,10 @@ export function InspectionForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Inspection"
-        description="Choosing a checklist copies it onto this inspection. Editing the checklist afterwards will not change what you answered here."
+        title={t("record.inspection")}
+        description={t("forms.inspectionIntro")}
       >
-        <Field label="Type" name="inspectionType" required>
+        <Field label={t("record.type")} name="inspectionType" required>
           <select
             id="inspectionType"
             name="inspectionType"
@@ -672,20 +681,20 @@ export function InspectionForm({
           >
             {INSPECTION_TYPES.map((value) => (
               <option key={value} value={value}>
-                {inspectionTypeLabels[value]}
+                {hseLabel(t, "inspectionType", value, inspectionTypeLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Checklist" name="templateId" hint="Leave blank for a free-form inspection.">
+        <Field label={t("inspection.detail.checklist")} name="templateId" hint={t("forms.freeForm")}>
           <select
             id="templateId"
             name="templateId"
             className={selectClass}
             defaultValue={values?.templateId ?? ""}
           >
-            <option value="">No checklist</option>
+            <option value="">{t("forms.noChecklist")}</option>
             {templates.map((template) => (
               <option key={template.value} value={template.value}>
                 {template.label}
@@ -699,13 +708,13 @@ export function InspectionForm({
         <MemberField
           members={members}
           name="assignedInspectorMemberId"
-          label="Inspector"
+          label={t("inspection.detail.inspector")}
           value={values?.assignedInspectorMemberId}
           required
-          emptyLabel="Choose an inspector"
+          emptyLabel={t("forms.chooseInspector")}
         />
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -714,7 +723,7 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Scheduled for" name="scheduledDate">
+        <Field label={t("forms.scheduledFor")} name="scheduledDate">
           <Input
             id="scheduledDate"
             name="scheduledDate"
@@ -723,7 +732,7 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Notes" name="summary" className="sm:col-span-2">
+        <Field label={t("record.notes")} name="summary" className="sm:col-span-2">
           <Textarea
             id="summary"
             name="summary"
@@ -777,6 +786,7 @@ export function PermitForm({
   members: Option[];
   assessments: Option[];
 }) {
+  const t = useHseTranslations();
   return (
     <RecordForm
       module="hse"
@@ -787,10 +797,10 @@ export function PermitForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Permit"
-        description="A permit authorises specific work in a specific place for a fixed window. Outside that window it authorises nothing."
+        title={t("forms.permit")}
+        description={t("forms.permitIntro")}
       >
-        <Field label="Type" name="permitType" required>
+        <Field label={t("record.type")} name="permitType" required>
           <select
             id="permitType"
             name="permitType"
@@ -800,19 +810,19 @@ export function PermitForm({
           >
             {PERMIT_TYPES.map((value) => (
               <option key={value} value={value}>
-                {permitTypeLabels[value]}
+                {hseLabel(t, "permitType", value, permitTypeLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Title" name="title" required>
+        <Field label={t("forms.title")} name="title" required>
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
         <ProjectField projects={projects} value={values?.projectId} required />
 
-        <Field label="Location" name="locationText" required>
+        <Field label={t("record.location")} name="locationText" required>
           <Input
             id="locationText"
             name="locationText"
@@ -822,7 +832,7 @@ export function PermitForm({
           />
         </Field>
 
-        <Field label="Valid from" name="validFrom" required>
+        <Field label={t("permit.detail.validFrom")} name="validFrom" required>
           <Input
             id="validFrom"
             name="validFrom"
@@ -832,7 +842,7 @@ export function PermitForm({
           />
         </Field>
 
-        <Field label="Valid until" name="validUntil" required>
+        <Field label={t("permit.detail.validUntil")} name="validUntil" required>
           <Input
             id="validUntil"
             name="validUntil"
@@ -845,18 +855,18 @@ export function PermitForm({
         <MemberField
           members={members}
           name="responsibleMemberId"
-          label="Responsible person"
+          label={t("forms.responsiblePerson")}
           value={values?.responsibleMemberId}
         />
 
-        <Field label="Risk assessment" name="riskAssessmentId">
+        <Field label={t("permit.detail.riskAssessment")} name="riskAssessmentId">
           <select
             id="riskAssessmentId"
             name="riskAssessmentId"
             className={selectClass}
             defaultValue={values?.riskAssessmentId ?? ""}
           >
-            <option value="">None cited</option>
+            <option value="">{t("permit.detail.noneCited")}</option>
             {assessments.map((assessment) => (
               <option key={assessment.value} value={assessment.value}>
                 {assessment.label}
@@ -869,10 +879,10 @@ export function PermitForm({
       </FormSection>
 
       <FormSection
-        title="Hazards and controls"
-        description="What could go wrong, and what is in place so it does not."
+        title={t("permit.detail.hazardsAndControls")}
+        description={t("forms.hazardsControlsIntro")}
       >
-        <Field label="Hazards" name="hazardsSummary" className="sm:col-span-2">
+        <Field label={t("permit.detail.hazards")} name="hazardsSummary" className="sm:col-span-2">
           <Textarea
             id="hazardsSummary"
             name="hazardsSummary"
@@ -882,7 +892,7 @@ export function PermitForm({
           />
         </Field>
 
-        <Field label="Controls" name="controlsSummary" className="sm:col-span-2">
+        <Field label={t("hazard.detail.controls")} name="controlsSummary" className="sm:col-span-2">
           <Textarea
             id="controlsSummary"
             name="controlsSummary"
@@ -892,7 +902,7 @@ export function PermitForm({
           />
         </Field>
 
-        <Field label="PPE required" name="ppeRequirements" className="sm:col-span-2">
+        <Field label={t("permit.detail.ppeRequired")} name="ppeRequirements" className="sm:col-span-2">
           <Textarea
             id="ppeRequirements"
             name="ppeRequirements"
@@ -902,7 +912,7 @@ export function PermitForm({
           />
         </Field>
 
-        <Field label="Special conditions" name="specialConditions" className="sm:col-span-2">
+        <Field label={t("permit.detail.specialConditions")} name="specialConditions" className="sm:col-span-2">
           <Textarea
             id="specialConditions"
             name="specialConditions"
@@ -952,6 +962,7 @@ export function ActionForm({
   /** The record it came out of, carried through as a hidden field. */
   parent?: { field: string; id: string; label: string };
 }) {
+  const t = useHseTranslations();
   return (
     <RecordForm
       module="hse"
@@ -962,18 +973,18 @@ export function ActionForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Action"
-        description="An action is the safety obligation. The Task is how somebody discharges it — they are not the same thing, and this is what gets verified."
+        title={t("forms.action")}
+        description={t("forms.actionIntro")}
       >
         {parent ? <input type="hidden" name={parent.field} value={parent.id} /> : null}
 
         {parent ? (
           <div className="sm:col-span-2">
-            <p className="text-meta text-fg-muted">Raised against {parent.label}.</p>
+            <p className="text-meta text-fg-muted">{raisedAgainst(t, parent)}</p>
           </div>
         ) : null}
 
-        <Field label="Type" name="actionType" required>
+        <Field label={t("record.type")} name="actionType" required>
           <select
             id="actionType"
             name="actionType"
@@ -983,13 +994,13 @@ export function ActionForm({
           >
             {ACTION_TYPES.map((value) => (
               <option key={value} value={value}>
-                {actionTypeLabels[value]}
+                {hseLabel(t, "actionType", value, actionTypeLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Priority" name="priority" required>
+        <Field label={t("record.priority")} name="priority" required>
           <select
             id="priority"
             name="priority"
@@ -999,17 +1010,17 @@ export function ActionForm({
           >
             {PRIORITIES.map((value) => (
               <option key={value} value={value}>
-                {priorityLabels[value]}
+                {hseLabel(t, "priority", value, priorityLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="What needs doing" name="description" required className="sm:col-span-2">
+        <Field label={t("action.detail.whatNeedsDoing")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -1025,13 +1036,13 @@ export function ActionForm({
         <MemberField
           members={members}
           name="assignedToMemberId"
-          label="Responsible"
+          label={t("permit.detail.responsible")}
           value={values?.assignedToMemberId}
           required
-          emptyLabel="Choose who is responsible"
+          emptyLabel={t("forms.chooseResponsible")}
         />
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("record.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
       </FormSection>
@@ -1077,6 +1088,7 @@ export function ObservationForm({
   members: Option[];
   canAssign: boolean;
 }) {
+  const t = useHseTranslations();
   return (
     <RecordForm
       module="hse"
@@ -1087,10 +1099,10 @@ export function ObservationForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Observation"
-        description="A spill, dust, noise, waste going astray. Recorded here, dealt with, and closed out."
+        title={t("forms.observation")}
+        description={t("forms.observationIntro")}
       >
-        <Field label="Category" name="category" required>
+        <Field label={t("record.category")} name="category" required>
           <select
             id="category"
             name="category"
@@ -1100,13 +1112,13 @@ export function ObservationForm({
           >
             {ENVIRONMENTAL_CATEGORIES.map((value) => (
               <option key={value} value={value}>
-                {environmentalCategoryLabels[value]}
+                {hseLabel(t, "environmentalCategory", value, environmentalCategoryLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Severity" name="severity" required>
+        <Field label={t("record.severity")} name="severity" required>
           <select
             id="severity"
             name="severity"
@@ -1116,17 +1128,17 @@ export function ObservationForm({
           >
             {SEVERITIES.map((value) => (
               <option key={value} value={value}>
-                {severityLabels[value]}
+                {hseLabel(t, "severity", value, severityLabels[value])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Description" name="description" required className="sm:col-span-2">
+        <Field label={t("record.description")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -1139,7 +1151,7 @@ export function ObservationForm({
 
         <ProjectField projects={projects} value={values?.projectId} />
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -1148,7 +1160,7 @@ export function ObservationForm({
           />
         </Field>
 
-        <Field label="Observed" name="observedAt" required>
+        <Field label={t("record.observed")} name="observedAt" required>
           <Input
             id="observedAt"
             name="observedAt"
@@ -1158,7 +1170,7 @@ export function ObservationForm({
           />
         </Field>
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("record.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
 
@@ -1166,9 +1178,9 @@ export function ObservationForm({
           <MemberField
             members={members}
             name="assignedToMemberId"
-            label="Assign to"
+            label={t("forms.assignTo")}
             value={values?.assignedToMemberId}
-            emptyLabel="Unassigned"
+            emptyLabel={t("table.unassigned")}
           />
         ) : (
           // Not the reader's to change, so the edit carries the assignee it opened with — the
@@ -1177,7 +1189,7 @@ export function ObservationForm({
           <input type="hidden" name="assignedToMemberId" value={values?.assignedToMemberId ?? ""} />
         )}
 
-        <Field label="Immediate action" name="immediateAction" className="sm:col-span-2">
+        <Field label={t("incident.detail.immediateAction")} name="immediateAction" className="sm:col-span-2">
           <Textarea
             id="immediateAction"
             name="immediateAction"
@@ -1206,38 +1218,46 @@ export function StopWorkForm({
   projects: Option[];
   parent?: { field: string; id: string; label: string; projectId?: string };
 }) {
+  const t = useHseTranslations();
   return (
     <RecordForm
       module="hse"
       action={action}
       cancelHref={cancelHref}
-      submitLabel="Stop work"
-      pendingLabel="Stopping…"
+      submitLabel={t("pages.stopWork.title")}
+      pendingLabel={t("forms.stopping")}
       // Raising the order is this form's create (AUD-03 §3): the label is a verb, not "Create".
       saveKind="create"
     >
       <FormSection
-        title="Stop work"
-        description="This halts the job until somebody with the authority to release it says otherwise. It does not lock the project's other records."
+        title={t("pages.stopWork.title")}
+        description={t("forms.stopWorkIntro")}
       >
         {parent ? <input type="hidden" name={parent.field} value={parent.id} /> : null}
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" required maxLength={200} />
         </Field>
 
         <ProjectField projects={projects} value={parent?.projectId} required />
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input id="locationText" name="locationText" maxLength={200} />
         </Field>
 
-        <Field label="Why" name="reason" required className="sm:col-span-2">
+        <Field label={t("forms.why")} name="reason" required className="sm:col-span-2">
           <Textarea id="reason" name="reason" required rows={4} maxLength={4000} />
         </Field>
       </FormSection>
     </RecordForm>
   );
+}
+
+/** t("forms.raisedAgainst.hazardId") — one sentence per parent kind, since the article does not translate. */
+function raisedAgainst(t: ReturnType<typeof useHseTranslations>, parent: { field: string; label: string }): string {
+  const key = `forms.raisedAgainst.${parent.field}` as HseKey;
+  const text = t(key);
+  return text === key ? t("forms.raisedAgainstOther", { label: parent.label }) : text;
 }
 
 export { RiskPicker, ProjectField, MemberField };

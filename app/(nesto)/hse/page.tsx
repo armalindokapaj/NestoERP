@@ -13,10 +13,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import * as overview from "@/lib/modules/hse/overview/overview.service";
 import { HardHat } from "lucide-react";
 
-export const metadata: Metadata = { title: "HSE" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.overview.title") };
+}
 
 /**
  * The HSE overview (PRD #22 §30, §361).
@@ -27,6 +31,7 @@ export const metadata: Metadata = { title: "HSE" };
  */
 export default async function HsePage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.dashboard.view")) redirect("/hse/hazards");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -42,16 +47,16 @@ export default async function HsePage() {
     <ModulePage
       experience={experience}
       activeSection="overview"
-      description="Health, safety and environment across the company."
+      description={t("pages.overview.description")}
     >
       {empty ? (
         <EmptyState
           icon={<HardHat />}
-          title="Nothing to report."
-          description="Hazards, incidents, inspections and permits appear here as they are raised."
+          title={t("overview.emptyTitle")}
+          description={t("overview.emptyDescription")}
           action={
             can(context, "hse.hazard.create")
-              ? { label: "Report a hazard", href: "/hse/hazards/new" }
+              ? { label: t("list.create.hazards"), href: "/hse/hazards/new" }
               : undefined
           }
         />
@@ -74,36 +79,36 @@ export default async function HsePage() {
           {data.openCriticalHazards.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Critical hazards</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.criticalHazards")}</h2>
                 <Link href="/hse/hazards?view=critical" className="text-meta text-accent">
-                  All critical hazards
+                  {t("overview.allCriticalHazards")}
                 </Link>
               </div>
-              <HazardTable hazards={data.openCriticalHazards} caption="Open critical hazards" />
+              <HazardTable hazards={data.openCriticalHazards} caption={t("overview.openCriticalHazards")} />
             </section>
           ) : null}
 
           {data.recentIncidents.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Open incidents</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.openIncidents")}</h2>
                 <Link href="/hse/incidents?view=open" className="text-meta text-accent">
-                  All incidents
+                  {t("overview.allIncidents")}
                 </Link>
               </div>
-              <IncidentTable incidents={data.recentIncidents} caption="Open incidents" />
+              <IncidentTable incidents={data.recentIncidents} caption={t("overview.openIncidents")} />
             </section>
           ) : null}
 
           {data.expiringPermits.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Permits running out</h2>
+                <h2 className="text-card font-semibold text-fg">{t("overview.permitsRunningOut")}</h2>
                 <Link href="/hse/permits?view=expiring" className="text-meta text-accent">
-                  All permits
+                  {t("overview.allPermits")}
                 </Link>
               </div>
-              <PermitTable permits={data.expiringPermits} caption="Permits expiring soon" />
+              <PermitTable permits={data.expiringPermits} caption={t("overview.permitsExpiringSoon")} />
             </section>
           ) : null}
         </div>

@@ -16,6 +16,7 @@ import { PPE_ITEMS } from "@/lib/modules/hse/hse.status";
 import type { Option } from "./hse-forms";
 import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "./hse-forms";
+import { useHseTranslations } from "@/components/hse/hse-text";
 
 /**
  * A PPE check (PRD #22 §159, §160, §161).
@@ -60,6 +61,7 @@ export function PpeForm({
   /** Workers without a NESTO login, as `employee:<id>` (E-04 §72). */
   workers?: Option[];
 }) {
+  const t = useHseTranslations();
   const [items, setItems] = React.useState<Record<string, string>>(values?.items ?? {});
 
   const anyAnswered = PPE_ITEMS.some((item) => items[item.key] === "yes" || items[item.key] === "no");
@@ -74,17 +76,17 @@ export function PpeForm({
       pendingLabel={pendingLabel}
     >
       <FormSection
-        title="Check"
-        description="One person or one area. Recording that the helmets were fine says nothing about the harnesses unless you say so."
+        title={t("forms.check")}
+        description={t("forms.ppeIntro")}
       >
-        <Field label="Project" name="projectId">
+        <Field label={t("record.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project — company-wide</option>
+            <option value="">{t("forms.noProject")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -93,7 +95,7 @@ export function PpeForm({
           </select>
         </Field>
 
-        <Field label="Date" name="checkDate" required>
+        <Field label={t("toolbox.detail.date")} name="checkDate" required>
           <Input
             id="checkDate"
             name="checkDate"
@@ -103,7 +105,7 @@ export function PpeForm({
           />
         </Field>
 
-        <Field label="Location" name="locationText">
+        <Field label={t("record.location")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
@@ -112,21 +114,21 @@ export function PpeForm({
           />
         </Field>
 
-        <Field label="Person checked" name="subjectMemberId" hint="Leave blank for an area check.">
+        <Field label={t("forms.personChecked")} name="subjectMemberId" hint={t("forms.leaveBlankArea")}>
           <select
             id="subjectMemberId"
             name="subjectMemberId"
             className={selectClass}
             defaultValue={values?.subjectMemberId ?? ""}
           >
-            <option value="">Area spot check</option>
+            <option value="">{t("table.areaSpotCheck")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
               </option>
             ))}
             {workers.length > 0 ? (
-              <optgroup label="Workers without a NESTO account">
+              <optgroup label={t("forms.workersNoAccount")}>
                 {workers.map((worker) => (
                   <option key={worker.value} value={worker.value}>
                     {worker.label}
@@ -139,19 +141,19 @@ export function PpeForm({
           </select>
         </Field>
 
-        <Field label="Or a name" name="externalSubjectName">
+        <Field label={t("people.orName")} name="externalSubjectName">
           <Input
             id="externalSubjectName"
             name="externalSubjectName"
             defaultValue={values?.externalSubjectName ?? ""}
             maxLength={200}
-            placeholder="Subcontractor or visitor"
+            placeholder={t("people.subOrVisitor")}
           />
         </Field>
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">Equipment</h2>
+        <h2 className="text-card font-semibold text-fg">{t("forms.equipment")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           Record at least one item. Anything left as “not checked” is exactly that — it is not a
           pass.
@@ -160,7 +162,7 @@ export function PpeForm({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {PPE_ITEMS.map((item) => (
             <div key={item.key} className="space-y-1.5">
-              <Label htmlFor={item.key}>{item.label}</Label>
+              <Label htmlFor={item.key}>{t(`ppeItem.${item.key}`)}</Label>
               <select
                 id={item.key}
                 name={item.key}
@@ -170,9 +172,9 @@ export function PpeForm({
                   setItems((current) => ({ ...current, [item.key]: event.target.value }))
                 }
               >
-                <option value="">Not checked</option>
-                <option value="yes">In order</option>
-                <option value="no">Not in order</option>
+                <option value="">{t("forms.notChecked")}</option>
+                <option value="yes">{t("forms.inOrder")}</option>
+                <option value="no">{t("forms.notInOrder")}</option>
               </select>
             </div>
           ))}
@@ -180,19 +182,19 @@ export function PpeForm({
 
         <p className="mt-4 text-meta" aria-live="polite">
           {!anyAnswered ? (
-            <span className="text-fg-subtle">Nothing recorded yet.</span>
+            <span className="text-fg-subtle">{t("forms.nothingRecorded")}</span>
           ) : failed.length > 0 ? (
             <span className="text-danger-strong">
-              This will be recorded as a failure: {failed.map((item) => item.label).join(", ")}.
+              {t("forms.willFail", { items: failed.map((item) => t(`ppeItem.${item.key}`)).join(", ") })}
             </span>
           ) : (
-            <span className="text-success-strong">This will be recorded as a pass.</span>
+            <span className="text-success-strong">{t("forms.willPass")}</span>
           )}
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="otherPpeNote">Other equipment</Label>
+            <Label htmlFor="otherPpeNote">{t("forms.otherEquipment")}</Label>
             <Input
               id="otherPpeNote"
               name="otherPpeNote"
@@ -202,7 +204,7 @@ export function PpeForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t("record.notes")}</Label>
             <Textarea
               id="notes"
               name="notes"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { QaqcActivityFeed } from "@/components/qaqc/record-activity";
@@ -8,7 +9,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 
-export const metadata: Metadata = { title: "Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.activity") };
+}
 
 type Params = {
   params: Promise<{ ncrId: string }>;
@@ -22,6 +26,7 @@ export default async function NcrActivityPage({ params, searchParams }: Params) 
   const { page } = paginationSchema.parse({ page: typeof query.page === "string" ? query.page : undefined });
   const basePath = `/qaqc/ncrs/${ncrId}/activity`;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let ncr;
   try {
@@ -37,15 +42,15 @@ export default async function NcrActivityPage({ params, searchParams }: Params) 
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "NCRs", href: "/qaqc/ncrs" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.ncrs"), href: "/qaqc/ncrs" },
           { label: ncr.ncrNumber, href: `/qaqc/ncrs/${ncr.id}` },
-          { label: "Activity" },
+          { label: t("crumbs.activity") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Activity</h1>
+        <h1 className="text-page font-semibold text-fg">{t("detail.activity")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{ncr.ncrNumber}</p>
       </div>
 

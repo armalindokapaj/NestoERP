@@ -15,7 +15,9 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import { actionTypeLabels, priorityLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ actionId: string }> };
 
@@ -26,7 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const action = await actionService.getAction(context, actionId);
     return { title: action.actionNumber };
   } catch {
-    return { title: "HSE action" };
+    return { title: (await getTranslations("hse"))("record.hseAction") };
   }
 }
 
@@ -34,6 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function HseActionPage({ params }: Params) {
   const { actionId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let action;
   try {
@@ -50,11 +53,11 @@ export default async function HseActionPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Actions", href: "/hse/actions" },
+          { label: t("pages.actions.title"), href: "/hse/actions" },
           { label: action.actionNumber },
         ]}
         title={action.title}
-        subtitle={`${action.actionNumber} · ${actionTypeLabels[action.actionType]}`}
+        subtitle={`${action.actionNumber} · ${hseLabel(t, "actionType", action.actionType, actionTypeLabels[action.actionType])}`}
         status={action.status}
         badges={
           <>
@@ -67,26 +70,26 @@ export default async function HseActionPage({ params }: Params) {
                     : "neutral"
               }
             >
-              {priorityLabels[action.priority]}
+              {hseLabel(t, "priority", action.priority, priorityLabels[action.priority])}
             </Badge>
             {action.overdue ? (
               <Badge tone="danger">
-                {action.daysOverdue > 0 ? `${action.daysOverdue}d overdue` : "Overdue"}
+                {action.daysOverdue > 0 ? t("action.detail.daysOverdue", { days: action.daysOverdue }) : t("record.overdue")}
               </Badge>
             ) : null}
           </>
         }
         meta={[
-          { label: "Project", value: action.project?.code ?? "Company-wide" },
+          { label: t("record.project"), value: action.project?.code ?? t("record.companyWide") },
           {
-            label: "Responsible",
+            label: t("permit.detail.responsible"),
             value: action.assignedTo ? (
               <PersonLink memberId={action.assignedTo.memberId} name={action.assignedTo.fullName} />
             ) : (
               "—"
             ),
           },
-          { label: "Due", value: action.dueDate ? formatDate(action.dueDate) : "No date" },
+          { label: t("record.due"), value: action.dueDate ? formatDate(action.dueDate) : t("record.noDate") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -99,7 +102,7 @@ export default async function HseActionPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What needs doing</h2>
+            <h2 className="text-card font-semibold text-fg">{t("action.detail.whatNeedsDoing")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {action.description}
             </p>
@@ -108,7 +111,7 @@ export default async function HseActionPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Raised from",
+                  label: t("action.detail.raisedFrom"),
                   value: action.source ? (
                     action.source.href ? (
                       <Link href={action.source.href} className="hover:text-accent">
@@ -118,17 +121,17 @@ export default async function HseActionPage({ params }: Params) {
                       action.source.label
                     )
                   ) : (
-                    "Raised on its own"
+                    t("action.detail.raisedOnItsOwn")
                   ),
                 },
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: action.project ? (
                     <Link href={`/projects/${action.project.id}`} className="hover:text-accent">
                       {action.project.code} — {action.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
               ]}
@@ -137,18 +140,18 @@ export default async function HseActionPage({ params }: Params) {
 
           {action.completionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">What was done</h2>
+              <h2 className="text-card font-semibold text-fg">{t("action.detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {action.completionNote}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                Recorded by{" "}
+                {t("action.detail.recordedBy")}{" "}
                 {action.completedBy ? (
                   <PersonLink memberId={action.completedBy.memberId} name={action.completedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("action.detail.somebody")
                 )}
-                {action.completedAt ? ` on ${formatDate(action.completedAt)}` : ""}.
+                {action.completedAt ? t("action.detail.onDate", { date: formatDate(action.completedAt) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -156,7 +159,7 @@ export default async function HseActionPage({ params }: Params) {
           {action.verificationNote || action.verifiedAt ? (
             <section className="nesto-card p-5">
               <h2 className="text-card font-semibold text-fg">
-                {action.status === "REJECTED" ? "Sent back" : "Verification"}
+                {action.status === "REJECTED" ? t("action.detail.sentBack") : t("action.detail.verification")}
               </h2>
               {action.verificationNote ? (
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
@@ -164,13 +167,13 @@ export default async function HseActionPage({ params }: Params) {
                 </p>
               ) : null}
               <p className="mt-3 text-meta text-fg-subtle">
-                By{" "}
+                {t("action.detail.byPrefix")}{" "}
                 {action.verifiedBy ? (
                   <PersonLink memberId={action.verifiedBy.memberId} name={action.verifiedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("action.detail.somebody")
                 )}
-                {action.verifiedAt ? ` on ${formatDate(action.verifiedAt)}` : ""}.
+                {action.verifiedAt ? t("action.detail.onDate", { date: formatDate(action.verifiedAt) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -179,10 +182,9 @@ export default async function HseActionPage({ params }: Params) {
               verification. They are not the same thing (PRD #22 §128). */}
           {action.tasks.length > 0 ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Tasks</h2>
+              <h2 className="text-card font-semibold text-fg">{t("action.detail.tasks")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
-                Work items raised to discharge this action. Completing one does not verify the
-                action.
+                {t("action.detail.tasksHint")}
               </p>
               <ul className="mt-3 divide-y divide-line">
                 {action.tasks.map((task) => (
@@ -199,12 +201,12 @@ export default async function HseActionPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hse_action"
                 entityId={action.id}
-                emptyDescription="Evidence that the control went in appears here."
+                emptyDescription={t("action.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -212,10 +214,10 @@ export default async function HseActionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Raised by"
+                label={t("action.detail.raisedBy")}
                 value={
                   action.createdBy ? (
                     <PersonLink memberId={action.createdBy.memberId} name={action.createdBy.fullName} />
@@ -224,16 +226,16 @@ export default async function HseActionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(action.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(action.createdAt)} />
               {action.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(action.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(action.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed context={context} entityType="HseAction" entityId={action.id} />
             </section>
           ) : null}

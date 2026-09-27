@@ -11,8 +11,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Work permits" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.permits.title") };
+}
 
 /** Work permits: Authorisation for controlled work, for a fixed window. */
 export default async function HsePermitsPage({
@@ -21,6 +25,7 @@ export default async function HsePermitsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.permit.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -35,7 +40,7 @@ export default async function HsePermitsPage({
     <ModulePage
       experience={experience}
       activeSection="permits"
-      description="Authorisation for controlled work, for a fixed window."
+      description={t("pages.permits.description")}
       actions={
         <>
           {can(context, "hse.export") ? (
@@ -43,7 +48,7 @@ export default async function HsePermitsPage({
           ) : null}
           {can(context, "hse.permit.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/permits/new">New permit</Link>
+              <Link href="/hse/permits/new">{t("list.create.permits")}</Link>
             </Button>
           ) : null}
         </>

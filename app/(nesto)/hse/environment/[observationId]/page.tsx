@@ -14,7 +14,9 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
 import { environmentalCategoryLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ observationId: string }> };
 
@@ -25,7 +27,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const observation = await environment.getObservation(context, observationId);
     return { title: observation.observationNumber };
   } catch {
-    return { title: "Environmental observation" };
+    return { title: (await getTranslations("hse"))("record.observation") };
   }
 }
 
@@ -33,6 +35,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ObservationPage({ params }: Params) {
   const { observationId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let observation;
   try {
@@ -49,27 +52,27 @@ export default async function ObservationPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Environment", href: "/hse/environment" },
+          { label: t("pages.environment.title"), href: "/hse/environment" },
           { label: observation.observationNumber },
         ]}
         title={observation.title}
-        subtitle={`${observation.observationNumber} · ${environmentalCategoryLabels[observation.category]}`}
+        subtitle={`${observation.observationNumber} · ${hseLabel(t, "environmentalCategory", observation.category, environmentalCategoryLabels[observation.category])}`}
         status={observation.status}
         badges={
           <>
             <SeverityBadge severity={observation.severity} />
-            {observation.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            {observation.overdue ? <Badge tone="danger">{t("record.overdue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Project", value: observation.project?.code ?? "Company-wide" },
-          { label: "Observed", value: formatDate(observation.observedAt) },
+          { label: t("record.project"), value: observation.project?.code ?? t("record.companyWide") },
+          { label: t("record.observed"), value: formatDate(observation.observedAt) },
           {
-            label: "Assigned to",
+            label: t("record.assignedTo"),
             value: observation.assignedTo ? (
               <PersonLink memberId={observation.assignedTo.memberId} name={observation.assignedTo.fullName} />
             ) : (
-              "Not assigned"
+              t("record.notAssigned")
             ),
           },
         ]}
@@ -79,7 +82,7 @@ export default async function ObservationPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What was seen</h2>
+            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.whatWasSeen")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {observation.description}
             </p>
@@ -88,7 +91,7 @@ export default async function ObservationPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: observation.project ? (
                     <Link
                       href={`/projects/${observation.project.id}`}
@@ -97,14 +100,14 @@ export default async function ObservationPage({ params }: Params) {
                       {observation.project.code} — {observation.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
-                { label: "Where", value: orDash(observation.locationText) },
-                { label: "Immediate action", value: orDash(observation.immediateAction) },
+                { label: t("record.where"), value: orDash(observation.locationText) },
+                { label: t("incident.detail.immediateAction"), value: orDash(observation.immediateAction) },
                 {
-                  label: "Due",
-                  value: observation.dueDate ? formatDate(observation.dueDate) : "No date",
+                  label: t("record.due"),
+                  value: observation.dueDate ? formatDate(observation.dueDate) : t("record.noDate"),
                 },
               ]}
             />
@@ -112,22 +115,22 @@ export default async function ObservationPage({ params }: Params) {
 
           {observation.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={observation.actions}
-                caption={`Actions on ${observation.observationNumber}`}
+                caption={t("record.actionsOn", { number: observation.observationNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="environmental_observation"
                 entityId={observation.id}
-                emptyDescription="Photographs, waste receipts and cleanup evidence appear here."
+                emptyDescription={t("environment.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -135,10 +138,10 @@ export default async function ObservationPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Reported by"
+                label={t("record.reportedBy")}
                 value={
                   observation.reportedBy ? (
                     <PersonLink memberId={observation.reportedBy.memberId} name={observation.reportedBy.fullName} />
@@ -147,17 +150,17 @@ export default async function ObservationPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Reported" value={formatDateTime(observation.createdAt)} />
+              <Meta label={t("record.reported")} value={formatDateTime(observation.createdAt)} />
               {observation.closedAt ? (
                 <Meta
-                  label="Closed"
+                  label={t("record.closed")}
                   value={
                     <>
                       {formatDateTime(observation.closedAt)}
                       {observation.closedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={observation.closedBy.memberId} name={observation.closedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={observation.closedBy.memberId} name={observation.closedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -165,14 +168,14 @@ export default async function ObservationPage({ params }: Params) {
                 />
               ) : null}
               {observation.closureNote ? (
-                <Meta label="Closure note" value={observation.closureNote} />
+                <Meta label={t("record.closureNote")} value={observation.closureNote} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="EnvironmentalObservation"

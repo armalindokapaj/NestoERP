@@ -24,6 +24,7 @@ import type {
   MaterialReleaseDTO,
 } from "@/lib/modules/qaqc/qaqc.types";
 import { ReleaseBadge } from "./qaqc-format";
+import { useQaqcTranslations } from "./qaqc-text";
 
 /**
  * Deciding what happens to delivered material (PRD #21 §90, §91, §96, §98).
@@ -52,6 +53,7 @@ export function MaterialPanel({
   canRelease: boolean;
 }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<"release" | "revoke" | null>(null);
@@ -65,7 +67,7 @@ export function MaterialPanel({
         const result = await releaseMaterialAction(inspectionId, notes);
         if (result.ok) {
           setDialog(null);
-          toast({ title: result.message ?? "Released.", tone: "success" });
+          toast({ title: t("material.released"), tone: "success" });
           router.refresh();
           resolve(true);
         } else {
@@ -80,7 +82,7 @@ export function MaterialPanel({
     startTransition(async () => {
       const result = await removeMaterialDecisionAction(inspectionId, goodsReceiptItemId);
       if (result.ok) {
-        toast({ title: result.message ?? "Decision removed.", tone: "success" });
+        toast({ title: t("material.decisionRemoved"), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -94,7 +96,7 @@ export function MaterialPanel({
         const result = await revokeReleaseAction(inspectionId, reason);
         if (result.ok) {
           setDialog(null);
-          toast({ title: result.message ?? "Revoked.", tone: "success" });
+          toast({ title: t("material.revoked"), tone: "success" });
           router.refresh();
           resolve(true);
         } else {
@@ -110,16 +112,16 @@ export function MaterialPanel({
       {decisions.length > 0 ? (
         // Five figures and Remove need ~560px: they pan inside a labelled region
         // instead of being clipped by the card (AUD-04 §5, D-04-01, MW-05).
-        <ScrollRegion label="Material decisions" className="nesto-card">
+        <ScrollRegion label={t("material.decisions")} className="nesto-card">
           <table className="w-full min-w-[34rem] text-table">
-            <caption className="sr-only">Material decisions on this inspection</caption>
+            <caption className="sr-only">{t("material.decisionsCaption")}</caption>
             <thead>
               <tr className="border-b border-line text-left text-meta text-fg-subtle">
-                <th scope="col" className="px-4 py-2 font-medium">Line</th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">Inspected</th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">Accepted</th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">Rejected</th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">Conditional</th>
+                <th scope="col" className="px-4 py-2 font-medium">{t("material.line")}</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">{t("material.inspected")}</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">{t("material.accepted")}</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">{t("material.rejected")}</th>
+                <th scope="col" className="px-4 py-2 text-right font-medium">{t("material.conditional")}</th>
                 {canDecide && !release ? <th scope="col" className="px-4 py-2" /> : null}
               </tr>
             </thead>
@@ -128,7 +130,7 @@ export function MaterialPanel({
                 <tr key={decision.id}>
                   <td className="px-4 py-2.5 text-fg">
                     {decision.line?.description ?? (
-                      <span className="text-fg-subtle">Delivery line</span>
+                      <span className="text-fg-subtle">{t("material.deliveryLine")}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-fg">
@@ -156,7 +158,7 @@ export function MaterialPanel({
                         disabled={pending}
                         onClick={() => removeDecision(decision.goodsReceiptItemId)}
                       >
-                        Remove
+                        {t("material.remove")}
                       </Button>
                     </td>
                   ) : null}
@@ -167,25 +169,22 @@ export function MaterialPanel({
         </ScrollRegion>
       ) : (
         <p className="nesto-card p-5 text-table text-fg-subtle">
-          Nothing decided yet. Record how much of each delivered line passed, failed, or passed
-          with a condition.
+          {t("material.nothingDecided")}
         </p>
       )}
 
       {release ? (
         <div className="nesto-card space-y-2 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-card font-semibold text-fg">Release</h3>
+            <h3 className="text-card font-semibold text-fg">{t("material.release")}</h3>
             <ReleaseBadge status={release.status} />
           </div>
           <p className="text-table text-fg-muted">
-            <span className="tabular-nums text-fg">{release.releasedQuantity}</span> {release.unit}{" "}
-            released to stock,{" "}
-            <span className="tabular-nums text-fg">{release.rejectedQuantity}</span> rejected.
+            {t("material.releasedSummary", { released: release.releasedQuantity, unit: release.unit, rejected: release.rejectedQuantity })}
           </p>
           {release.revocationReason ? (
             <p className="text-meta text-fg-subtle">
-              <span className="font-medium">Revoked:</span> {release.revocationReason}
+              <span className="font-medium">{t("material.revokedLabel")}</span> {release.revocationReason}
             </p>
           ) : null}
           {release.capabilities.canRevoke ? (
@@ -195,19 +194,18 @@ export function MaterialPanel({
               disabled={pending}
               onClick={() => setDialog("revoke")}
             >
-              Revoke the release
+              {t("material.revokeRelease")}
             </Button>
           ) : null}
         </div>
       ) : canRelease ? (
         <div className="nesto-card space-y-3 p-5">
-          <h3 className="text-card font-semibold text-fg">Release to stock</h3>
+          <h3 className="text-card font-semibold text-fg">{t("material.releaseToStock")}</h3>
           <p className="text-table text-fg-muted">
-            Accepted and conditionally accepted quantity becomes available for Inventory to book
-            in. Rejected quantity never reaches a warehouse.
+            {t("material.releaseBody")}
           </p>
           <Button size="sm" disabled={pending} onClick={() => setDialog("release")}>
-            Release material
+            {t("material.releaseMaterial")}
           </Button>
         </div>
       ) : null}
@@ -224,12 +222,12 @@ export function MaterialPanel({
       <RejectDialog
         open={dialog === "release"}
         onOpenChange={(open) => setDialog(open ? "release" : null)}
-        title="Release this material to stock?"
-        description="Accepted and conditionally accepted quantity becomes available for Inventory to book in. Rejected quantity does not."
-        label="Note"
-        placeholder="Anything the storeman should know?"
-        confirmLabel="Release material"
-        pendingLabel="Releasing…"
+        title={t("material.releaseTitle")}
+        description={t("material.releaseDialogBody")}
+        label={t("material.note")}
+        placeholder={t("material.notePlaceholder")}
+        confirmLabel={t("material.releaseMaterial")}
+        pendingLabel={t("material.releasing")}
         emptyMessage=""
         onReject={(note) => runRelease(note || null)}
       />
@@ -237,13 +235,13 @@ export function MaterialPanel({
       <RejectDialog
         open={dialog === "revoke"}
         onOpenChange={(open) => setDialog(open ? "revoke" : null)}
-        title="Revoke this release?"
-        description="Only possible before Inventory has booked the delivery in. Afterwards the correction is a stock adjustment."
-        label="Reason"
-        placeholder="Why is the release being taken back?"
-        confirmLabel="Revoke release"
-        pendingLabel="Revoking…"
-        emptyMessage="Say why it is being revoked."
+        title={t("material.revokeTitle")}
+        description={t("material.revokeBody")}
+        label={t("common.reason")}
+        placeholder={t("material.revokePlaceholder")}
+        confirmLabel={t("material.revokeConfirm")}
+        pendingLabel={t("material.revoking")}
+        emptyMessage={t("material.sayRevoked")}
         onReject={(reason) => runRevoke(reason)}
       />
     </div>
@@ -267,6 +265,7 @@ function DecisionForm({
   onRecorded: () => void;
 }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
 
@@ -300,17 +299,17 @@ function DecisionForm({
       if (balanceRef.current && !balanceRef.current.balanced) {
         return {
           ok: false as const,
-          error: "Accepted, rejected and conditional must add up to the quantity inspected.",
+          error: t("material.mustBalance"),
         };
       }
       return recordMaterialDecisionAction(inspectionId, formData);
     },
     module: "qaqc",
     saveKind: "create",
-    label: "Material decision",
+    label: t("material.decisionLabel"),
     onCommitted: (result, mode) => {
       if (mode === "normal") {
-        toast({ title: result?.message ?? "Decision recorded.", tone: "success" });
+        toast({ title: t("material.recorded"), tone: "success" });
         router.refresh();
       }
       onRecorded();
@@ -322,9 +321,9 @@ function DecisionForm({
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
-        <h3 className="text-card font-semibold text-fg">Record a decision</h3>
+        <h3 className="text-card font-semibold text-fg">{t("material.recordTitle")}</h3>
         <p className="mt-1 text-meta text-fg-subtle">
-          Recording a line again replaces the earlier decision on it.
+          {t("material.recordHint")}
         </p>
       </div>
 
@@ -332,7 +331,7 @@ function DecisionForm({
 
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
-          <Label htmlFor="goodsReceiptItemId">Delivery line</Label>
+          <Label htmlFor="goodsReceiptItemId">{t("material.deliveryLine")}</Label>
           <select
             id="goodsReceiptItemId"
             name="goodsReceiptItemId"
@@ -343,7 +342,7 @@ function DecisionForm({
           >
             {lines.map((row) => (
               <option key={row.id} value={row.id}>
-                {row.description} — {row.receivedQuantity} {row.unit} received
+                {t("material.lineOption", { description: row.description, quantity: row.receivedQuantity, unit: row.unit })}
               </option>
             ))}
           </select>
@@ -351,7 +350,7 @@ function DecisionForm({
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
-            <Label htmlFor="inspectedQuantity">Inspected</Label>
+            <Label htmlFor="inspectedQuantity">{t("material.inspected")}</Label>
             <Input
               id="inspectedQuantity"
               name="inspectedQuantity"
@@ -362,7 +361,7 @@ function DecisionForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="acceptedQuantity">Accepted</Label>
+            <Label htmlFor="acceptedQuantity">{t("material.accepted")}</Label>
             <Input
               id="acceptedQuantity"
               name="acceptedQuantity"
@@ -373,7 +372,7 @@ function DecisionForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="rejectedQuantity">Rejected</Label>
+            <Label htmlFor="rejectedQuantity">{t("material.rejected")}</Label>
             <Input
               id="rejectedQuantity"
               name="rejectedQuantity"
@@ -384,7 +383,7 @@ function DecisionForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="conditionalQuantity">Conditional</Label>
+            <Label htmlFor="conditionalQuantity">{t("material.conditional")}</Label>
             <Input
               id="conditionalQuantity"
               name="conditionalQuantity"
@@ -398,26 +397,25 @@ function DecisionForm({
 
         {balance && !balance.balanced ? (
           <p className="text-meta text-danger-strong">
-            Accepted, rejected and conditional are{" "}
-            <span className="tabular-nums">{Math.abs(balance.difference)}</span>{" "}
-            {balance.difference > 0 ? "more" : "less"} than the quantity inspected. Every unit
-            looked at has to end up in exactly one of the three.
+            {t(balance.difference > 0 ? "material.unbalancedMore" : "material.unbalancedLess", {
+              difference: Math.abs(balance.difference),
+            })}
           </p>
         ) : balance?.balanced ? (
           <p className="text-meta text-fg-subtle">
-            Balanced against {inspected} {line?.unit ?? ""} inspected.
+            {t("material.balanced", { quantity: inspected, unit: line?.unit ?? "" })}
           </p>
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor="notes">Note</Label>
+          <Label htmlFor="notes">{t("material.note")}</Label>
           <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
         </div>
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={pending || (balance !== null && !balance.balanced)}>
-          {pending ? "Saving…" : "Record decision"}
+          {pending ? t("common.saving") : t("material.recordDecision")}
         </Button>
         <UnsavedIndicator save={save} />
       </div>

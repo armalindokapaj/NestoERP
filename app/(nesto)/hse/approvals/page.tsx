@@ -9,10 +9,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import * as approvals from "@/lib/modules/hse/approvals/approval.service";
 import { listPageRedirect, pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "HSE approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.approvals.title") };
+}
 
 /**
  * What is waiting for a decision (PRD #22 §181, §182).
@@ -31,6 +35,7 @@ export default async function HseApprovalsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.approval.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -48,13 +53,13 @@ export default async function HseApprovalsPage({
     <ModulePage
       experience={experience}
       activeSection="approvals"
-      description="Inspections, risk assessments, permits and incident closures waiting on somebody."
+      description={t("pages.approvals.description")}
     >
       {result.data.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck />}
-          title={includeDecided ? "Nothing has been decided yet." : "Nothing is waiting."}
-          description="Submitted inspections, risk assessments, permits and incident closures appear here."
+          title={includeDecided ? t("approvals.nothingDecided") : t("approvals.nothingWaiting")}
+          description={t("pages.approvals.emptyDescription")}
         />
       ) : (
         <div className="space-y-4">

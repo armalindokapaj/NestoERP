@@ -17,7 +17,10 @@ import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
 import { permitTypeLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDateTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
+import { HseText } from "@/components/hse/hse-text";
 
 type Params = { params: Promise<{ permitId: string }> };
 
@@ -28,7 +31,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const permit = await permits.getPermit(context, permitId);
     return { title: permit.permitNumber };
   } catch {
-    return { title: "Work permit" };
+    return { title: (await getTranslations("hse"))("record.workPermit") };
   }
 }
 
@@ -36,6 +39,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function PermitPage({ params }: Params) {
   const { permitId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let permit;
   try {
@@ -57,11 +61,11 @@ export default async function PermitPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Permits", href: "/hse/permits" },
+          { label: t("pages.permits.title"), href: "/hse/permits" },
           { label: permit.permitNumber },
         ]}
         title={permit.title}
-        subtitle={`${permit.permitNumber} · ${permitTypeLabels[permit.permitType]}`}
+        subtitle={`${permit.permitNumber} · ${hseLabel(t, "permitType", permit.permitType, permitTypeLabels[permit.permitType])}`}
         badges={
           <PermitStatusBadge
             status={permit.status}
@@ -69,17 +73,17 @@ export default async function PermitPage({ params }: Params) {
           />
         }
         meta={[
-          { label: "Project", value: permit.project.code },
-          { label: "Location", value: permit.locationText },
+          { label: t("record.project"), value: permit.project.code },
+          { label: t("record.location"), value: permit.locationText },
           {
-            label: "Responsible",
+            label: t("permit.detail.responsible"),
             value: permit.responsible ? (
               <PersonLink memberId={permit.responsible.memberId} name={permit.responsible.fullName} />
             ) : (
               "—"
             ),
           },
-          { label: "Window", value: <PermitClock hoursRemaining={permit.hoursRemaining} /> },
+          { label: t("permit.detail.window"), value: <PermitClock hoursRemaining={permit.hoursRemaining} /> },
         ]}
         actions={<PermitActions permit={permit} cycle={cycle} />}
       />
@@ -93,36 +97,34 @@ export default async function PermitPage({ params }: Params) {
           role="alert"
           className="rounded-md border border-danger-border bg-danger-subtle px-4 py-3 text-table font-medium text-danger-strong"
         >
-          This permit&rsquo;s validity window has closed. It authorises nothing, whatever the stored
-          status says. Close it and raise a new one if the work is continuing.
+          {t("permit.detail.lapsed")}
         </p>
       ) : permit.status === "SUSPENDED" ? (
         <p className="rounded-md border border-warning-border bg-warning-subtle px-4 py-3 text-table text-warning-strong">
-          Suspended{permit.suspensionReason ? `: ${permit.suspensionReason}` : "."} Work under it
-          is stopped until somebody reactivates it.
+          {t("permit.detail.suspendedBanner", { reason: permit.suspensionReason ? `: ${permit.suspensionReason}` : "." })}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">The work</h2>
+            <h2 className="text-card font-semibold text-fg">{t("permit.detail.theWork")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: (
                     <Link href={`/projects/${permit.project.id}`} className="hover:text-accent">
                       {permit.project.code} — {permit.project.name}
                     </Link>
                   ),
                 },
-                { label: "Location", value: permit.locationText },
-                { label: "Valid from", value: formatDateTime(permit.validFrom) },
-                { label: "Valid until", value: formatDateTime(permit.validUntil) },
+                { label: t("record.location"), value: permit.locationText },
+                { label: t("permit.detail.validFrom"), value: formatDateTime(permit.validFrom) },
+                { label: t("permit.detail.validUntil"), value: formatDateTime(permit.validUntil) },
                 {
-                  label: "Requested by",
+                  label: t("permit.detail.requestedBy"),
                   value: permit.requestedBy ? (
                     <PersonLink memberId={permit.requestedBy.memberId} name={permit.requestedBy.fullName} />
                   ) : (
@@ -130,7 +132,7 @@ export default async function PermitPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Responsible",
+                  label: t("permit.detail.responsible"),
                   value: permit.responsible ? (
                     <PersonLink memberId={permit.responsible.memberId} name={permit.responsible.fullName} />
                   ) : (
@@ -138,7 +140,7 @@ export default async function PermitPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Risk assessment",
+                  label: t("permit.detail.riskAssessment"),
                   value: permit.riskAssessment ? (
                     permit.riskAssessment.href ? (
                       <Link href={permit.riskAssessment.href} className="hover:text-accent">
@@ -148,7 +150,7 @@ export default async function PermitPage({ params }: Params) {
                       permit.riskAssessment.label
                     )
                   ) : (
-                    "None cited"
+                    t("permit.detail.noneCited")
                   ),
                 },
               ]}
@@ -158,33 +160,33 @@ export default async function PermitPage({ params }: Params) {
           <PermitWorkers permitId={permit.id} workers={workers} canEdit={may.canEdit} employees={options.employees} crews={options.crews} />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Hazards and controls</h2>
+            <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazardsAndControls")}</h2>
             <dl className="mt-4 space-y-4">
-              <Block label="Hazards" value={permit.hazardsSummary} />
-              <Block label="Controls" value={permit.controlsSummary} />
-              <Block label="PPE required" value={permit.ppeRequirements} />
-              <Block label="Special conditions" value={permit.specialConditions} />
+              <Block label={t("permit.detail.hazards")} value={permit.hazardsSummary} />
+              <Block label={t("hazard.detail.controls")} value={permit.controlsSummary} />
+              <Block label={t("permit.detail.ppeRequired")} value={permit.ppeRequirements} />
+              <Block label={t("permit.detail.specialConditions")} value={permit.specialConditions} />
             </dl>
           </section>
 
           {permit.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={permit.actions}
-                caption={`Actions on ${permit.permitNumber}`}
+                caption={t("record.actionsOn", { number: permit.permitNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="work_permit"
                 entityId={permit.id}
-                emptyDescription="The signed permit form, method statement and authorisation sheet appear here."
+                emptyDescription={t("permit.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -192,22 +194,22 @@ export default async function PermitPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">History</h2>
+            <h2 className="text-card font-semibold text-fg">{t("permit.detail.history")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Raised" value={formatDateTime(permit.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(permit.createdAt)} />
               {permit.submittedAt ? (
-                <Meta label="Submitted" value={formatDateTime(permit.submittedAt)} />
+                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(permit.submittedAt)} />
               ) : null}
               {permit.approvedAt ? (
                 <Meta
-                  label="Approved"
+                  label={t("inspection.detail.approved")}
                   value={
                     <>
                       {formatDateTime(permit.approvedAt)}
                       {permit.approvedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={permit.approvedBy.memberId} name={permit.approvedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={permit.approvedBy.memberId} name={permit.approvedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -215,23 +217,23 @@ export default async function PermitPage({ params }: Params) {
                 />
               ) : null}
               {permit.activatedAt ? (
-                <Meta label="Activated" value={formatDateTime(permit.activatedAt)} />
+                <Meta label={t("permit.detail.activated")} value={formatDateTime(permit.activatedAt)} />
               ) : null}
               {permit.suspendedAt ? (
-                <Meta label="Suspended" value={formatDateTime(permit.suspendedAt)} />
+                <Meta label={t("permit.detail.suspended")} value={formatDateTime(permit.suspendedAt)} />
               ) : null}
               {permit.closedAt ? (
-                <Meta label="Closed" value={formatDateTime(permit.closedAt)} />
+                <Meta label={t("record.closed")} value={formatDateTime(permit.closedAt)} />
               ) : null}
               {permit.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(permit.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(permit.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseWorkPermit"
@@ -252,7 +254,7 @@ function Block({ label, value }: { label: string; value: string | null }) {
     <div>
       <dt className="nesto-eyebrow text-fg-subtle">{label}</dt>
       <dd className="mt-1 whitespace-pre-wrap text-table text-fg-muted">
-        {value ?? <span className="text-fg-subtle">Not recorded</span>}
+        {value ?? <span className="text-fg-subtle"><HseText k="permit.detail.notRecorded" /></span>}
       </dd>
     </div>
   );

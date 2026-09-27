@@ -11,8 +11,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Toolbox talks" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.toolboxTalks.title") };
+}
 
 /** Toolbox talks: Short briefings, and who was there. */
 export default async function HseToolboxTalksPage({
@@ -21,6 +25,7 @@ export default async function HseToolboxTalksPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.toolbox.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -35,7 +40,7 @@ export default async function HseToolboxTalksPage({
     <ModulePage
       experience={experience}
       activeSection="toolbox-talks"
-      description="Short briefings, and who was there."
+      description={t("pages.toolboxTalks.description")}
       actions={
         <>
           {can(context, "hse.export") ? (
@@ -43,7 +48,7 @@ export default async function HseToolboxTalksPage({
           ) : null}
           {can(context, "hse.toolbox.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/toolbox-talks/new">Record a talk</Link>
+              <Link href="/hse/toolbox-talks/new">{t("pages.toolboxTalks.create")}</Link>
             </Button>
           ) : null}
         </>

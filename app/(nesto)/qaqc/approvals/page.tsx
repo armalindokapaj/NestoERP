@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { CheckCheck } from "lucide-react";
 
@@ -14,7 +15,10 @@ import * as approvals from "@/lib/modules/qaqc/approvals/approval.service";
 import { approvalListQuerySchema } from "@/lib/modules/qaqc/qaqc.schema";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Quality approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.approvals") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,6 +38,7 @@ export default async function QaqcApprovalsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.approval.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -59,26 +64,26 @@ export default async function QaqcApprovalsPage({
     <ModulePage
       experience={experience}
       activeSection="approvals"
-      description="Inspections and NCRs waiting on a decision. You will not see decision controls on anything you submitted yourself."
+      description={t("descriptions.approvals")}
     >
       <div className="space-y-4">
         <ListToolbar
           filters={[
             {
               param: "view",
-              label: "View",
+              label: t("list.filter.view"),
               options: [
-                { value: "pending", label: "Waiting" },
-                { value: "decided", label: "Decided" },
-                { value: "all", label: "Everything" },
+                { value: "pending", label: t("queue.waiting") },
+                { value: "decided", label: t("queue.decided") },
+                { value: "all", label: t("queue.everything") },
               ],
             },
             {
               param: "recordType",
-              label: "Kind",
+              label: t("list.filter.kind"),
               options: [
-                { value: "INSPECTION", label: "Inspections" },
-                { value: "NCR", label: "NCRs" },
+                { value: "INSPECTION", label: t("queue.inspections") },
+                { value: "NCR", label: t("queue.ncrs") },
               ],
             },
           ]}
@@ -91,11 +96,11 @@ export default async function QaqcApprovalsPage({
           query.view === "pending" && !query.recordType ? (
             <EmptyState
               icon={<CheckCheck />}
-              title="Nothing is waiting."
-              description="Inspections and NCRs appear here when somebody submits them for a decision."
+              title={t("queue.nothingWaiting")}
+              description={t("queue.nothingWaitingBody")}
             />
           ) : (
-            <NoResultsState noun="approvals" clearHref="/qaqc/approvals" />
+            <NoResultsState noun={t("queue.noun")} clearHref="/qaqc/approvals" />
           )
         ) : (
           <>

@@ -7,8 +7,12 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pageHref, paginationSchema } from "@/lib/modules/shared/list-query";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Hazard activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.hazardActivity") };
+}
 
 type Params = {
   params: Promise<{ hazardId: string }>;
@@ -21,6 +25,7 @@ export default async function HazardActivityPage({ params, searchParams }: Param
   const { page } = paginationSchema.parse({ page: typeof query.page === "string" ? query.page : undefined });
   const basePath = `/hse/hazards/${hazardId}/activity`;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let hazard;
   try {
@@ -37,13 +42,13 @@ export default async function HazardActivityPage({ params, searchParams }: Param
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Hazards", href: "/hse/hazards" },
+          { label: t("pages.hazards.title"), href: "/hse/hazards" },
           { label: hazard.hazardNumber, href: `/hse/hazards/${hazardId}` },
-          { label: "Activity" },
+          { label: t("record.activity") },
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">Activity on {hazard.hazardNumber}</h1>
+      <h1 className="text-page font-semibold text-fg">{t("page.activityOn", { number: hazard.hazardNumber })}</h1>
 
       <HseActivityFeed
         context={context}

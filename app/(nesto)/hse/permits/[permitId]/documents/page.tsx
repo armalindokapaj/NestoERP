@@ -6,14 +6,19 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Permit documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.permitDocuments") };
+}
 
 type Params = { params: Promise<{ permitId: string }> };
 
 export default async function PermitDocumentsPage({ params }: Params) {
   const { permitId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let permit;
   try {
@@ -30,13 +35,13 @@ export default async function PermitDocumentsPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Permits", href: "/hse/permits" },
+          { label: t("page.crumbPermits"), href: "/hse/permits" },
           { label: permit.permitNumber, href: `/hse/permits/${permitId}` },
-          { label: "Documents" },
+          { label: t("record.documents") },
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">Documents on {permit.permitNumber}</h1>
+      <h1 className="text-page font-semibold text-fg">{t("page.documentsOn", { number: permit.permitNumber })}</h1>
 
       <HseRecordDocuments context={context} entityType="work_permit" entityId={permit.id} />
     </div>

@@ -7,6 +7,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { listPageRedirect, pageHref, type paginationMeta } from "@/lib/modules/shared/list-query";
+import { getTranslations } from "@/lib/i18n/server";
+import { hseLabel, type HseLabelGroup } from "@/lib/i18n/modules/hse/labels";
+import type { MessageKey } from "@/lib/i18n/translator";
 import { clearListFilters } from "@/lib/tables/list-url";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
@@ -118,169 +121,115 @@ export type HseListKind =
   | "environment"
   | "stop-work";
 
+type HseKey = MessageKey<"hse">;
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
-const EMPTY_COPY: Record<HseListKind, { title: string; description: string }> = {
-  inspections: {
-    title: "No safety inspections yet.",
-    description:
-      "An inspection is a walk-round against a checklist, with a verdict somebody signs off.",
-  },
-  templates: {
-    title: "No safety checklists.",
-    description:
-      "A checklist is what the company inspects against. Once a version has been used it is versioned rather than rewritten.",
-  },
-  hazards: {
-    title: "No hazards reported.",
-    description:
-      "A hazard is a condition that could hurt somebody. Anyone on site can report one; the risk score decides how fast it is dealt with.",
-  },
-  incidents: {
-    title: "No incidents or near misses.",
-    description:
-      "An incident is something that happened. A near miss is the same record — and the one worth reporting before it becomes the other.",
-  },
-  "risk-assessments": {
-    title: "No risk assessments.",
-    description:
-      "A risk assessment evaluates an activity line by line. Once approved it is frozen, and a material change makes a new version.",
-  },
-  actions: {
-    title: "No HSE actions.",
-    description:
-      "An action is the safety obligation that came out of a hazard, an incident or an inspection — and somebody else verifies it was done.",
-  },
-  "toolbox-talks": {
-    title: "No toolbox talks.",
-    description: "A toolbox talk is a short briefing, and the record of who was there.",
-  },
-  permits: {
-    title: "No work permits.",
-    description:
-      "A permit authorises controlled work for a fixed window. Outside that window it authorises nothing.",
-  },
-  ppe: {
-    title: "No PPE checks.",
-    description:
-      "A PPE check records whether the protective equipment was there and being worn. It never touches Inventory.",
-  },
-  environment: {
-    title: "No environmental observations.",
-    description: "A spill, dust, noise or waste going astray — recorded, assigned and closed out.",
-  },
-  "stop-work": {
-    title: "No stop-work records.",
-    description:
-      "A stop-work halts a job because it was not safe to carry on. Releasing it is a separate act.",
-  },
-};
-
-const VIEW_OPTIONS: Partial<Record<HseListKind, { value: string; label: string }[]>> = {
+const VIEW_OPTIONS: Partial<Record<HseListKind, { value: string; label: HseKey }[]>> = {
   inspections: [
-    { value: "all", label: "All inspections" },
-    { value: "due", label: "Still to do" },
-    { value: "failed", label: "Failed or conditional" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allInspections" },
+    { value: "due", label: "list.view.stillToDo" },
+    { value: "failed", label: "list.view.failedOrConditional" },
+    { value: "mine", label: "list.view.mine" },
   ],
   hazards: [
-    { value: "all", label: "All hazards" },
-    { value: "open", label: "Still open" },
-    { value: "critical", label: "Critical" },
-    { value: "overdue", label: "Overdue" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allHazards" },
+    { value: "open", label: "list.view.stillOpen" },
+    { value: "critical", label: "list.view.critical" },
+    { value: "overdue", label: "list.view.overdue" },
+    { value: "mine", label: "list.view.mine" },
   ],
   incidents: [
-    { value: "all", label: "All incidents" },
-    { value: "open", label: "Still open" },
-    { value: "near-miss", label: "Near misses" },
-    { value: "serious", label: "High and critical" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allIncidents" },
+    { value: "open", label: "list.view.stillOpen" },
+    { value: "near-miss", label: "list.view.nearMisses" },
+    { value: "serious", label: "list.view.highAndCritical" },
+    { value: "mine", label: "list.view.mine" },
   ],
   "risk-assessments": [
-    { value: "all", label: "All assessments" },
-    { value: "approved", label: "Approved" },
-    { value: "review-due", label: "Due for review" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allAssessments" },
+    { value: "approved", label: "list.view.approved" },
+    { value: "review-due", label: "list.view.dueForReview" },
+    { value: "mine", label: "list.view.mine" },
   ],
   actions: [
-    { value: "all", label: "All actions" },
-    { value: "open", label: "Still open" },
-    { value: "verification", label: "Awaiting verification" },
-    { value: "overdue", label: "Overdue" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allActions" },
+    { value: "open", label: "list.view.stillOpen" },
+    { value: "verification", label: "list.view.awaitingVerification" },
+    { value: "overdue", label: "list.view.overdue" },
+    { value: "mine", label: "list.view.mine" },
   ],
   permits: [
-    { value: "all", label: "All permits" },
-    { value: "active", label: "Active now" },
-    { value: "expiring", label: "Expiring this week" },
-    { value: "pending", label: "Awaiting approval" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allPermits" },
+    { value: "active", label: "list.view.activeNow" },
+    { value: "expiring", label: "list.view.expiringThisWeek" },
+    { value: "pending", label: "list.view.awaitingApproval" },
+    { value: "mine", label: "list.view.mine" },
   ],
   environment: [
-    { value: "all", label: "All observations" },
-    { value: "open", label: "Still open" },
-    { value: "mine", label: "Mine" },
+    { value: "all", label: "list.view.allObservations" },
+    { value: "open", label: "list.view.stillOpen" },
+    { value: "mine", label: "list.view.mine" },
   ],
 };
 
-const SORT_OPTIONS: Record<HseListKind, { value: string; label: string }[]> = {
+const SORT_OPTIONS: Record<HseListKind, { value: string; label: HseKey }[]> = {
   inspections: [
-    { value: "recent", label: "Recently updated" },
-    { value: "scheduled-asc", label: "Scheduled soonest" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "scheduled-asc", label: "list.sort.scheduledAsc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   templates: [
-    { value: "recent", label: "Recently updated" },
-    { value: "code-asc", label: "By code" },
-    { value: "name-asc", label: "By name" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "code-asc", label: "list.sort.codeAsc" },
+    { value: "name-asc", label: "list.sort.nameAsc" },
   ],
   hazards: [
-    { value: "recent", label: "Recently updated" },
-    { value: "risk-desc", label: "Highest risk first" },
-    { value: "due-asc", label: "Due soonest" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "risk-desc", label: "list.sort.riskDesc" },
+    { value: "due-asc", label: "list.sort.dueAsc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   incidents: [
-    { value: "recent", label: "Recently updated" },
-    { value: "occurred-desc", label: "Most recent first" },
-    { value: "severity-desc", label: "Most severe" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "occurred-desc", label: "list.sort.mostRecent" },
+    { value: "severity-desc", label: "list.sort.severityDesc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   "risk-assessments": [
-    { value: "recent", label: "Recently updated" },
-    { value: "review-asc", label: "Review due soonest" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "review-asc", label: "list.sort.reviewAsc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   actions: [
-    { value: "recent", label: "Recently updated" },
-    { value: "due-asc", label: "Due soonest" },
-    { value: "priority-desc", label: "Most urgent" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "due-asc", label: "list.sort.dueAsc" },
+    { value: "priority-desc", label: "list.sort.priorityDesc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   "toolbox-talks": [
-    { value: "recent", label: "Recently updated" },
-    { value: "date-desc", label: "Most recent first" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "date-desc", label: "list.sort.mostRecent" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   permits: [
-    { value: "recent", label: "Recently updated" },
-    { value: "expiry-asc", label: "Expiring soonest" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "expiry-asc", label: "list.sort.expiryAsc" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   ppe: [
-    { value: "recent", label: "Most recent first" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.mostRecent" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   environment: [
-    { value: "recent", label: "Recently updated" },
-    { value: "observed-desc", label: "Most recent first" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.recent" },
+    { value: "observed-desc", label: "list.sort.mostRecent" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
   "stop-work": [
-    { value: "recent", label: "Active first" },
-    { value: "issued-desc", label: "Most recent first" },
-    { value: "number-asc", label: "By number" },
+    { value: "recent", label: "list.sort.activeFirst" },
+    { value: "issued-desc", label: "list.sort.mostRecent" },
+    { value: "number-asc", label: "list.sort.numberAsc" },
   ],
 };
 
@@ -335,10 +284,6 @@ function multi(params: SearchParams, key: string, allowed: readonly string[]) {
   return values?.length ? values : undefined;
 }
 
-function options<T extends string>(values: readonly T[], labels: Record<T, string>) {
-  return values.map((value) => ({ value, label: labels[value] }));
-}
-
 export async function HseListSection({
   context,
   kind,
@@ -348,6 +293,9 @@ export async function HseListSection({
   kind: HseListKind;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("hse");
+  const options = <T extends string>(values: readonly T[], labels: Record<T, string>, group: HseLabelGroup) =>
+    values.map((value) => ({ value, label: hseLabel(t, group, value, labels[value]) }));
   const shared = {
     search: read(searchParams, "search"),
     view: read(searchParams, "view"),
@@ -361,7 +309,7 @@ export async function HseListSection({
 
   const filters: FilterConfig[] = [];
   const views = VIEW_OPTIONS[kind];
-  if (views) filters.push({ param: "view", label: "View", options: views });
+  if (views) filters.push({ param: "view", label: t("list.filter.view"), options: views.map((view) => ({ ...view, label: t(view.label) })) });
   const projectOptions = PROJECT_OPTIONS[kind]?.(context);
 
   let rendered: React.ReactNode;
@@ -384,9 +332,9 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(INSPECTION_STATUSES, inspectionStatusLabels) },
-        { param: "result", label: "Result", options: options(INSPECTION_RESULTS, inspectionResultLabels) },
-        { param: "inspectionType", label: "Type", options: options(INSPECTION_TYPES, inspectionTypeLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(INSPECTION_STATUSES, inspectionStatusLabels, "inspectionStatus") },
+        { param: "result", label: t("list.filter.result"), options: options(INSPECTION_RESULTS, inspectionResultLabels, "inspectionResult") },
+        { param: "inspectionType", label: t("list.filter.type"), options: options(INSPECTION_TYPES, inspectionTypeLabels, "inspectionType") },
       );
       rendered = <InspectionTable inspections={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -403,8 +351,8 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(TEMPLATE_STATUSES, templateStatusLabels) },
-        { param: "inspectionType", label: "Type", options: options(INSPECTION_TYPES, inspectionTypeLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(TEMPLATE_STATUSES, templateStatusLabels, "templateStatus") },
+        { param: "inspectionType", label: t("list.filter.type"), options: options(INSPECTION_TYPES, inspectionTypeLabels, "inspectionType") },
       );
       rendered = <TemplateTable templates={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -423,9 +371,9 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(HAZARD_STATUSES, hazardStatusLabels) },
-        { param: "riskLevel", label: "Risk", options: options(RISK_LEVELS, riskLevelLabels) },
-        { param: "hazardCategory", label: "Category", options: options(HAZARD_CATEGORIES, hazardCategoryLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(HAZARD_STATUSES, hazardStatusLabels, "hazardStatus") },
+        { param: "riskLevel", label: t("list.filter.risk"), options: options(RISK_LEVELS, riskLevelLabels, "riskLevel") },
+        { param: "hazardCategory", label: t("list.filter.category"), options: options(HAZARD_CATEGORIES, hazardCategoryLabels, "hazardCategory") },
       );
       rendered = <HazardTable hazards={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -443,9 +391,9 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(INCIDENT_STATUSES, incidentStatusLabels) },
-        { param: "incidentType", label: "Type", options: options(INCIDENT_TYPES, incidentTypeLabels) },
-        { param: "severity", label: "Severity", options: options(SEVERITIES, severityLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(INCIDENT_STATUSES, incidentStatusLabels, "incidentStatus") },
+        { param: "incidentType", label: t("list.filter.type"), options: options(INCIDENT_TYPES, incidentTypeLabels, "incidentType") },
+        { param: "severity", label: t("list.filter.severity"), options: options(SEVERITIES, severityLabels, "severity") },
       );
       rendered = <IncidentTable incidents={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -462,8 +410,8 @@ export async function HseListSection({
       appliedSortValue = query.sort;
       filters.push({
         param: "status",
-        label: "Status",
-        options: options(RISK_ASSESSMENT_STATUSES, riskAssessmentStatusLabels),
+        label: t("list.filter.status"),
+        options: options(RISK_ASSESSMENT_STATUSES, riskAssessmentStatusLabels, "riskAssessmentStatus"),
       });
       rendered = <RiskAssessmentTable assessments={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -482,9 +430,9 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(ACTION_STATUSES, actionStatusLabels) },
-        { param: "priority", label: "Priority", options: options(PRIORITIES, priorityLabels) },
-        { param: "actionType", label: "Type", options: options(ACTION_TYPES, actionTypeLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(ACTION_STATUSES, actionStatusLabels, "actionStatus") },
+        { param: "priority", label: t("list.filter.priority"), options: options(PRIORITIES, priorityLabels, "priority") },
+        { param: "actionType", label: t("list.filter.type"), options: options(ACTION_TYPES, actionTypeLabels, "actionType") },
       );
       rendered = <ActionTable actions={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -501,8 +449,8 @@ export async function HseListSection({
       appliedSortValue = query.sort;
       filters.push({
         param: "status",
-        label: "Status",
-        options: options(TOOLBOX_STATUSES, toolboxStatusLabels),
+        label: t("list.filter.status"),
+        options: options(TOOLBOX_STATUSES, toolboxStatusLabels, "toolboxStatus"),
       });
       rendered = <ToolboxTable talks={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -519,8 +467,8 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(PERMIT_STATUSES, permitStatusLabels) },
-        { param: "permitType", label: "Type", options: options(PERMIT_TYPES, permitTypeLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(PERMIT_STATUSES, permitStatusLabels, "permitStatus") },
+        { param: "permitType", label: t("list.filter.type"), options: options(PERMIT_TYPES, permitTypeLabels, "permitType") },
       );
       rendered = <PermitTable permits={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -537,8 +485,8 @@ export async function HseListSection({
       appliedSortValue = query.sort;
       filters.push({
         param: "result",
-        label: "Result",
-        options: options(PPE_RESULTS, ppeResultLabels),
+        label: t("list.filter.result"),
+        options: options(PPE_RESULTS, ppeResultLabels, "ppeResult"),
       });
       rendered = <PpeTable
           checks={result.data}
@@ -561,9 +509,9 @@ export async function HseListSection({
       requestedPage = query.page;
       appliedSortValue = query.sort;
       filters.push(
-        { param: "status", label: "Status", options: options(ENVIRONMENTAL_STATUSES, environmentalStatusLabels) },
-        { param: "category", label: "Category", options: options(ENVIRONMENTAL_CATEGORIES, environmentalCategoryLabels) },
-        { param: "severity", label: "Severity", options: options(SEVERITIES, severityLabels) },
+        { param: "status", label: t("list.filter.status"), options: options(ENVIRONMENTAL_STATUSES, environmentalStatusLabels, "environmentalStatus") },
+        { param: "category", label: t("list.filter.category"), options: options(ENVIRONMENTAL_CATEGORIES, environmentalCategoryLabels, "environmentalCategory") },
+        { param: "severity", label: t("list.filter.severity"), options: options(SEVERITIES, severityLabels, "severity") },
       );
       rendered = <ObservationTable observations={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -580,8 +528,8 @@ export async function HseListSection({
       appliedSortValue = query.sort;
       filters.push({
         param: "status",
-        label: "Status",
-        options: options(STOP_WORK_STATUSES, stopWorkStatusLabels),
+        label: t("list.filter.status"),
+        options: options(STOP_WORK_STATUSES, stopWorkStatusLabels, "stopWorkStatus"),
       });
       rendered = <StopWorkTable records={result.data} listId={listId} sort={{ value: query.sort, keys: sortKeys }} />;
       pagination = result.pagination;
@@ -593,7 +541,7 @@ export async function HseListSection({
   if (projectList) {
     filters.push({
       param: "projectId",
-      label: "Project",
+      label: t("list.filter.project"),
       options: projectList.map((project) => ({ value: project.id, label: `${project.code} — ${project.name}` })),
     });
   }
@@ -608,7 +556,6 @@ export async function HseListSection({
     redirect(listPageRedirect(basePath, searchParams, pagination.page));
   }
 
-  const copy = EMPTY_COPY[kind];
   const create = HSE_CREATE[kind];
   // Every key this list filters by: a narrowed list that matches nothing is
   // "nothing matches", never the first-run "no hazards yet" (AUD-08 §8).
@@ -625,9 +572,9 @@ export async function HseListSection({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder={`Search ${kind.replace(/-/g, " ")}`}
+        searchPlaceholder={t(`list.search.${kind}`)}
         filters={filters}
-        sortOptions={SORT_OPTIONS[kind]}
+        sortOptions={SORT_OPTIONS[kind].map((option) => ({ ...option, label: t(option.label) }))}
         extraFilterParams={extraFilterKeys}
         applied={{ sort: appliedSortValue }}
       />
@@ -636,18 +583,18 @@ export async function HseListSection({
         filtered ? (
           <EmptyState
             icon={<HardHat />}
-            title="Nothing matches those filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: cleared ? `${basePath}?${cleared}` : basePath }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchDescription")}
+            action={{ label: t("list.clearFilters"), href: cleared ? `${basePath}?${cleared}` : basePath }}
           />
         ) : (
           <EmptyState
             icon={<HardHat />}
-            title={copy.title}
-            description={copy.description}
+            title={t(`list.empty.${kind}.title`)}
+            description={t(`list.empty.${kind}.description`)}
             action={
               can(context, create.permission)
-                ? { label: create.label, href: `/hse/${kind}/new` }
+                ? { label: t(`list.create.${kind}`), href: `/hse/${kind}/new` }
                 : undefined
             }
           />

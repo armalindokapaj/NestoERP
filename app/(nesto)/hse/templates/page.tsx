@@ -10,8 +10,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Checklists" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.templates.title") };
+}
 
 /** Checklists: What the company inspects against. A used version is versioned, never rewritten. */
 export default async function HseTemplatesPage({
@@ -20,6 +24,7 @@ export default async function HseTemplatesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.template.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -29,12 +34,12 @@ export default async function HseTemplatesPage({
     <ModulePage
       experience={experience}
       activeSection="templates"
-      description="What the company inspects against. A used version is versioned, never rewritten."
+      description={t("pages.templates.description")}
       actions={
         <>
           {can(context, "hse.template.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/templates/new">New checklist</Link>
+              <Link href="/hse/templates/new">{t("list.create.templates")}</Link>
             </Button>
           ) : null}
         </>

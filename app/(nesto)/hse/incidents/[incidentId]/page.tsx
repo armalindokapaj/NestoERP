@@ -21,7 +21,9 @@ import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
 import { incidentClosureGapLabels, incidentTypeLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ incidentId: string }> };
 
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const incident = await incidents.getIncident(context, incidentId);
     return { title: incident.incidentNumber };
   } catch {
-    return { title: "Incident" };
+    return { title: (await getTranslations("hse"))("record.incident") };
   }
 }
 
@@ -40,6 +42,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function IncidentPage({ params }: Params) {
   const { incidentId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
 
   let incident;
   try {
@@ -60,23 +63,23 @@ export default async function IncidentPage({ params }: Params) {
       <RecordHeader
         breadcrumbs={[
           { label: "HSE", href: "/hse" },
-          { label: "Incidents", href: "/hse/incidents" },
+          { label: t("pages.incidents.title"), href: "/hse/incidents" },
           { label: incident.incidentNumber },
         ]}
         title={incident.title}
-        subtitle={`${incident.incidentNumber} · ${incidentTypeLabels[incident.incidentType]}`}
+        subtitle={`${incident.incidentNumber} · ${hseLabel(t, "incidentType", incident.incidentType, incidentTypeLabels[incident.incidentType])}`}
         status={incident.status}
         badges={
           <>
             <SeverityBadge severity={incident.severity} />
-            {incident.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+            {incident.overdue ? <Badge tone="danger">{t("record.overdue")}</Badge> : null}
           </>
         }
         meta={[
-          { label: "Project", value: incident.project?.code ?? "Company-wide" },
-          { label: "Occurred", value: formatDateTime(incident.occurredAt) },
+          { label: t("record.project"), value: incident.project?.code ?? t("record.companyWide") },
+          { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt) },
           {
-            label: "Reported by",
+            label: t("record.reportedBy"),
             value: incident.reportedBy ? (
               <PersonLink memberId={incident.reportedBy.memberId} name={incident.reportedBy.fullName} />
             ) : (
@@ -84,11 +87,11 @@ export default async function IncidentPage({ params }: Params) {
             ),
           },
           {
-            label: "Investigator",
+            label: t("incident.detail.investigator"),
             value: incident.investigator ? (
               <PersonLink memberId={incident.investigator.memberId} name={incident.investigator.fullName} />
             ) : (
-              "Not assigned"
+              t("record.notAssigned")
             ),
           },
         ]}
@@ -103,15 +106,15 @@ export default async function IncidentPage({ params }: Params) {
 
       {may.canSubmitClose && incident.closureGaps.length > 0 ? (
         <BlockedList
-          title="This incident is not ready to close"
-          reasons={incident.closureGaps.map((gap) => incidentClosureGapLabels[gap])}
+          title={t("incident.detail.notReady")}
+          reasons={incident.closureGaps.map((gap) => hseLabel(t, "incidentClosureGap", gap, incidentClosureGapLabels[gap]))}
         />
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What happened</h2>
+            <h2 className="text-card font-semibold text-fg">{t("incident.detail.whatHappened")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {incident.description}
             </p>
@@ -120,18 +123,18 @@ export default async function IncidentPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Project",
+                  label: t("record.project"),
                   value: incident.project ? (
                     <Link href={`/projects/${incident.project.id}`} className="hover:text-accent">
                       {incident.project.code} — {incident.project.name}
                     </Link>
                   ) : (
-                    "Company-wide"
+                    t("record.companyWide")
                   ),
                 },
-                { label: "Where", value: orDash(incident.locationText) },
-                { label: "Occurred", value: formatDateTime(incident.occurredAt) },
-                { label: "Reported", value: formatDateTime(incident.reportedAt) },
+                { label: t("record.where"), value: orDash(incident.locationText) },
+                { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt) },
+                { label: t("record.reported"), value: formatDateTime(incident.reportedAt) },
               ]}
             />
           </section>
@@ -142,13 +145,12 @@ export default async function IncidentPage({ params }: Params) {
            */}
           {incident.injury ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">What resulted</h2>
+              <h2 className="text-card font-semibold text-fg">{t("incident.detail.whatResulted")}</h2>
               <div className="mt-3">
                 <InjuryFlags flags={incident.injury} />
               </div>
               <p className="mt-3 text-meta text-fg-subtle">
-                NESTO records whether these happened, and nothing about anybody&rsquo;s medical
-                condition.
+                {t("incident.detail.noMedical")}
               </p>
             </section>
           ) : null}
@@ -157,7 +159,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.immediateAction ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Immediate action</h2>
+              <h2 className="text-card font-semibold text-fg">{t("incident.detail.immediateAction")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {incident.immediateAction}
               </p>
@@ -166,16 +168,16 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.investigationSummary || incident.rootCause || incident.lessonsLearned ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Investigation</h2>
+              <h2 className="text-card font-semibold text-fg">{t("incident.detail.investigation")}</h2>
               <dl className="mt-4 space-y-4">
                 {incident.investigationSummary ? (
-                  <Block label="What was found" value={incident.investigationSummary} />
+                  <Block label={t("incident.detail.whatWasFound")} value={incident.investigationSummary} />
                 ) : null}
                 {incident.rootCause ? (
-                  <Block label="Root cause" value={incident.rootCause} />
+                  <Block label={t("incident.detail.rootCause")} value={incident.rootCause} />
                 ) : null}
                 {incident.lessonsLearned ? (
-                  <Block label="Lessons learned" value={incident.lessonsLearned} />
+                  <Block label={t("incident.detail.lessonsLearned")} value={incident.lessonsLearned} />
                 ) : null}
               </dl>
             </section>
@@ -183,32 +185,32 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
               <ActionTable
                 actions={incident.actions}
-                caption={`Actions on ${incident.incidentNumber}`}
+                caption={t("record.actionsOn", { number: incident.incidentNumber })}
               />
             </section>
           ) : null}
 
           {incident.stopWorks.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Stop-work</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.stopWork")}</h2>
               <StopWorkTable
                 records={incident.stopWorks}
-                caption={`Stop-work from ${incident.incidentNumber}`}
+                caption={t("hazard.detail.stopWorkFrom", { number: incident.incidentNumber })}
               />
             </section>
           ) : null}
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="incident"
                 entityId={incident.id}
-                emptyDescription="Photographs and investigation reports appear here. Medical records do not belong in NESTO."
+                emptyDescription={t("incident.detail.documentsEmpty")}
               />
             </section>
           ) : null}
@@ -216,10 +218,10 @@ export default async function IncidentPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Reported by"
+                label={t("record.reportedBy")}
                 value={
                   incident.reportedBy ? (
                     <PersonLink memberId={incident.reportedBy.memberId} name={incident.reportedBy.fullName} />
@@ -228,26 +230,26 @@ export default async function IncidentPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(incident.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(incident.createdAt)} />
               {incident.dueDate ? (
-                <Meta label="Due" value={formatDate(incident.dueDate)} />
+                <Meta label={t("record.due")} value={formatDate(incident.dueDate)} />
               ) : null}
               {incident.submittedForCloseAt ? (
                 <Meta
-                  label="Put up for closure"
+                  label={t("incident.detail.putUpForClosure")}
                   value={formatDateTime(incident.submittedForCloseAt)}
                 />
               ) : null}
               {incident.closedAt ? (
                 <Meta
-                  label="Closed"
+                  label={t("record.closed")}
                   value={
                     <>
                       {formatDateTime(incident.closedAt)}
                       {incident.closedBy ? (
                         <>
                           {" "}
-                          by <PersonLink memberId={incident.closedBy.memberId} name={incident.closedBy.fullName} />
+                          {t("record.by")} <PersonLink memberId={incident.closedBy.memberId} name={incident.closedBy.fullName} />
                         </>
                       ) : null}
                     </>
@@ -255,17 +257,17 @@ export default async function IncidentPage({ params }: Params) {
                 />
               ) : null}
               {incident.closureNote ? (
-                <Meta label="Closure note" value={incident.closureNote} />
+                <Meta label={t("record.closureNote")} value={incident.closureNote} />
               ) : null}
               {incident.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(incident.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(incident.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseIncident"

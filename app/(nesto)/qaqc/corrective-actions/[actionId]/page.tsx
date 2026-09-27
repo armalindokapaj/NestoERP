@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -24,7 +25,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const action = await actions.getAction(context, actionId);
     return { title: action.actionNumber };
   } catch {
-    return { title: "Corrective action" };
+    const t = await getTranslations("qaqc");
+    return { title: t("meta.correctiveAction") };
   }
 }
 
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function CorrectiveActionPage({ params }: Params) {
   const { actionId } = await params;
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
 
   let action;
   try {
@@ -53,26 +56,26 @@ export default async function CorrectiveActionPage({ params }: Params) {
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "QA/QC", href: "/qaqc" },
-          { label: "Corrective actions", href: "/qaqc/corrective-actions" },
+          { label: t("common.qaqc"), href: "/qaqc" },
+          { label: t("crumbs.correctiveActions"), href: "/qaqc/corrective-actions" },
           { label: action.actionNumber },
         ]}
         title={action.title}
         subtitle={action.actionNumber}
         status={action.status}
-        badges={action.overdue ? <Badge tone="danger">Overdue</Badge> : null}
+        badges={action.overdue ? <Badge tone="danger">{t("common.overdue")}</Badge> : null}
         meta={[
           {
-            label: "Assigned to",
+            label: t("detail.assignedTo"),
             value: action.assignedTo ? (
               <PersonLink memberId={action.assignedTo.memberId} name={action.assignedTo.fullName} />
             ) : (
-              "Not assigned"
+              t("common.notAssigned")
             ),
           },
-          { label: "Due", value: action.dueDate ? formatDate(action.dueDate) : "No date" },
+          { label: t("detail.due"), value: action.dueDate ? formatDate(action.dueDate) : t("common.noDate") },
           {
-            label: "Raised against",
+            label: t("detail.raisedAgainst"),
             value: action.parent ? action.parent.label : "—",
           },
         ]}
@@ -81,15 +84,14 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
       {action.status === "PENDING_VERIFICATION" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-          The work is recorded as done and is waiting to be verified. Whoever did it cannot verify
-          it — that is what makes the verification worth anything.
+          {t("actionPage.pendingNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">What needs doing</h2>
+            <h2 className="text-card font-semibold text-fg">{t("actionPage.whatNeedsDoing")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {action.description}
             </p>
@@ -98,7 +100,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
               className="mt-6 border-t border-line pt-5"
               items={[
                 {
-                  label: "Raised against",
+                  label: t("detail.raisedAgainst"),
                   value:
                     action.parent && parentHref ? (
                       <Link href={parentHref} className="hover:text-accent">
@@ -109,13 +111,13 @@ export default async function CorrectiveActionPage({ params }: Params) {
                     ),
                 },
                 {
-                  label: "Project",
+                  label: t("detail.project"),
                   value: action.project ? (
                     <Link href={`/projects/${action.project.id}`} className="hover:text-accent">
                       {action.project.code} — {action.project.name}
                     </Link>
                   ) : (
-                    "Not tied to a project"
+                    t("common.notTied")
                   ),
                 },
               ]}
@@ -124,50 +126,50 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
           {action.completionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">What was done</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {action.completionNote}
               </p>
               <p className="mt-3 text-meta text-fg-subtle">
-                Recorded by{" "}
+                {t("detail.recordedBy")}{" "}
                 {action.completedBy ? (
                   <PersonLink memberId={action.completedBy.memberId} name={action.completedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("common.somebody")
                 )}
-                {action.completedAt ? ` on ${formatDate(action.completedAt)}` : ""}.
+                {action.completedAt ? t("detail.onDate", { date: formatDate(action.completedAt) }) : ""}.
               </p>
             </section>
           ) : null}
 
           {action.verificationNote || action.verifiedAt ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Verification</h2>
+              <h2 className="text-card font-semibold text-fg">{t("actionPage.verification")}</h2>
               {action.verificationNote ? (
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {action.verificationNote}
                 </p>
               ) : null}
               <p className="mt-3 text-meta text-fg-subtle">
-                Verified by{" "}
+                {t("detail.verifiedBy")}{" "}
                 {action.verifiedBy ? (
                   <PersonLink memberId={action.verifiedBy.memberId} name={action.verifiedBy.fullName} />
                 ) : (
-                  "somebody"
+                  t("common.somebody")
                 )}
-                {action.verifiedAt ? ` on ${formatDate(action.verifiedAt)}` : ""}.
+                {action.verifiedAt ? t("detail.onDate", { date: formatDate(action.verifiedAt) }) : ""}.
               </p>
             </section>
           ) : null}
 
           {action.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Documents</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="corrective_action"
                 entityId={action.id}
-                emptyDescription="Evidence that the action was carried out appears here."
+                emptyDescription={t("documents.action")}
               />
             </section>
           ) : null}
@@ -175,10 +177,10 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Raised by"
+                label={t("detail.raisedBy")}
                 value={
                   action.createdBy ? (
                     <PersonLink memberId={action.createdBy.memberId} name={action.createdBy.fullName} />
@@ -187,16 +189,16 @@ export default async function CorrectiveActionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label="Raised" value={formatDateTime(action.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(action.createdAt)} />
               {action.cancelledAt ? (
-                <Meta label="Cancelled" value={formatDateTime(action.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(action.cancelledAt)} />
               ) : null}
             </dl>
           </section>
 
           {action.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Activity</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="CorrectiveAction"

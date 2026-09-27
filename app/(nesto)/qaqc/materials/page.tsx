@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -11,7 +12,10 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 
-export const metadata: Metadata = { title: "Material inspections" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.materials") };
+}
 
 /**
  * Material inspections.
@@ -26,6 +30,7 @@ export default async function QaqcMaterialsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.inspection.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "qaqc");
@@ -35,11 +40,11 @@ export default async function QaqcMaterialsPage({
     <ModulePage
       experience={experience}
       activeSection="materials"
-      description="Quality decisions on delivered material. Accepted, rejected and conditional always add back to what was inspected."
+      description={t("descriptions.materials")}
       actions={
         can(context, "qaqc.inspection.create") ? (
           <Button asChild size="sm">
-            <Link href="/qaqc/inspections/new">New inspection</Link>
+            <Link href="/qaqc/inspections/new">{t("common.newInspection")}</Link>
           </Button>
         ) : null
       }

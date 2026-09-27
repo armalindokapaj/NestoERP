@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 
@@ -11,13 +12,13 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { qaqcAttention, qaqcOverview } from "@/lib/modules/qaqc/overview/overview.service";
-import {
-  inspectionResultLabels,
-  severityLabels,
-} from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import { formatDate } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "QA/QC" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("qaqc");
+  return { title: t("meta.overview") };
+}
 
 /**
  * The QA/QC overview (PRD #21 §31–§33).
@@ -28,6 +29,7 @@ export const metadata: Metadata = { title: "QA/QC" };
  */
 export default async function QaqcOverviewPage() {
   const context = await requireModule("qaqc");
+  const t = await getTranslations("qaqc");
   const experience = resolveModuleExperience(context, "qaqc");
 
   const [overview, attention] = await Promise.all([
@@ -48,7 +50,7 @@ export default async function QaqcOverviewPage() {
       actions={
         can(context, "qaqc.request.create") ? (
           <Button asChild size="sm">
-            <Link href="/qaqc/requests/new">Request an inspection</Link>
+            <Link href="/qaqc/requests/new">{t("common.requestInspection")}</Link>
           </Button>
         ) : null
       }
@@ -59,28 +61,28 @@ export default async function QaqcOverviewPage() {
         {nothingVisible ? (
           <EmptyState
             icon={<ShieldCheck />}
-            title="Nothing in your QA/QC view."
-            description="Your access covers the module but not the quality records inside it."
+            title={t("overview.nothingVisible")}
+            description={t("overview.nothingVisibleBody")}
           />
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {overview.visible.inspections ? (
             <AttentionPanel
-              title="Waiting on a decision"
+              title={t("overview.awaitingTitle")}
               href="/qaqc/approvals"
-              emptyLabel="No inspections are waiting to be signed off."
+              emptyLabel={t("overview.awaitingEmpty")}
               rows={attention.awaitingApproval.map((row) => ({
                 id: row.id,
                 href: `/qaqc/inspections/${row.id}`,
-                title: `${row.inspectionNumber} — ${row.project?.code ?? "Company"}`,
+                title: `${row.inspectionNumber} — ${row.project?.code ?? t("common.company")}`,
                 meta: (
                   <>
-                    {inspectionResultLabels[row.result]} ·{" "}
+                    {qaqcLabel(t, "inspectionResult", row.result)} ·{" "}
                     {row.assignedInspector ? (
                       <PersonLink memberId={row.assignedInspector.memberId} name={row.assignedInspector.fullName} />
                     ) : (
-                      "Unassigned"
+                      t("common.unassigned")
                     )}
                   </>
                 ),
@@ -90,44 +92,44 @@ export default async function QaqcOverviewPage() {
 
           {overview.visible.defects ? (
             <AttentionPanel
-              title="Defects past their date"
+              title={t("overview.overdueDefectsTitle")}
               href="/qaqc/defects?view=overdue"
-              emptyLabel="Nothing is overdue."
+              emptyLabel={t("overview.nothingOverdue")}
               rows={attention.overdueDefects.map((row) => ({
                 id: row.id,
                 href: `/qaqc/defects/${row.id}`,
                 title: `${row.defectNumber} — ${row.title}`,
-                meta: `${severityLabels[row.severity]}${row.dueDate ? ` · due ${formatDate(row.dueDate)}` : ""}`,
+                meta: `${qaqcLabel(t, "severity", row.severity)}${row.dueDate ? t("overview.due", { date: formatDate(row.dueDate) }) : ""}`,
               }))}
             />
           ) : null}
 
           {overview.visible.ncrs ? (
             <AttentionPanel
-              title="NCRs past their date"
+              title={t("overview.overdueNcrsTitle")}
               href="/qaqc/ncrs?view=overdue"
-              emptyLabel="Nothing is overdue."
+              emptyLabel={t("overview.nothingOverdue")}
               rows={attention.overdueNcrs.map((row) => ({
                 id: row.id,
                 href: `/qaqc/ncrs/${row.id}`,
                 title: `${row.ncrNumber} — ${row.title}`,
-                meta: `${row.openActions} action${row.openActions === 1 ? "" : "s"} still open`,
+                meta: t("overview.actionsOpen", { count: row.openActions }),
               }))}
             />
           ) : null}
 
           {overview.visible.requests ? (
             <AttentionPanel
-              title="Requests to assign"
+              title={t("overview.unassignedTitle")}
               href="/qaqc/requests?view=unassigned"
-              emptyLabel="Every request has an inspector."
+              emptyLabel={t("overview.unassignedEmpty")}
               rows={attention.unassignedRequests.map((row) => ({
                 id: row.id,
                 href: `/qaqc/requests/${row.id}`,
                 title: `${row.requestNumber} — ${row.title}`,
                 meta: row.requiredByDate
-                  ? `Needed by ${formatDate(row.requiredByDate)}`
-                  : "No date given",
+                  ? t("overview.neededBy", { date: formatDate(row.requiredByDate) })
+                  : t("overview.noDate"),
               }))}
             />
           ) : null}
@@ -137,7 +139,7 @@ export default async function QaqcOverviewPage() {
   );
 }
 
-function AttentionPanel({
+async function AttentionPanel({
   title,
   href,
   rows,
@@ -148,6 +150,7 @@ function AttentionPanel({
   rows: { id: string; href: string; title: string; meta: React.ReactNode }[];
   emptyLabel: string;
 }) {
+  const t = await getTranslations("qaqc");
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
@@ -156,7 +159,7 @@ function AttentionPanel({
           href={href}
           className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong touch:min-h-11"
         >
-          View all
+          {t("common.viewAll")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
       </div>

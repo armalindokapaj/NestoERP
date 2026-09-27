@@ -9,14 +9,19 @@ import { requireModule } from "@/lib/context/current-user";
 import { updatePermitAction } from "@/lib/actions/hse";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
 import { companyZone, instantToWallClock } from "@/lib/modules/hse/hse.time";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit permit" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("page.editPermit") };
+}
 
 type Params = { params: Promise<{ permitId: string }> };
 
 export default async function EditPermitPage({ params }: Params) {
   const { permitId } = await params;
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.permit.update")) notFound();
 
   let permit;
@@ -39,21 +44,21 @@ export default async function EditPermitPage({ params }: Params) {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "Permits", href: "/hse/permits" },
+          { label: t("page.crumbPermits"), href: "/hse/permits" },
           { label: permit.permitNumber, href: `/hse/permits/${permitId}` },
-          { label: "Edit" },
+          { label: t("template.detail.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit {permit.permitNumber}</h1>
+        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: permit.permitNumber })}</h1>
       </div>
 
       <PermitForm
         action={update}
         cancelHref={`/hse/permits/${permitId}`}
-        submitLabel="Save permit"
-        pendingLabel="Saving…"
+        submitLabel={t("page.savePermit")}
+        pendingLabel={t("page.saving")}
         versionUpdatedAt={permit.updatedAt}
         projects={options.projects.map((project) => ({
           value: project.id,

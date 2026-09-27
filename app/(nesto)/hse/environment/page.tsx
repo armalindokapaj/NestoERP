@@ -11,8 +11,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Environment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("pages.environment.title") };
+}
 
 /** Environment: Spills, dust, noise and waste — recorded, assigned and closed out. */
 export default async function HseEnvironmentPage({
@@ -21,6 +25,7 @@ export default async function HseEnvironmentPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.environment.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "hse");
@@ -35,7 +40,7 @@ export default async function HseEnvironmentPage({
     <ModulePage
       experience={experience}
       activeSection="environment"
-      description="Spills, dust, noise and waste — recorded, assigned and closed out."
+      description={t("pages.environment.description")}
       actions={
         <>
           {can(context, "hse.export") ? (
@@ -43,7 +48,7 @@ export default async function HseEnvironmentPage({
           ) : null}
           {can(context, "hse.environment.create") ? (
             <Button asChild size="sm">
-              <Link href="/hse/environment/new">Report an observation</Link>
+              <Link href="/hse/environment/new">{t("list.create.environment")}</Link>
             </Button>
           ) : null}
         </>

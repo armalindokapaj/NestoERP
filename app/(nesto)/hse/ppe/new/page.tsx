@@ -8,12 +8,17 @@ import { requireModule } from "@/lib/context/current-user";
 import { createPpeCheckAction } from "@/lib/actions/hse";
 import * as ppe from "@/lib/modules/hse/ppe/ppe.service";
 import { WORKER_PREFIX } from "@/lib/modules/hse/hse.schema";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New PPE check" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("hse");
+  return { title: t("list.create.ppe") };
+}
 
 /** Recording a PPE check (PRD #22 §158, §161). */
 export default async function NewPpeCheckPage() {
   const context = await requireModule("hse");
+  const t = await getTranslations("hse");
   if (!can(context, "hse.ppe.create")) notFound();
 
   const options = await ppe.ppeFormOptions(context);
@@ -23,24 +28,23 @@ export default async function NewPpeCheckPage() {
       <Breadcrumbs
         items={[
           { label: "HSE", href: "/hse" },
-          { label: "PPE", href: "/hse/ppe" },
-          { label: "New" },
+          { label: t("page.crumbPpe"), href: "/hse/ppe" },
+          { label: t("page.crumbNew") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New PPE check</h1>
+        <h1 className="text-page font-semibold text-fg">{t("list.create.ppe")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          One person or one area. This never touches Inventory — issuing a helmet from the store
-          is a stock issue, not a safety observation.
+          {t("page.ppeIntro")}
         </p>
       </div>
 
       <PpeForm
         action={createPpeCheckAction}
         cancelHref="/hse/ppe"
-        submitLabel="Record check"
-        pendingLabel="Recording…"
+        submitLabel={t("page.recordCheck")}
+        pendingLabel={t("page.recording")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

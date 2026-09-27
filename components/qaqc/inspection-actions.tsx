@@ -16,6 +16,8 @@ import {
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 
+import { useQaqcTranslations } from "./qaqc-text";
+
 /**
  * What a reader may do to an inspection (PRD #21 §79–§88).
  *
@@ -35,6 +37,7 @@ export function InspectionActions({
   cycle: PendingCycle | null;
 }) {
   const router = useRouter();
+  const t = useQaqcTranslations();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<InspectionDecision | null>(null);
@@ -64,7 +67,7 @@ export function InspectionActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/qaqc/inspections/${inspection.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -72,121 +75,122 @@ export function InspectionActions({
       {may.canExecute ? (
         <Button asChild size="sm">
           <Link href={`/qaqc/inspections/${inspection.id}/execute`}>
-            {inspection.status === "DRAFT" ? "Start inspection" : "Continue"}
+            {inspection.status === "DRAFT" ? t("inspectionActions.start") : t("inspectionActions.continue")}
           </Link>
         </Button>
       ) : null}
 
       {may.canApprove ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("approve")}>
-          Approve
+          {t("common.approve")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("reject")}>
-          Reject
+          {t("common.reject")}
         </Button>
       ) : null}
 
       {may.canRework ? (
-        <Button size="sm" disabled={pending} onClick={() => run("rework", null, "Reopened for rework.")}>
-          Rework
+        <Button size="sm" disabled={pending} onClick={() => run("rework", null, t("inspectionActions.reworked"))}>
+          {t("inspectionActions.rework")}
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("close")}>
-          Close out
+          {t("inspectionActions.closeOut")}
         </Button>
       ) : null}
 
       {may.canRaiseReinspection ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/qaqc/inspections/${inspection.id}/reinspect`}>Reinspect</Link>
+          <Link href={`/qaqc/inspections/${inspection.id}/reinspect`}>{t("inspectionActions.reinspect")}</Link>
         </Button>
       ) : null}
 
       {may.canReopen ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("reopen")}>
-          Reopen
+          {t("common.reopen")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={dialog === "approve"}
         onOpenChange={(open) => setDialog(open ? "approve" : null)}
-        title={`Approve ${inspection.inspectionNumber}?`}
+        title={t("inspectionActions.approveTitle", { number: inspection.inspectionNumber })}
         description={
           inspection.result === "PASS"
-            ? "You are agreeing with the inspector that this passed. It can then be closed out."
-            : "You are agreeing with the inspector's findings. The failure still has to be followed up before it can be closed."
+            ? t("inspectionActions.approvePass")
+            : t("inspectionActions.approveOther")
         }
-        confirmLabel="Approve"
-        cancelLabel="Not yet"
+        confirmLabel={t("common.approve")}
+        cancelLabel={t("common.notYet")}
         destructive={false}
         pending={pending}
-        onConfirm={() => void run("approve", null, "Inspection approved.")}
+        onConfirm={() => void run("approve", null, t("inspectionActions.approved"))}
       />
 
       <ConfirmDialog
         open={dialog === "close"}
         onOpenChange={(open) => setDialog(open ? "close" : null)}
-        title={`Close ${inspection.inspectionNumber}?`}
+        title={t("inspectionActions.closeTitle", { number: inspection.inspectionNumber })}
         description={
           inspection.result === "PASS"
-            ? "Nothing is outstanding on a pass, so this closes straight away."
-            : "The follow-up is on record, so this can be closed out. It stays readable afterwards."
+            ? t("inspectionActions.closePass")
+            : t("inspectionActions.closeOther")
         }
-        confirmLabel="Close out"
-        cancelLabel="Not yet"
+        confirmLabel={t("inspectionActions.closeOut")}
+        cancelLabel={t("common.notYet")}
         destructive={false}
         pending={pending}
-        onConfirm={() => void run("close", null, "Inspection closed.")}
+        onConfirm={() => void run("close", null, t("inspectionActions.closed"))}
       />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => setDialog(open ? "reject" : null)}
-        title={`Reject ${inspection.inspectionNumber}?`}
-        description="The reason is recorded against the approval and shown to the inspector, who can rework and resubmit."
-        placeholder="What needs to be checked again?"
-        confirmLabel="Reject"
-        pendingLabel="Rejecting…"
-        emptyMessage="Say what needs to change, so it can be corrected."
-        onReject={(reason) => run("reject", reason, "Inspection rejected.")}
+        title={t("inspectionActions.rejectTitle", { number: inspection.inspectionNumber })}
+        description={t("inspectionActions.rejectBody")}
+        label={t("common.reason")}
+        placeholder={t("inspectionActions.rejectPlaceholder")}
+        confirmLabel={t("common.reject")}
+        pendingLabel={t("common.rejecting")}
+        emptyMessage={t("inspectionActions.rejectEmpty")}
+        onReject={(reason) => run("reject", reason, t("inspectionActions.rejected"))}
       />
 
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => setDialog(open ? "cancel" : null)}
-        title={`Cancel ${inspection.inspectionNumber}?`}
-        description="A cancelled inspection releases nothing and has no quality effect. It stays on the record."
-        label="Reason"
-        placeholder="Why is it being cancelled?"
-        confirmLabel="Cancel inspection"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it is being cancelled."
-        onReject={(reason) => run("cancel", reason, "Inspection cancelled.")}
+        title={t("inspectionActions.cancelTitle", { number: inspection.inspectionNumber })}
+        description={t("inspectionActions.cancelBody")}
+        label={t("common.reason")}
+        placeholder={t("common.whyCancelled")}
+        confirmLabel={t("inspectionActions.cancelConfirm")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("common.sayCancelled")}
+        onReject={(reason) => run("cancel", reason, t("inspectionActions.cancelled"))}
       />
 
       <RejectDialog
         open={dialog === "reopen"}
         onOpenChange={(open) => setDialog(open ? "reopen" : null)}
-        title={`Reopen ${inspection.inspectionNumber}?`}
-        description="Reopening a closed inspection is for correcting the record. If the work needs looking at again, raise a reinspection instead."
-        label="Reason"
-        placeholder="Why is the record being reopened?"
-        confirmLabel="Reopen"
-        pendingLabel="Reopening…"
-        emptyMessage="Say why it is being reopened."
-        onReject={(reason) => run("reopen", reason, "Inspection reopened.")}
+        title={t("inspectionActions.reopenTitle", { number: inspection.inspectionNumber })}
+        description={t("inspectionActions.reopenBody")}
+        label={t("common.reason")}
+        placeholder={t("inspectionActions.reopenPlaceholder")}
+        confirmLabel={t("common.reopen")}
+        pendingLabel={t("common.reopening")}
+        emptyMessage={t("common.sayReopened")}
+        onReject={(reason) => run("reopen", reason, t("inspectionActions.reopened"))}
       />
     </>
   );

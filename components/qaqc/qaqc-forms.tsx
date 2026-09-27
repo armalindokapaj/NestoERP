@@ -16,11 +16,9 @@ import {
   NCR_CATEGORIES,
   PRIORITIES,
   SEVERITIES,
-  inspectionTypeLabels,
-  ncrCategoryLabels,
-  priorityLabels,
-  severityLabels,
 } from "@/lib/modules/qaqc/qaqc.status";
+import { qaqcLabel } from "./qaqc-labels";
+import { useQaqcTranslations } from "./qaqc-text";
 import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "@/components/hse/hse-forms";
 
@@ -78,6 +76,7 @@ export function RequestForm({
   receipts: Option[];
   canAssign: boolean;
 }) {
+  const t = useQaqcTranslations();
   const [inspectionType, setType] = React.useState(values?.inspectionType ?? "WORK");
 
   return (
@@ -90,14 +89,14 @@ export function RequestForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Request"
-        description="Asking for an inspection is not the inspection. Somebody from quality picks this up and carries it out."
+        title={t("form.request.section")}
+        description={t("form.request.sectionBody")}
       >
-        <Field label="What needs inspecting" name="title" required className="sm:col-span-2">
+        <Field label={t("form.request.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Type" name="inspectionType" required>
+        <Field label={t("detail.type")} name="inspectionType" required>
           <select
             id="inspectionType"
             name="inspectionType"
@@ -107,13 +106,13 @@ export function RequestForm({
           >
             {INSPECTION_TYPES.map((type) => (
               <option key={type} value={type}>
-                {inspectionTypeLabels[type]}
+                {qaqcLabel(t, "inspectionType", type)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Priority" name="priority" required>
+        <Field label={t("detail.priority")} name="priority" required>
           <select
             id="priority"
             name="priority"
@@ -122,17 +121,17 @@ export function RequestForm({
           >
             {PRIORITIES.map((priority) => (
               <option key={priority} value={priority}>
-                {priorityLabels[priority]}
+                {qaqcLabel(t, "priority", priority)}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Project"
+          label={t("detail.project")}
           name="projectId"
           required={inspectionType === "WORK"}
-          hint={inspectionType === "WORK" ? "Work happens on a site." : undefined}
+          hint={inspectionType === "WORK" ? t("form.request.workHint") : undefined}
         >
           <select
             id="projectId"
@@ -140,7 +139,7 @@ export function RequestForm({
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">Not tied to a project</option>
+            <option value="">{t("form.notTied")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -152,13 +151,13 @@ export function RequestForm({
 
         {inspectionType === "MATERIAL" ? (
           <Field
-            label="Delivery"
+            label={t("detail.delivery")}
             name="goodsReceiptId"
             required
             hint={
               receipts.length === 0
-                ? "No deliveries are visible to you, so a material request cannot be raised."
-                : "Material quality is always about a specific delivery."
+                ? t("form.request.noDeliveries")
+                : t("form.request.deliveryHint")
             }
           >
             <select
@@ -167,7 +166,7 @@ export function RequestForm({
               className={selectClass}
               defaultValue={values?.goodsReceiptId ?? ""}
             >
-              <option value="">Choose a delivery</option>
+              <option value="">{t("form.chooseDelivery")}</option>
               {receipts.map((receipt) => (
                 <option key={receipt.value} value={receipt.value}>
                   {receipt.label}
@@ -176,18 +175,18 @@ export function RequestForm({
             </select>
           </Field>
         ) : (
-          <Field label="Where" name="locationText">
+          <Field label={t("detail.where")} name="locationText">
             <Input
               id="locationText"
               name="locationText"
               defaultValue={values?.locationText ?? ""}
               maxLength={200}
-              placeholder="Grid reference, level, unit…"
+              placeholder={t("form.request.wherePlaceholder")}
             />
           </Field>
         )}
 
-        <Field label="Raised on" name="requestedDate" required>
+        <Field label={t("detail.raisedOn")} name="requestedDate" required>
           <Input
             id="requestedDate"
             name="requestedDate"
@@ -197,7 +196,7 @@ export function RequestForm({
           />
         </Field>
 
-        <Field label="Needed by" name="requiredByDate">
+        <Field label={t("detail.neededBy")} name="requiredByDate">
           <Input
             id="requiredByDate"
             name="requiredByDate"
@@ -207,14 +206,14 @@ export function RequestForm({
         </Field>
 
         {canAssign ? (
-          <Field label="Inspector" name="assignedInspectorMemberId" className="sm:col-span-2">
+          <Field label={t("detail.inspector")} name="assignedInspectorMemberId" className="sm:col-span-2">
             <select
               id="assignedInspectorMemberId"
               name="assignedInspectorMemberId"
               className={selectClass}
               defaultValue={values?.assignedInspectorMemberId ?? ""}
             >
-              <option value="">Leave unassigned</option>
+              <option value="">{t("form.request.leaveUnassigned")}</option>
               {members.map((member) => (
                 <option key={member.value} value={member.value}>
                   {member.label}
@@ -225,7 +224,7 @@ export function RequestForm({
           </Field>
         ) : null}
 
-        <Field label="Detail" name="description" className="sm:col-span-2">
+        <Field label={t("detail.detail")} name="description" className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -283,6 +282,7 @@ export function InspectionForm({
   receipts: Option[];
   requests: Option[];
 }) {
+  const t = useQaqcTranslations();
   const [inspectionType, setType] = React.useState(values?.inspectionType ?? "WORK");
   const matching = templates.filter((row) => row.inspectionType === inspectionType);
 
@@ -296,10 +296,10 @@ export function InspectionForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Inspection"
-        description="The checklist is copied onto the inspection when it is created, so editing the template afterwards never changes what was actually checked."
+        title={t("form.inspection.section")}
+        description={t("form.inspection.sectionBody")}
       >
-        <Field label="Type" name="inspectionType" required>
+        <Field label={t("detail.type")} name="inspectionType" required>
           <select
             id="inspectionType"
             name="inspectionType"
@@ -309,19 +309,19 @@ export function InspectionForm({
           >
             {INSPECTION_TYPES.map((type) => (
               <option key={type} value={type}>
-                {inspectionTypeLabels[type]}
+                {qaqcLabel(t, "inspectionType", type)}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Template"
+          label={t("detail.template")}
           name="templateId"
           hint={
             matching.length === 0
-              ? "No active template for this type. The inspection can still run without a checklist."
-              : "Its checks are copied onto this inspection."
+              ? t("form.inspection.noTemplate")
+              : t("form.inspection.templateHint")
           }
         >
           <select
@@ -330,7 +330,7 @@ export function InspectionForm({
             className={selectClass}
             defaultValue={values?.templateId ?? ""}
           >
-            <option value="">No checklist</option>
+            <option value="">{t("common.noChecklist")}</option>
             {matching.map((template) => (
               <option key={template.value} value={template.value}>
                 {template.label}
@@ -339,7 +339,7 @@ export function InspectionForm({
           </select>
         </Field>
 
-        <Field label="Inspector" name="assignedInspectorMemberId" required>
+        <Field label={t("detail.inspector")} name="assignedInspectorMemberId" required>
           <select
             id="assignedInspectorMemberId"
             name="assignedInspectorMemberId"
@@ -347,7 +347,7 @@ export function InspectionForm({
             defaultValue={values?.assignedInspectorMemberId ?? ""}
             required
           >
-            <option value="">Choose an inspector</option>
+            <option value="">{t("form.inspection.chooseInspector")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -357,7 +357,7 @@ export function InspectionForm({
           </select>
         </Field>
 
-        <Field label="Inspection date" name="inspectionDate">
+        <Field label={t("form.inspection.inspectionDate")} name="inspectionDate">
           <Input
             id="inspectionDate"
             name="inspectionDate"
@@ -366,14 +366,14 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Project" name="projectId" required={inspectionType === "WORK"}>
+        <Field label={t("detail.project")} name="projectId" required={inspectionType === "WORK"}>
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">Not tied to a project</option>
+            <option value="">{t("form.notTied")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -384,14 +384,14 @@ export function InspectionForm({
         </Field>
 
         {inspectionType === "MATERIAL" ? (
-          <Field label="Delivery" name="goodsReceiptId" required>
+          <Field label={t("detail.delivery")} name="goodsReceiptId" required>
             <select
               id="goodsReceiptId"
               name="goodsReceiptId"
               className={selectClass}
               defaultValue={values?.goodsReceiptId ?? ""}
             >
-              <option value="">Choose a delivery</option>
+              <option value="">{t("form.chooseDelivery")}</option>
               {receipts.map((receipt) => (
                 <option key={receipt.value} value={receipt.value}>
                   {receipt.label}
@@ -400,7 +400,7 @@ export function InspectionForm({
             </select>
           </Field>
         ) : (
-          <Field label="Where" name="locationText">
+          <Field label={t("detail.where")} name="locationText">
             <Input
               id="locationText"
               name="locationText"
@@ -412,10 +412,10 @@ export function InspectionForm({
 
         {requests.length > 0 ? (
           <Field
-            label="Against request"
+            label={t("form.inspection.againstRequest")}
             name="requestId"
             className="sm:col-span-2"
-            hint="Links the inspection back to whoever asked for it."
+            hint={t("form.inspection.againstRequestHint")}
           >
             <select
               id="requestId"
@@ -423,7 +423,7 @@ export function InspectionForm({
               className={selectClass}
               defaultValue={values?.requestId ?? ""}
             >
-              <option value="">Not from a request</option>
+              <option value="">{t("form.inspection.notFromRequest")}</option>
               {requests.map((request) => (
                 <option key={request.value} value={request.value}>
                   {request.label}
@@ -435,10 +435,10 @@ export function InspectionForm({
       </FormSection>
 
       <FormSection
-        title="References"
-        description="What the work is being checked against, so the inspection can be read back years later."
+        title={t("form.inspection.references")}
+        description={t("form.inspection.referencesBody")}
       >
-        <Field label="Work reference" name="workReference">
+        <Field label={t("detail.workReference")} name="workReference">
           <Input
             id="workReference"
             name="workReference"
@@ -447,7 +447,7 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Drawing" name="drawingReference">
+        <Field label={t("detail.drawing")} name="drawingReference">
           <Input
             id="drawingReference"
             name="drawingReference"
@@ -456,7 +456,7 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Specification" name="specificationReference" className="sm:col-span-2">
+        <Field label={t("detail.specification")} name="specificationReference" className="sm:col-span-2">
           <Input
             id="specificationReference"
             name="specificationReference"
@@ -465,7 +465,7 @@ export function InspectionForm({
           />
         </Field>
 
-        <Field label="Summary" name="summary" className="sm:col-span-2">
+        <Field label={t("form.inspection.summary")} name="summary" className="sm:col-span-2">
           <Textarea
             id="summary"
             name="summary"
@@ -513,6 +513,7 @@ export function DefectForm({
   projects: Option[];
   members: Option[];
 }) {
+  const t = useQaqcTranslations();
   return (
     <RecordForm
       module="qaqc"
@@ -523,14 +524,14 @@ export function DefectForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Defect"
-        description="Something on a job that needs putting right. If it also needs a root cause and a formal response, raise an NCR from it afterwards."
+        title={t("form.defect.section")}
+        description={t("form.defect.sectionBody")}
       >
-        <Field label="What is wrong" name="title" required className="sm:col-span-2">
+        <Field label={t("form.defect.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Project" name="projectId" required>
+        <Field label={t("detail.project")} name="projectId" required>
           <select
             id="projectId"
             name="projectId"
@@ -538,7 +539,7 @@ export function DefectForm({
             defaultValue={values?.projectId ?? ""}
             required
           >
-            <option value="">Choose a project</option>
+            <option value="">{t("form.chooseProject")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -548,7 +549,7 @@ export function DefectForm({
           </select>
         </Field>
 
-        <Field label="Severity" name="severity" required>
+        <Field label={t("table.severity")} name="severity" required>
           <select
             id="severity"
             name="severity"
@@ -557,34 +558,34 @@ export function DefectForm({
           >
             {SEVERITIES.map((severity) => (
               <option key={severity} value={severity}>
-                {severityLabels[severity]}
+                {qaqcLabel(t, "severity", severity)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Where" name="locationText">
+        <Field label={t("detail.where")} name="locationText">
           <Input
             id="locationText"
             name="locationText"
             defaultValue={values?.locationText ?? ""}
             maxLength={200}
-            placeholder="Level, grid, unit…"
+            placeholder={t("form.defect.wherePlaceholder")}
           />
         </Field>
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("detail.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
 
-        <Field label="Assigned to" name="assignedToMemberId" className="sm:col-span-2">
+        <Field label={t("detail.assignedTo")} name="assignedToMemberId" className="sm:col-span-2">
           <select
             id="assignedToMemberId"
             name="assignedToMemberId"
             className={selectClass}
             defaultValue={values?.assignedToMemberId ?? ""}
           >
-            <option value="">Leave unassigned</option>
+            <option value="">{t("form.request.leaveUnassigned")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -594,7 +595,7 @@ export function DefectForm({
           </select>
         </Field>
 
-        <Field label="Detail" name="description" required className="sm:col-span-2">
+        <Field label={t("detail.detail")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -653,6 +654,7 @@ export function NcrForm({
   members: Option[];
   receipts: Option[];
 }) {
+  const t = useQaqcTranslations();
   return (
     <RecordForm
       module="qaqc"
@@ -663,14 +665,14 @@ export function NcrForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Non-conformance"
-        description="A formal statement that a requirement was not met. It cannot be closed until the root cause is recorded and a corrective action has been verified."
+        title={t("form.ncr.section")}
+        description={t("form.ncr.sectionBody")}
       >
-        <Field label="What did not meet requirement" name="title" required className="sm:col-span-2">
+        <Field label={t("form.ncr.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Category" name="category" required>
+        <Field label={t("detail.category")} name="category" required>
           <select
             id="category"
             name="category"
@@ -679,13 +681,13 @@ export function NcrForm({
           >
             {NCR_CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {ncrCategoryLabels[category]}
+                {qaqcLabel(t, "ncrCategory", category)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Severity" name="severity" required>
+        <Field label={t("table.severity")} name="severity" required>
           <select
             id="severity"
             name="severity"
@@ -694,16 +696,16 @@ export function NcrForm({
           >
             {SEVERITIES.map((severity) => (
               <option key={severity} value={severity}>
-                {severityLabels[severity]}
+                {qaqcLabel(t, "severity", severity)}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Project"
+          label={t("detail.project")}
           name="projectId"
-          hint="A supplier or material non-conformance may have no project."
+          hint={t("form.ncr.projectHint")}
         >
           <select
             id="projectId"
@@ -711,7 +713,7 @@ export function NcrForm({
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">Company-wide</option>
+            <option value="">{t("common.companyWide")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -721,19 +723,19 @@ export function NcrForm({
           </select>
         </Field>
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("detail.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
 
         {receipts.length > 0 ? (
-          <Field label="Delivery" name="goodsReceiptId" className="sm:col-span-2">
+          <Field label={t("detail.delivery")} name="goodsReceiptId" className="sm:col-span-2">
             <select
               id="goodsReceiptId"
               name="goodsReceiptId"
               className={selectClass}
               defaultValue={values?.goodsReceiptId ?? ""}
             >
-              <option value="">Not about a delivery</option>
+              <option value="">{t("form.ncr.notDelivery")}</option>
               {receipts.map((receipt) => (
                 <option key={receipt.value} value={receipt.value}>
                   {receipt.label}
@@ -743,7 +745,7 @@ export function NcrForm({
           </Field>
         ) : null}
 
-        <Field label="Detail" name="description" required className="sm:col-span-2">
+        <Field label={t("detail.detail")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"
@@ -755,15 +757,15 @@ export function NcrForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Who owns it">
-        <Field label="Assigned to" name="assignedToMemberId">
+      <FormSection title={t("form.ncr.owner")}>
+        <Field label={t("detail.assignedTo")} name="assignedToMemberId">
           <select
             id="assignedToMemberId"
             name="assignedToMemberId"
             className={selectClass}
             defaultValue={values?.assignedToMemberId ?? ""}
           >
-            <option value="">Leave unassigned</option>
+            <option value="">{t("form.request.leaveUnassigned")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -773,14 +775,14 @@ export function NcrForm({
           </select>
         </Field>
 
-        <Field label="Quality owner" name="ownerMemberId">
+        <Field label={t("detail.qualityOwner")} name="ownerMemberId">
           <select
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
             defaultValue={values?.ownerMemberId ?? ""}
           >
-            <option value="">Not set</option>
+            <option value="">{t("form.ncr.notSet")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -792,33 +794,33 @@ export function NcrForm({
       </FormSection>
 
       <FormSection
-        title="Investigation"
-        description="The root cause is what lets this close. Without it the NCR records that a problem stopped being discussed rather than that it was solved."
+        title={t("form.ncr.investigation")}
+        description={t("form.ncr.investigationBody")}
       >
-        <Field label="Immediate action" name="immediateAction" className="sm:col-span-2">
+        <Field label={t("form.ncr.immediateAction")} name="immediateAction" className="sm:col-span-2">
           <Textarea
             id="immediateAction"
             name="immediateAction"
             rows={3}
             defaultValue={values?.immediateAction ?? ""}
             maxLength={4000}
-            placeholder="What was done straight away to contain it?"
+            placeholder={t("form.ncr.immediatePlaceholder")}
           />
         </Field>
 
-        <Field label="Root cause" name="rootCause" className="sm:col-span-2">
+        <Field label={t("form.ncr.rootCause")} name="rootCause" className="sm:col-span-2">
           <Textarea
             id="rootCause"
             name="rootCause"
             rows={4}
             defaultValue={values?.rootCause ?? ""}
             maxLength={4000}
-            placeholder="Why did it happen?"
+            placeholder={t("form.ncr.rootCausePlaceholder")}
           />
         </Field>
 
         <Field
-          label="Corrective action summary"
+          label={t("form.ncr.summary")}
           name="correctiveActionSummary"
           className="sm:col-span-2"
         >
@@ -828,7 +830,7 @@ export function NcrForm({
             rows={3}
             defaultValue={values?.correctiveActionSummary ?? ""}
             maxLength={4000}
-            placeholder="What will stop it happening again?"
+            placeholder={t("form.ncr.summaryPlaceholder")}
           />
         </Field>
       </FormSection>
@@ -875,6 +877,7 @@ export function CorrectiveActionForm({
   members: Option[];
   parentLabel: string | null;
 }) {
+  const t = useQaqcTranslations();
   return (
     <RecordForm
       module="qaqc"
@@ -885,18 +888,18 @@ export function CorrectiveActionForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Corrective action"
+        title={t("form.action.section")}
         description={
           parentLabel
-            ? `Raised against ${parentLabel}. Whoever does it records what they did, and somebody else verifies it.`
-            : "Whoever does it records what they did, and somebody else verifies it."
+            ? t("form.action.raisedAgainst", { parent: parentLabel })
+            : t("form.action.sectionBody")
         }
       >
-        <Field label="What needs doing" name="title" required className="sm:col-span-2">
+        <Field label={t("form.action.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Assigned to" name="assignedToMemberId" required>
+        <Field label={t("detail.assignedTo")} name="assignedToMemberId" required>
           <select
             id="assignedToMemberId"
             name="assignedToMemberId"
@@ -904,7 +907,7 @@ export function CorrectiveActionForm({
             defaultValue={values?.assignedToMemberId ?? ""}
             required
           >
-            <option value="">Choose somebody</option>
+            <option value="">{t("form.action.chooseSomebody")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
@@ -914,18 +917,18 @@ export function CorrectiveActionForm({
           </select>
         </Field>
 
-        <Field label="Due" name="dueDate">
+        <Field label={t("detail.due")} name="dueDate">
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
 
-        <Field label="Project" name="projectId" className="sm:col-span-2">
+        <Field label={t("detail.project")} name="projectId" className="sm:col-span-2">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">Inherit from what it was raised against</option>
+            <option value="">{t("form.action.inherit")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -935,7 +938,7 @@ export function CorrectiveActionForm({
           </select>
         </Field>
 
-        <Field label="Detail" name="description" required className="sm:col-span-2">
+        <Field label={t("detail.detail")} name="description" required className="sm:col-span-2">
           <Textarea
             id="description"
             name="description"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useHseTranslations } from "@/components/hse/hse-text";
 import { ExportControl } from "@/lib/core/export/export-control";
 import type { HseExportKind } from "@/lib/modules/hse/hse.export";
 
@@ -13,11 +14,12 @@ import type { HseExportKind } from "@/lib/modules/hse/hse.export";
  */
 export function HseExportLink({
   kind,
-  label = "Export CSV",
+  label,
 }: {
   kind: HseExportKind;
   search?: string;
   label?: string;
 }) {
-  return <ExportControl endpoint="/api/hse/export" selector={{ param: "kind", value: kind }} label={label} testId={`hse-export-${kind}`} />;
+  const t = useHseTranslations();
+  return <ExportControl endpoint="/api/hse/export" selector={{ param: "kind", value: kind }} label={label ?? t("pages.exportCsv")} testId={`hse-export-${kind}`} />;
 }
