@@ -5,6 +5,7 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { DailyLogList } from "@/components/daily-logs/daily-log-list";
 import { ModulePage } from "@/components/modules/module-page";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { prisma } from "@/lib/database/prisma";
@@ -40,7 +41,12 @@ export default async function DailyLogsPage({ searchParams }: { searchParams: Pr
     <ModulePage experience={experience} activeSection="all">
       <div className="space-y-4">
         <ListToolbar searchPlaceholder="Search by project or summary…" searchParam="q" filters={filters} />
-        <DailyLogList items={list.items} showProject emptyTitle="No daily logs here." emptyDescription="Open a project's Daily Logs tab to start the day's record." />
+        {/* Filters that match nothing are not an empty module (AUD-05 §6, UX-11). */}
+        {list.items.length === 0 && hasActiveFilters(params, ["q", "status", "projectId"]) ? (
+          <NoResultsState noun="daily logs" clearHref="/daily-logs" />
+        ) : (
+          <DailyLogList items={list.items} showProject emptyTitle="No daily logs yet." emptyDescription="Each project's site team writes its daily log from the project's Daily Logs tab; the logs of every project you can open appear here." />
+        )}
         <Pagination meta={{ page: list.page, limit: list.pageSize, total: list.total, totalPages: Math.max(1, Math.ceil(list.total / list.pageSize)) }} buildHref={(page) => pageHref("/daily-logs", params, page)} />
       </div>
     </ModulePage>

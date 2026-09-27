@@ -22,6 +22,7 @@ import { TimeGridView } from "./time-grid-view";
 import { EMPTY_FILTERS, readPreferences, useCalendarData, writePreferences, type CalendarFilterState } from "./use-calendar-data";
 import { belowQuery } from "@/components/ui/use-breakpoint";
 import { useIsPhone } from "./use-is-phone";
+import { HelpEntry } from "@/components/help/help-entry";
 
 /**
  * The calendar workspace (PRD #39 §6, §7, §20-§22, §100, §106, §170).
@@ -255,6 +256,7 @@ export function CalendarShell({
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <HelpEntry moduleKey="calendar" moduleLabel="Calendar" />
           <Button variant="secondary" size="sm" onClick={() => setDate(today)} aria-label="Go to today">
             Today
           </Button>

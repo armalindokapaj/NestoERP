@@ -13,6 +13,7 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { ListSectionSkeleton } from "@/components/modules/section-skeletons";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.viewer";
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
@@ -121,6 +122,15 @@ export default async function ProjectOverviewPage({ params }: Params) {
       </div>
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />This project is archived and read-only.</p> : null}
+
+      {/* How a project's records hang together is the relationship question of first use (AUD-05 §7, UX-13, UX-15). */}
+      <WhatIsThis id="projects.detail.relationships" title="How this project's records connect">
+        <p>
+          Everything recorded for this project — its tasks, documents, finance, contracts, site records and team — belongs to {project.company.name} and
+          opens from the tabs of this project. You see only the tabs your role allows.
+        </p>
+        <p>The same records also appear in their own modules, filtered to the projects you can open, and each names the project it belongs to.</p>
+      </WhatIsThis>
 
       <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm lg:flex" aria-labelledby="project-title" data-section="primary">
         <div className="relative min-h-[430px] flex-1 overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-neutral-950 lg:min-h-[500px]">

@@ -7,7 +7,7 @@ import { ModulePage } from "@/components/modules/module-page";
 import { TimesheetStatusBadge } from "@/components/timesheets/timesheet-ui";
 import { Button } from "@/components/ui/button";
 import { ScrollRegion } from "@/components/ui/scroll-region";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
@@ -91,7 +91,12 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
         <ListToolbar searchPlaceholder="Search people…" searchParam="q" filters={filters} />
 
         {list.rows.length === 0 ? (
-          <EmptyState icon={<Users />} title="Nobody here for this week." description="People whose timesheets you oversee or approve appear here." />
+          // Search or a filter that matches nobody is not an empty team (AUD-05 §6, UX-11); Clear keeps the chosen week.
+          hasActiveFilters(params, ["q", "status", "departmentId", "approverMemberId"]) ? (
+            <NoResultsState noun="people" clearHref={`/timesheets/team?week=${list.periodStart}`} />
+          ) : (
+            <EmptyState icon={<Users />} title="Nobody here for this week." description="People whose timesheets you oversee or approve appear here." />
+          )
         ) : (
           <>
           {/*

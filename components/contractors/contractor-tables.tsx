@@ -20,8 +20,20 @@ function Count({ value, tone }: { value: number; tone?: "warning" | "danger" }) 
   return <span className={cn("tabular-nums", value === 0 ? "text-fg-subtle" : tone === "danger" ? "font-medium text-danger-strong" : tone === "warning" ? "font-medium text-warning-strong" : "text-fg")}>{value}</span>;
 }
 
-export function ContractorTable({ items }: { items: ContractorListItemDTO[] }) {
-  if (!items.length) return <EmptyState icon={<Building2 />} title="No contractors here." description="Add the organisations the company engages. A contractor is not a supplier and has no login." />;
+export function ContractorTable({ items, canCreate = false }: { items: ContractorListItemDTO[]; canCreate?: boolean }) {
+  // First run: the purpose, and "add" only to someone who may (AUD-05 §6, UX-11, UX-15).
+  if (!items.length)
+    return (
+      <EmptyState
+        icon={<Building2 />}
+        title="No contractors yet."
+        description={
+          canCreate
+            ? "Add the organisations the company engages with New contractor. A contractor is not a supplier and has no login."
+            : "The organisations the company engages appear here once someone who manages contractors adds them. A contractor is not a supplier and has no login."
+        }
+      />
+    );
   return (
     <>
       <div className="hidden md:block">

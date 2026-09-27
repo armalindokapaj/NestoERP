@@ -296,7 +296,7 @@ export const siteSq: SiteCopy = {
       Contractors: "Kontraktorët",
       "Work Packages": "Paketat e punës",
       Compliance: "Pajtueshmëria",
-      "My Work": "Puna ime",
+      "My engineering work": "Puna ime inxhinierike",
       RFIs: "RFI-të",
       Submittals: "Dorëzimet teknike",
       Drawings: "Vizatimet",

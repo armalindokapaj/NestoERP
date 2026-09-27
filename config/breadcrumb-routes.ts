@@ -39,3 +39,42 @@ export function breadcrumbRouteMetadata(pathnameInput: string): RouteBreadcrumbM
     collectionHref: section ? `${moduleDefinition.route}/${section.key}` : undefined,
   };
 }
+
+/** The in-app history entry shape the record navigation keeps in this tab (components/navigation/record-navigation-provider.tsx). */
+export type ReturnHistoryEntry = { route: string; workspaceKey: string };
+
+/**
+ * Where a list crumb should return to (AUD-05 §3, UX-04): the list exactly as
+ * the person last left it in this workspace — its search, filters and page —
+ * when this tab's own history has it; otherwise the plain list.
+ *
+ * Only an entry for the same path in the same workspace counts, and only its
+ * query is borrowed, so a crumb can never be turned into another destination
+ * or carry one company's filters into another.
+ */
+export function returnHref(href: string, history: readonly ReturnHistoryEntry[], workspaceKey: string | null): string {
+  const target = cleanPath(href);
+  if (!workspaceKey || href.includes("?")) return href;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index];
+    if (!entry || entry.workspaceKey !== workspaceKey || typeof entry.route !== "string") continue;
+    const [path, query = ""] = entry.route.split("?");
+    if (cleanPath(path) !== target) continue;
+    return query ? `${target}?${query}` : href;
+  }
+  return href;
+}
+
+/**
+ * The page a Back control falls back to when this tab has no history — a
+ * deep link opened from an e-mail or another app (AUD-05 §3, UX-04): the
+ * nearest parent the trail already offers as a link, which the page and the
+ * module registry only ever offer to somebody who may open it.
+ */
+export function fallbackParent<T extends { href?: string; disabled?: boolean; label: string }>(trail: readonly T[]): T | null {
+  for (let index = trail.length - 2; index >= 0; index -= 1) {
+    const item = trail[index];
+    if (item?.href && !item.disabled) return item;
+  }
+  return null;
+}

@@ -51,7 +51,7 @@ export default async function WorkforcePage({ searchParams }: { searchParams: Pr
     <ModulePage experience={resolveModuleExperience(context, "workforce")} activeSection="workers">
       <div className="space-y-4">
         <ListToolbar
-          searchPlaceholder="Search name, code or job title…"
+          searchPlaceholder="Search name, employee number or job title…"
           filters={filters}
           sortOptions={[
             { value: "name-asc", label: "Name A–Z" },

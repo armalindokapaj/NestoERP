@@ -81,6 +81,8 @@ export function navigationItems(input: NavigationInput): NavigationItem[] {
   return resolveNavigation(input).flatMap((group) => group.items);
 }
 
+const ITEMS_BY_ROUTE_LENGTH = ALL_ITEMS.slice().sort((left, right) => right.href.length - left.href.length);
+
 /**
  * Which sidebar item should be highlighted for a pathname.
  *
@@ -88,9 +90,10 @@ export function navigationItems(input: NavigationInput): NavigationItem[] {
  * `/projects/123/documents` keeps Projects active (PRD #3 §13).
  */
 export function activeNavigationKey(pathname: string): ModuleKey | null {
-  const segment = pathname.split("/").filter(Boolean)[0];
-  if (!segment) return null;
-  const match = ALL_ITEMS.find((item) => item.module === segment);
+  // By route, not by key: Daily Logs is `dailyLogs` at `/daily-logs`, and a
+  // key match never marked it (AUD-05 §3, UX-03). The longest route wins.
+  const path = pathname.split(/[?#]/)[0];
+  const match = ITEMS_BY_ROUTE_LENGTH.find((item) => path === item.href || path.startsWith(`${item.href}/`));
   return match?.module ?? null;
 }
 

@@ -5,6 +5,7 @@ import { Pagination } from "@/components/data/pagination";
 import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { DocumentRegister } from "@/components/engineering/registers";
 import { ModulePage } from "@/components/modules/module-page";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listEngineeringDocuments } from "@/lib/modules/engineering/engineering.documents";
@@ -27,7 +28,11 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     <ModulePage experience={experience} activeSection="drawings" title="Drawings" description="Drawings and shop drawings with their current revision across your projects.">
       <div className="space-y-4">
         <ListToolbar searchPlaceholder="Search number or title…" searchParam="q" filters={[{ param: "discipline", label: "Discipline", options: DISCIPLINES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] })) }, { param: "status", label: "Status", options: DOCUMENT_STATUSES.map((value) => ({ value, label: REVIEW_STATUS_LABELS[value] })) }]} />
-        <DocumentRegister items={result.items} showProject drawings />
+        {result.items.length === 0 && hasActiveFilters(params, ["q", "discipline", "status"]) ? (
+          <NoResultsState noun="drawings" clearHref="/engineering/drawings" />
+        ) : (
+          <DocumentRegister items={result.items} showProject drawings />
+        )}
         <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/engineering/drawings", params, page)} />
       </div>
     </ModulePage>

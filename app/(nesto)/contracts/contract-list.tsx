@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ContractTable } from "@/components/contracts/contract-table";
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { parseContractQuery } from "@/lib/modules/contracts/contract.query";
@@ -68,7 +68,9 @@ export async function ContractList({
       query.clientId ||
       query.projectId ||
       query.ownerMemberId ||
-      query.currency,
+      query.currency ||
+      // "Within N days" on the expiring view narrows too (AUD-05 §6, UX-11).
+      hasActiveFilters(searchParams, ["within"]),
   );
 
   const filters: FilterConfig[] = [

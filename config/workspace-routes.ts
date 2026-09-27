@@ -112,6 +112,8 @@ const GLOBAL_ROUTES = [
   "/favorites",
   "/my-work",
   "/activity",
+  // Module Help: open in either workspace; each page answers only for modules the reader can open (AUD-05 §7).
+  "/help",
 ] as const;
 
 const MUTATION_SEGMENTS = new Set(["new", "edit", "revise", "execute", "assess", "close", "control", "investigation"]);

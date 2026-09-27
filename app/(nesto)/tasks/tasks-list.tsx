@@ -5,6 +5,7 @@ import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { TaskTable } from "@/components/tasks/task-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
@@ -67,7 +68,11 @@ export async function TasksList({
       query.projectId ||
       query.assigneeMemberId ||
       (group && query.company) ||
-      (query.due && variant !== "overdue"),
+      (query.due && variant !== "overdue") ||
+      // A due-date range (a dashboard link sets one) narrows the list just the
+      // same: never "No tasks yet" over tasks it hides (AUD-05 §6, UX-11).
+      query.dueFrom ||
+      query.dueTo,
   );
 
   const filters: FilterConfig[] = [
@@ -163,6 +168,17 @@ export async function TasksList({
           { value: "title-desc", label: "Title Z–A" },
         ]}
       />
+      {/* What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15). */}
+      <WhatIsThis id="lists.search-filters" title="Search and filters">
+        <p>
+          Search looks only in this list: a task&apos;s title and description, its project&apos;s name or code, and its assignee&apos;s name. It is not
+          the global search in the top bar.
+        </p>
+        <p>
+          Filters narrow the same list, and Clear removes the search and every filter at once. Both stay in the page address, so refresh, Back
+          and a shared link show the same results.
+        </p>
+      </WhatIsThis>
 
       {result.data.length === 0 ? (
         hasFilters ? (

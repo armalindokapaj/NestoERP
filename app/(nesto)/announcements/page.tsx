@@ -19,6 +19,7 @@ import { resolveProductivitySettings } from "@/lib/modules/productivity/producti
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
 import { prisma } from "@/lib/database/prisma";
 import { cn } from "@/lib/utils/cn";
+import { HelpEntry } from "@/components/help/help-entry";
 
 export const metadata: Metadata = { title: "Announcements" };
 
@@ -60,13 +61,16 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
           <h1 className="text-page font-semibold tracking-tight text-fg">Manage announcements</h1>
           <p className="mt-1.5 text-body text-fg-muted">Drafts, schedules and published notices you write or manage. Readers see them in the Activity Center.</p>
         </div>
-        {audiences.length && can(context, "announcement.create") ? (
-          <Button asChild size="sm">
-            <Link href="/announcements/new">
-              <Plus /> New announcement
-            </Link>
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <HelpEntry moduleKey="announcements" moduleLabel="Announcements" />
+          {audiences.length && can(context, "announcement.create") ? (
+            <Button asChild size="sm">
+              <Link href="/announcements/new">
+                <Plus /> New announcement
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <nav aria-label="Announcement views" className="flex items-center gap-1 overflow-x-auto border-b border-line">

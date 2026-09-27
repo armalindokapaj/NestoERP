@@ -104,6 +104,15 @@ const EMPTY_COPY: Record<QaqcListKind, { title: string; description: string }> =
   },
 };
 
+/** What each list's search really matches, per its service (AUD-05 §5, UX-10). */
+const SEARCH_HINT: Record<QaqcListKind, string> = {
+  requests: "Search number, title or location…",
+  inspections: "Search number, summary, location or work reference…",
+  defects: "Search number, title or location…",
+  ncrs: "Search NCR number or title…",
+  "corrective-actions": "Search number or title…",
+};
+
 const VIEW_OPTIONS: Record<QaqcListKind, { value: string; label: string }[]> = {
   requests: [
     { value: "all", label: "All requests" },
@@ -435,7 +444,7 @@ export async function QaqcListSection({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search by number or title…"
+        searchPlaceholder={SEARCH_HINT[kind]}
         filters={toolbarFilters}
         sortOptions={SORT_OPTIONS[kind]}
         extraFilterParams={extraFilterKeys}

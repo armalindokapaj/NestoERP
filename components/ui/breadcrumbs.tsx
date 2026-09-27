@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { ArrowLeft, ArrowRight, ChevronRight, MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useGroupEntry } from "@/components/layout/shell-slots";
 import { useRecordNavigation } from "@/components/navigation/record-navigation-provider";
 import {
@@ -14,7 +15,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils/cn";
-import { breadcrumbRouteMetadata } from "@/config/breadcrumb-routes";
+import { breadcrumbRouteMetadata, fallbackParent, returnHref, type ReturnHistoryEntry } from "@/config/breadcrumb-routes";
+
+/** The record navigation's own history in this tab, read only to borrow a list's last query (AUD-05 §3, UX-04). */
+const RECORD_HISTORY_KEY = "nesto-record-navigation-v1";
+
+function readReturnHistory(): ReturnHistoryEntry[] {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(RECORD_HISTORY_KEY) ?? "null") as { entries?: unknown; index?: unknown } | null;
+    if (!parsed || !Array.isArray(parsed.entries)) return [];
+    // Nothing past the history's position: those entries are "Forward". This runs
+    // before the provider records the page being opened, so the position is
+    // still the page the person came from — often the list itself.
+    const upTo = Number.isInteger(parsed.index) ? (parsed.index as number) : parsed.entries.length - 1;
+    return parsed.entries
+      .slice(0, Math.max(0, upTo + 1))
+      .filter((entry): entry is ReturnHistoryEntry => !!entry && typeof entry.route === "string" && typeof entry.workspaceKey === "string");
+  } catch {
+    return [];
+  }
+}
 
 export type Crumb = { label: string; href?: string; disabled?: boolean };
 
@@ -23,8 +43,9 @@ type ResolvedCrumb = Crumb & {
   workspaceTarget?: { scopeType: "GROUP" | "COMPANY"; companyId: string | null };
 };
 
-function HistoryButton({ direction, disabled, onClick }: { direction: "back" | "forward"; disabled: boolean; onClick: () => void }) {
-  const label = direction === "back" ? "Go back" : "Go forward";
+function HistoryButton({ direction, disabled, onClick, fallbackLabel }: { direction: "back" | "forward"; disabled: boolean; onClick: () => void; fallbackLabel?: string }) {
+  // With no history in this tab, Back leads to the nearest parent and says which (AUD-05 §3, UX-04).
+  const label = fallbackLabel ? `Back to ${fallbackLabel}` : direction === "back" ? "Go back" : "Go forward";
   const Icon = direction === "back" ? ArrowLeft : ArrowRight;
   return (
     <button
@@ -32,7 +53,7 @@ function HistoryButton({ direction, disabled, onClick }: { direction: "back" | "
       aria-label={label}
       aria-disabled={disabled}
       disabled={disabled}
-      title={disabled ? undefined : direction === "back" ? "Back" : "Forward"}
+      title={disabled ? undefined : fallbackLabel ? label : direction === "back" ? "Back" : "Forward"}
       onClick={onClick}
       className={cn(
         // 44px under touch: Back is the record's way home on a phone (AUD-04 §4, MW-04, MW-19).
@@ -90,6 +111,11 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
   const navigation = useRecordNavigation();
   const groupEntry = useGroupEntry();
   const pathname = usePathname();
+  const moduleNames = useTranslations("modules");
+  // Read after mount: storage is the browser's, and the first render matches the server's.
+  const [history, setHistory] = React.useState<ReturnHistoryEntry[]>([]);
+  React.useEffect(() => setHistory(readReturnHistory()), [pathname]);
+  const workspaceKey = navigation?.workspace.key ?? null;
   const trail = React.useMemo<ResolvedCrumb[]>(() => {
     const roots: ResolvedCrumb[] = [];
     const workspace = navigation?.workspace;
@@ -109,15 +135,29 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
     const rootLabels = new Set(roots.map((root) => root.label));
     const authorizedItems = items.filter((item) => !rootLabels.has(item.label));
     const metadata = breadcrumbRouteMetadata(pathname);
-    if (metadata && authorizedItems[0]?.label !== metadata.moduleLabel) {
-      authorizedItems.unshift({ label: metadata.moduleLabel, href: metadata.moduleHref });
+    if (metadata) {
+      // The module is named as the sidebar names it, in the reader's language (AUD-05 §3, UX-07).
+      const moduleLabel = moduleNames(`${metadata.moduleKey}.label`);
+      const first = authorizedItems[0];
+      if (first && (first.label === metadata.moduleLabel || first.label === moduleLabel)) {
+        authorizedItems[0] = { ...first, label: moduleLabel };
+      } else {
+        authorizedItems.unshift({ label: moduleLabel, href: metadata.moduleHref });
+      }
     }
-    const supplied = authorizedItems.map((item, index) => ({ ...item, key: `crumb-${index}-${item.label}` }));
+    const supplied = authorizedItems.map((item, index) => ({
+      ...item,
+      // A list crumb returns to the list as it was left: search, filters and page (UX-04).
+      href: item.href && !item.disabled ? returnHref(item.href, history, workspaceKey) : item.href,
+      key: `crumb-${index}-${item.label}`,
+    }));
     return [...roots, ...supplied].filter((item, index, all) => {
       const previous = all[index - 1];
       return !previous || previous.label !== item.label || previous.href !== item.href;
     });
-  }, [items, navigation?.workspace, pathname, groupEntry]);
+  }, [items, navigation?.workspace, pathname, groupEntry, moduleNames, history, workspaceKey]);
+  // No history in this tab (a deep link): Back goes to the nearest parent instead of doing nothing (UX-04).
+  const fallback = navigation?.canGoBack ? null : fallbackParent(trail);
 
   const collapseAt = Math.max(4, maxVisible);
   const collapsed = trail.length > collapseAt;
@@ -128,7 +168,19 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
   return (
     <div className={cn("flex min-w-0 items-center gap-2", className)} data-testid="record-navigation-header">
       <div className="flex shrink-0 items-center gap-1" aria-label="History navigation">
-        <HistoryButton direction="back" disabled={!navigation?.canGoBack} onClick={() => navigation?.goBack()} />
+        <HistoryButton
+          direction="back"
+          disabled={!navigation?.canGoBack && !fallback}
+          fallbackLabel={fallback?.label}
+          onClick={() => {
+            if (!navigation) return;
+            if (navigation.canGoBack) navigation.goBack();
+            else if (fallback?.href) {
+              if (fallback.workspaceTarget) navigation.navigateWorkspace(fallback.workspaceTarget.scopeType, fallback.workspaceTarget.companyId, fallback.href);
+              else navigation.navigate(fallback.href);
+            }
+          }}
+        />
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
       <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">

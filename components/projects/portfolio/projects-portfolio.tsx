@@ -118,6 +118,12 @@ export function ProjectsPortfolio({
       <EmptyState
         icon={<FolderKanban />}
         title="No projects available in this workspace."
+        // Purpose, and "create" only to someone who may (AUD-05 §6, UX-11, UX-15).
+        description={
+          canCreate
+            ? "A project holds its tasks, documents, finance and team. Create the first one to start."
+            : "Projects appear here once you are added to one."
+        }
         action={canCreate ? { label: "Create project", href: "/projects/new" } : undefined}
       />
     );
@@ -138,7 +144,14 @@ export function ProjectsPortfolio({
 
       <div className={cn("transition-opacity", navigating && "pointer-events-none opacity-60")} aria-busy={navigating}>
         {shown === 0 ? (
-          <EmptyState icon={<SearchX />} title="No projects found." className="py-12" />
+          // A search that matches nothing offers the way back, never "create" (AUD-05 §6, UX-11).
+          <EmptyState
+            icon={<SearchX />}
+            title="No projects found."
+            description="No project you can open matches this search."
+            action={{ label: "Clear search", href: pathname }}
+            className="py-12"
+          />
         ) : (
           <div className={GALLERY_GRID} data-testid="project-gallery">
             {items.map((project) => (

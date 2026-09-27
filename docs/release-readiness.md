@@ -3801,3 +3801,63 @@ Module-specific fixes:
   - The document sharing-classification select still saves as soon as it changes (D-09-08). A confirm step would be new behaviour.
 - **Calendar:** switching to Agenda makes a second range fetch. At 320px, month cells are about 40px wide.
 - **Not yet done** (MW-18, MW-22): real-device checks and the throttled performance comparison, which belongs with AUD-07.
+
+## 48. AUD-05 — Navigation and first-time UX
+
+AUD-05 helps a newly signed-in user answer three questions: where am I, what can I do here, and where do I go next. The business model does not change. Four documents come with it:
+- [navigation-inventory.md](ux/navigation-inventory.md) (UX-01): every module × five role families, with navigation, state and action columns;
+- the checked-in [glossary](ux/glossary.md), mirrored in `config/glossary.ts` so tests can check it;
+- versioned help for all 28 modules in `lib/help/help-content.ts`, served at `/help` and `/help/<module>`;
+- a "What is this?" disclosure (`components/help/what-is-this.tsx`).
+
+### 48.1 What changed
+
+| Before | Now |
+| --- | --- |
+| Daily Logs was never marked as the current module, because the module key did not match its route | The active module is found by route, longest match first, so `aria-current` is right everywhere |
+| Four dashboard shortcuts led to pages that do not exist (`/team/new`, `/inventory/movements/new`, `/contracts/contracts/new`, `/support/requests/new`). Shortcuts ignored whether the module was switched on and any second permission a page needs | Every shortcut goes to a real page (a unit test checks every module, tab, shortcut and Quick Create route). Shortcuts are offered only when the module is on and every grant the page checks is held |
+| Engineering's "My Work" tab shared its name with the top bar's `/my-work`. Quick Create and shortcuts mixed "Create/Add" and Title Case | "My engineering work". Actions follow the glossary ("New invoice", "Invite member", "Report an incident"). A test holds labels to the glossary |
+| Module headings were not translated while the sidebar was. Breadcrumbs lost the list's search and filters, and Back did nothing on a deep link | Headings and breadcrumbs use the same translations. Returning to a list restores its query within the same workspace. With no history, Back reads "Back to <nearest parent>" |
+| No help anywhere | A Help link in every module header, a plain link that works by keyboard and touch. The help page lists only actions the reader holds, and a module the reader cannot open returns 404. There are no tours |
+| An empty dashboard gave no next step | "Start here" appears only when the company workspace shows no project and no task. It offers at most three steps, each one a permission the reader holds. A viewer gets a line on how records reach them, never a create step |
+| Filtered lists that matched nothing said "No X yet" (daily logs, contractors, compliance, work packages, engineering registers, QA/QC approvals, tasks with a due range, team, expiring contracts, timesheet team). Some empty states told every reader to create | A shared `NoResultsState` with Clear filters. The "how records arrive" wording for readers who cannot create. Skeletons announce "Loading…" once. The shared error is `role="alert"` |
+| Search placeholders promised fields the backend does not search (QA/QC inspections, reservations, workforce, engineering) | Every placeholder matches the fields in its service's `searchClause` (unit-tested) |
+| No explanation at the confusing points | "What is this?" appears at six of them: workspace scope, project choice on a new task, the approvals queue, task status and assignment, search and filter meaning, and project relationships. It is a real button (keyboard and touch). Hiding it lasts per identity and text version, in sessionStorage only, and it does not come back on every route change |
+
+There is no migration: dismissals are session-local, as PRD §10 allows.
+
+### 48.2 The evidence
+
+- **New unit tests:**
+  - `tests/unit/ux/aud05-navigation` (16);
+  - `aud05-glossary` (11);
+  - `aud05-help-start-here`;
+  - `aud05-states` (41).
+- **Full vitest:**
+  - `nesto_a6b`: 3,707 of 3,709. The two failures also fail on 324a3ca9 (3D viewer shell, telemetry budget).
+  - `nesto_a6c`: 1,926 passed and 2 skipped.
+  - All database gates pass after the run, including `verify:workflows`.
+- **Gates:** tsc and eslint are clean. `verify:authorization`, `ownership`, `state`, `workers` and `production-guards` pass. The security matrix was regenerated and the access manifest is current.
+- **Build:** a production `next build` passes.
+- **E2E (written for the final pass):** `tests/e2e/ux/aud05-{navigation,states}.spec.ts`, per role family. They cover:
+  - sidebar links with `aria-current` and a matching heading;
+  - Help;
+  - dashboard shortcuts;
+  - the breadcrumb query round-trip;
+  - workspace fallback;
+  - Quick Create;
+  - the Owner → Finance demo switch;
+  - states with mocked failures;
+  - the task, approval, expense and invoice journeys, checked against the database.
+
+### 48.3 Open
+
+- **UX-19 (moderated first-time sessions)** has not been done. It needs at least two real participants per role family, which is a human task.
+- **Workspace switches that reload the whole page** (from Quick Create, or a breadcrumb that changes workspace) lose the "previous record is not available" notice. The in-app switch shows it.
+- **The access-denied page** offers only the dashboard, not the module list the user can open.
+- **Help links:** the Dashboard and Settings headers have no Help link yet; their help is reached through `/help`.
+- **Finance records** cannot yet say "blocked by status" separately from "not allowed". The capability flags need to be split.
+- **Decisions for you:**
+  - Tab names mix Title Case ("My Tasks") and sentence case ("Low stock").
+  - The tasks search placeholder stays "Search tasks…", because an AUD-04 spec finds the search box by that label.
+- **Not surveyed for page states:** activity, announcements, calendar, notifications, settings, organization and people.

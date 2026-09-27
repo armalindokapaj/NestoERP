@@ -6,6 +6,7 @@ import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
 import { flat, keepPageInRange, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { ModulePage } from "@/components/modules/module-page";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
@@ -35,7 +36,12 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
             { param: "compliance", label: "Compliance", options: [{ value: "alerts", label: "With alerts" }] },
           ]}
         />
-        <ContractorTable items={result.items} />
+        {/* Filters that match nothing are not an empty directory (AUD-05 §6, UX-11). */}
+        {result.items.length === 0 && hasActiveFilters(params, ["q", "status", "compliance"]) ? (
+          <NoResultsState noun="contractors" clearHref="/contractors" />
+        ) : (
+          <ContractorTable items={result.items} canCreate={can(context, "contractor.create")} />
+        )}
         <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref("/contractors", params, page)} />
       </div>
     </ModulePage>

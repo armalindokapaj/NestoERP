@@ -7,6 +7,7 @@ import { NewWorkPackageButton } from "@/components/contractors/contractor-dialog
 import { WorkPackageTable } from "@/components/contractors/contractor-tables";
 import { flat, keepPageInRange, orNotFound, pageHref, registerMeta, type SearchParams } from "@/components/engineering/page-helpers";
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { contractorsOpen } from "@/lib/modules/contractors/contractor.permissions";
 import { workPackageListSchema } from "@/lib/modules/contractors/contractor.schema";
@@ -70,7 +71,11 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
           { param: "discipline", label: "Discipline", options: DISCIPLINES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] })) },
         ]}
       />
-      <WorkPackageTable items={result.items} />
+      {result.items.length === 0 && hasActiveFilters(search, ["q", "status", "discipline"]) ? (
+        <NoResultsState noun="work packages" clearHref={base} />
+      ) : (
+        <WorkPackageTable items={result.items} />
+      )}
       <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref(base, search, page)} />
     </div>
   );

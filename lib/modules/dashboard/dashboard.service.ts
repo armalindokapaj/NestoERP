@@ -138,9 +138,17 @@ export async function planDashboard(context: UserContext): Promise<DashboardPlan
     )
     .sort((a, b) => a.priority - b.priority);
 
+  // A shortcut is a door the destination will open: its module on, and every grant
+  // the create page checks held (AUD-05 §4, UX-09) — never a link that refuses.
   const visibleActions = config.quickActions
     .map((key) => quickActions[key])
-    .filter((definition) => definition && can(context, definition.permission));
+    .filter(
+      (definition) =>
+        definition &&
+        isModuleEnabled(context, definition.module) &&
+        can(context, definition.permission) &&
+        (definition.alsoRequires ?? []).every((permission) => can(context, permission)),
+    );
 
   return { focus: config.focus, kpis: visibleKpis, widgets: visibleWidgets, quickActions: visibleActions };
 }
