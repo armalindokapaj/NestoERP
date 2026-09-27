@@ -3969,16 +3969,31 @@ AUD-07 makes slow, failed and interrupted requests recover honestly, and makes t
   - A production `next build` passes.
 - **Benchmark discovery:** selectors were checked on both builds, desktop and phone. Every route passes, except phone lists in the 324a3ca9 build, which predates AUD-04's phone cards. Those phone results are not comparable and will be reported as such.
 
-### 50.3 Still open
+### 50.3 Measurements (2026-09-27, D1, local production builds)
 
-- **Timing runs:** before (324a3ca9, `nesto_perf`) and after (HEAD, `nesto_perf_head`), desktop and phone. The command lines are in the route manifest.
-- **Other measurements:**
-  - the SQL-count pass;
-  - the 20-user server-load test;
-  - `aud07-recovery.spec.ts`, which joins the final E2E pass.
+The per-route figures are in [route-manifest.md](perf/route-manifest.md).
+
+- **Desktop, before (324a3ca9) vs after (60167a9d), 30 samples per route and mode:**
+  - No failures on either build.
+  - First visits (cold) are more consistent. The slow tail mostly went away: for example, invoices p95 fell from 310 to 178 ms and expenses from 442 to 184 ms. Medians barely changed.
+  - In-app navigation (warm) is about 115 ms slower on projects, tasks, invoices, expenses and documents (about 340 → 450 ms). The times fall into steps of about 115–150 ms, and the benchmark polls every 16 ms, so the steps most likely come from React's roughly 300 ms reveal hold (accepted in NAV-01). A small change in data time moves a page into the next step. This is recorded, not fixed.
+  - Loads that skip the prefetch cache (uncached) are unchanged.
+- **Phone, after only:** 64 route/mode measurements with no failures; the median first visit is 458 ms (range 409–802). There is no phone "before": the 324a3ca9 phone lists predate the AUD-04 cards and time out.
+- **SQL (exact counts, cold, 5 samples):**
+  - Most routes run 20–60 statements.
+  - The heaviest pages are the Group approvals page (about 880 statements when reached by navigation) and the Group dashboard (about 640–740 statements, about 850 ms of statement time).
+  - These are the first optimisation targets, not yet fixed.
+- **20 people at once:** 20 users, 5 rounds, 800 requests, all OK, in 10.6 s.
+  - Dashboard: median 637 ms, p95 863 ms.
+  - Tasks, projects and finance: median 307–355 ms, p95 under 450 ms.
+
+### 50.4 Still open
+
+- `aud07-recovery.spec.ts` joins the final E2E pass.
 - **Needs a review:** meetings, approvals and planning templates use 30–60 s transaction timeouts. These exceed the read deadline.
 - **No alert rules yet:** the thresholds are proposed in [performance-and-stability.md](runbooks/performance-and-stability.md).
 - **Not generated:** the Group data sets with 1, 5 and 10 companies.
+- **Not done:** the D10 timing run, and the Group approvals and dashboard query counts.
 
 ## 51. AUD-12 — Maintainability and developer experience (rest)
 

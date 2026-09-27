@@ -2,7 +2,7 @@
 
 The machine-readable copy is `tests/e2e/perf/aud07-manifest.ts`. The benchmark (`tests/e2e/perf/aud07-baseline.spec.ts`) measures what it lists. When a route, selector or origin changes, update both files.
 
-- **Status.** The timing columns are filled from the lead's runs. The instrument was fixed first (defects I-01..I-05 below), so the 324a3ca9 numbers in `scratchpad/aud07/summary.md` do not compare with the new ones. Re-run 324a3ca9 with this spec to get the "before" figures.
+- **Status.** Timing columns filled 2026-09-27 from the D1 runs: desktop before (324a3ca9) and after (60167a9d), phone after only (the 324a3ca9 phone lists predate the AUD-04 cards and time out, so no phone "before"). Times are ms, p50/p95; SQL is the exact request-correlated count from the cold pass (5 samples). Raw JSON was kept in the session scratchpad (`aud07/run3`).
 - **Usable (§4).** The browser is on the route's own path. `#nesto-main` has no skeleton and no `aria-busy` region. At least *min* of the route's records are visible, hydrated (React props attached, so a click works) and not left over from the origin page. Where the route has one, the primary control is visible, enabled and hydrated. A heading, a skeleton, a URL change or an empty state never counts. A timeout is kept as a failed sample, recorded with what the page was still waiting for.
 - **Modes (§3).** *Cold* is a document load with the server already warm. *Warm* is a click on the in-app link after its prefetch arrived, and each attempt records `prefetched`. *Uncached* is the same click with prefetch off (a crawler user agent), and each attempt records that nothing was prefetched. A report flags an attempt that did not match its mode (`modeVerified`, `attemptsNotMatchingMode`); the attempt stays in the results. Warm and uncached start from a different page. On a phone, the navigation drawer opens before the measured click.
 - **Samples.** 5 warm-ups (excluded), then 30 measured attempts for core routes and 10 for the others. Every attempt is kept.
@@ -16,22 +16,22 @@ Company-scope identities are the Aurelia (company_demo_a) demo users. Group rows
 
 | ID | Module | Role / workspace | Fixture | Route (warm/uncached: from → link) | Service / API | Data-ready marker | Primary interaction | List SQL, page 10 → 50 (exact) | Route SQL / requests / bytes | Cold p50/p95 desktop · phone | Warm p50/p95 desktop · phone | Uncached p50/p95 desktop · phone | Before → after | Defect |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| dashboard | dashboard | owner / Company | D1, D10 | `/dashboard` (from `/projects` → sidebar Dashboard) | dashboard.service widgets | ≥5 widget links in `#nesto-main`, hydrated | open a widget link | n/a (widget fan-out, route pass) | lead run | lead run | lead run | lead run | lead run | I-03 |
-| projects | projects | owner / Company | D1, D10 | `/projects` (from `/dashboard` → sidebar Projects) | `listPortfolioProjects`, `GET /api/projects` | ≥1 `project-card-link`, hydrated | open a project card | 5 → 5 (`listProjects`, Project×2). Portfolio 12 → 60: tests/perf/projects-page.perf.test.ts | lead run | lead run | lead run | lead run | lead run | I-03 |
-| project-units | projects | pm / Company | D1, D10 (units) | `/projects/project_a/units` (from project overview → Units tab) | `listProjectUnits` | ≥1 `unit-row` (desktop) or `unit-card` (phone) | filter / open a unit | constant, 5 → 10,000 units: tests/perf/project-structure.perf.test.ts | lead run | lead run | lead run | lead run | lead run | I-01 |
-| tasks | tasks | owner / Company | D1, D10 | `/tasks/all` (from `/tasks` → All tab) | `listTasksForWorkspace`, `GET /api/tasks` | ≥5 task row or card links + search field, hydrated | search / open a task | **9 → 9** (ops 3 → 3) | lead run | lead run | lead run | lead run | lead run | I-01, I-02 |
-| invoices | finance | finance / Company | D1, D10 | `/finance/invoices` (from `/finance` → Invoices) | `listInvoicesForWorkspace`, `GET /api/finance/invoices` | ≥3 invoice row or card links + search field | search / open an invoice | **10 → 10** (ops 4 → 4) | lead run | lead run | lead run | lead run | lead run | I-01 |
-| expenses | finance | finance / Company | D1, D10 | `/finance/expenses` (from `/finance` → Expenses) | `listExpensesForWorkspace`, `GET /api/finance/expenses` | ≥3 expense row or card links + search field | search / open an expense | **9 → 9** (ops 4 → 4) | lead run | lead run | lead run | lead run | lead run | I-01 |
-| documents | documents | owner / Company | D1, D10 | `/documents/all` (from `/documents` → All tab) | `listDocumentsForWorkspace`, `GET /api/documents` | ≥3 document row or card links + search field | search / open a document | **35 → 35** (ops 28: one attachment-parent read per record type, not per row) | lead run | lead run | lead run | lead run | lead run | — |
-| approvals | approvals | owner / Company | D1, D10 | `/approvals` (from `/dashboard` → sidebar Approvals) | `listApprovalsForWorkspace`, `GET /api/approvals` | ≥1 `approval-row`, hydrated (an empty state is a failure) | open an approval | **89 → 89** (ops 56, eleven providers) | lead run | lead run | lead run | lead run | lead run | I-05 |
-| daily-logs | daily logs | pm / Company | D1, D10 | `/daily-logs` (from `/dashboard` → sidebar Daily logs) | `listDailyLogs`, `GET /api/daily-logs` | ≥1 `daily-log-row` + search field | search / open a log | **12 → 12** (one run gave 12 → 11: a relation read Prisma skipped) | lead run | lead run | lead run | lead run | lead run | — |
-| group-dashboard | dashboard | owner / Group | D1, Group 1/5/10 | `/dashboard` (from `/projects` → sidebar) | dashboard.group | ≥5 widget links | open a widget link | n/a (route pass) | lead run | lead run | lead run | lead run | lead run | I-03 |
-| group-projects | projects | owner / Group | D1 | `/projects` (from `/dashboard` → sidebar) | `listPortfolioProjects` (group) | ≥3 `project-card-link` | open a project | route pass | lead run | lead run | lead run | lead run | lead run | I-03 |
-| group-tasks | tasks | owner / Group | D1 | `/tasks/all` (from `/tasks` → All tab) | `listTasksForContexts` (one union query) | ≥5 task links + search | search / open | **9 → 9** (ops 7: CompanySettings ×5, one per company, bounded) | lead run | lead run | lead run | lead run | lead run | I-01, I-02 |
-| group-invoices | finance | finance / Group | D1 | `/finance/invoices` (from `/finance`) | register union | ≥3 invoice links + search | search / open | **10 → 10** | lead run | lead run | lead run | lead run | lead run | I-01 |
+| dashboard | dashboard | owner / Company | D1, D10 | `/dashboard` (from `/projects` → sidebar Dashboard) | dashboard.service widgets | ≥5 widget links in `#nesto-main`, hydrated | open a widget link | n/a (widget fan-out, route pass) | 366 stmts, 81 ms (cold) | 190/469 · 573/627 | 340/358 · 594/607 | 453/467 · 363/589 | cold p50 188 → 190 | I-03 |
+| projects | projects | owner / Company | D1, D10 | `/projects` (from `/dashboard` → sidebar Projects) | `listPortfolioProjects`, `GET /api/projects` | ≥1 `project-card-link`, hydrated | open a project card | 5 → 5 (`listProjects`, Project×2). Portfolio 12 → 60: tests/perf/projects-page.perf.test.ts | 24 stmts, 1 ms (cold) | 168/174 · 463/492 | 452/553 · 313/394 | 448/465 · 301/365 | cold p50 165 → 168 | I-03 |
+| project-units | projects | pm / Company | D1, D10 (units) | `/projects/project_a/units` (from project overview → Units tab) | `listProjectUnits` | ≥1 `unit-row` (desktop) or `unit-card` (phone) | filter / open a unit | constant, 5 → 10,000 units: tests/perf/project-structure.perf.test.ts | 60 stmts, 85 ms (cold) | 193/207 · 605/631 | 341/356 · 481/525 | 179/189 · 410/422 | cold p50 317 → 193 | I-01 |
+| tasks | tasks | owner / Company | D1, D10 | `/tasks/all` (from `/tasks` → All tab) | `listTasksForWorkspace`, `GET /api/tasks` | ≥5 task row or card links + search field, hydrated | search / open a task | **9 → 9** (ops 3 → 3) | 41 stmts, 4 ms (cold) | 316/467 · 590/612 | 456/457 · 566/606 | 465/469 · 573/580 | cold p50 312 → 316 | I-01, I-02 |
+| invoices | finance | finance / Company | D1, D10 | `/finance/invoices` (from `/finance` → Invoices) | `listInvoicesForWorkspace`, `GET /api/finance/invoices` | ≥3 invoice row or card links + search field | search / open an invoice | **10 → 10** (ops 4 → 4) | 25 stmts, 2 ms (cold) | 173/178 · 493/520 | 440/457 · 288/553 | 160/452 · 287/299 | cold p50 172 → 173 | I-01 |
+| expenses | finance | finance / Company | D1, D10 | `/finance/expenses` (from `/finance` → Expenses) | `listExpensesForWorkspace`, `GET /api/finance/expenses` | ≥3 expense row or card links + search field | search / open an expense | **9 → 9** (ops 4 → 4) | 21 stmts, 4 ms (cold) | 175/184 · 512/536 | 456/458 · 552/596 | 438/467 · 294/305 | cold p50 299 → 175 | I-01 |
+| documents | documents | owner / Company | D1, D10 | `/documents/all` (from `/documents` → All tab) | `listDocumentsForWorkspace`, `GET /api/documents` | ≥3 document row or card links + search field | search / open a document | **35 → 35** (ops 28: one attachment-parent read per record type, not per row) | 87 stmts, 181 ms (cold) | 316/464 · 582/617 | 456/459 · 566/581 | 456/468 · 569/589 | cold p50 446 → 316 | — |
+| approvals | approvals | owner / Company | D1, D10 | `/approvals` (from `/dashboard` → sidebar Approvals) | `listApprovalsForWorkspace`, `GET /api/approvals` | ≥1 `approval-row`, hydrated (an empty state is a failure) | open an approval | **89 → 89** (ops 56, eleven providers) | 99 stmts, 2 ms (cold) | 175/180 · 451/470 | 352/354 · 313/415 | 153/454 · 334/374 | cold p50 169 → 175 | I-05 |
+| daily-logs | daily logs | pm / Company | D1, D10 | `/daily-logs` (from `/dashboard` → sidebar Daily logs) | `listDailyLogs`, `GET /api/daily-logs` | ≥1 `daily-log-row` + search field | search / open a log | **12 → 12** (one run gave 12 → 11: a relation read Prisma skipped) | 22 stmts, 4 ms (cold) | 175/179 · 431/445 | 351/354 · 291/415 | 149/452 · 301/341 | cold p50 165 → 175 | — |
+| group-dashboard | dashboard | owner / Group | D1, Group 1/5/10 | `/dashboard` (from `/projects` → sidebar) | dashboard.group | ≥5 widget links | open a widget link | n/a (route pass) | 642 stmts, 845 ms (cold) | 184/470 · 591/614 | 339/354 · 595/608 | 451/468 · 579/597 | cold p50 461 → 184 | I-03 |
+| group-projects | projects | owner / Group | D1 | `/projects` (from `/dashboard` → sidebar) | `listPortfolioProjects` (group) | ≥3 `project-card-link` | open a project | route pass | 43 stmts, 32 ms (cold) | 286/293 · 440/487 | 460/468 · 290/298 | 445/466 · 297/331 | cold p50 275 → 286 | I-03 |
+| group-tasks | tasks | owner / Group | D1 | `/tasks/all` (from `/tasks` → All tab) | `listTasksForContexts` (one union query) | ≥5 task links + search | search / open | **9 → 9** (ops 7: CompanySettings ×5, one per company, bounded) | 26 stmts, 20 ms (cold) | 318/468 · 642/674 | 443/471 · 567/613 | 457/469 · 575/587 | cold p50 306 → 318 | I-01, I-02 |
+| group-invoices | finance | finance / Group | D1 | `/finance/invoices` (from `/finance`) | register union | ≥3 invoice links + search | search / open | **10 → 10** | 26 stmts, 5 ms (cold) | 317/469 · 580/778 | 440/470 · 587/615 | 466/468 · 591/601 | cold p50 304 → 317 | I-01 |
 | group-expenses | finance | finance / Group | D1 | service only | register union | — | — | **9 → 9** | — | — | — | — | — | — |
 | group-documents | documents | owner / Group | D1 | service only | `listDocumentsAcross` | — | — | **49 → 49** (per company and record type, not per row) | — | — | — | — | — | — |
-| group-approvals | approvals | owner / Group | D1 | `/approvals` (from `/dashboard`) | `listApprovalsForWorkspace` (group) | ≥1 `approval-row` | open an approval | **175 → 175** (5 companies × 11 sources, bounded; CW-23 ceiling 250) | lead run | lead run | lead run | lead run | lead run | I-05 |
+| group-approvals | approvals | owner / Group | D1 | `/approvals` (from `/dashboard`) | `listApprovalsForWorkspace` (group) | ≥1 `approval-row` | open an approval | **175 → 175** (5 companies × 11 sources, bounded; CW-23 ceiling 250) | 177 stmts, 2 ms (cold) | 173/178 · 476/498 | 349/352 · 335/555 | 151/448 · 334/360 | cold p50 167 → 173 | I-05 |
 
 ## Every other enabled module (document entry, 10 samples)
 
@@ -39,28 +39,28 @@ The selectors for team, organization, company, settings, support and announcemen
 
 | ID | Module | Role / workspace | Route | Data-ready marker | Primary interaction | Cold p50/p95 desktop · phone | Defect |
 |---|---|---|---|---|---|---|---|
-| clients | clients | sales / Company | `/clients/all` | ≥2 client row or card links + search field | search / open (list SQL **7 → 7**) | lead run | I-01 |
-| sales | sales | sales / Company | `/sales` | ≥1 link under `/sales/` | open pipeline | lead run | I-04 (1 of 10 phone samples) |
-| contracts | contracts | legal / Company | `/contracts` | ≥1 link under `/contracts/` | open a contract | lead run | — |
-| procurement | procurement | procurement / Company | `/procurement` | ≥1 link under `/procurement/` | open a request | lead run | — |
-| inventory | inventory | inventory / Company | `/inventory` | ≥1 link under `/inventory/` | open an item | lead run | — |
-| hse | hse | hse / Company | `/hse` | ≥1 link under `/hse/` | open an inspection | lead run | — |
-| qaqc | qaqc | qaqc / Company | `/qaqc` | ≥1 link under `/qaqc/` | open an inspection | lead run | — |
-| hr | hr | hr / Company | `/hr` | ≥1 link under `/hr/` | open employees | lead run | — |
-| meetings | meetings | pm / Company | `/meetings` | ≥1 link under `/meetings/` | open a meeting | lead run | — |
-| calendar | calendar | pm / Company | `/calendar` | ≥1 `calendar-*` element | open an event | lead run | — |
-| timesheets | timesheets | pm / Company | `/timesheets` | ≥1 `timesheet*` element | edit the week | lead run | — |
-| engineering | engineering | engineer / Company | `/engineering` | ≥1 engineering link | open a drawing | lead run | — |
-| contractors | contractors | pm / Company | `/contractors` | ≥1 link under `/contractors/` | open a contractor | lead run | — |
-| workforce | workforce | hr / Company | `/workforce` | ≥1 link under `/workforce/` | open a worker | lead run | — |
-| people | people | owner / Company | `/people` | ≥3 links under `/people/` | open a person | lead run | — |
-| activity | announcements | owner / Company | `/activity` | ≥3 `activity-row` | open an item | lead run | — |
-| announcements | announcements | owner / Company | `/announcements` | ≥1 announcement link | open an announcement | lead run | — |
-| team | team | owner / Company | `/team` | ≥3 team row or card links + search field | search / open a member | lead run | — |
-| organization | organization | owner / Company | `/organization` | ≥1 `department-metric` | open a department | lead run | — |
-| company | company | owner / Company | `/company` | ≥1 link under `/company/` | open a section | lead run | — |
-| settings | settings | owner / Company | `/settings` | ≥3 links under `/settings/` | open a section | lead run | — |
-| support | support | owner / Company | `/support` | ≥1 link under `/support/` | open a section | lead run | — |
+| clients | clients | sales / Company | `/clients/all` | ≥2 client row or card links + search field | search / open (list SQL **7 → 7**) | 18 stmts, 1 ms (cold) | I-01 |
+| sales | sales | sales / Company | `/sales` | ≥1 link under `/sales/` | open pipeline | 26 stmts, 15 ms (cold) | I-04 (1 of 10 phone samples) |
+| contracts | contracts | legal / Company | `/contracts` | ≥1 link under `/contracts/` | open a contract | 58 stmts, 31 ms (cold) | — |
+| procurement | procurement | procurement / Company | `/procurement` | ≥1 link under `/procurement/` | open a request | 75 stmts, 15 ms (cold) | — |
+| inventory | inventory | inventory / Company | `/inventory` | ≥1 link under `/inventory/` | open an item | 56 stmts, 3 ms (cold) | — |
+| hse | hse | hse / Company | `/hse` | ≥1 link under `/hse/` | open an inspection | 57 stmts, 1 ms (cold) | — |
+| qaqc | qaqc | qaqc / Company | `/qaqc` | ≥1 link under `/qaqc/` | open an inspection | 55 stmts, 24 ms (cold) | — |
+| hr | hr | hr / Company | `/hr` | ≥1 link under `/hr/` | open employees | 38 stmts, 3 ms (cold) | — |
+| meetings | meetings | pm / Company | `/meetings` | ≥1 link under `/meetings/` | open a meeting | 25 stmts, 7 ms (cold) | — |
+| calendar | calendar | pm / Company | `/calendar` | ≥1 `calendar-*` element | open an event | 156 stmts, 209 ms (cold) | — |
+| timesheets | timesheets | pm / Company | `/timesheets` | ≥1 `timesheet*` element | edit the week | 37 stmts, 1 ms (cold) | — |
+| engineering | engineering | engineer / Company | `/engineering` | ≥1 engineering link | open a drawing | 62 stmts, 9 ms (cold) | — |
+| contractors | contractors | pm / Company | `/contractors` | ≥1 link under `/contractors/` | open a contractor | 20 stmts, 1 ms (cold) | — |
+| workforce | workforce | hr / Company | `/workforce` | ≥1 link under `/workforce/` | open a worker | 37 stmts, 8 ms (cold) | — |
+| people | people | owner / Company | `/people` | ≥3 links under `/people/` | open a person | 32 stmts, 12 ms (cold) | — |
+| activity | announcements | owner / Company | `/activity` | ≥3 `activity-row` | open an item | 54 stmts, 8 ms (cold) | — |
+| announcements | announcements | owner / Company | `/announcements` | ≥1 announcement link | open an announcement | 35 stmts, 2 ms (cold) | — |
+| team | team | owner / Company | `/team` | ≥3 team row or card links + search field | search / open a member | 17 stmts, 4 ms (cold) | — |
+| organization | organization | owner / Company | `/organization` | ≥1 `department-metric` | open a department | 26 stmts, 7 ms (cold) | — |
+| company | company | owner / Company | `/company` | ≥1 link under `/company/` | open a section | 17 stmts, 0 ms (cold) | — |
+| settings | settings | owner / Company | `/settings` | ≥3 links under `/settings/` | open a section | 23 stmts, 4 ms (cold) | — |
+| support | support | owner / Company | `/support` | ≥1 link under `/support/` | open a section | 14 stmts, 0 ms (cold) | — |
 
 Heavy previews, 3D assets and long exports need their own manifest-specific budgets (§4). They are not timed here. The finance CSV export is measured in `tests/perf/finance-registers.perf.test.ts` (10,000 invoices, bounded memory).
 
