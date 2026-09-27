@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { CONTRACT_REQUEST_STATUS_LABELS, type ContractRequestDTO } from "@/lib/modules/contracts/units/unit-contract.types";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, formatRelativeTime } from "@/lib/utils/format";
+import { contractsLabel, useContractsTranslations } from "../contracts-text";
 
 /**
  * Legal's queue of contract requests (E-05F §12): each names the unit, its
@@ -23,6 +24,7 @@ import { formatDate, formatRelativeTime } from "@/lib/utils/format";
  * unit's Legal section, where the contract is drafted from the request.
  */
 export function ContractRequestQueue({ items, view, canCreate, canDecline }: { items: ContractRequestDTO[]; view: "open" | "closed"; canCreate: boolean; canDecline: boolean }) {
+  const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [declining, setDeclining] = React.useState<ContractRequestDTO | null>(null);
@@ -37,16 +39,16 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
 
   return (
     <div className="space-y-3">
-      <nav aria-label="Request views" className="flex gap-1">
+      <nav aria-label={t("requests.views")} className="flex gap-1">
         {(["open", "closed"] as const).map((key) => (
           <Link key={key} href={key === "open" ? "/contracts/requests" : "/contracts/requests?view=closed"} aria-current={view === key ? "page" : undefined} className={cn("inline-flex h-8 items-center rounded-md px-3 text-table font-medium touch:h-11", view === key ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}>
-            {key === "open" ? "Waiting" : "Answered"}
+            {key === "open" ? t("requests.waiting") : t("requests.answered")}
           </Link>
         ))}
       </nav>
       {items.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="contract-requests-empty">
-          {view === "open" ? "No unit is waiting for a contract." : "No request has been answered yet."}
+          {view === "open" ? t("requests.openEmpty") : t("requests.closedEmpty")}
         </p>
       ) : (
         <ul className="space-y-2" data-testid="contract-requests">
@@ -59,24 +61,24 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
                     <Link href={unitHref} className="text-body font-semibold text-fg hover:underline">
                       {row.unit.unitCode}
                     </Link>
-                    <Badge tone={row.status === "OPEN" ? "warning" : row.status === "FULFILLED" ? "success" : "default"}>{CONTRACT_REQUEST_STATUS_LABELS[row.status]}</Badge>
+                    <Badge tone={row.status === "OPEN" ? "warning" : row.status === "FULFILLED" ? "success" : "default"}>{contractsLabel(t, "requestStatus", row.status, CONTRACT_REQUEST_STATUS_LABELS[row.status])}</Badge>
                     <span className="text-meta text-fg-subtle">
                       {row.unit.projectName} · {row.unit.building} · {row.unit.floor}
                     </span>
                   </div>
                   <p className="mt-1 text-table text-fg-muted">
-                    {row.client ? row.client.name : "Client hidden"}
-                    {row.deal ? ` · ${row.deal.name}` : ""} · agreed {amountLabel(row.agreedPrice, row.currency)}
+                    {row.client ? row.client.name : t("requests.clientHidden")}
+                    {row.deal ? ` · ${row.deal.name}` : ""}{t("requests.agreed", { amount: amountLabel(row.agreedPrice, row.currency) })}
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    Requested {formatRelativeTime(row.requestedAt)}
+                    {t("requests.requested", { when: formatRelativeTime(row.requestedAt) })}
                     {row.requestedBy ? (
                       <>
-                        {" by "}
+                        {t("requests.by")}
                         <PersonLink memberId={row.requestedByMemberId} name={row.requestedBy} />
                       </>
                     ) : null}
-                    {row.status === "OPEN" && row.reservation.status === "ACTIVE" ? ` · reserved until ${formatDate(row.reservation.expiresAt)}` : ""}
+                    {row.status === "OPEN" && row.reservation.status === "ACTIVE" ? t("requests.reservedUntil", { date: formatDate(row.reservation.expiresAt) }) : ""}
                     {row.contract ? ` · ${row.contract.number}` : ""}
                   </p>
                   {row.notes ? <p className="mt-1 whitespace-pre-line text-table text-fg">{row.notes}</p> : null}
@@ -87,13 +89,13 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
                     {canCreate ? (
                       <Button asChild size="sm">
                         <Link href={`${unitHref}?action=create`}>
-                          <FilePen aria-hidden="true" /> Draft contract
+                          <FilePen aria-hidden="true" /> {t("requests.draftContract")}
                         </Link>
                       </Button>
                     ) : null}
                     {canDecline ? (
                       <Button size="sm" variant="secondary" onClick={() => setDeclining(row)}>
-                        Decline
+                        {t("common.decline")}
                       </Button>
                     ) : null}
                   </div>
@@ -104,7 +106,7 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
         </ul>
       )}
       {declining ? (
-        <FieldsDialog open onClose={() => setDeclining(null)} title={`Decline the request for ${declining.unit.unitCode}?`} description="Sales is told, with your reason." confirmLabel="Decline" url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: "Reason", kind: "textarea", required: true }]} success="The request was declined." submit={submit} module="contracts" />
+        <FieldsDialog open onClose={() => setDeclining(null)} title={t("requests.declineTitle", { unit: declining.unit.unitCode })} description={t("requests.declineDescription")} confirmLabel={t("common.decline")} url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: t("common.reason"), kind: "textarea", required: true }]} success={t("requests.declined")} submit={submit} module="contracts" />
       ) : null}
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "@/components/navigation/nav-link";
 
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Contract record tabs (PRD #18 §101).
@@ -21,7 +22,7 @@ const TABS = [
 
 export type ContractTabKey = (typeof TABS)[number]["key"];
 
-export function ContractTabs({
+export async function ContractTabs({
   contractId,
   active,
   capabilities,
@@ -30,6 +31,7 @@ export function ContractTabs({
   active: ContractTabKey;
   capabilities: ContractDetailDTO["capabilities"];
 }) {
+  const t = await getTranslations("contracts");
   const show: Record<ContractTabKey, boolean> = {
     overview: true,
     parties: capabilities.canViewParties,
@@ -42,7 +44,7 @@ export function ContractTabs({
   const visible = TABS.filter((tab) => show[tab.key]);
 
   return (
-    <nav aria-label="Contract sections" className="border-b border-line">
+    <nav aria-label={t("tabs.label")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -58,7 +60,7 @@ export function ContractTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(`tabs.${tab.key}`)}
               </Link>
             </li>
           );

@@ -20,6 +20,7 @@ import {
   contractTypeLabels,
 } from "@/lib/modules/contracts/contracts/contract.schema";
 import { renewalTypeLabels } from "@/lib/modules/contracts/contracts/contract.status";
+import { contractsLabel, useContractsTranslations } from "./contracts-text";
 
 export type ContractFormValues = {
   contractNumber: string;
@@ -88,6 +89,7 @@ export function ContractForm({
   canEditCommercial: boolean;
   canEditConfidential: boolean;
 }) {
+  const t = useContractsTranslations();
   const [renewalType, setRenewalType] = React.useState(values?.renewalType ?? "NONE");
   const [contractValue, setContractValue] = React.useState(values?.contractValue ?? "");
 
@@ -104,8 +106,8 @@ export function ContractForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title="Contract" description="What the agreement is, and who answers for it.">
-        <Field label="Contract number" name="contractNumber" required>
+      <FormSection title={t("form.contract")} description={t("form.contractDescription")}>
+        <Field label={t("form.contractNumber")} name="contractNumber" required>
           <Input
             id="contractNumber"
             name="contractNumber"
@@ -115,7 +117,7 @@ export function ContractForm({
           />
         </Field>
 
-        <Field label="Contract type" name="contractType" required>
+        <Field label={t("form.contractType")} name="contractType" required>
           <select
             id="contractType"
             name="contractType"
@@ -125,21 +127,21 @@ export function ContractForm({
             {/* A sale agreement is drafted from its unit; an existing one keeps its type (E-05F §12). */}
             {(values?.contractType === "SALE_AGREEMENT" ? CONTRACT_TYPES : FORM_CONTRACT_TYPES).map((type) => (
               <option key={type} value={type}>
-                {contractTypeLabels[type]}
+                {contractsLabel(t, "contractType", type, contractTypeLabels[type])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Title" name="title" required className="sm:col-span-2">
+        <Field label={t("common.title")} name="title" required className="sm:col-span-2">
           <Input id="title" name="title" defaultValue={values?.title ?? ""} required maxLength={250} />
         </Field>
 
         <Field
-          label="Owner"
+          label={t("form.owner")}
           name="ownerMemberId"
           required
-          hint="The internal record owner. Ownership is not permission."
+          hint={t("form.ownerHint")}
         >
           <select
             id="ownerMemberId"
@@ -148,7 +150,7 @@ export function ContractForm({
             defaultValue={values?.ownerMemberId ?? ""}
             required
           >
-            <option value="">Choose an owner</option>
+            <option value="">{t("form.chooseOwner")}</option>
             {owners.map((owner) => (
               <option key={owner.value} value={owner.value}>
                 {owner.label}
@@ -158,9 +160,9 @@ export function ContractForm({
         </Field>
 
         <Field
-          label="Counterparty"
+          label={t("form.counterparty")}
           name="counterpartyName"
-          hint="The legal entity on the other side, as it appears in the agreement."
+          hint={t("form.counterpartyHint")}
         >
           <Input
             id="counterpartyName"
@@ -172,17 +174,17 @@ export function ContractForm({
       </FormSection>
 
       <FormSection
-        title="Client and project"
-        description="Both optional. An NDA or a lease may have neither."
+        title={t("form.clientProject")}
+        description={t("form.clientProjectDescription")}
       >
-        <Field label="Client" name="clientId">
+        <Field label={t("form.client")} name="clientId">
           <select
             id="clientId"
             name="clientId"
             className={selectClass}
             defaultValue={values?.clientId ?? ""}
           >
-            <option value="">No client</option>
+            <option value="">{t("form.noClient")}</option>
             {clients.map((client) => (
               <option key={client.value} value={client.value}>
                 {client.label}
@@ -191,14 +193,14 @@ export function ContractForm({
           </select>
         </Field>
 
-        <Field label="Project" name="projectId">
+        <Field label={t("form.project")} name="projectId">
           <select
             id="projectId"
             name="projectId"
             className={selectClass}
             defaultValue={values?.projectId ?? ""}
           >
-            <option value="">No project</option>
+            <option value="">{t("form.noProject")}</option>
             {projects.map((project) => (
               <option key={project.value} value={project.value}>
                 {project.label}
@@ -210,17 +212,17 @@ export function ContractForm({
 
       {opportunities.length > 0 || proposals.length > 0 ? (
         <FormSection
-          title="Sales source"
-          description="Where the agreement came from. Lineage only — it changes nothing about the contract."
+          title={t("form.salesSource")}
+          description={t("form.salesSourceDescription")}
         >
-          <Field label="Opportunity" name="opportunityId">
+          <Field label={t("form.opportunity")} name="opportunityId">
             <select
               id="opportunityId"
               name="opportunityId"
               className={selectClass}
               defaultValue={values?.opportunityId ?? ""}
             >
-              <option value="">No opportunity</option>
+              <option value="">{t("form.noOpportunity")}</option>
               {opportunities.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -229,14 +231,14 @@ export function ContractForm({
             </select>
           </Field>
 
-          <Field label="Proposal" name="proposalId">
+          <Field label={t("form.proposal")} name="proposalId">
             <select
               id="proposalId"
               name="proposalId"
               className={selectClass}
               defaultValue={values?.proposalId ?? ""}
             >
-              <option value="">No proposal</option>
+              <option value="">{t("form.noProposal")}</option>
               {proposals.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -249,10 +251,10 @@ export function ContractForm({
 
       {canEditCommercial ? (
         <FormSection
-          title="Commercial terms"
-          description="A value needs a currency. Totals are never added across currencies."
+          title={t("form.commercial")}
+          description={t("form.commercialDescription")}
         >
-          <Field label="Contract value" name="contractValue">
+          <Field label={t("form.contractValue")} name="contractValue">
             <Input
               id="contractValue"
               name="contractValue"
@@ -263,14 +265,14 @@ export function ContractForm({
             />
           </Field>
 
-          <Field label="Currency" name="currency" required={valued}>
+          <Field label={t("form.currency")} name="currency" required={valued}>
             <select
               id="currency"
               name="currency"
               className={selectClass}
               defaultValue={values?.currency ?? ""}
             >
-              <option value="">No currency</option>
+              <option value="">{t("form.noCurrency")}</option>
               {currencyOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -279,7 +281,7 @@ export function ContractForm({
             </select>
           </Field>
 
-          <Field label="Commercial notes" name="commercialNotes" className="sm:col-span-2">
+          <Field label={t("form.commercialNotes")} name="commercialNotes" className="sm:col-span-2">
             <Textarea
               id="commercialNotes"
               name="commercialNotes"
@@ -291,8 +293,8 @@ export function ContractForm({
         </FormSection>
       ) : null}
 
-      <FormSection title="Dates" description="Expiry may be left empty for an open-ended agreement.">
-        <Field label="Effective date" name="effectiveDate">
+      <FormSection title={t("form.dates")} description={t("form.datesDescription")}>
+        <Field label={t("common.effectiveDate")} name="effectiveDate">
           <Input
             id="effectiveDate"
             name="effectiveDate"
@@ -301,7 +303,7 @@ export function ContractForm({
           />
         </Field>
 
-        <Field label="Expiry date" name="expiryDate">
+        <Field label={t("form.expiryDate")} name="expiryDate">
           <Input
             id="expiryDate"
             name="expiryDate"
@@ -311,9 +313,9 @@ export function ContractForm({
         </Field>
 
         <Field
-          label="Signed date"
+          label={t("common.signedDate")}
           name="signedDate"
-          hint="An agreement is often signed after it takes effect. Either order is accepted."
+          hint={t("form.signedHint")}
         >
           <Input
             id="signedDate"
@@ -324,8 +326,8 @@ export function ContractForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Renewal" description="What happens when the term runs out.">
-        <Field label="Renewal type" name="renewalType" required>
+      <FormSection title={t("form.renewal")} description={t("form.renewalDescription")}>
+        <Field label={t("form.renewalType")} name="renewalType" required>
           <select
             id="renewalType"
             name="renewalType"
@@ -335,7 +337,7 @@ export function ContractForm({
           >
             {RENEWAL_TYPES.map((type) => (
               <option key={type} value={type}>
-                {renewalTypeLabels[type]}
+                {contractsLabel(t, "renewalType", type, renewalTypeLabels[type])}
               </option>
             ))}
           </select>
@@ -343,9 +345,9 @@ export function ContractForm({
 
         {renews ? (
           <Field
-            label="Notice days"
+            label={t("form.noticeDays")}
             name="renewalNoticeDays"
-            hint="How far ahead of expiry the renewal conversation has to start."
+            hint={t("form.noticeDaysHint")}
           >
             <Input
               id="renewalNoticeDays"
@@ -359,7 +361,7 @@ export function ContractForm({
         ) : null}
 
         {autoRenews ? (
-          <Field label="Renewal period (months)" name="autoRenewalPeriodMonths" required>
+          <Field label={t("form.renewalPeriod")} name="autoRenewalPeriodMonths" required>
             <Input
               id="autoRenewalPeriodMonths"
               name="autoRenewalPeriodMonths"
@@ -372,28 +374,28 @@ export function ContractForm({
         ) : null}
       </FormSection>
 
-      <FormSection title="Legal terms" description="Free text. There is no jurisdiction engine.">
-        <Field label="Governing law" name="governingLaw">
+      <FormSection title={t("form.legalTerms")} description={t("form.legalTermsDescription")}>
+        <Field label={t("form.governingLaw")} name="governingLaw">
           <Input
             id="governingLaw"
             name="governingLaw"
             defaultValue={values?.governingLaw ?? ""}
             maxLength={200}
-            placeholder="Law of Albania"
+            placeholder={t("form.governingLawPlaceholder")}
           />
         </Field>
 
-        <Field label="Jurisdiction" name="jurisdiction">
+        <Field label={t("form.jurisdiction")} name="jurisdiction">
           <Input
             id="jurisdiction"
             name="jurisdiction"
             defaultValue={values?.jurisdiction ?? ""}
             maxLength={200}
-            placeholder="Tirana, Albania"
+            placeholder={t("form.jurisdictionPlaceholder")}
           />
         </Field>
 
-        <Field label="Summary" name="summary" className="sm:col-span-2">
+        <Field label={t("common.summary")} name="summary" className="sm:col-span-2">
           <Textarea
             id="summary"
             name="summary"
@@ -405,10 +407,10 @@ export function ContractForm({
 
         {canEditConfidential ? (
           <Field
-            label="Legal notes"
+            label={t("form.legalNotes")}
             name="legalNotes"
             className="sm:col-span-2"
-            hint="Confidential. Visible only with the confidential-terms permission."
+            hint={t("form.legalNotesHint")}
           >
             <Textarea
               id="legalNotes"
@@ -443,20 +445,21 @@ export function ContractMetadataForm({
   versionUpdatedAt?: string;
   cancelHref: string;
 }) {
+  const t = useContractsTranslations();
   return (
     <RecordForm
       action={action}
       module="contracts"
       cancelHref={cancelHref}
-      submitLabel="Save changes"
-      pendingLabel="Saving…"
+      submitLabel={t("common.saveChanges")}
+      pendingLabel={t("common.saving")}
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Record details"
-        description="This contract is approved, so its terms change by amendment. The owner and the internal summary can still be corrected."
+        title={t("form.recordDetails")}
+        description={t("form.recordDetailsDescription")}
       >
-        <Field label="Owner" name="ownerMemberId" required>
+        <Field label={t("form.owner")} name="ownerMemberId" required>
           <select
             id="ownerMemberId"
             name="ownerMemberId"
@@ -472,7 +475,7 @@ export function ContractMetadataForm({
           </select>
         </Field>
 
-        <Field label="Summary" name="summary" className="sm:col-span-2">
+        <Field label={t("common.summary")} name="summary" className="sm:col-span-2">
           <Textarea
             id="summary"
             name="summary"

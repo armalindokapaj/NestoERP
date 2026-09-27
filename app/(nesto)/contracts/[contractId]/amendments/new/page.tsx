@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { AmendmentForm } from "@/components/contracts/amendment-form";
@@ -9,7 +10,10 @@ import { contractBreadcrumbs, contractContext } from "../../contract-context";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "New amendment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.newAmendment") };
+}
 
 /**
  * Draft an amendment (PRD #18 §165, §166).
@@ -21,6 +25,7 @@ export const metadata: Metadata = { title: "New amendment" };
 export default async function NewAmendmentPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canCreateAmendment) notFound();
 
@@ -31,10 +36,10 @@ export default async function NewAmendmentPage({ params }: Params) {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={contractBreadcrumbs(contract, "New amendment")} />
+      <Breadcrumbs items={contractBreadcrumbs(contract, t("crumbs.newAmendment"), t)} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New amendment</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.newAmendment")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {contract.contractNumber} — {contract.title}
         </p>
@@ -43,8 +48,8 @@ export default async function NewAmendmentPage({ params }: Params) {
       <AmendmentForm
         action={action}
         cancelHref={`/contracts/${contract.id}/amendments`}
-        submitLabel="Create amendment"
-        pendingLabel="Creating…"
+        submitLabel={t("amendmentForm.create")}
+        pendingLabel={t("common.creating")}
         canEditCommercial={canSeeCommercial(context)}
         requireReductionAcknowledgement={false}
         contract={{

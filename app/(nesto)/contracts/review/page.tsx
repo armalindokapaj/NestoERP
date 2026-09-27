@@ -12,8 +12,12 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { ContractList } from "../contract-list";
 import { contractSectionSearch } from "@/lib/modules/contracts/contract.query";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Review" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.review") };
+}
 
 /** In review and awaiting approval (PRD #18 §88). */
 export default async function Page({
@@ -24,6 +28,7 @@ export default async function Page({
   const context = await requireModule("contracts");
   if (!can(context, "legal.contract.view")) redirect("/access-denied");
 
+  const t = await getTranslations("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const params = await searchParams;
   // The export carries this section's own view, not just the filters (AUD-08 §3, DT-02).
@@ -38,7 +43,7 @@ export default async function Page({
           {can(context, "legal.export") ? <ContractExportLink search={search} /> : null}
           {can(context, "legal.contract.create") ? (
             <Button asChild size="sm">
-              <Link href="/contracts/new">New contract</Link>
+              <Link href="/contracts/new">{t("common.newContract")}</Link>
             </Button>
           ) : null}
         </div>
@@ -50,8 +55,8 @@ export default async function Page({
           searchParams={params}
           view="review"
           basePath="/contracts/review"
-          emptyTitle="Nothing is in review."
-          emptyDescription="Contracts under internal review or waiting for a decision appear here."
+          emptyTitle={t("views.review.title")}
+          emptyDescription={t("views.review.description")}
         />
       </Suspense>
     </ModulePage>

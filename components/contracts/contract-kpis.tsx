@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import type { ContractOverviewDTO } from "@/lib/modules/contracts/contract.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { totalsLabel } from "./contract-format";
 
 /**
@@ -11,59 +12,60 @@ import { totalsLabel } from "./contract-format";
  * computed from a wider query than the list beneath it is a leak with a number
  * on it.
  */
-export function ContractKpiGrid({ overview }: { overview: ContractOverviewDTO }) {
+export async function ContractKpiGrid({ overview }: { overview: ContractOverviewDTO }) {
+  const t = await getTranslations("contracts");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.contracts) {
     cards.push({
-      label: "Active contracts",
+      label: t("kpis.activeContracts"),
       value: String(overview.activeContracts),
       href: "/contracts/active",
     });
     cards.push({
-      label: "Expiring in 30 days",
+      label: t("kpis.expiringIn30"),
       value: String(overview.expiringIn30Days),
-      hint: `${overview.expiringIn90Days} within 90 days`,
+      hint: t("kpis.within90", { count: overview.expiringIn90Days }),
       href: "/contracts/expiring?within=30",
     });
     cards.push({
-      label: "In review",
+      label: t("kpis.inReview"),
       value: String(overview.pendingReview),
-      hint: `${overview.pendingApproval} awaiting approval`,
+      hint: t("kpis.awaitingApproval", { count: overview.pendingApproval }),
       href: "/contracts/review",
     });
     cards.push({
-      label: "Sent, not signed",
+      label: t("kpis.sentNotSigned"),
       value: String(overview.sentNotSigned),
-      hint: `${overview.approvedNotSent} approved and not yet sent`,
+      hint: t("kpis.approvedNotSent", { count: overview.approvedNotSent }),
       href: "/contracts/all?status=SENT",
     });
   }
 
   if (overview.visible.commercial && overview.activeValue) {
     cards.push({
-      label: "Active contract value",
+      label: t("kpis.activeValue"),
       value: totalsLabel(overview.activeValue),
-      hint: "Grouped by currency, never summed across them",
+      hint: t("kpis.activeValueHint"),
       href: "/contracts/reports",
     });
   }
 
   if (overview.visible.obligations) {
     cards.push({
-      label: "Open obligations",
+      label: t("kpis.openObligations"),
       value: String(overview.openObligations),
       hint:
         overview.overdueObligations > 0
-          ? `${overview.overdueObligations} overdue`
-          : "None overdue",
+          ? t("kpis.overdue", { count: overview.overdueObligations })
+          : t("kpis.noneOverdue"),
       href: "/contracts/reports",
     });
   }
 
   if (overview.visible.approvals) {
     cards.push({
-      label: "Awaiting a decision",
+      label: t("kpis.awaitingDecision"),
       value: String(overview.pendingApproval),
       href: "/contracts/approvals",
     });
@@ -71,9 +73,9 @@ export function ContractKpiGrid({ overview }: { overview: ContractOverviewDTO })
 
   if (overview.visible.contracts) {
     cards.push({
-      label: "Renewal notice due",
+      label: t("kpis.renewalNoticeDue"),
       value: String(overview.renewalNoticeDue),
-      hint: `${overview.terminatedThisYear} terminated this year`,
+      hint: t("kpis.terminatedThisYear", { count: overview.terminatedThisYear }),
       href: "/contracts/expiring",
     });
   }
@@ -93,7 +95,7 @@ export function ContractKpiGrid({ overview }: { overview: ContractOverviewDTO })
 
         return card.href ? (
           <Link
-            key={card.label}
+            key={card.href}
             href={card.href}
             className="nesto-card p-4 transition-colors hover:border-line-strong"
           >

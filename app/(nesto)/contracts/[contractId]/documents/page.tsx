@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractRecordDocuments } from "@/components/contracts/record-documents";
@@ -10,7 +11,10 @@ import { ContractTabs } from "../contract-tabs";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Contract documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.documents") };
+}
 
 /**
  * Files filed against the contract (PRD #18 §196–§204).
@@ -23,13 +27,14 @@ export const metadata: Metadata = { title: "Contract documents" };
 export default async function ContractDocumentsPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewDocuments) notFound();
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={contractBreadcrumbs(contract, "Documents")}
+        breadcrumbs={contractBreadcrumbs(contract, t("crumbs.documents"), t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}
@@ -46,7 +51,7 @@ export default async function ContractDocumentsPage({ params }: Params) {
           context={context}
           entityType="contract"
           entityId={contract.id}
-          emptyDescription="The executed copy and any drafts or annexes appear here. A corrected signed copy is filed as a new document — the file that was actually executed is never overwritten."
+          emptyDescription={t("documents.contractEmpty")}
         />
       </Suspense>
     </div>

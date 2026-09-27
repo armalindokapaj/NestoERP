@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractForm } from "@/components/contracts/contract-form";
@@ -9,7 +10,10 @@ import { createContractAction } from "@/lib/actions/contracts";
 import { canSeeCommercial, canSeeConfidential } from "@/lib/modules/contracts/contract.dto";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 
-export const metadata: Metadata = { title: "New contract" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.newContract") };
+}
 
 /**
  * Draft a contract (PRD #18 §94–§99).
@@ -32,9 +36,10 @@ export default async function NewContractPage({
   const context = await requireModule("contracts");
   if (!can(context, "legal.contract.create")) notFound();
 
-  const [options, params] = await Promise.all([
+  const [options, params, t] = await Promise.all([
     contracts.contractFormOptions(context),
     searchParams,
+    getTranslations("contracts"),
   ]);
 
   const one = (key: string): string | null => {
@@ -60,25 +65,24 @@ export default async function NewContractPage({
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Legal", href: "/contracts" },
-          { label: "Contracts", href: "/contracts/all" },
-          { label: "New contract" },
+          { label: t("crumbs.legal"), href: "/contracts" },
+          { label: t("crumbs.contracts"), href: "/contracts/all" },
+          { label: t("common.newContract") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New contract</h1>
+        <h1 className="text-page font-semibold text-fg">{t("common.newContract")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          An agreement your company is party to. It is saved as a draft — the terms stay
-          editable until it is approved.
+          {t("newPage.intro")}
         </p>
       </div>
 
       <ContractForm
         action={createContractAction}
         cancelHref="/contracts/all"
-        submitLabel="Create contract"
-        pendingLabel="Creating…"
+        submitLabel={t("newPage.create")}
+        pendingLabel={t("common.creating")}
         canEditCommercial={commercial}
         canEditConfidential={confidential}
         owners={options.owners.map((owner) => ({

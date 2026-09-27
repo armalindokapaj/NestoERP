@@ -3,6 +3,8 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { ContractSummaryDTO } from "@/lib/modules/contracts/contract.types";
 import { contractTypeLabels } from "@/lib/modules/contracts/contracts/contract.schema";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/utils/format";
 import { commercialLabel, expiryLabel } from "./contract-format";
 
@@ -16,11 +18,11 @@ import { commercialLabel, expiryLabel } from "./contract-format";
  * Expiry is stated in words as well as colour, because "the orange one" is not
  * a state a keyboard or a screen reader can perceive (PRD #18 §350, §360).
  */
-export function ContractTable({
+export async function ContractTable({
   contracts,
   showClient = true,
   showProject = true,
-  caption = "Contracts",
+  caption,
   listId = "contracts.list",
 }: {
   contracts: ContractSummaryDTO[];
@@ -30,6 +32,7 @@ export function ContractTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const t = await getTranslations("contracts");
   const showValue = contracts.some((row) => row.commercial !== null);
 
   const columns: TableColumn<ContractSummaryDTO>[] = [
@@ -37,7 +40,7 @@ export function ContractTable({
       key: "contractNumber",
       id: "contractNumber",
       mandatory: true,
-      label: "Contract",
+      label: t("table.contract"),
       primary: true,
       render: (row) => (
         <span className="flex flex-col">
@@ -49,20 +52,20 @@ export function ContractTable({
     {
       key: "type",
       id: "type",
-      label: "Type",
+      label: t("table.type"),
       hideBelow: "xl",
-      render: (row) => contractTypeLabels[row.contractType],
+      render: (row) => contractsLabel(t, "contractType", row.contractType, contractTypeLabels[row.contractType]),
     },
     ...(showClient
       ? [
           {
             key: "client",
             id: "client",
-            label: "Client / counterparty",
+            label: t("table.client"),
             hideBelow: "md" as const,
             render: (row: ContractSummaryDTO) =>
               row.client?.name ??
-              row.counterpartyName ?? <span className="text-fg-subtle">No counterparty</span>,
+              row.counterpartyName ?? <span className="text-fg-subtle">{t("common.noCounterparty")}</span>,
           },
         ]
       : []),
@@ -71,7 +74,7 @@ export function ContractTable({
           {
             key: "project",
             id: "project",
-            label: "Project",
+            label: t("table.project"),
             hideBelow: "xl" as const,
             render: (row: ContractSummaryDTO) =>
               row.project?.code ?? <span className="text-fg-subtle">—</span>,
@@ -81,12 +84,12 @@ export function ContractTable({
     {
       key: "owner",
       id: "owner",
-      label: "Owner",
+      label: t("table.owner"),
       hideBelow: "xl",
       render: (row) => (
         <span className={row.owner.active ? undefined : "text-fg-subtle"}>
           <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
-          {row.owner.active ? "" : " (inactive)"}
+          {row.owner.active ? "" : t("common.inactiveSuffix")}
         </span>
       ),
     },
@@ -95,14 +98,14 @@ export function ContractTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (row) => <StatusBadge status={row.attention.effectiveStatus} />,
     },
     {
       key: "expiry",
       id: "expiry",
       valueType: "date",
-      label: "Expiry",
+      label: t("table.expiry"),
       hideBelow: "lg",
       render: (row) =>
         row.expiryDate ? (
@@ -114,10 +117,10 @@ export function ContractTable({
             }
           >
             {formatDate(row.expiryDate)}
-            {row.attention.expiringSoon ? ` · ${expiryLabel(row.attention.daysToExpiry)}` : ""}
+            {row.attention.expiringSoon ? ` · ${expiryLabel(row.attention.daysToExpiry, t)}` : ""}
           </span>
         ) : (
-          <span className="text-fg-subtle">No fixed expiry</span>
+          <span className="text-fg-subtle">{t("format.noFixedExpiry")}</span>
         ),
     },
   ];
@@ -127,10 +130,10 @@ export function ContractTable({
       key: "value",
       id: "value",
       valueType: "money",
-      label: "Value",
+      label: t("table.value"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums">{commercialLabel(row.commercial) ?? "—"}</span>
+        <span className="tabular-nums">{commercialLabel(row.commercial, t) ?? "—"}</span>
       ),
     });
   }
@@ -142,7 +145,7 @@ export function ContractTable({
       records={contracts}
       rowKey={(row) => row.id}
       rowHref={(row) => `/contracts/${row.id}`}
-      caption={caption}
+      caption={caption ?? t("table.caption")}
     />
   );
 }

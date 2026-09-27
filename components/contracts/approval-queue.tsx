@@ -20,6 +20,7 @@ import {
 import type { ContractApprovalDTO } from "@/lib/modules/contracts/contract.types";
 import { formatDateTime } from "@/lib/utils/format";
 import { commercialLabel } from "./contract-format";
+import { useContractsTranslations } from "./contracts-text";
 
 /**
  * The approval queue (PRD #18 §185–§187).
@@ -35,6 +36,7 @@ import { commercialLabel } from "./contract-format";
  * CW-05).
  */
 export function ContractApprovalQueue({ approvals }: { approvals: ContractApprovalDTO[] }) {
+  const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
 
       setPendingId(null);
       if (result.ok) {
-        toast({ title: `${approval.recordReference} approved.`, tone: "success" });
+        toast({ title: t("approvalQueue.approved", { reference: approval.recordReference }), tone: "success" });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -69,7 +71,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
             <div className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="neutral">
-                  {approval.recordType === "CONTRACT" ? "Contract" : "Amendment"}
+                  {approval.recordType === "CONTRACT" ? t("approvalQueue.contract") : t("approvalQueue.amendment")}
                 </Badge>
                 <Link
                   href={
@@ -87,9 +89,9 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
               <p className="text-table text-fg-muted">{approval.recordTitle}</p>
 
               <p className="text-meta text-fg-subtle">
-                {approval.client?.name ?? "No client"}
-                {approval.project ? ` · ${approval.project.code}` : ""} · submitted by{" "}
-                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : "somebody"}{" "}
+                {approval.client?.name ?? t("approvalQueue.noClient")}
+                {approval.project ? ` · ${approval.project.code}` : ""}{t("approvalQueue.submittedBy")}{" "}
+                {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : t("approvalQueue.somebody")}{" "}
                 {formatDateTime(approval.submittedAt)}
               </p>
             </div>
@@ -97,7 +99,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
             <div className="flex shrink-0 flex-col items-end gap-2">
               {showValue && approval.commercial ? (
                 <span className="text-table tabular-nums text-fg">
-                  {commercialLabel(approval.commercial)}
+                  {commercialLabel(approval.commercial, t)}
                 </span>
               ) : null}
 
@@ -110,7 +112,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
                     onClick={() => setRejecting(approval)}
                   >
                     <ThumbsDown aria-hidden="true" />
-                    Reject
+                    {t("common.reject")}
                   </Button>
                 ) : null}
                 {approval.capabilities.canApprove ? (
@@ -120,7 +122,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
                     onClick={() => approve(approval)}
                   >
                     <ThumbsUp aria-hidden="true" />
-                    Approve
+                    {t("common.approve")}
                   </Button>
                 ) : null}
               </div>
@@ -128,7 +130,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
               {approval.status === "PENDING" &&
               !approval.capabilities.canApprove &&
               !approval.capabilities.canReject ? (
-                <p className="text-meta text-fg-subtle">Waiting for somebody else to decide</p>
+                <p className="text-meta text-fg-subtle">{t("approvalQueue.waitingOther")}</p>
               ) : null}
             </div>
           </li>
@@ -138,8 +140,8 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
       <RejectDialog
         open={rejecting !== null}
         onOpenChange={(open) => (open ? undefined : setRejecting(null))}
-        title={`Reject ${rejecting?.recordReference ?? "this record"}?`}
-        description="The reason is recorded against the approval and shown to whoever submitted it."
+        title={t("common.rejectNumber", { number: rejecting?.recordReference ?? t("approvalQueue.thisRecord") })}
+        description={t("approvalQueue.rejectDescription")}
         onReject={async (reason) => {
           if (!rejecting) return false;
           const result =
@@ -149,7 +151,7 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
 
           if (result.ok) {
             setRejecting(null);
-            toast({ title: `${rejecting.recordReference} rejected.`, tone: "success" });
+            toast({ title: t("approvalQueue.rejected", { reference: rejecting.recordReference }), tone: "success" });
             router.refresh();
           } else {
             toast({ title: result.error, tone: "danger" });

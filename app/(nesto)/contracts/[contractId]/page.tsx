@@ -18,6 +18,8 @@ import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 import { contractBreadcrumbs, contractContext } from "./contract-context";
 import { ContractTabs } from "./contract-tabs";
 import { pendingCycle } from "@/lib/modules/contracts/approvals/approval.service";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ contractId: string }> };
 
@@ -27,7 +29,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { contract } = await contractContext(contractId);
     return { title: `${contract.contractNumber} — ${contract.title}` };
   } catch {
-    return { title: "Contract" };
+    const t = await getTranslations("contracts");
+    return { title: t("meta.contract") };
   }
 }
 
@@ -44,10 +47,11 @@ export default async function ContractOverviewPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
 
+  const t = await getTranslations("contracts");
   const may = contract.capabilities;
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "CONTRACT", contract.id) : null;
-  const value = commercialLabel(contract.commercial);
+  const value = commercialLabel(contract.commercial, t);
   const readOnly =
     contract.archivedAt !== null ||
     contract.status === "TERMINATED" ||
@@ -57,47 +61,46 @@ export default async function ContractOverviewPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={contractBreadcrumbs(contract)}
+        breadcrumbs={contractBreadcrumbs(contract, undefined, t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}
         badges={
           <>
-            <Badge tone="neutral">{contractTypeLabels[contract.contractType]}</Badge>
+            <Badge tone="neutral">{contractsLabel(t, "contractType", contract.contractType, contractTypeLabels[contract.contractType])}</Badge>
             {/* Attention badges are derived at read time, never stored (PRD #18 §102, §193). */}
-            {contract.attention.expiringSoon ? <Badge tone="warning">Expiring soon</Badge> : null}
+            {contract.attention.expiringSoon ? <Badge tone="warning">{t("detail.expiringSoon")}</Badge> : null}
             {contract.attention.renewalNoticeDue ? (
-              <Badge tone="warning">Renewal notice due</Badge>
+              <Badge tone="warning">{t("detail.renewalNoticeDue")}</Badge>
             ) : null}
-            {contract.attention.unsigned ? <Badge tone="info">Unsigned</Badge> : null}
+            {contract.attention.unsigned ? <Badge tone="info">{t("detail.unsigned")}</Badge> : null}
             {contract.attention.readyToActivate ? (
-              <Badge tone="info">Ready to activate</Badge>
+              <Badge tone="info">{t("detail.readyToActivate")}</Badge>
             ) : null}
             {contract.attention.overdueObligations > 0 ? (
               <Badge tone="danger">
-                {contract.attention.overdueObligations} overdue obligation
-                {contract.attention.overdueObligations === 1 ? "" : "s"}
+                {t("detail.overdueObligations", { count: contract.attention.overdueObligations })}
               </Badge>
             ) : null}
           </>
         }
         meta={[
           {
-            label: "Owner",
+            label: t("detail.owner"),
             value: (
               <span className="flex items-center gap-2">
                 <PersonLink memberId={contract.owner.memberId} name={contract.owner.fullName} />
                 {/* An inactive owner is a real operational problem, not cosmetic (PRD #18 §323). */}
-                {contract.attention.ownerInactive ? <Badge tone="warning">Inactive</Badge> : null}
+                {contract.attention.ownerInactive ? <Badge tone="warning">{t("detail.inactive")}</Badge> : null}
               </span>
             ),
           },
           {
-            label: "Counterparty",
+            label: t("detail.counterparty"),
             value: orDash(contract.counterpartyName),
           },
-          ...(value ? [{ label: "Value", value }] : []),
-          { label: "Expiry", value: expiryLabel(contract.attention.daysToExpiry) },
+          ...(value ? [{ label: t("detail.value"), value }] : []),
+          { label: t("detail.expiry"), value: expiryLabel(contract.attention.daysToExpiry, t) },
         ]}
         actions={
           <>
@@ -111,12 +114,13 @@ export default async function ContractOverviewPage({ params }: Params) {
 
       {contract.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This contract is archived and read-only. Restore it to make changes.
+          {t("detail.archivedNotice")}
         </p>
       ) : readOnly ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This contract is {contract.status.toLowerCase()} and its terms are read-only
-          (PRD §499–§503).
+          {t("detail.readOnlyNotice", {
+            status: contractsLabel(t, "contractStatus", contract.status, contract.status).toLowerCase(),
+          })}
         </p>
       ) : null}
 
@@ -125,16 +129,16 @@ export default async function ContractOverviewPage({ params }: Params) {
           {/* Commercial — omitted entirely without the grant (PRD #18 §22, §255). */}
           {contract.commercial ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Commercial</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.commercial")}</h2>
               <DetailGrid
                 className="mt-4"
                 items={[
-                  { label: "Contract value", value: value ?? "—" },
-                  { label: "Currency", value: orDash(contract.commercial.currency) },
+                  { label: t("detail.contractValue"), value: value ?? "—" },
+                  { label: t("detail.currency"), value: orDash(contract.commercial.currency) },
                   ...(contract.commercialNotes
                     ? [
                         {
-                          label: "Commercial notes",
+                          label: t("detail.commercialNotes"),
                           value: (
                             <span className="whitespace-pre-wrap">{contract.commercialNotes}</span>
                           ),
@@ -145,26 +149,26 @@ export default async function ContractOverviewPage({ params }: Params) {
               />
               {contract.activeAmendment?.commercial ? (
                 <p className="mt-4 border-t border-line pt-4 text-meta text-fg-subtle">
-                  Includes amendment {contract.activeAmendment.amendmentNumber}.
+                  {t("detail.includesAmendment", { number: contract.activeAmendment.amendmentNumber })}
                 </p>
               ) : null}
             </section>
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Dates</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.dates")}</h2>
             <DetailGrid
               className="mt-4"
               columns={3}
               items={[
-                { label: "Effective", value: dateOrDash(contract.dates.effectiveDate) },
-                { label: "Expiry", value: dateOrDash(contract.dates.expiryDate) },
-                { label: "Signed", value: dateOrDash(contract.dates.signedDate) },
-                { label: "Sent", value: dateOrDash(contract.dates.sentAt) },
+                { label: t("detail.effective"), value: dateOrDash(contract.dates.effectiveDate) },
+                { label: t("detail.expiry"), value: dateOrDash(contract.dates.expiryDate) },
+                { label: t("detail.signed"), value: dateOrDash(contract.dates.signedDate) },
+                { label: t("detail.sent"), value: dateOrDash(contract.dates.sentAt) },
                 ...(contract.dates.terminationDate
                   ? [
                       {
-                        label: "Terminated",
+                        label: t("detail.terminated"),
                         value: formatDate(contract.dates.terminationDate),
                       },
                     ]
@@ -174,28 +178,28 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Renewal</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.renewal")}</h2>
             <DetailGrid
               className="mt-4"
               columns={3}
               items={[
-                { label: "Type", value: renewalTypeLabels[contract.renewal.type] },
+                { label: t("detail.type"), value: contractsLabel(t, "renewalType", contract.renewal.type, renewalTypeLabels[contract.renewal.type]) },
                 {
-                  label: "Notice",
+                  label: t("detail.notice"),
                   value:
                     contract.renewal.noticeDays === null
                       ? "—"
-                      : `${contract.renewal.noticeDays} days`,
+                      : t("detail.noticeDays", { count: contract.renewal.noticeDays }),
                 },
                 {
-                  label: "Renewal period",
+                  label: t("detail.renewalPeriod"),
                   value:
                     contract.renewal.autoRenewalPeriodMonths === null
                       ? "—"
-                      : `${contract.renewal.autoRenewalPeriodMonths} months`,
+                      : t("detail.months", { count: contract.renewal.autoRenewalPeriodMonths }),
                 },
                 {
-                  label: "Alert date",
+                  label: t("detail.alertDate"),
                   value: dateOrDash(contract.renewal.alertDate),
                 },
               ]}
@@ -203,17 +207,17 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Legal terms</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.legalTerms")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Governing law", value: orDash(contract.legal.governingLaw) },
-                { label: "Jurisdiction", value: orDash(contract.legal.jurisdiction) },
+                { label: t("detail.governingLaw"), value: orDash(contract.legal.governingLaw) },
+                { label: t("detail.jurisdiction"), value: orDash(contract.legal.jurisdiction) },
               ]}
             />
             {contract.legal.summary ? (
               <div className="mt-5 border-t border-line pt-4">
-                <h3 className="nesto-eyebrow text-fg-subtle">Summary</h3>
+                <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.summary")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg">
                   {contract.legal.summary}
                 </p>
@@ -222,7 +226,7 @@ export default async function ContractOverviewPage({ params }: Params) {
             {/* Null without `legal.confidential_terms.view` (PRD #18 §23, §257). */}
             {contract.legal.legalNotes ? (
               <div className="mt-5 border-t border-line pt-4">
-                <h3 className="nesto-eyebrow text-fg-subtle">Legal notes</h3>
+                <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.legalNotes")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg">
                   {contract.legal.legalNotes}
                 </p>
@@ -230,7 +234,7 @@ export default async function ContractOverviewPage({ params }: Params) {
             ) : null}
             {contract.legal.terminationReason ? (
               <div className="mt-5 border-t border-line pt-4">
-                <h3 className="nesto-eyebrow text-fg-subtle">Termination reason</h3>
+                <h3 className="nesto-eyebrow text-fg-subtle">{t("detail.terminationReason")}</h3>
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg">
                   {contract.legal.terminationReason}
                 </p>
@@ -239,22 +243,22 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Approval history</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.approvalHistory")}</h2>
             <ContractApprovalHistory approvals={contract.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Client &amp; project</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.clientProject")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
-                label="Client"
-                value={<ModuleLink link={contract.clientLink} fallback="No client named" />}
+                label={t("detail.client")}
+                value={<ModuleLink link={contract.clientLink} fallback={t("detail.noClient")} />}
               />
               <Meta
-                label="Project"
-                value={<ModuleLink link={contract.projectLink} fallback="No project attached" />}
+                label={t("detail.project")}
+                value={<ModuleLink link={contract.projectLink} fallback={t("detail.noProject")} />}
               />
             </dl>
           </section>
@@ -262,28 +266,28 @@ export default async function ContractOverviewPage({ params }: Params) {
           {/* Null without `legal.sales_source.view` plus the Sales grant (PRD #18 §252). */}
           {contract.salesSource ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Sales source</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.salesSource")}</h2>
               <dl className="mt-4 space-y-3">
                 <Meta
-                  label="Opportunity"
+                  label={t("detail.opportunity")}
                   value={
-                    <ModuleLink link={contract.salesSource.opportunity} fallback="None" />
+                    <ModuleLink link={contract.salesSource.opportunity} fallback={t("detail.none")} />
                   }
                 />
                 <Meta
-                  label="Proposal"
-                  value={<ModuleLink link={contract.salesSource.proposal} fallback="None" />}
+                  label={t("detail.proposal")}
+                  value={<ModuleLink link={contract.salesSource.proposal} fallback={t("detail.none")} />}
                 />
               </dl>
             </section>
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">This contract</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.thisContract")}</h2>
             <dl className="mt-4 space-y-3">
               {may.canViewParties ? (
                 <Meta
-                  label="Parties"
+                  label={t("detail.parties")}
                   value={
                     <Link
                       href={`/contracts/${contract.id}/parties`}
@@ -296,7 +300,7 @@ export default async function ContractOverviewPage({ params }: Params) {
               ) : null}
               {may.canViewObligations ? (
                 <Meta
-                  label="Open obligations"
+                  label={t("detail.openObligations")}
                   value={
                     <Link
                       href={`/contracts/${contract.id}/obligations`}
@@ -309,7 +313,7 @@ export default async function ContractOverviewPage({ params }: Params) {
               ) : null}
               {may.canViewAmendments ? (
                 <Meta
-                  label="Amendments"
+                  label={t("detail.amendments")}
                   value={
                     <Link
                       href={`/contracts/${contract.id}/amendments`}
@@ -322,7 +326,7 @@ export default async function ContractOverviewPage({ params }: Params) {
               ) : null}
               {may.canViewDocuments ? (
                 <Meta
-                  label="Documents"
+                  label={t("detail.documents")}
                   value={
                     <Link
                       href={`/contracts/${contract.id}/documents`}
@@ -339,12 +343,12 @@ export default async function ContractOverviewPage({ params }: Params) {
           {contract.activeAmendment ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Current amendment</h2>
+                <h2 className="text-card font-semibold text-fg">{t("detail.currentAmendment")}</h2>
                 <Link
                   href={`/contracts/${contract.id}/amendments/${contract.activeAmendment.id}`}
                   className="text-table font-medium text-accent-strong"
                 >
-                  Open
+                  {t("detail.open")}
                 </Link>
               </div>
               <p className="mt-3 text-table font-medium text-fg">
@@ -353,22 +357,22 @@ export default async function ContractOverviewPage({ params }: Params) {
               <p className="mt-1 text-meta text-fg-subtle">
                 {contract.activeAmendment.status}
                 {contract.activeAmendment.effectiveDate
-                  ? ` · effective ${formatDate(contract.activeAmendment.effectiveDate)}`
+                  ? t("detail.effectiveOn", { date: formatDate(contract.activeAmendment.effectiveDate) })
                   : ""}
               </p>
             </section>
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created" value={formatDateTime(contract.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(contract.updatedAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(contract.createdAt)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(contract.updatedAt)} />
               {contract.createdBy ? (
-                <Meta label="Drafted by" value={<PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.fullName} />} />
+                <Meta label={t("detail.draftedBy")} value={<PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.fullName} />} />
               ) : null}
               {contract.archivedAt ? (
-                <Meta label="Archived" value={formatDateTime(contract.archivedAt)} />
+                <Meta label={t("detail.archived")} value={formatDateTime(contract.archivedAt)} />
               ) : null}
             </dl>
           </section>

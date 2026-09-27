@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ContractExportLink } from "@/components/contracts/export-link";
@@ -14,8 +15,13 @@ import { contractTypeLabels } from "@/lib/modules/contracts/contracts/contract.s
 import { obligationTypeLabels } from "@/lib/modules/contracts/obligations/obligation.status";
 import { totalsLabel } from "@/components/contracts/contract-format";
 import { formatDate } from "@/lib/utils/format";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
+import type { Translate } from "@/lib/i18n/translator";
 
-export const metadata: Metadata = { title: "Legal reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.legalReports") };
+}
 
 /**
  * The built-in legal reports (PRD #18 §216–§224, §299).
@@ -29,6 +35,7 @@ export default async function ContractReportsPage() {
   const context = await requireModule("contracts");
   if (!can(context, "legal.report.view")) redirect("/access-denied");
 
+  const t = await getTranslations("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const reports = await contractReports(context);
 
@@ -40,9 +47,9 @@ export default async function ContractReportsPage() {
     >
       <div className="space-y-5">
         <div className="grid gap-4 lg:grid-cols-2">
-          <Panel title="Contracts by status">
+          <Panel title={t("reports.byStatus")}>
             {reports.byStatus.length === 0 ? (
-              <Empty />
+              <Empty label={t("reports.empty")} />
             ) : (
               <ul className="divide-y divide-line">
                 {reports.byStatus.map((row) => (
@@ -55,9 +62,9 @@ export default async function ContractReportsPage() {
             )}
           </Panel>
 
-          <Panel title="Contracts by type">
+          <Panel title={t("reports.byType")}>
             {reports.byType.length === 0 ? (
-              <Empty />
+              <Empty label={t("reports.empty")} />
             ) : (
               <ul className="divide-y divide-line">
                 {reports.byType.map((row) => (
@@ -65,7 +72,7 @@ export default async function ContractReportsPage() {
                     key={row.contractType}
                     className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
                   >
-                    <span className="text-table text-fg">{contractTypeLabels[row.contractType]}</span>
+                    <span className="text-table text-fg">{contractsLabel(t, "contractType", row.contractType, contractTypeLabels[row.contractType])}</span>
                     <span className="tabular-nums text-table text-fg">{row.count}</span>
                   </li>
                 ))}
@@ -74,13 +81,13 @@ export default async function ContractReportsPage() {
           </Panel>
 
           <Panel
-            title="Expiring contracts"
-            description="Active agreements, by how long they have left."
+            title={t("reports.expiring")}
+            description={t("reports.expiringDescription")}
           >
             <ul className="divide-y divide-line">
               {reports.expiring.map((row) => (
                 <li key={row.key} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                  <span className="text-table text-fg">{row.label}</span>
+                  <span className="text-table text-fg">{contractsLabel(t, "expiryBucket", row.key, row.label)}</span>
                   <span className="flex items-center gap-3">
                     {row.totals ? (
                       <span className="text-meta tabular-nums text-fg-subtle">
@@ -94,9 +101,9 @@ export default async function ContractReportsPage() {
             </ul>
           </Panel>
 
-          <Panel title="Contracts by owner">
+          <Panel title={t("reports.byOwner")}>
             {reports.byOwner.length === 0 ? (
-              <Empty />
+              <Empty label={t("reports.empty")} />
             ) : (
               <ul className="divide-y divide-line">
                 {reports.byOwner.map((row) => (
@@ -106,7 +113,7 @@ export default async function ContractReportsPage() {
                   >
                     <span className={row.owner.active ? "text-table text-fg" : "text-table text-fg-subtle"}>
                       <PersonLink memberId={row.owner.memberId} name={row.owner.fullName} />
-                      {row.owner.active ? "" : " (inactive)"}
+                      {row.owner.active ? "" : t("common.inactiveSuffix")}
                     </span>
                     <span className="flex items-center gap-3">
                       {row.totals ? (
@@ -124,13 +131,13 @@ export default async function ContractReportsPage() {
 
           {reports.value ? (
             <Panel
-              title="Contract value"
-              description="Grouped by currency. EUR and USD are never added together."
+              title={t("reports.value")}
+              description={t("reports.valueDescription")}
             >
               <ul className="divide-y divide-line">
                 {reports.value.map((row) => (
                   <li key={row.key} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                    <span className="text-table text-fg">{row.label}</span>
+                    <span className="text-table text-fg">{valueRowLabel(t, row.key, row.label)}</span>
                     <span className="text-meta tabular-nums text-fg">{totalsLabel(row.totals)}</span>
                   </li>
                 ))}
@@ -139,11 +146,11 @@ export default async function ContractReportsPage() {
           ) : null}
 
           <Panel
-            title="Renewal notices"
-            description="When the renewal conversation has to start."
+            title={t("reports.renewals")}
+            description={t("reports.renewalsDescription")}
           >
             {reports.renewals.length === 0 ? (
-              <Empty label="No contract renews inside the next year." />
+              <Empty label={t("reports.noRenewals")} />
             ) : (
               <ul className="divide-y divide-line">
                 {reports.renewals.slice(0, 12).map((row) => (
@@ -156,7 +163,7 @@ export default async function ContractReportsPage() {
                         {row.contract.contractNumber}
                       </span>
                       <span className="block truncate text-meta text-fg-subtle">
-                        {row.noticeDays ?? 0} days&apos; notice
+                        {t("reports.noticeDays", { count: row.noticeDays ?? 0 })}
                       </span>
                     </span>
                     <span className="shrink-0 text-meta tabular-nums text-fg-subtle">
@@ -170,15 +177,15 @@ export default async function ContractReportsPage() {
         </div>
 
         {reports.openObligations.length > 0 ? (
-          <Panel title="Open obligations" description="Every requirement still outstanding.">
+          <Panel title={t("reports.openObligations")} description={t("reports.openObligationsDescription")}>
             <ul className="divide-y divide-line">
               {reports.openObligations.slice(0, 20).map((row) => (
                 <li key={row.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
                   <span className="min-w-0">
                     <span className="block truncate text-table text-fg">{row.title}</span>
                     <span className="block truncate text-meta text-fg-subtle">
-                      {obligationTypeLabels[row.type]} ·{" "}
-                      {row.responsible ? <PersonLink memberId={row.responsible.memberId} name={row.responsible.fullName} /> : "Unassigned"}
+                      {contractsLabel(t, "obligationType", row.type, obligationTypeLabels[row.type])} ·{" "}
+                      {row.responsible ? <PersonLink memberId={row.responsible.memberId} name={row.responsible.fullName} /> : t("common.unassigned")}
                     </span>
                   </span>
                   <span
@@ -188,8 +195,8 @@ export default async function ContractReportsPage() {
                         : "shrink-0 text-meta tabular-nums text-fg-subtle"
                     }
                   >
-                    {row.dueDate ? formatDate(row.dueDate) : "No due date"}
-                    {row.isOverdue ? ` · ${row.daysOverdue}d overdue` : ""}
+                    {row.dueDate ? formatDate(row.dueDate) : t("obligations.noDueDate")}
+                    {row.isOverdue ? t("reports.daysOverdue", { count: row.daysOverdue }) : ""}
                   </span>
                 </li>
               ))}
@@ -198,7 +205,7 @@ export default async function ContractReportsPage() {
         ) : null}
 
         {reports.amendments.length > 0 ? (
-          <Panel title="Amendments" description="Every change to an agreement, and what it changed.">
+          <Panel title={t("reports.amendments")} description={t("reports.amendmentsDescription")}>
             <ul className="divide-y divide-line">
               {reports.amendments.slice(0, 20).map((row) => (
                 <li
@@ -219,7 +226,7 @@ export default async function ContractReportsPage() {
                     ) : null}
                     {row.expiryChange?.to ? (
                       <span className="text-meta tabular-nums text-fg-subtle">
-                        expiry → {row.expiryChange.to}
+                        {t("reports.expiryArrow", { date: row.expiryChange.to })}
                       </span>
                     ) : null}
                     <StatusBadge status={row.status} />
@@ -231,7 +238,7 @@ export default async function ContractReportsPage() {
         ) : null}
 
         {reports.terminated.length > 0 ? (
-          <Panel title="Terminated contracts" description="Ended before their natural expiry.">
+          <Panel title={t("reports.terminated")} description={t("reports.terminatedDescription")}>
             <ul className="divide-y divide-line">
               {reports.terminated.map((row) => (
                 <li key={row.contract.id} className="space-y-1 py-2.5 first:pt-0">
@@ -250,11 +257,11 @@ export default async function ContractReportsPage() {
           </Panel>
         ) : null}
 
-        <Panel title="Contract portfolio" description="Every contract in scope.">
+        <Panel title={t("reports.portfolio")} description={t("reports.portfolioDescription")}>
           {reports.portfolio.length === 0 ? (
-            <Empty />
+            <Empty label={t("reports.empty")} />
           ) : (
-            <ContractTable contracts={reports.portfolio} caption="Contract portfolio" listId="contracts.report-portfolio" />
+            <ContractTable contracts={reports.portfolio} caption={t("reports.portfolio")} listId="contracts.report-portfolio" />
           )}
         </Panel>
       </div>
@@ -278,6 +285,14 @@ function Panel({
       <div className="mt-4">{children}</div>
     </section>
   );
+}
+
+/** A value row's name: `status:ACTIVE` or `type:LEASE`, in the reader's language. */
+function valueRowLabel(t: Translate<"contracts">, key: string, fallback: string): string {
+  const [kind, value] = key.split(":");
+  if (kind === "status" && value) return contractsLabel(t, "contractStatus", value, fallback);
+  if (kind === "type" && value) return contractsLabel(t, "contractType", value, fallback);
+  return fallback;
 }
 
 function Empty({ label = "Nothing to report yet." }: { label?: string }) {

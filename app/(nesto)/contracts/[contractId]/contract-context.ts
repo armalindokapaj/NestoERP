@@ -6,6 +6,8 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
+import { englishContracts } from "@/lib/i18n/modules/contracts/labels";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * Resolves the contract every page under `/contracts/[id]` needs.
@@ -35,10 +37,11 @@ export async function contractContext(
 export function contractBreadcrumbs(
   contract: { id: string; contractNumber: string },
   trailing?: string,
+  t: Translate<"contracts"> = englishContracts,
 ): Crumb[] {
   const crumbs: Crumb[] = [
-    { label: "Legal", href: "/contracts" },
-    { label: "Contracts", href: "/contracts/all" },
+    { label: t("crumbs.legal"), href: "/contracts" },
+    { label: t("crumbs.contracts"), href: "/contracts/all" },
     trailing
       ? { label: contract.contractNumber, href: `/contracts/${contract.id}` }
       : { label: contract.contractNumber },

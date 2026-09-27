@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { AmendmentForm } from "@/components/contracts/amendment-form";
@@ -11,7 +12,10 @@ import { contractBreadcrumbs, contractContext } from "../../../contract-context"
 
 type Params = { params: Promise<{ contractId: string; amendmentId: string }> };
 
-export const metadata: Metadata = { title: "Edit amendment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.editAmendment") };
+}
 
 /**
  * Revise a draft amendment (PRD #18 §166, §178).
@@ -23,6 +27,7 @@ export const metadata: Metadata = { title: "Edit amendment" };
 export default async function EditAmendmentPage({ params }: Params) {
   const { contractId, amendmentId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewAmendments) notFound();
 
@@ -44,10 +49,10 @@ export default async function EditAmendmentPage({ params }: Params) {
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={contractBreadcrumbs(contract, `${amendment.amendmentNumber} — edit`)} />
+      <Breadcrumbs items={contractBreadcrumbs(contract, t("crumbs.amendmentEdit", { number: amendment.amendmentNumber }), t)} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit amendment</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editAmendment")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {contract.contractNumber} — {amendment.amendmentNumber}
         </p>
@@ -56,8 +61,8 @@ export default async function EditAmendmentPage({ params }: Params) {
       <AmendmentForm
         action={action}
         cancelHref={`/contracts/${contract.id}/amendments/${amendment.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         versionUpdatedAt={amendment.updatedAt}
         canEditCommercial={canSeeCommercial(context)}
         requireReductionAcknowledgement={false}

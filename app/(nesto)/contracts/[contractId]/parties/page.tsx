@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractPartyList } from "@/components/contracts/party-list";
@@ -9,7 +10,10 @@ import { ContractTabs } from "../contract-tabs";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Contract parties" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.parties") };
+}
 
 /**
  * Who the agreement is between (PRD #18 §136–§147).
@@ -21,6 +25,7 @@ export const metadata: Metadata = { title: "Contract parties" };
 export default async function ContractPartiesPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewParties) notFound();
 
@@ -32,7 +37,7 @@ export default async function ContractPartiesPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={contractBreadcrumbs(contract, "Parties")}
+        breadcrumbs={contractBreadcrumbs(contract, t("crumbs.parties"), t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}

@@ -1,6 +1,7 @@
 "use client";
 
 import { ExportControl } from "@/lib/core/export/export-control";
+import { useContractsTranslations } from "./contracts-text";
 
 /**
  * CSV export (PRD #18 §225, §226; AUD-08 §7, DT-02).
@@ -27,17 +28,18 @@ export function contractSectionOf(pathname: string): string | null {
 
 export function ContractExportLink({
   type = "contracts",
-  label = "Export CSV",
+  label,
 }: {
   type?: "contracts" | "obligations" | "amendments";
   search?: string;
   label?: string;
 }) {
+  const t = useContractsTranslations();
   return (
     <ExportControl
       endpoint="/api/contracts/export"
       selector={{ param: "type", value: type }}
-      label={label}
+      label={label ?? t("export.csv")}
       testId={`contracts-export-${type}`}
       adjust={(params, pathname) => {
         if (type !== "contracts") return;

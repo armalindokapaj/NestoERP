@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ContractObligationList } from "@/components/contracts/obligation-list";
@@ -9,7 +10,10 @@ import { ContractTabs } from "../contract-tabs";
 
 type Params = { params: Promise<{ contractId: string }> };
 
-export const metadata: Metadata = { title: "Contract obligations" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("contracts");
+  return { title: t("meta.obligations") };
+}
 
 /**
  * What the agreement requires (PRD #18 §148–§158).
@@ -21,6 +25,7 @@ export const metadata: Metadata = { title: "Contract obligations" };
 export default async function ContractObligationsPage({ params }: Params) {
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
+  const t = await getTranslations("contracts");
 
   if (!contract.capabilities.canViewObligations) notFound();
 
@@ -32,7 +37,7 @@ export default async function ContractObligationsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={contractBreadcrumbs(contract, "Obligations")}
+        breadcrumbs={contractBreadcrumbs(contract, t("crumbs.obligations"), t)}
         title={contract.title}
         subtitle={contract.contractNumber}
         status={contract.status}
