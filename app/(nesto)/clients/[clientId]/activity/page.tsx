@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
@@ -17,7 +18,9 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Client Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.activity") };
+}
 
 /**
  * Client history (PRD #12 §100–§102).
@@ -30,6 +33,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewActivity) notFound();
+  const t = await getTranslations("clients");
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -42,7 +46,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Activity")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.activity"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}
@@ -57,8 +61,8 @@ export default async function ClientActivityPage({ params, searchParams }: Param
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this client will be listed here."
+          title={t("activityPage.emptyTitle")}
+          description={t("activityPage.emptyDescription")}
         />
       ) : (
         <>
@@ -66,7 +70,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

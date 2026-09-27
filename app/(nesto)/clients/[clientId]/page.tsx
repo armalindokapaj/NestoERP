@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { clientTypeLabels } from "@/lib/modules/clients/client.status";
 import * as clients from "@/lib/modules/clients/client.service";
 import { formatDateTime, orDash } from "@/lib/utils/format";
+import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import { clientBreadcrumbs, loadClient } from "./client-context";
 import { ClientTabs } from "./client-tabs";
 
@@ -21,7 +23,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { client } = await loadClient(clientId);
     return { title: client.name };
   } catch {
-    return { title: "Client" };
+    return { title: (await getTranslations("clients"))("meta.client") };
   }
 }
 
@@ -38,6 +40,8 @@ export default async function ClientOverviewPage({ params }: Params) {
 
   const archived = client.archivedAt !== null || client.status === "ARCHIVED";
   const may = client.capabilities;
+  const t = await getTranslations("clients");
+  const typeLabel = clientsLabel(t, "clientType", client.type, clientTypeLabels[client.type]);
 
   const activity = may.canViewActivity
     ? await clients.listActivity(context, clientId, { page: 1, limit: 5 })
@@ -46,27 +50,27 @@ export default async function ClientOverviewPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={clientBreadcrumbs(client)}
+        breadcrumbs={clientBreadcrumbs(client, undefined, t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? client.legalName ?? undefined}
         status={client.status}
-        badges={<Badge tone="neutral">{clientTypeLabels[client.type]}</Badge>}
+        badges={<Badge tone="neutral">{typeLabel}</Badge>}
         meta={[
           {
-            label: "Primary contact",
+            label: t("detail.primaryContact"),
             value: client.primaryContact ? (
               <span className="flex items-center gap-2">
                 {client.primaryContact.fullName}
                 {client.primaryContact.status === "INACTIVE" ? (
-                  <Badge tone="neutral">Inactive</Badge>
+                  <Badge tone="neutral">{t("common.inactive")}</Badge>
                 ) : null}
               </span>
             ) : (
-              "None"
+              t("common.none")
             ),
           },
           {
-            label: "Active projects",
+            label: t("detail.activeProjects"),
             value: may.canViewProjects ? (
               <Link
                 href={`/clients/${client.id}/projects`}
@@ -78,7 +82,7 @@ export default async function ClientOverviewPage({ params }: Params) {
               "—"
             ),
           },
-          { label: "Contacts", value: may.canViewContacts ? client.counts.activeContacts : "—" },
+          { label: t("detail.contacts"), value: may.canViewContacts ? client.counts.activeContacts : "—" },
         ]}
         actions={
           <>
@@ -104,21 +108,21 @@ export default async function ClientOverviewPage({ params }: Params) {
 
       {archived ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This client is archived and read-only. Restore it to make changes.
+          {t("detail.archivedNotice")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Client details</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.clientDetails")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
-              { label: "Legal name", value: orDash(client.legalName) },
-              { label: "Type", value: clientTypeLabels[client.type] },
-              { label: "Client code", value: orDash(client.code) },
+              { label: t("detail.legalName"), value: orDash(client.legalName) },
+              { label: t("detail.type"), value: typeLabel },
+              { label: t("detail.clientCode"), value: orDash(client.code) },
               {
-                label: "Email",
+                label: t("detail.email"),
                 value: client.contact.email ? (
                   <a href={`mailto:${client.contact.email}`} className="hover:text-accent">
                     {client.contact.email}
@@ -128,7 +132,7 @@ export default async function ClientOverviewPage({ params }: Params) {
                 ),
               },
               {
-                label: "Phone",
+                label: t("detail.phone"),
                 value: client.contact.phone ? (
                   <a href={`tel:${client.contact.phone}`} className="hover:text-accent">
                     {client.contact.phone}
@@ -138,7 +142,7 @@ export default async function ClientOverviewPage({ params }: Params) {
                 ),
               },
               {
-                label: "Website",
+                label: t("detail.website"),
                 value: client.contact.website ? (
                   // Only http(s) reaches this point; the schema refuses
                   // anything else (PRD #12 §47, §140).
@@ -158,13 +162,13 @@ export default async function ClientOverviewPage({ params }: Params) {
           />
 
           <div className="mt-6 border-t border-line pt-5">
-            <h3 className="text-table font-semibold text-fg">Address</h3>
+            <h3 className="text-table font-semibold text-fg">{t("detail.address")}</h3>
             <DetailGrid
               className="mt-3"
               items={[
-                { label: "Address", value: orDash(client.address.address) },
-                { label: "City", value: orDash(client.address.city) },
-                { label: "Country", value: orDash(client.address.country) },
+                { label: t("detail.address"), value: orDash(client.address.address) },
+                { label: t("detail.city"), value: orDash(client.address.city) },
+                { label: t("detail.country"), value: orDash(client.address.country) },
               ]}
             />
           </div>
@@ -174,12 +178,12 @@ export default async function ClientOverviewPage({ params }: Params) {
           {may.canViewContacts ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Primary contact</h2>
+                <h2 className="text-card font-semibold text-fg">{t("detail.primaryContact")}</h2>
                 <Link
                   href={`/clients/${client.id}/contacts`}
                   className="text-table font-medium text-accent-strong"
                 >
-                  All contacts
+                  {t("detail.allContacts")}
                 </Link>
               </div>
               {client.primaryContact ? (
@@ -208,18 +212,18 @@ export default async function ClientOverviewPage({ params }: Params) {
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-3 text-table text-fg-subtle">No primary contact.</p>
+                <p className="mt-3 text-table text-fg-subtle">{t("detail.noPrimaryContact")}</p>
               )}
             </section>
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created" value={formatDateTime(client.createdAt)} />
-              <Meta label="Updated" value={formatDateTime(client.updatedAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(client.createdAt)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(client.updatedAt)} />
               {client.archivedAt ? (
-                <Meta label="Archived" value={formatDateTime(client.archivedAt)} />
+                <Meta label={t("detail.archived")} value={formatDateTime(client.archivedAt)} />
               ) : null}
             </dl>
           </section>
@@ -227,22 +231,22 @@ export default async function ClientOverviewPage({ params }: Params) {
           {activity ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">Activity</h2>
+                <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
                 <Link
                   href={`/clients/${client.id}/activity`}
                   className="text-table font-medium text-accent-strong"
                 >
-                  View all
+                  {t("detail.viewAll")}
                 </Link>
               </div>
               {activity.data.length === 0 ? (
-                <p className="mt-4 text-table text-fg-subtle">No activity recorded yet.</p>
+                <p className="mt-4 text-table text-fg-subtle">{t("detail.noActivity")}</p>
               ) : (
                 <ul className="mt-4 space-y-3">
                   {activity.data.map((entry) => (
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
-                        {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                        {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
                         {entry.message ?? entry.action}
                       </p>
                       <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>

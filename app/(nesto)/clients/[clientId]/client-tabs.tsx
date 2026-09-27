@@ -4,6 +4,7 @@ import Link from "@/components/navigation/nav-link";
 
 import type { ClientDetailDTO } from "@/lib/modules/clients/client.types";
 import { cn } from "@/lib/utils/cn";
+import { useClientsTranslations } from "@/components/clients/clients-text";
 
 /**
  * Client record tabs (PRD #12 §58).
@@ -13,14 +14,14 @@ import { cn } from "@/lib/utils/cn";
  * them (PRD #12 §142).
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "contacts", label: "Contacts", suffix: "/contacts" },
-  { key: "projects", label: "Projects", suffix: "/projects" },
-  { key: "finance", label: "Finance", suffix: "/finance" },
-  { key: "sales", label: "Sales", suffix: "/sales" },
-  { key: "contracts", label: "Contracts", suffix: "/contracts" },
-  { key: "documents", label: "Documents", suffix: "/documents" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", suffix: "" },
+  { key: "contacts", suffix: "/contacts" },
+  { key: "projects", suffix: "/projects" },
+  { key: "finance", suffix: "/finance" },
+  { key: "sales", suffix: "/sales" },
+  { key: "contracts", suffix: "/contracts" },
+  { key: "documents", suffix: "/documents" },
+  { key: "activity", suffix: "/activity" },
 ] as const;
 
 export type ClientTabKey = (typeof TABS)[number]["key"];
@@ -52,10 +53,11 @@ export function ClientTabs({
     activity: capabilities.canViewActivity,
   };
 
+  const t = useClientsTranslations();
   const visible = TABS.filter((tab) => show[tab.key]);
 
   return (
-    <nav aria-label="Client sections" className="border-b border-line">
+    <nav aria-label={t("tabs.label")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -71,7 +73,7 @@ export function ClientTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(`tabs.${tab.key}`)}
               </Link>
             </li>
           );

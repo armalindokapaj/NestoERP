@@ -1,3 +1,5 @@
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 
 import { NewContractorButton } from "@/components/contractors/contractor-dialogs";
@@ -14,13 +16,16 @@ import { contractorListSchema } from "@/lib/modules/contractors/contractor.schem
 import { listContractors } from "@/lib/modules/contractors/contractor.service";
 import { CONTRACTOR_STATUSES, CONTRACTOR_STATUS_LABELS } from "@/lib/modules/contractors/contractor.types";
 
-export const metadata: Metadata = { title: "Contractors" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.contractors") };
+}
 
 /** The contractor directory (PRD #46 §163): status, active projects, open RFIs, submittals and compliance alerts. */
 export default async function ContractorsPage({ searchParams }: { searchParams: SearchParams }) {
   const context = await requireModule("contractors");
   const experience = resolveModuleExperience(context, "contractors");
   const params = await searchParams;
+  const t = await getTranslations("contractors");
   const query = contractorListSchema.parse(flat(params));
   const result = await listContractors(context, query);
   // A count on every page and the last real page for a page past the end (AUD-08 §4, DT-05).
@@ -29,16 +34,16 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
     <ModulePage experience={experience} activeSection="all" actions={can(context, "contractor.create") ? <NewContractorButton /> : null}>
       <div className="space-y-4">
         <ListToolbar
-          searchPlaceholder="Search name, registration or VAT number…"
+          searchPlaceholder={t("directory.search")}
           searchParam="q"
           filters={[
-            { param: "status", label: "Status", options: CONTRACTOR_STATUSES.map((value) => ({ value, label: CONTRACTOR_STATUS_LABELS[value] })) },
-            { param: "compliance", label: "Compliance", options: [{ value: "alerts", label: "With alerts" }] },
+            { param: "status", label: t("directory.status"), options: CONTRACTOR_STATUSES.map((value) => ({ value, label: contractorsLabel(t, "contractorStatus", value, CONTRACTOR_STATUS_LABELS[value]) })) },
+            { param: "compliance", label: t("directory.compliance"), options: [{ value: "alerts", label: t("directory.withAlerts") }] },
           ]}
         />
         {/* Filters that match nothing are not an empty directory (AUD-05 §6, UX-11). */}
         {result.items.length === 0 && hasActiveFilters(params, ["q", "status", "compliance"]) ? (
-          <NoResultsState noun="contractors" clearHref="/contractors" />
+          <NoResultsState noun={t("directory.noun")} clearHref="/contractors" />
         ) : (
           <ContractorTable items={result.items} canCreate={can(context, "contractor.create")} />
         )}

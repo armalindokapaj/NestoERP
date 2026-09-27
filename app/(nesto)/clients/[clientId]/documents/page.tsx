@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound, redirect } from "next/navigation";
@@ -20,7 +21,9 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.documents") };
+}
 
 /**
  * Client documents (PRD #12 §96–§99, PRD #13 §198).
@@ -34,6 +37,7 @@ export default async function ClientDocumentsPage({ params, searchParams }: Para
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewDocuments) notFound();
+  const t = await getTranslations("clients");
 
   // Every document, a page of 100 at a time with a true count; it used to
   // show the first 100 and drop the rest silently (AUD-08 §4, DT-05).
@@ -50,14 +54,14 @@ export default async function ClientDocumentsPage({ params, searchParams }: Para
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Documents")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.documents"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}
         actions={
           canUpload ? (
             <Button asChild size="sm">
-              <Link href={uploadHref}>Add document</Link>
+              <Link href={uploadHref}>{t("documentsPage.add")}</Link>
             </Button>
           ) : null
         }
@@ -72,9 +76,9 @@ export default async function ClientDocumentsPage({ params, searchParams }: Para
       {result.data.length === 0 ? (
         <EmptyState
           icon={<Files />}
-          title="No client documents yet."
-          description="Files filed against this client will appear here."
-          action={canUpload ? { label: "Add document", href: uploadHref } : undefined}
+          title={t("documentsPage.emptyTitle")}
+          description={t("documentsPage.emptyDescription")}
+          action={canUpload ? { label: t("documentsPage.add"), href: uploadHref } : undefined}
         />
       ) : (
         <>

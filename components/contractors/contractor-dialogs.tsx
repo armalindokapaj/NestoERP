@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { CONTRACTOR_STATUS_LABELS, type DuplicateWarning } from "@/lib/modules/contractors/contractor.types";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
+import { useContractorsTranslations } from "./contractors-text";
 
 /**
  * Contractor, assignment and work package dialogs (PRD #46 §16, §17, §25-§40,
@@ -29,6 +31,7 @@ import type { Option } from "@/lib/modules/engineering/engineering.types";
  */
 function useLoad<T>(url: string, fallback: T) {
   const toast = useToast();
+  const t = useContractorsTranslations();
   const [data, setData] = React.useState<T>(fallback);
   const [loaded, setLoaded] = React.useState(false);
   const load = React.useCallback(async (): Promise<T | null> => {
@@ -39,7 +42,7 @@ function useLoad<T>(url: string, fallback: T) {
       setLoaded(true);
       return next;
     } catch {
-      toast({ title: "Couldn't load the choices for this form. Try again.", tone: "danger" });
+      toast({ title: t("dialogs.loadFailed"), tone: "danger" });
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,6 +53,7 @@ function useLoad<T>(url: string, fallback: T) {
 /* Contractors -------------------------------------------------------------- */
 
 export function NewContractorButton() {
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   const [duplicates, setDuplicates] = React.useState<DuplicateWarning[]>([]);
   const [confirmed, setConfirmed] = React.useState(false);
@@ -59,17 +63,18 @@ export function NewContractorButton() {
     <>
       <Button type="button" size="sm" data-testid="new-contractor" onClick={() => void options.load().then((next) => { if (!next) return; setDuplicates([]); setConfirmed(false); setOpen(true); })}>
         <Plus aria-hidden="true" />
-        New contractor
+        {t("dialogs.newContractor")}
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="New contractor"
-          description="An organisation you engage — not a user and not a supplier. Contacts are added on its record."
-          fields={contractorFields(options.data.suppliers, "create")}
+          title={t("dialogs.newContractor")}
+          description={t("dialogs.newContractorDescription")}
+          fields={contractorFields(options.data.suppliers, "create", t)}
           initial={{ status: "PROSPECTIVE" }}
-          submitLabel={duplicates.length ? "Create anyway" : "Create contractor"}
+          submitLabel={duplicates.length ? t("dialogs.createAnyway") : t("dialogs.createContractor")}
+          saveKind="create"
           wide
           testId="contractor-form"
           onSubmit={async (payload) => {
@@ -84,7 +89,7 @@ export function NewContractorButton() {
         >
           {duplicates.length ? (
             <div className="space-y-3 rounded-md border border-warning/40 bg-warning-soft px-4 py-3" data-testid="duplicate-warning">
-              <p className="text-table font-medium text-warning-strong">This looks like a contractor already in the directory.</p>
+              <p className="text-table font-medium text-warning-strong">{t("dialogs.duplicateTitle")}</p>
               <ul className="space-y-1.5 text-table text-fg">
                 {duplicates.map((duplicate, index) => (
                   <li key={`${duplicate.id}:${index}`}>
@@ -95,13 +100,13 @@ export function NewContractorButton() {
                     ) : (
                       <span className="font-medium">{duplicate.legalName}</span>
                     )}
-                    <span className="text-fg-muted"> · {CONTRACTOR_STATUS_LABELS[duplicate.status]} · {duplicate.reasons.join(", ")}</span>
+                    <span className="text-fg-muted"> · {contractorsLabel(t, "contractorStatus", duplicate.status, CONTRACTOR_STATUS_LABELS[duplicate.status])} · {duplicate.reasons.join(", ")}</span>
                   </li>
                 ))}
               </ul>
               <label htmlFor="confirm-duplicate" className="flex items-center gap-2 text-table text-fg">
                 <Checkbox id="confirm-duplicate" checked={confirmed} onCheckedChange={(checked) => setConfirmed(checked === true)} />
-                It is a different organisation — create it anyway
+                {t("dialogs.duplicateConfirm")}
               </label>
             </div>
           ) : null}
@@ -113,22 +118,24 @@ export function NewContractorButton() {
 
 export function EditContractorButton({ contractor }: { contractor: Record<string, unknown> & { id: string; version: number } }) {
   const router = useRouter();
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<{ suppliers: Option[] }>("/api/contractors/options", { suppliers: [] });
   return (
     <>
       <Button type="button" size="sm" variant="secondary" data-testid="edit-contractor" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
-        Edit
+        {t("dialogs.edit")}
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="Edit contractor"
-          fields={contractorFields(options.data.suppliers, "edit")}
+          title={t("dialogs.editContractor")}
+          fields={contractorFields(options.data.suppliers, "edit", t)}
           initial={contractor}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/contractors/${contractor.id}`, { method: "PATCH", body: { ...payload, expectedVersion: contractor.version } });
@@ -144,8 +151,9 @@ export function EditContractorButton({ contractor }: { contractor: Record<string
 
 type AssignmentOptions = { contractors: Array<Option & { status: string; assigned: boolean; contacts: Option[] }>; members: Option[]; contracts: Option[] };
 
-export function AssignContractorButton({ projectId, contractorId, label = "Assign contractor" }: { projectId: string; contractorId?: string; label?: string }) {
+export function AssignContractorButton({ projectId, contractorId, label }: { projectId: string; contractorId?: string; label?: string }) {
   const router = useRouter();
+  const t = useContractorsTranslations();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
   const [chosen, setChosen] = React.useState<string | null>(contractorId ?? null);
@@ -154,18 +162,19 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
     <>
       <Button type="button" size="sm" data-testid="assign-contractor" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Plus aria-hidden="true" />
-        {label}
+        {label ?? t("dialogs.assignContractor")}
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="Assign a contractor"
-          description="Each project assignment stands on its own: its status, scope, contract and manager."
-          fields={assignmentFields(options.data, chosen, "create")}
+          title={t("dialogs.assignTitle")}
+          description={t("dialogs.assignDescription")}
+          fields={assignmentFields(options.data, chosen, "create", t)}
           initial={{ status: "PLANNED", contractorId }}
           onValuesChange={(values) => setChosen(typeof values.contractorId === "string" && values.contractorId ? values.contractorId : null)}
-          submitLabel="Assign"
+          submitLabel={t("dialogs.assign")}
+          saveKind="none"
           wide
           testId="assignment-form"
           onSubmit={async (payload) => {
@@ -173,7 +182,7 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
             const contacts = options.data.contractors?.find((item) => item.id === payload.contractorId)?.contacts ?? [];
             if (payload.primaryContractorContactId && !contacts.some((contact) => contact.id === payload.primaryContractorContactId)) payload.primaryContractorContactId = null;
             await engineeringApi(`/api/projects/${projectId}/contractors`, { body: payload });
-            toast({ title: "Contractor assigned.", tone: "success" });
+            toast({ title: t("dialogs.assigned"), tone: "success" });
             router.refresh();
           }}
         />
@@ -184,21 +193,23 @@ export function AssignContractorButton({ projectId, contractorId, label = "Assig
 
 export function EditAssignmentButton({ projectId, assignment, subject }: { projectId: string; subject?: string; assignment: { id: string; contractorId: string; version: number; status: string; scopeSummary: string | null; contractId: string | null; internalManagerMemberId: string | null; primaryContractorContactId: string | null; startDate: string | null; endDate: string | null } }) {
   const router = useRouter();
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<AssignmentOptions>(`/api/projects/${projectId}/contractors/options`, { contractors: [], members: [], contracts: [] });
   return (
     <>
-      <Button type="button" size="icon-sm" variant="ghost" aria-label={subject ? `Edit assignment for ${subject}` : "Edit assignment"} data-testid="edit-assignment" onClick={() => void options.load().then((next) => next && setOpen(true))}>
+      <Button type="button" size="icon-sm" variant="ghost" aria-label={subject ? t("dialogs.editAssignmentFor", { subject }) : t("dialogs.editAssignment")} data-testid="edit-assignment" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="Edit assignment"
-          fields={assignmentFields(options.data, assignment.contractorId, "edit")}
+          title={t("dialogs.editAssignment")}
+          fields={assignmentFields(options.data, assignment.contractorId, "edit", t)}
           initial={assignment}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/project-contractor-assignments/${assignment.id}`, { method: "PATCH", body: { ...payload, expectedVersion: assignment.version } });
@@ -215,23 +226,25 @@ export function EditAssignmentButton({ projectId, assignment, subject }: { proje
 type WorkPackageOptions = { contractors: Option[]; contracts: Option[]; members: Option[]; canSetValue: boolean };
 
 export function NewWorkPackageButton({ projectId, contractorId }: { projectId: string; contractorId?: string }) {
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<WorkPackageOptions>(`/api/projects/${projectId}/work-packages/options`, { contractors: [], contracts: [], members: [], canSetValue: false });
   return (
     <>
       <Button type="button" size="sm" data-testid="new-work-package" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Plus aria-hidden="true" />
-        New work package
+        {t("dialogs.newWorkPackage")}
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="New work package"
-          description="A unit of scope: which contractor, under which contract, who answers for it, and when."
-          fields={workPackageFields(options.data, "create")}
+          title={t("dialogs.newWorkPackage")}
+          description={t("dialogs.newWorkPackageDescription")}
+          fields={workPackageFields(options.data, "create", t)}
           initial={{ status: "PLANNED", contractorId }}
-          submitLabel="Create work package"
+          submitLabel={t("dialogs.createWorkPackage")}
+          saveKind="create"
           wide
           testId="work-package-form"
           onSubmit={async (payload) => {
@@ -246,22 +259,24 @@ export function NewWorkPackageButton({ projectId, contractorId }: { projectId: s
 
 export function EditWorkPackageButton({ projectId, workPackage }: { projectId: string; workPackage: Record<string, unknown> & { id: string; version: number } }) {
   const router = useRouter();
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   const options = useLoad<WorkPackageOptions>(`/api/projects/${projectId}/work-packages/options`, { contractors: [], contracts: [], members: [], canSetValue: false });
   return (
     <>
       <Button type="button" size="sm" variant="secondary" data-testid="edit-work-package" onClick={() => void options.load().then((next) => next && setOpen(true))}>
         <Pencil aria-hidden="true" />
-        Edit
+        {t("dialogs.edit")}
       </Button>
       {options.loaded ? (
         <FormDialog
           open={open}
           onOpenChange={setOpen}
-          title="Edit work package"
-          fields={workPackageFields(options.data, "edit")}
+          title={t("dialogs.editWorkPackage")}
+          fields={workPackageFields(options.data, "edit", t)}
           initial={workPackage}
-          submitLabel="Save changes"
+          submitLabel={t("dialogs.saveChanges")}
+          saveKind="save"
           wide
           onSubmit={async (payload) => {
             await engineeringApi(`/api/work-packages/${workPackage.id}`, { method: "PATCH", body: { ...payload, expectedVersion: workPackage.version } });
@@ -276,22 +291,24 @@ export function EditWorkPackageButton({ projectId, workPackage }: { projectId: s
 export function CompleteWorkPackageButton({ workPackageId, version }: { workPackageId: string; version: number }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useContractorsTranslations();
   const [open, setOpen] = React.useState(false);
   return (
     <>
       <Button type="button" size="sm" data-testid="complete-work-package" onClick={() => setOpen(true)}>
-        Complete
+        {t("dialogs.complete")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title="Complete work package"
-        description="Completing it closes nothing else — not the contract, not the project, not the final account."
-        fields={[{ name: "actualFinishDate", label: "Actual finish", type: "date", hint: "Left blank, today." }]}
-        submitLabel="Complete"
+        title={t("dialogs.completeTitle")}
+        description={t("dialogs.completeDescription")}
+        fields={[{ name: "actualFinishDate", label: t("dialogs.actualFinish"), type: "date", hint: t("dialogs.actualFinishHint") }]}
+        submitLabel={t("dialogs.complete")}
+        saveKind="none"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/work-packages/${workPackageId}/complete`, { body: { ...payload, expectedVersion: version } });
-          toast({ title: "Work package completed.", tone: "success" });
+          toast({ title: t("dialogs.completed"), tone: "success" });
           router.refresh();
         }}
       />

@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -10,7 +11,9 @@ import { ClientTabs } from "../client-tabs";
 
 type Params = { params: Promise<{ clientId: string }> };
 
-export const metadata: Metadata = { title: "Contacts" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.contacts") };
+}
 
 /**
  * Client contacts (PRD #12 §76–§79).
@@ -23,6 +26,7 @@ export default async function ClientContactsPage({ params }: Params) {
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewContacts) notFound();
+  const t = await getTranslations("clients");
 
   const archived = client.archivedAt !== null || client.status === "ARCHIVED";
   const contacts = await clients.listContacts(context, clientId, { archived: true });
@@ -30,7 +34,7 @@ export default async function ClientContactsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Contacts")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.contacts"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}

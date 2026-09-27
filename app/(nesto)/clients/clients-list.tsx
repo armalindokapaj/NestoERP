@@ -13,6 +13,8 @@ import { CLIENT_SORT_KEYS } from "@/lib/modules/clients/client.schema";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { clearListFilters } from "@/lib/tables/list-url";
 import * as clients from "@/lib/modules/clients/client.service";
+import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -42,6 +44,7 @@ export async function ClientsList({
   variant: ClientListVariant;
   basePath: string;
 }) {
+  const t = await getTranslations("clients");
   const query = parseClientListQuery(searchParams, VARIANT_DEFAULTS[variant]);
 
   const [result, options] = await Promise.all([
@@ -63,12 +66,12 @@ export async function ClientsList({
   const filters: FilterConfig[] = [
     {
       param: "type",
-      label: "Type",
+      label: t("list.type"),
       options: [
-        { value: "COMPANY", label: "Company" },
-        { value: "INDIVIDUAL", label: "Individual" },
-        { value: "PUBLIC_ENTITY", label: "Public Entity" },
-        { value: "OTHER", label: "Other" },
+        { value: "COMPANY", label: clientsLabel(t, "clientType", "COMPANY", "Company") },
+        { value: "INDIVIDUAL", label: clientsLabel(t, "clientType", "INDIVIDUAL", "Individual") },
+        { value: "PUBLIC_ENTITY", label: clientsLabel(t, "clientType", "PUBLIC_ENTITY", "Public Entity") },
+        { value: "OTHER", label: clientsLabel(t, "clientType", "OTHER", "Other") },
       ],
     },
     ...(variant === "active" || variant === "archived"
@@ -76,10 +79,10 @@ export async function ClientsList({
       : [
           {
             param: "status",
-            label: "Status",
+            label: t("list.status"),
             options: [
-              { value: "ACTIVE", label: "Active" },
-              { value: "INACTIVE", label: "Inactive" },
+              { value: "ACTIVE", label: clientsLabel(t, "status", "ACTIVE", "Active") },
+              { value: "INACTIVE", label: clientsLabel(t, "status", "INACTIVE", "Inactive") },
             ],
           },
         ]),
@@ -88,20 +91,20 @@ export async function ClientsList({
     // (PRD #12 §35, §297).
     {
       param: "country",
-      label: "Country",
+      label: t("list.country"),
       options: options.countries.map((country) => ({ value: country, label: country })),
     },
     {
       param: "projectId",
-      label: "Project",
+      label: t("list.project"),
       options: options.projects.map((project) => ({ value: project.id, label: project.name })),
     },
     {
       param: "hasActiveProject",
-      label: "Active project",
+      label: t("list.activeProject"),
       options: [
-        { value: "yes", label: "Has an active project" },
-        { value: "no", label: "No active project" },
+        { value: "yes", label: t("list.hasActiveProject") },
+        { value: "no", label: t("list.noActiveProject") },
       ],
     },
   ];
@@ -115,16 +118,16 @@ export async function ClientsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search clients…"
+        searchPlaceholder={t("list.search")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "projects-desc", label: "Active projects" },
-          { value: "type-asc", label: "Type" },
-          { value: "status-asc", label: "Status" },
+          { value: "updated-desc", label: t("list.sortUpdated") },
+          { value: "created-desc", label: t("list.sortCreated") },
+          { value: "name-asc", label: t("list.sortNameAsc") },
+          { value: "name-desc", label: t("list.sortNameDesc") },
+          { value: "projects-desc", label: t("list.sortProjects") },
+          { value: "type-asc", label: t("list.sortType") },
+          { value: "status-asc", label: t("list.sortStatus") },
         ]}
       />
 
@@ -132,18 +135,18 @@ export async function ClientsList({
         hasFilters ? (
           <EmptyState
             icon={<Users />}
-            title="No clients match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: clearHref }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchDescription")}
+            action={{ label: t("list.clearFilters"), href: clearHref }}
           />
         ) : (
           <EmptyState
             icon={<Users />}
-            title={EMPTY_TITLE[variant]}
-            description={EMPTY_DESCRIPTION[variant]}
+            title={t(EMPTY_TITLE[variant])}
+            description={t(EMPTY_DESCRIPTION[variant])}
             action={
               variant !== "archived" && can(context, "client.create")
-                ? { label: "New client", href: "/clients/new" }
+                ? { label: t("common.newClient"), href: "/clients/new" }
                 : undefined
             }
           />
@@ -159,14 +162,14 @@ export async function ClientsList({
 }
 
 /** Empty-state copy from PRD #12 §190–§194. */
-const EMPTY_TITLE: Record<ClientListVariant, string> = {
-  all: "No clients yet.",
-  active: "No active clients.",
-  archived: "No archived clients.",
-};
+const EMPTY_TITLE = {
+  all: "list.emptyAll",
+  active: "list.emptyActive",
+  archived: "list.emptyArchived",
+} as const satisfies Record<ClientListVariant, string>;
 
-const EMPTY_DESCRIPTION: Record<ClientListVariant, string> = {
-  all: "Clients added to your company will appear here.",
-  active: "Clients you work with will appear here.",
-  archived: "Clients removed from active lists will appear here.",
-};
+const EMPTY_DESCRIPTION = {
+  all: "list.emptyAllDescription",
+  active: "list.emptyActiveDescription",
+  archived: "list.emptyArchivedDescription",
+} as const satisfies Record<ClientListVariant, string>;

@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -15,7 +16,9 @@ import { listSubmittals } from "@/lib/modules/engineering/engineering.submittals
 
 type Params = { params: Promise<{ contractorId: string }>; searchParams: SearchParams };
 
-export const metadata: Metadata = { title: "Contractor engineering" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("contractors"))("meta.engineering") };
+}
 
 /**
  * The contractor's RFIs, submittals and documents across the reader's projects (PRD #46 §160).
@@ -31,6 +34,7 @@ export default async function ContractorEngineeringPage({ params, searchParams }
   const contractor = await orNotFound(getContractor(context, contractorId));
   if (!contractor.capabilities.canViewEngineering) redirect("/access-denied");
   const base = `/contractors/${contractor.id}/engineering`;
+  const t = await getTranslations("contractors");
   const pageOf = (key: string) => one(search[key]);
   const queries = {
     rfis: rfiListSchema.parse({ contractorId: contractor.id, page: pageOf("rfiPage") }),
@@ -48,20 +52,20 @@ export default async function ContractorEngineeringPage({ params, searchParams }
   return (
     <div className="space-y-5">
       {rfis ? (
-        <Panel title="RFIs" description="Raised on or about this contractor's work.">
-          <RfiRegister items={rfis.items} showProject emptyTitle="No RFIs involve this contractor." />
+        <Panel title={t("engineeringPage.rfis")} description={t("engineeringPage.rfisDescription")}>
+          <RfiRegister items={rfis.items} showProject emptyTitle={t("engineeringPage.noRfis")} />
           <Pagination meta={registerMeta(rfis)} buildHref={(page) => pageHref(base, search, page, "rfiPage")} />
         </Panel>
       ) : null}
       {submittals ? (
-        <Panel title="Submittals">
-          <SubmittalRegister items={submittals.items} showProject emptyTitle="No submittals from this contractor." />
+        <Panel title={t("engineeringPage.submittals")}>
+          <SubmittalRegister items={submittals.items} showProject emptyTitle={t("engineeringPage.noSubmittals")} />
           <Pagination meta={registerMeta(submittals)} buildHref={(page) => pageHref(base, search, page, "submittalPage")} />
         </Panel>
       ) : null}
       {documents ? (
-        <Panel title="Engineering documents">
-          <DocumentRegister items={documents.items} showProject emptyTitle="No engineering documents from this contractor." />
+        <Panel title={t("engineeringPage.documents")}>
+          <DocumentRegister items={documents.items} showProject emptyTitle={t("engineeringPage.noDocuments")} />
           <Pagination meta={registerMeta(documents)} buildHref={(page) => pageHref(base, search, page, "documentPage")} />
         </Panel>
       ) : null}

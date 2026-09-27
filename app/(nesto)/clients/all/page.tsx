@@ -8,9 +8,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { ClientsList } from "../clients-list";
 
-export const metadata: Metadata = { title: "All Clients" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.allClients") };
+}
 
 export default async function ClientsSectionPage({
   searchParams,
@@ -20,6 +23,7 @@ export default async function ClientsSectionPage({
   const context = await requireModule("clients");
   const experience = resolveModuleExperience(context, "clients");
   const params = await searchParams;
+  const t = await getTranslations("clients");
 
   return (
     <ModulePage
@@ -28,7 +32,7 @@ export default async function ClientsSectionPage({
       actions={
         can(context, "client.create") ? (
           <Button asChild size="sm">
-            <Link href="/clients/new">New client</Link>
+            <Link href="/clients/new">{t("common.newClient")}</Link>
           </Button>
         ) : null
       }

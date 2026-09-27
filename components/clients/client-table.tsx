@@ -3,6 +3,8 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import type { ClientSummaryDTO } from "@/lib/modules/clients/client.types";
 import { clientTypeLabels } from "@/lib/modules/clients/client.status";
 import { formatDate } from "@/lib/utils/format";
+import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Clients list (PRD #12 §28, §29).
@@ -16,7 +18,8 @@ import { formatDate } from "@/lib/utils/format";
  * projects" is not a header sort because `projects-desc` orders by every
  * linked project, not the scoped active count the column shows.
  */
-export function ClientTable({ clients, listId = "clients.list", sort }: { clients: ClientSummaryDTO[]; listId?: string; sort?: TableSortConfig }) {
+export async function ClientTable({ clients, listId = "clients.list", sort }: { clients: ClientSummaryDTO[]; listId?: string; sort?: TableSortConfig }) {
+  const t = await getTranslations("clients");
   const sortable = Boolean(sort);
   const columns: TableColumn<ClientSummaryDTO>[] = [
     {
@@ -24,7 +27,7 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
       id: "name",
       mandatory: true,
       sortKey: sortable ? "name" : undefined,
-      label: "Client",
+      label: t("table.client"),
       primary: true,
       render: (client) => (
         <>
@@ -38,7 +41,7 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
     {
       key: "code",
       id: "code",
-      label: "Code",
+      label: t("table.code"),
       hideBelow: "lg",
       render: (client) =>
         client.code ? (
@@ -51,14 +54,14 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
       key: "type",
       id: "type",
       sortKey: sortable ? "type" : undefined,
-      label: "Type",
+      label: t("table.type"),
       hideBelow: "lg",
-      render: (client) => <span className="text-fg-muted">{clientTypeLabels[client.type]}</span>,
+      render: (client) => <span className="text-fg-muted">{clientsLabel(t, "clientType", client.type, clientTypeLabels[client.type])}</span>,
     },
     {
       key: "primaryContact",
       id: "primaryContact",
-      label: "Primary contact",
+      label: t("table.primaryContact"),
       hideBelow: "xl",
       render: (client) =>
         client.primaryContact ? (
@@ -71,7 +74,7 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
       key: "projects",
       id: "activeProjects",
       valueType: "number",
-      label: "Active projects",
+      label: t("table.activeProjects"),
       hideBelow: "md",
       align: "right",
       render: (client) => <span className="text-fg-muted">{client.activeProjectsCount}</span>,
@@ -82,14 +85,14 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
       mandatory: true,
       valueType: "status",
       sortKey: sortable ? "status" : undefined,
-      label: "Status",
+      label: t("table.status"),
       render: (client) => <StatusBadge status={client.status} />,
     },
     {
       key: "updatedAt",
       id: "updated",
       valueType: "date",
-      label: "Updated",
+      label: t("table.updated"),
       hideBelow: "xl",
       render: (client) => <span className="text-fg-muted">{formatDate(client.updatedAt)}</span>,
     },
@@ -99,7 +102,7 @@ export function ClientTable({ clients, listId = "clients.list", sort }: { client
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Clients"
+      caption={t("table.caption")}
       columns={columns}
       records={clients}
       rowKey={(client) => client.id}

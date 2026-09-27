@@ -6,8 +6,11 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createClientAction } from "@/lib/actions/clients";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New Client" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.newClient") };
+}
 
 /**
  * Create a client (PRD #12 §39–§50).
@@ -18,15 +21,16 @@ export const metadata: Metadata = { title: "New Client" };
 export default async function NewClientPage() {
   const context = await requireModule("clients");
   if (!can(context, "client.create")) notFound();
+  const t = await getTranslations("clients");
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: "Clients", href: "/clients" }, { label: "New client" }]} />
+      <Breadcrumbs items={[{ label: t("meta.clients"), href: "/clients" }, { label: t("newPage.title") }]} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">New client</h1>
+        <h1 className="text-page font-semibold text-fg">{t("newPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
-          A customer, commissioning party or organisation your company works with.
+          {t("newPage.description")}
         </p>
       </div>
 

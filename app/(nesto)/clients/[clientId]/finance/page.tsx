@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
@@ -17,7 +18,9 @@ import { ClientTabs } from "../client-tabs";
 
 type Params = { params: Promise<{ clientId: string }> };
 
-export const metadata: Metadata = { title: "Client finance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("clients"))("meta.finance") };
+}
 
 /**
  * Client finance (PRD #15 §185, §186).
@@ -32,6 +35,7 @@ export default async function ClientFinancePage({ params }: Params) {
   const { context, client } = await loadClient(clientId);
 
   if (!client.capabilities.canViewFinance) notFound();
+  const t = await getTranslations("clients");
 
   const [result, currency] = await Promise.all([
     can(context, "finance.invoice.view")
@@ -53,14 +57,14 @@ export default async function ClientFinancePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={clientBreadcrumbs(client, "Finance")}
+        breadcrumbs={clientBreadcrumbs(client, t("tabs.finance"), t("meta.clients"))}
         title={client.name}
         subtitle={client.code ?? undefined}
         status={client.status}
         actions={
           can(context, "finance.invoice.create") ? (
             <Button asChild size="sm">
-              <Link href={`/finance/invoices/new?clientId=${client.id}`}>New invoice</Link>
+              <Link href={`/finance/invoices/new?clientId=${client.id}`}>{t("financePage.newInvoice")}</Link>
             </Button>
           ) : null
         }
@@ -74,7 +78,7 @@ export default async function ClientFinancePage({ params }: Params) {
 
       {can(context, "finance.receivables.view") ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Outstanding</h2>
+          <h2 className="text-card font-semibold text-fg">{t("financePage.outstanding")}</h2>
           <CurrencyTotals
             totals={[...outstanding.entries()]
               .sort(([a], [b]) => a.localeCompare(b))
@@ -83,7 +87,7 @@ export default async function ClientFinancePage({ params }: Params) {
             className="mt-2 text-page font-semibold text-fg"
           />
           <p className="mt-2 text-meta text-fg-subtle">
-            Across the invoices listed below. Currencies are reported separately.
+            {t("financePage.outstandingNote")}
           </p>
         </section>
       ) : null}
@@ -91,17 +95,17 @@ export default async function ClientFinancePage({ params }: Params) {
       {!result ? (
         <EmptyState
           icon={<ReceiptText />}
-          title="No invoice access."
-          description="Your finance access covers receivables totals rather than individual invoices."
+          title={t("financePage.noAccessTitle")}
+          description={t("financePage.noAccessDescription")}
         />
       ) : result.data.length === 0 ? (
         <EmptyState
           icon={<ReceiptText />}
-          title="No invoices for this client."
-          description="Invoices raised against this client will appear here."
+          title={t("financePage.emptyTitle")}
+          description={t("financePage.emptyDescription")}
           action={
             can(context, "finance.invoice.create")
-              ? { label: "New invoice", href: `/finance/invoices/new?clientId=${client.id}` }
+              ? { label: t("financePage.newInvoice"), href: `/finance/invoices/new?clientId=${client.id}` }
               : undefined
           }
         />
