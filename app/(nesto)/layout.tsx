@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { requireUserContext } from "@/lib/context/current-user";
 import { admitPage, getPageMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { redirect } from "next/navigation";
@@ -35,8 +36,10 @@ export default async function NestoLayout({ children }: { children: React.ReactN
   if (guard.status === "rejected") throw guard.reason;
 
   return (
-    <AppShell context={context} startedAt={startedAt}>
-      {children}
-    </AppShell>
+    <ModuleMessages namespaces={[]}>
+      <AppShell context={context} startedAt={startedAt}>
+        {children}
+      </AppShell>
+    </ModuleMessages>
   );
 }

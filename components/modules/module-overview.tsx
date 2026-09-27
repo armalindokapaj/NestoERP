@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { sectionRoute, type ModuleKey } from "@/config/modules";
@@ -40,10 +41,11 @@ export async function ModuleOverview({
     }),
   );
 
+  const t = await getTranslations("common");
   if (cards.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-line-strong bg-surface-muted px-6 py-10 text-center text-table text-fg-muted">
-        You have access to this module, but none of its sections are available to your role yet.
+        {t("noSections")}
       </p>
     );
   }
@@ -75,7 +77,7 @@ export async function ModuleOverview({
                   href={sectionRoute(moduleKey, section.section)}
                   className="text-table font-medium text-accent-strong"
                 >
-                  View all
+                  {t("viewAll")}
                 </Link>
               </div>
               <ul className="mt-4 divide-y divide-line">

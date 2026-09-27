@@ -5,6 +5,7 @@ import type { TableColumn } from "@/components/data/data-table";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getTranslations } from "@/lib/i18n/server";
 import type { CompanyRef } from "@/lib/modules/finance/finance.types";
 
 /**
@@ -16,10 +17,10 @@ import type { CompanyRef } from "@/lib/modules/finance/finance.types";
  */
 
 /** The Company column. Only a grouped table adds it, so a company workspace's tables are unchanged. */
-export function companyColumn<T extends { company?: CompanyRef }>(): TableColumn<T> {
+export function companyColumn<T extends { company?: CompanyRef }>(label = "Company"): TableColumn<T> {
   return {
     key: "company",
-    label: "Company",
+    label,
     render: (row) => (row.company ? <CompanyTag name={row.company.name} /> : null),
   };
 }
@@ -39,12 +40,13 @@ export function GroupRecordLink({ company, href, children }: { company: CompanyR
 }
 
 /** The Group workspace reads no company here: an empty answer, not an error (Workspace Context §76). */
-export function NoAccessibleData() {
+export async function NoAccessibleData() {
+  const t = await getTranslations("finance");
   return (
     <EmptyState
       icon={<Building2 />}
-      title="No accessible data for this module."
-      description="None of the companies you can read holds this part of Finance for you."
+      title={t("group.noAccessTitle")}
+      description={t("group.noAccessBody")}
     />
   );
 }

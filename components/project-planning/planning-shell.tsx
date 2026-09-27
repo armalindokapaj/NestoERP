@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, ListTree, Lock, MoreHorizontal, Network, Plus, Search, SlidersHorizontal, Unlock } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { addLocalDays, dateLabel, shortDateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { PLANNING_TEMPLATES } from "@/lib/modules/project-planning/planning.template-catalog";
-import { MILESTONE_STATUSES, STATUS_LABELS, type MilestoneStatus, type MilestoneSummaryDTO, type Option, type ProjectPlanningOverviewDTO } from "@/lib/modules/project-planning/planning.types";
+import { MILESTONE_STATUSES, type MilestoneStatus, type MilestoneSummaryDTO, type Option, type ProjectPlanningOverviewDTO } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { MilestoneDrawer } from "./milestone-drawer";
 import { useValuesEditor } from "./use-values-editor";
@@ -37,20 +38,14 @@ import { Kpi, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./p
 type View = "overview" | "timeline" | "milestones" | "dependencies";
 type Quick = "upcoming" | "delayed" | "at_risk" | "critical" | "completed";
 
-const VIEWS: Array<{ key: View; label: string; icon: typeof Flag }> = [
-  { key: "overview", label: "Overview", icon: LayoutDashboard },
-  { key: "timeline", label: "Timeline", icon: GanttChart },
-  { key: "milestones", label: "Milestones", icon: ListTree },
-  { key: "dependencies", label: "Dependencies", icon: Network },
+const VIEWS: Array<{ key: View; icon: typeof Flag }> = [
+  { key: "overview", icon: LayoutDashboard },
+  { key: "timeline", icon: GanttChart },
+  { key: "milestones", icon: ListTree },
+  { key: "dependencies", icon: Network },
 ];
 
-const QUICK: Array<{ key: Quick; label: string }> = [
-  { key: "upcoming", label: "Upcoming 30 Days" },
-  { key: "delayed", label: "Delayed" },
-  { key: "at_risk", label: "At Risk" },
-  { key: "critical", label: "Critical" },
-  { key: "completed", label: "Completed" },
-];
+const QUICK: Array<{ key: Quick }> = [{ key: "upcoming" }, { key: "delayed" }, { key: "at_risk" }, { key: "critical" }, { key: "completed" }];
 
 function matchesQuick(milestone: MilestoneSummaryDTO, quick: Quick, today: string) {
   const closed = milestone.status === "COMPLETED" || milestone.status === "CANCELLED";
@@ -78,6 +73,7 @@ function writeUrl(params: Record<string, string | null>) {
 }
 
 export function PlanningShell({ initial, initialView, initialMilestone, initialQuick }: { initial: ProjectPlanningOverviewDTO; initialView: View | null; initialMilestone: string | null; initialQuick: Quick | null }) {
+  const t = useTranslations("projects");
   const toast = useToast();
   // One shared breakpoint store (AUD-04 §4, SP-15); false until hydrated, as before.
   const below = useIsBelow("md");
@@ -114,9 +110,9 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
     try {
       setPlan(await planningApi<ProjectPlanningOverviewDTO>(`/api/projects/${plan.projectId}/planning`));
     } catch (error) {
-      toast({ title: failureMessage(error, "The plan could not be refreshed."), tone: "danger" });
+      toast({ title: failureMessage(error, t("planning.refreshFailed")), tone: "danger" });
     }
-  }, [plan.projectId, toast]);
+  }, [plan.projectId, toast, t]);
 
   function chooseView(next: View) {
     setView(next);
@@ -169,7 +165,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
     try {
       await planningApi(`/api/projects/${plan.projectId}/phases/reorder`, { body: { ids } });
     } catch (error) {
-      toast({ title: failureMessage(error, "The phases could not be reordered."), tone: "danger" });
+      toast({ title: failureMessage(error, t("planning.reorderFailed")), tone: "danger" });
     }
     await refresh();
   }
@@ -199,22 +195,22 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       {/* Header (§128, §236) */}
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
-          <h2 className="text-page font-semibold text-fg">Project Planning</h2>
+          <h2 className="text-page font-semibold text-fg">{t("planning.title")}</h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-table text-fg-muted" data-testid="planning-summary">
             {metrics.total ? (
               <>
-                <span className="font-medium text-fg">{metrics.progressPercent}% complete</span>
-                <span>{metrics.total} {metrics.total === 1 ? "milestone" : "milestones"}</span>
-                <span>{metrics.completed} complete</span>
+                <span className="font-medium text-fg">{t("planning.percentComplete", { value: metrics.progressPercent ?? 0 })}</span>
+                <span>{t("planning.milestones", { count: metrics.total })}</span>
+                <span>{t("planning.completeCount", { count: metrics.completed })}</span>
               </>
             ) : (
-              <span>{empty ? "No plan yet" : "No milestones yet"}</span>
+              <span>{empty ? t("planning.noPlan") : t("planning.noMilestones")}</span>
             )}
-            {metrics.atRisk ? <span className="text-warning-strong">{metrics.atRisk} at risk</span> : null}
-            {metrics.delayed ? <span className="text-danger-strong">{metrics.delayed} delayed</span> : null}
+            {metrics.atRisk ? <span className="text-warning-strong">{t("planning.atRiskCount", { count: metrics.atRisk })}</span> : null}
+            {metrics.delayed ? <span className="text-danger-strong">{t("planning.delayedCount", { count: metrics.delayed })}</span> : null}
             {plan.baselineLocked ? (
               <span className="inline-flex items-center gap-1">
-                <Lock aria-hidden="true" className="size-3.5" /> Baseline locked
+                <Lock aria-hidden="true" className="size-3.5" /> {t("planning.baselineLocked")}
               </span>
             ) : null}
           </p>
@@ -222,30 +218,30 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
         <div className="flex flex-wrap items-center gap-2">
           {caps.canCreatePhase && !empty ? (
             <Button type="button" variant="secondary" size="sm" onClick={() => setCreating("phase")}>
-              <Plus /> Phase
+              <Plus /> {t("planning.phase")}
             </Button>
           ) : null}
           {caps.canCreateMilestone && !empty ? (
             <Button type="button" size="sm" onClick={() => setCreating("milestone")}>
-              <Plus /> Milestone
+              <Plus /> {t("planning.milestone")}
             </Button>
           ) : null}
           {caps.canLockBaseline || caps.canUnlockBaseline ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label="Plan actions">
+                <Button type="button" variant="ghost" size="icon-sm" aria-label={t("planning.planActions")}>
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {caps.canLockBaseline ? (
-                  <DropdownMenuItem onSelect={() => void run(() => planningApi(`/api/projects/${plan.projectId}/planning/settings`, { method: "PUT", body: { baselineLocked: true } }), "Baseline locked")}>
-                    <Lock className="size-4" /> Lock baseline
+                  <DropdownMenuItem onSelect={() => void run(() => planningApi(`/api/projects/${plan.projectId}/planning/settings`, { method: "PUT", body: { baselineLocked: true } }), t("planning.baselineLocked"))}>
+                    <Lock className="size-4" /> {t("planning.lockBaseline")}
                   </DropdownMenuItem>
                 ) : null}
                 {caps.canUnlockBaseline ? (
-                  <DropdownMenuItem onSelect={() => void run(() => planningApi(`/api/projects/${plan.projectId}/planning/settings`, { method: "PUT", body: { baselineLocked: false } }), "Baseline unlocked")}>
-                    <Unlock className="size-4" /> Unlock baseline
+                  <DropdownMenuItem onSelect={() => void run(() => planningApi(`/api/projects/${plan.projectId}/planning/settings`, { method: "PUT", body: { baselineLocked: false } }), t("planning.baselineUnlocked"))}>
+                    <Unlock className="size-4" /> {t("planning.unlockBaseline")}
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenuContent>
@@ -261,18 +257,18 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             <span className="mx-auto flex size-11 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
               <CalendarRange className="size-5" />
             </span>
-            <p className="mt-3 text-card font-semibold text-fg">No project plan yet.</p>
-            <p className="mt-1 text-table text-fg-muted">Set out the phases and key milestones this project is working towards — or start from a template.</p>
+            <p className="mt-3 text-card font-semibold text-fg">{t("planning.emptyTitle")}</p>
+            <p className="mt-1 text-table text-fg-muted">{t("planning.emptyBody")}</p>
             {caps.canCreatePhase || caps.canApplyTemplate ? (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {caps.canCreatePhase ? (
                   <Button type="button" size="sm" onClick={() => setCreating("phase")}>
-                    <Plus /> Create Phase
+                    <Plus /> {t("planning.createPhase")}
                   </Button>
                 ) : null}
                 {caps.canCreateMilestone ? (
                   <Button type="button" variant="secondary" size="sm" onClick={() => setCreating("milestone")}>
-                    <Plus /> Add Milestone
+                    <Plus /> {t("planning.addMilestone")}
                   </Button>
                 ) : null}
                 {caps.canApplyTemplate ? (
@@ -285,17 +281,17 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                       void planningApi<Option[]>(`/api/projects/${plan.projectId}/planning/copy`).then(setCopyChoices).catch(() => setCopyChoices([]));
                     }}
                   >
-                    Copy from another project
+                    {t("planning.copyFromProject")}
                   </Button>
                 ) : null}
               </div>
             ) : (
-              <p className="mt-3 text-table text-fg-subtle">The project manager has not set out a plan.</p>
+              <p className="mt-3 text-table text-fg-subtle">{t("planning.noPlanByManager")}</p>
             )}
           </div>
           {caps.canApplyTemplate ? (
             <div className="mt-6">
-              <p className="text-meta font-medium uppercase tracking-wide text-fg-subtle">Apply Template</p>
+              <p className="text-meta font-medium uppercase tracking-wide text-fg-subtle">{t("planning.applyTemplateHeading")}</p>
               <ul className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {PLANNING_TEMPLATES.map((entry) => (
                   <li key={entry.key}>
@@ -303,7 +299,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                       <span className="text-table font-semibold text-fg">{entry.name}</span>
                       <span className="mt-1 flex-1 text-meta text-fg-muted">{entry.description}</span>
                       <span className="mt-3 text-meta tabular-nums text-fg-subtle">
-                        {entry.phases.length} phases · {entry.phases.reduce((sum, phase) => sum + phase.milestones.length, 0)} milestones
+                        {t("planning.templateCounts", { phases: entry.phases.length, milestones: entry.phases.reduce((sum, phase) => sum + phase.milestones.length, 0) })}
                       </span>
                     </button>
                   </li>
@@ -315,7 +311,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       ) : (
         <>
           {/* View tabs */}
-          <nav aria-label="Planning views" className="flex items-center gap-1 overflow-x-auto overscroll-x-contain border-b border-line">
+          <nav aria-label={t("planning.viewsLabel")} className="flex items-center gap-1 overflow-x-auto overscroll-x-contain border-b border-line">
             {VIEWS.filter((entry) => entry.key !== "timeline" || wide).map((entry) => (
               <button
                 key={entry.key}
@@ -326,39 +322,39 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 data-testid={`planning-view-${entry.key}`}
               >
                 <entry.icon aria-hidden="true" className="size-4" />
-                {entry.label}
+                {t(`planning.views.${entry.key}`)}
               </button>
             ))}
           </nav>
 
           {/* Filters (§124-§127) */}
           {view !== "overview" ? (
-            <section className="space-y-2" aria-label="Filters">
+            <section className="space-y-2" aria-label={t("planning.filters")}>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="relative min-w-[12rem] flex-1 sm:max-w-xs">
-                  <span className="sr-only">Search milestones</span>
+                  <span className="sr-only">{t("planning.searchMilestones")}</span>
                   <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-                  <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search milestones" className="pl-8" />
+                  <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("planning.searchMilestones")} className="pl-8" />
                 </label>
-                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick filters">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("planning.quickFilters")}>
                   {QUICK.map((entry) => (
                     <button key={entry.key} type="button" aria-pressed={quick === entry.key} onClick={() => { const next = quick === entry.key ? null : entry.key; setQuick(next); writeUrl({ filter: next }); }} className={cn("rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", quick === entry.key ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}>
-                      {entry.label}
+                      {t(`planning.quick.${entry.key}`)}
                     </button>
                   ))}
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setFiltersOpen((value) => !value)} aria-expanded={filtersOpen}>
-                  <SlidersHorizontal /> Filters
+                  <SlidersHorizontal /> {t("planning.filters")}
                 </Button>
                 {view === "milestones" ? (
                   <label className="flex items-center gap-2 text-table text-fg-muted">
-                    <span>Sort</span>
-                    <select className={cn(selectClass, "h-8 w-auto")} value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label="Sort milestones">
-                      <option value="phase">Phase</option>
-                      <option value="date">Date</option>
-                      <option value="status">Status</option>
-                      <option value="variance">Variance</option>
-                      <option value="owner">Owner</option>
+                    <span>{t("planning.sort")}</span>
+                    <select className={cn(selectClass, "h-8 w-auto")} value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label={t("planning.sortMilestones")}>
+                      <option value="phase">{t("planning.sortPhase")}</option>
+                      <option value="date">{t("planning.sortDate")}</option>
+                      <option value="status">{t("planning.sortStatus")}</option>
+                      <option value="variance">{t("planning.sortVariance")}</option>
+                      <option value="owner">{t("planning.sortOwner")}</option>
                     </select>
                   </label>
                 ) : null}
@@ -366,32 +362,32 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
               {filtersOpen ? (
                 <div className="nesto-card grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
-                    Phase
+                    {t("planning.phase")}
                     <select className={selectClass} value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}>
-                      <option value="">All phases</option>
+                      <option value="">{t("planning.allPhases")}</option>
                       {plan.phases.map((phase) => (
                         <option key={phase.id} value={phase.id}>
                           {phase.name}
                         </option>
                       ))}
-                      <option value="none">No phase</option>
+                      <option value="none">{t("planning.noPhase")}</option>
                     </select>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
-                    Status
+                    {t("planning.status")}
                     <select className={selectClass} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MilestoneStatus | "")}>
-                      <option value="">All statuses</option>
+                      <option value="">{t("planning.allStatuses")}</option>
                       {MILESTONE_STATUSES.map((status) => (
                         <option key={status} value={status}>
-                          {STATUS_LABELS[status]}
+                          {t(`milestoneStatus.${status}`)}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
-                    Owner
+                    {t("planning.owner")}
                     <select className={selectClass} value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
-                      <option value="">Anyone</option>
+                      <option value="">{t("planning.anyone")}</option>
                       {owners.map((owner) => (
                         <option key={owner.id} value={owner.id}>
                           {owner.label}
@@ -400,20 +396,20 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                     </select>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
-                    From
+                    {t("planning.from")}
                     <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
-                    To
+                    {t("planning.to")}
                     <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
                   </label>
                 </div>
               ) : null}
               {filtering ? (
                 <p className="text-meta text-fg-muted">
-                  {filtered.length} of {plan.milestones.length} milestones.{" "}
+                  {t("planning.filteredCount", { shown: filtered.length, total: plan.milestones.length })}{" "}
                   <button type="button" className="font-medium text-accent-strong hover:underline" onClick={() => { setSearch(""); setQuick(null); setPhaseFilter(""); setStatusFilter(""); setOwnerFilter(""); setFrom(""); setTo(""); writeUrl({ filter: null }); }}>
-                    Clear filters
+                    {t("planning.clearFilters")}
                   </button>
                 </p>
               ) : null}
@@ -424,23 +420,23 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             <div className="space-y-4">
               {/* KPIs (§96) */}
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-                <Kpi label="Planning progress" value={metrics.progressPercent === null ? "—" : `${metrics.progressPercent}%`} testId="kpi-progress">
-                  <ProgressBar value={metrics.progressPercent} label="Planning progress" className="mt-1" />
+                <Kpi label={t("planning.planningProgress")} value={metrics.progressPercent === null ? "—" : `${metrics.progressPercent}%`} testId="kpi-progress">
+                  <ProgressBar value={metrics.progressPercent} label={t("planning.planningProgress")} className="mt-1" />
                 </Kpi>
-                <Kpi label="Milestones complete" value={`${metrics.completed}/${metrics.total}`} testId="kpi-complete" />
-                <Kpi label="Upcoming · 30 days" value={metrics.upcoming} testId="kpi-upcoming" />
-                <Kpi label="Delayed" value={metrics.delayed} tone={metrics.delayed ? "danger" : undefined} testId="kpi-delayed" />
-                <Kpi label="At risk" value={metrics.atRisk} tone={metrics.atRisk ? "warning" : undefined} testId="kpi-at-risk" />
-                <Kpi label="Critical" value={metrics.critical} testId="kpi-critical" />
+                <Kpi label={t("planning.milestonesComplete")} value={`${metrics.completed}/${metrics.total}`} testId="kpi-complete" />
+                <Kpi label={t("planning.upcoming30")} value={metrics.upcoming} testId="kpi-upcoming" />
+                <Kpi label={t("planning.delayed")} value={metrics.delayed} tone={metrics.delayed ? "danger" : undefined} testId="kpi-delayed" />
+                <Kpi label={t("planning.atRisk")} value={metrics.atRisk} tone={metrics.atRisk ? "warning" : undefined} testId="kpi-at-risk" />
+                <Kpi label={t("planning.critical")} value={metrics.critical} testId="kpi-critical" />
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
                 {/* Upcoming (§237) */}
                 <section className="nesto-card overflow-hidden" aria-labelledby="upcoming-title">
                   <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <h3 id="upcoming-title" className="text-card font-semibold text-fg">Upcoming</h3>
+                    <h3 id="upcoming-title" className="text-card font-semibold text-fg">{t("planning.upcoming")}</h3>
                     <button type="button" className="text-table font-medium text-accent-strong" onClick={() => { setQuick("upcoming"); chooseView("milestones"); }}>
-                      View all
+                      {t("planning.viewAll")}
                     </button>
                   </header>
                   {upcoming.length ? (
@@ -455,23 +451,23 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                                 <OwnerName owner={milestone.owner} plain />
                               </span>
                             </span>
-                            {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">Critical</span> : null}
+                            {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">{t("planning.critical")}</span> : null}
                             <MilestoneStatusBadge status={milestone.status} delayed={milestone.delayed} />
                           </button>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="px-4 py-6 text-table text-fg-subtle">Nothing ahead on the plan.</p>
+                    <p className="px-4 py-6 text-table text-fg-subtle">{t("planning.nothingAhead")}</p>
                   )}
                 </section>
 
                 {/* Delayed and at risk (§238) */}
                 <section className="nesto-card overflow-hidden" aria-labelledby="late-title">
                   <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <h3 id="late-title" className="text-card font-semibold text-fg">Delayed / At Risk</h3>
+                    <h3 id="late-title" className="text-card font-semibold text-fg">{t("planning.delayedAtRisk")}</h3>
                     <button type="button" className="text-table font-medium text-accent-strong" onClick={() => { setQuick("delayed"); chooseView("milestones"); }}>
-                      View delayed
+                      {t("planning.viewDelayed")}
                     </button>
                   </header>
                   {late.length ? (
@@ -483,7 +479,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                               <span className="block truncate text-table font-medium text-fg">{milestone.name}</span>
                               <span className="block truncate text-meta text-fg-muted">
                                 <OwnerName owner={milestone.owner} plain />
-                                {milestone.delayed ? ` · ${milestone.overdueDays} ${milestone.overdueDays === 1 ? "day" : "days"} past ${dateLabel(milestone.forecastDate ?? milestone.plannedDate)}` : ""}
+                                {milestone.delayed ? t("planning.daysPast", { count: milestone.overdueDays, date: dateLabel(milestone.forecastDate ?? milestone.plannedDate) }) : ""}
                               </span>
                             </span>
                             <Variance days={milestone.varianceDays} short className="text-table" />
@@ -493,7 +489,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                       ))}
                     </ul>
                   ) : (
-                    <p className="px-4 py-6 text-table text-fg-subtle">Nothing is delayed or at risk.</p>
+                    <p className="px-4 py-6 text-table text-fg-subtle">{t("planning.nothingLate")}</p>
                   )}
                 </section>
               </div>
@@ -501,8 +497,8 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
               {/* Phases (§26, §28, §114, §131) */}
               <section className="nesto-card overflow-hidden" aria-labelledby="phases-title">
                 <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                  <h3 id="phases-title" className="text-card font-semibold text-fg">Phases</h3>
-                  {caps.canEditPhase && plan.phases.length > 1 ? <span className="hidden text-meta text-fg-subtle sm:inline">Drag to reorder, or use the arrows.</span> : null}
+                  <h3 id="phases-title" className="text-card font-semibold text-fg">{t("planning.phases")}</h3>
+                  {caps.canEditPhase && plan.phases.length > 1 ? <span className="hidden text-meta text-fg-subtle sm:inline">{t("planning.dragHint")}</span> : null}
                 </header>
                 {plan.phases.length ? (
                   <ol className="divide-y divide-line/70">
@@ -530,22 +526,22 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                             <MilestoneStatusBadge status={phase.status} />
                           </span>
                           <span className="mt-0.5 block text-meta text-fg-muted">
-                            {phase.span ? `${shortDateLabel(phase.span.start)} – ${dateLabel(phase.span.end)}` : "No dates"} · {phase.completedCount}/{phase.milestoneCount} milestones
+                            {phase.span ? `${shortDateLabel(phase.span.start)} – ${dateLabel(phase.span.end)}` : t("planning.noDates")} · {t("planning.phaseMilestones", { done: phase.completedCount, total: phase.milestoneCount })}
                             {phase.owner ? ` · ${phase.owner.name}` : ""}
                           </span>
                         </button>
                         <span className="hidden w-40 items-center gap-2 sm:flex">
-                          <ProgressBar value={phase.progressPercent ?? phase.suggestedProgress} label={`${phase.name} progress`} />
-                          <span className="w-10 text-right text-meta tabular-nums text-fg-muted" title={phase.progressPercent === null && phase.suggestedProgress !== null ? "Suggested from milestones" : undefined}>
+                          <ProgressBar value={phase.progressPercent ?? phase.suggestedProgress} label={t("planning.phaseProgress", { name: phase.name })} />
+                          <span className="w-10 text-right text-meta tabular-nums text-fg-muted" title={phase.progressPercent === null && phase.suggestedProgress !== null ? t("planning.suggested") : undefined}>
                             {phase.progressPercent ?? phase.suggestedProgress ?? 0}%
                           </span>
                         </span>
                         {caps.canEditPhase ? (
                           <span className="flex shrink-0">
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${phase.name} up`} disabled={index === 0 || pending} onClick={() => void movePhase(index, -1)}>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("planning.moveUp", { name: phase.name })} disabled={index === 0 || pending} onClick={() => void movePhase(index, -1)}>
                               <ArrowUp />
                             </Button>
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${phase.name} down`} disabled={index === plan.phases.length - 1 || pending} onClick={() => void movePhase(index, 1)}>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("planning.moveDown", { name: phase.name })} disabled={index === plan.phases.length - 1 || pending} onClick={() => void movePhase(index, 1)}>
                               <ArrowDown />
                             </Button>
                           </span>
@@ -554,7 +550,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                     ))}
                   </ol>
                 ) : (
-                  <p className="px-4 py-6 text-table text-fg-subtle">No phases — milestones are listed on their own.</p>
+                  <p className="px-4 py-6 text-table text-fg-subtle">{t("planning.noPhases")}</p>
                 )}
               </section>
             </div>
@@ -563,7 +559,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
           {view === "timeline" && wide ? (
             <>
               <PlanningTimeline phases={plan.phases} milestones={filtered} dependencies={plan.dependencies} today={plan.today} projectStart={plan.project.startDate} projectEnd={plan.project.endDate} zoom={zoom} onZoom={setZoom} onOpenMilestone={(id) => open(id)} onOpenPhase={setPhaseOpen} showPhasesWithoutMatches={!filtering} />
-              <p className="text-meta text-fg-subtle">The same plan is listed under Milestones, for keyboard and screen-reader use.</p>
+              <p className="text-meta text-fg-subtle">{t("planning.timelineNote")}</p>
             </>
           ) : null}
 
@@ -573,16 +569,16 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             /* Dependencies (§268) */
             <section className="nesto-card overflow-hidden" data-testid="dependency-table">
               {plan.dependencies.length ? (
-                <ScrollRegion label="Milestone dependencies">
+                <ScrollRegion label={t("planning.dependenciesLabel")}>
                   <table className="w-full min-w-[640px] text-left">
-                    <caption className="sr-only">Milestone dependencies</caption>
+                    <caption className="sr-only">{t("planning.dependenciesLabel")}</caption>
                     <thead>
                       <tr className="border-b border-line text-meta text-fg-muted">
-                        <th scope="col" className="px-4 py-2 font-medium">Predecessor</th>
+                        <th scope="col" className="px-4 py-2 font-medium">{t("planning.predecessor")}</th>
                         <th scope="col" className="px-3 py-2 font-medium" aria-label="then" />
-                        <th scope="col" className="px-3 py-2 font-medium">Successor</th>
-                        <th scope="col" className="px-3 py-2 font-medium">Lag</th>
-                        <th scope="col" className="px-4 py-2 font-medium">Status</th>
+                        <th scope="col" className="px-3 py-2 font-medium">{t("planning.successor")}</th>
+                        <th scope="col" className="px-3 py-2 font-medium">{t("planning.lag")}</th>
+                        <th scope="col" className="px-4 py-2 font-medium">{t("planning.status")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -597,18 +593,18 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                                 <button type="button" className="text-table font-medium text-fg hover:text-accent-strong" onClick={() => predecessor && open(predecessor.id)}>
                                   {predecessor?.name}
                                 </button>
-                                <span className="block text-meta text-fg-muted">{predecessor ? `${STATUS_LABELS[predecessor.status]} · ${dateLabel(predecessor.displayDate)}` : ""}</span>
+                                <span className="block text-meta text-fg-muted">{predecessor ? `${t(`milestoneStatus.${predecessor.status}`)} · ${dateLabel(predecessor.displayDate)}` : ""}</span>
                               </td>
                               <td className="px-3 py-2.5 text-fg-subtle" aria-hidden="true">→</td>
                               <td className="px-3 py-2.5">
                                 <button type="button" className="text-table font-medium text-fg hover:text-accent-strong" onClick={() => successor && open(successor.id)}>
                                   {successor?.name}
                                 </button>
-                                <span className="block text-meta text-fg-muted">{successor ? `${STATUS_LABELS[successor.status]} · ${dateLabel(successor.displayDate)}` : ""}</span>
+                                <span className="block text-meta text-fg-muted">{successor ? `${t(`milestoneStatus.${successor.status}`)} · ${dateLabel(successor.displayDate)}` : ""}</span>
                               </td>
-                              <td className="px-3 py-2.5 text-table tabular-nums text-fg-muted">{edge.lagDays ? `${edge.lagDays} ${edge.lagDays === 1 ? "day" : "days"}` : "—"}</td>
+                              <td className="px-3 py-2.5 text-table tabular-nums text-fg-muted">{edge.lagDays ? t("planning.lagDays", { count: edge.lagDays }) : "—"}</td>
                               <td className="px-4 py-2.5 text-table">
-                                {edge.warning ? <span className="text-warning-strong">{edge.warning}</span> : edge.satisfied ? <span className="text-success-strong">Satisfied</span> : <span className="text-fg-muted">Waiting</span>}
+                                {edge.warning ? <span className="text-warning-strong">{edge.warning}</span> : edge.satisfied ? <span className="text-success-strong">{t("planning.satisfied")}</span> : <span className="text-fg-muted">{t("planning.waiting")}</span>}
                               </td>
                             </tr>
                           );
@@ -617,7 +613,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                   </table>
                 </ScrollRegion>
               ) : (
-                <p className="px-4 py-8 text-center text-table text-fg-subtle">No dependencies. Open a milestone and add what it depends on.</p>
+                <p className="px-4 py-8 text-center text-table text-fg-subtle">{t("planning.noDependencies")}</p>
               )}
             </section>
           ) : null}
@@ -626,8 +622,8 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
 
       <MilestoneDrawer milestoneId={drawer.id} initialPanel={drawer.panel} mobile={mobile} phases={phaseOptions} members={plan.members} canSetBaseline={caps.canManageBaseline} onClose={close} onChanged={() => void refresh()} />
 
-      <MilestoneFormDialog open={creating === "milestone"} onOpenChange={(value) => setCreating(value ? "milestone" : null)} projectId={plan.projectId} initial={{ ...EMPTY_MILESTONE, phaseId: phaseFilter && phaseFilter !== "none" ? phaseFilter : "" }} phases={phaseOptions} members={plan.members} canSetBaseline={caps.canManageBaseline} onSaved={(id) => { toast({ title: "Milestone added", tone: "success" }); void refresh(); open(id); }} />
-      <PhaseFormDialog open={creating === "phase"} onOpenChange={(value) => setCreating(value ? "phase" : null)} projectId={plan.projectId} initial={EMPTY_PHASE} members={plan.members} canEdit onSaved={() => { toast({ title: "Phase added", tone: "success" }); void refresh(); }} />
+      <MilestoneFormDialog open={creating === "milestone"} onOpenChange={(value) => setCreating(value ? "milestone" : null)} projectId={plan.projectId} initial={{ ...EMPTY_MILESTONE, phaseId: phaseFilter && phaseFilter !== "none" ? phaseFilter : "" }} phases={phaseOptions} members={plan.members} canSetBaseline={caps.canManageBaseline} onSaved={(id) => { toast({ title: t("planning.milestoneAdded"), tone: "success" }); void refresh(); open(id); }} />
+      <PhaseFormDialog open={creating === "phase"} onOpenChange={(value) => setCreating(value ? "phase" : null)} projectId={plan.projectId} initial={EMPTY_PHASE} members={plan.members} canEdit onSaved={() => { toast({ title: t("planning.phaseAdded"), tone: "success" }); void refresh(); }} />
       {phaseBeingOpened ? (
         <PhaseFormDialog
           open={Boolean(phaseOpen)}
@@ -654,7 +650,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             description: phaseBeingOpened.description ?? "",
           }}
           onSaved={() => {
-            toast({ title: "Phase saved", tone: "success" });
+            toast({ title: t("planning.phaseSaved"), tone: "success" });
             void refresh();
           }}
         />
@@ -662,16 +658,16 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
 
       <Dialog open={Boolean(template)} onOpenChange={(value) => !value && setTemplate(null)}>
         <DialogContent>
-          <DialogTitle>Apply the {PLANNING_TEMPLATES.find((entry) => entry.key === template)?.name} template?</DialogTitle>
+          <DialogTitle>{t("planning.applyTitle", { name: PLANNING_TEMPLATES.find((entry) => entry.key === template)?.name ?? "" })}</DialogTitle>
           <DialogDescription>
-            Creates its phases, milestones and dependencies on this empty plan.{plan.project.startDate ? " Planned dates follow the project's start date." : " Add dates afterwards."} Baselines are left for you to set.
+            {t("planning.applyBody")}{plan.project.startDate ? t("planning.applyDates") : t("planning.applyNoDates")}{t("planning.applyBaselines")}
           </DialogDescription>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setTemplate(null)}>
-              Cancel
+              {t("planning.cancel")}
             </Button>
-            <Button type="button" disabled={pending} onClick={async () => { if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/template`, { body: { templateKey: template } }), "Template applied")) setTemplate(null); }}>
-              Apply template
+            <Button type="button" disabled={pending} onClick={async () => { if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/template`, { body: { templateKey: template } }), t("planning.templateApplied"))) setTemplate(null); }}>
+              {t("planning.applyTemplate")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -687,12 +683,12 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       >
         <DialogContent>
           <CopyChoiceEditor value={copySource} pending={pending} />
-          <DialogTitle>Copy planning from another project</DialogTitle>
-          <DialogDescription>Phases, milestone names and dependencies are copied. Actual dates, statuses, documents, meetings and logs are not.</DialogDescription>
+          <DialogTitle>{t("planning.copyTitle")}</DialogTitle>
+          <DialogDescription>{t("planning.copyBody")}</DialogDescription>
           <label className="mt-4 flex flex-col gap-1 text-meta text-fg-muted">
-            Project
+            {t("planning.project")}
             <select className={selectClass} value={copySource} onChange={(event) => setCopySource(event.target.value)}>
-              <option value="">{copyChoices === null ? "Loading…" : copyChoices.length ? "Choose a project" : "No other project has a plan"}</option>
+              <option value="">{copyChoices === null ? t("planning.loading") : copyChoices.length ? t("planning.chooseProject") : t("planning.noOtherPlan")}</option>
               {(copyChoices ?? []).map((choice) => (
                 <option key={choice.id} value={choice.id}>
                   {choice.label}
@@ -703,20 +699,20 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary">
-                Cancel
+                {t("planning.cancel")}
               </Button>
             </DialogClose>
             <Button
               type="button"
               disabled={pending || !copySource}
               onClick={async () => {
-                if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/copy`, { body: { sourceProjectId: copySource } }), "Planning copied")) {
+                if (await run(() => planningApi(`/api/projects/${plan.projectId}/planning/copy`, { body: { sourceProjectId: copySource } }), t("planning.planningCopied"))) {
                   setCopyOpen(false);
                   setCopySource("");
                 }
               }}
             >
-              Copy planning
+              {t("planning.copyPlanning")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -732,7 +728,8 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
  * that asks.
  */
 function CopyChoiceEditor({ value, pending }: { value: string; pending: boolean }) {
-  const editor = useValuesEditor(value, { module: "planning", saveKind: "none", workflow: "Copy planning", label: "Planning to copy" });
+  const t = useTranslations("projects");
+  const editor = useValuesEditor(value, { module: "planning", saveKind: "none", workflow: "Copy planning", label: t("planning.planningToCopy") });
   const { setSaving } = editor;
   React.useEffect(() => setSaving(pending), [pending, setSaving]);
   return null;

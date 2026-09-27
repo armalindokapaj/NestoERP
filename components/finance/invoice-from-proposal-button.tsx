@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Receipt } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { invoiceFromProposalAction } from "@/lib/actions/finance";
@@ -22,6 +23,7 @@ export function InvoiceFromProposalButton({
   label: string;
 }) {
   const toast = useToast();
+  const t = useFinanceTranslations();
   const [pending, startTransition] = React.useTransition();
 
   function raise() {
@@ -35,7 +37,7 @@ export function InvoiceFromProposalButton({
   return (
     <Button size="sm" variant="secondary" disabled={pending} onClick={raise}>
       <Receipt aria-hidden="true" />
-      {pending ? "Raising…" : label}
+      {pending ? t("proposal.raising") : label}
     </Button>
   );
 }

@@ -3,6 +3,7 @@ import Link from "@/components/navigation/nav-link";
 import { requireUserContext } from "@/lib/context/current-user";
 import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
 import type { ProjectTabKey } from "./project-context";
 
 /**
@@ -43,63 +44,64 @@ export async function ProjectTabs({
     activity: boolean;
   };
 }) {
+  const t = await getTranslations("projects");
   const threeD = show.threeD ?? await hasActiveProject3DViewer(await requireUserContext(), projectId);
   const tabs: { key: ProjectTabKey; label: string; href: string; visible: boolean }[] = [
-    { key: "overview", label: "Overview", href: `/projects/${projectId}`, visible: true },
-    { key: "3d", label: "3D", href: `/projects/${projectId}/3d`, visible: threeD },
-    { key: "planning", label: "Planning", href: `/projects/${projectId}/planning`, visible: Boolean(show.planning) },
+    { key: "overview", label: t("tabs.overview"), href: `/projects/${projectId}`, visible: true },
+    { key: "3d", label: t("tabs.3d"), href: `/projects/${projectId}/3d`, visible: threeD },
+    { key: "planning", label: t("tabs.planning"), href: `/projects/${projectId}/planning`, visible: Boolean(show.planning) },
     // Buildings, floors and units (E-05B §34: "Units", with the hierarchy inside).
-    { key: "units", label: "Units", href: `/projects/${projectId}/units`, visible: Boolean(show.units) },
+    { key: "units", label: t("tabs.units"), href: `/projects/${projectId}/units`, visible: Boolean(show.units) },
     // The same units, as Sales sees them (E-05E §13).
-    { key: "sales", label: "Sales", href: `/projects/${projectId}/sales`, visible: Boolean(show.sales) },
-    { key: "tasks", label: "Tasks", href: `/projects/${projectId}/tasks`, visible: show.tasks },
-    { key: "calendar", label: "Calendar", href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
-    { key: "meetings", label: "Meetings", href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },
-    { key: "dailyLogs", label: "Daily Logs", href: `/projects/${projectId}/daily-logs`, visible: Boolean(show.dailyLogs) },
-    { key: "workforce", label: "Workforce", href: `/projects/${projectId}/workforce`, visible: Boolean(show.workforce) },
+    { key: "sales", label: t("tabs.sales"), href: `/projects/${projectId}/sales`, visible: Boolean(show.sales) },
+    { key: "tasks", label: t("tabs.tasks"), href: `/projects/${projectId}/tasks`, visible: show.tasks },
+    { key: "calendar", label: t("tabs.calendar"), href: `/projects/${projectId}/calendar`, visible: Boolean(show.calendar) },
+    { key: "meetings", label: t("tabs.meetings"), href: `/projects/${projectId}/meetings`, visible: Boolean(show.meetings) },
+    { key: "dailyLogs", label: t("tabs.dailyLogs"), href: `/projects/${projectId}/daily-logs`, visible: Boolean(show.dailyLogs) },
+    { key: "workforce", label: t("tabs.workforce"), href: `/projects/${projectId}/workforce`, visible: Boolean(show.workforce) },
     // Who builds it and the technical record of it (PRD #46 §7, §9, §10).
-    { key: "contractors", label: "Contractors", href: `/projects/${projectId}/contractors`, visible: Boolean(show.contractors) },
-    { key: "engineering", label: "Engineering", href: `/projects/${projectId}/engineering`, visible: Boolean(show.engineering) },
-    { key: "team", label: "Team", href: `/projects/${projectId}/team`, visible: show.team },
+    { key: "contractors", label: t("tabs.contractors"), href: `/projects/${projectId}/contractors`, visible: Boolean(show.contractors) },
+    { key: "engineering", label: t("tabs.engineering"), href: `/projects/${projectId}/engineering`, visible: Boolean(show.engineering) },
+    { key: "team", label: t("tabs.team"), href: `/projects/${projectId}/team`, visible: show.team },
     {
       key: "finance",
-      label: "Finance",
+      label: t("tabs.finance"),
       href: show.finance ? `/projects/${projectId}/finance` : `/projects/${projectId}/finance/units`,
       visible: Boolean(show.finance || show.unitFinance),
     },
     {
       key: "contracts",
-      label: "Contracts",
+      label: t("tabs.contracts"),
       href: `/projects/${projectId}/contracts`,
       visible: Boolean(show.contracts),
     },
     {
       key: "inventory",
-      label: "Inventory",
+      label: t("tabs.inventory"),
       href: `/projects/${projectId}/inventory`,
       visible: Boolean(show.inventory),
     },
     {
       key: "qaqc",
-      label: "QA/QC",
+      label: t("tabs.qaqc"),
       href: `/projects/${projectId}/qaqc`,
       visible: Boolean(show.qaqc),
     },
     {
       key: "hse",
-      label: "HSE",
+      label: t("tabs.hse"),
       href: `/projects/${projectId}/hse`,
       visible: Boolean(show.hse),
     },
     {
       key: "documents",
-      label: "Documents",
+      label: t("tabs.documents"),
       href: `/projects/${projectId}/documents`,
       visible: show.documents,
     },
     {
       key: "activity",
-      label: "Activity",
+      label: t("tabs.activity"),
       href: `/projects/${projectId}/activity`,
       visible: show.activity,
     },
@@ -110,7 +112,7 @@ export async function ProjectTabs({
 
   return (
     <div className="-mx-1 overflow-x-auto">
-      <nav aria-label="Project sections" className="flex min-w-max items-center gap-1 border-b border-line px-1">
+      <nav aria-label={t("tabs.sectionsLabel")} className="flex min-w-max items-center gap-1 border-b border-line px-1">
         {visible.map((tab) => {
           const isActive = tab.key === active;
           return (

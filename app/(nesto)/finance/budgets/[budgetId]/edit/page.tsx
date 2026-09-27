@@ -6,13 +6,18 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { updateBudgetAction } from "@/lib/actions/finance";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "../budget-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ budgetId: string }> };
 
-export const metadata: Metadata = { title: "Edit budget" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.budgetEdit") };
+}
 
 /** An approved budget is never edited — a revision is a new version (PRD #15 §111). */
 export default async function EditBudgetPage({ params }: Params) {
+  const t = await getTranslations("finance");
   const { budgetId } = await params;
   const { context, budget } = await loadBudget(budgetId);
 
@@ -28,8 +33,8 @@ export default async function EditBudgetPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={budgetBreadcrumbs(budget, "Edit")}
-        title={`Edit ${budgetLabel(budget)}`}
+        breadcrumbs={await budgetBreadcrumbs(budget, t("crumbs.edit"))}
+        title={t("edit.title", { label: budgetLabel(budget, t) })}
         subtitle={budget.project.name}
         status={budget.status}
       />
@@ -53,8 +58,8 @@ export default async function EditBudgetPage({ params }: Params) {
         lockedCurrency={approvedCurrency}
         versionUpdatedAt={budget.updatedAt}
         cancelHref={`/finance/budgets/${budget.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("edit.save")}
+        pendingLabel={t("settings.saving")}
       />
     </div>
   );

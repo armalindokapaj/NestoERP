@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { usePathname } from "next/navigation";
 
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
  * turning the phone keeps what was typed — and Apply is still the one submit.
  */
 export function ReportFilterForm({ children, activeCount = 0, ...props }: Omit<React.ComponentProps<"form">, "onSubmit" | "method" | "action"> & { activeCount?: number }) {
+  const t = useTranslations("projects");
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
@@ -36,9 +38,9 @@ export function ReportFilterForm({ children, activeCount = 0, ...props }: Omit<R
       }}
     >
       <div className="flex w-full items-center justify-between gap-3 sm:hidden">
-        <span className="text-table font-medium text-fg">{activeCount ? `Filters · ${activeCount} applied` : "Filters"}</span>
+        <span className="text-table font-medium text-fg">{activeCount ? t("reportFilters.applied", { count: activeCount }) : t("reportFilters.filters")}</span>
         <Button type="button" size="sm" variant="secondary" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((value) => !value)} data-testid="report-filters-toggle">
-          {open ? "Hide filters" : "Show filters"}
+          {open ? t("reportFilters.hide") : t("reportFilters.show")}
         </Button>
       </div>
       <div id={bodyId} className={open ? "contents" : "contents max-sm:hidden"}>

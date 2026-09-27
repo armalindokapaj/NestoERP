@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { ProjectTable } from "@/components/projects/project-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
+import { getTranslations } from "@/lib/i18n/server";
 import { parseProjectListQuery } from "@/lib/modules/projects/project.query";
 import { PROJECT_SORT_KEYS } from "@/lib/modules/projects/project.schema";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
@@ -41,6 +42,7 @@ export async function ProjectsList({
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (result.pagination.page !== query.page) redirect(listPageRedirect(basePath, searchParams, result.pagination.page));
 
+  const t = await getTranslations("projects");
   const hasFilters = Boolean(
     query.search || query.status?.length || query.priority?.length || query.clientId || query.projectManagerMemberId,
   );
@@ -48,33 +50,24 @@ export async function ProjectsList({
   const filters: FilterConfig[] = [
     {
       param: "status",
-      label: "Status",
-      options: [
-        { value: "PENDING", label: "Pending" },
-        { value: "ACTIVE", label: "Active" },
-        { value: "FINISHED", label: "Finished" },
-      ],
+      label: t("list.status"),
+      options: (["PENDING", "ACTIVE", "FINISHED"] as const).map((value) => ({ value, label: t(`status.${value}`) })),
     },
     {
       param: "priority",
-      label: "Priority",
-      options: [
-        { value: "LOW", label: "Low" },
-        { value: "MEDIUM", label: "Medium" },
-        { value: "HIGH", label: "High" },
-        { value: "CRITICAL", label: "Critical" },
-      ],
+      label: t("list.priority"),
+      options: (["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const).map((value) => ({ value, label: t(`priority.${value}`) })),
     },
     // Client and manager options come from the scoped project graph, so a
     // dropdown can never name a record the user may not open (PRD #10 §24).
     {
       param: "clientId",
-      label: "Client",
+      label: t("list.client"),
       options: options.clients.map((client) => ({ value: client.id, label: client.name })),
     },
     {
       param: "manager",
-      label: "Manager",
+      label: t("list.manager"),
       options: options.managers.map((manager) => ({ value: manager.id, label: manager.name })),
     },
   ];
@@ -88,17 +81,17 @@ export async function ProjectsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search projects…"
+        searchPlaceholder={t("list.search")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "start-asc", label: "Start date" },
-          { value: "end-asc", label: "End date" },
-          { value: "priority-desc", label: "Priority" },
-          { value: "status-asc", label: "Status" },
+          { value: "updated-desc", label: t("list.sortUpdated") },
+          { value: "created-desc", label: t("list.sortCreated") },
+          { value: "name-asc", label: t("list.sortNameAsc") },
+          { value: "name-desc", label: t("list.sortNameDesc") },
+          { value: "start-asc", label: t("list.sortStart") },
+          { value: "end-asc", label: t("list.sortEnd") },
+          { value: "priority-desc", label: t("list.priority") },
+          { value: "status-asc", label: t("list.status") },
         ]}
       />
 
@@ -109,15 +102,15 @@ export async function ProjectsList({
           // (PRD #7 §77).
           <EmptyState
             icon={<FolderKanban />}
-            title="No projects match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: clearHref }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchBody")}
+            action={{ label: t("list.clearFilters"), href: clearHref }}
           />
         ) : (
           <EmptyState
             icon={<FolderKanban />}
-            title="No archived projects."
-            description="Projects removed from the Projects page will appear here."
+            title={t("list.noArchivedTitle")}
+            description={t("list.noArchivedBody")}
           />
         )
       ) : (

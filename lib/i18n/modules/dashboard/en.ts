@@ -1,4 +1,7 @@
+import { dashboardConfigEn } from "./config-en";
+
 export const dashboardEn = {
+  ...dashboardConfigEn,
   title: "Dashboard",
   across: "Across {name}",
   viewAll: "View all",

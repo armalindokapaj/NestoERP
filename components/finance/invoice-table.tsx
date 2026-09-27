@@ -4,8 +4,8 @@ import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows"
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
 import type { InvoiceSummaryDTO } from "@/lib/modules/finance/finance.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /**
@@ -23,13 +23,14 @@ const SETTLEMENT_TONES = {
   UNPAID: "neutral",
 } as const;
 
-export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
+export async function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
   invoices: InvoiceSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("finance");
   // Rows read in the Group workspace name their company and open through it.
   const grouped = invoices.some((invoice) => invoice.company);
 
@@ -39,7 +40,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       id: "number",
       mandatory: true,
       sortKey: sort ? "number" : undefined,
-      label: "Invoice",
+      label: t("columns.invoice"),
       primary: true,
       render: (invoice) => {
         const label = (
@@ -59,11 +60,11 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
         );
       },
     },
-    ...(grouped ? [companyColumn<InvoiceSummaryDTO>()] : []),
+    ...(grouped ? [companyColumn<InvoiceSummaryDTO>(t("group.company"))] : []),
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "xl",
       render: (invoice) => (
         <span className="text-fg-muted">{orDash(invoice.project?.name)}</span>
@@ -74,7 +75,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       id: "issued",
       valueType: "date",
       sortKey: sort ? "issue" : undefined,
-      label: "Issued",
+      label: t("columns.issued"),
       hideBelow: "xl",
       render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.issueDate)}</span>,
     },
@@ -83,7 +84,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       id: "due",
       valueType: "date",
       sortKey: sort ? "due" : undefined,
-      label: "Due",
+      label: t("columns.due"),
       hideBelow: "lg",
       render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.dueDate)}</span>,
     },
@@ -93,7 +94,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       mandatory: true,
       valueType: "money",
       sortKey: sort ? "amount" : undefined,
-      label: "Total",
+      label: t("columns.total"),
       align: "right",
       render: (invoice) => (
         <Money amount={invoice.totalAmount} currency={invoice.currency} emphasis />
@@ -103,7 +104,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       key: "outstanding",
       id: "outstanding",
       valueType: "money",
-      label: "Outstanding",
+      label: t("columns.outstanding"),
       align: "right",
       hideBelow: "lg",
       render: (invoice) => (
@@ -119,18 +120,18 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (invoice) => <StatusBadge status={invoice.status} />,
     },
     {
       key: "settlement",
       id: "settlement",
       valueType: "status",
-      label: "Settlement",
+      label: t("columns.settlement"),
       hideBelow: "md",
       render: (invoice) => (
         <Badge tone={SETTLEMENT_TONES[invoice.settlementStatus]}>
-          {settlementLabels[invoice.settlementStatus]}
+          {t(`settlement.${invoice.settlementStatus}`)}
         </Badge>
       ),
     },
@@ -140,7 +141,7 @@ export function InvoiceTable({ invoices, listId = "finance.invoices", sort }: {
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Invoices"
+      caption={t("captions.invoices")}
       columns={columns}
       records={invoices}
       rowKey={(invoice) => invoice.id}

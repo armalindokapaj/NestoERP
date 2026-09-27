@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { AlertTriangle, ChevronDown, Flag, Link2, MoreHorizontal } from "lucide-react";
 
 import { ScrollRegion } from "@/components/ui/scroll-region";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { dateLabel, shortDateLabel } from "@/lib/modules/project-planning/planning.dates";
-import { STATUS_LABELS, type MilestoneSummaryDTO, type PhaseSummaryDTO, type PlanningCapabilities } from "@/lib/modules/project-planning/planning.types";
+import { type MilestoneSummaryDTO, type PhaseSummaryDTO, type PlanningCapabilities } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
 
@@ -44,6 +45,7 @@ export function sortMilestones(milestones: MilestoneSummaryDTO[], sort: SortKey)
 }
 
 function MilestoneMeta({ milestone }: { milestone: MilestoneSummaryDTO }) {
+  const t = useTranslations("projects");
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       {milestone.critical ? <CriticalBadge /> : null}
@@ -57,7 +59,7 @@ function MilestoneMeta({ milestone }: { milestone: MilestoneSummaryDTO }) {
       {milestone.openBlockerCount ? (
         <span className={cn("inline-flex items-center gap-1 text-meta", milestone.criticalBlockerCount ? "text-danger-strong" : "text-fg-muted")}>
           <AlertTriangle aria-hidden="true" className="size-3.5" />
-          {milestone.openBlockerCount} {milestone.openBlockerCount === 1 ? "blocker" : "blockers"}
+          {t("milestoneList.blockers", { count: milestone.openBlockerCount })}
         </span>
       ) : null}
     </span>
@@ -65,13 +67,14 @@ function MilestoneMeta({ milestone }: { milestone: MilestoneSummaryDTO }) {
 }
 
 function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneSummaryDTO; capabilities: PlanningCapabilities; onOpen: (id: string, panel?: DrawerPanel) => void }) {
+  const t = useTranslations("projects");
   const closed = milestone.status === "COMPLETED" || milestone.status === "CANCELLED";
   const actions: Array<{ panel: DrawerPanel; label: string; show: boolean }> = [
-    { panel: "status", label: "Update status", show: capabilities.canEditMilestone && !closed },
-    { panel: "forecast", label: "Update forecast", show: capabilities.canEditMilestone && !closed },
-    { panel: "blocker", label: "Add blocker", show: capabilities.canManageBlockers && !closed },
-    { panel: "task", label: "Create task", show: capabilities.canCreateTask && !closed },
-    { panel: "complete", label: "Mark complete", show: capabilities.canComplete && !closed },
+    { panel: "status", label: t("milestoneList.updateStatus"), show: capabilities.canEditMilestone && !closed },
+    { panel: "forecast", label: t("milestoneList.updateForecast"), show: capabilities.canEditMilestone && !closed },
+    { panel: "blocker", label: t("milestoneList.addBlocker"), show: capabilities.canManageBlockers && !closed },
+    { panel: "task", label: t("milestoneList.createTask"), show: capabilities.canCreateTask && !closed },
+    { panel: "complete", label: t("milestoneList.markComplete"), show: capabilities.canComplete && !closed },
   ];
   const available = actions.filter((action) => action.show);
   return (
@@ -87,7 +90,7 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
         {available.length ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${milestone.name}`}>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t("milestoneList.actionsFor", { name: milestone.name })}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -103,15 +106,15 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
       </div>
       <dl className="mt-3 grid grid-cols-3 gap-2 text-meta">
         <div>
-          <dt className="text-fg-subtle">{milestone.status === "COMPLETED" ? "Actual" : "Forecast"}</dt>
+          <dt className="text-fg-subtle">{milestone.status === "COMPLETED" ? t("milestoneList.actual") : t("milestoneList.forecast")}</dt>
           <dd className="font-medium tabular-nums text-fg">{shortDateLabel(milestone.status === "COMPLETED" ? milestone.actualDate : (milestone.forecastDate ?? milestone.plannedDate))}</dd>
         </div>
         <div>
-          <dt className="text-fg-subtle">Baseline</dt>
+          <dt className="text-fg-subtle">{t("milestoneList.baseline")}</dt>
           <dd className="tabular-nums text-fg">{shortDateLabel(milestone.baselineDate)}</dd>
         </div>
         <div>
-          <dt className="text-fg-subtle">Variance</dt>
+          <dt className="text-fg-subtle">{t("milestoneList.variance")}</dt>
           <dd>
             <Variance days={milestone.varianceDays} />
           </dd>
@@ -119,11 +122,11 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
       </dl>
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
         <span>
-          Owner: <OwnerName owner={milestone.owner} />
+          {t("milestoneList.owner")} <OwnerName owner={milestone.owner} />
         </span>
         {milestone.taskStats.total ? (
           <span className="tabular-nums">
-            {milestone.taskStats.completed}/{milestone.taskStats.total} tasks complete
+            {t("milestoneList.tasksComplete", { done: milestone.taskStats.completed, total: milestone.taskStats.total })}
           </span>
         ) : null}
       </p>
@@ -132,6 +135,7 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
 }
 
 function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (id: string) => void }) {
+  const t = useTranslations("projects");
   return (
     <tr className="cursor-pointer border-b border-line/70 transition-colors last:border-0 hover:bg-row-hover" onClick={(event) => !(event.target as HTMLElement).closest("a") && onOpen(milestone.id)} data-testid="milestone-row">
       <td className="px-4 py-2.5 align-top">
@@ -156,7 +160,7 @@ function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (i
       </td>
       <td className="px-3 py-2.5 align-top">
         <span className="flex items-center gap-2">
-          <ProgressBar value={milestone.progressPercent} label={`${milestone.name} progress`} className="w-16" />
+          <ProgressBar value={milestone.progressPercent} label={t("milestoneList.progressOf", { name: milestone.name })} className="w-16" />
           <span className="text-meta tabular-nums text-fg-muted">{milestone.progressPercent === null ? "—" : `${Math.round(milestone.progressPercent)}%`}</span>
         </span>
       </td>
@@ -166,6 +170,7 @@ function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (i
 }
 
 function Table({ milestones, onOpen, caption }: { milestones: MilestoneSummaryDTO[]; onOpen: (id: string) => void; caption: string }) {
+  const t = useTranslations("projects");
   return (
     <ScrollRegion label={caption}>
       <table className="w-full min-w-[960px] table-fixed text-left">
@@ -184,15 +189,15 @@ function Table({ milestones, onOpen, caption }: { milestones: MilestoneSummaryDT
         </colgroup>
         <thead>
           <tr className="border-b border-line text-meta text-fg-muted">
-            <th scope="col" className="px-4 py-2 font-medium">Status</th>
-            <th scope="col" className="px-3 py-2 font-medium">Milestone</th>
-            <th scope="col" className="px-3 py-2 font-medium">Owner</th>
-            <th scope="col" className="px-3 py-2 font-medium">Baseline</th>
-            <th scope="col" className="px-3 py-2 font-medium">Forecast</th>
-            <th scope="col" className="px-3 py-2 font-medium">Actual</th>
-            <th scope="col" className="px-3 py-2 font-medium">Variance</th>
-            <th scope="col" className="px-3 py-2 font-medium">Progress</th>
-            <th scope="col" className="px-4 py-2 font-medium">Tasks</th>
+            <th scope="col" className="px-4 py-2 font-medium">{t("milestoneList.status")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.milestone")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.ownerColumn")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.baseline")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.forecast")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.actual")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.variance")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("milestoneList.progress")}</th>
+            <th scope="col" className="px-4 py-2 font-medium">{t("milestoneList.tasks")}</th>
           </tr>
         </thead>
         <tbody>
@@ -224,9 +229,10 @@ export function MilestoneList({
   onOpen: (id: string, panel?: DrawerPanel) => void;
   onOpenPhase: (id: string) => void;
 }) {
+  const t = useTranslations("projects");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   if (!milestones.length) {
-    return <EmptyState icon={<Flag />} title={filtered ? "No milestones match these filters." : "No milestones yet."} description={filtered ? "Clear a filter to see more of the plan." : "Add the key achievements and dates this project is working towards."} />;
+    return <EmptyState icon={<Flag />} title={filtered ? t("milestoneList.noMatchTitle") : t("milestoneList.noneTitle")} description={filtered ? t("milestoneList.noMatchBody") : t("milestoneList.noneBody")} />;
   }
 
   const groups: Array<{ id: string; phase: PhaseSummaryDTO | null; milestones: MilestoneSummaryDTO[] }> =
@@ -241,7 +247,7 @@ export function MilestoneList({
     <div className="space-y-3" data-testid="milestone-list">
       {groups.map((group) => {
         const open = !collapsed[group.id];
-        const title = group.phase?.name ?? (sort === "phase" ? "No phase" : "All milestones");
+        const title = group.phase?.name ?? (sort === "phase" ? t("milestoneList.noPhase") : t("milestoneList.allMilestones"));
         return (
           <section key={group.id} className={mobile ? "space-y-2" : "nesto-card overflow-hidden"} aria-label={title}>
             {sort === "phase" || !mobile ? (
@@ -255,10 +261,10 @@ export function MilestoneList({
                 </button>
                 {group.phase ? (
                   <>
-                    <span className="hidden text-meta text-fg-muted sm:inline">{STATUS_LABELS[group.phase.status]}</span>
-                    <ProgressBar value={group.phase.progressPercent ?? group.phase.suggestedProgress} label={`${group.phase.name} progress`} className="hidden w-24 sm:block" />
+                    <span className="hidden text-meta text-fg-muted sm:inline">{t(`milestoneStatus.${group.phase.status}`)}</span>
+                    <ProgressBar value={group.phase.progressPercent ?? group.phase.suggestedProgress} label={t("milestoneList.progressOf", { name: group.phase.name })} className="hidden w-24 sm:block" />
                     <Button type="button" variant="ghost" size="sm" onClick={() => onOpenPhase(group.phase!.id)}>
-                      Phase
+                      {t("milestoneList.phase")}
                     </Button>
                   </>
                 ) : null}

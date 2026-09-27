@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { reviseBudgetAction } from "@/lib/actions/finance";
@@ -27,6 +28,7 @@ export function ReviseBudgetForm({
   cancelHref: string;
 }) {
   const toast = useToast();
+  const t = useFinanceTranslations();
   const [pending, startTransition] = React.useTransition();
 
   function revise() {
@@ -39,21 +41,18 @@ export function ReviseBudgetForm({
   return (
     <div className="nesto-card p-6">
       <p className="text-body text-fg">
-        Version {nextVersion} will be created as a draft, copying all {lineCount} line
-        {lineCount === 1 ? "" : "s"} from the approved version. The approved budget is left
-        untouched until the revision is approved in its turn.
+        {t("revise.body", { version: nextVersion, count: lineCount })}
       </p>
       <p className="mt-3 text-table text-fg-muted">
-        The currency stays {currency}: the project&apos;s costs are already recorded in it, and
-        V0.1 does not convert currencies.
+        {t("revise.currency", { currency })}
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <Button onClick={revise} disabled={pending}>
-          {pending ? "Creating…" : `Create version ${nextVersion}`}
+          {pending ? t("revise.creating") : t("revise.create", { version: nextVersion })}
         </Button>
         <Button asChild variant="secondary">
-          <Link href={cancelHref}>Cancel</Link>
+          <Link href={cancelHref}>{t("revise.cancel")}</Link>
         </Button>
       </div>
     </div>

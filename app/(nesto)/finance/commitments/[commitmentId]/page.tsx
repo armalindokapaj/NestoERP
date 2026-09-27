@@ -8,7 +8,7 @@ import { Money } from "@/components/finance/money";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { commitmentBreadcrumbs, commitmentLabel, loadCommitment } from "./commitment-context";
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { commitment } = await loadCommitment(commitmentId);
     return { title: commitmentLabel(commitment) };
   } catch {
-    return { title: "Commitment" };
+    return { title: (await getTranslations("finance"))("kind.commitment") };
   }
 }
 
@@ -38,36 +38,37 @@ export default async function CommitmentDetailPage({ params }: Params) {
   const { context, commitment } = await loadCommitment(commitmentId);
 
   const may = commitment.capabilities;
+  const t = await getTranslations("finance");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "COMMITMENT", commitment.id) : null;
 
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={commitmentBreadcrumbs(commitment)}
+        breadcrumbs={await commitmentBreadcrumbs(commitment)}
         title={commitment.description}
         subtitle={commitment.reference ?? undefined}
         status={commitment.status}
         badges={
           <>
-            <Badge tone="neutral">{expenseCategoryLabels[commitment.category]}</Badge>
+            <Badge tone="neutral">{t(`category.${commitment.category}`)}</Badge>
             {commitment.source.module ? (
-              <Badge tone="default">Owned by {commitment.source.module}</Badge>
+              <Badge tone="default">{t("commitments.ownedBy", { module: commitment.source.module })}</Badge>
             ) : null}
           </>
         }
         meta={[
           {
-            label: "Amount",
+            label: t("form.amount"),
             value: <Money amount={commitment.amount} currency={commitment.currency} emphasis />,
           },
           {
-            label: "Expected",
+            label: t("columns.expected"),
             value: commitment.expectedDate ? formatDate(commitment.expectedDate) : "—",
           },
           {
-            label: "Counts toward forecast",
-            value: commitment.status === "APPROVED" ? "Yes" : "No",
+            label: t("commitments.countsToward"),
+            value: commitment.status === "APPROVED" ? t("commitments.yes") : t("commitments.no"),
           },
         ]}
         actions={
@@ -88,47 +89,46 @@ export default async function CommitmentDetailPage({ params }: Params) {
 
       {commitment.source.module ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This commitment was created by {commitment.source.module}. Its amount is changed there,
-          so Finance and that module never hold two numbers for one obligation.
+          {t("commitments.sourcedNote", { module: commitment.source.module })}
         </p>
       ) : null}
 
       {commitment.status === "CLOSED" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Closed, so it no longer contributes to forecast cost. It stays here as history.
+          {t("commitments.closedNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Details</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
               {
-                label: "Project",
+                label: t("form.project"),
                 value: commitment.project ? (
                   <Link href={`/projects/${commitment.project.id}`} className="hover:text-accent">
                     {commitment.project.name}
                   </Link>
                 ) : (
-                  "Company-wide"
+                  t("companyWide")
                 ),
               },
-              { label: "Counterparty", value: orDash(commitment.counterpartyName) },
-              { label: "Category", value: expenseCategoryLabels[commitment.category] },
-              { label: "Currency", value: commitment.currency },
+              { label: t("commitmentForm.counterparty"), value: orDash(commitment.counterpartyName) },
+              { label: t("form.category"), value: t(`category.${commitment.category}`) },
+              { label: t("form.currency"), value: commitment.currency },
               {
-                label: "Expected",
+                label: t("columns.expected"),
                 value: commitment.expectedDate ? formatDate(commitment.expectedDate) : "—",
               },
-              { label: "Raised by", value: commitment.createdBy ? <PersonLink memberId={commitment.createdBy.memberId} name={commitment.createdBy.fullName} /> : "—" },
+              { label: t("invoices.raisedBy"), value: commitment.createdBy ? <PersonLink memberId={commitment.createdBy.memberId} name={commitment.createdBy.fullName} /> : "—" },
             ]}
           />
 
           {commitment.notes ? (
             <div className="mt-4 border-t border-line pt-4">
-              <h3 className="text-table font-medium text-fg">Notes</h3>
+              <h3 className="text-table font-medium text-fg">{t("form.notes")}</h3>
               <p className="mt-1 whitespace-pre-wrap text-table text-fg-muted">
                 {commitment.notes}
               </p>
@@ -137,7 +137,7 @@ export default async function CommitmentDetailPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Approvals</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
           <ApprovalHistory approvals={commitment.approvals} />
         </section>
       </div>

@@ -10,12 +10,17 @@ import {
   hasCompanyFinanceScope,
 } from "@/lib/modules/finance/finance.scope";
 import { expenseBreadcrumbs, expenseLabel, loadExpense } from "../expense-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ expenseId: string }> };
 
-export const metadata: Metadata = { title: "Edit expense" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.expenseEdit") };
+}
 
 export default async function EditExpensePage({ params }: Params) {
+  const t = await getTranslations("finance");
   const { expenseId } = await params;
   const { context, expense } = await loadExpense(expenseId);
 
@@ -36,8 +41,8 @@ export default async function EditExpensePage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={expenseBreadcrumbs(expense, "Edit")}
-        title={`Edit ${expenseLabel(expense)}`}
+        breadcrumbs={await expenseBreadcrumbs(expense, t("crumbs.edit"))}
+        title={t("edit.title", { label: expenseLabel(expense) })}
         status={expense.status}
       />
 
@@ -62,8 +67,8 @@ export default async function EditExpensePage({ params }: Params) {
         }}
         versionUpdatedAt={expense.updatedAt}
         cancelHref={`/finance/expenses/${expense.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("edit.save")}
+        pendingLabel={t("settings.saving")}
       />
     </div>
   );

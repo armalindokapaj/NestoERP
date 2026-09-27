@@ -9,6 +9,7 @@ import type { AlertPriority, ResolvedWidget } from "@/lib/modules/dashboard/dash
 import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
 import type { Translate } from "@/lib/i18n/translator";
+import { widgetText } from "./config-text";
 
 /**
  * The one widget renderer (PRD #4 §17, §18).
@@ -73,10 +74,10 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id={`widget-${definition.key}`} className="text-card font-semibold text-fg">
-            {definition.title}
+            {widgetText(t, definition.key, "title", definition.title)}
           </h2>
           {definition.description ? (
-            <p className="mt-0.5 text-meta text-fg-subtle">{definition.description}</p>
+            <p className="mt-0.5 text-meta text-fg-subtle">{widgetText(t, definition.key, "description", definition.description)}</p>
           ) : null}
         </div>
 
@@ -104,7 +105,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
                 <span>{incomplete}</span>
               </p>
             ) : null}
-            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{definition.emptyMessage}</p>) : <WidgetBody payload={payload} t={t} />}
+            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{widgetText(t, definition.key, "emptyMessage", definition.emptyMessage)}</p>) : <WidgetBody payload={payload} t={t} />}
           </>
         )}
       </div>

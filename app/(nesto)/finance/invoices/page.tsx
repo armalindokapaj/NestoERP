@@ -9,10 +9,14 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { financeExperience } from "@/lib/modules/finance/finance.workspace";
 import { InvoicesList } from "./invoices-list";
 
-export const metadata: Metadata = { title: "Invoices" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.invoices") };
+}
 
 export default async function InvoicesPage({
   searchParams,
@@ -27,6 +31,7 @@ export default async function InvoicesPage({
   const group = inGroupWorkspace(context);
   if (!group && !can(context, "finance.invoice.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = await financeExperience(context);
   const params = await searchParams;
   const archived = params.archived === "1";
@@ -39,12 +44,12 @@ export default async function InvoicesPage({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={archived ? "/finance/invoices" : "/finance/invoices?archived=1"}>
-              {archived ? "Active invoices" : "Archived"}
+              {archived ? t("invoices.active") : t("list.archived")}
             </Link>
           </Button>
           {!group && can(context, "finance.invoice.create") ? (
             <Button asChild size="sm">
-              <Link href="/finance/invoices/new">New invoice</Link>
+              <Link href="/finance/invoices/new">{t("overview.newInvoice")}</Link>
             </Button>
           ) : null}
         </div>

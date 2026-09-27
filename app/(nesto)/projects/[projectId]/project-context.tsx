@@ -9,6 +9,8 @@ import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { findPortfolioProject } from "@/lib/modules/projects/project.portfolio";
 import * as projects from "@/lib/modules/projects/project.service";
 import type { ProjectDetailDTO } from "@/lib/modules/projects/project.types";
+import { projectsEn } from "@/lib/i18n/modules/projects/en";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * Loads the project every tab needs (PRD #10 §139; E-05A §26, §34).
@@ -71,13 +73,16 @@ export type ProjectTabKey =
   | "activity";
 
 /** Projects / Company / Project — the company is always named (E-05A §9, §26). */
-export function projectBreadcrumbs(project: ProjectDetailDTO, tab?: string) {
+export async function projectBreadcrumbs(project: ProjectDetailDTO, tab?: string) {
+  const t = await getTranslations("projects");
+  // Callers name the tab in English; the reader sees it in their language.
+  const tabKey = tab ? (Object.keys(projectsEn.tabs) as (keyof typeof projectsEn.tabs)[]).find((key) => projectsEn.tabs[key] === tab) : undefined;
   const crumbs = [
-    { label: "Projects", href: "/projects" },
+    { label: t("meta.projects"), href: "/projects" },
     { label: project.company.parentGroup.name },
     { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
     { label: project.name, ...(tab ? { href: `/projects/${project.id}` } : {}) },
   ];
-  if (tab) crumbs.push({ label: tab });
+  if (tab) crumbs.push({ label: tabKey ? t(`tabs.${tabKey}`) : tab });
   return crumbs;
 }

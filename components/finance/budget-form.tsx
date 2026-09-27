@@ -10,6 +10,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
@@ -50,6 +51,7 @@ export function BudgetForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useFinanceTranslations();
   const isEdit = Boolean(values);
   const [currency, setCurrency] = React.useState(
     lockedCurrency ?? values?.currency ?? "EUR",
@@ -64,15 +66,15 @@ export function BudgetForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title="Budget" description="Planned cost for one project.">
-        <Field label="Project" name="projectId" required>
+      <FormSection title={t("budgetForm.title")} description={t("budgetForm.hint")}>
+        <Field label={t("form.project")} name="projectId" required>
           {isEdit ? (
             <>
               <Input
                 id="projectId-display"
                 value={
                   projects.find((project) => project.value === values?.projectId)?.label ??
-                  "Project"
+                  t("form.project")
                 }
                 readOnly
                 disabled
@@ -82,7 +84,7 @@ export function BudgetForm({
           ) : (
             <select id="projectId" name="projectId" className={selectClass} required defaultValue="">
               <option value="" disabled>
-                Choose a project
+                {t("form.chooseProject")}
               </option>
               {projects.map((project) => (
                 <option key={project.value} value={project.value}>
@@ -94,12 +96,12 @@ export function BudgetForm({
         </Field>
 
         <Field
-          label="Currency"
+          label={t("form.currency")}
           name="currency"
           required
           hint={
             lockedCurrency
-              ? `Fixed at ${lockedCurrency} by the project's approved budget.`
+              ? t("budgetForm.currencyFixed", { currency: lockedCurrency })
               : undefined
           }
         >
@@ -125,21 +127,21 @@ export function BudgetForm({
           )}
         </Field>
 
-        <Field label="Name" name="name" className="sm:col-span-2" hint="Optional label for this version.">
+        <Field label={t("budgetForm.name")} name="name" className="sm:col-span-2" hint={t("budgetForm.nameHint")}>
           <Input
             id="name"
             name="name"
             maxLength={160}
             defaultValue={values?.name ?? ""}
-            placeholder="Construction budget"
+            placeholder={t("budgetForm.namePlaceholder")}
           />
         </Field>
       </FormSection>
 
       <BudgetLineItems currency={currency} defaultLines={values?.lineItems} />
 
-      <FormSection title="Notes" description="Assumptions and exclusions worth recording.">
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+      <FormSection title={t("form.notes")} description={t("budgetForm.notesHint")}>
+        <Field label={t("form.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

@@ -19,16 +19,17 @@ import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { publishMyWorkChange, subscribeMyWork } from "@/lib/productivity/client";
 import { cn } from "@/lib/utils/cn";
 import { ENTITY_ICON, relativeTime } from "./record-icons";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 export type MyWorkQuery = { companyId?: string; module?: string; projectId?: string; q?: string; range?: string; from?: string; to?: string };
 
 const RANGES = [
-  ["all", "Any time"],
-  ["today", "Today"],
-  ["7d", "7 days"],
-  ["30d", "30 days"],
-  ["custom", "Custom"],
+  ["all", "myWork.anyTime"],
+  ["today", "myWork.today"],
+  ["7d", "myWork.days7"],
+  ["30d", "myWork.days30"],
+  ["custom", "myWork.custom"],
 ] as const;
 
 // 44px under touch; the 16px phone font comes from globals.css (AUD-04 §3, D-01-15, MW-06).
@@ -48,6 +49,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
   const router = useRouter();
   const toast = useToast();
   const tModules = useTranslations("modules");
+  const t = useCommonTranslations();
   const [items, setItems] = React.useState<MyWorkItemDTO[]>(initial.items);
   const [cursor, setCursor] = React.useState(initial.nextCursor);
   const [loadingMore, setLoadingMore] = React.useState(false);
@@ -88,7 +90,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
       setItems((current) => [...current, ...page.items]);
       setCursor(page.nextCursor);
     } catch {
-      toast({ title: "More records could not be loaded.", tone: "danger" });
+      toast({ title: t("myWork.loadMoreFailed"), tone: "danger" });
     } finally {
       setLoadingMore(false);
     }
@@ -100,7 +102,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
       await announcementApi(`/api/my-work/${tab === "favorites" ? "favorites" : "recent"}/${item.entityType}/${item.entityId}`, { method: "DELETE" });
       publishMyWorkChange(tab === "favorites" ? { kind: "favorite", entityType: item.entityType, entityId: item.entityId, favorite: false } : { kind: "recent" });
     } catch (error) {
-      toast({ title: failureMessage(error, tab === "favorites" ? "Could not update Favorite." : "Could not update Recent Work."), tone: "danger" });
+      toast({ title: failureMessage(error, tab === "favorites" ? t("favorite.updateFailed") : t("myWork.recentUpdateFailed")), tone: "danger" });
       router.refresh();
     }
   }
@@ -112,7 +114,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
       setItems([]);
       setCursor(null);
       publishMyWorkChange({ kind: "recent" });
-      toast({ title: "Recent work cleared", tone: "success" });
+      toast({ title: t("myWork.cleared"), tone: "success" });
     } catch (error) {
       toast({ title: failureMessage(error), tone: "danger" });
     } finally {
@@ -127,24 +129,24 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
 
   return (
     <div className="space-y-4">
-      <nav aria-label="My Work" className="flex items-center gap-1 border-b border-line">
+      <nav aria-label={t("myWork.nav")} className="flex items-center gap-1 border-b border-line">
         {([
-          ["recent", "Recent", History],
-          ["favorites", "Favorites", Star],
+          ["recent", "myWork.recent", History],
+          ["favorites", "myWork.favorites", Star],
         ] as const).map(([key, label, Icon]) => (
           <Link key={key} href={href({ tab: key })} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-table font-medium", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")} data-testid={`my-work-tab-${key}`}>
             <Icon aria-hidden="true" className="size-4" />
-            {label}
+            {t(label)}
           </Link>
         ))}
       </nav>
 
       {/* A plain GET form: every filter is URL state, and submitting never touches the workspace (§165-§167). */}
-      <form action="/my-work" method="get" className="flex flex-wrap items-end gap-2" aria-label="Filter my work" data-testid="my-work-filters">
+      <form action="/my-work" method="get" className="flex flex-wrap items-end gap-2" aria-label={t("myWork.filter")} data-testid="my-work-filters">
         <input type="hidden" name="tab" value={tab} />
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 sm:max-w-xs">
-          <span className="text-meta text-fg-muted">Search</span>
-          <input name="q" defaultValue={query.q ?? ""} maxLength={200} placeholder={tab === "favorites" ? "Search favorites" : "Search recent work"} className={cn(selectClass, "w-full")} />
+          <span className="text-meta text-fg-muted">{t("myWork.search")}</span>
+          <input name="q" defaultValue={query.q ?? ""} maxLength={200} placeholder={tab === "favorites" ? t("myWork.searchFavorites") : t("myWork.searchRecent")} className={cn(selectClass, "w-full")} />
         </label>
         {/*
           Below sm the narrowing filters fold behind "More filters (N)", open
@@ -156,14 +158,14 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
           htmlFor="my-work-more-filters"
           className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-body font-medium text-fg peer-focus-visible:ring-2 peer-focus-visible:ring-ring sm:hidden"
         >
-          More filters{moreFilters > 0 ? ` (${moreFilters})` : ""}
+          {t("myWork.moreFilters")}{moreFilters > 0 ? ` (${moreFilters})` : ""}
         </label>
         <div className="max-sm:hidden max-sm:w-full max-sm:peer-checked:grid max-sm:peer-checked:gap-2 sm:contents [&_select]:max-sm:w-full [&_input]:max-sm:w-full">
         {initial.facets.companies.length > 1 ? (
           <label className="flex flex-col gap-1">
-            <span className="text-meta text-fg-muted">Company</span>
+            <span className="text-meta text-fg-muted">{t("myWork.company")}</span>
             <select name="companyId" defaultValue={query.companyId ?? ""} className={selectClass} data-testid="my-work-company-filter">
-              <option value="">All companies</option>
+              <option value="">{t("myWork.allCompanies")}</option>
               {initial.facets.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -173,9 +175,9 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
           </label>
         ) : null}
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">Module</span>
+          <span className="text-meta text-fg-muted">{t("myWork.module")}</span>
           <select name="module" defaultValue={query.module ?? ""} className={selectClass}>
-            <option value="">All modules</option>
+            <option value="">{t("myWork.allModules")}</option>
             {initial.facets.modules.map((key) => (
               <option key={key} value={key}>
                 {moduleLabel(key)}
@@ -185,9 +187,9 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
         </label>
         {initial.facets.projects.length > 0 ? (
           <label className="flex flex-col gap-1">
-            <span className="text-meta text-fg-muted">Project</span>
+            <span className="text-meta text-fg-muted">{t("myWork.project")}</span>
             <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "sm:max-w-[14rem]")}>
-              <option value="">All projects</option>
+              <option value="">{t("myWork.allProjects")}</option>
               {initial.facets.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -199,11 +201,11 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
         {tab === "recent" ? (
           <>
             <label className="flex flex-col gap-1">
-              <span className="text-meta text-fg-muted">Last opened</span>
+              <span className="text-meta text-fg-muted">{t("myWork.lastOpened")}</span>
               <select name="range" defaultValue={query.range ?? "all"} className={selectClass}>
                 {RANGES.map(([value, label]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(label)}
                   </option>
                 ))}
               </select>
@@ -211,11 +213,11 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
             {query.range === "custom" ? (
               <>
                 <label className="flex flex-col gap-1">
-                  <span className="text-meta text-fg-muted">From</span>
+                  <span className="text-meta text-fg-muted">{t("myWork.from")}</span>
                   <input type="date" name="from" defaultValue={query.from ?? ""} className={selectClass} />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-meta text-fg-muted">To</span>
+                  <span className="text-meta text-fg-muted">{t("myWork.to")}</span>
                   <input type="date" name="to" defaultValue={query.to ?? ""} className={selectClass} />
                 </label>
               </>
@@ -224,41 +226,41 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
         ) : null}
         </div>
         <Button type="submit" variant="secondary" size="sm">
-          Apply
+          {t("myWork.apply")}
         </Button>
         {filtered ? (
           <Link href={href({ companyId: undefined, module: undefined, projectId: undefined, q: undefined, range: undefined, from: undefined, to: undefined })} className="inline-flex items-center pb-2 text-meta font-medium text-accent-strong hover:underline touch:min-h-11 touch:pb-0">
-            Reset
+            {t("myWork.reset")}
           </Link>
         ) : null}
       </form>
 
       {!enabled ? (
-        <EmptyState icon={tab === "favorites" ? <Star /> : <History />} title={tab === "favorites" ? "Favorites are switched off." : "Recent work is switched off."} description="Your companies have turned this off." />
+        <EmptyState icon={tab === "favorites" ? <Star /> : <History />} title={tab === "favorites" ? t("myWork.favoritesOff") : t("myWork.recentOff")} description={t("myWork.turnedOff")} />
       ) : items.length === 0 ? (
         filtered ? (
-          <EmptyState icon={<Boxes />} title="Nothing matches these filters." description="Try another company, module or date." />
+          <EmptyState icon={<Boxes />} title={t("myWork.noMatch")} description={t("myWork.noMatchBody")} />
         ) : tab === "favorites" ? (
-          <EmptyState icon={<Star />} title="No favorites yet." description="Star a record from its header to keep it close. Only you can see your favorites." />
+          <EmptyState icon={<Star />} title={t("myWork.noFavorites")} description={t("myWork.noFavoritesBody")} />
         ) : (
-          <EmptyState icon={<CalendarClock />} title="Your recently opened records will appear here." description="Projects, tasks, invoices, documents and other records you open are listed here. Only you can see this list." />
+          <EmptyState icon={<CalendarClock />} title={t("myWork.noRecent")} description={t("myWork.noRecentBody")} />
         )
       ) : (
-        <section className="nesto-card overflow-hidden" aria-label={tab === "favorites" ? "Favorites" : "Recent work"}>
+        <section className="nesto-card overflow-hidden" aria-label={tab === "favorites" ? t("myWork.favorites") : t("myWork.recentWork")}>
           {tab === "recent" ? (
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
-              <p className="text-meta text-fg-muted">Only you can see this. It is not an activity record.</p>
+              <p className="text-meta text-fg-muted">{t("myWork.privateNote")}</p>
               <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmClear(true)} data-testid="clear-recent-work">
-                Clear recent work
+                {t("myWork.clearRecent")}
               </Button>
             </div>
           ) : null}
           <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_7rem_2.25rem] gap-3 border-b border-line px-4 py-2 text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle md:grid" aria-hidden="true">
-            <span>Record</span>
-            <span>Company</span>
-            <span>Module</span>
-            <span>Project</span>
-            <span>{tab === "favorites" ? "Favorited on" : "Last opened"}</span>
+            <span>{t("myWork.record")}</span>
+            <span>{t("myWork.company")}</span>
+            <span>{t("myWork.module")}</span>
+            <span>{t("myWork.project")}</span>
+            <span>{tab === "favorites" ? t("myWork.favoritedOn") : t("myWork.lastOpened")}</span>
             <span />
           </div>
           <ul className="divide-y divide-line" data-testid={tab === "favorites" ? "favorites-list" : "recent-list"}>
@@ -282,7 +284,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                       {/* Phones keep the subtitle and the when, not only company · module · project (AUD-04 §5, D-01-14, MW-05). */}
                       {item.subtitle ? <span className="block truncate text-meta text-fg-muted">{item.subtitle}</span> : null}
                       <span className="block truncate text-meta text-fg-muted md:hidden">
-                        {[item.company?.name, moduleLabel(item.moduleKey), item.project?.name, now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now)) : null].filter(Boolean).join(" · ")}
+                        {[item.company?.name, moduleLabel(item.moduleKey), item.project?.name, now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now, t)) : null].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                   </a>
@@ -290,9 +292,9 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                   <span className="hidden truncate text-table text-fg-muted md:block">{moduleLabel(item.moduleKey)}</span>
                   <span className="hidden truncate text-table text-fg-muted md:block">{item.project?.name ?? "—"}</span>
                   <span className="hidden text-meta tabular-nums text-fg-subtle md:block" title={item.at}>
-                    {now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now)) : ""}
+                    {now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now, t)) : ""}
                   </span>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={tab === "favorites" ? `Remove ${item.title} from favorites` : `Remove ${item.title} from recent work`} onClick={(event) => {
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={tab === "favorites" ? t("myWork.removeFavorite", { title: item.title }) : t("myWork.removeRecent", { title: item.title })} onClick={(event) => {
                     // The row leaves at once; focus the next one, not <body> (AUD-11 §4, AV-04).
                     planFocusAfterRemoval(event.currentTarget)();
                     void remove(item);
@@ -307,7 +309,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
             <div className="border-t border-line p-2 text-center">
               <Button type="button" variant="ghost" size="sm" onClick={() => void loadMore()} disabled={loadingMore}>
                 {loadingMore ? <Loader2 className="animate-spin" /> : null}
-                Load more
+                {t("myWork.loadMore")}
               </Button>
             </div>
           ) : null}
@@ -317,9 +319,9 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title="Clear recent work?"
-        description="This removes every record from your Recent Work. Your favorites stay as they are."
-        confirmLabel="Clear recent work"
+        title={t("myWork.clearTitle")}
+        description={t("myWork.clearBody")}
+        confirmLabel={t("myWork.clearRecent")}
         destructive
         pending={clearing}
         onConfirm={() => void clearRecent()}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { useFeedbackRouter, useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { useToast } from "@/components/ui/toast";
 import { WORKSPACE_CHANGED, type WorkspaceChange } from "@/config/workspace";
@@ -107,6 +108,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   const pathname = usePathname();
   const toast = useToast();
   const t = useTranslations("shell");
+  const tc = useCommonTranslations();
   const panelId = React.useId();
   const headingId = `${panelId}-heading`;
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -410,7 +412,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
       feedback?.store.settle(ticket);
       releaseLaunch(id);
       if (switched.stale || switched.cancelled) return;
-      toast({ title: `Could not open ${data.company.name}.`, tone: "danger" });
+      toast({ title: tc("shell.openFailed", { name: data.company.name }), tone: "danger" });
       if (switched.ambiguous) {
         // It may have switched on the server: load the canonical workspace
         // before anything else (QC-11). The person already let the page go.
@@ -472,7 +474,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   function continueWithCompany(action: QuickCreateActionDTO) {
     const chosen = action.companies?.find((entry) => entry.id === company) ?? null;
     if (!chosen) {
-      toast({ title: "Choose a Company to continue.", tone: "danger" });
+      toast({ title: tc("shell.companyRequired"), tone: "danger" });
       return;
     }
     const projectKnown = menu?.context?.project && menu.context.company.id === chosen.id;
@@ -498,7 +500,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         onClick={() => (open ? close() : openPanel())}
         aria-label={t("quickCreate.create")}
         aria-keyshortcuts="C"
-        title="Create (C)"
+        title={tc("shell.createShortcut")}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

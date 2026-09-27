@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ProjectForm } from "@/components/projects/project-form";
@@ -10,12 +11,14 @@ import { projectMachine, statusActionFor } from "@/lib/modules/projects/project.
 import { projectFormOptions } from "@/lib/modules/projects/project.options";
 import { projectTypeChoices } from "@/lib/modules/projects/project-type.service";
 import { coverCandidates } from "@/lib/modules/projects/project.service";
-import { allowedTransitions, projectStatusLabels } from "@/lib/modules/projects/project.status";
+import { allowedTransitions } from "@/lib/modules/projects/project.status";
 import { loadProject } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Edit project" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("pages.editProject") };
+}
 
 /**
  * Edit a project (PRD #10 §55–§57).
@@ -27,6 +30,7 @@ export const metadata: Metadata = { title: "Edit project" };
 export default async function EditProjectPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
 
   if (!can(context, "project.update")) redirect("/access-denied");
   if (project.archivedAt !== null || project.status === "ARCHIVED") {
@@ -52,7 +56,7 @@ export default async function EditProjectPage({ params }: Params) {
           const action = status === project.status ? null : statusActionFor(project.status, status);
           return status === project.status || (action !== null && !transitionFor(projectMachine, action)?.requiresReason);
         })
-        .map((status) => ({ value: status, label: projectStatusLabels[status] }))
+        .map((status) => ({ value: status, label: t(`status.${status}`) }))
     : [];
 
   async function action(formData: FormData) {
@@ -65,13 +69,13 @@ export default async function EditProjectPage({ params }: Params) {
       <div>
         <Breadcrumbs
           items={[
-            { label: "Projects", href: "/projects" },
+            { label: t("meta.projects"), href: "/projects" },
             { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
             { label: project.name, href: `/projects/${project.id}` },
-            { label: "Edit" },
+            { label: t("pages.edit") },
           ]}
         />
-        <h1 className="mt-3 text-page font-semibold text-fg">Edit {project.name}</h1>
+        <h1 className="mt-3 text-page font-semibold text-fg">{t("pages.editNamed", { name: project.name })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{project.code}</p>
       </div>
 
@@ -89,7 +93,7 @@ export default async function EditProjectPage({ params }: Params) {
             // A cover somebody else chose from a file this editor cannot open
             // stays selected, so saving the details does not remove it.
             ...(project.coverImageDocumentId && !covers.some((cover) => cover.id === project.coverImageDocumentId)
-              ? [{ value: project.coverImageDocumentId, label: "Current cover" }]
+              ? [{ value: project.coverImageDocumentId, label: t("pages.currentCover") }]
               : []),
           ],
           uploadHref: `/projects/${project.id}/documents`,

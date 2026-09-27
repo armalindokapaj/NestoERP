@@ -17,9 +17,9 @@ import type { ExpenseListQuery } from "@/lib/modules/finance/expenses/expense.sc
 import { canonicalExpenseSearch, parseExpenseQuery, searchString } from "@/lib/modules/finance/finance.query";
 import { companyFilterOptions, financeContexts, financeExportEligibility } from "@/lib/modules/finance/finance.workspace";
 import { expenseCurrenciesAcross, expenseFilterOptions } from "@/lib/modules/finance/expenses/expense.repository";
-import { expenseCategoryLabels, expenseStatusLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
-import { settlementLabels } from "@/lib/modules/finance/invoices/invoice.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { firstValue } from "@/lib/modules/shared/list-query";
 import { EXPENSE_SORT_KEYS } from "@/lib/modules/finance/expenses/expense.schema";
 
@@ -46,6 +46,7 @@ export async function ExpensesList({
   archived?: boolean;
   basePath: string;
 }) {
+  const t = await getTranslations("finance");
   const group = inGroupWorkspace(context);
   const company = group ? firstValue(searchParams.company) : undefined;
   const readable = group ? await financeContexts(context, "finance.expense.view") : [];
@@ -83,25 +84,25 @@ export async function ExpensesList({
 
   const statusOptions = (["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "CANCELLED"] as const).map((value) => ({
     value,
-    label: expenseStatusLabels[value],
+    label: t(`recordStatus.${value}`),
   }));
-  const categoryOptions = Object.entries(expenseCategoryLabels).map(([value, label]) => ({ value, label }));
+  const categoryOptions = (Object.keys(expenseCategoryLabels) as (keyof typeof expenseCategoryLabels)[]).map((value) => ({ value, label: t(`category.${value}`) }));
   const settlementOptions = (["UNPAID", "PARTIALLY_PAID", "PAID"] as const).map((value) => ({
     value,
-    label: settlementLabels[value],
+    label: t(`settlement.${value}`),
   }));
 
   const filters: FilterConfig[] = [
-    ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
-    ...(archived ? [] : [{ param: "status", label: "Status", options: combinedOption(statusOptions, query.status) }]),
-    { param: "category", label: "Category", options: combinedOption(categoryOptions, query.category) },
-    { param: "settlement", label: "Paid", options: combinedOption(settlementOptions, query.settlement) },
+    ...(group ? [{ param: "company", label: t("group.company"), options: companyFilterOptions(readable) }] : []),
+    ...(archived ? [] : [{ param: "status", label: t("columns.status"), options: combinedOption(statusOptions, query.status) }]),
+    { param: "category", label: t("columns.category"), options: combinedOption(categoryOptions, query.category) },
+    { param: "settlement", label: t("columns.paid"), options: combinedOption(settlementOptions, query.settlement) },
     ...(group
       ? []
       : [
           {
             param: "projectId",
-            label: "Project",
+            label: t("form.project"),
             options: options.projects.map((project) => ({ value: project.id, label: project.name })),
           },
         ]),
@@ -109,7 +110,7 @@ export async function ExpensesList({
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("form.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -133,14 +134,14 @@ export async function ExpensesList({
     <div className="space-y-4">
       {canonical !== searchString(searchParams) ? <CanonicalUrl href={canonical ? `${basePath}?${canonical}` : basePath} /> : null}
       <ListToolbar
-        searchPlaceholder="Search description, payee or project…"
+        searchPlaceholder={t("expenses.search")}
         filters={filters}
         sortOptions={[
-          { value: "date-desc", label: "Newest first" },
-          { value: "date-asc", label: "Oldest first" },
-          { value: "amount-desc", label: "Largest first" },
-          { value: "amount-asc", label: "Smallest first" },
-          { value: "updated-desc", label: "Recently updated" },
+          { value: "date-desc", label: t("sort.newest") },
+          { value: "date-asc", label: t("sort.oldest") },
+          { value: "amount-desc", label: t("sort.largest") },
+          { value: "amount-asc", label: t("sort.smallest") },
+          { value: "updated-desc", label: t("sort.updated") },
         ]}
       />
 
@@ -156,22 +157,22 @@ export async function ExpensesList({
           hasFilters ? (
             <EmptyState
               icon={<Receipt />}
-              title="No expenses match these filters."
-              description="Adjust or clear the filters to see more."
-              action={{ label: "Clear filters", href: registerHref(basePath, archived) }}
+              title={t("expenses.noMatch")}
+              description={t("list.noMatchBody")}
+              action={{ label: t("list.clearFilters"), href: registerHref(basePath, archived) }}
             />
           ) : (
             <EmptyState
               icon={<Receipt />}
-              title={archived ? "No archived expenses." : "No expenses yet."}
+              title={archived ? t("expenses.noArchived") : t("expenses.none")}
               description={
                 archived
-                  ? "Expenses removed from active lists will appear here."
-                  : "Costs you can see will appear here."
+                  ? t("expenses.noArchivedBody")
+                  : t("expenses.noneBody")
               }
               action={
                 !archived && !group && can(context, "finance.expense.create")
-                  ? { label: "New expense", href: "/finance/expenses/new" }
+                  ? { label: t("expenses.new"), href: "/finance/expenses/new" }
                   : undefined
               }
             />

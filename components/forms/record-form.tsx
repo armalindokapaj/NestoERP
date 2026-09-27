@@ -13,6 +13,7 @@ import {
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useUnsavedFrozen } from "@/components/unsaved/use-unsaved";
@@ -142,6 +143,7 @@ export function Field({
   const register = contract?.register;
   React.useEffect(() => register?.(name, { label, validate }), [register, name, label, validate]);
   const showRequired = Boolean(required) || nativeRequired;
+  const t = useCommonTranslations();
 
   return (
     <div ref={wrapperRef} className={cn("space-y-1.5", className)} data-field={name}>
@@ -152,7 +154,7 @@ export function Field({
             *
           </span>
         ) : optional ? (
-          <span className="ml-1 font-normal text-fg-subtle">(optional)</span>
+          <span className="ml-1 font-normal text-fg-subtle">{t("form.optional")}</span>
         ) : null}
       </Label>
       {children}

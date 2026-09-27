@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
@@ -25,7 +26,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project QA/QC" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("qaqcTab.title") };
+}
 
 /**
  * Quality on one project (PRD #21 §11, §32).
@@ -42,6 +45,7 @@ export const metadata: Metadata = { title: "Project QA/QC" };
 export default async function ProjectQaqcPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const projectActions = projects.projectActions(context);
 
   if (!projectActions.canViewQaqc) redirect("/access-denied");
@@ -74,7 +78,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "QA/QC")}
+        breadcrumbs={await projectBreadcrumbs(project, "QA/QC")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -82,7 +86,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
           mayRequest ? (
             <Button asChild size="sm">
               <Link href={`/qaqc/requests/new?projectId=${project.id}`}>
-                Request an inspection
+                {t("qaqcTab.requestInspection")}
               </Link>
             </Button>
           ) : null
@@ -117,12 +121,12 @@ export default async function ProjectQaqcPage({ params }: Params) {
       {nothing ? (
         <EmptyState
           icon={<ShieldCheck />}
-          title="No quality records on this project."
-          description="Inspections, defects and non-conformances raised against this project appear here."
+          title={t("qaqcTab.emptyTitle")}
+          description={t("qaqcTab.emptyBody")}
           action={
             mayRequest
               ? {
-                  label: "Request an inspection",
+                  label: t("qaqcTab.requestInspection"),
                   href: `/qaqc/requests/new?projectId=${project.id}`,
                 }
               : undefined
@@ -132,25 +136,25 @@ export default async function ProjectQaqcPage({ params }: Params) {
         <div className="space-y-6">
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
-              label="Pass rate"
+              label={t("qaqcTab.passRate")}
               value={summary.passRate ? `${summary.passRate.percent}%` : "—"}
               hint={
                 summary.passRate
-                  ? `${summary.passRate.passed} of ${summary.passRate.total} decided`
-                  : "Nothing decided yet"
+                  ? t("qaqcTab.decided", { passed: summary.passRate.passed, total: summary.passRate.total })
+                  : t("qaqcTab.nothingDecided")
               }
             />
-            <Stat label="Open defects" value={String(summary.openDefects)} />
-            <Stat label="Open NCRs" value={String(summary.openNcrs)} />
-            <Stat label="Open actions" value={String(summary.openActions)} />
+            <Stat label={t("qaqcTab.openDefects")} value={String(summary.openDefects)} />
+            <Stat label={t("qaqcTab.openNcrs")} value={String(summary.openNcrs)} />
+            <Stat label={t("qaqcTab.openActions")} value={String(summary.openActions)} />
           </section>
 
           {inspectionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Inspections</h2>
+              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.inspections")}</h2>
               <InspectionTable
                 inspections={inspectionRows.data}
-                caption={`Inspections on ${project.name}`}
+                caption={t("qaqcTab.inspectionsOn", { name: project.name })}
                 listId="projects.qaqc-inspections"
               />
               <PreviewFooter
@@ -164,11 +168,11 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {defectRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Defects</h2>
+              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.defects")}</h2>
               <DefectTable
                 defects={defectRows.data}
                 showProject={false}
-                caption={`Defects on ${project.name}`}
+                caption={t("qaqcTab.defectsOn", { name: project.name })}
                 listId="projects.qaqc-defects"
               />
               <PreviewFooter
@@ -182,11 +186,11 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {ncrRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Non-conformances</h2>
+              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.ncrs")}</h2>
               <NcrTable
                 ncrs={ncrRows.data}
                 showProject={false}
-                caption={`NCRs on ${project.name}`}
+                caption={t("qaqcTab.ncrsOn", { name: project.name })}
                 listId="projects.qaqc-ncrs"
               />
               <PreviewFooter
@@ -200,10 +204,10 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {actionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">Corrective actions</h2>
+              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.corrective")}</h2>
               <CorrectiveActionTable
                 actions={actionRows.data}
-                caption={`Corrective actions on ${project.name}`}
+                caption={t("qaqcTab.correctiveOn", { name: project.name })}
                 listId="projects.qaqc-corrective-actions"
               />
               <PreviewFooter

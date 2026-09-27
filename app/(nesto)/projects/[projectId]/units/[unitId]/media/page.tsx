@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { UnitMediaGallery } from "@/components/project-structure/unit-page/unit-media";
@@ -8,7 +9,9 @@ import { loadUnitPage, UnitShell } from "../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string }> };
 
-export const metadata: Metadata = { title: "Unit media" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("unitPage.mediaTitle") };
+}
 
 /** The unit's images and renders, in order, one of them primary (E-05D §40-§44). */
 export default async function UnitMediaPage({ params }: Params) {

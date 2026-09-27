@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
@@ -14,7 +15,9 @@ import { cn } from "@/lib/utils/cn";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Engineering" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.engineering") };
+}
 
 /**
  * The project's engineering dashboard (PRD #46 §159, §165): what is open, what
@@ -24,13 +27,14 @@ export const metadata: Metadata = { title: "Engineering" };
 export default async function ProjectEngineeringOverviewPage({ params }: Params) {
   const { projectId } = await params;
   const context = await requireModule("engineering");
+  const t = await getTranslations("projects");
   const overview = await orNotFound(projectEngineeringOverview(context, projectId));
   const base = `/projects/${projectId}/engineering`;
   const { counts } = overview;
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-section font-semibold text-fg">Overview</h2>
+        <h2 className="text-section font-semibold text-fg">{t("engineering.overview")}</h2>
         <div className="flex flex-wrap gap-2">
           {can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null}
           {can(context, "submittal.create") ? <NewSubmittalButton projectId={projectId} /> : null}
@@ -38,19 +42,19 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
         </div>
       </div>
       <MetricStrip>
-        <Metric label="Open RFIs" value={counts.openRfis} href={`${base}/rfis?open=1`} testId="metric-open-rfis" />
-        <Metric label="Overdue RFIs" value={counts.overdueRfis} tone="danger" href={`${base}/rfis?overdue=1`} testId="metric-overdue-rfis" />
-        <Metric label="Submittals under review" value={counts.submittalsInReview} href={`${base}/submittals?inReview=1`} testId="metric-in-review" />
-        <Metric label="Revision required" value={counts.revisionRequired} tone="warning" href={`${base}/submittals?status=REVISION_REQUIRED`} testId="metric-revision-required" />
-        <Metric label="Approved this week" value={counts.approvedThisWeek} tone="success" testId="metric-approved" />
-        <Metric label="Drawings awaiting review" value={counts.drawingsAwaitingReview} href={`${base}/drawings?awaitingReview=1`} testId="metric-drawings-awaiting" />
-        <Metric label="Reviews overdue" value={counts.overdueReviews} tone="danger" testId="metric-overdue-reviews" />
-        <Metric label="Compliance alerts" value={counts.complianceAlerts} tone="warning" href={`/projects/${projectId}/contractors`} testId="metric-compliance" />
+        <Metric label={t("engineering.metricOpenRfis")} value={counts.openRfis} href={`${base}/rfis?open=1`} testId="metric-open-rfis" />
+        <Metric label={t("engineering.overdueRfis")} value={counts.overdueRfis} tone="danger" href={`${base}/rfis?overdue=1`} testId="metric-overdue-rfis" />
+        <Metric label={t("engineering.submittalsInReview")} value={counts.submittalsInReview} href={`${base}/submittals?inReview=1`} testId="metric-in-review" />
+        <Metric label={t("engineering.revisionRequired")} value={counts.revisionRequired} tone="warning" href={`${base}/submittals?status=REVISION_REQUIRED`} testId="metric-revision-required" />
+        <Metric label={t("engineering.approvedThisWeek")} value={counts.approvedThisWeek} tone="success" testId="metric-approved" />
+        <Metric label={t("engineering.drawingsAwaiting")} value={counts.drawingsAwaitingReview} href={`${base}/drawings?awaitingReview=1`} testId="metric-drawings-awaiting" />
+        <Metric label={t("engineering.reviewsOverdue")} value={counts.overdueReviews} tone="danger" testId="metric-overdue-reviews" />
+        <Metric label={t("engineering.complianceAlerts")} value={counts.complianceAlerts} tone="warning" href={`/projects/${projectId}/contractors`} testId="metric-compliance" />
       </MetricStrip>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
-        <Panel title="Needs attention" description="Answers and reviews past their date, and submittals sent back." testId="engineering-attention">
+        <Panel title={t("engineering.needsAttention")} description={t("engineering.needsAttentionBody")} testId="engineering-attention">
           {overview.attention.length === 0 ? (
-            <EmptyNote>Nothing on this project is late or sent back.</EmptyNote>
+            <EmptyNote>{t("engineering.nothingLate")}</EmptyNote>
           ) : (
             <ul className="divide-y divide-line">
               {overview.attention.map((item) => (
@@ -67,9 +71,9 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
             </ul>
           )}
         </Panel>
-        <Panel title="Recent decisions" description="The latest reviews on drawings, documents and submittals.">
+        <Panel title={t("engineering.recentDecisions")} description={t("engineering.recentDecisionsBody")}>
           {overview.recentDecisions.length === 0 ? (
-            <EmptyNote>No reviews have been decided yet.</EmptyNote>
+            <EmptyNote>{t("engineering.noDecisions")}</EmptyNote>
           ) : (
             <ul className="divide-y divide-line">
               {overview.recentDecisions.map((item) => (

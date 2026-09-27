@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
-import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
+import { outcomeOf } from "@/lib/unsaved/outcome";
+import { useCommonTranslations } from "@/components/i18n/common-text";
+import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import type { CommentDTO, MentionableMemberDTO, ThreadDTO } from "@/lib/core/collaboration/collaboration.service";
 import { cn } from "@/lib/utils/cn";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -32,14 +34,16 @@ import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal"
 
 const MAX_LENGTH = 5000;
 
-const ERROR_TEXT: Record<string, string> = {
-  COMMENT_EMPTY: "Write something first.",
-  COMMENT_TOO_LONG: "Comments are limited to 5,000 characters.",
-  MENTION_NOT_ALLOWED: "Someone you mentioned cannot see this record.",
-  TOO_MANY_MENTIONS: "Mention at most 20 people in one comment.",
-  PARENT_ARCHIVED: "This record is archived, so its discussion is closed.",
-  COMMENT_ARCHIVED: "That comment was deleted.",
-  RATE_LIMITED: "You are commenting too quickly. Try again in a moment.",
+type CommonT = Translate<"common">;
+
+const ERROR_KEYS: Record<string, MessageKey<"common">> = {
+  COMMENT_EMPTY: "discussion.commentEmpty",
+  COMMENT_TOO_LONG: "discussion.commentTooLong",
+  MENTION_NOT_ALLOWED: "discussion.mentionNotAllowed",
+  TOO_MANY_MENTIONS: "discussion.tooManyMentions",
+  PARENT_ARCHIVED: "discussion.parentArchived",
+  COMMENT_ARCHIVED: "discussion.commentArchived",
+  RATE_LIMITED: "discussion.rateLimited",
 };
 
 type ApiFailure = { status: number; code: string; message: string };
@@ -58,23 +62,24 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     const failure: ApiFailure = {
       status: response.status,
       code: json?.error?.code ?? "INTERNAL_ERROR",
-      message: fieldMessage ?? json?.error?.message ?? "Something went wrong.",
+      message: fieldMessage ?? json?.error?.message ?? "",
     };
     throw failure;
   }
   return (json?.data ?? (json as T)) as T;
 }
 
-function failureText(error: unknown): string {
+function failureText(t: CommonT, error: unknown): string {
   const failure = error as Partial<ApiFailure>;
   const key = failure?.message ?? "";
-  return ERROR_TEXT[key] ?? (failure?.status === 404 ? "This record is no longer available." : key || "Something went wrong.");
+  if (ERROR_KEYS[key]) return t(ERROR_KEYS[key]);
+  return failure?.status === 404 ? t("discussion.recordGone") : key || t("discussion.somethingWrong");
 }
 
 export function CollaborationPanel({
   parentType,
   parentId,
-  title = "Discussion",
+  title,
   className,
 }: {
   parentType: string;
@@ -83,6 +88,7 @@ export function CollaborationPanel({
   className?: string;
 }) {
   const toast = useToast();
+  const t = useCommonTranslations();
   const base = `/api/collaboration/${encodeURIComponent(parentType)}/${encodeURIComponent(parentId)}`;
   const [thread, setThread] = React.useState<ThreadDTO | null>(null);
   const [state, setState] = React.useState<"loading" | "ready" | "error" | "unavailable">("loading");
@@ -112,7 +118,7 @@ export function CollaborationPanel({
       const older = await api<ThreadDTO>(`${base}/comments?before=${encodeURIComponent(thread.nextBefore)}`);
       setThread({ ...thread, comments: [...older.comments, ...thread.comments], nextBefore: older.nextBefore });
     } catch (error) {
-      toast({ title: failureText(error), tone: "danger" });
+      toast({ title: failureText(t, error), tone: "danger" });
     } finally {
       setLoadingOlder(false);
     }
@@ -125,9 +131,9 @@ export function CollaborationPanel({
       const next = !thread.watching;
       await api(`${base}/watch`, { method: next ? "POST" : "DELETE" });
       setThread({ ...thread, watching: next, watcherCount: thread.watcherCount + (next ? 1 : -1) });
-      toast({ title: next ? "You are watching this record." : "You stopped watching this record." });
+      toast({ title: next ? t("discussion.watching") : t("discussion.stoppedWatching") });
     } catch (error) {
-      toast({ title: failureText(error), tone: "danger" });
+      toast({ title: failureText(t, error), tone: "danger" });
     } finally {
       setWatchPending(false);
     }
@@ -156,7 +162,7 @@ export function CollaborationPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`discussion-${parentType}-${parentId}`} className="flex items-center gap-2 text-card font-semibold text-fg">
           <MessageSquare aria-hidden="true" className="size-4 text-fg-subtle" />
-          {title}
+          {title ?? t("discussion.title")}
           {thread && thread.commentCount > 0 ? (
             <span className="text-meta font-normal text-fg-subtle">({thread.commentCount})</span>
           ) : null}
@@ -170,7 +176,7 @@ export function CollaborationPanel({
             aria-pressed={thread.watching}
           >
             {thread.watching ? <BellOff aria-hidden="true" /> : <Bell aria-hidden="true" />}
-            {thread.watching ? "Unwatch" : "Watch"}
+            {thread.watching ? t("discussion.unwatch") : t("discussion.watch")}
           </Button>
         ) : null}
       </div>
@@ -178,7 +184,7 @@ export function CollaborationPanel({
       <p ref={liveRef} aria-live="polite" className="sr-only" />
 
       {state === "loading" ? (
-        <div className="mt-4 space-y-3" role="status" aria-busy="true" aria-label="Loading discussion">
+        <div className="mt-4 space-y-3" role="status" aria-busy="true" aria-label={t("discussion.loadingDiscussion")}>
           {[0, 1].map((key) => (
             <div key={key} className="flex gap-3">
               <div className="size-7 animate-pulse rounded-full bg-hover" />
@@ -193,37 +199,37 @@ export function CollaborationPanel({
 
       {state === "error" ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 text-table text-fg-muted" role="alert">
-          The discussion could not be loaded.
+          {t("discussion.loadFailed")}
           <Button variant="secondary" size="sm" onClick={() => void load()}>
             <RotateCw aria-hidden="true" />
-            Retry
+            {t("retry")}
           </Button>
         </div>
       ) : null}
 
       {state === "unavailable" ? (
-        <p className="mt-4 text-table text-fg-muted">The discussion on this record is not available to you.</p>
+        <p className="mt-4 text-table text-fg-muted">{t("discussion.unavailable")}</p>
       ) : null}
 
       {state === "ready" && thread ? (
         <>
           {thread.parent.archived ? (
             <p className="mt-3 rounded-md bg-surface-muted px-3 py-2 text-meta text-fg-muted">
-              This record is archived. Its discussion stays readable, and is closed to new comments.
+              {t("discussion.archivedNote")}
             </p>
           ) : null}
 
           {thread.nextBefore ? (
             <div className="mt-3">
               <Button variant="ghost" size="sm" onClick={loadOlder} disabled={loadingOlder}>
-                {loadingOlder ? "Loading…" : "Show earlier comments"}
+                {loadingOlder ? t("loading") : t("discussion.showEarlier")}
               </Button>
             </div>
           ) : null}
 
           {thread.comments.length === 0 ? (
             <p className="mt-4 text-table text-fg-muted">
-              No comments yet.{thread.capabilities.canComment ? " Start the discussion below." : ""}
+              {t("discussion.noComments")}{thread.capabilities.canComment ? t("discussion.startBelow") : ""}
             </p>
           ) : (
             <ol className="mt-4 space-y-4">
@@ -259,7 +265,7 @@ export function CollaborationPanel({
                   method: "POST",
                   body: JSON.stringify({ body }),
                 });
-                upsertComment(created, "Comment posted.");
+                upsertComment(created, t("discussion.posted"));
               }}
             />
           ) : null}
@@ -270,8 +276,9 @@ export function CollaborationPanel({
 }
 
 function CommentBody({ comment }: { comment: CommentDTO }) {
+  const t = useCommonTranslations();
   if (comment.archived || !comment.segments) {
-    return <p className="mt-1 text-table italic text-fg-subtle">This comment was deleted.</p>;
+    return <p className="mt-1 text-table italic text-fg-subtle">{t("discussion.deleted")}</p>;
   }
   return (
     <p className="mt-1 whitespace-pre-wrap break-words text-body text-fg">
@@ -315,6 +322,7 @@ function CommentItem({
   mentionSource: string;
 }) {
   const toast = useToast();
+  const t = useCommonTranslations();
   const [editing, setEditing] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   // Focus goes to the next comment once this one is deleted (AUD-11 §4, AV-04).
@@ -345,14 +353,14 @@ function CommentItem({
           <time dateTime={comment.createdAt} className="text-meta text-fg-subtle" title={comment.createdAt}>
             {relative ?? ""}
           </time>
-          {comment.editedAt && !comment.archived ? <span className="text-meta text-fg-subtle">(edited)</span> : null}
+          {comment.editedAt && !comment.archived ? <span className="text-meta text-fg-subtle">{t("discussion.edited")}</span> : null}
         </div>
 
         {editing ? (
           <CommentComposer
             mentionSource={mentionSource}
             initial={editableText(comment)}
-            submitLabel="Save"
+            submitLabel={t("discussion.save")}
             onCancel={() => setEditing(false)}
             onSubmit={async (body) => {
               const updated = await api<CommentDTO>(`/api/comments/${comment.id}`, {
@@ -370,18 +378,18 @@ function CommentItem({
         {!editing && (comment.capabilities.canEdit || comment.capabilities.canArchive) ? (
           <div className="mt-1 flex gap-1">
             {comment.capabilities.canEdit ? (
-              <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label={`Edit comment by ${comment.author.fullName}`}>
+              <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label={t("discussion.editBy", { name: comment.author.fullName })}>
                 <Pencil aria-hidden="true" />
-                Edit
+                {t("discussion.edit")}
               </Button>
             ) : null}
             {comment.capabilities.canArchive ? (
               <Button variant="ghost" size="sm" onClick={(event) => {
                   refocus.current = planFocusAfterRemoval(event.currentTarget);
                   setConfirming(true);
-                }} aria-label={`Delete comment by ${comment.author.fullName}`}>
+                }} aria-label={t("discussion.deleteBy", { name: comment.author.fullName })}>
                 <Trash2 aria-hidden="true" />
-                Delete
+                {t("discussion.delete")}
               </Button>
             ) : null}
           </div>
@@ -391,9 +399,9 @@ function CommentItem({
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Delete this comment?"
-        description="The comment is hidden from the discussion. Its author and time stay in the record's history."
-        confirmLabel="Delete comment"
+        title={t("discussion.deleteTitle")}
+        description={t("discussion.deleteBody")}
+        confirmLabel={t("discussion.deleteConfirm")}
         pending={pending}
         onConfirm={async () => {
           setPending(true);
@@ -403,7 +411,7 @@ function CommentItem({
             refocus.current?.();
             setConfirming(false);
           } catch (error) {
-            toast({ title: failureText(error), tone: "danger" });
+            toast({ title: failureText(t, error), tone: "danger" });
           } finally {
             setPending(false);
           }
@@ -451,7 +459,7 @@ function CommentComposer({
   onSubmit,
   onCancel,
   initial,
-  submitLabel = "Comment",
+  submitLabel,
   draftKey,
 }: {
   mentionSource: string;
@@ -462,6 +470,7 @@ function CommentComposer({
   /** Keeps the new comment's text across a remount of the discussion (see useKeptDraft). */
   draftKey?: string;
 }) {
+  const t = useCommonTranslations();
   const id = React.useId();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useKeptDraft(draftKey && `${draftKey}:text`, initial?.text ?? "");
@@ -522,7 +531,7 @@ function CommentComposer({
   // the text against what the composer opened with.
   const running = React.useRef(false);
   const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
-  const editor = useUnsavedEditor({ module: "collaboration", saveKind: "save", label: initial ? "Your comment edit" : "Your comment", save: () => run.current(), focus: () => textareaRef.current?.focus() });
+  const editor = useUnsavedEditor({ module: "collaboration", saveKind: "save", label: initial ? t("discussion.yourEdit") : t("discussion.yourComment"), save: () => run.current(), focus: () => textareaRef.current?.focus() });
   const { setDirty, setSaving, setUnresolved } = editor;
   React.useEffect(() => setDirty(text !== (initial?.text ?? "")), [text, initial?.text, setDirty]);
 
@@ -531,11 +540,11 @@ function CommentComposer({
     if (unsaved.frozen) return { kind: "refused" };
     const trimmed = text.trim();
     if (!trimmed) {
-      setError(ERROR_TEXT.COMMENT_EMPTY);
+      setError(t("discussion.commentEmpty"));
       return { kind: "invalid" };
     }
     if (trimmed.length > MAX_LENGTH) {
-      setError(ERROR_TEXT.COMMENT_TOO_LONG);
+      setError(t("discussion.commentTooLong"));
       return { kind: "invalid" };
     }
     running.current = true;
@@ -556,7 +565,7 @@ function CommentComposer({
       const failure = caught as Partial<ApiFailure> | null;
       const known = typeof failure?.status === "number" && failure.status > 0;
       setUnresolved(!known);
-      setError(known ? failureText(caught) : OUTCOME_COPY.unknown);
+      setError(known ? failureText(t, caught) : t("outcomeUnknown"));
       return known ? outcomeOf({ ok: false, code: failure?.code, error: failure?.message }) : { kind: "unknown" };
     } finally {
       running.current = false;
@@ -591,14 +600,14 @@ function CommentComposer({
       }}
     >
       <label htmlFor={`${id}-body`} className="sr-only">
-        {initial ? "Edit comment" : "Add a comment"}
+        {initial ? t("discussion.editComment") : t("discussion.addComment")}
       </label>
       <div className="relative">
         <Textarea
           ref={textareaRef}
           id={`${id}-body`}
           value={text}
-          placeholder={initial ? undefined : "Add a comment. Type @ to mention someone."}
+          placeholder={initial ? undefined : t("discussion.placeholder")}
           rows={initial ? 3 : 3}
           maxLength={MAX_LENGTH + 200}
           aria-invalid={Boolean(error)}
@@ -646,7 +655,7 @@ function CommentComposer({
           <ul
             id={`${id}-mentions`}
             role="listbox"
-            aria-label="People you can mention"
+            aria-label={t("discussion.mentionable")}
             className="absolute inset-x-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-line bg-surface p-1 shadow-lg"
           >
             {options.map((option, index) => (
@@ -677,18 +686,18 @@ function CommentComposer({
         </p>
       ) : (
         <p id={`${id}-hint`} className="text-meta text-fg-subtle">
-          Plain text. Ctrl or ⌘ + Enter to send.
-          {text.length > MAX_LENGTH - 500 ? ` ${MAX_LENGTH - text.length} characters left.` : ""}
+          {t("discussion.hint")}
+          {text.length > MAX_LENGTH - 500 ? t("discussion.charactersLeft", { count: MAX_LENGTH - text.length }) : ""}
         </p>
       )}
       <div className="flex justify-end gap-2">
         {onCancel ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => void dismissComposer(onCancel)} disabled={pending}>
-            Cancel
+            {t("cancel")}
           </Button>
         ) : null}
         <Button type="submit" size="sm" disabled={pending || text.trim().length === 0}>
-          {pending ? "Sending…" : submitLabel}
+          {pending ? t("discussion.sending") : (submitLabel ?? t("discussion.comment"))}
         </Button>
       </div>
     </form>

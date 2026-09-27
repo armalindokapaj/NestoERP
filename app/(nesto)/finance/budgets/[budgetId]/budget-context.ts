@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import type { Translate } from "@/lib/i18n/translator";
 import type { Crumb } from "@/components/ui/breadcrumbs";
 
 import { AccessError } from "@/lib/access/guards";
+import { getTranslations } from "@/lib/i18n/server";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
@@ -21,15 +23,16 @@ export async function loadBudget(
   }
 }
 
-export function budgetLabel(budget: BudgetDetailDTO): string {
-  return `${budget.project.code} budget v${budget.version}`;
+export function budgetLabel(budget: BudgetDetailDTO, t?: Translate<"finance">): string {
+  return t ? t("budgets.label", { code: budget.project.code, version: budget.version }) : `${budget.project.code} budget v${budget.version}`;
 }
 
-export function budgetBreadcrumbs(budget: BudgetDetailDTO, trailing?: string): Crumb[] {
-  const label = budgetLabel(budget);
+export async function budgetBreadcrumbs(budget: BudgetDetailDTO, trailing?: string): Promise<Crumb[]> {
+  const t = await getTranslations("finance");
+  const label = budgetLabel(budget, t);
   const crumbs: Crumb[] = [
-    { label: "Finance", href: "/finance" },
-    { label: "Budgets", href: "/finance/budgets" },
+    { label: t("crumbs.finance"), href: "/finance" },
+    { label: t("crumbs.budgets"), href: "/finance/budgets" },
     trailing ? { label, href: `/finance/budgets/${budget.id}` } : { label },
   ];
   if (trailing) crumbs.push({ label: trailing });

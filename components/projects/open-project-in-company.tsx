@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Building2, Loader2 } from "lucide-react";
@@ -27,6 +28,7 @@ export function OpenProjectInCompany({
   destination: string;
 }) {
   const router = useRouter();
+  const t = useTranslations("projects");
   const [error, setError] = React.useState<string | null>(null);
   const started = React.useRef(false);
 
@@ -35,8 +37,8 @@ export function OpenProjectInCompany({
     started.current = true;
     announcementApi(`/api/projects/${projectId}/open`, { method: "POST" })
       .then(() => router.replace(destination))
-      .catch((failure) => setError(failureMessage(failure, "This project could not be opened.")));
-  }, [projectId, destination, router]);
+      .catch((failure) => setError(failureMessage(failure, t("open.failed"))));
+  }, [projectId, destination, router, t]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-24 text-center" data-testid="open-project-in-company">
@@ -47,13 +49,13 @@ export function OpenProjectInCompany({
         <>
           <p role="alert" className="text-card font-semibold text-fg">{error}</p>
           <Button asChild variant="secondary" size="sm" className="mt-4">
-            <Link href="/projects">Back to projects</Link>
+            <Link href="/projects">{t("open.back")}</Link>
           </Button>
         </>
       ) : (
         <>
-          <p className="text-card font-semibold text-fg" aria-live="polite">Opening {projectName}</p>
-          <p className="mt-1 text-table text-fg-muted">Switching to {companyName}…</p>
+          <p className="text-card font-semibold text-fg" aria-live="polite">{t("open.opening", { name: projectName })}</p>
+          <p className="mt-1 text-table text-fg-muted">{t("open.switching", { company: companyName })}</p>
         </>
       )}
     </div>

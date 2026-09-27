@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -8,7 +9,9 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { ProjectsList } from "../projects-list";
 
-export const metadata: Metadata = { title: "Archived" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("pages.archived") };
+}
 
 export default async function ProjectsSectionPage({
   searchParams,
@@ -16,6 +19,7 @@ export default async function ProjectsSectionPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const context = await requireModule("projects");
+  const t = await getTranslations("projects");
   const experience = resolveModuleExperience(context, "projects");
   const params = await searchParams;
 
@@ -26,7 +30,7 @@ export default async function ProjectsSectionPage({
       actions={
         can(context, "project.create") ? (
           <Button asChild size="sm">
-            <Link href="/projects/new">New project</Link>
+            <Link href="/projects/new">{t("pages.newProject")}</Link>
           </Button>
         ) : null
       }

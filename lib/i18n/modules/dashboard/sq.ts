@@ -1,6 +1,8 @@
 import type { dashboardEn } from "./en";
+import { dashboardConfigSq } from "./config-sq";
 
 export const dashboardSq: typeof dashboardEn = {
+  ...dashboardConfigSq,
   title: "Paneli",
   across: "Në të gjithë {name}",
   viewAll: "Shiko të gjitha",

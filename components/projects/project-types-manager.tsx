@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
@@ -27,6 +28,7 @@ import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal"
  */
 export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) {
   const toast = useToast();
+  const t = useTranslations("projects");
   const [types, setTypes] = React.useState(initial);
   const [newName, setNewName] = React.useState("");
   const [addError, setAddError] = React.useState<string | null>(null);
@@ -39,8 +41,8 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
   // The name being added and the name being changed are both unsaved input
   // (AUD-03 §3): leaving asks, and Save and continue runs the same add or
   // rename as the buttons.
-  const adding = useUnsavedEditor({ module: "projects", saveKind: "create", label: "New project type", save: () => add() });
-  const renaming = useUnsavedEditor({ module: "projects", saveKind: "save", label: () => `Name of ${types.find((type) => type.id === editing?.id)?.name ?? "project type"}`, save: () => rename() });
+  const adding = useUnsavedEditor({ module: "projects", saveKind: "create", label: t("types.newLabel"), save: () => add() });
+  const renaming = useUnsavedEditor({ module: "projects", saveKind: "save", label: () => t("types.nameOf", { name: types.find((type) => type.id === editing?.id)?.name ?? t("types.fallbackName") }), save: () => rename() });
   const setAddingDirty = adding.setDirty;
   const setRenamingDirty = renaming.setDirty;
   React.useEffect(() => setAddingDirty(newName !== ""), [newName, setAddingDirty]);
@@ -52,7 +54,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
   async function add(): Promise<SaveOutcome> {
     const name = newName.trim();
     if (!name) {
-      setAddError("Give the type a name.");
+      setAddError(t("types.nameRequired"));
       return INVALID;
     }
     setPending("add");
@@ -68,7 +70,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     } catch (error) {
       const outcome = failureOutcome(error);
       adding.setUnresolved(outcome.kind === "unknown");
-      setAddError(failureMessage(error, "The type could not be added."));
+      setAddError(failureMessage(error, t("types.addFailed")));
       return outcome;
     } finally {
       setPending(null);
@@ -96,7 +98,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     } catch (error) {
       const outcome = failureOutcome(error);
       renaming.setUnresolved(outcome.kind === "unknown");
-      setEditing({ ...editing, error: failureMessage(error, "The type could not be renamed.") });
+      setEditing({ ...editing, error: failureMessage(error, t("types.renameFailed")) });
       return outcome;
     } finally {
       setPending(null);
@@ -111,9 +113,9 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     setPending(type.id);
     try {
       replace(await announcementApi<ProjectTypeDTO>(`/api/projects/types/${type.id}`, { method: "PATCH", body: { isActive } }));
-      toast({ title: isActive ? `${type.name} is offered for projects again.` : `${type.name} is retired. Projects that have it keep it.` });
+      toast({ title: isActive ? t("types.reactivated", { name: type.name }) : t("types.retiredToast", { name: type.name }) });
     } catch (error) {
-      toast({ title: failureMessage(error, "The type could not be changed."), tone: "danger" });
+      toast({ title: failureMessage(error, t("types.changeFailed")), tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -131,7 +133,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       setTypes(await announcementApi<ProjectTypeDTO[]>("/api/projects/types/reorder", { body: { ids: next.map((type) => type.id) } }));
     } catch (error) {
       setTypes(previous);
-      toast({ title: failureMessage(error, "The order could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("types.orderFailed")), tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -149,7 +151,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       setDeleteTarget(null);
       refocus.current?.();
     } catch (error) {
-      toast({ title: failureMessage(error, "The type could not be deleted."), tone: "danger" });
+      toast({ title: failureMessage(error, t("types.deleteFailed")), tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -167,7 +169,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
         className="nesto-card space-y-2 p-5"
       >
         <label htmlFor="new-project-type" className="text-card font-semibold text-fg">
-          Add a project type
+          {t("types.addHeading")}
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
@@ -175,14 +177,14 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
             maxLength={PROJECT_TYPE_NAME_MAX}
-            placeholder="For example Education"
+            placeholder={t("types.placeholder")}
             aria-invalid={Boolean(addError)}
             aria-describedby={addError ? "new-project-type-error" : undefined}
             className="sm:max-w-sm"
           />
           <Button type="submit" disabled={pending === "add"}>
             <Plus aria-hidden="true" />
-            {pending === "add" ? "Adding…" : "Add type"}
+            {pending === "add" ? t("types.adding") : t("types.add")}
           </Button>
         </div>
         {addError ? (
@@ -195,15 +197,15 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       <section className="nesto-card p-0" aria-labelledby="project-types-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
           <h2 id="project-types-heading" className="text-card font-semibold text-fg">
-            Your project types
+            {t("types.yours")}
           </h2>
           <p className="text-meta text-fg-subtle">
-            {inUse} in use{types.length > inUse ? ` · ${types.length - inUse} retired` : ""}
+            {t("types.inUse", { count: inUse })}{types.length > inUse ? t("types.retiredCount", { count: types.length - inUse }) : ""}
           </p>
         </div>
 
         {types.length === 0 ? (
-          <p className="px-5 py-8 text-center text-table text-fg-muted">No project types yet. New projects need one — add the first above.</p>
+          <p className="px-5 py-8 text-center text-table text-fg-muted">{t("types.empty")}</p>
         ) : (
           <ol className="divide-y divide-line" data-testid="project-types">
             {types.map((type, index) => {
@@ -212,10 +214,10 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
               return (
                 <li key={type.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3" data-testid="project-type" data-type-name={type.name}>
                   <div className="flex shrink-0 items-center">
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${type.name} up`} disabled={index === 0 || pending !== null} onClick={() => void move(index, -1)}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveUp", { name: type.name })} disabled={index === 0 || pending !== null} onClick={() => void move(index, -1)}>
                       <ArrowUp />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${type.name} down`} disabled={index === types.length - 1 || pending !== null} onClick={() => void move(index, 1)}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveDown", { name: type.name })} disabled={index === types.length - 1 || pending !== null} onClick={() => void move(index, 1)}>
                       <ArrowDown />
                     </Button>
                   </div>
@@ -232,17 +234,17 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                         value={editing.name}
                         onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })}
                         maxLength={PROJECT_TYPE_NAME_MAX}
-                        aria-label={`New name for ${type.name}`}
+                        aria-label={t("types.newNameFor", { name: type.name })}
                         aria-invalid={Boolean(editing.error)}
                         autoFocus
                         className="sm:max-w-xs"
                       />
                       <div className="flex gap-1.5">
                         <Button type="submit" size="sm" disabled={busy}>
-                          {busy ? "Saving…" : "Save"}
+                          {busy ? t("types.saving") : t("types.save")}
                         </Button>
                         <Button type="button" size="sm" variant="ghost" onClick={() => startRename(null)} disabled={busy}>
-                          Cancel
+                          {t("types.cancel")}
                         </Button>
                       </div>
                       {editing.error ? (
@@ -255,10 +257,10 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                     <div className="min-w-0 flex-1">
                       <p className={cn("flex min-w-0 items-center gap-2 text-body font-medium", type.isActive ? "text-fg" : "text-fg-muted")}>
                         <span className="truncate">{type.name}</span>
-                        {type.isActive ? null : <Badge>Retired</Badge>}
+                        {type.isActive ? null : <Badge>{t("types.retired")}</Badge>}
                       </p>
                       <p className="text-meta text-fg-subtle">
-                        {type.projectCount === 0 ? "No projects" : `${type.projectCount} ${type.projectCount === 1 ? "project" : "projects"}`}
+                        {type.projectCount === 0 ? t("types.noProjects") : t("portfolio.count", { count: type.projectCount })}
                       </p>
                     </div>
                   )}
@@ -267,14 +269,14 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                     <div className="ml-auto flex shrink-0 items-center gap-1">
                       <Button type="button" variant="ghost" size="sm" onClick={() => startRename({ id: type.id, name: type.name, error: null })} disabled={pending !== null}>
                         <Pencil aria-hidden="true" />
-                        Rename<span className="sr-only"> {type.name}</span>
+                        {t("types.rename")}<span className="sr-only"> {type.name}</span>
                       </Button>
                       <Button type="button" variant="ghost" size="sm" onClick={() => void setActive(type, !type.isActive)} disabled={pending !== null}>
-                        {busy ? "Saving…" : type.isActive ? "Retire" : "Use again"}
+                        {busy ? t("types.saving") : type.isActive ? t("types.retire") : t("types.useAgain")}
                         <span className="sr-only"> {type.name}</span>
                       </Button>
                       {type.projectCount === 0 ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete ${type.name}`} onClick={(event) => {
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.delete", { name: type.name })} onClick={(event) => {
                           refocus.current = planFocusAfterRemoval(event.currentTarget);
                           setDeleteTarget(type);
                         }} disabled={pending !== null}>
@@ -293,9 +295,9 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={deleteTarget ? `Delete ${deleteTarget.name}?` : "Delete project type?"}
-        description="No project uses this type, so nothing else changes. This cannot be undone."
-        confirmLabel="Delete type"
+        title={deleteTarget ? t("types.deleteTitle", { name: deleteTarget.name }) : t("types.deleteFallback")}
+        description={t("types.deleteBody")}
+        confirmLabel={t("types.deleteConfirm")}
         pending={deleteTarget !== null && pending === deleteTarget.id}
         onConfirm={() => void remove()}
       />

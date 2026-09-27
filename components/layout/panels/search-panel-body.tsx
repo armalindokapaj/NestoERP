@@ -28,6 +28,7 @@ import {
 
 import Link from "@/components/navigation/nav-link";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { CompanyTag } from "@/components/workspace/company-tag";
@@ -95,6 +96,7 @@ export type SearchBodyProps = {
 export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, active, setActive, keyHandler, onOptions, onClose }: SearchBodyProps) {
   const t = useTranslations("search");
   const tModules = useTranslations("modules");
+  const tc = useCommonTranslations();
   const toast = useToast();
   const [toggled, setToggled] = React.useState<Record<string, boolean>>({});
   const { open: openRecord, pending: entering } = useOpenRecord(shortcuts?.workspace);
@@ -143,7 +145,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
       publishMyWorkChange({ kind: "favorite", entityType, entityId, favorite: next });
     } catch {
       setToggled((current) => ({ ...current, [key]: !next }));
-      toast({ title: "Could not update Favorite.", tone: "danger" });
+      toast({ title: tc("favorite.updateFailed"), tone: "danger" });
     }
   }
 
@@ -242,7 +244,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
                             event.stopPropagation();
                             void toggleStar(navigable, recordId);
                           }}
-                          aria-label={starred ? "Remove from favorites" : "Add to favorites"}
+                          aria-label={starred ? tc("favorite.remove") : tc("favorite.add")}
                           aria-pressed={starred}
                           className={cn("grid size-6 shrink-0 place-items-center rounded hover:bg-surface touch:size-11", starred ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100")}
                           data-testid="search-result-star"

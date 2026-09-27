@@ -8,12 +8,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { recordPaymentAction } from "@/lib/actions/finance";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { approvedExpensesInScope } from "@/lib/modules/finance/expenses/expense.repository";
 import { toAmountString } from "@/lib/modules/finance/finance.money";
 import { paidByExpense, paidByInvoice, settlementFor } from "@/lib/modules/finance/finance.settlement";
 import { sentInvoicesInScope } from "@/lib/modules/finance/invoices/invoice.repository";
 
-export const metadata: Metadata = { title: "Record payment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.recordPayment") };
+}
 
 /**
  * Record a payment (PRD #15 §81, §82).
@@ -34,6 +38,7 @@ export default async function NewPaymentPage({
 
   const params = await searchParams;
   const direction = params.expenseId ? "DISBURSEMENT" : "RECEIPT";
+  const t = await getTranslations("finance");
 
   const targets =
     direction === "RECEIPT" ? await receivableTargets() : await payableTargets();
@@ -47,15 +52,15 @@ export default async function NewPaymentPage({
     <div className="mx-auto max-w-2xl space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Finance", href: "/finance" },
-          { label: "Payments", href: "/finance/payments" },
-          { label: direction === "RECEIPT" ? "Record receipt" : "Record payment" },
+          { label: t("crumbs.finance"), href: "/finance" },
+          { label: t("crumbs.payments"), href: "/finance/payments" },
+          { label: direction === "RECEIPT" ? t("paymentForm.recordReceipt") : t("paymentForm.recordPayment") },
         ]}
-        title={direction === "RECEIPT" ? "Record a receipt" : "Record a payment"}
+        title={direction === "RECEIPT" ? t("payments.recordReceiptTitle") : t("panel.recordTitle")}
         subtitle={
           direction === "RECEIPT"
-            ? "Money received against a sent invoice."
-            : "Money paid out against an approved expense."
+            ? t("payments.receiptSubtitle")
+            : t("payments.paymentSubtitle")
         }
       />
 
@@ -64,15 +69,15 @@ export default async function NewPaymentPage({
           icon={<Banknote />}
           title={
             direction === "RECEIPT"
-              ? "Nothing is waiting to be paid."
-              : "No approved expenses are outstanding."
+              ? t("payments.nothingWaiting")
+              : t("payments.noApprovedOutstanding")
           }
           description={
             direction === "RECEIPT"
-              ? "A payment can be recorded once an invoice has been sent and is still owing."
-              : "A payment can be recorded once an expense has been approved and is still owing."
+              ? t("payments.receiptEmptyBody")
+              : t("payments.paymentEmptyBody")
           }
-          action={{ label: "Back to payments", href: "/finance/payments" }}
+          action={{ label: t("payments.back"), href: "/finance/payments" }}
         />
       ) : (
         <PaymentForm

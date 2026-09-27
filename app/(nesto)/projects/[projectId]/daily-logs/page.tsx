@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -21,7 +22,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Project daily logs" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("dailyLogs.title") };
+}
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 
@@ -33,6 +36,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   const { projectId } = await params;
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewDailyLogs) redirect("/access-denied");
 
@@ -49,17 +53,17 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Daily Logs")}
+        breadcrumbs={await projectBreadcrumbs(project, "Daily Logs")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           list.today?.logId ? (
             <Button asChild size="sm">
-              <Link href={`/projects/${project.id}/daily-logs/${list.today.logId}`}>Open today&apos;s log</Link>
+              <Link href={`/projects/${project.id}/daily-logs/${list.today.logId}`}>{t("dailyLogs.openToday")}</Link>
             </Button>
           ) : canCreate ? (
-            <StartLogForm projectId={project.id} today={today} earliest={addLocalDays(today, -settings.backdateDays)} compact label="Start today's log" />
+            <StartLogForm projectId={project.id} today={today} earliest={addLocalDays(today, -settings.backdateDays)} compact label={t("dailyLogs.startToday")} />
           ) : null
         }
       />
@@ -90,9 +94,9 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <nav aria-label="Log status" className="flex flex-wrap gap-1.5">
+        <nav aria-label={t("dailyLogs.statusNav")} className="flex flex-wrap gap-1.5">
           <Link href={`/projects/${project.id}/daily-logs`} className={chip(!query.status)} aria-current={!query.status ? "page" : undefined}>
-            All
+            {t("dailyLogs.all")}
           </Link>
           {DAILY_LOG_STATUSES.map((status) => (
             <Link key={status} href={`/projects/${project.id}/daily-logs?status=${status}`} className={chip(query.status === status)} aria-current={query.status === status ? "page" : undefined}>
@@ -103,17 +107,17 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
         <span className="flex-1" />
         {canCreate ? (
           <Link href={`/projects/${project.id}/daily-logs/new`} className="text-table font-medium text-accent-strong hover:underline">
-            Log an earlier day
+            {t("dailyLogs.earlierDay")}
           </Link>
         ) : null}
-        {settings.logsRequired ? <span className="text-meta text-fg-muted">Logs are required on this project&apos;s working days.</span> : null}
+        {settings.logsRequired ? <span className="text-meta text-fg-muted">{t("dailyLogs.required")}</span> : null}
       </div>
 
       <DailyLogList
         items={list.items}
         showProject={false}
-        emptyTitle={query.status ? "No logs with this status." : "No daily logs yet."}
-        emptyDescription="Each site day's workforce, work, deliveries, delays and photos are recorded here."
+        emptyTitle={query.status ? t("dailyLogs.noneWithStatus") : t("dailyLogs.none")}
+        emptyDescription={t("dailyLogs.emptyBody")}
       />
       <Pagination meta={{ page: list.page, limit: list.pageSize, total: list.total, totalPages: Math.max(1, Math.ceil(list.total / list.pageSize)) }} buildHref={(page) => pageHref(base, search, page)} />
     </div>

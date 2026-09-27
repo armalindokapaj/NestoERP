@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -8,7 +9,9 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { listProjectTypes } from "@/lib/modules/projects/project-type.service";
 
-export const metadata: Metadata = { title: "Project types" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("pages.projectTypes") };
+}
 
 /**
  * Project types (E-05A §30, §62).
@@ -19,6 +22,7 @@ export const metadata: Metadata = { title: "Project types" };
  */
 export default async function ProjectTypesPage() {
   const context = await requireModule("projects");
+  const t = await getTranslations("projects");
   if (!can(context, "project.type.manage")) notFound();
   const types = await listProjectTypes(context);
 
@@ -26,7 +30,7 @@ export default async function ProjectTypesPage() {
     <ModulePage
       experience={resolveModuleExperience(context, "projects")}
       activeSection="types"
-      description={`How ${context.company.name} sorts its projects. New projects choose from the types in use; retiring a type leaves the projects that have it alone.`}
+      description={t("pages.projectTypesIntro", { company: context.company.name })}
     >
       <ProjectTypesManager initial={types} />
     </ModulePage>

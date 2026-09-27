@@ -4,15 +4,15 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { selectClass } from "@/components/forms/record-form";
-import { plural } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { UNIT_CONTRACT_STATUS_LABELS, type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
 import type { FINANCE_INVENTORY_SORTS } from "@/lib/modules/finance/units/unit-finance.schema";
-import { UNIT_FINANCIAL_STATUS_LABELS, type FinanceInventoryDTO, type FinanceInventoryRowDTO, type UnitFinancialStatus } from "@/lib/modules/finance/units/unit-finance.types";
+import { type FinanceInventoryDTO, type FinanceInventoryRowDTO, type UnitFinancialStatus } from "@/lib/modules/finance/units/unit-finance.types";
 import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { amountLabel, FinancialStatusBadge, UnitContractStatusBadge } from "./finance-status";
@@ -46,7 +46,7 @@ export const EMPTY_FINANCE_FILTERS: FinanceFilters = { q: "", financialStatus: "
 
 const PANEL_KEYS = ["buildingId", "floorId", "unitTypeId", "contractStatus", "overdue", "dueFrom", "dueTo", "currency"] as const;
 const QUICK: Array<UnitFinancialStatus | ""> = ["", "NO_CONTRACT", "CONTRACT_PENDING", "PAYMENT_PENDING", "PARTIALLY_PAID", "PAID", "OVERDUE", "FINANCIALLY_COMPLETE"];
-const SORT_LABELS: Record<Sort, string> = { structure: "Building and floor", code: "Unit code", "-outstanding": "Outstanding, highest first", outstanding: "Outstanding, lowest first", overdue: "Overdue, highest first", nextDue: "Next payment due", value: "Contract value" };
+const SORT_KEYS = { structure: "structure", code: "code", "-outstanding": "outstandingDesc", outstanding: "outstandingAsc", overdue: "overdue", nextDue: "nextDue", value: "value" } as const satisfies Record<Sort, string>;
 const CONTRACT_STATUSES: ContractStatusKey[] = ["DRAFT", "IN_REVIEW", "PENDING_APPROVAL", "APPROVED", "SENT", "SIGNED", "ACTIVE", "COMPLETED"];
 
 type Place = { id: string; name: string; floors: Array<{ id: string; name: string }> };
@@ -62,6 +62,7 @@ function queryString(filters: FinanceFilters, page: number): string {
 }
 
 export function FinanceInventory({ projectId, initial, initialFilters, buildings, unitTypes }: { projectId: string; initial: FinanceInventoryDTO; initialFilters: FinanceFilters; buildings: Place[]; unitTypes: Array<{ id: string; name: string }> }) {
+  const t = useFinanceTranslations();
   const [filters, setFilters] = React.useState(initialFilters);
   const [search, setSearch] = React.useState(initialFilters.q);
   const [page, setPage] = React.useState(initial.page);
@@ -100,7 +101,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
     fetch(`/api/projects/${projectId}/finance/units?${queryString(filters, page)}`, { signal: controller.signal })
       .then(async (response) => {
         const json = (await response.json().catch(() => null)) as { data?: FinanceInventoryDTO; error?: { message?: string } } | null;
-        if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? "Could not load the units.");
+        if (!response.ok || !json?.data) throw new Error(json?.error?.message ?? t("inventory.loadFailed"));
         setList(json.data);
         // A page past the end came back as the last real page: the address follows it once, with no second request (AUD-08 §4, DT-05).
         if (json.data.page !== page) {
@@ -109,12 +110,13 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         }
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Could not load the units.");
+        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : t("inventory.loadFailed"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `t` changes only with the language
   }, [filters, page, projectId, reloadKey]);
 
   function setFilter(patch: Partial<FinanceFilters>) {
@@ -129,12 +131,12 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
 
   return (
     <div className="space-y-3">
-      <section aria-label="Project finance totals" className="grid grid-cols-2 gap-3 xl:grid-cols-4" data-testid="finance-totals">
+      <section aria-label={t("inventory.totals")} className="grid grid-cols-2 gap-3 xl:grid-cols-4" data-testid="finance-totals">
         {(["contracted", "collected", "outstanding", "overdue"] as const).map((key) => (
           <div key={key} className="nesto-card p-4">
-            <p className="text-table text-fg-muted">{key === "contracted" ? "Contracted" : key === "collected" ? "Collected" : key === "outstanding" ? "Outstanding" : "Overdue"}</p>
+            <p className="text-table text-fg-muted">{t(`inventory.${key}`)}</p>
             {/* Every unit the filters match, not this page; one line per currency, never added across them (AUD-08 §4, DT-07). */}
-            <p className="text-meta text-fg-subtle">Filtered total</p>
+            <p className="text-meta text-fg-subtle">{t("inventory.filteredTotal")}</p>
             {list.totals.length === 0 ? (
               <p className="mt-2 text-page font-semibold tabular-nums text-fg">—</p>
             ) : (
@@ -149,7 +151,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
       </section>
 
       <div className="-mx-1 overflow-x-auto">
-        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label="Financial status">
+        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label={t("inventory.financialStatus")}>
           {QUICK.map((status) => {
             const pressed = filters.financialStatus === status;
             return (
@@ -162,7 +164,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                 onClick={() => setFilter({ financialStatus: status })}
                 className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
-                {status ? UNIT_FINANCIAL_STATUS_LABELS[status] : "All"}
+                {status ? t(`unitStatus.${status}`) : t("inventory.all")}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>
               </button>
             );
@@ -171,15 +173,15 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <SearchField className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1" placeholder={list.canSeeClients ? "Search unit, client or contract" : "Search unit or contract"} value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search units" />
+        <SearchField className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1" placeholder={list.canSeeClients ? t("inventory.searchClients") : t("inventory.search")} value={search} onChange={(event) => setSearch(event.target.value)} aria-label={t("inventory.searchLabel")} />
         <Button variant="secondary" onClick={() => setPanelOpen((open) => !open)} aria-expanded={panelOpen}>
           <SlidersHorizontal aria-hidden="true" />
-          Filters{panelCount ? ` (${panelCount})` : ""}
+          {t("inventory.filters")}{panelCount ? ` (${panelCount})` : ""}
         </Button>
-        <select aria-label="Sort units" className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as Sort })}>
-          {(Object.keys(SORT_LABELS) as Sort[]).map((sort) => (
+        <select aria-label={t("inventory.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as Sort })}>
+          {(Object.keys(SORT_KEYS) as Sort[]).map((sort) => (
             <option key={sort} value={sort}>
-              {SORT_LABELS[sort]}
+              {t(`inventory.sort.${SORT_KEYS[sort]}`)}
             </option>
           ))}
         </select>
@@ -193,28 +195,28 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
             }}
           >
             <RotateCcw aria-hidden="true" />
-            Clear filters
+            {t("inventory.clearFilters")}
           </Button>
         ) : null}
       </div>
 
       {panelOpen ? (
         <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="finance-filters">
-          <FilterSelect label="Building" value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
-          <FilterSelect label="Floor" value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
-          <FilterSelect label="Unit type" value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
-          <FilterSelect label="Contract status" value={filters.contractStatus} onChange={(contractStatus) => setFilter({ contractStatus })} options={CONTRACT_STATUSES.map((status) => ({ value: status, label: UNIT_CONTRACT_STATUS_LABELS[status] }))} />
-          <FilterSelect label="Overdue" value={filters.overdue} onChange={(overdue) => setFilter({ overdue })} options={[{ value: "1", label: "Only overdue" }]} />
-          <FilterSelect label="Currency" value={filters.currency} onChange={(currency) => setFilter({ currency })} options={["EUR", "ALL", "USD", "GBP"].map((code) => ({ value: code, label: code }))} />
+          <FilterSelect idKey="building" label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
+          <FilterSelect idKey="floor" label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
+          <FilterSelect idKey="unit-type" label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+          <FilterSelect idKey="contract-status" label={t("inventory.contractStatus")} value={filters.contractStatus} onChange={(contractStatus) => setFilter({ contractStatus })} options={CONTRACT_STATUSES.map((status) => ({ value: status, label: UNIT_CONTRACT_STATUS_LABELS[status] }))} />
+          <FilterSelect idKey="overdue" label={t("inventory.overdue")} value={filters.overdue} onChange={(overdue) => setFilter({ overdue })} options={[{ value: "1", label: t("inventory.onlyOverdue") }]} />
+          <FilterSelect idKey="currency" label={t("inventory.currency")} value={filters.currency} onChange={(currency) => setFilter({ currency })} options={["EUR", "ALL", "USD", "GBP"].map((code) => ({ value: code, label: code }))} />
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="finance-due-from" className="text-meta font-medium text-fg-muted">
-              Next due from
+              {t("inventory.nextDueFrom")}
             </label>
             <Input id="finance-due-from" type="date" className="h-9" value={filters.dueFrom} onChange={(event) => setFilter({ dueFrom: event.target.value })} />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="finance-due-to" className="text-meta font-medium text-fg-muted">
-              Next due to
+              {t("inventory.nextDueTo")}
             </label>
             <Input id="finance-due-to" type="date" className="h-9" value={filters.dueTo} onChange={(event) => setFilter({ dueTo: event.target.value })} />
           </div>
@@ -225,29 +227,29 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong" role="alert">
           <span>{loadError}</span>
           <Button variant="secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>
-            Retry
+            {t("inventory.retry")}
           </Button>
         </div>
       ) : list.items.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="finance-none">
-          {active ? "No units match these filters." : "This project has no units yet."}
+          {active ? t("inventory.noMatch") : t("inventory.noUnits")}
         </p>
       ) : (
         <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
-          {active ? <p className="mb-2 text-table text-fg-muted">{plural(list.total, "unit")}</p> : null}
+          {active ? <p className="mb-2 text-table text-fg-muted">{t("inventory.unitCount", { count: list.total })}</p> : null}
           <div className="hidden lg:block">
-            <Table label="Unit finance" data-testid="finance-table">
+            <Table label={t("inventory.tableLabel")} data-testid="finance-table">
               <TableHead>
                 <tr>
-                  <TableHeaderCell>Unit</TableHeaderCell>
-                  {list.canSeeClients ? <TableHeaderCell>Client</TableHeaderCell> : null}
-                  <TableHeaderCell>Contract</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Value</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Paid</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Outstanding</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Overdue</TableHeaderCell>
-                  <TableHeaderCell>Next due</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.unit")}</TableHeaderCell>
+                  {list.canSeeClients ? <TableHeaderCell>{t("inventory.client")}</TableHeaderCell> : null}
+                  <TableHeaderCell>{t("inventory.contract")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.value")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.paid")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.outstanding")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.overdue")}</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.nextDue")}</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.status")}</TableHeaderCell>
                 </tr>
               </TableHead>
               <TableBody>
@@ -312,9 +314,9 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                   </span>
                   {row.contract ? (
                     <span className="mt-1 block text-meta text-fg-muted">
-                      Paid {amountLabel(row.paidAmount, row.currency)} of {amountLabel(row.contractValue, row.currency)}
-                      {Number(row.overdueAmount ?? 0) > 0 ? ` · ${amountLabel(row.overdueAmount, row.currency)} overdue` : ""}
-                      {row.nextDue ? ` · next ${formatDate(row.nextDue.dueDate)}` : ""}
+                      {t("inventory.paidOf", { paid: amountLabel(row.paidAmount, row.currency), value: amountLabel(row.contractValue, row.currency) })}
+                      {Number(row.overdueAmount ?? 0) > 0 ? t("inventory.overdueSuffix", { amount: amountLabel(row.overdueAmount, row.currency) }) : ""}
+                      {row.nextDue ? t("inventory.nextSuffix", { date: formatDate(row.nextDue.dueDate) }) : ""}
                     </span>
                   ) : null}
                   {row.client ? <span className="mt-0.5 block text-meta text-fg-muted">{row.client.name}</span> : null}
@@ -324,23 +326,23 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
           </ul>
 
           {list.total > list.pageSize ? (
-            <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <nav aria-label={t("inventory.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-table text-fg-muted">
                 <span className="tabular-nums">
                   {first}–{last}
                 </span>{" "}
-                of <span className="tabular-nums">{list.total}</span>
+                {t("inventory.of")} <span className="tabular-nums">{list.total}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" disabled={list.page <= 1 || loading} onClick={() => setPage(list.page - 1)}>
                   <ChevronLeft aria-hidden="true" />
-                  Previous
+                  {t("inventory.previous")}
                 </Button>
                 <span className="text-table tabular-nums text-fg-subtle">
-                  Page {list.page} of {pages}
+                  {t("inventory.pageOf", { page: list.page, total: pages })}
                 </span>
                 <Button variant="secondary" size="sm" disabled={list.page >= pages || loading} onClick={() => setPage(list.page + 1)}>
-                  Next
+                  {t("inventory.next")}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               </div>
@@ -352,15 +354,16 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
   );
 }
 
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  const id = `finance-filter-${label.toLowerCase().replace(/\W+/g, "-")}`;
+function FilterSelect({ idKey, label, value, onChange, options }: { idKey: string; label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
+  const t = useFinanceTranslations();
+  const id = `finance-filter-${idKey}`;
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-meta font-medium text-fg-muted">
         {label}
       </label>
       <select id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Any</option>
+        <option value="">{t("inventory.any")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

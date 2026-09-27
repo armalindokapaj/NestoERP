@@ -1,7 +1,10 @@
+"use client";
+
 import { CircleCheck, CircleX } from "lucide-react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { Badge } from "@/components/ui/badge";
-import { UNIT_PUBLICATION_STATUS_LABELS, type Readiness, type UnitPublicationStatus } from "@/lib/modules/project-structure/unit-publishing.types";
+import { type Readiness, type UnitPublicationStatus } from "@/lib/modules/project-structure/unit-publishing.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -19,31 +22,34 @@ const TONES: Record<UnitPublicationStatus, "default" | "info" | "success" | "war
 };
 
 export function PublicationBadge({ status, versionNumber, className }: { status: UnitPublicationStatus; versionNumber?: number | null; className?: string }) {
+  const t = useTranslations("projects");
   return (
     <Badge tone={TONES[status]} className={className} data-testid="publication-status">
-      {UNIT_PUBLICATION_STATUS_LABELS[status]}
+      {t(`publication.${status}`)}
       {status === "PUBLISHED" && versionNumber ? ` v${versionNumber}` : ""}
     </Badge>
   );
 }
 
 export function UnpublishedChangesBadge() {
+  const t = useTranslations("projects");
   return (
     <Badge tone="warning" data-testid="unpublished-changes">
-      Unpublished changes
+      {t("publishing.unpublishedChanges")}
     </Badge>
   );
 }
 
 /** The checklist a unit has to satisfy before it is submitted or published (§45). */
 export function ReadinessPanel({ readiness, className }: { readiness: Readiness; className?: string }) {
+  const t = useTranslations("projects");
   return (
     <section className={cn("nesto-card p-5", className)} aria-labelledby="unit-readiness" data-testid="readiness-panel">
       <h2 id="unit-readiness" className="text-card font-semibold text-fg">
-        Publishing readiness
+        {t("publishing.readiness")}
       </h2>
       <p className={cn("mt-0.5 text-meta tabular-nums", readiness.ready ? "text-success-strong" : "text-fg-muted")}>
-        {readiness.complete} / {readiness.required} required items complete
+        {t("publishing.readinessCount", { complete: readiness.complete, required: readiness.required })}
       </p>
       <ul className="mt-3 space-y-2">
         {readiness.items.map((item) => (
@@ -51,7 +57,7 @@ export function ReadinessPanel({ readiness, className }: { readiness: Readiness;
             {item.ok ? <CircleCheck className="mt-0.5 size-4 shrink-0 text-success-strong" aria-hidden="true" /> : <CircleX className="mt-0.5 size-4 shrink-0 text-danger-strong" aria-hidden="true" />}
             <span className="min-w-0">
               <span className={item.ok ? "text-fg" : "font-medium text-fg"}>{item.label}</span>
-              <span className="sr-only">{item.ok ? " — complete" : " — missing"}</span>
+              <span className="sr-only">{item.ok ? t("publishing.complete") : t("publishing.missing")}</span>
               {item.hint ? <span className="block text-meta text-fg-muted">{item.hint}</span> : null}
             </span>
           </li>

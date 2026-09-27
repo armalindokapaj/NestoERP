@@ -5,6 +5,7 @@ import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { ProjectSummaryDTO } from "@/lib/modules/projects/project.types";
 import { formatDate } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Projects list (PRD #10 §17, §144).
@@ -17,7 +18,7 @@ import { formatDate } from "@/lib/utils/format";
  * Column metadata (AUD-08 §5): the project name/code is the identity column
  * and status is mandatory. Header sorts only where the page passes `sort`.
  */
-export function ProjectTable({
+export async function ProjectTable({
   projects,
   listId = "projects.archived",
   sort,
@@ -28,12 +29,13 @@ export function ProjectTable({
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("projects");
   const sortable = Boolean(sort);
   const columns: TableColumn<ProjectSummaryDTO>[] = [
     {
       key: "name",
       id: "name",
-      label: "Project",
+      label: t("table.project"),
       primary: true,
       mandatory: true,
       sortKey: sortable ? "name" : undefined,
@@ -47,7 +49,7 @@ export function ProjectTable({
     {
       key: "client",
       id: "client",
-      label: "Client",
+      label: t("table.client"),
       hideBelow: "lg",
       render: (project) =>
         project.client ? (
@@ -59,7 +61,7 @@ export function ProjectTable({
     {
       key: "manager",
       id: "manager",
-      label: "Project Manager",
+      label: t("table.projectManager"),
       hideBelow: "xl",
       render: (project) =>
         project.projectManager ? (
@@ -74,7 +76,7 @@ export function ProjectTable({
       mandatory: true,
       valueType: "status",
       sortKey: sortable ? "status" : undefined,
-      label: "Status",
+      label: t("table.status"),
       render: (project) => <StatusBadge status={project.status} />,
     },
     {
@@ -82,7 +84,7 @@ export function ProjectTable({
       id: "priority",
       valueType: "status",
       sortKey: sortable ? "priority" : undefined,
-      label: "Priority",
+      label: t("table.priority"),
       hideBelow: "lg",
       render: (project) => <PriorityBadge priority={project.priority} />,
     },
@@ -91,7 +93,7 @@ export function ProjectTable({
       id: "end",
       valueType: "date",
       sortKey: sortable ? "end" : undefined,
-      label: "End date",
+      label: t("table.endDate"),
       hideBelow: "xl",
       render: (project) => (
         <span className="text-fg-muted">
@@ -103,7 +105,7 @@ export function ProjectTable({
       key: "team",
       id: "team",
       valueType: "number",
-      label: "Team",
+      label: t("table.team"),
       hideBelow: "xl",
       align: "right",
       render: (project) => <span className="text-fg-muted">{project.teamSize}</span>,
@@ -114,7 +116,7 @@ export function ProjectTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Projects"
+      caption={t("meta.projects")}
       columns={columns}
       records={projects}
       rowKey={(project) => project.id}

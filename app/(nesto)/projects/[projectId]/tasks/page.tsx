@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ListChecks } from "lucide-react";
@@ -22,7 +23,9 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Tasks" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.tasks") };
+}
 
 /**
  * Project tasks (PRD #10 §79, PRD #11 §88).
@@ -41,6 +44,7 @@ export default async function ProjectTasksPage({ params, searchParams }: Params)
   const { projectId } = await params;
   const raw = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewTasks) redirect("/access-denied");
@@ -58,14 +62,14 @@ export default async function ProjectTasksPage({ params, searchParams }: Params)
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Tasks")}
+        breadcrumbs={await projectBreadcrumbs(project, "Tasks")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           canCreate ? (
             <Button asChild size="sm">
-              <Link href={`/tasks/new?projectId=${project.id}`}>New task</Link>
+              <Link href={`/tasks/new?projectId=${project.id}`}>{t("tabPages.newTask")}</Link>
             </Button>
           ) : null
         }
@@ -100,11 +104,11 @@ export default async function ProjectTasksPage({ params, searchParams }: Params)
       {result.data.length === 0 ? (
         <EmptyState
           icon={<ListChecks />}
-          title="No tasks on this project."
-          description="Tasks created against this project will appear here."
+          title={t("tabPages.noTasksTitle")}
+          description={t("tabPages.noTasksBody")}
           action={
             canCreate
-              ? { label: "New task", href: `/tasks/new?projectId=${project.id}` }
+              ? { label: t("tabPages.newTask"), href: `/tasks/new?projectId=${project.id}` }
               : undefined
           }
         />

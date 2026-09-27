@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { FileText, ImageIcon } from "lucide-react";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { ReadinessPanel } from "@/components/project-structure/unit-page/publication-badge";
 import { UnitImage } from "@/components/project-structure/unit-page/unit-image";
-import { UNIT_TYPE_CATEGORY_LABELS } from "@/config/unit-types";
 import { can, canAccessModule } from "@/lib/access/can";
 import { attributesFor } from "@/lib/modules/project-structure/structure.rules";
-import { AREA_FIELDS, AREA_LABELS, COUNT_FIELDS, COUNT_LABELS, FLOOR_LEVEL_LABELS, ORIENTATION_LABELS, POSITION_LABELS, UNIT_ATTRIBUTES } from "@/lib/modules/project-structure/structure.types";
+import { AREA_FIELDS, COUNT_FIELDS } from "@/lib/modules/project-structure/structure.types";
 import { listUnitFiles } from "@/lib/modules/project-structure/unit-files.service";
 import { unitDisplay } from "@/lib/modules/project-structure/unit-publishing.rules";
 import { loadUnitPage, UnitShell } from "./unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string }> };
 
-export const metadata: Metadata = { title: "Unit" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("unitPage.unit") };
+}
 
 const dash = (value: string | number | null | undefined) => (value === null || value === undefined || value === "" ? "—" : value);
 const area = (value: string | null) => (value === null ? "—" : `${Number(value).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`);
@@ -30,6 +32,7 @@ export default async function UnitOverviewPage({ params }: Params) {
   const { projectId, unitId } = await params;
   const page = await loadUnitPage(projectId, unitId);
   const { context, unit, publishing } = page;
+  const t = await getTranslations("projects");
   const display = unitDisplay(unit.unitType.category);
   const filesOpen = canAccessModule(context, "documents") && can(context, "document.view");
   const files = filesOpen ? await listUnitFiles(context, unit.id) : null;
@@ -47,7 +50,7 @@ export default async function UnitOverviewPage({ params }: Params) {
         {files ? (
           <section className="nesto-card overflow-hidden lg:col-start-2 lg:row-start-1 lg:self-start" aria-labelledby="unit-primary-image">
             <h2 id="unit-primary-image" className="sr-only">
-              Primary image
+              {t("unitPage.primaryImage")}
             </h2>
             {primary?.thumbnailHref ? (
               <div className="aspect-[4/3] w-full bg-surface-muted" data-testid="unit-primary-image">
@@ -56,7 +59,7 @@ export default async function UnitOverviewPage({ params }: Params) {
             ) : (
               <Link href={`${base}/media`} className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-surface-muted text-meta text-fg-muted hover:text-fg">
                 <ImageIcon className="size-6" aria-hidden="true" />
-                No primary image yet
+                {t("unitPage.noPrimaryImage")}
               </Link>
             )}
           </section>
@@ -65,26 +68,26 @@ export default async function UnitOverviewPage({ params }: Params) {
         <div className="space-y-4 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <section className="nesto-card p-5" aria-labelledby="unit-technical">
             <h2 id="unit-technical" className="text-card font-semibold text-fg">
-              Technical data
+              {t("unitPage.technicalData")}
             </h2>
             <DetailGrid
               className="mt-4"
               items={[
-                { label: "Type", value: `${unit.unitType.name} · ${UNIT_TYPE_CATEGORY_LABELS[unit.unitType.category]}` },
-                { label: "Building", value: unit.building.code ? `${unit.building.name} (${unit.building.code})` : unit.building.name },
-                { label: "Floor", value: `${unit.floor.name} · ${FLOOR_LEVEL_LABELS[unit.floor.levelType]}` },
-                ...(display.position || unit.position ? [{ label: "Position", value: unit.position ? POSITION_LABELS[unit.position] : "—" }] : []),
-                ...(display.orientation || unit.orientation ? [{ label: "Orientation", value: unit.orientation ? ORIENTATION_LABELS[unit.orientation] : "—" }] : []),
-                ...counts.map((field) => ({ label: COUNT_LABELS[field], value: dash(unit[field]) })),
+                { label: t("unitPage.type"), value: `${unit.unitType.name} · ${t(`unitCategory.${unit.unitType.category}`)}` },
+                { label: t("unitPage.building"), value: unit.building.code ? `${unit.building.name} (${unit.building.code})` : unit.building.name },
+                { label: t("unitPage.floor"), value: `${unit.floor.name} · ${t(`floorLevel.${unit.floor.levelType}`)}` },
+                ...(display.position || unit.position ? [{ label: t("unitPage.position"), value: unit.position ? t(`position.${unit.position}`) : "—" }] : []),
+                ...(display.orientation || unit.orientation ? [{ label: t("unitPage.orientation"), value: unit.orientation ? t(`orientation.${unit.orientation}`) : "—" }] : []),
+                ...counts.map((field) => ({ label: t(`count.${field}`), value: dash(unit[field]) })),
                 ...attributes.map((key) => {
                   const value = unit.attributes[key];
-                  return { label: UNIT_ATTRIBUTES[key].label, value: typeof value === "boolean" ? (value ? "Yes" : "No") : dash(value) };
+                  return { label: t(`attribute.${key}`), value: typeof value === "boolean" ? (value ? t("unitPage.yes") : t("unitPage.no")) : dash(value) };
                 }),
               ]}
             />
             {unit.description ? (
               <div className="mt-4">
-                <p className="nesto-eyebrow text-fg-subtle">Technical notes</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("unitPage.technicalNotes")}</p>
                 <p className="mt-1 whitespace-pre-line text-body text-fg">{unit.description}</p>
               </div>
             ) : null}
@@ -92,9 +95,9 @@ export default async function UnitOverviewPage({ params }: Params) {
 
           <section className="nesto-card p-5" aria-labelledby="unit-areas">
             <h2 id="unit-areas" className="text-card font-semibold text-fg">
-              Areas
+              {t("unitPage.areas")}
             </h2>
-            <DetailGrid className="mt-4" columns={3} items={areas.map((field) => ({ label: AREA_LABELS[field], value: <span className="tabular-nums">{area(unit.areas[field])}</span> }))} />
+            <DetailGrid className="mt-4" columns={3} items={areas.map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{area(unit.areas[field])}</span> }))} />
           </section>
         </div>
 
@@ -102,7 +105,7 @@ export default async function UnitOverviewPage({ params }: Params) {
           {files ? (
             <section className="nesto-card p-5" aria-labelledby="unit-sales-plan">
               <h2 id="unit-sales-plan" className="text-card font-semibold text-fg">
-                Sales Plan
+                {t("unitPage.salesPlan")}
               </h2>
               {files.salesPlan ? (
                 <Link href={files.salesPlan.href} className="mt-3 flex items-center gap-2 text-table font-medium text-fg hover:underline">
@@ -112,10 +115,10 @@ export default async function UnitOverviewPage({ params }: Params) {
                 </Link>
               ) : (
                 <p className="mt-3 text-table text-fg-muted">
-                  Sales Plan missing. Required before publishing.{" "}
+                  {t("unitPage.salesPlanMissing")}{" "}
                   {files.capabilities.canManageDocuments ? (
                     <Link href={`${base}/documents`} className="font-medium text-accent-strong hover:underline">
-                      Upload it
+                      {t("unitPage.uploadIt")}
                     </Link>
                   ) : null}
                 </p>

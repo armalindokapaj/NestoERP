@@ -1,5 +1,6 @@
 import type { UserContext } from "@/lib/context/types";
 import { RecordDocuments } from "@/components/documents/record-documents";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * This module's record documents, through the shared section (PRD #38 §55).
@@ -18,14 +19,15 @@ export async function FinanceRecordDocuments({
   canAttach: boolean;
   emptyDescription?: string;
 }) {
+  const t = await getTranslations("finance");
   return (
     <RecordDocuments
       context={context}
       entityType={entityType}
       entityId={entityId}
       canAttach={canAttach}
-      emptyTitle="No documents attached."
-      emptyDescription={emptyDescription ?? "Contracts, receipts and supporting files attached to this record appear here."}
+      emptyTitle={t("documents.emptyTitle")}
+      emptyDescription={emptyDescription ?? t("documents.emptyDescription")}
     />
   );
 }

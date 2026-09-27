@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -19,10 +20,12 @@ import { planningOpen } from "@/lib/modules/project-planning/planning.permission
 import { planningReport, type ReportRow } from "@/lib/modules/project-planning/planning.reports";
 import { reportQuerySchema } from "@/lib/modules/project-planning/planning.schema";
 import { resolvePlanningSettings } from "@/lib/modules/project-planning/planning.settings";
-import { MILESTONE_STATUSES, STATUS_LABELS } from "@/lib/modules/project-planning/planning.types";
+import { MILESTONE_STATUSES } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "Milestones" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("report.title") };
+}
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 
@@ -38,13 +41,15 @@ function Figure({ label, value, tone, testId }: { label: string; value: string |
 }
 
 /** "Showing the top 50 of 73, most overdue first" when a list is cut; nothing when it is whole (AUD-08 §4: no unlabelled cut). */
-function ListScope({ shown, total, order }: { shown: number; total: number; order: string }) {
+async function ListScope({ shown, total, order }: { shown: number; total: number; order: string }) {
   if (total <= shown) return null;
-  return <p className="px-5 text-meta text-fg-muted" data-testid="report-list-scope">Showing the top {shown} of {total}, {order}.</p>;
+  const t = await getTranslations("projects");
+  return <p className="px-5 text-meta text-fg-muted" data-testid="report-list-scope">{t("report.listScope", { shown, total, order })}</p>;
 }
 
-function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; caption: string; empty: string; testId: string }) {
+async function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; caption: string; empty: string; testId: string }) {
   if (!rows.length) return <p className="px-5 py-4 text-table text-fg-muted">{empty}</p>;
+  const t = await getTranslations("projects");
   return (
     <>
       {/* Phones read each milestone as a card carrying every column, instead of panning a 760px table (AUD-04 §5, MW-05). */}
@@ -58,18 +63,18 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
               <MilestoneStatusBadge status={row.status} delayed={row.delayed} />
             </div>
             <p className="break-words text-meta text-fg-muted">
-              {row.projectName} · {row.phaseName ?? "No phase"}
+              {row.projectName} · {row.phaseName ?? t("report.noPhase")}
               {row.owner ? <> · <PersonLink memberId={row.owner.memberId} name={row.owner.name} /></> : null}
-              {row.critical ? " · Critical" : ""}
+              {row.critical ? t("report.criticalSuffix") : ""}
             </p>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-meta">
-              <dt className="text-fg-muted">Baseline</dt>
+              <dt className="text-fg-muted">{t("report.baseline")}</dt>
               <dd className="tabular-nums text-fg-muted">{dateLabel(row.baselineDate)}</dd>
-              <dt className="text-fg-muted">Forecast</dt>
+              <dt className="text-fg-muted">{t("report.forecast")}</dt>
               <dd className="tabular-nums">{dateLabel(row.forecastDate)}</dd>
-              <dt className="text-fg-muted">Actual</dt>
+              <dt className="text-fg-muted">{t("report.actual")}</dt>
               <dd className="tabular-nums">{dateLabel(row.actualDate)}</dd>
-              <dt className="text-fg-muted">Variance</dt>
+              <dt className="text-fg-muted">{t("report.variance")}</dt>
               <dd>
                 <Variance days={row.varianceDays} />
               </dd>
@@ -82,13 +87,13 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-line text-left text-meta text-fg-muted">
-            <th scope="col" className="px-5 py-2 font-medium">Milestone</th>
-            <th scope="col" className="px-3 py-2 font-medium">Project</th>
-            <th scope="col" className="px-3 py-2 font-medium">Status</th>
-            <th scope="col" className="px-3 py-2 font-medium">Baseline</th>
-            <th scope="col" className="px-3 py-2 font-medium">Forecast</th>
-            <th scope="col" className="px-3 py-2 font-medium">Actual</th>
-            <th scope="col" className="px-5 py-2 font-medium">Variance</th>
+            <th scope="col" className="px-5 py-2 font-medium">{t("report.milestone")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("report.project")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("report.status")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("report.baseline")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("report.forecast")}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{t("report.actual")}</th>
+            <th scope="col" className="px-5 py-2 font-medium">{t("report.variance")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -99,9 +104,9 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
                   {row.name}
                 </Link>
                 <span className="block text-meta text-fg-muted">
-                  {row.phaseName ?? "No phase"}
+                  {row.phaseName ?? t("report.noPhase")}
                   {row.owner ? <> · <PersonLink memberId={row.owner.memberId} name={row.owner.name} /></> : null}
-                  {row.critical ? " · Critical" : ""}
+                  {row.critical ? t("report.criticalSuffix") : ""}
                 </span>
               </th>
               <td className="px-3 py-2 text-fg-muted">{row.projectName}</td>
@@ -131,6 +136,7 @@ function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; c
  */
 export default async function MilestonesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await requireModule("projects");
+  const t = await getTranslations("projects");
   if (!planningOpen(context)) redirect("/access-denied");
   const experience = resolveModuleExperience(context, "projects");
   const params = await searchParams;
@@ -141,32 +147,32 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
   const activeFilters = [query.projectId, query.phaseId, query.status, query.ownerId, query.critical, query.from, query.to].filter((value) => value !== undefined && value !== "").length;
 
   return (
-    <ModulePage experience={experience} activeSection="milestones" description="Key dates across your projects: delays, variance against baseline and critical milestones.">
+    <ModulePage experience={experience} activeSection="milestones" description={t("report.description")}>
       <div className="space-y-5">
         {report.truncated ? (
           // A bounded read is said out loud, never shown as the whole portfolio (AUD-08 §4, DT-05).
           <p role="status" data-testid="report-truncated" className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-table text-warning-strong">
-            More milestones match than the report reads at once; these figures cover the first 10,000. Narrow the report to a project or status.
+            {t("report.truncated")}
           </p>
         ) : null}
-        <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label="Report filters" activeCount={activeFilters}>
+        <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label={t("report.filtersLabel")} activeCount={activeFilters}>
           <label className="flex min-w-[13rem] flex-[2] flex-col">
-            <span className="text-meta text-fg-muted">Project</span>
+            <span className="text-meta text-fg-muted">{t("report.project")}</span>
             <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
-              <option value="">All my projects</option>
+              <option value="">{t("report.allMyProjects")}</option>
               {report.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.label}
                 </option>
               ))}
             </select>
-            {report.projectsTruncated ? <span className="mt-1 text-meta text-fg-muted">The first 500 projects by name are listed.</span> : null}
+            {report.projectsTruncated ? <span className="mt-1 text-meta text-fg-muted">{t("report.projectsTruncated")}</span> : null}
           </label>
           {report.phases.length ? (
             <label className="flex min-w-[10rem] flex-1 flex-col">
-              <span className="text-meta text-fg-muted">Phase</span>
+              <span className="text-meta text-fg-muted">{t("report.phase")}</span>
               <select name="phaseId" defaultValue={query.phaseId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
-                <option value="">All phases</option>
+                <option value="">{t("report.allPhases")}</option>
                 {report.phases.map((phase) => (
                   <option key={phase.id} value={phase.id}>
                     {phase.label}
@@ -176,20 +182,20 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             </label>
           ) : null}
           <label className="flex min-w-[9rem] flex-1 flex-col">
-            <span className="text-meta text-fg-muted">Status</span>
+            <span className="text-meta text-fg-muted">{t("report.status")}</span>
             <select name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "mt-1 h-9")}>
-              <option value="">Any status</option>
+              <option value="">{t("report.anyStatus")}</option>
               {MILESTONE_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
+                  {t(`milestoneStatus.${status}`)}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex min-w-[9rem] flex-1 flex-col">
-            <span className="text-meta text-fg-muted">Owner</span>
+            <span className="text-meta text-fg-muted">{t("report.owner")}</span>
             <select name="ownerId" defaultValue={query.ownerId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
-              <option value="">Anyone</option>
+              <option value="">{t("report.anyone")}</option>
               {report.owners.map((owner) => (
                 <option key={owner.id} value={owner.id}>
                   {owner.label}
@@ -198,51 +204,51 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             </select>
           </label>
           <label className="flex w-36 flex-col">
-            <span className="text-meta text-fg-muted">Critical</span>
+            <span className="text-meta text-fg-muted">{t("report.critical")}</span>
             <select name="critical" defaultValue={query.critical === undefined ? "" : query.critical ? "1" : "0"} className={cn(selectClass, "mt-1 h-9")}>
-              <option value="">All</option>
-              <option value="1">Critical only</option>
-              <option value="0">Not critical</option>
+              <option value="">{t("report.all")}</option>
+              <option value="1">{t("report.criticalOnly")}</option>
+              <option value="0">{t("report.notCritical")}</option>
             </select>
           </label>
           <label className="flex w-40 flex-col">
-            <span className="text-meta text-fg-muted">From</span>
+            <span className="text-meta text-fg-muted">{t("report.from")}</span>
             <Input type="date" name="from" defaultValue={query.from} className="mt-1 h-9" />
           </label>
           <label className="flex w-40 flex-col">
-            <span className="text-meta text-fg-muted">To</span>
+            <span className="text-meta text-fg-muted">{t("report.to")}</span>
             <Input type="date" name="to" defaultValue={query.to} className="mt-1 h-9" />
           </label>
           <Button type="submit" size="sm">
-            Apply
+            {t("report.apply")}
           </Button>
           <Button asChild size="sm" variant="ghost">
-            <Link href="/projects/milestones">Reset</Link>
+            <Link href="/projects/milestones">{t("report.reset")}</Link>
           </Button>
         </ReportFilterForm>
 
-        <section className="nesto-card px-5 py-4" aria-label="Totals">
+        <section className="nesto-card px-5 py-4" aria-label={t("report.totals")}>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8" data-testid="planning-report-totals">
-            <Figure label="Milestones" value={totals.total} testId="report-total" />
-            <Figure label="Completed" value={totals.completed} />
-            <Figure label="Delayed" value={totals.delayed} tone={totals.delayed ? "danger" : undefined} testId="report-delayed" />
-            <Figure label="At risk" value={totals.atRisk} tone={totals.atRisk ? "warning" : undefined} />
-            <Figure label="Critical" value={totals.critical} />
-            <Figure label="Next 30 days" value={totals.upcoming} />
-            <Figure label="Average variance" value={totals.averageVariance === null ? "—" : `${totals.averageVariance > 0 ? "+" : ""}${totals.averageVariance}d`} />
-            <Figure label="Delayed this month" value={totals.delayedThisMonth} />
+            <Figure label={t("report.milestones")} value={totals.total} testId="report-total" />
+            <Figure label={t("report.completed")} value={totals.completed} />
+            <Figure label={t("report.delayed")} value={totals.delayed} tone={totals.delayed ? "danger" : undefined} testId="report-delayed" />
+            <Figure label={t("report.atRisk")} value={totals.atRisk} tone={totals.atRisk ? "warning" : undefined} />
+            <Figure label={t("report.critical")} value={totals.critical} />
+            <Figure label={t("report.next30")} value={totals.upcoming} />
+            <Figure label={t("report.averageVariance")} value={totals.averageVariance === null ? "—" : `${totals.averageVariance > 0 ? "+" : ""}${totals.averageVariance}d`} />
+            <Figure label={t("report.delayedThisMonth")} value={totals.delayedThisMonth} />
           </dl>
         </section>
 
         <div className="grid gap-5 lg:grid-cols-3">
           <section className="nesto-card px-5 py-4" aria-labelledby="by-status">
-            <h2 id="by-status" className="text-card font-semibold text-fg">By status</h2>
-            <p className="text-meta text-fg-muted">As recorded. Delay is also read from the dates.</p>
+            <h2 id="by-status" className="text-card font-semibold text-fg">{t("report.byStatus")}</h2>
+            <p className="text-meta text-fg-muted">{t("report.byStatusBody")}</p>
             <ul className="mt-3 space-y-2.5">
               {report.byStatus.map((row) => (
                 <li key={row.status}>
                   <div className="flex justify-between text-table">
-                    <span className="text-fg">{row.label}</span>
+                    <span className="text-fg">{t(`milestoneStatus.${row.status}`)}</span>
                     <span className="font-medium tabular-nums text-fg">{row.count}</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover" aria-hidden="true">
@@ -253,22 +259,22 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             </ul>
           </section>
           <section className="nesto-card min-w-0 lg:col-span-2" aria-labelledby="portfolio">
-            <h2 id="portfolio" className="px-5 pt-4 text-card font-semibold text-fg">Portfolio</h2>
-            <p className="px-5 text-meta text-fg-muted">Each project&apos;s next milestone and its critical delays.</p>
-            <ScrollRegion label="Portfolio" className="mt-2">
+            <h2 id="portfolio" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.portfolio")}</h2>
+            <p className="px-5 text-meta text-fg-muted">{t("report.portfolioBody")}</p>
+            <ScrollRegion label={t("report.portfolio")} className="mt-2">
             <table className="w-full min-w-[560px] border-collapse text-table" data-testid="planning-portfolio">
               <thead>
                 <tr className="border-b border-line text-left text-meta text-fg-muted">
-                  <th scope="col" className="px-5 py-2 font-medium">Project</th>
-                  <th scope="col" className="px-3 py-2 font-medium">Next milestone</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Critical delays</th>
-                  <th scope="col" className="px-5 py-2 font-medium">Plan ends</th>
+                  <th scope="col" className="px-5 py-2 font-medium">{t("report.project")}</th>
+                  <th scope="col" className="px-3 py-2 font-medium">{t("report.nextMilestone")}</th>
+                  <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.criticalDelays")}</th>
+                  <th scope="col" className="px-5 py-2 font-medium">{t("report.planEnds")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {report.portfolio.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-3 text-fg-muted">No plans yet.</td>
+                    <td colSpan={4} className="px-5 py-3 text-fg-muted">{t("report.noPlans")}</td>
                   </tr>
                 ) : null}
                 {report.portfolio.map((row) => (
@@ -299,40 +305,40 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         </div>
 
         <section className="nesto-card" aria-labelledby="overdue">
-          <h2 id="overdue" className="px-5 pt-4 text-card font-semibold text-fg">Overdue milestones</h2>
-          <ListScope shown={report.overdue.length} total={report.listTotals.overdue} order="most overdue first" />
-          <MilestoneTable rows={report.overdue} caption="Overdue milestones" empty="Nothing is overdue." testId="report-overdue" />
+          <h2 id="overdue" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.overdue")}</h2>
+          <ListScope shown={report.overdue.length} total={report.listTotals.overdue} order={t("report.mostOverdue")} />
+          <MilestoneTable rows={report.overdue} caption={t("report.overdue")} empty={t("report.nothingOverdue")} testId="report-overdue" />
           <div className="h-2" />
         </section>
 
         <section className="nesto-card" aria-labelledby="variance">
-          <h2 id="variance" className="px-5 pt-4 text-card font-semibold text-fg">Forecast variance</h2>
-          <p className="px-5 text-meta text-fg-muted">Baseline against forecast — or actual, once achieved. Largest slips first.</p>
-          <ListScope shown={report.variance.length} total={report.listTotals.variance} order="largest slips first" />
-          <MilestoneTable rows={report.variance} caption="Forecast variance" empty="No milestone has a baseline yet." testId="report-variance" />
+          <h2 id="variance" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.forecastVariance")}</h2>
+          <p className="px-5 text-meta text-fg-muted">{t("report.varianceBody")}</p>
+          <ListScope shown={report.variance.length} total={report.listTotals.variance} order={t("report.largestSlips")} />
+          <MilestoneTable rows={report.variance} caption={t("report.forecastVariance")} empty={t("report.noBaseline")} testId="report-variance" />
           <div className="h-2" />
         </section>
 
         <section className="nesto-card" aria-labelledby="critical">
-          <h2 id="critical" className="px-5 pt-4 text-card font-semibold text-fg">Critical milestones</h2>
-          <ListScope shown={report.critical.length} total={report.listTotals.critical} order="late first" />
-          <MilestoneTable rows={report.critical} caption="Critical milestones" empty="No critical milestones." testId="report-critical" />
+          <h2 id="critical" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.criticalMilestones")}</h2>
+          <ListScope shown={report.critical.length} total={report.listTotals.critical} order={t("report.lateFirst")} />
+          <MilestoneTable rows={report.critical} caption={t("report.criticalMilestones")} empty={t("report.noCritical")} testId="report-critical" />
           <div className="h-2" />
         </section>
 
         {report.byProject.length > 1 || report.byPhase.length ? (
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="nesto-card min-w-0" aria-labelledby="by-project">
-              <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">By project</h2>
-              <ScrollRegion label="By project" className="mt-2">
+              <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byProject")}</h2>
+              <ScrollRegion label={t("report.byProject")} className="mt-2">
               <table className="w-full min-w-[480px] border-collapse text-table">
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-muted">
-                    <th scope="col" className="px-5 py-2 font-medium">Project</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Milestones</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Complete</th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">Delayed</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">At risk</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("report.project")}</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.milestones")}</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.complete")}</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.delayed")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("report.atRisk")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -356,15 +362,15 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             </section>
             {report.byPhase.length ? (
               <section className="nesto-card min-w-0" aria-labelledby="by-phase">
-                <h2 id="by-phase" className="px-5 pt-4 text-card font-semibold text-fg">By phase</h2>
-                <ScrollRegion label="By phase" className="mt-2">
+                <h2 id="by-phase" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byPhase")}</h2>
+                <ScrollRegion label={t("report.byPhase")} className="mt-2">
                 <table className="w-full min-w-[400px] border-collapse text-table">
                   <thead>
                     <tr className="border-b border-line text-left text-meta text-fg-muted">
-                      <th scope="col" className="px-5 py-2 font-medium">Phase</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Milestones</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Complete</th>
-                      <th scope="col" className="px-5 py-2 text-right font-medium">Delayed</th>
+                      <th scope="col" className="px-5 py-2 font-medium">{t("report.phase")}</th>
+                      <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.milestones")}</th>
+                      <th scope="col" className="px-3 py-2 text-right font-medium">{t("report.complete")}</th>
+                      <th scope="col" className="px-5 py-2 text-right font-medium">{t("report.delayed")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -387,7 +393,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
 
         {settings ? (
           <section aria-labelledby="planning-settings" className="max-w-2xl space-y-2">
-            <h2 id="planning-settings" className="text-card font-semibold text-fg">Planning settings</h2>
+            <h2 id="planning-settings" className="text-card font-semibold text-fg">{t("report.settings")}</h2>
             {/* A filter change asked first and replaces the form, as the full reload it once was did (AUD-03 §4). */}
             <PlanningSettingsForm key={JSON.stringify(query)} initial={settings} />
           </section>

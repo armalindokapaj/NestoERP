@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Files } from "lucide-react";
@@ -21,7 +22,9 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.documents") };
+}
 
 /**
  * Project documents (PRD #10 §83, PRD #13 §197).
@@ -34,6 +37,7 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
   const { projectId } = await params;
   const raw = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewDocuments) redirect("/access-denied");
@@ -53,14 +57,14 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Documents")}
+        breadcrumbs={await projectBreadcrumbs(project, "Documents")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
         actions={
           canUpload ? (
             <Button asChild size="sm">
-              <Link href={uploadHref}>Add document</Link>
+              <Link href={uploadHref}>{t("tabPages.addDocument")}</Link>
             </Button>
           ) : null
         }
@@ -95,9 +99,9 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
       {result.data.length === 0 ? (
         <EmptyState
           icon={<Files />}
-          title="No documents have been added to this project."
-          description="Files filed against this project will appear here."
-          action={canUpload ? { label: "Add document", href: uploadHref } : undefined}
+          title={t("tabPages.noDocumentsTitle")}
+          description={t("tabPages.noDocumentsBody")}
+          action={canUpload ? { label: t("tabPages.addDocument"), href: uploadHref } : undefined}
         />
       ) : (
         <>

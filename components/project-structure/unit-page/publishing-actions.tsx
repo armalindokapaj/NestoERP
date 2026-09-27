@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Archive, ArchiveRestore, CircleX, EyeOff, MoreHorizontal, RotateCcw, Send, Upload } from "lucide-react";
 
@@ -25,6 +26,7 @@ import { Field, FormError, failureMessage, structureApi } from "../structure-ui"
 type Dialogs = "missing" | "revision" | "unpublish" | "archive" | "restore" | null;
 
 export function PublishingActions({ unitId, unitCode, version, publishing }: { unitId: string; unitCode: string; version: number; publishing: UnitPublishingDTO }) {
+  const t = useTranslations("projects");
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = React.useState<Dialogs>(null);
@@ -57,7 +59,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
       router.refresh();
     } catch (error) {
       setUnconfirmed(failureOutcome(error).kind === "unknown");
-      const message = failureMessage(error, `${label} did not work. Try again.`);
+      const message = failureMessage(error, t("publishing.failed", { label }));
       if (open === "revision" || open === "unpublish") setFormError(message);
       else {
         setOpen(null);
@@ -73,7 +75,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
       setMissingFor("submit");
       return setOpen("missing");
     }
-    void run("Submitting", `/api/project-units/${unitId}/submit-for-publishing`, { expectedVersion: version }, published ? `The changes to ${unitCode} are waiting for review.` : `${unitCode} is ready for publishing.`);
+    void run(t("publishing.submitting"), `/api/project-units/${unitId}/submit-for-publishing`, { expectedVersion: version }, published ? t("publishing.changesWaiting", { code: unitCode }) : t("publishing.readyForPublishing", { code: unitCode }));
   }
 
   function publish() {
@@ -81,7 +83,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
       setMissingFor("publish");
       return setOpen("missing");
     }
-    void run("Publishing", `/api/project-units/${unitId}/publish`, { expectedVersion: version }, published ? `${unitCode} published as a new version.` : `${unitCode} published.`);
+    void run(t("publishing.publishingLabel"), `/api/project-units/${unitId}/publish`, { expectedVersion: version }, published ? t("publishing.publishedNewVersion", { code: unitCode }) : t("publishing.published", { code: unitCode }));
   }
 
   const menu = offerUnpublish || offerArchive || offerRestore;
@@ -92,42 +94,42 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
       {offerSubmit ? (
         <Button variant={offerPublish ? "secondary" : "primary"} onClick={submit} disabled={pending}>
           <Send aria-hidden="true" />
-          {published ? "Submit changes" : "Submit for Publishing"}
+          {published ? t("publishing.submitChanges") : t("publishing.submitForPublishing")}
         </Button>
       ) : null}
       {offerPublish ? (
         <Button onClick={publish} disabled={pending}>
           <Upload aria-hidden="true" />
-          {published ? "Publish changes" : "Publish"}
+          {published ? t("publishing.publishChanges") : t("publishing.publish")}
         </Button>
       ) : null}
       {offerRevision ? (
         <Button variant="secondary" onClick={() => setOpen("revision")} disabled={pending}>
           <RotateCcw aria-hidden="true" />
-          {changesWaiting ? "Return changes" : "Revision Required"}
+          {changesWaiting ? t("publishing.returnChanges") : t("publishing.revisionRequired")}
         </Button>
       ) : null}
       {menu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="More publishing actions">
+            <Button variant="ghost" size="icon" aria-label={t("publishing.more")}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {offerUnpublish ? (
               <DropdownMenuItem onSelect={() => setOpen("unpublish")}>
-                <EyeOff aria-hidden="true" /> Unpublish
+                <EyeOff aria-hidden="true" /> {t("publishing.unpublish")}
               </DropdownMenuItem>
             ) : null}
             {offerArchive ? (
               <DropdownMenuItem onSelect={() => setOpen("archive")}>
-                <Archive aria-hidden="true" /> Archive
+                <Archive aria-hidden="true" /> {t("publishing.archive")}
               </DropdownMenuItem>
             ) : null}
             {offerRestore ? (
               <DropdownMenuItem onSelect={() => setOpen("restore")}>
-                <ArchiveRestore aria-hidden="true" /> Restore
+                <ArchiveRestore aria-hidden="true" /> {t("publishing.restore")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -136,8 +138,8 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
 
       <Dialog open={open === "missing"} onOpenChange={(value) => !value && setOpen(null)}>
         <DialogContent className="max-w-md" data-testid="not-ready-dialog">
-          <DialogTitle>{missingFor === "publish" ? `${unitCode} cannot be published yet` : `${unitCode} cannot be submitted yet`}</DialogTitle>
-          <DialogDescription>Complete these first:</DialogDescription>
+          <DialogTitle>{missingFor === "publish" ? t("publishing.cannotPublish", { code: unitCode }) : t("publishing.cannotSubmit", { code: unitCode })}</DialogTitle>
+          <DialogDescription>{t("publishing.completeFirst")}</DialogDescription>
           <ul className="mt-3 space-y-2">
             {readiness.items
               .filter((item) => !item.ok)
@@ -153,7 +155,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
           </ul>
           <DialogFooter>
             <DialogClose asChild>
-              <Button>Close</Button>
+              <Button>{t("publishing.close")}</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
@@ -170,17 +172,17 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
             setUnconfirmed(false);
           }
         }}
-        title={open === "unpublish" ? `Unpublish ${unitCode}?` : changesWaiting ? `Return the changes to ${unitCode}` : `Revision Required for ${unitCode}`}
+        title={open === "unpublish" ? t("publishing.unpublishTitle", { code: unitCode }) : changesWaiting ? t("publishing.returnTitle", { code: unitCode }) : t("publishing.revisionTitle", { code: unitCode })}
         description={
           open === "unpublish"
-            ? "The unit goes back to Ready for Publishing and stops being available downstream. Every published version stays in its history."
+            ? t("publishing.unpublishBody")
             : changesWaiting
-              ? "The published version stays live. The changes go back to be corrected."
+              ? t("publishing.returnBody")
               : published
-                ? "The unit stops being published until it is corrected and published again."
-                : "The unit goes back to the people preparing it, with your reason."
+                ? t("publishing.revisionPublishedBody")
+                : t("publishing.revisionBody")
         }
-        confirmLabel={open === "unpublish" ? "Unpublish" : changesWaiting ? "Return changes" : "Send back"}
+        confirmLabel={open === "unpublish" ? t("publishing.unpublish") : changesWaiting ? t("publishing.returnChanges") : t("publishing.sendBack")}
         reason={reason}
         onReason={setReason}
         pending={pending}
@@ -188,29 +190,29 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
         error={formError}
         onConfirm={() =>
           open === "unpublish"
-            ? void run("Unpublishing", `/api/project-units/${unitId}/unpublish`, { reason, expectedVersion: version }, `${unitCode} unpublished.`)
-            : void run("Asking for a revision", `/api/project-units/${unitId}/revision-required`, { reason, expectedVersion: version }, changesWaiting ? `The changes to ${unitCode} were returned.` : `${unitCode} was sent back for revision.`)
+            ? void run(t("publishing.unpublishing"), `/api/project-units/${unitId}/unpublish`, { reason, expectedVersion: version }, t("publishing.unpublished", { code: unitCode }))
+            : void run(t("publishing.askingRevision"), `/api/project-units/${unitId}/revision-required`, { reason, expectedVersion: version }, changesWaiting ? t("publishing.returned", { code: unitCode }) : t("publishing.sentBack", { code: unitCode }))
         }
       />
 
       <ConfirmDialog
         open={open === "archive"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={`Archive ${unitCode}?`}
-        description="The unit leaves every normal workflow. Its page, documents and published versions are kept, and it can be restored."
-        confirmLabel="Archive"
+        title={t("publishing.archiveTitle", { code: unitCode })}
+        description={t("publishing.archiveBody")}
+        confirmLabel={t("publishing.archive")}
         pending={pending}
-        onConfirm={() => void run("Archiving", `/api/project-units/${unitId}/archive`, { expectedVersion: version }, `${unitCode} archived.`)}
+        onConfirm={() => void run(t("publishing.archiving"), `/api/project-units/${unitId}/archive`, { expectedVersion: version }, t("publishing.archived", { code: unitCode }))}
       />
       <ConfirmDialog
         open={open === "restore"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={`Restore ${unitCode}?`}
-        description="The unit returns to what it was before it was archived. A unit that was waiting for review comes back as a Draft."
-        confirmLabel="Restore"
+        title={t("publishing.restoreTitle", { code: unitCode })}
+        description={t("publishing.restoreBody")}
+        confirmLabel={t("publishing.restore")}
         destructive={false}
         pending={pending}
-        onConfirm={() => void run("Restoring", `/api/project-units/${unitId}/restore`, { expectedVersion: version }, `${unitCode} restored.`)}
+        onConfirm={() => void run(t("publishing.restoring"), `/api/project-units/${unitId}/restore`, { expectedVersion: version }, t("publishing.restored", { code: unitCode }))}
       />
     </>
   );
@@ -274,6 +276,7 @@ function ReasonForm({
   error: string | null;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("projects");
   const [touched, setTouched] = React.useState(false);
   const editor = useUnsavedEditor({ module: "units", saveKind: "none", workflow: confirmLabel, label: `${confirmLabel}: reason` });
   const { setDirty, setSaving, setUnresolved } = editor;
@@ -292,17 +295,17 @@ function ReasonForm({
       }}
     >
       <FormError message={error} />
-      <Field label="Reason" htmlFor="publishing-reason" required error={touched && blank ? "Give a reason." : undefined}>
+      <Field label={t("publishing.reason")} htmlFor="publishing-reason" required error={touched && blank ? t("publishing.reasonRequired") : undefined}>
         <Textarea id="publishing-reason" value={reason} onChange={(event) => onReason(event.target.value)} rows={4} maxLength={REVISION_REASON_MAX} autoFocus aria-invalid={touched && blank} />
       </Field>
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("publishing.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Working…" : confirmLabel}
+          {pending ? t("publishing.working") : confirmLabel}
         </Button>
       </DialogFooter>
     </form>

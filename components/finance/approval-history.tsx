@@ -1,3 +1,4 @@
+import { FinanceText } from "@/components/finance/finance-text";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import type { FinanceApprovalDTO } from "@/lib/modules/finance/finance.types";
@@ -14,7 +15,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
   if (approvals.length === 0) {
     return (
       <p className="mt-4 text-table text-fg-subtle">
-        This record has not been submitted for approval.
+        <FinanceText k="history.notSubmitted" />
       </p>
     );
   }
@@ -26,7 +27,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={approval.status} />
             <span className="text-table text-fg">
-              Submitted by <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
+              <FinanceText k="history.submittedBy" /> <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} />
             </span>
           </div>
           <p className="mt-0.5 text-meta text-fg-subtle">
@@ -36,7 +37,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
           {approval.decision ? (
             <div className="mt-2 border-l-2 border-line pl-3">
               <p className="text-table text-fg">
-                {approval.status === "APPROVED" ? "Approved" : "Rejected"} by{" "}
+                <FinanceText k={approval.status === "APPROVED" ? "history.approvedBy" : "history.rejectedBy"} />{" "}
                 <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} />
               </p>
               <p className="mt-0.5 text-meta text-fg-subtle">

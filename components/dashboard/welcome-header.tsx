@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Badge } from "@/components/ui/badge";
 import { brand } from "@/config/brand";
 import type { UserContext } from "@/lib/context/types";
-import { greeting } from "@/lib/utils/format";
+import { focusText, greetingText } from "./config-text";
 import { getTranslations } from "@/lib/i18n/server";
 import { StartHere } from "./start-here";
 
@@ -40,7 +40,7 @@ export async function WelcomeHeader({
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <p className="nesto-eyebrow text-fg-subtle">
-            {greeting()}, {context.firstName}
+            {greetingText(t)}, {context.firstName}
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -48,7 +48,7 @@ export async function WelcomeHeader({
             <Badge tone="neutral">{context.roleLabel}</Badge>
           </div>
 
-          <p className="mt-2 text-body text-fg-muted">{focus}</p>
+          <p className="mt-2 text-body text-fg-muted">{focusText(t, focus)}</p>
           {/* Group: "Across <the group>"; company: the company's own name (Workspace Context §70). */}
           <p
             className="mt-1 text-table text-fg-subtle"

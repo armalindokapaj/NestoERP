@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { archiveProjectAction, restoreProjectAction } from "@/lib/actions/projects";
 import type { WorkingStatus } from "@/lib/modules/projects/project.machine";
 import { ChangeProjectStatusDialog } from "./change-project-status-dialog";
@@ -53,6 +54,7 @@ export function ProjectActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("projects");
   const [confirming, setConfirming] = React.useState(false);
   const [changingStatus, setChangingStatus] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -62,7 +64,7 @@ export function ProjectActions({
       const result = await archiveProjectAction(projectId);
       setConfirming(false);
       if (result.ok) {
-        toast({ title: "Project archived." });
+        toast({ title: t("actions.archived") });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -74,7 +76,7 @@ export function ProjectActions({
     startTransition(async () => {
       const result = await restoreProjectAction(projectId);
       if (result.ok) {
-        toast({ title: "Project restored." });
+        toast({ title: t("actions.restored") });
         router.refresh();
       } else {
         toast({ title: result.error, tone: "danger" });
@@ -90,22 +92,22 @@ export function ProjectActions({
       {archived && canRestore ? (
         <Button size="sm" onClick={restore} disabled={pending}>
           <ArchiveRestore aria-hidden="true" />
-          {pending ? "Restoring…" : "Restore"}
+          {pending ? t("actions.restoring") : t("actions.restore")}
         </Button>
       ) : null}
 
       {showMenu && !archived ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More project actions">
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {canUpdate ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/edit`}><PenLine />Edit project</Link></DropdownMenuItem> : null}
-            {canChangeStatus ? <DropdownMenuItem onSelect={() => setChangingStatus(true)}><RefreshCw />Change status…</DropdownMenuItem> : null}
-            {canManageMedia ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/media?manage=1`}><Images />Manage project media</Link></DropdownMenuItem> : null}
-            {canManageTeam ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/team`}><Users />Manage team</Link></DropdownMenuItem> : null}
+            {canUpdate ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/edit`}><PenLine />{t("actions.edit")}</Link></DropdownMenuItem> : null}
+            {canChangeStatus ? <DropdownMenuItem onSelect={() => setChangingStatus(true)}><RefreshCw />{t("actions.changeStatusMenu")}</DropdownMenuItem> : null}
+            {canManageMedia ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/media?manage=1`}><Images />{t("actions.manageMedia")}</Link></DropdownMenuItem> : null}
+            {canManageTeam ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/team`}><Users />{t("actions.manageTeam")}</Link></DropdownMenuItem> : null}
             {canArchive ? (
               <DropdownMenuItem
                 onSelect={(event) => {
@@ -114,7 +116,7 @@ export function ProjectActions({
                 }}
               >
                 <Archive />
-                Archive project
+                {t("actions.archive")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -132,9 +134,9 @@ export function ProjectActions({
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title={`Archive ${projectName}?`}
-        description="The project will be removed from active project lists. Its tasks, documents, team and history remain available as archived project data."
-        confirmLabel="Archive project"
+        title={t("actions.archiveTitle", { name: projectName })}
+        description={t("actions.archiveBody")}
+        confirmLabel={t("actions.archive")}
         pending={pending}
         onConfirm={archive}
       />

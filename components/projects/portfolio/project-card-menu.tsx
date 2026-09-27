@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
 
 /**
@@ -23,13 +24,14 @@ import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
  */
 export function ProjectCardMenu({ project, onToggleFavorite }: { project: ProjectCardDTO; onToggleFavorite: () => void }) {
   const toast = useToast();
+  const t = useTranslations("projects");
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(new URL(project.href, window.location.origin).toString());
-      toast({ title: "Project link copied." });
+      toast({ title: t("portfolio.linkCopied") });
     } catch {
-      toast({ title: "The link could not be copied.", tone: "danger" });
+      toast({ title: t("portfolio.linkCopyFailed"), tone: "danger" });
     }
   }
 
@@ -39,7 +41,7 @@ export function ProjectCardMenu({ project, onToggleFavorite }: { project: Projec
         <button
           type="button"
           onClick={(event) => event.stopPropagation()}
-          aria-label={`Project actions for ${project.name}`}
+          aria-label={t("portfolio.actionsFor", { name: project.name })}
           data-testid="project-menu"
           // 44 px where a finger aims it, 36 px under a mouse — keyed to the pointer, not the width, so touch tablets get 44 (§154; AUD-04 §3, MW-19).
           className="relative z-10 inline-flex size-9 items-center justify-center rounded-full border border-line/70 bg-surface/90 text-fg shadow-card backdrop-blur-sm transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
@@ -51,24 +53,24 @@ export function ProjectCardMenu({ project, onToggleFavorite }: { project: Projec
         <DropdownMenuItem asChild>
           <Link href={project.href} prefetch={false}>
             <ArrowUpRight />
-            Open project
+            {t("portfolio.openProject")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={project.href} target="_blank" rel="noopener noreferrer">
             <ExternalLink />
-            Open in new tab
+            {t("portfolio.openNewTab")}
           </a>
         </DropdownMenuItem>
         {project.canFavorite ? (
           <DropdownMenuItem onSelect={onToggleFavorite}>
             <Star />
-            {project.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            {project.isFavorite ? t("portfolio.removeFavorite") : t("portfolio.addFavorite")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onSelect={() => void copyLink()}>
           <Link2 />
-          Copy project link
+          {t("portfolio.copyLink")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

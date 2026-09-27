@@ -10,6 +10,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { localToday } from "./local-date";
@@ -73,6 +74,7 @@ export function ExpenseForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useFinanceTranslations();
   const [currency, setCurrency] = React.useState(values?.currency || defaultCurrency);
   const [net, setNet] = React.useState(values?.netAmount ?? "");
   const [tax, setTax] = React.useState(values?.taxAmount ?? "");
@@ -84,8 +86,8 @@ export function ExpenseForm({
   const projectOptions = React.useMemo(() => {
     const saved = values?.projectId;
     if (!saved || projects.some((project) => project.value === saved)) return projects;
-    return [...projects, { value: saved, label: "Current project (no longer available for new expenses)" }];
-  }, [projects, values?.projectId]);
+    return [...projects, { value: saved, label: t("expenseForm.currentProject") }];
+  }, [projects, values?.projectId, t]);
 
   return (
     <RecordForm
@@ -96,8 +98,8 @@ export function ExpenseForm({
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
-      <FormSection title="Expense details" description="What the cost was, and who it was paid to.">
-        <Field label="Description" name="description" required className="sm:col-span-2">
+      <FormSection title={t("expenseForm.details")} description={t("expenseForm.detailsHint")}>
+        <Field label={t("form.description")} name="description" required className="sm:col-span-2">
           <Input
             id="description"
             name="description"
@@ -105,26 +107,26 @@ export function ExpenseForm({
             minLength={2}
             maxLength={500}
             defaultValue={values?.description ?? ""}
-            placeholder="Groundworks package — February"
+            placeholder={t("expenseForm.descriptionPlaceholder")}
           />
         </Field>
 
-        <Field label="Category" name="category" required>
+        <Field label={t("form.category")} name="category" required>
           <select
             id="category"
             name="category"
             className={selectClass}
             defaultValue={values?.category ?? "MATERIALS"}
           >
-            {Object.entries(expenseCategoryLabels).map(([value, label]) => (
+            {Object.keys(expenseCategoryLabels).map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`category.${value as keyof typeof expenseCategoryLabels}`)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Expense date" name="expenseDate" required>
+        <Field label={t("expenseForm.date")} name="expenseDate" required>
           <Input
             id="expenseDate"
             name="expenseDate"
@@ -135,13 +137,13 @@ export function ExpenseForm({
         </Field>
 
         <Field
-          label="Project"
+          label={t("form.project")}
           name="projectId"
           required={!canCreateCompanyWide}
           hint={
             canCreateCompanyWide
-              ? "Leave empty for a company overhead."
-              : "Your finance access is limited to your projects, so a project is required."
+              ? t("expenseForm.projectHint")
+              : t("form.projectRequired")
           }
         >
           <select
@@ -151,10 +153,10 @@ export function ExpenseForm({
             required={!canCreateCompanyWide}
             defaultValue={values?.projectId ?? ""}
           >
-            {canCreateCompanyWide ? <option value="">Company-wide</option> : null}
+            {canCreateCompanyWide ? <option value="">{t("companyWide")}</option> : null}
             {!canCreateCompanyWide ? (
               <option value="" disabled>
-                Choose a project
+                {t("form.chooseProject")}
               </option>
             ) : null}
             {projectOptions.map((project) => (
@@ -165,7 +167,7 @@ export function ExpenseForm({
           </select>
         </Field>
 
-        <Field label="Payee" name="payeeName">
+        <Field label={t("expenseForm.payee")} name="payeeName">
           <Input
             id="payeeName"
             name="payeeName"
@@ -175,7 +177,7 @@ export function ExpenseForm({
           />
         </Field>
 
-        <Field label="Reference" name="expenseNumber" hint="Optional internal number.">
+        <Field label={t("form.reference")} name="expenseNumber" hint={t("form.internalNumber")}>
           <Input
             id="expenseNumber"
             name="expenseNumber"
@@ -186,8 +188,8 @@ export function ExpenseForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Amounts" description="The server adds net and tax to reach the total.">
-        <Field label="Currency" name="currency" required>
+      <FormSection title={t("expenseForm.amounts")} description={t("expenseForm.amountsHint")}>
+        <Field label={t("form.currency")} name="currency" required>
           <select
             id="currency"
             name="currency"
@@ -205,7 +207,7 @@ export function ExpenseForm({
 
         <AmountField
           name="netAmount"
-          label="Net amount"
+          label={t("expenseForm.net")}
           currency={currency}
           value={net}
           onChange={setNet}
@@ -214,23 +216,23 @@ export function ExpenseForm({
 
         <AmountField
           name="taxAmount"
-          label="Tax amount"
+          label={t("expenseForm.tax")}
           currency={currency}
           value={tax}
           onChange={setTax}
-          hint="Optional. Leave empty if there is no tax."
+          hint={t("expenseForm.taxHint")}
         />
 
         <div className="flex items-end justify-end sm:col-span-1">
           <p className="text-table text-fg-muted">
-            Total (preview){" "}
+            {t("lines.totalPreview")}{" "}
             <span className="font-semibold tabular-nums text-fg">
               {total !== null ? formatAmount(total, currency) : "—"}
             </span>
           </p>
         </div>
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("form.notes")} name="notes" className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -16,7 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { UnsavedValue } from "@/components/unsaved/unsaved-value";
-import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 
 /**
  * Handing a record to a colleague.
@@ -52,6 +52,7 @@ export function AssignMemberControl({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useCommonTranslations();
   const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
   const [members, setMembers] = React.useState<AssignableMember[] | null>(null);
@@ -85,7 +86,7 @@ export function AssignMemberControl({
         result = await onAssign(memberId);
       } catch {
         // Sent, unanswered: it may have been assigned (AUD-03 §6).
-        toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
+        toast({ title: t("outcomeUnknown"), tone: "danger" });
         return;
       }
       if (result.ok) {
@@ -110,9 +111,9 @@ export function AssignMemberControl({
           <DialogDescription>{description}</DialogDescription>
 
           {/* A choice made here is unsaved until Assign runs; nothing else keeps it (AUD-03 §4). */}
-          <UnsavedValue saveKind="none" workflow="Assign" label={title} dirty={memberId !== (currentMemberId ?? "")} saving={pending} />
+          <UnsavedValue saveKind="none" workflow={t("assign.workflow")} label={title} dirty={memberId !== (currentMemberId ?? "")} saving={pending} />
           <div className="space-y-1.5">
-            <Label htmlFor="assign-member">Person</Label>
+            <Label htmlFor="assign-member">{t("assign.person")}</Label>
             <select
               id="assign-member"
               className={selectClass}
@@ -120,7 +121,7 @@ export function AssignMemberControl({
               onChange={(event) => setMemberId(event.target.value)}
               disabled={members === null}
             >
-              <option value="">{members === null ? "Loading…" : "Choose somebody"}</option>
+              <option value="">{members === null ? t("loading") : t("assign.choose")}</option>
               {(members ?? []).map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
@@ -131,13 +132,13 @@ export function AssignMemberControl({
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
+              <Button variant="secondary">{t("cancel")}</Button>
             </DialogClose>
             <Button
               disabled={pending || !memberId || memberId === currentMemberId}
               onClick={assign}
             >
-              {pending ? "Assigning…" : "Assign"}
+              {pending ? t("assign.assigning") : t("assign.assign")}
             </Button>
           </DialogFooter>
         </DialogContent>

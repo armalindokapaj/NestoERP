@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ChevronDown } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -10,7 +11,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { MILESTONE_STATUSES, MILESTONE_TYPES, STATUS_LABELS, TYPE_LABELS, type MilestoneStatus, type MilestoneType, type Option, type PhaseStatus } from "@/lib/modules/project-planning/planning.types";
+import { MILESTONE_STATUSES, MILESTONE_TYPES, type MilestoneStatus, type MilestoneType, type Option, type PhaseStatus } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "./use-values-editor";
@@ -90,12 +91,13 @@ export function MilestoneFormDialog({
   canSetBaseline: boolean;
   onSaved: (id: string) => void;
 }) {
+  const t = useTranslations("projects");
   const editing = Boolean(milestoneId);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
-        <DialogTitle>{editing ? "Edit milestone" : "New milestone"}</DialogTitle>
-        <DialogDescription>{editing ? "Dates, owner and status. The baseline and completion have their own actions." : "A key achievement or date on this project."}</DialogDescription>
+        <DialogTitle>{editing ? t("milestoneForm.editTitle") : t("milestoneForm.newTitle")}</DialogTitle>
+        <DialogDescription>{editing ? t("milestoneForm.editBody") : t("milestoneForm.newBody")}</DialogDescription>
         {/* Mounted per opening: it opens on `initial` as it was then. */}
         <MilestoneForm projectId={projectId} milestoneId={milestoneId} version={version} initial={initial} phases={phases} members={members} canSetBaseline={canSetBaseline} onSaved={onSaved} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -124,6 +126,7 @@ function MilestoneForm({
   onSaved: (id: string) => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("projects");
   const editing = Boolean(milestoneId);
   const [values, setValues] = React.useState(initial);
   const [more, setMore] = React.useState(editing && Boolean(initial.description));
@@ -131,7 +134,7 @@ function MilestoneForm({
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
-  const editor = useValuesEditor(values, { module: "planning", saveKind: editing ? "save" : "create", label: editing ? `Milestone ${initial.name}` : "New milestone", save: () => persist.current() });
+  const editor = useValuesEditor(values, { module: "planning", saveKind: editing ? "save" : "create", label: editing ? t("milestoneForm.editorLabel", { name: initial.name }) : t("milestoneForm.newTitle"), save: () => persist.current() });
 
   const set = <K extends keyof MilestoneFormValues>(key: K, value: MilestoneFormValues[K]) => setValues((current) => ({ ...current, [key]: value }));
   const id = (name: string) => `milestone-${name}`;
@@ -143,7 +146,7 @@ function MilestoneForm({
 
   persist.current = async () => {
     if (!values.name.trim()) {
-      setErrors({ name: "Give it a name." });
+      setErrors({ name: t("milestoneForm.nameRequired") });
       return INVALID;
     }
     setPending(true);
@@ -173,7 +176,7 @@ function MilestoneForm({
       return COMMITTED;
     } catch (error) {
       setErrors(fieldErrors(error));
-      setFormError(failureMessage(error, "The milestone could not be saved."));
+      setFormError(failureMessage(error, t("milestoneForm.saveFailed")));
       return failureOutcome(error);
     } finally {
       setPending(false);
@@ -182,13 +185,13 @@ function MilestoneForm({
 
   return (
     <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
-      <Field label="Name" htmlFor={id("name")} error={errors.name}>
+      <Field label={t("milestoneForm.name")} htmlFor={id("name")} error={errors.name}>
         <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} autoFocus placeholder="e.g. Structure Complete" />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Phase" htmlFor={id("phase")} error={errors.phaseId}>
+        <Field label={t("milestoneForm.phase")} htmlFor={id("phase")} error={errors.phaseId}>
           <select id={id("phase")} className={selectClass} value={values.phaseId} onChange={(event) => set("phaseId", event.target.value)}>
-            <option value="">No phase</option>
+            <option value="">{t("milestoneForm.noPhase")}</option>
             {phases.map((phase) => (
               <option key={phase.id} value={phase.id}>
                 {phase.label}
@@ -196,18 +199,18 @@ function MilestoneForm({
             ))}
           </select>
         </Field>
-        <Field label="Type" htmlFor={id("type")}>
+        <Field label={t("milestoneForm.type")} htmlFor={id("type")}>
           <select id={id("type")} className={selectClass} value={values.milestoneType} onChange={(event) => set("milestoneType", event.target.value as MilestoneType)}>
             {MILESTONE_TYPES.map((type) => (
               <option key={type} value={type}>
-                {TYPE_LABELS[type]}
+                {t(`milestoneType.${type}`)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Owner" htmlFor={id("owner")} error={errors.ownerMemberId}>
+        <Field label={t("milestoneForm.owner")} htmlFor={id("owner")} error={errors.ownerMemberId}>
           <select id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)}>
-            <option value="">Unassigned</option>
+            <option value="">{t("milestoneForm.unassigned")}</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
@@ -216,11 +219,11 @@ function MilestoneForm({
           </select>
         </Field>
         {editing ? (
-          <Field label="Status" htmlFor={id("status")} error={errors.status}>
+          <Field label={t("milestoneForm.status")} htmlFor={id("status")} error={errors.status}>
             <select id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as MilestoneStatus)} disabled={values.status === "COMPLETED"}>
               {MILESTONE_STATUSES.filter((status) => status !== "COMPLETED" || values.status === "COMPLETED").map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
+                  {t(`milestoneStatus.${status}`)}
                 </option>
               ))}
             </select>
@@ -228,14 +231,14 @@ function MilestoneForm({
         ) : (
           <span className="hidden sm:block" />
         )}
-        <Field label="Planned date" htmlFor={id("planned")} error={errors.plannedDate}>
+        <Field label={t("milestoneForm.plannedDate")} htmlFor={id("planned")} error={errors.plannedDate}>
           <Input id={id("planned")} type="date" value={values.plannedDate} onChange={(event) => set("plannedDate", event.target.value)} />
         </Field>
-        <Field label="Forecast date" htmlFor={id("forecast")} error={errors.forecastDate} hint={editing ? undefined : "Defaults to the planned date."}>
+        <Field label={t("milestoneForm.forecastDate")} htmlFor={id("forecast")} error={errors.forecastDate} hint={editing ? undefined : t("milestoneForm.forecastHint")}>
           <Input id={id("forecast")} type="date" value={values.forecastDate} onChange={(event) => set("forecastDate", event.target.value)} />
         </Field>
         {editing && values.status === "COMPLETED" ? (
-          <Field label="Actual date" htmlFor={id("actual")} error={errors.actualDate}>
+          <Field label={t("milestoneForm.actualDate")} htmlFor={id("actual")} error={errors.actualDate}>
             <Input id={id("actual")} type="date" value={values.actualDate} onChange={(event) => set("actualDate", event.target.value)} />
           </Field>
         ) : null}
@@ -243,31 +246,31 @@ function MilestoneForm({
 
       <button type="button" onClick={() => setMore((value) => !value)} aria-expanded={more} className="flex items-center gap-1.5 text-table font-medium text-accent-strong">
         <ChevronDown aria-hidden="true" className={cn("size-4 transition-transform", !more && "-rotate-90")} />
-        {more ? "Fewer details" : "More details"}
+        {more ? t("milestoneForm.fewer") : t("milestoneForm.more")}
       </button>
       {more ? (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             {!editing && canSetBaseline ? (
-              <Field label="Baseline date" htmlFor={id("baseline")} error={errors.baselineDate} hint="The approved reference. Defaults to the planned date.">
+              <Field label={t("milestoneForm.baselineDate")} htmlFor={id("baseline")} error={errors.baselineDate} hint={t("milestoneForm.baselineHint")}>
                 <Input id={id("baseline")} type="date" value={values.baselineDate} onChange={(event) => set("baselineDate", event.target.value)} />
               </Field>
             ) : null}
-            <Field label="Progress %" htmlFor={id("progress")} error={errors.progressPercent}>
+            <Field label={t("milestoneForm.progress")} htmlFor={id("progress")} error={errors.progressPercent}>
               <Input id={id("progress")} type="number" min={0} max={100} step={1} inputMode="numeric" value={values.progressPercent} onChange={(event) => set("progressPercent", event.target.value)} />
             </Field>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="flex items-center gap-2 text-table text-fg">
-              <Checkbox checked={values.critical} onCheckedChange={(checked) => set("critical", checked === true)} aria-label="Critical" />
-              Critical
+              <Checkbox checked={values.critical} onCheckedChange={(checked) => set("critical", checked === true)} aria-label={t("milestoneForm.critical")} />
+              {t("milestoneForm.critical")}
             </label>
             <label className="flex items-center gap-2 text-table text-fg">
-              <Checkbox checked={values.externallyCommitted} onCheckedChange={(checked) => set("externallyCommitted", checked === true)} aria-label="Externally committed" />
-              Externally committed
+              <Checkbox checked={values.externallyCommitted} onCheckedChange={(checked) => set("externallyCommitted", checked === true)} aria-label={t("milestoneForm.committed")} />
+              {t("milestoneForm.committed")}
             </label>
           </div>
-          <Field label="Description" htmlFor={id("description")} error={errors.description}>
+          <Field label={t("milestoneForm.description")} htmlFor={id("description")} error={errors.description}>
             <Textarea id={id("description")} value={values.description} onChange={(event) => set("description", event.target.value)} rows={3} maxLength={5000} />
           </Field>
         </div>
@@ -281,11 +284,11 @@ function MilestoneForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            Cancel
+            {t("milestoneForm.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : editing ? "Save changes" : "Add milestone"}
+          {pending ? t("milestoneForm.saving") : editing ? t("milestoneForm.saveChanges") : t("milestoneForm.addMilestone")}
         </Button>
       </DialogFooter>
     </form>
@@ -339,12 +342,13 @@ export function PhaseFormDialog({
   canEdit: boolean;
   onSaved: () => void;
 }) {
+  const t = useTranslations("projects");
   const editing = Boolean(phaseId);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
-        <DialogTitle>{editing ? initial.name || "Phase" : "New phase"}</DialogTitle>
-        <DialogDescription>{editing ? "Dates, status, owner and progress for this part of the plan." : "A planning segment that groups milestones."}</DialogDescription>
+        <DialogTitle>{editing ? initial.name || t("milestoneForm.phaseFallback") : t("milestoneForm.newPhase")}</DialogTitle>
+        <DialogDescription>{editing ? t("milestoneForm.phaseEditBody") : t("milestoneForm.phaseNewBody")}</DialogDescription>
         {/* Mounted per opening: it opens on `initial` as it was then. */}
         <PhaseForm projectId={projectId} phaseId={phaseId} version={version} initial={initial} members={members} suggestedProgress={suggestedProgress} milestones={milestones} canArchive={canArchive} canEdit={canEdit} onSaved={onSaved} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -377,6 +381,7 @@ function PhaseForm({
   onSaved: () => void;
   onDone: () => void;
 }) {
+  const t = useTranslations("projects");
   const editing = Boolean(phaseId);
   const [values, setValues] = React.useState(initial);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -384,7 +389,7 @@ function PhaseForm({
   const [pending, setPending] = React.useState(false);
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   // A reader who may not edit holds nothing to lose: nothing to save, nothing to ask.
-  const editor = useValuesEditor(values, { module: "planning", saveKind: canEdit ? (editing ? "save" : "create") : "none", label: editing ? `Phase ${initial.name}` : "New phase", save: canEdit ? () => persist.current() : undefined });
+  const editor = useValuesEditor(values, { module: "planning", saveKind: canEdit ? (editing ? "save" : "create") : "none", label: editing ? t("milestoneForm.phaseLabel", { name: initial.name }) : t("milestoneForm.newPhase"), save: canEdit ? () => persist.current() : undefined });
 
   const set = <K extends keyof PhaseFormValues>(key: K, value: PhaseFormValues[K]) => setValues((current) => ({ ...current, [key]: value }));
   const id = (name: string) => `phase-${name}`;
@@ -401,7 +406,7 @@ function PhaseForm({
 
   persist.current = async () => {
     if (!values.name.trim()) {
-      setErrors({ name: "Give it a name." });
+      setErrors({ name: t("milestoneForm.nameRequired") });
       return INVALID;
     }
     setPending(true);
@@ -427,7 +432,7 @@ function PhaseForm({
       return COMMITTED;
     } catch (error) {
       setErrors(fieldErrors(error));
-      setFormError(failureMessage(error, "The phase could not be saved."));
+      setFormError(failureMessage(error, t("milestoneForm.phaseSaveFailed")));
       return failureOutcome(error);
     } finally {
       setPending(false);
@@ -442,7 +447,7 @@ function PhaseForm({
       onSaved();
       onDone();
     } catch (error) {
-      setFormError(failureMessage(error, "The phase could not be archived."));
+      setFormError(failureMessage(error, t("milestoneForm.phaseArchiveFailed")));
     } finally {
       setPending(false);
     }
@@ -450,22 +455,22 @@ function PhaseForm({
 
   return (
     <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
-      <Field label="Name" htmlFor={id("name")} error={errors.name}>
+      <Field label={t("milestoneForm.name")} htmlFor={id("name")} error={errors.name}>
         <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} disabled={!canEdit} autoFocus={!editing} placeholder="e.g. Superstructure" />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Status" htmlFor={id("status")}>
+        <Field label={t("milestoneForm.status")} htmlFor={id("status")}>
           <select id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as PhaseStatus)} disabled={!canEdit}>
             {MILESTONE_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                {t(`milestoneStatus.${status}`)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Owner" htmlFor={id("owner")} error={errors.ownerMemberId}>
+        <Field label={t("milestoneForm.owner")} htmlFor={id("owner")} error={errors.ownerMemberId}>
           <select id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)} disabled={!canEdit}>
-            <option value="">Unassigned</option>
+            <option value="">{t("milestoneForm.unassigned")}</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
@@ -473,13 +478,13 @@ function PhaseForm({
             ))}
           </select>
         </Field>
-        {date("plannedStartDate", "Planned start")}
-        {date("plannedEndDate", "Planned end")}
-        {date("forecastStartDate", "Forecast start")}
-        {date("forecastEndDate", "Forecast end")}
-        {date("actualStartDate", "Actual start")}
-        {date("actualEndDate", "Actual end")}
-        <Field label="Progress %" htmlFor={id("progress")} error={errors.progressPercent} hint={suggestedProgress !== undefined && suggestedProgress !== null ? `Milestones suggest ${suggestedProgress}%.` : undefined}>
+        {date("plannedStartDate", t("milestoneForm.plannedStart"))}
+        {date("plannedEndDate", t("milestoneForm.plannedEnd"))}
+        {date("forecastStartDate", t("milestoneForm.forecastStart"))}
+        {date("forecastEndDate", t("milestoneForm.forecastEnd"))}
+        {date("actualStartDate", t("milestoneForm.actualStart"))}
+        {date("actualEndDate", t("milestoneForm.actualEnd"))}
+        <Field label={t("milestoneForm.progress")} htmlFor={id("progress")} error={errors.progressPercent} hint={suggestedProgress !== undefined && suggestedProgress !== null ? t("milestoneForm.suggest", { value: suggestedProgress }) : undefined}>
           <span className="flex gap-2">
             <Input id={id("progress")} type="number" min={0} max={100} inputMode="numeric" value={values.progressPercent} onChange={(event) => set("progressPercent", event.target.value)} disabled={!canEdit} />
             {canEdit && suggestedProgress !== undefined && suggestedProgress !== null && String(suggestedProgress) !== values.progressPercent ? (
@@ -490,17 +495,17 @@ function PhaseForm({
           </span>
         </Field>
       </div>
-      <Field label="Description" htmlFor={id("description")}>
+      <Field label={t("milestoneForm.description")} htmlFor={id("description")}>
         <Textarea id={id("description")} value={values.description} onChange={(event) => set("description", event.target.value)} rows={2} maxLength={5000} disabled={!canEdit} />
       </Field>
       {milestones?.length ? (
         <div>
-          <p className="text-meta font-medium text-fg-muted">Milestones</p>
+          <p className="text-meta font-medium text-fg-muted">{t("milestoneForm.milestones")}</p>
           <ul className="mt-1 divide-y divide-line rounded-md border border-line">
             {milestones.map((milestone) => (
               <li key={milestone.id} className="flex items-center justify-between gap-3 px-3 py-2 text-table">
                 <span className="truncate text-fg">{milestone.name}</span>
-                <span className="shrink-0 text-meta text-fg-muted">{STATUS_LABELS[milestone.status]}</span>
+                <span className="shrink-0 text-meta text-fg-muted">{t(`milestoneStatus.${milestone.status}`)}</span>
               </li>
             ))}
           </ul>
@@ -514,17 +519,17 @@ function PhaseForm({
       <DialogFooter className="flex-wrap">
         {editing && canArchive ? (
           <Button type="button" variant="ghost" className="mr-auto text-danger-strong" onClick={archive} disabled={pending}>
-            Archive phase
+            {t("milestoneForm.archivePhase")}
           </Button>
         ) : null}
         <DialogClose asChild>
           <Button type="button" variant="secondary">
-            {canEdit ? "Cancel" : "Close"}
+            {canEdit ? t("milestoneForm.cancel") : t("milestoneForm.close")}
           </Button>
         </DialogClose>
         {canEdit ? (
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : editing ? "Save phase" : "Add phase"}
+            {pending ? t("milestoneForm.saving") : editing ? t("milestoneForm.savePhase") : t("milestoneForm.addPhase")}
           </Button>
         ) : null}
       </DialogFooter>

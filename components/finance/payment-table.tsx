@@ -6,29 +6,25 @@ import { Money } from "@/components/finance/money";
 import { VoidPaymentButton } from "@/components/finance/void-payment-button";
 import { Badge } from "@/components/ui/badge";
 import type { PaymentSummaryDTO } from "@/lib/modules/finance/finance.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /** The payment list (PRD #15 §165). */
-const METHOD_LABELS: Record<string, string> = {
-  BANK_TRANSFER: "Bank transfer",
-  CARD: "Card",
-  CASH: "Cash",
-  CHECK: "Cheque",
-  OTHER: "Other",
-};
+const METHODS = new Set(["BANK_TRANSFER", "CARD", "CASH", "CHECK", "OTHER"]);
 
-export function PaymentTable({ payments, listId = "finance.payments", sort }: {
+export async function PaymentTable({ payments, listId = "finance.payments", sort }: {
   payments: PaymentSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("finance");
   const columns: TableColumn<PaymentSummaryDTO>[] = [
     {
       key: "record",
       id: "record",
-      label: "Against",
+      label: t("columns.against"),
       primary: true,
       mandatory: true,
       render: (payment) => (
@@ -47,13 +43,13 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
               {payment.relatedRecord.reference}
             </Link>
           ) : (
-            <span className="block truncate text-fg-subtle">Unlinked</span>
+            <span className="block truncate text-fg-subtle">{t("paymentRow.unlinked")}</span>
           )}
           <span className="block truncate text-meta font-normal text-fg-subtle">
-            {payment.direction === "RECEIPT" ? "Received" : "Paid out"} ·{" "}
+            {payment.direction === "RECEIPT" ? t("paymentRow.received") : t("paymentRow.paidOut")} ·{" "}
             {orDash(payment.reference)}
             {/* Money not yet pointed at what it settles (E-05F §34). */}
-            {payment.status === "RECORDED" && Number(payment.unallocatedAmount) > 0 ? ` · ${payment.unallocatedAmount} ${payment.currency} unallocated` : ""}
+            {payment.status === "RECORDED" && Number(payment.unallocatedAmount) > 0 ? t("paymentRow.unallocated", { amount: payment.unallocatedAmount, currency: payment.currency }) : ""}
           </span>
         </span>
       ),
@@ -61,7 +57,7 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
     {
       key: "date",
       id: "date",
-      label: "Date",
+      label: t("columns.date"),
       hideBelow: "md",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
@@ -72,16 +68,16 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
     {
       key: "method",
       id: "method",
-      label: "Method",
+      label: t("columns.method"),
       hideBelow: "xl",
       render: (payment) => (
-        <span className="text-fg-muted">{METHOD_LABELS[payment.method] ?? payment.method}</span>
+        <span className="text-fg-muted">{METHODS.has(payment.method) ? t(`method.${payment.method}` as "method.CASH") : payment.method}</span>
       ),
     },
     {
       key: "amount",
       id: "amount",
-      label: "Amount",
+      label: t("columns.amount"),
       align: "right",
       mandatory: true,
       valueType: "money",
@@ -100,12 +96,12 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
     {
       key: "status",
       id: "status",
-      label: "Status",
+      label: t("columns.status"),
       mandatory: true,
       valueType: "status",
       render: (payment) => (
         <Badge tone={payment.status === "VOIDED" ? "default" : "success"}>
-          {payment.status === "VOIDED" ? "Voided" : "Recorded"}
+          {payment.status === "VOIDED" ? t("paymentStatus.VOIDED") : t("paymentStatus.RECORDED")}
         </Badge>
       ),
     },
@@ -115,7 +111,7 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Payments"
+      caption={t("captions.payments")}
       columns={columns}
       records={payments}
       rowKey={(payment) => payment.id}
@@ -128,7 +124,7 @@ export function PaymentTable({ payments, listId = "finance.payments", sort }: {
         payment.capabilities.canVoid && payment.status !== "VOIDED" ? (
           <VoidPaymentButton
             paymentId={payment.id}
-            reference={payment.relatedRecord?.reference ?? "this payment"}
+            reference={payment.relatedRecord?.reference ?? t("paymentRow.thisPayment")}
           />
         ) : null
       }

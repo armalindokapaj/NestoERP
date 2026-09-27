@@ -5,6 +5,7 @@ import { startTransition, useEffect } from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ErrorState } from "@/components/ui/error-state";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * A project page failed to load (AUD-05 §6, UX-11, UX-12).
@@ -17,6 +18,7 @@ import { ErrorState } from "@/components/ui/error-state";
  */
 export default function ProjectWorkspaceError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
+  const t = useTranslations("projects");
 
   useEffect(() => {
     console.error(error);
@@ -25,8 +27,8 @@ export default function ProjectWorkspaceError({ error, reset }: { error: Error &
   return (
     <div data-testid="project-error" className="space-y-4">
       <ErrorState
-        title="Project could not be loaded."
-        description="Nothing was changed. Try again in a moment."
+        title={t("errorPage.title")}
+        description={t("errorPage.description")}
         onRetry={() =>
           startTransition(() => {
             router.refresh();
@@ -36,7 +38,7 @@ export default function ProjectWorkspaceError({ error, reset }: { error: Error &
       />
       <p className="text-center text-table">
         <Link href="/projects" className="font-medium text-accent-strong hover:underline">
-          Back to Projects
+          {t("errorPage.back")}
         </Link>
       </p>
     </div>

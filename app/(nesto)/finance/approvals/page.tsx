@@ -11,10 +11,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import * as approvals from "@/lib/modules/finance/approvals/approval.service";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
-export const metadata: Metadata = { title: "Approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.approvals") };
+}
 
 /**
  * The approval queue (PRD #15 §141, §143).
@@ -32,6 +36,7 @@ export default async function FinanceApprovalsPage({
 
   if (!can(context, "finance.approval.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = resolveModuleExperience(context, "finance");
   const { status, page: pageParam } = await searchParams;
   const decided = status === "DECIDED";
@@ -57,12 +62,12 @@ export default async function FinanceApprovalsPage({
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={decided ? "/finance/approvals" : "/finance/approvals?status=DECIDED"}>
-              {decided ? "Waiting for a decision" : "Decided"}
+              {decided ? t("overview.waiting") : t("approvals.decided")}
             </Link>
           </Button>
           {can(context, "approvals.view") ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href="/approvals?provider=finance">Open in Approvals</Link>
+              <Link href="/approvals?provider=finance">{t("approvals.openInApprovals")}</Link>
             </Button>
           ) : null}
         </div>
@@ -71,11 +76,11 @@ export default async function FinanceApprovalsPage({
       {result.data.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck />}
-          title={decided ? "Nothing decided yet." : "Nothing is waiting for a decision."}
+          title={decided ? t("approvals.noneDecided") : t("approvals.noneWaiting")}
           description={
             decided
-              ? "Approvals you have decided will be listed here."
-              : "Invoices, expenses, budgets and commitments submitted for approval appear here."
+              ? t("approvals.noneDecidedBody")
+              : t("approvals.noneWaitingBody")
           }
         />
       ) : (

@@ -5,6 +5,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { RotateCw } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 
 /**
  * One independently revealed part of a page (NAV-03 §8, STREAM-01, STREAM-07).
@@ -64,12 +65,13 @@ class Boundary extends React.Component<{ fallback: (reset: () => void) => React.
 }
 
 export function SectionError({ className, onRetry, pending }: { className?: string; onRetry: () => void; pending: boolean }) {
+  const t = useCommonTranslations();
   return (
     <div role="alert" className={cn("flex flex-col items-start gap-2 p-5", className)} data-testid="section-error">
-      <p className="text-table text-fg-muted">Couldn&apos;t load this section.</p>
+      <p className="text-table text-fg-muted">{t("sectionFailed")}</p>
       <button type="button" onClick={onRetry} disabled={pending} aria-busy={pending || undefined} className="inline-flex items-center gap-1.5 text-table font-medium text-accent-strong hover:underline disabled:opacity-60" data-testid="section-retry">
         <RotateCw aria-hidden="true" className={cn("size-3.5", pending && "motion-safe:animate-spin")} />
-        Retry
+        {t("retry")}
       </button>
     </div>
   );

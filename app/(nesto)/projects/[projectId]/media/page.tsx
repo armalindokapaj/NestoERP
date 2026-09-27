@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -17,7 +18,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { projectId } = await params;
   const { project } = await loadProject(projectId);
-  return { title: `${project.name} · Media` };
+  return { title: (await getTranslations("projects"))("media.metaTitle", { name: project.name }) };
 }
 
 const one = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
@@ -27,6 +28,7 @@ export default async function ProjectMediaPage({ params, searchParams }: Props) 
   const query = await searchParams;
   const { context, project } = await loadProject(projectId);
   const media = await listProjectMedia(context, project.id);
+  const t = await getTranslations("projects");
   if (!media.capabilities.canView) redirect(`/projects/${project.id}`);
   const managing = one(query.manage) === "1" && media.capabilities.canManage;
   const type = one(query.type);
@@ -36,22 +38,22 @@ export default async function ProjectMediaPage({ params, searchParams }: Props) 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={managing ? "Manage project media" : "Project media"}
-        description={managing ? `Upload, order and curate the media shown for ${project.name}.` : `Renders and animations for ${project.name}.`}
+        title={managing ? t("media.manageTitle") : t("media.title")}
+        description={managing ? t("media.manageIntro", { name: project.name }) : t("media.intro", { name: project.name })}
         actions={
           <div className="flex gap-2">
-            <Button asChild size="sm" variant="secondary"><Link href={`/projects/${project.id}`}>Back to project</Link></Button>
-            {!managing && media.capabilities.canManage ? <Button asChild size="sm"><Link href={`/projects/${project.id}/media?manage=1`}>Manage media</Link></Button> : null}
-            {managing ? <Button asChild size="sm"><Link href={`/projects/${project.id}/media`}>View gallery</Link></Button> : null}
+            <Button asChild size="sm" variant="secondary"><Link href={`/projects/${project.id}`}>{t("media.backToProject")}</Link></Button>
+            {!managing && media.capabilities.canManage ? <Button asChild size="sm"><Link href={`/projects/${project.id}/media?manage=1`}>{t("media.manage")}</Link></Button> : null}
+            {managing ? <Button asChild size="sm"><Link href={`/projects/${project.id}/media`}>{t("media.viewGallery")}</Link></Button> : null}
           </div>
         }
       />
 
       {managing ? <ProjectMediaManager projectId={project.id} initial={media} /> : (
         <div className="space-y-8">
-          {showRenders && media.renders.length ? <section><div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">Project media</p><h2 className="mt-1 text-section font-semibold text-fg">Renders</h2></div><span className="text-table text-fg-muted">{media.renders.length}</span></div><ProjectMediaGallery items={media.renders} type="renders" /></section> : null}
-          {showAnimations && media.animations.length ? <section><div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">Project media</p><h2 className="mt-1 text-section font-semibold text-fg">Animations</h2></div><span className="text-table text-fg-muted">{media.animations.length}</span></div><ProjectMediaGallery items={media.animations} type="animations" /></section> : null}
-          {(!showRenders || media.renders.length === 0) && (!showAnimations || media.animations.length === 0) ? <div className="nesto-card grid min-h-56 place-items-center p-6 text-center"><div><p className="text-body font-medium text-fg">No {type === "animations" ? "animations" : type === "renders" ? "renders" : "project media"} yet.</p><p className="mt-1 text-table text-fg-muted">Available media appears here automatically.</p></div></div> : null}
+          {showRenders && media.renders.length ? <section><div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("media.title")}</p><h2 className="mt-1 text-section font-semibold text-fg">{t("media.renders")}</h2></div><span className="text-table text-fg-muted">{media.renders.length}</span></div><ProjectMediaGallery items={media.renders} type="renders" /></section> : null}
+          {showAnimations && media.animations.length ? <section><div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("media.title")}</p><h2 className="mt-1 text-section font-semibold text-fg">{t("media.animations")}</h2></div><span className="text-table text-fg-muted">{media.animations.length}</span></div><ProjectMediaGallery items={media.animations} type="animations" /></section> : null}
+          {(!showRenders || media.renders.length === 0) && (!showAnimations || media.animations.length === 0) ? <div className="nesto-card grid min-h-56 place-items-center p-6 text-center"><div><p className="text-body font-medium text-fg">{type === "animations" ? t("media.noAnimations") : type === "renders" ? t("media.noRenders") : t("media.noMedia")}</p><p className="mt-1 text-table text-fg-muted">{t("media.appearsAutomatically")}</p></div></div> : null}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { Boxes, Building2, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, NotebookPen, Presentation, ReceiptText, ShoppingCart, SquareCheckBig, type LucideIcon } from "lucide-react";
 
+import type { Translate } from "@/lib/i18n/translator";
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 
 /** The shared record-type icons and relative times for Favorites and Recent Work (PRD #45; Fast Re-entry §58, §171). */
@@ -23,12 +24,13 @@ export const ENTITY_ICON: Record<NavigableType, LucideIcon> = {
   incident: HardHat,
 };
 
-export function relativeTime(iso: string, now = Date.now()): string {
+export function relativeTime(iso: string, now = Date.now(), t?: Translate<"common">): string {
   const minutes = Math.round((now - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1) return t ? t("time.justNow") : "Just now";
+  if (minutes < 60) return t ? t("time.minutesAgo", { count: minutes }) : `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
+  if (hours < 24) return t ? t("time.hoursAgo", { count: hours }) : `${hours} h ago`;
   const days = Math.round(hours / 24);
-  return days === 1 ? "Yesterday" : `${days} days ago`;
+  if (days === 1) return t ? t("time.yesterday") : "Yesterday";
+  return t ? t("time.daysAgo", { count: days }) : `${days} days ago`;
 }

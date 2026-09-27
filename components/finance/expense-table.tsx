@@ -4,8 +4,8 @@ import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows"
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import type { ExpenseSummaryDTO } from "@/lib/modules/finance/finance.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /** The expense list (PRD #15 §167). */
@@ -15,13 +15,14 @@ const SETTLEMENT_TONES = {
   UNPAID: "neutral",
 } as const;
 
-export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
+export async function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
   expenses: ExpenseSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("finance");
   // Rows read in the Group workspace name their company and open through it.
   const grouped = expenses.some((expense) => expense.company);
 
@@ -30,7 +31,7 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
       key: "description",
       id: "description",
       mandatory: true,
-      label: "Expense",
+      label: t("columns.expense"),
       primary: true,
       render: (expense) => {
         const label = (
@@ -51,23 +52,23 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
         );
       },
     },
-    ...(grouped ? [companyColumn<ExpenseSummaryDTO>()] : []),
+    ...(grouped ? [companyColumn<ExpenseSummaryDTO>(t("group.company"))] : []),
     {
       key: "category",
       id: "category",
-      label: "Category",
+      label: t("columns.category"),
       hideBelow: "lg",
       render: (expense) => (
-        <Badge tone="neutral">{expenseCategoryLabels[expense.category]}</Badge>
+        <Badge tone="neutral">{t(`category.${expense.category}`)}</Badge>
       ),
     },
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "xl",
       render: (expense) => (
-        <span className="text-fg-muted">{expense.project?.name ?? "Company-wide"}</span>
+        <span className="text-fg-muted">{expense.project?.name ?? t("companyWide")}</span>
       ),
     },
     {
@@ -75,7 +76,7 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
       id: "date",
       valueType: "date",
       sortKey: sort ? "date" : undefined,
-      label: "Date",
+      label: t("columns.date"),
       hideBelow: "lg",
       render: (expense) => (
         <span className="text-fg-muted">{formatDate(expense.expenseDate)}</span>
@@ -87,7 +88,7 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
       mandatory: true,
       valueType: "money",
       sortKey: sort ? "amount" : undefined,
-      label: "Total",
+      label: t("columns.total"),
       align: "right",
       render: (expense) => (
         <Money amount={expense.totalAmount} currency={expense.currency} emphasis />
@@ -98,22 +99,18 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (expense) => <StatusBadge status={expense.status} />,
     },
     {
       key: "settlement",
       id: "settlement",
       valueType: "status",
-      label: "Paid",
+      label: t("columns.paid"),
       hideBelow: "md",
       render: (expense) => (
         <Badge tone={SETTLEMENT_TONES[expense.settlementStatus]}>
-          {expense.settlementStatus === "PARTIALLY_PAID"
-            ? "Part paid"
-            : expense.settlementStatus === "PAID"
-              ? "Paid"
-              : "Unpaid"}
+          {t(`expenseSettlement.${expense.settlementStatus}`)}
         </Badge>
       ),
     },
@@ -123,7 +120,7 @@ export function ExpenseTable({ expenses, listId = "finance.expenses", sort }: {
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Expenses"
+      caption={t("captions.expenses")}
       columns={columns}
       records={expenses}
       rowKey={(expense) => expense.id}

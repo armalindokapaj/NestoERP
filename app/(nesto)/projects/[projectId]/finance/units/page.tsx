@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { EMPTY_FINANCE_FILTERS, FinanceInventory, type FinanceFilters } from "@/components/finance/unit-finance/finance-inventory";
@@ -14,7 +15,9 @@ import { ProjectTabs } from "../../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Unit finance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("structurePages.unitFinance") };
+}
 
 function refuse(error: unknown): never {
   if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
@@ -32,6 +35,7 @@ export default async function ProjectUnitFinancePage({ params, searchParams }: P
   const { projectId } = await params;
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewUnitFinance) redirect("/access-denied");
 
@@ -54,7 +58,7 @@ export default async function ProjectUnitFinancePage({ params, searchParams }: P
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={projectBreadcrumbs(project, "Finance")} title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Finance")} title={project.name} subtitle={project.code} status={project.status} />
       <ProjectTabs
         projectId={project.id}
         active="finance"
@@ -83,7 +87,7 @@ export default async function ProjectUnitFinancePage({ params, searchParams }: P
       <FinanceViews projectId={project.id} active="units" both={actions.canViewFinance} />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="finance-units-empty">
-          This project has no units yet.
+          {t("structurePages.financeNoUnits")}
         </p>
       ) : (
         <FinanceInventory

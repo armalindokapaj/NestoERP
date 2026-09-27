@@ -5,9 +5,13 @@ import { FinanceSettingsForm } from "@/components/finance/settings-form";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { getFinanceSettings } from "@/lib/modules/finance/finance.settings";
 
-export const metadata: Metadata = { title: "Finance settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.settings") };
+}
 
 /**
  * Company finance configuration (PRD #15 §394, §395).
@@ -22,13 +26,14 @@ export default async function FinanceSettingsPage() {
   if (!can(context, "finance.settings.view")) redirect("/access-denied");
 
   const settings = await getFinanceSettings(context);
+  const t = await getTranslations("finance");
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={[{ label: "Finance", href: "/finance" }, { label: "Settings" }]}
-        title="Finance settings"
-        subtitle="Defaults for new records across the Finance module."
+        breadcrumbs={[{ label: t("crumbs.finance"), href: "/finance" }, { label: t("settings.crumb") }]}
+        title={t("settings.label")}
+        subtitle={t("settings.subtitle")}
       />
 
       <FinanceSettingsForm

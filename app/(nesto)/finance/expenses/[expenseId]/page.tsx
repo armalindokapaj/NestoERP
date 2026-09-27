@@ -10,7 +10,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { expenseBreadcrumbs, expenseLabel, loadExpense } from "./expense-context";
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { expense } = await loadExpense(expenseId);
     return { title: expenseLabel(expense) };
   } catch {
-    return { title: "Expense" };
+    return { title: (await getTranslations("finance"))("kind.expense") };
   }
 }
 
@@ -40,27 +40,28 @@ export default async function ExpenseDetailPage({ params }: Params) {
   const { context, expense } = await loadExpense(expenseId);
 
   const may = expense.capabilities;
+  const t = await getTranslations("finance");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "EXPENSE", expense.id) : null;
 
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={expenseBreadcrumbs(expense)}
+        breadcrumbs={await expenseBreadcrumbs(expense)}
         title={expense.description}
         subtitle={expense.expenseNumber ?? undefined}
         status={expense.status}
-        badges={<Badge tone="neutral">{expenseCategoryLabels[expense.category]}</Badge>}
+        badges={<Badge tone="neutral">{t(`category.${expense.category}`)}</Badge>}
         meta={[
           {
-            label: "Total",
+            label: t("columns.total"),
             value: <Money amount={expense.totalAmount} currency={expense.currency} emphasis />,
           },
           {
-            label: "Outstanding",
+            label: t("columns.outstanding"),
             value: <Money amount={expense.outstandingAmount} currency={expense.currency} />,
           },
-          { label: "Incurred", value: formatDate(expense.expenseDate) },
+          { label: t("expenses.incurred"), value: formatDate(expense.expenseDate) },
         ]}
         actions={
           <ExpenseActions
@@ -80,56 +81,55 @@ export default async function ExpenseDetailPage({ params }: Params) {
 
       {expense.status === "APPROVED" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Approved, so this counts as actual cost against its project whether or not it has been
-          paid.
+          {t("expenses.approvedNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Details</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
-              { label: "Category", value: expenseCategoryLabels[expense.category] },
+              { label: t("form.category"), value: t(`category.${expense.category}`) },
               {
-                label: "Project",
+                label: t("form.project"),
                 value: expense.project ? (
                   <Link href={`/projects/${expense.project.id}`} className="hover:text-accent">
                     {expense.project.name}
                   </Link>
                 ) : (
-                  "Company-wide"
+                  t("companyWide")
                 ),
               },
-              { label: "Payee", value: orDash(expense.payeeName) },
-              { label: "Reference", value: orDash(expense.expenseNumber) },
-              { label: "Currency", value: expense.currency },
-              { label: "Raised by", value: expense.createdBy ? <PersonLink memberId={expense.createdBy.memberId} name={expense.createdBy.fullName} /> : "—" },
+              { label: t("expenseForm.payee"), value: orDash(expense.payeeName) },
+              { label: t("form.reference"), value: orDash(expense.expenseNumber) },
+              { label: t("form.currency"), value: expense.currency },
+              { label: t("invoices.raisedBy"), value: expense.createdBy ? <PersonLink memberId={expense.createdBy.memberId} name={expense.createdBy.fullName} /> : "—" },
             ]}
           />
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
-            <Row label="Net">
+            <Row label={t("overview.net")}>
               <Money amount={expense.netAmount} currency={expense.currency} />
             </Row>
-            <Row label="Tax">
+            <Row label={t("lines.tax")}>
               <Money amount={expense.taxAmount} currency={expense.currency} />
             </Row>
-            <Row label="Total">
+            <Row label={t("columns.total")}>
               <Money amount={expense.totalAmount} currency={expense.currency} emphasis />
             </Row>
-            <Row label="Paid">
+            <Row label={t("columns.paid")}>
               <Money amount={expense.paidAmount} currency={expense.currency} />
             </Row>
-            <Row label="Outstanding">
+            <Row label={t("columns.outstanding")}>
               <Money amount={expense.outstandingAmount} currency={expense.currency} emphasis />
             </Row>
           </dl>
 
           {expense.notes ? (
             <div className="mt-4 border-t border-line pt-4">
-              <h3 className="text-table font-medium text-fg">Notes</h3>
+              <h3 className="text-table font-medium text-fg">{t("form.notes")}</h3>
               <p className="mt-1 whitespace-pre-wrap break-words text-table text-fg-muted">{expense.notes}</p>
             </div>
           ) : null}
@@ -141,14 +141,14 @@ export default async function ExpenseDetailPage({ params }: Params) {
           {may.canViewDocuments ? (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4" data-testid="expense-receipt-hint">
               <div className="min-w-0">
-                <h3 className="text-table font-medium text-fg">Receipt</h3>
+                <h3 className="text-table font-medium text-fg">{t("expenses.receipt")}</h3>
                 <p className="mt-0.5 text-table text-fg-muted">
-                  Receipts and supporting files are kept on this expense&apos;s Documents tab.
+                  {t("expenses.receiptHint")}
                 </p>
               </div>
               <Button asChild variant="secondary" size="sm">
                 <Link href={`/finance/expenses/${expense.id}/documents`}>
-                  {expense.status === "ARCHIVED" ? "View documents" : "Attach receipt"}
+                  {expense.status === "ARCHIVED" ? t("expenses.viewDocuments") : t("expenses.attachReceipt")}
                 </Link>
               </Button>
             </div>
@@ -156,17 +156,17 @@ export default async function ExpenseDetailPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">Approvals</h2>
+          <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
           <ApprovalHistory approvals={expense.approvals} />
         </section>
       </div>
 
       <section className="nesto-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-card font-semibold text-fg">Payments</h2>
+          <h2 className="text-card font-semibold text-fg">{t("captions.payments")}</h2>
           {may.canRecordPayment ? (
             <Button asChild size="sm">
-              <Link href={`/finance/payments/new?expenseId=${expense.id}`}>Record payment</Link>
+              <Link href={`/finance/payments/new?expenseId=${expense.id}`}>{t("panel.recordPayment")}</Link>
             </Button>
           ) : null}
         </div>
@@ -174,8 +174,8 @@ export default async function ExpenseDetailPage({ params }: Params) {
         {expense.payments.length === 0 ? (
           <p className="mt-4 text-table text-fg-subtle">
             {expense.status === "APPROVED"
-              ? "Nothing paid out against this expense yet."
-              : "Payments can be recorded once the expense has been approved."}
+              ? t("expenses.nothingPaid")
+              : t("expenses.paymentsAfterApproved")}
           </p>
         ) : (
           <div className="mt-4">

@@ -8,9 +8,9 @@ import { Money, Variance } from "@/components/finance/money";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import type { UserContext } from "@/lib/context/types";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import * as reports from "@/lib/modules/finance/reports/reports.service";
 import { cn } from "@/lib/utils/cn";
+import { getTranslations } from "@/lib/i18n/server";
 
 /**
  * The built-in reports in the Group workspace (Workspace Context §41, §60, §72).
@@ -22,38 +22,38 @@ import { cn } from "@/lib/utils/cn";
  * is off or where the reader lacks the report's permission is not asked (§92).
  */
 
-const CURRENCY_NOTE = "Totals add a currency only to itself: NESTO does not convert between currencies.";
 
 /* Receivables aging -------------------------------------------------------- */
 
 export async function GroupAgingReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const { rows, totals } = await reports.receivablesAgingAcross(context);
 
   if (rows.length === 0) {
-    return <EmptyState icon={<ChartColumn />} title="Nothing outstanding." description="Every sent invoice in the companies you can read has been settled." />;
+    return <EmptyState icon={<ChartColumn />} title={t("reports.agingNone")} description={t("reports.groupAgingNoneBody")} />;
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-meta text-fg-subtle">Outstanding on sent invoices, by how far past the due date they are, company by company. {CURRENCY_NOTE}</p>
-      <ScrollRegion label="Receivables aging by company" className="nesto-card">
+      <p className="text-meta text-fg-subtle">{t("reports.groupAgingHint")} {t("reports.currencyNote")}</p>
+      <ScrollRegion label={t("reports.agingByCompany")} className="nesto-card">
         <table className="w-full text-table">
-          <caption className="sr-only">Receivables aging by company</caption>
+          <caption className="sr-only">{t("reports.agingByCompany")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                Company
+                {t("group.company")}
               </th>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                Currency
+                {t("form.currency")}
               </th>
               {reports.AGING_BUCKETS.map((bucket) => (
                 <th key={bucket} scope="col" className="px-4 py-2.5 text-right font-medium">
-                  {reports.agingBucketLabels[bucket]}
+                  {t(`aging.${bucket}`)}
                 </th>
               ))}
               <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                Total
+                {t("columns.total")}
               </th>
             </tr>
           </thead>
@@ -79,7 +79,7 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
             {totals.map((row) => (
               <tr key={row.currency}>
                 <th scope="row" className="px-4 py-2.5 text-left font-semibold text-fg">
-                  All companies
+                  {t("reports.allCompanies")}
                 </th>
                 <td className="px-4 py-2.5 text-left text-fg-muted">{row.currency}</td>
                 {reports.AGING_BUCKETS.map((bucket) => (
@@ -102,14 +102,15 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
 /* Budget vs actual --------------------------------------------------------- */
 
 export async function GroupBudgetReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const { rows, totals } = await reports.budgetVsActualAcross(context);
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<ChartColumn />}
-        title="No approved budgets in your view."
-        description="A project needs an approved budget before its variance means anything."
+        title={t("reports.budgetNone")}
+        description={t("reports.budgetNoneBody")}
       />
     );
   }
@@ -118,7 +119,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
   const columns: TableColumn<Row>[] = [
     {
       key: "project",
-      label: "Project",
+      label: t("form.project"),
       primary: true,
       render: (row) => (
         <GroupRecordLink company={row.company} href={`/projects/${row.projectId}/finance`}>
@@ -129,29 +130,29 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
         </GroupRecordLink>
       ),
     },
-    companyColumn<Row>(),
-    { key: "budget", label: "Budget", align: "right", render: (row) => <Money amount={row.budget} currency={row.currency} emphasis /> },
-    { key: "actual", label: "Actual", align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} className="text-fg-muted" /> },
-    { key: "committed", label: "Committed", align: "right", hideBelow: "lg", render: (row) => <Money amount={row.openCommitments} currency={row.currency} className="text-fg-muted" /> },
-    { key: "forecast", label: "Forecast", align: "right", hideBelow: "md", render: (row) => <Money amount={row.forecast} currency={row.currency} className="text-fg-muted" /> },
-    { key: "variance", label: "Variance", align: "right", render: (row) => <Variance amount={row.variance} currency={row.currency} /> },
-    { key: "risk", label: "Utilisation", render: (row) => <BudgetRiskBadge risk={row.risk} utilizationPercent={row.utilizationPercent} /> },
+    companyColumn<Row>(t("group.company")),
+    { key: "budget", label: t("columns.budget"), align: "right", render: (row) => <Money amount={row.budget} currency={row.currency} emphasis /> },
+    { key: "actual", label: t("columns.actual"), align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} className="text-fg-muted" /> },
+    { key: "committed", label: t("columns.committed"), align: "right", hideBelow: "lg", render: (row) => <Money amount={row.openCommitments} currency={row.currency} className="text-fg-muted" /> },
+    { key: "forecast", label: t("columns.forecast"), align: "right", hideBelow: "md", render: (row) => <Money amount={row.forecast} currency={row.currency} className="text-fg-muted" /> },
+    { key: "variance", label: t("columns.variance"), align: "right", render: (row) => <Variance amount={row.variance} currency={row.currency} /> },
+    { key: "risk", label: t("budgets.utilisation"), render: (row) => <BudgetRiskBadge risk={row.risk} utilizationPercent={row.utilizationPercent} /> },
   ];
 
   return (
     <div className="space-y-3">
-      <DataTable caption="Budget vs actual by company" columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.projectId}`} />
-      <ScrollRegion label="Budget vs actual totals by currency" className="nesto-card">
+      <DataTable caption={t("reports.budgetByCompany")} columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.projectId}`} />
+      <ScrollRegion label={t("reports.budgetTotals")} className="nesto-card">
         <table className="w-full text-table">
-          <caption className="sr-only">Budget vs actual totals by currency</caption>
+          <caption className="sr-only">{t("reports.budgetTotals")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                All companies
+                {t("reports.allCompanies")}
               </th>
-              {["Budget", "Actual", "Committed", "Forecast", "Variance"].map((label) => (
+              {(["budget", "actual", "committed", "forecast", "variance"] as const).map((label) => (
                 <th key={label} scope="col" className="px-4 py-2.5 text-right font-medium">
-                  {label}
+                  {t(`columns.${label}`)}
                 </th>
               ))}
             </tr>
@@ -182,7 +183,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
           </tbody>
         </table>
       </ScrollRegion>
-      <p className="text-meta text-fg-subtle">{CURRENCY_NOTE}</p>
+      <p className="text-meta text-fg-subtle">{t("reports.currencyNote")}</p>
     </div>
   );
 }
@@ -190,34 +191,35 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
 /* Expenses by category ----------------------------------------------------- */
 
 export async function GroupCategoryReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const { rows, totals } = await reports.expensesByCategoryAcross(context);
 
   if (rows.length === 0) {
-    return <EmptyState icon={<ChartColumn />} title="No approved cost yet." description="Approved expenses are what actual cost is calculated from." />;
+    return <EmptyState icon={<ChartColumn />} title={t("reports.categoryNone")} description={t("reports.categoryNoneBody")} />;
   }
 
   type Row = (typeof rows)[number];
-  const label = (category: string) => expenseCategoryLabels[category as keyof typeof expenseCategoryLabels];
+  const label = (category: string) => t(`category.${category as "OTHER"}`);
   const columns: TableColumn<Row>[] = [
-    { key: "category", label: "Category", primary: true, render: (row) => label(row.category) },
-    companyColumn<Row>(),
-    { key: "currency", label: "Currency", render: (row) => row.currency },
-    { key: "actual", label: "Actual cost", align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} emphasis /> },
-    { key: "committed", label: "Open commitments", align: "right", render: (row) => <Money amount={row.committed} currency={row.currency} className="text-fg-muted" /> },
+    { key: "category", label: t("form.category"), primary: true, render: (row) => label(row.category) },
+    companyColumn<Row>(t("group.company")),
+    { key: "currency", label: t("form.currency"), render: (row) => row.currency },
+    { key: "actual", label: t("reports.actualCost"), align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} emphasis /> },
+    { key: "committed", label: t("overview.openCommitments"), align: "right", render: (row) => <Money amount={row.committed} currency={row.currency} className="text-fg-muted" /> },
   ];
   const totalColumns: TableColumn<(typeof totals)[number]>[] = [
-    { key: "category", label: "Category", primary: true, render: (row) => label(row.category) },
-    { key: "currency", label: "Currency", render: (row) => row.currency },
-    { key: "actual", label: "Actual cost", align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} emphasis /> },
-    { key: "committed", label: "Open commitments", align: "right", render: (row) => <Money amount={row.committed} currency={row.currency} className="text-fg-muted" /> },
+    { key: "category", label: t("form.category"), primary: true, render: (row) => label(row.category) },
+    { key: "currency", label: t("form.currency"), render: (row) => row.currency },
+    { key: "actual", label: t("reports.actualCost"), align: "right", render: (row) => <Money amount={row.actual} currency={row.currency} emphasis /> },
+    { key: "committed", label: t("overview.openCommitments"), align: "right", render: (row) => <Money amount={row.committed} currency={row.currency} className="text-fg-muted" /> },
   ];
 
   return (
     <div className="space-y-3">
-      <DataTable caption="Expenses by category and company" columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.category}-${row.currency}`} />
-      <h2 className="text-card font-semibold text-fg">All companies</h2>
-      <DataTable caption="Expenses by category, all companies" columns={totalColumns} records={totals} rowKey={(row) => `${row.category}-${row.currency}`} />
-      <p className="text-meta text-fg-subtle">{CURRENCY_NOTE}</p>
+      <DataTable caption={t("reports.categoryByCompany")} columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.category}-${row.currency}`} />
+      <h2 className="text-card font-semibold text-fg">{t("reports.allCompanies")}</h2>
+      <DataTable caption={t("reports.categoryAll")} columns={totalColumns} records={totals} rowKey={(row) => `${row.category}-${row.currency}`} />
+      <p className="text-meta text-fg-subtle">{t("reports.currencyNote")}</p>
     </div>
   );
 }
@@ -225,13 +227,14 @@ export async function GroupCategoryReport({ context }: { context: UserContext })
 /* Cashflow ----------------------------------------------------------------- */
 
 export async function GroupCashflowReport({ context, period }: { context: UserContext; period?: string }) {
+  const t = await getTranslations("finance");
   const known = (reports.CASHFLOW_PERIODS as readonly string[]).includes(period ?? "");
   const selected = known ? (period as reports.CashflowPeriod) : "this-month";
   const report = await reports.cashflowSummaryAcross(context, selected);
 
   return (
     <div className="space-y-3">
-      <nav aria-label="Cashflow period" className="flex flex-wrap gap-2">
+      <nav aria-label={t("reports.period")} className="flex flex-wrap gap-2">
         {reports.CASHFLOW_PERIODS.map((entry) => (
           <Link
             key={entry}
@@ -242,41 +245,41 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
               entry === selected ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
             )}
           >
-            {reports.cashflowPeriodLabels[entry]}
+            {t(`cashflowPeriod.${entry}`)}
           </Link>
         ))}
       </nav>
 
       <p className="text-meta text-fg-subtle">
-        Recorded payments between {report.from} and {report.to}. Voided payments are excluded. {CURRENCY_NOTE}
+        {t("reports.cashflowHint", { from: report.from, to: report.to })} {t("reports.currencyNote")}
       </p>
 
       {report.rows.length === 0 ? (
         <EmptyState
           icon={<ChartColumn />}
-          title="No cash movement in this period."
-          description="Try a wider period, or record a payment against an invoice or expense."
+          title={t("reports.cashflowNone")}
+          description={t("reports.cashflowNoneBody")}
         />
       ) : (
-        <ScrollRegion label="Cashflow summary by company" className="nesto-card">
+        <ScrollRegion label={t("reports.cashflowByCompany")} className="nesto-card">
           <table className="w-full text-table">
-            <caption className="sr-only">Cashflow summary by company</caption>
+            <caption className="sr-only">{t("reports.cashflowByCompany")}</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                  Company
+                  {t("group.company")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium">
-                  Currency
+                  {t("form.currency")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Received
+                  {t("overview.received")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Paid out
+                  {t("overview.paidOut")}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Net
+                  {t("overview.net")}
                 </th>
               </tr>
             </thead>
@@ -303,7 +306,7 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
               {report.totals.map((row) => (
                 <tr key={row.currency}>
                   <th scope="row" className="px-4 py-2.5 text-left font-semibold text-fg">
-                    All companies
+                    {t("reports.allCompanies")}
                   </th>
                   <td className="px-4 py-2.5 text-left text-fg-muted">{row.currency}</td>
                   <td className="px-4 py-2.5 text-right">
@@ -328,38 +331,39 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
 /* Commitment summary ------------------------------------------------------- */
 
 export async function GroupCommitmentReport({ context }: { context: UserContext }) {
+  const t = await getTranslations("finance");
   const { rows, totals } = await reports.commitmentSummaryAcross(context);
 
   if (rows.length === 0) {
-    return <EmptyState icon={<ChartColumn />} title="No open commitments." description="Approved commitments that have not been closed appear here." />;
+    return <EmptyState icon={<ChartColumn />} title={t("reports.commitmentNone")} description={t("reports.commitmentNoneBody")} />;
   }
 
   type Row = (typeof rows)[number];
   const columns: TableColumn<Row>[] = [
-    { key: "project", label: "Project", primary: true, render: (row) => row.projectName },
-    companyColumn<Row>(),
-    { key: "category", label: "Category", render: (row) => expenseCategoryLabels[row.category as keyof typeof expenseCategoryLabels] },
-    { key: "currency", label: "Currency", hideBelow: "md", render: (row) => row.currency },
-    { key: "amount", label: "Open commitment", align: "right", render: (row) => <Money amount={row.amount} currency={row.currency} emphasis /> },
+    { key: "project", label: t("form.project"), primary: true, render: (row) => row.projectName },
+    companyColumn<Row>(t("group.company")),
+    { key: "category", label: t("form.category"), render: (row) => t(`category.${row.category as "OTHER"}`) },
+    { key: "currency", label: t("form.currency"), hideBelow: "md", render: (row) => row.currency },
+    { key: "amount", label: t("reports.openCommitment"), align: "right", render: (row) => <Money amount={row.amount} currency={row.currency} emphasis /> },
   ];
 
   return (
     <div className="space-y-3">
       <DataTable
-        caption="Commitment summary by company"
+        caption={t("reports.commitmentByCompany")}
         columns={columns}
         records={rows}
         rowKey={(row) => `${row.company.id}-${row.projectId ?? "company"}-${row.category}-${row.currency}`}
       />
       <p className="text-right text-table text-fg-muted">
-        Total open commitment, all companies:{" "}
+        {t("reports.totalOpenAll")}{" "}
         {totals.map((total) => (
           <span key={total.currency} className="ml-2 font-semibold text-fg">
             <Money amount={total.amount} currency={total.currency} />
           </span>
         ))}
       </p>
-      <p className="text-right text-meta text-fg-subtle">{CURRENCY_NOTE}</p>
+      <p className="text-right text-meta text-fg-subtle">{t("reports.currencyNote")}</p>
     </div>
   );
 }

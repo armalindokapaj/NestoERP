@@ -15,15 +15,20 @@ import {
   loadCommitment,
 } from "../commitment-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = {
   params: Promise<{ commitmentId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Commitment activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.commitmentActivity") };
+}
 
 export default async function CommitmentActivityPage({ params, searchParams }: Params) {
+  const t = await getTranslations("finance");
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -43,7 +48,7 @@ export default async function CommitmentActivityPage({ params, searchParams }: P
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={commitmentBreadcrumbs(commitment, "Activity")}
+        breadcrumbs={await commitmentBreadcrumbs(commitment, t("crumbs.activity"))}
         title={commitmentLabel(commitment)}
         status={commitment.status}
       />
@@ -57,8 +62,8 @@ export default async function CommitmentActivityPage({ params, searchParams }: P
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this commitment will be listed here."
+          title={t("activity.empty")}
+          description={t("activity.commitmentBody")}
         />
       ) : (
         <>
@@ -66,7 +71,7 @@ export default async function CommitmentActivityPage({ params, searchParams }: P
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

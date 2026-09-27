@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
+import { getTranslations } from "@/lib/i18n/server";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows";
@@ -16,13 +17,14 @@ import type { BudgetSummaryDTO } from "@/lib/modules/finance/finance.types";
  * budget row shows what the project has really spent, which is the only
  * comparison that means anything (PRD #15 §118).
  */
-export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
+export async function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
   budgets: BudgetSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("finance");
   // Rows read in the Group workspace name their company and open through it.
   const grouped = budgets.some((budget) => budget.company);
 
@@ -31,14 +33,14 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "project",
       id: "project",
       mandatory: true,
-      label: "Project",
+      label: t("columns.project"),
       primary: true,
       render: (budget) => {
         const label = (
           <span className="min-w-0">
             <span className="flex items-center gap-2">
               <span className="truncate">{budget.project.name}</span>
-              {budget.isCurrent ? <Badge tone="info">Current</Badge> : null}
+              {budget.isCurrent ? <Badge tone="info">{t("current")}</Badge> : null}
             </span>
             <span className="block truncate text-meta font-normal text-fg-subtle">
               {budget.project.code} · v{budget.version}
@@ -55,14 +57,14 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
         );
       },
     },
-    ...(grouped ? [companyColumn<BudgetSummaryDTO>()] : []),
+    ...(grouped ? [companyColumn<BudgetSummaryDTO>(t("group.company"))] : []),
     {
       key: "budget",
       id: "budget",
       mandatory: true,
       valueType: "money",
       sortKey: sort ? "amount" : undefined,
-      label: "Budget",
+      label: t("columns.budget"),
       align: "right",
       render: (budget) => (
         <Money amount={budget.budgetAmount} currency={budget.currency} emphasis />
@@ -72,7 +74,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "actual",
       id: "actual",
       valueType: "money",
-      label: "Actual",
+      label: t("columns.actual"),
       align: "right",
       hideBelow: "lg",
       render: (budget) => (
@@ -87,7 +89,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "committed",
       id: "committed",
       valueType: "money",
-      label: "Committed",
+      label: t("columns.committed"),
       align: "right",
       hideBelow: "xl",
       render: (budget) => (
@@ -102,7 +104,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "forecast",
       id: "forecast",
       valueType: "money",
-      label: "Forecast",
+      label: t("columns.forecast"),
       align: "right",
       hideBelow: "lg",
       render: (budget) => (
@@ -117,7 +119,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "variance",
       id: "variance",
       valueType: "money",
-      label: "Variance",
+      label: t("columns.variance"),
       align: "right",
       render: (budget) => <Variance amount={budget.variance} currency={budget.currency} />,
     },
@@ -125,7 +127,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       key: "risk",
       id: "risk",
       valueType: "status",
-      label: "Risk",
+      label: t("columns.risk"),
       hideBelow: "md",
       render: (budget) => (
         <BudgetRiskBadge risk={budget.risk} utilizationPercent={budget.utilizationPercent} />
@@ -136,7 +138,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (budget) => <StatusBadge status={budget.status} />,
     },
   ];
@@ -145,7 +147,7 @@ export function BudgetTable({ budgets, listId = "finance.budgets", sort }: {
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Project budgets"
+      caption={t("captions.budgets")}
       columns={columns}
       records={budgets}
       rowKey={(budget) => budget.id}

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ChevronDown } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -17,9 +18,6 @@ import {
   AREA_FIELDS,
   AREA_LABELS,
   COUNT_FIELDS,
-  COUNT_LABELS,
-  ORIENTATION_LABELS,
-  POSITION_LABELS,
   UNIT_ATTRIBUTES,
   UNIT_ORIENTATIONS,
   UNIT_POSITIONS,
@@ -125,6 +123,7 @@ export function warningsFor(values: TechnicalValues, types: UnitTypeOption[]): s
 /** The technical half of the form, shared by a single unit and a batch's defaults (§42). */
 export function TechnicalFields({ idPrefix, values, onChange, types, errors, currentTypeId }: { idPrefix: string; values: TechnicalValues; onChange: (values: TechnicalValues) => void; types: UnitTypeOption[]; errors: Record<string, string>; currentTypeId?: string }) {
   const [more, setMore] = React.useState(false);
+  const t = useTranslations("projects");
   const type = types.find((candidate) => candidate.id === values.unitTypeId);
   const category = type?.category ?? "OTHER";
   const offered = types.filter((candidate) => candidate.isActive || candidate.id === currentTypeId);
@@ -137,9 +136,9 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Type" htmlFor={`${idPrefix}-type`} error={errors.unitTypeId} required>
+        <Field label={t("unitDialog.type")} htmlFor={`${idPrefix}-type`} error={errors.unitTypeId} required>
           <select id={`${idPrefix}-type`} className={selectClass} value={values.unitTypeId} onChange={(event) => set({ unitTypeId: event.target.value })} aria-invalid={Boolean(errors.unitTypeId)}>
-            <option value="">Choose a type</option>
+            <option value="">{t("unitDialog.chooseType")}</option>
             {offered.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.name}
@@ -148,22 +147,22 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
             ))}
           </select>
         </Field>
-        <Field label="Position" htmlFor={`${idPrefix}-position`} error={errors.position}>
+        <Field label={t("unitDialog.position")} htmlFor={`${idPrefix}-position`} error={errors.position}>
           <select id={`${idPrefix}-position`} className={selectClass} value={values.position} onChange={(event) => set({ position: event.target.value as UnitPosition | "" })}>
-            <option value="">Not set</option>
+            <option value="">{t("unitDialog.notSet")}</option>
             {UNIT_POSITIONS.map((position) => (
               <option key={position} value={position}>
-                {POSITION_LABELS[position]}
+                {t(`position.${position}`)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Orientation" htmlFor={`${idPrefix}-orientation`} error={errors.orientation}>
+        <Field label={t("unitDialog.orientation")} htmlFor={`${idPrefix}-orientation`} error={errors.orientation}>
           <select id={`${idPrefix}-orientation`} className={selectClass} value={values.orientation} onChange={(event) => set({ orientation: event.target.value as UnitOrientation | "" })}>
-            <option value="">Not set</option>
+            <option value="">{t("unitDialog.notSet")}</option>
             {UNIT_ORIENTATIONS.map((orientation) => (
               <option key={orientation} value={orientation}>
-                {ORIENTATION_LABELS[orientation]}
+                {t(`orientation.${orientation}`)}
               </option>
             ))}
           </select>
@@ -171,10 +170,10 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-meta font-semibold text-fg">Areas (m²)</legend>
+        <legend className="mb-2 text-meta font-semibold text-fg">{t("unitDialog.areas")}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[...PRIMARY_AREAS, ...(more ? extraAreas : extraAreas.filter((field) => values.areas[field] !== ""))].map((field) => (
-            <Field key={field} label={AREA_LABELS[field]} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
+            <Field key={field} label={t(`area.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
               <Input id={`${idPrefix}-${field}`} inputMode="decimal" value={values.areas[field]} onChange={(event) => set({ areas: { ...values.areas, [field]: numberText(event.target.value) } })} aria-invalid={Boolean(errors[field])} />
             </Field>
           ))}
@@ -184,7 +183,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
       {counts.length ? (
         <div className="grid grid-cols-3 gap-3">
           {counts.map((field) => (
-            <Field key={field} label={COUNT_LABELS[field]} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
+            <Field key={field} label={t(`count.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
               <Input id={`${idPrefix}-${field}`} inputMode="numeric" value={values.counts[field]} onChange={(event) => set({ counts: { ...values.counts, [field]: event.target.value.replace(/\D/g, "") } })} aria-invalid={Boolean(errors[field])} />
             </Field>
           ))}
@@ -207,13 +206,13 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
                       set({ attributes: next });
                     }}
                   />
-                  {spec.label}
+                  {t(`attribute.${key}`)}
                 </label>
               );
             }
             const value = (values.attributes[key as "frontage" | "ceilingHeight"] as string | undefined) ?? "";
             return (
-              <Field key={key} label={spec.label} htmlFor={`${idPrefix}-${key}`} error={errors[key]} className="w-40">
+              <Field key={key} label={t(`attribute.${key}`)} htmlFor={`${idPrefix}-${key}`} error={errors[key]} className="w-40">
                 <Input
                   id={`${idPrefix}-${key}`}
                   inputMode="decimal"
@@ -234,10 +233,10 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
 
       <button type="button" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong" onClick={() => setMore((open) => !open)} aria-expanded={more}>
         <ChevronDown className={cn("size-4 transition-transform", more && "rotate-180")} aria-hidden="true" />
-        {more ? "Fewer fields" : "More areas and counts"}
+        {more ? t("unitDialog.fewer") : t("unitDialog.more")}
       </button>
 
-      <Field label="Description" htmlFor={`${idPrefix}-description`} error={errors.description}>
+      <Field label={t("unitDialog.description")} htmlFor={`${idPrefix}-description`} error={errors.description}>
         <Textarea id={`${idPrefix}-description`} value={values.description} onChange={(event) => set({ description: event.target.value })} maxLength={1000} rows={2} />
       </Field>
     </div>
@@ -271,12 +270,13 @@ export function UnitDialog({
   types: UnitTypeOption[];
   onSaved: (id: string) => void;
 }) {
+  const t = useTranslations("projects");
   // Closing with unsaved input asks through the shared prompt (AUD-03 §5):
   // the X, Escape, the backdrop and Cancel all arrive here as a guarded close.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>{unit ? `Edit ${unit.unitCode}` : "Add unit"}</DialogTitle>
+        <DialogTitle>{unit ? t("unitDialog.editTitle", { code: unit.unitCode }) : t("unitDialog.addTitle")}</DialogTitle>
         <DialogDescription>
           {floor.buildingName} · {floor.name}
         </DialogDescription>
@@ -301,6 +301,7 @@ function UnitForm({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const t = useTranslations("projects");
   const [code, setCode] = React.useState(unit?.unitCode ?? "");
   const [name, setName] = React.useState(unit?.name ?? "");
   const [active, setActive] = React.useState(unit?.isActive ?? true);
@@ -314,13 +315,13 @@ function UnitForm({
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
     { code, name, active, technical },
-    { module: "units", saveKind: unit ? "save" : "create", label: unit ? `Unit ${unit.unitCode}` : `New unit on ${floor.name}`, save: () => persist.current() },
+    { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.unitCode }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
   );
 
   persist.current = async () => {
     const local: Record<string, string> = {};
-    if (!code.trim()) local.unitCode = "Give the unit a code.";
-    if (!technical.unitTypeId) local.unitTypeId = "Choose the unit's type.";
+    if (!code.trim()) local.unitCode = t("unitDialog.codeRequired");
+    if (!technical.unitTypeId) local.unitTypeId = t("unitDialog.typeRequired");
     Object.assign(local, technicalProblems(technical));
     if (Object.keys(local).length) {
       setErrors(local);
@@ -333,11 +334,11 @@ function UnitForm({
     try {
       if (unit) {
         await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } }));
-        toast({ title: code !== unit.unitCode ? `Saved. ${unit.unitCode} is now ${code}; its page and links are unchanged.` : `${code} saved.` });
+        toast({ title: code !== unit.unitCode ? t("unitDialog.renamed", { old: unit.unitCode, code }) : t("unitDialog.saved", { code }) });
         onSaved(unit.id);
       } else {
         const created = await editor.track(() => structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body }));
-        toast({ title: `${code} added to ${floor.name}.` });
+        toast({ title: t("unitDialog.added", { code, floor: floor.name }) });
         onSaved(created.id);
       }
       onDone();
@@ -345,7 +346,7 @@ function UnitForm({
     } catch (error) {
       const fields = fieldErrors(error);
       setErrors(fields);
-      if (!Object.keys(fields).length) setFormError(failureMessage(error, "The unit could not be saved."));
+      if (!Object.keys(fields).length) setFormError(failureMessage(error, t("unitDialog.saveFailed")));
       return failureOutcome(error);
     } finally {
       setPending(false);
@@ -362,18 +363,18 @@ function UnitForm({
       <FormError message={formError} />
       <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Unit code" htmlFor="unit-code" error={errors.unitCode} required hint={unit ? "Changing the code keeps the unit's id and page." : "Unique in this project, e.g. A-901."}>
+          <Field label={t("unitDialog.code")} htmlFor="unit-code" error={errors.unitCode} required hint={unit ? t("unitDialog.codeHintEdit") : t("unitDialog.codeHintNew")}>
             <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
           </Field>
-          <Field label="Name" htmlFor="unit-name" error={errors.name}>
-            <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Apartment 901" />
+          <Field label={t("unitDialog.name")} htmlFor="unit-name" error={errors.name}>
+            <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder={t("unitDialog.namePlaceholder")} />
           </Field>
         </div>
         <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
         {unit ? (
           <label className="flex items-center gap-2 text-table text-fg">
             <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
-            Active
+            {t("unitDialog.active")}
           </label>
         ) : null}
       </fieldset>
@@ -381,11 +382,11 @@ function UnitForm({
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>
-            Cancel
+            {t("unitDialog.cancel")}
           </Button>
         </DialogClose>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : unit ? "Save unit" : "Add unit"}
+          {pending ? t("unitDialog.saving") : unit ? t("unitDialog.save") : t("unitDialog.addTitle")}
         </Button>
       </DialogFooter>
     </form>

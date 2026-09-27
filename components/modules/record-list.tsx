@@ -1,4 +1,5 @@
 import { Inbox } from "lucide-react";
+import { getTranslations } from "@/lib/i18n/server";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ListToolbar } from "@/components/data/list-toolbar";
@@ -15,7 +16,7 @@ import { paginationMeta } from "@/lib/modules/shared/list-query";
  * table, toolbar, pagination and states are the shared ones. No module builds
  * its own (PRD #7 §93).
  */
-export function RecordList({
+export async function RecordList({
   section,
   rows,
   total,
@@ -32,6 +33,7 @@ export function RecordList({
   basePath: string;
   searchParams: Record<string, string | string[] | undefined>;
 }) {
+  const [t, tUi] = await Promise.all([getTranslations("common"), getTranslations("ui")]);
   const columns: TableColumn<ModuleRecordRow>[] = section.columns.map((column, index) => ({
     key: column.key,
     label: column.label,
@@ -63,7 +65,7 @@ export function RecordList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder={`Search ${section.plural.toLowerCase()}…`}
+        searchPlaceholder={t("searchNoun", { noun: section.plural.toLowerCase() })}
         filters={section.filters ?? []}
       />
 
@@ -73,9 +75,9 @@ export function RecordList({
           // and the useful action here is clearing the filters (PRD #7 §77).
           <EmptyState
             icon={<Inbox />}
-            title={`No ${section.plural.toLowerCase()} match these filters.`}
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            title={t("noMatch", { noun: section.plural.toLowerCase() })}
+            description={t("noMatchBody")}
+            action={{ label: tUi("clearFilters"), href: basePath }}
           />
         ) : (
           <EmptyState

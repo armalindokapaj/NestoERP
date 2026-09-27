@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -17,7 +18,9 @@ import { ProjectTabs } from "../project-tabs";
 
 type Params = { params: Promise<{ projectId: string }> };
 
-export const metadata: Metadata = { title: "Project meetings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabPages.meetingsTitle") };
+}
 
 /**
  * A project's meetings (PRD #40 §7, §123): the meetings module, filtered to this
@@ -27,6 +30,7 @@ export const metadata: Metadata = { title: "Project meetings" };
 export default async function ProjectMeetingsPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   if (!actions.canViewMeetings) redirect("/access-denied");
 
@@ -41,7 +45,7 @@ export default async function ProjectMeetingsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Meetings")}
+        breadcrumbs={await projectBreadcrumbs(project, "Meetings")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -50,7 +54,7 @@ export default async function ProjectMeetingsPage({ params }: Params) {
             <Button asChild size="sm">
               <Link href={`/meetings/new?projectId=${project.id}`}>
                 <Plus aria-hidden="true" />
-                New meeting
+                {t("tabPages.newMeeting")}
               </Link>
             </Button>
           ) : null
@@ -84,14 +88,14 @@ export default async function ProjectMeetingsPage({ params }: Params) {
 
       <section aria-labelledby="project-meetings-upcoming" className="space-y-3">
         <h2 id="project-meetings-upcoming" className="text-section font-semibold text-fg">
-          Upcoming
+          {t("tabPages.upcoming")}
         </h2>
         {upcoming.data.length === 0 ? (
           <EmptyState
             icon={<MeetingEmptyIcon />}
-            title="No meetings scheduled for this project."
-            description="Coordination, site and design review meetings for the project appear here."
-            action={canCreate ? { label: "Schedule a meeting", href: `/meetings/new?projectId=${project.id}` } : undefined}
+            title={t("tabPages.noMeetingsTitle")}
+            description={t("tabPages.noMeetingsBody")}
+            action={canCreate ? { label: t("tabPages.scheduleMeeting"), href: `/meetings/new?projectId=${project.id}` } : undefined}
           />
         ) : (
           <>
@@ -99,9 +103,9 @@ export default async function ProjectMeetingsPage({ params }: Params) {
             {/* The tab shows the first 50; the rest are one link away, counted — never cut silently (AUD-08 §4). */}
             {upcoming.pagination.total > upcoming.data.length ? (
               <p className="text-table text-fg-muted" data-testid="project-meetings-upcoming-count">
-                Showing <span className="tabular-nums">{upcoming.data.length}</span> of <span className="tabular-nums">{upcoming.pagination.total}</span>.{" "}
+                {t("tabPages.showing")} <span className="tabular-nums">{upcoming.data.length}</span> {t("tabPages.of")} <span className="tabular-nums">{upcoming.pagination.total}</span>.{" "}
                 <Link href={`/meetings?projectId=${project.id}`} className="font-medium text-accent-strong">
-                  All upcoming meetings
+                  {t("tabPages.allUpcomingMeetings")}
                 </Link>
               </p>
             ) : null}
@@ -113,10 +117,10 @@ export default async function ProjectMeetingsPage({ params }: Params) {
         <section aria-labelledby="project-meetings-past" className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 id="project-meetings-past" className="text-section font-semibold text-fg">
-              Recent
+              {t("tabPages.recent")}
             </h2>
             <Link href={`/meetings/past?projectId=${project.id}`} className="text-table font-medium text-accent-strong">
-              All past meetings (<span className="tabular-nums">{past.pagination.total}</span>)
+              {t("tabPages.allPastMeetings")} (<span className="tabular-nums">{past.pagination.total}</span>)
             </Link>
           </div>
           <MeetingList meetings={past.data} zone={zone} today={today} showProject={false} />

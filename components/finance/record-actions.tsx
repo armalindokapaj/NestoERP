@@ -16,6 +16,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -27,6 +28,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import type { FinanceActionResult } from "@/lib/actions/finance";
 import type { RecordCapabilities } from "@/lib/modules/finance/finance.types";
+import type { Translate } from "@/lib/i18n/translator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { RejectDialog } from "./reject-dialog";
 
@@ -58,6 +60,9 @@ export function FinanceRecordActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useFinanceTranslations();
+  const kindLabel = t(`kindSubject.${kind}`);
+  const kindLower = t(`kindLower.${kind}`);
   const [pending, startTransition] = React.useTransition();
   const [confirming, setConfirming] = React.useState<null | "cancel" | "archive" | "close">(null);
   const [rejecting, setRejecting] = React.useState(false);
@@ -102,22 +107,22 @@ export function FinanceRecordActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={editHref}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("actions.edit")}
           </Link>
         </Button>
       ) : null}
 
       {capabilities.canSubmit ? (
-        <Button size="sm" onClick={() => run("submit", "Submitted for approval.")} disabled={busy} aria-busy={running === "submit" || undefined}>
+        <Button size="sm" onClick={() => run("submit", t("actions.submitted"))} disabled={busy} aria-busy={running === "submit" || undefined}>
           <Send aria-hidden="true" />
-          {buttonText("submit", "Submit for approval", "Submitting…")}
+          {buttonText("submit", t("actions.submit"), t("actions.submitting"))}
         </Button>
       ) : null}
 
       {capabilities.canApprove ? (
-        <Button size="sm" onClick={() => run("approve", `${LABELS[kind]} approved.`)} disabled={busy} aria-busy={running === "approve" || undefined}>
+        <Button size="sm" onClick={() => run("approve", t("actions.approved", { kind: kindLabel }))} disabled={busy} aria-busy={running === "approve" || undefined}>
           <ThumbsUp aria-hidden="true" />
-          {buttonText("approve", "Approve", "Approving…")}
+          {buttonText("approve", t("actions.approve"), t("actions.approving"))}
         </Button>
       ) : null}
 
@@ -129,21 +134,21 @@ export function FinanceRecordActions({
           disabled={busy}
         >
           <ThumbsDown aria-hidden="true" />
-          Reject
+          {t("actions.reject")}
         </Button>
       ) : null}
 
       {capabilities.canMarkSent ? (
-        <Button size="sm" onClick={() => run("mark-sent", "Marked as sent.")} disabled={busy} aria-busy={running === "mark-sent" || undefined}>
+        <Button size="sm" onClick={() => run("mark-sent", t("actions.markedSent"))} disabled={busy} aria-busy={running === "mark-sent" || undefined}>
           <SendHorizontal aria-hidden="true" />
-          {buttonText("mark-sent", "Mark as sent", "Marking as sent…")}
+          {buttonText("mark-sent", t("actions.markSent"), t("actions.markingSent"))}
         </Button>
       ) : null}
 
       {capabilities.canRestore ? (
-        <Button size="sm" onClick={() => run("restore", `${LABELS[kind]} restored.`)} disabled={busy} aria-busy={running === "restore" || undefined}>
+        <Button size="sm" onClick={() => run("restore", t("actions.restored", { kind: kindLabel }))} disabled={busy} aria-busy={running === "restore" || undefined}>
           <ArchiveRestore aria-hidden="true" />
-          {buttonText("restore", "Restore", "Restoring…")}
+          {buttonText("restore", t("actions.restore"), t("actions.restoring"))}
         </Button>
       ) : null}
 
@@ -151,7 +156,7 @@ export function FinanceRecordActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`${editHref.replace(/\/edit$/, "")}/revise`}>
             <CheckCheck aria-hidden="true" />
-            Create revision
+            {t("actions.createRevision")}
           </Link>
         </Button>
       ) : null}
@@ -159,7 +164,7 @@ export function FinanceRecordActions({
       {capabilities.canClose || capabilities.canCancel || capabilities.canArchive ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${label}`}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { label })}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -172,7 +177,7 @@ export function FinanceRecordActions({
                 }}
               >
                 <CheckCheck />
-                Close commitment
+                {t("actions.closeCommitment")}
               </DropdownMenuItem>
             ) : null}
             {capabilities.canCancel ? (
@@ -183,7 +188,7 @@ export function FinanceRecordActions({
                 }}
               >
                 <Ban />
-                Cancel {kind}
+                {t("actions.cancelKind", { kind: kindLower })}
               </DropdownMenuItem>
             ) : null}
             {capabilities.canArchive ? (
@@ -194,7 +199,7 @@ export function FinanceRecordActions({
                 }}
               >
                 <Archive />
-                Archive {kind}
+                {t("actions.archiveKind", { kind: kindLower })}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -206,27 +211,33 @@ export function FinanceRecordActions({
         onOpenChange={(open) => {
           if (!open) setConfirming(null);
         }}
-        title={confirmTitle(confirming, kind, label)}
-        description={confirmBody(confirming, kind)}
+        title={confirmTitle(t, confirming, label)}
+        description={confirmBody(t, confirming, kind)}
         confirmLabel={
-          confirming === "close" ? "Close" : confirming === "cancel" ? "Cancel it" : "Archive"
+          confirming === "close" ? t("actions.close") : confirming === "cancel" ? t("actions.cancelIt") : t("actions.archive")
         }
         pending={busy}
         onConfirm={() => {
-          if (confirming === "close") run("close", "Commitment closed.");
-          else if (confirming === "cancel") run("cancel", `${LABELS[kind]} cancelled.`);
-          else if (confirming === "archive") run("archive", `${LABELS[kind]} archived.`);
+          if (confirming === "close") run("close", t("actions.commitmentClosed"));
+          else if (confirming === "cancel") run("cancel", t("actions.cancelled", { kind: kindLabel }));
+          else if (confirming === "archive") run("archive", t("actions.archived", { kind: kindLabel }));
         }}
       />
 
       <RejectDialog
         open={rejecting}
         onOpenChange={setRejecting}
-        title={`Reject ${label}?`}
+        title={t("actions.rejectTitle", { label })}
+        description={t("reject.description")}
+        label={t("reject.label")}
+        placeholder={t("reject.placeholder")}
+        confirmLabel={t("reject.confirm")}
+        pendingLabel={t("reject.pending")}
+        emptyMessage={t("reject.empty")}
         onReject={async (reason) => {
           const result = await reject(reason);
           if (result.ok) {
-            toast({ title: `${LABELS[kind]} rejected.` });
+            toast({ title: t("actions.rejected", { kind: kindLabel }) });
             setRejecting(false);
             router.refresh();
           } else {
@@ -239,34 +250,22 @@ export function FinanceRecordActions({
   );
 }
 
-const LABELS: Record<FinanceRecordKind, string> = {
-  invoice: "Invoice",
-  expense: "Expense",
-  budget: "Budget",
-  commitment: "Commitment",
-};
-
 function confirmTitle(
+  t: Translate<"finance">,
   action: "cancel" | "archive" | "close" | null,
-  kind: FinanceRecordKind,
   label: string,
 ): string {
-  if (action === "close") return `Close ${label}?`;
-  if (action === "cancel") return `Cancel ${label}?`;
-  return `Archive ${label}?`;
+  if (action === "close") return t("actions.closeTitle", { label });
+  if (action === "cancel") return t("actions.cancelTitle", { label });
+  return t("actions.archiveTitle", { label });
 }
 
 function confirmBody(
+  t: Translate<"finance">,
   action: "cancel" | "archive" | "close" | null,
   kind: FinanceRecordKind,
 ): string {
-  if (action === "close") {
-    return "The commitment stops counting toward forecast cost. It stays visible, with its history.";
-  }
-  if (action === "cancel") {
-    return kind === "invoice"
-      ? "The invoice will no longer stand. It stays visible and cannot take payments. This is refused if any payment has been recorded against it."
-      : "The record will no longer stand, and stops counting toward cost. It stays visible with its history.";
-  }
-  return "It is removed from active lists. Nothing is deleted, and it can be restored to the status it holds now.";
+  if (action === "close") return t("actions.closeBody");
+  if (action === "cancel") return kind === "invoice" ? t("actions.cancelInvoiceBody") : t("actions.cancelBody");
+  return t("actions.archiveBody");
 }

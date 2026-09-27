@@ -2,6 +2,7 @@
 
 import Link from "@/components/navigation/nav-link";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -12,9 +13,9 @@ import { cn } from "@/lib/utils/cn";
  * open what it leads to.
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "documents", label: "Documents", suffix: "/documents" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", label: "tabs.overview", suffix: "" },
+  { key: "documents", label: "tabs.documents", suffix: "/documents" },
+  { key: "activity", label: "tabs.activity", suffix: "/activity" },
 ] as const;
 
 export type FinanceTabKey = (typeof TABS)[number]["key"];
@@ -28,10 +29,11 @@ export function FinanceRecordTabs({
   active: FinanceTabKey;
   show: Partial<Record<FinanceTabKey, boolean>>;
 }) {
+  const t = useFinanceTranslations();
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (
-    <nav aria-label="Record sections" className="border-b border-line">
+    <nav aria-label={t("tabs.sections")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -47,7 +49,7 @@ export function FinanceRecordTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(tab.label)}
               </Link>
             </li>
           );

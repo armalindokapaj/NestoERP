@@ -9,6 +9,7 @@ import {
   selectClass,
   type FormActionResult,
 } from "@/components/forms/record-form";
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Input } from "@/components/ui/input";
 import { localToday } from "./local-date";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +44,7 @@ export function PaymentForm({
   defaultTargetId?: string;
   cancelHref: string;
 }) {
+  const t = useFinanceTranslations();
   const [targetId, setTargetId] = React.useState(defaultTargetId ?? targets[0]?.id ?? "");
   const target = targets.find((entry) => entry.id === targetId);
   const field = direction === "RECEIPT" ? "invoiceId" : "expenseId";
@@ -52,19 +54,19 @@ export function PaymentForm({
       action={action}
       module="finance"
       cancelHref={cancelHref}
-      submitLabel={direction === "RECEIPT" ? "Record receipt" : "Record payment"}
-      pendingLabel="Recording…"
+      submitLabel={direction === "RECEIPT" ? t("paymentForm.recordReceipt") : t("paymentForm.recordPayment")}
+      pendingLabel={t("paymentForm.recording")}
     >
       <FormSection
-        title={direction === "RECEIPT" ? "Money received" : "Money paid out"}
+        title={direction === "RECEIPT" ? t("paymentForm.received") : t("paymentForm.paidOut")}
         description={
           direction === "RECEIPT"
-            ? "Against an invoice that has been sent."
-            : "Against an approved expense."
+            ? t("paymentForm.receivedHint")
+            : t("paymentForm.paidOutHint")
         }
       >
         <Field
-          label={direction === "RECEIPT" ? "Invoice" : "Expense"}
+          label={direction === "RECEIPT" ? t("kind.invoice") : t("kind.expense")}
           name={field}
           required
           className="sm:col-span-2"
@@ -78,23 +80,23 @@ export function PaymentForm({
             onChange={(event) => setTargetId(event.target.value)}
           >
             <option value="" disabled>
-              {direction === "RECEIPT" ? "Choose an invoice" : "Choose an expense"}
+              {direction === "RECEIPT" ? t("paymentForm.chooseInvoice") : t("paymentForm.chooseExpense")}
             </option>
             {targets.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.label} — {formatAmount(entry.outstanding, entry.currency)} outstanding
+                {t("paymentForm.targetOption", { label: entry.label, amount: formatAmount(entry.outstanding, entry.currency) })}
               </option>
             ))}
           </select>
         </Field>
 
         <Field
-          label="Amount"
+          label={t("form.amount")}
           name="amount"
           required
           hint={
             target
-              ? `${formatAmount(target.outstanding, target.currency)} outstanding in ${target.currency}.`
+              ? t("paymentForm.outstandingIn", { amount: formatAmount(target.outstanding, target.currency), currency: target.currency })
               : undefined
           }
         >
@@ -108,7 +110,7 @@ export function PaymentForm({
           />
         </Field>
 
-        <Field label="Payment date" name="paymentDate" required>
+        <Field label={t("paymentForm.date")} name="paymentDate" required>
           <Input
             id="paymentDate"
             name="paymentDate"
@@ -118,21 +120,21 @@ export function PaymentForm({
           />
         </Field>
 
-        <Field label="Method" name="method" required>
+        <Field label={t("columns.method")} name="method" required>
           <select id="method" name="method" className={selectClass} defaultValue="BANK_TRANSFER">
-            <option value="BANK_TRANSFER">Bank transfer</option>
-            <option value="CARD">Card</option>
-            <option value="CASH">Cash</option>
-            <option value="CHECK">Cheque</option>
-            <option value="OTHER">Other</option>
+            <option value="BANK_TRANSFER">{t("method.BANK_TRANSFER")}</option>
+            <option value="CARD">{t("method.CARD")}</option>
+            <option value="CASH">{t("method.CASH")}</option>
+            <option value="CHECK">{t("method.CHECK")}</option>
+            <option value="OTHER">{t("method.OTHER")}</option>
           </select>
         </Field>
 
-        <Field label="Reference" name="reference" hint="Bank reference or receipt number.">
+        <Field label={t("form.reference")} name="reference" hint={t("paymentForm.referenceHint")}>
           <Input id="reference" name="reference" maxLength={200} />
         </Field>
 
-        <Field label="Notes" name="notes" className="sm:col-span-2">
+        <Field label={t("form.notes")} name="notes" className="sm:col-span-2">
           <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
         </Field>
       </FormSection>

@@ -10,7 +10,7 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { ScrollRegion } from "@/components/ui/scroll-region";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
 import { formatDate } from "@/lib/utils/format";
 import { budgetBreadcrumbs, budgetLabel, loadBudget } from "./budget-context";
@@ -22,9 +22,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { budgetId } = await params;
   try {
     const { budget } = await loadBudget(budgetId);
-    return { title: budgetLabel(budget) };
+    return { title: budgetLabel(budget, await getTranslations("finance")) };
   } catch {
-    return { title: "Budget" };
+    return { title: (await getTranslations("finance"))("kind.budget") };
   }
 }
 
@@ -40,33 +40,34 @@ export default async function BudgetDetailPage({ params }: Params) {
   const { context, budget } = await loadBudget(budgetId);
 
   const may = budget.capabilities;
+  const t = await getTranslations("finance");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "BUDGET", budget.id) : null;
 
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={budgetBreadcrumbs(budget)}
-        title={budget.name ?? budgetLabel(budget)}
-        subtitle={`${budget.project.name} · version ${budget.version}`}
+        breadcrumbs={await budgetBreadcrumbs(budget)}
+        title={budget.name ?? budgetLabel(budget, t)}
+        subtitle={t("budgets.subtitle", { project: budget.project.name, version: budget.version })}
         status={budget.status}
-        badges={budget.isCurrent ? <Badge tone="info">Current</Badge> : null}
+        badges={budget.isCurrent ? <Badge tone="info">{t("current")}</Badge> : null}
         meta={[
           {
-            label: "Budget",
+            label: t("columns.budget"),
             value: <Money amount={budget.budgetAmount} currency={budget.currency} emphasis />,
           },
           {
-            label: "Forecast",
+            label: t("columns.forecast"),
             value: <Money amount={budget.forecastCost} currency={budget.currency} />,
           },
           {
-            label: "Variance",
+            label: t("columns.variance"),
             value: <Variance amount={budget.variance} currency={budget.currency} />,
           },
         ]}
         actions={
-          <BudgetActions budgetId={budget.id} label={budgetLabel(budget)} capabilities={may} cycle={cycle} />
+          <BudgetActions budgetId={budget.id} label={budgetLabel(budget, t)} capabilities={may} cycle={cycle} />
         }
       />
 
@@ -78,35 +79,33 @@ export default async function BudgetDetailPage({ params }: Params) {
 
       {budget.status === "APPROVED" && !budget.isCurrent ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          Superseded by a later version. It stays here as the record of what was approved at the
-          time.
+          {t("budgets.supersededNote")}
         </p>
       ) : null}
 
       {budget.status === "APPROVED" && budget.isCurrent ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          The project&apos;s current budget. An approved budget is never edited — create a
-          revision instead, and it goes through approval like any other version.
+          {t("budgets.currentNote")}
         </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">Budget lines</h2>
+          <h2 className="text-card font-semibold text-fg">{t("lines.budgetLines")}</h2>
 
-          <ScrollRegion label="Budget lines" className="mt-4">
+          <ScrollRegion label={t("lines.budgetLines")} className="mt-4">
             <table className="w-full text-table">
-              <caption className="sr-only">Budget lines</caption>
+              <caption className="sr-only">{t("lines.budgetLines")}</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
                 <tr>
                   <th scope="col" className="py-2 text-left font-medium">
-                    Category
+                    {t("form.category")}
                   </th>
                   <th scope="col" className="py-2 text-left font-medium">
-                    Description
+                    {t("form.description")}
                   </th>
                   <th scope="col" className="py-2 text-right font-medium">
-                    Planned
+                    {t("budgets.planned")}
                   </th>
                 </tr>
               </thead>
@@ -114,7 +113,7 @@ export default async function BudgetDetailPage({ params }: Params) {
                 {budget.lineItems.map((line) => (
                   <tr key={line.id}>
                     <td className="py-2.5 pr-3">
-                      <Badge tone="neutral">{expenseCategoryLabels[line.category]}</Badge>
+                      <Badge tone="neutral">{t(`category.${line.category}`)}</Badge>
                     </td>
                     <td className="py-2.5 pr-3 text-fg">{line.description}</td>
                     <td className="py-2.5 text-right">
@@ -127,26 +126,26 @@ export default async function BudgetDetailPage({ params }: Params) {
           </ScrollRegion>
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
-            <Row label="Budget">
+            <Row label={t("columns.budget")}>
               <Money amount={budget.budgetAmount} currency={budget.currency} emphasis />
             </Row>
-            <Row label="Actual cost (approved expenses)">
+            <Row label={t("budgets.actualCost")}>
               <Money amount={budget.actualCost} currency={budget.currency} />
             </Row>
-            <Row label="Open commitments">
+            <Row label={t("overview.openCommitments")}>
               <Money amount={budget.openCommitments} currency={budget.currency} />
             </Row>
-            <Row label="Forecast">
+            <Row label={t("columns.forecast")}>
               <Money amount={budget.forecastCost} currency={budget.currency} emphasis />
             </Row>
-            <Row label="Variance">
+            <Row label={t("columns.variance")}>
               <Variance amount={budget.variance} currency={budget.currency} />
             </Row>
           </dl>
 
           {budget.notes ? (
             <div className="mt-4 border-t border-line pt-4">
-              <h3 className="text-table font-medium text-fg">Notes</h3>
+              <h3 className="text-table font-medium text-fg">{t("form.notes")}</h3>
               <p className="mt-1 whitespace-pre-wrap text-table text-fg-muted">{budget.notes}</p>
             </div>
           ) : null}
@@ -154,12 +153,12 @@ export default async function BudgetDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Details</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
                 {
-                  label: "Project",
+                  label: t("form.project"),
                   value: (
                     <Link
                       href={`/projects/${budget.project.id}/finance`}
@@ -169,10 +168,10 @@ export default async function BudgetDetailPage({ params }: Params) {
                     </Link>
                   ),
                 },
-                { label: "Version", value: `v${budget.version}` },
-                { label: "Currency", value: budget.currency },
+                { label: t("budgets.version"), value: `v${budget.version}` },
+                { label: t("form.currency"), value: budget.currency },
                 {
-                  label: "Utilisation",
+                  label: t("budgets.utilisation"),
                   value: (
                     <BudgetRiskBadge
                       risk={budget.risk}
@@ -181,16 +180,16 @@ export default async function BudgetDetailPage({ params }: Params) {
                   ),
                 },
                 {
-                  label: "Approved",
+                  label: t("recordStatus.APPROVED"),
                   value: budget.approvedAt ? formatDate(budget.approvedAt) : "—",
                 },
-                { label: "Drafted by", value: budget.createdBy ? <PersonLink memberId={budget.createdBy.memberId} name={budget.createdBy.fullName} /> : "—" },
+                { label: t("budgets.draftedBy"), value: budget.createdBy ? <PersonLink memberId={budget.createdBy.memberId} name={budget.createdBy.fullName} /> : "—" },
               ]}
             />
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Approvals</h2>
+            <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
             <ApprovalHistory approvals={budget.approvals} />
           </section>
         </div>

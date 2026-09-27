@@ -1,4 +1,5 @@
 import { TabPendingDot } from "@/components/modules/tab-pending-dot";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { KeepActiveInView } from "@/components/ui/scroll-region";
 import { sectionRoute } from "@/config/modules";
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils/cn";
  * tab is a 44px target under touch, and the focus ring is drawn inside the tab
  * so the scroll box cannot clip it (AUD-04 §4, SP-09, MW-02, MW-19).
  */
-export function ModuleTabs({
+export async function ModuleTabs({
   experience,
   activeSection,
 }: {
@@ -25,11 +26,12 @@ export function ModuleTabs({
   activeSection: string;
 }) {
   if (experience.sections.length <= 1) return null;
+  const t = await getTranslations("common");
 
   return (
     <div className="-mx-1 overflow-x-auto overscroll-x-contain">
       <nav
-        aria-label={`${experience.label} sections`}
+        aria-label={t("sections", { label: experience.label })}
         className="flex min-w-max items-center gap-1 border-b border-line px-1"
       >
         {experience.sections.map((section) => {

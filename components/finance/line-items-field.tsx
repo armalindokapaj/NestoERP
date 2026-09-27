@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,8 +61,6 @@ const EMPTY_LINE: PricedLineValue = {
   taxRate: "20",
 };
 
-const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be greater than zero");
-const taxRateInRange = (value: string) => (compareDecimal(value, "100") <= 0 ? null : "Tax rate must be between 0 and 100");
 
 export function PricedLineItems({
   currency,
@@ -73,6 +72,9 @@ export function PricedLineItems({
   defaultTaxRate?: string | null;
 }) {
   const instance = React.useId();
+  const t = useFinanceTranslations();
+  const positiveQuantity = React.useCallback((value: string) => (isPositiveDecimal(value) ? null : t("lines.quantityPositive")), [t]);
+  const taxRateInRange = React.useCallback((value: string) => (compareDecimal(value, "100") <= 0 ? null : t("lines.taxRange")), [t]);
   const empty = React.useCallback(
     () => ({ ...EMPTY_LINE, taxRate: defaultTaxRate ?? EMPTY_LINE.taxRate }),
     [defaultTaxRate],
@@ -103,17 +105,17 @@ export function PricedLineItems({
     <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">Line items</h2>
+          <h2 className="text-card font-semibold text-fg">{t("lines.lineItems")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            Quantity and unit price up to 4 decimals, e.g. 12.5 or 12,5. Totals are a preview; the server recalculates them when you save.
+            {t("lines.lineItemsHint")}
           </p>
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
           <Plus aria-hidden="true" />
-          Add line
+          {t("lines.addLine")}
         </Button>
       </div>
-      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">{t("lines.maxDocument", { max: MAX_LINE_ITEMS })}</p> : null}
       <CellError id={listErrorId} message={errors.list} />
 
       <RemovedLineNotice removed={removed} label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
@@ -129,7 +131,7 @@ export function PricedLineItems({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+              aria-label={row.description ? t("lines.removeLineNamed", { number: index + 1, description: row.description }) : t("lines.removeLine", { number: index + 1 })}
               // The last line is never removable: a priced document with
               // no lines has no total, and the server refuses it anyway.
               disabled={rows.length === 1}
@@ -142,12 +144,12 @@ export function PricedLineItems({
             <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
               {/* The row's own header below lg: which line this is, and its remove control beside it. */}
               <div className="mb-2 flex items-center justify-between gap-2 lg:hidden">
-                <span className="text-table font-medium text-fg">Line {index + 1}</span>
+                <span className="text-table font-medium text-fg">{t("lines.lineNumber", { number: index + 1 })}</span>
                 {removeButton()}
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12">
                 <div className="col-span-2 space-y-1.5 md:col-span-4 lg:col-span-5">
-                  <Label htmlFor={`${base}-description`}>Description</Label>
+                  <Label htmlFor={`${base}-description`}>{t("lines.description")}</Label>
                   <Input
                     id={`${base}-description`}
                     name={`lineItems.${index}.description`}
@@ -165,7 +167,7 @@ export function PricedLineItems({
                   className="min-w-0 lg:col-span-2"
                   id={`${base}-quantity`}
                   name={`lineItems.${index}.quantity`}
-                  label="Quantity"
+                  label={t("lines.quantity")}
                   value={row.quantity}
                   rule={{ label: "Quantity", ...RATE_RULE }}
                   refine={positiveQuantity}
@@ -177,7 +179,7 @@ export function PricedLineItems({
                   className="min-w-0 lg:col-span-2"
                   id={`${base}-unitPrice`}
                   name={`lineItems.${index}.unitPrice`}
-                  label="Unit price"
+                  label={t("lines.unitPrice")}
                   unit={currency}
                   value={row.unitPrice}
                   rule={{ label: "Unit price", ...RATE_RULE }}
@@ -189,7 +191,7 @@ export function PricedLineItems({
                   className="min-w-0 lg:col-span-2"
                   id={`${base}-taxRate`}
                   name={`lineItems.${index}.taxRate`}
-                  label="Tax"
+                  label={t("lines.tax")}
                   unit="%"
                   value={row.taxRate}
                   rule={{ label: "Tax rate", ...TAX_RATE_RULE }}
@@ -200,9 +202,9 @@ export function PricedLineItems({
 
                 {/* Below lg the line total takes the fourth cell, labelled, beside what it adds up. */}
                 <div className="min-w-0 space-y-1.5 lg:hidden">
-                  <p className="text-table font-medium text-fg">Line total</p>
+                  <p className="text-table font-medium text-fg">{t("lines.lineTotal")}</p>
                   <p className="flex h-10 items-center text-table tabular-nums text-fg" data-testid="line-total">
-                    <span className="sr-only">Preview: </span>
+                    <span className="sr-only">{t("lines.preview")}</span>
                     {lineTotal}
                   </p>
                 </div>
@@ -211,17 +213,17 @@ export function PricedLineItems({
               </div>
 
               <p className="mt-2 hidden text-right text-meta text-fg-subtle lg:block">
-                Line total (preview) {lineTotal}
+                {t("lines.lineTotalPreview", { total: lineTotal })}
               </p>
             </li>
           );
         })}
       </ul>
 
-      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label="Totals preview">
-        <Row label="Subtotal" value={totals ? formatAmount(totals.subtotal, currency) : "—"} />
-        <Row label="Tax" value={totals ? formatAmount(totals.tax, currency) : "—"} />
-        <Row label="Total (preview)" value={totals ? formatAmount(totals.total, currency) : "—"} emphasis />
+      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label={t("lines.totalsPreview")}>
+        <Row label={t("lines.subtotal")} value={totals ? formatAmount(totals.subtotal, currency) : "—"} />
+        <Row label={t("lines.tax")} value={totals ? formatAmount(totals.tax, currency) : "—"} />
+        <Row label={t("lines.totalPreview")} value={totals ? formatAmount(totals.total, currency) : "—"} emphasis />
       </dl>
     </section>
   );
@@ -244,17 +246,6 @@ const BUDGET_CATEGORIES = [
   "OTHER",
 ] as const;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  LABOR: "Labour",
-  MATERIALS: "Materials",
-  EQUIPMENT: "Equipment",
-  SUBCONTRACTOR: "Subcontractor",
-  SERVICES: "Services",
-  TRAVEL: "Travel",
-  ADMINISTRATION: "Administration",
-  OTHER: "Other",
-};
-
 export function BudgetLineItems({
   currency,
   defaultLines,
@@ -263,6 +254,7 @@ export function BudgetLineItems({
   defaultLines?: BudgetLineValue[];
 }) {
   const instance = React.useId();
+  const t = useFinanceTranslations();
   const empty = React.useCallback(
     (): BudgetLineValue => ({ category: "SUBCONTRACTOR", description: "", plannedAmount: "0" }),
     [],
@@ -286,20 +278,20 @@ export function BudgetLineItems({
     <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">Budget lines</h2>
+          <h2 className="text-card font-semibold text-fg">{t("lines.budgetLines")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
-            The budget total is the sum of these lines, calculated by the server. At least one line needs an amount above zero.
+            {t("lines.budgetLinesHint")}
           </p>
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
           <Plus aria-hidden="true" />
-          Add line
+          {t("lines.addLine")}
         </Button>
       </div>
-      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">A budget can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      {atLimit ? <p className="mt-2 text-meta text-fg-subtle">{t("lines.maxBudget", { max: MAX_LINE_ITEMS })}</p> : null}
       <CellError id={listErrorId} message={errors.list} />
 
-      <RemovedLineNotice removed={removed} noun="Budget line" label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
+      <RemovedLineNotice removed={removed} noun={t("lines.budgetLine")} label={removed?.row.description || undefined} onUndo={undo} onDismiss={dismissRemoved} />
 
       <ul className="mt-4 space-y-3">
         {rows.map((row, index) => {
@@ -310,7 +302,7 @@ export function BudgetLineItems({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove budget line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+              aria-label={row.description ? t("lines.removeBudgetLineNamed", { number: index + 1, description: row.description }) : t("lines.removeBudgetLine", { number: index + 1 })}
               disabled={rows.length === 1}
               onClick={() => remove(row.rowId)}
             >
@@ -321,12 +313,12 @@ export function BudgetLineItems({
             <li key={row.rowId} className="rounded-md border border-line p-3" data-line-row={row.rowId}>
               {/* On a phone the remove control sits in the line's header, not alone under its last field (AUD-04 §5, D-02-06). */}
               <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
-                <span className="text-table font-medium text-fg">Line {index + 1}</span>
+                <span className="text-table font-medium text-fg">{t("lines.lineNumber", { number: index + 1 })}</span>
                 {removeButton()}
               </div>
               <div className="grid gap-3 sm:grid-cols-12">
                 <div className="space-y-1.5 sm:col-span-3">
-                  <Label htmlFor={`${base}-category`}>Category</Label>
+                  <Label htmlFor={`${base}-category`}>{t("lines.category")}</Label>
                   <select
                     id={`${base}-category`}
                     name={`lineItems.${index}.category`}
@@ -338,7 +330,7 @@ export function BudgetLineItems({
                   >
                     {BUDGET_CATEGORIES.map((category) => (
                       <option key={category} value={category}>
-                        {CATEGORY_LABELS[category]}
+                        {t(`category.${category}`)}
                       </option>
                     ))}
                   </select>
@@ -346,7 +338,7 @@ export function BudgetLineItems({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-5">
-                  <Label htmlFor={`${base}-description`}>Description</Label>
+                  <Label htmlFor={`${base}-description`}>{t("lines.description")}</Label>
                   <Input
                     id={`${base}-description`}
                     name={`lineItems.${index}.description`}
@@ -364,7 +356,7 @@ export function BudgetLineItems({
                   className="sm:col-span-3"
                   id={`${base}-plannedAmount`}
                   name={`lineItems.${index}.plannedAmount`}
-                  label="Planned amount"
+                  label={t("lines.plannedAmount")}
                   unit={currency}
                   value={row.plannedAmount}
                   rule={{ label: "Planned amount", ...MONEY_RULE }}
@@ -379,8 +371,8 @@ export function BudgetLineItems({
         })}
       </ul>
 
-      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label="Total preview">
-        <Row label="Budget total (preview)" value={total ? formatAmount(total, currency) : "—"} emphasis />
+      <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label={t("lines.totalPreviewLabel")}>
+        <Row label={t("lines.budgetTotalPreview")} value={total ? formatAmount(total, currency) : "—"} emphasis />
       </dl>
     </section>
   );

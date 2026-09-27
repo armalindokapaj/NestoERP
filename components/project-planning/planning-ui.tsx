@@ -1,9 +1,12 @@
+"use client";
+
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
-import { shortVariance, varianceLabel } from "@/lib/modules/project-planning/planning.dates";
-import { STATUS_LABELS, type MilestoneStatus, type PlanningPerson } from "@/lib/modules/project-planning/planning.types";
+import { shortVariance } from "@/lib/modules/project-planning/planning.dates";
+import { type MilestoneStatus, type PlanningPerson } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -32,32 +35,49 @@ export function markerColor(status: MilestoneStatus, delayed: boolean): string {
 }
 
 export function MilestoneStatusBadge({ status, delayed = false }: { status: MilestoneStatus; delayed?: boolean }) {
+  const t = useTranslations("projects");
   // A milestone past its date reads as delayed even if its status was never changed (§44).
   const shown: MilestoneStatus = delayed && status !== "DELAYED" && status !== "COMPLETED" && status !== "CANCELLED" ? "DELAYED" : status;
   return (
     <Badge tone={STATUS_TONE[shown]} className={status === "CANCELLED" ? "line-through decoration-fg-subtle/60" : undefined} data-testid="milestone-status">
-      {STATUS_LABELS[shown]}
+      {t(`milestoneStatus.${shown}`)}
     </Badge>
   );
 }
 
 export function CriticalBadge() {
+  const t = useTranslations("projects");
   return (
-    <Badge tone="neutral" className="border border-line-strong text-fg" title="Business-critical milestone">
-      Critical
+    <Badge tone="neutral" className="border border-line-strong text-fg" title={t("planningUi.criticalTitle")}>
+      {t("planningUi.critical")}
     </Badge>
   );
 }
 
 export function CommittedBadge() {
+  const t = useTranslations("projects");
   return (
-    <Badge tone="neutral" title="Externally committed date">
-      Committed
+    <Badge tone="neutral" title={t("planningUi.committedTitle")}>
+      {t("planningUi.committed")}
     </Badge>
   );
 }
 
+/** "+3 days", "On baseline", "No baseline" in the reader's language. */
+export function useVarianceLabel(): (days: number | null) => string {
+  const t = useTranslations("projects");
+  return React.useCallback(
+    (days: number | null) => {
+      if (days === null) return t("planningUi.noBaseline");
+      if (days === 0) return t("planningUi.onBaseline");
+      return t("planningUi.days", { count: Math.abs(days), sign: days > 0 ? "+" : "-" });
+    },
+    [t],
+  );
+}
+
 export function Variance({ days, short = false, className }: { days: number | null; short?: boolean; className?: string }) {
+  const variance = useVarianceLabel();
   if (days === null) return <span className={cn("text-fg-subtle", className)}>—</span>;
   const tone = days > 0 ? "text-danger-strong" : days < 0 ? "text-success-strong" : "text-fg-muted";
   return (
@@ -66,10 +86,10 @@ export function Variance({ days, short = false, className }: { days: number | nu
       {short ? (
         <>
           <span aria-hidden="true">{shortVariance(days)}</span>
-          <span className="sr-only">{varianceLabel(days)}</span>
+          <span className="sr-only">{variance(days)}</span>
         </>
       ) : (
-        varianceLabel(days)
+        variance(days)
       )}
     </span>
   );
@@ -107,7 +127,8 @@ export function Kpi({ label, value, hint, tone, testId, children }: { label: str
 
 /** `plain` where the name sits inside a button, which a link cannot. */
 export function OwnerName({ owner, plain = false }: { owner: PlanningPerson | null; plain?: boolean }) {
-  if (!owner) return <span className="text-fg-subtle">Unassigned</span>;
+  const t = useTranslations("projects");
+  if (!owner) return <span className="text-fg-subtle">{t("planningUi.unassigned")}</span>;
   const name = plain ? owner.name : <PersonLink memberId={owner.memberId} name={owner.name} />;
-  return owner.active ? <span>{name}</span> : <span className="text-fg-muted" title="This person is no longer an active member">{name} · Former member</span>;
+  return owner.active ? <span>{name}</span> : <span className="text-fg-muted" title={t("planningUi.formerTitle")}>{name} · {t("planningUi.formerMember")}</span>;
 }

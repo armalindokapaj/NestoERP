@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -40,6 +41,8 @@ export type ProjectFormValues = {
   builtArea: string;
   isKeyProject: "YES" | "NO";
 };
+
+const STATUS_KEYS = ["PENDING", "ACTIVE", "FINISHED", "ARCHIVED"] as const;
 
 export type SelectOption = { value: string; label: string };
 
@@ -120,6 +123,7 @@ export function ProjectForm({
   action: (formData: FormData) => Promise<ActionResult>;
 }) {
   const router = useRouter();
+  const t = useTranslations("projects");
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({ formRef, action, module: "projects", saveKind: mode === "create" ? "create" : "save" });
   const { pending, fieldErrors } = save;
@@ -143,19 +147,19 @@ export function ProjectForm({
         <section className="nesto-card flex flex-wrap items-center justify-between gap-3 p-5" data-testid="project-form-company">
           <input type="hidden" name="companyId" value={company.id} />
           <div className="min-w-0">
-            <p className="text-meta text-fg-subtle">Company</p>
+            <p className="text-meta text-fg-subtle">{t("form.company")}</p>
             <p className="truncate text-card font-semibold text-fg">{company.name}</p>
           </div>
           {company.changeHref ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href={company.changeHref}>Change company</Link>
+              <Link href={company.changeHref}>{t("form.changeCompany")}</Link>
             </Button>
           ) : null}
         </section>
       ) : null}
 
-      <Section title="Project details">
-        <Field label="Project name" name="name" required error={fieldErrors.name}>
+      <Section title={t("form.details")}>
+        <Field label={t("form.name")} name="name" required error={fieldErrors.name}>
           <Input
             id="name"
             name="name"
@@ -168,11 +172,11 @@ export function ProjectForm({
         </Field>
 
         <Field
-          label="Project code"
+          label={t("form.code")}
           name="code"
           required
           error={fieldErrors.code}
-          hint="Unique inside your company, for example PRJ-001."
+          hint={t("form.codeHint")}
         >
           <Input
             id="code"
@@ -186,7 +190,7 @@ export function ProjectForm({
         </Field>
 
         <div className="sm:col-span-2">
-          <Field label="Description" name="description" error={fieldErrors.description}>
+          <Field label={t("form.description")} name="description" error={fieldErrors.description}>
             <Textarea
               id="description"
               name="description"
@@ -198,11 +202,11 @@ export function ProjectForm({
         </div>
 
         <Field
-          label="Project type"
+          label={t("form.type")}
           name="projectTypeId"
           required={mode === "create"}
           error={fieldErrors.projectTypeId}
-          hint={projectTypes.length === 0 ? "Your company has no project types in use yet." : undefined}
+          hint={projectTypes.length === 0 ? t("form.noTypes") : undefined}
         >
           <select
             id="projectTypeId"
@@ -214,7 +218,7 @@ export function ProjectForm({
             aria-describedby={fieldErrors.projectTypeId ? "projectTypeId-error" : undefined}
           >
             {/* A new project is always typed; an older one without a type may stay so. */}
-            {mode === "create" ? <option value="">Choose a type</option> : !initial.projectTypeId ? <option value="">Not set</option> : null}
+            {mode === "create" ? <option value="">{t("form.chooseType")}</option> : !initial.projectTypeId ? <option value="">{t("form.notSet")}</option> : null}
             {projectTypes.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -224,7 +228,7 @@ export function ProjectForm({
         </Field>
 
         {statuses.length > 0 ? (
-          <Field label="Status" name="status" required error={fieldErrors.status}>
+          <Field label={t("form.status")} name="status" required error={fieldErrors.status}>
             <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
               {statuses.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -235,39 +239,40 @@ export function ProjectForm({
           </Field>
         ) : (
           <Field
-            label="Status"
+            label={t("form.status")}
             name="status"
-            hint={mode === "create" ? "New projects start as Pending." : "Changing the status needs the status permission."}
+            hint={mode === "create" ? t("form.startsPending") : t("form.statusPermission")}
           >
-            <p className="flex h-10 items-center text-body text-fg-muted">{statusText(initial.status)}</p>
+            <p className="flex h-10 items-center text-body text-fg-muted">{(STATUS_KEYS as readonly string[]).includes(initial.status) ? t(`status.${initial.status as (typeof STATUS_KEYS)[number]}`) : initial.status}</p>
           </Field>
         )}
 
-        <Field label="Priority" name="priority" error={fieldErrors.priority}>
+        <Field label={t("form.priority")} name="priority" error={fieldErrors.priority}>
           <select
             id="priority"
             name="priority"
             defaultValue={initial.priority}
             className={selectClass}
           >
-            <option value="">No priority</option>
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
+            <option value="">{t("form.noPriority")}</option>
+            {(["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const).map((value) => (
+              <option key={value} value={value}>
+                {t(`priority.${value}`)}
+              </option>
+            ))}
           </select>
         </Field>
       </Section>
 
-      <Section title="Client & responsibility">
-        <Field label="Client" name="clientId" error={fieldErrors.clientId}>
+      <Section title={t("form.clientSection")}>
+        <Field label={t("form.client")} name="clientId" error={fieldErrors.clientId}>
           <select
             id="clientId"
             name="clientId"
             defaultValue={initial.clientId}
             className={selectClass}
           >
-            <option value="">No client</option>
+            <option value="">{t("form.noClient")}</option>
             {clients.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -277,10 +282,10 @@ export function ProjectForm({
         </Field>
 
         <Field
-          label="Project manager"
+          label={t("form.manager")}
           name="projectManagerMemberId"
           error={fieldErrors.projectManagerMemberId}
-          hint="The manager is added to the project team automatically."
+          hint={t("form.managerHint")}
         >
           <select
             id="projectManagerMemberId"
@@ -288,7 +293,7 @@ export function ProjectForm({
             defaultValue={initial.projectManagerMemberId}
             className={selectClass}
           >
-            <option value="">Unassigned</option>
+            <option value="">{t("form.unassigned")}</option>
             {managers.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -298,11 +303,11 @@ export function ProjectForm({
         </Field>
       </Section>
 
-      <Section title="Schedule">
-        <Field label="Start date" name="startDate" error={fieldErrors.startDate}>
+      <Section title={t("form.schedule")}>
+        <Field label={t("form.startDate")} name="startDate" error={fieldErrors.startDate}>
           <Input id="startDate" name="startDate" type="date" defaultValue={initial.startDate} />
         </Field>
-        <Field label="End date" name="endDate" error={fieldErrors.endDate}>
+        <Field label={t("form.endDate")} name="endDate" error={fieldErrors.endDate}>
           <Input
             id="endDate"
             name="endDate"
@@ -314,40 +319,40 @@ export function ProjectForm({
         </Field>
       </Section>
 
-      <Section title="Location">
+      <Section title={t("form.location")}>
         <div className="sm:col-span-2">
-          <Field label="Address" name="address" error={fieldErrors.address}>
+          <Field label={t("form.address")} name="address" error={fieldErrors.address}>
             <Input id="address" name="address" defaultValue={initial.address} maxLength={300} />
           </Field>
         </div>
-        <Field label="City" name="city" error={fieldErrors.city}>
+        <Field label={t("form.city")} name="city" error={fieldErrors.city}>
           <Input id="city" name="city" defaultValue={initial.city} maxLength={120} />
         </Field>
-        <Field label="Country" name="country" error={fieldErrors.country}>
+        <Field label={t("form.country")} name="country" error={fieldErrors.country}>
           <Input id="country" name="country" defaultValue={initial.country} maxLength={120} />
         </Field>
-        <Field label="Built area (m²)" name="builtArea" error={fieldErrors.builtArea}>
+        <Field label={t("form.builtArea")} name="builtArea" error={fieldErrors.builtArea}>
           <Input id="builtArea" name="builtArea" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={initial.builtArea} />
         </Field>
-        <Field label="Key project on the group's dashboard" name="isKeyProject" error={fieldErrors.isKeyProject}>
+        <Field label={t("form.keyProject")} name="isKeyProject" error={fieldErrors.isKeyProject}>
           <select id="isKeyProject" name="isKeyProject" defaultValue={initial.isKeyProject} className={selectClass}>
-            <option value="NO">No</option>
-            <option value="YES">Yes</option>
+            <option value="NO">{t("form.no")}</option>
+            <option value="YES">{t("form.yes")}</option>
           </select>
         </Field>
       </Section>
 
       {covers ? (
-        <Section title="Cover image">
+        <Section title={t("form.coverImage")}>
           <div className="sm:col-span-2">
             <Field
-              label="Cover"
+              label={t("form.cover")}
               name="coverImageDocumentId"
               error={fieldErrors.coverImageDocumentId}
               hint={
                 covers.options.length === 0
-                  ? "Upload a JPEG, PNG or WEBP render to this project's documents to use it as the cover."
-                  : "Shown on the Projects page. Choose from this project's images."
+                  ? t("form.coverUploadHint")
+                  : t("form.coverChooseHint")
               }
             >
               <select
@@ -356,7 +361,7 @@ export function ProjectForm({
                 defaultValue={initial.coverImageDocumentId}
                 className={selectClass}
               >
-                <option value="">No cover</option>
+                <option value="">{t("form.noCover")}</option>
                 {covers.options.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -365,7 +370,7 @@ export function ProjectForm({
               </select>
             </Field>
             <Link href={covers.uploadHref} className="mt-2 inline-block text-table font-medium text-accent-strong">
-              Open project documents
+              {t("form.openDocuments")}
             </Link>
           </div>
         </Section>
@@ -383,32 +388,26 @@ export function ProjectForm({
       >
         <UnsavedIndicator save={save} className="mr-auto" />
         <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
-          Cancel
+          {t("form.cancel")}
         </Button>
         <Button type="submit" disabled={pending || Boolean(save.saved)}>
           {pending
             ? mode === "create"
-              ? "Creating…"
-              : "Saving…"
+              ? t("form.creating")
+              : t("form.saving")
             : mode === "create"
-              ? "Create project"
-              : "Save changes"}
+              ? t("form.create")
+              : t("form.save")}
         </Button>
       </div>
 
       <p className="text-meta text-fg-subtle">
-        Need to leave?{" "}
+        {t("form.needToLeave")}{" "}
         <Link href={cancelHref} className="underline underline-offset-2">
-          Return without saving
+          {t("form.returnWithoutSaving")}
         </Link>
         .
       </p>
     </form>
   );
-}
-
-const STATUS_TEXT: Record<string, string> = { PENDING: "Pending", ACTIVE: "Active", FINISHED: "Finished", ARCHIVED: "Archived" };
-
-function statusText(status: string): string {
-  return STATUS_TEXT[status] ?? status;
 }

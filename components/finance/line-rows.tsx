@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { useFieldErrors } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,7 +98,7 @@ export function useLineRows<T extends object>(initial: T[], empty: () => T, opti
 export function RemovedLineNotice({
   removed,
   label,
-  noun = "Line",
+  noun,
   onUndo,
   onDismiss,
 }: {
@@ -108,19 +109,23 @@ export function RemovedLineNotice({
   onUndo: () => void;
   onDismiss: () => void;
 }) {
+  const t = useFinanceTranslations();
+  const shownNoun = noun ?? t("lines.line");
   return (
     <div role="status" aria-live="polite" className="empty:hidden" data-testid="line-removed-notice">
       {removed ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-table text-fg">
           <span className="min-w-0 break-words">
-            {noun} {removed.position} removed{label ? `: ${label}` : ""}.
+            {label
+              ? t("lines.removedLabel", { noun: shownNoun, position: removed.position, label })
+              : t("lines.removed", { noun: shownNoun, position: removed.position })}
           </span>
           <span className="flex items-center gap-1">
             <Button type="button" variant="secondary" size="sm" onClick={onUndo}>
-              Undo
+              {t("lines.undo")}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
-              Dismiss
+              {t("lines.dismiss")}
             </Button>
           </span>
         </div>

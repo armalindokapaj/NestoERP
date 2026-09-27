@@ -3,24 +3,25 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
 import type { CommitmentSummaryDTO } from "@/lib/modules/finance/finance.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /** The commitment list (PRD #15 §171). */
-export function CommitmentTable({ commitments, listId = "finance.commitments", sort }: {
+export async function CommitmentTable({ commitments, listId = "finance.commitments", sort }: {
   commitments: CommitmentSummaryDTO[];
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("finance");
   const columns: TableColumn<CommitmentSummaryDTO>[] = [
     {
       key: "description",
       id: "description",
       mandatory: true,
-      label: "Commitment",
+      label: t("columns.commitment"),
       primary: true,
       render: (commitment) => (
         <span className="min-w-0">
@@ -35,19 +36,19 @@ export function CommitmentTable({ commitments, listId = "finance.commitments", s
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("columns.project"),
       hideBelow: "lg",
       render: (commitment) => (
-        <span className="text-fg-muted">{commitment.project?.name ?? "Company-wide"}</span>
+        <span className="text-fg-muted">{commitment.project?.name ?? t("companyWide")}</span>
       ),
     },
     {
       key: "category",
       id: "category",
-      label: "Category",
+      label: t("columns.category"),
       hideBelow: "xl",
       render: (commitment) => (
-        <Badge tone="neutral">{expenseCategoryLabels[commitment.category]}</Badge>
+        <Badge tone="neutral">{t(`category.${commitment.category}`)}</Badge>
       ),
     },
     {
@@ -55,7 +56,7 @@ export function CommitmentTable({ commitments, listId = "finance.commitments", s
       id: "expected",
       valueType: "date",
       sortKey: sort ? "expected" : undefined,
-      label: "Expected",
+      label: t("columns.expected"),
       hideBelow: "lg",
       render: (commitment) => (
         <span className="text-fg-muted">
@@ -69,7 +70,7 @@ export function CommitmentTable({ commitments, listId = "finance.commitments", s
       mandatory: true,
       valueType: "money",
       sortKey: sort ? "amount" : undefined,
-      label: "Amount",
+      label: t("columns.amount"),
       align: "right",
       render: (commitment) => (
         <Money amount={commitment.amount} currency={commitment.currency} emphasis />
@@ -80,7 +81,7 @@ export function CommitmentTable({ commitments, listId = "finance.commitments", s
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("columns.status"),
       render: (commitment) => (
         <span className="flex items-center gap-2">
           <StatusBadge status={commitment.status} />
@@ -98,7 +99,7 @@ export function CommitmentTable({ commitments, listId = "finance.commitments", s
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Commitments"
+      caption={t("captions.commitments")}
       columns={columns}
       records={commitments}
       rowKey={(commitment) => commitment.id}

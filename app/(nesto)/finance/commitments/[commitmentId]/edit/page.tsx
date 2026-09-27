@@ -14,12 +14,17 @@ import {
   commitmentLabel,
   loadCommitment,
 } from "../commitment-context";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ commitmentId: string }> };
 
-export const metadata: Metadata = { title: "Edit commitment" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.commitmentEdit") };
+}
 
 export default async function EditCommitmentPage({ params }: Params) {
+  const t = await getTranslations("finance");
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -40,8 +45,8 @@ export default async function EditCommitmentPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={commitmentBreadcrumbs(commitment, "Edit")}
-        title={`Edit ${commitmentLabel(commitment)}`}
+        breadcrumbs={await commitmentBreadcrumbs(commitment, t("crumbs.edit"))}
+        title={t("edit.title", { label: commitmentLabel(commitment) })}
         status={commitment.status}
       />
 
@@ -65,8 +70,8 @@ export default async function EditCommitmentPage({ params }: Params) {
         }}
         versionUpdatedAt={commitment.updatedAt}
         cancelHref={`/finance/commitments/${commitment.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("edit.save")}
+        pendingLabel={t("settings.saving")}
       />
     </div>
   );

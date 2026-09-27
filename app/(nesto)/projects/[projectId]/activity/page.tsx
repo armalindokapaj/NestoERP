@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { History } from "lucide-react";
 
@@ -17,7 +18,9 @@ type Params = {
   searchParams: Promise<{ page?: string }>;
 };
 
-export const metadata: Metadata = { title: "Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("projects"))("tabs.activity") };
+}
 
 /**
  * Project activity (PRD #10 §87, §90).
@@ -29,6 +32,7 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
   const { projectId } = await params;
   const { page } = await searchParams;
   const { context, project } = await loadProject(projectId);
+  const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
 
   if (!actions.canViewActivity) redirect("/access-denied");
@@ -44,7 +48,7 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={projectBreadcrumbs(project, "Activity")}
+        breadcrumbs={await projectBreadcrumbs(project, "Activity")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -79,8 +83,8 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity yet."
-          description="Changes to this project will be recorded here."
+          title={t("tabPages.noActivityTitle")}
+          description={t("tabPages.noActivityBody")}
         />
       ) : (
         <>

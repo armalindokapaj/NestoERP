@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Upload, X } from "lucide-react";
 
@@ -18,16 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor, type UnsavedEditor } from "@/components/unsaved/use-unsaved";
-import { dateLabel, varianceLabel } from "@/lib/modules/project-planning/planning.dates";
+import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import type { MilestoneOptions } from "@/lib/modules/project-planning/planning.links";
 import {
   BLOCKER_SEVERITIES,
   MILESTONE_STATUSES,
-  SEVERITY_LABELS,
-  STATUS_LABELS,
-  TASK_LINK_LABELS,
   TASK_LINK_TYPES,
-  TYPE_LABELS,
   type BlockerSeverity,
   type MilestoneDetailDTO,
   type MilestoneStatus,
@@ -40,7 +37,7 @@ import type { DrawerPanel } from "./milestone-list";
 import { MilestoneFormDialog } from "./milestone-form";
 import { failureMessage, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID } from "./use-values-editor";
-import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
+import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, useVarianceLabel, Variance } from "./planning-ui";
 
 /**
  * The milestone drawer (PRD #44 §108-§113, §153-§159, §161, §162, §246, §247).
@@ -92,11 +89,12 @@ function Section({ title, count, action, children, id }: { title: string; count?
 }
 
 function InlinePanel({ title, onCancel, children }: { title: string; onCancel: () => void; children: React.ReactNode }) {
+  const t = useTranslations("projects");
   return (
     <div className="mt-2 rounded-lg border border-line bg-surface-muted/60 p-3" role="group" aria-label={title}>
       <div className="mb-2 flex items-center justify-between">
         <p className="text-table font-medium text-fg">{title}</p>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onCancel} aria-label="Cancel">
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onCancel} aria-label={t("drawer.cancel")}>
           <X />
         </Button>
       </div>
@@ -175,6 +173,8 @@ function MilestoneDrawerBody({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const t = useTranslations("projects");
+  const varianceLabel = useVarianceLabel();
   const toast = useToast();
   const closeDrawer = useDialogClose();
   const [detail, setDetail] = React.useState<MilestoneDetailDTO | null>(null);
@@ -209,10 +209,10 @@ function MilestoneDrawerBody({
       setLoadError(null);
       return next;
     } catch (failure) {
-      if (shownId.current === id) setLoadError(failureMessage(failure, "This milestone could not be opened."));
+      if (shownId.current === id) setLoadError(failureMessage(failure, t("drawer.openFailed")));
       return null;
     }
-  }, []);
+  }, [t]);
 
   const loadOptions = React.useCallback(async () => {
     if (options || !milestoneId) return options;
@@ -306,33 +306,33 @@ function MilestoneDrawerBody({
     if (!detail) return INVALID;
     switch (panel) {
       case "complete":
-        return act(() => planningApi(`${base}/complete`, { body: { expectedVersion: detail.version, actualDate: text("actualDate") || null, completionNote: text("completionNote") || null } }), "Milestone completed", undefined, panelEditor);
+        return act(() => planningApi(`${base}/complete`, { body: { expectedVersion: detail.version, actualDate: text("actualDate") || null, completionNote: text("completionNote") || null } }), t("drawer.completed"), undefined, panelEditor);
       case "reopen":
         if (!text("reason").trim()) return INVALID;
-        return act(() => planningApi(`${base}/reopen`, { body: { expectedVersion: detail.version, reason: text("reason") } }), "Milestone reopened", undefined, panelEditor);
+        return act(() => planningApi(`${base}/reopen`, { body: { expectedVersion: detail.version, reason: text("reason") } }), t("drawer.reopened"), undefined, panelEditor);
       case "baseline":
         if (!text("newBaselineDate")) return INVALID;
-        return act(() => planningApi(`${base}/baseline`, { body: { expectedVersion: detail.version, newBaselineDate: text("newBaselineDate"), reason: text("reason") || null } }), "Baseline changed", undefined, panelEditor);
+        return act(() => planningApi(`${base}/baseline`, { body: { expectedVersion: detail.version, newBaselineDate: text("newBaselineDate"), reason: text("reason") || null } }), t("drawer.baselineChanged"), undefined, panelEditor);
       case "dependency":
         if (!text("predecessorMilestoneId")) return INVALID;
-        return act(() => planningApi(`${base}/dependencies`, { body: { predecessorMilestoneId: text("predecessorMilestoneId"), lagDays: Number(text("lagDays") || 0) } }), "Dependency added", undefined, panelEditor);
+        return act(() => planningApi(`${base}/dependencies`, { body: { predecessorMilestoneId: text("predecessorMilestoneId"), lagDays: Number(text("lagDays") || 0) } }), t("drawer.dependencyAdded"), undefined, panelEditor);
       case "link-task":
         if (!text("taskId")) return INVALID;
-        return act(() => planningApi(`${base}/tasks`, { body: { taskId: text("taskId"), linkType: text("linkType") as TaskLinkType } }), "Task linked", undefined, panelEditor);
+        return act(() => planningApi(`${base}/tasks`, { body: { taskId: text("taskId"), linkType: text("linkType") as TaskLinkType } }), t("drawer.taskLinked"), undefined, panelEditor);
       case "task":
         if (!text("title").trim()) return INVALID;
-        return act(() => planningApi(`${base}/tasks/create`, { body: { title: text("title"), assigneeMemberId: text("assigneeMemberId") || null, dueDate: text("dueDate") || null, priority: "MEDIUM", linkType: "SUPPORTS" } }), "Task created", undefined, panelEditor);
+        return act(() => planningApi(`${base}/tasks/create`, { body: { title: text("title"), assigneeMemberId: text("assigneeMemberId") || null, dueDate: text("dueDate") || null, priority: "MEDIUM", linkType: "SUPPORTS" } }), t("drawer.taskCreated"), undefined, panelEditor);
       case "blocker":
         if (!text("title").trim()) return INVALID;
-        return act(() => planningApi(`${base}/blockers`, { body: { title: text("title"), severity: text("severity") as BlockerSeverity, ownerMemberId: text("ownerMemberId") || null, dueDate: text("dueDate") || null, description: text("description") || null, createTask: form.createTask === true } }), "Blocker added", undefined, panelEditor);
+        return act(() => planningApi(`${base}/blockers`, { body: { title: text("title"), severity: text("severity") as BlockerSeverity, ownerMemberId: text("ownerMemberId") || null, dueDate: text("dueDate") || null, description: text("description") || null, createTask: form.createTask === true } }), t("drawer.blockerAdded"), undefined, panelEditor);
       case "meeting":
       case "log":
         if (!text("recordId")) return INVALID;
-        return act(() => planningApi(`${base}/${panel === "meeting" ? "meetings" : "daily-logs"}`, { body: { recordId: text("recordId") } }), "Linked", undefined, panelEditor);
+        return act(() => planningApi(`${base}/${panel === "meeting" ? "meetings" : "daily-logs"}`, { body: { recordId: text("recordId") } }), t("drawer.linked"), undefined, panelEditor);
       default: {
         const blockerId = typeof form.blockerId === "string" ? form.blockerId : null;
         if (!blockerId) return INVALID;
-        return act(() => planningApi(`/api/project-milestone-blockers/${blockerId}/resolve`, { body: { resolutionNote: text("resolutionNote") || null } }), "Blocker resolved", () => { setForm({}); setFormBaseline({}); }, panelEditor);
+        return act(() => planningApi(`/api/project-milestone-blockers/${blockerId}/resolve`, { body: { resolutionNote: text("resolutionNote") || null } }), t("drawer.blockerResolved"), () => { setForm({}); setFormBaseline({}); }, panelEditor);
       }
     }
   };
@@ -351,7 +351,7 @@ function MilestoneDrawerBody({
             forecastReason: quick.reason || null,
           },
         }),
-      "Milestone updated",
+      t("drawer.updated"),
       undefined,
       quickEditor,
     );
@@ -380,7 +380,7 @@ function MilestoneDrawerBody({
     <>
         {!detail ? (
           <div className="p-6">
-            <DrawerTitle className="text-card font-semibold text-fg">{loadError ? "Milestone unavailable" : "Loading milestone…"}</DrawerTitle>
+            <DrawerTitle className="text-card font-semibold text-fg">{loadError ? t("drawer.unavailable") : t("drawer.loading")}</DrawerTitle>
             {loadError ? <p className="mt-2 text-table text-fg-muted">{loadError}</p> : <div className="mt-4 space-y-2">{[0, 1, 2].map((key) => <div key={key} className="h-4 animate-pulse rounded bg-line" />)}</div>}
           </div>
         ) : (
@@ -390,13 +390,13 @@ function MilestoneDrawerBody({
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-meta uppercase tracking-wide text-fg-subtle">
-                    {TYPE_LABELS[detail.type]}
+                    {t(`milestoneType.${detail.type}`)}
                     {detail.phase ? ` · ${detail.phase.name}` : ""}
                   </p>
                   <DrawerTitle className="mt-0.5 text-section font-semibold text-fg" data-testid="drawer-milestone-name">
                     {detail.name}
                   </DrawerTitle>
-                  <DrawerDescription className="sr-only">Milestone details, dates, dependencies, tasks and blockers.</DrawerDescription>
+                  <DrawerDescription className="sr-only">{t("drawer.srDescription")}</DrawerDescription>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <MilestoneStatusBadge status={detail.status} delayed={detail.delayed} />
                     {detail.critical ? <CriticalBadge /> : null}
@@ -408,37 +408,37 @@ function MilestoneDrawerBody({
                 {caps?.canEdit || caps?.canArchive ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label="More actions">
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.moreActions")}>
                         <MoreHorizontal />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {caps.canEdit ? <DropdownMenuItem onSelect={() => setEditing(true)}>Edit milestone</DropdownMenuItem> : null}
+                      {caps.canEdit ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("drawer.edit")}</DropdownMenuItem> : null}
                       {caps.canArchive ? (
-                        <DropdownMenuItem onSelect={() => void act(() => planningApi(base, { method: "DELETE" }), "Milestone archived", onClose)} className="text-danger-strong">
-                          Archive milestone
+                        <DropdownMenuItem onSelect={() => void act(() => planningApi(base, { method: "DELETE" }), t("drawer.archived"), onClose)} className="text-danger-strong">
+                          {t("drawer.archive")}
                         </DropdownMenuItem>
                       ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
-                <Button type="button" variant="ghost" size="icon-sm" onClick={closeDrawer} aria-label="Close">
+                <Button type="button" variant="ghost" size="icon-sm" onClick={closeDrawer} aria-label={t("drawer.close")}>
                   <X />
                 </Button>
               </div>
               <dl className="mt-4 grid grid-cols-3 gap-3">
                 <div>
-                  <dt className="text-meta text-fg-subtle">{detail.status === "COMPLETED" ? "Actual" : "Forecast"}</dt>
+                  <dt className="text-meta text-fg-subtle">{detail.status === "COMPLETED" ? t("drawer.actual") : t("drawer.forecast")}</dt>
                   <dd className="text-table font-semibold tabular-nums text-fg" data-testid="drawer-forecast">
                     {dateLabel(detail.status === "COMPLETED" ? detail.actualDate : (detail.forecastDate ?? detail.plannedDate))}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-meta text-fg-subtle">Baseline</dt>
+                  <dt className="text-meta text-fg-subtle">{t("drawer.baseline")}</dt>
                   <dd className="text-table tabular-nums text-fg">{dateLabel(detail.baselineDate)}</dd>
                 </div>
                 <div>
-                  <dt className="text-meta text-fg-subtle">Variance</dt>
+                  <dt className="text-meta text-fg-subtle">{t("drawer.variance")}</dt>
                   <dd className="text-table font-medium">
                     <Variance days={detail.varianceDays} />
                   </dd>
@@ -462,28 +462,28 @@ function MilestoneDrawerBody({
                 ) : null}
               </div>
               {panel === "complete" ? (
-                <InlinePanel title="Mark complete" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={t("drawer.markComplete")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
-                    <Labeled label="Actual date" htmlFor="complete-date">
+                    <Labeled label={t("drawer.actualDate")} htmlFor="complete-date">
                       <Input id="complete-date" type="date" value={text("actualDate")} max={detail.today} onChange={(event) => setField("actualDate", event.target.value)} />
                     </Labeled>
-                    <Labeled label="Completion note (optional)" htmlFor="complete-note">
+                    <Labeled label={t("drawer.completionNote")} htmlFor="complete-note">
                       <Textarea id="complete-note" rows={2} value={text("completionNote")} onChange={(event) => setField("completionNote", event.target.value)} maxLength={2000} />
                     </Labeled>
-                    <p className="text-meta text-fg-subtle">Linked tasks are not changed.</p>
+                    <p className="text-meta text-fg-subtle">{t("drawer.tasksUnchanged")}</p>
                     <Button type="button" size="sm" disabled={pending} onClick={submitPanel}>
-                      Complete milestone
+                      {t("drawer.complete")}
                     </Button>
                   </div>
                 </InlinePanel>
               ) : null}
               {panel === "reopen" ? (
-                <InlinePanel title="Reopen milestone" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
-                  <Labeled label="Reason" htmlFor="reopen-reason">
+                <InlinePanel title={t("drawer.reopen")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                  <Labeled label={t("drawer.reason")} htmlFor="reopen-reason">
                     <Textarea id="reopen-reason" rows={2} value={text("reason")} onChange={(event) => setField("reason", event.target.value)} maxLength={2000} />
                   </Labeled>
                   <Button type="button" size="sm" className="mt-2" disabled={pending || !text("reason").trim()} onClick={submitPanel}>
-                    Reopen milestone
+                    {t("drawer.reopen")}
                   </Button>
                 </InlinePanel>
               ) : null}
@@ -505,16 +505,16 @@ function MilestoneDrawerBody({
                 ) : null}
                 {detail.suggestion.forecastDate && caps?.canEdit ? (
                   <p className="flex flex-wrap items-center gap-2 text-table text-fg-muted">
-                    Predecessors suggest a forecast of <span className="font-medium text-fg">{dateLabel(detail.suggestion.forecastDate)}</span>.
-                    <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={pending} onClick={() => void act(() => planningApi(`${base}/quick-update`, { body: { expectedVersion: detail.version, forecastDate: detail.suggestion.forecastDate, forecastReason: "Follows its predecessors" } }), "Forecast updated")}>
-                      Use it
+                    {t("drawer.predecessorsSuggest")} <span className="font-medium text-fg">{dateLabel(detail.suggestion.forecastDate)}</span>.
+                    <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={pending} onClick={() => void act(() => planningApi(`${base}/quick-update`, { body: { expectedVersion: detail.version, forecastDate: detail.suggestion.forecastDate, forecastReason: "Follows its predecessors" } }), t("drawer.forecastUpdated"))}>
+                      {t("drawer.useIt")}
                     </Button>
                   </p>
                 ) : null}
                 {detail.suggestion.atRisk.length && detail.status !== "AT_RISK" && detail.status !== "COMPLETED" && detail.status !== "CANCELLED" ? (
                   <p className="flex items-start gap-2 text-table text-fg-muted">
                     <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-strong" />
-                    <span>Might be at risk: {detail.suggestion.atRisk.join("; ")}.</span>
+                    <span>{t("drawer.mightBeAtRisk", { reasons: detail.suggestion.atRisk.join("; ") })}</span>
                   </p>
                 ) : null}
               </div>
@@ -522,27 +522,27 @@ function MilestoneDrawerBody({
 
             {/* Quick update (§111, §119, §247) */}
             {caps?.canEdit && detail.status !== "COMPLETED" && quick ? (
-              <Section title="Update" id="quick-update">
+              <Section title={t("drawer.update")} id="quick-update">
                 <div ref={quickRef} className="grid gap-3 sm:grid-cols-3">
-                  <Labeled label="Status" htmlFor="quick-status">
+                  <Labeled label={t("drawer.status")} htmlFor="quick-status">
                     <select id="quick-status" className={selectClass} value={quick.status} onChange={(event) => setQuick({ ...quick, status: event.target.value as MilestoneStatus })}>
                       {MILESTONE_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
                         <option key={status} value={status}>
-                          {STATUS_LABELS[status]}
+                          {t(`milestoneStatus.${status}`)}
                         </option>
                       ))}
                     </select>
                   </Labeled>
-                  <Labeled label="Forecast date" htmlFor="quick-forecast">
+                  <Labeled label={t("drawer.forecastDate")} htmlFor="quick-forecast">
                     <Input id="quick-forecast" type="date" value={quick.forecastDate} onChange={(event) => setQuick({ ...quick, forecastDate: event.target.value })} />
                   </Labeled>
-                  <Labeled label="Progress %" htmlFor="quick-progress">
+                  <Labeled label={t("drawer.progressPercent")} htmlFor="quick-progress">
                     <Input id="quick-progress" type="number" min={0} max={100} inputMode="numeric" value={quick.progress} onChange={(event) => setQuick({ ...quick, progress: event.target.value })} />
                   </Labeled>
                 </div>
                 {quick.forecastDate !== (detail.forecastDate ?? "") ? (
                   <div className="mt-2">
-                    <Labeled label="Why the forecast moved (optional)" htmlFor="quick-reason">
+                    <Labeled label={t("drawer.whyMoved")} htmlFor="quick-reason">
                       <Input id="quick-reason" value={quick.reason} onChange={(event) => setQuick({ ...quick, reason: event.target.value })} maxLength={2000} />
                     </Labeled>
                   </div>
@@ -555,10 +555,10 @@ function MilestoneDrawerBody({
                       disabled={pending}
                       onClick={() => void saveQuick()}
                     >
-                      Save update
+                      {t("drawer.saveUpdate")}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => void quickEditor.requestDismiss(() => setQuick({ status: detail.status, forecastDate: detail.forecastDate ?? "", progress: detail.progressPercent === null ? "" : String(detail.progressPercent), reason: "" }))}>
-                      Discard
+                      {t("drawer.discard")}
                     </Button>
                   </div>
                 ) : null}
@@ -567,26 +567,26 @@ function MilestoneDrawerBody({
 
             {/* Dates, owner, progress (§15-§20, §47) */}
             <Section
-              title="Dates"
+              title={t("drawer.dates")}
               id="dates"
               action={
                 caps?.canChangeBaseline ? (
                   <Button type="button" variant="ghost" size="sm" onClick={() => openPanel("baseline")}>
-                    {detail.baselineDate ? "Change baseline" : "Set baseline"}
+                    {detail.baselineDate ? t("drawer.changeBaseline") : t("drawer.setBaseline")}
                   </Button>
                 ) : detail.baselineLocked ? (
                   <span className="flex items-center gap-1 text-meta text-fg-muted">
-                    <Lock aria-hidden="true" className="size-3.5" /> Baseline locked
+                    <Lock aria-hidden="true" className="size-3.5" /> {t("drawer.baselineLocked")}
                   </span>
                 ) : null
               }
             >
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-table">
                 {[
-                  ["Baseline", detail.baselineDate],
-                  ["Planned", detail.plannedDate],
-                  ["Forecast", detail.forecastDate],
-                  ["Actual", detail.actualDate],
+                  [t("drawer.baseline"), detail.baselineDate],
+                  [t("drawer.planned"), detail.plannedDate],
+                  [t("drawer.forecast"), detail.forecastDate],
+                  [t("drawer.actual"), detail.actualDate],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2 border-b border-line/60 pb-1.5">
                     <dt className="text-fg-muted">{label}</dt>
@@ -595,33 +595,33 @@ function MilestoneDrawerBody({
                 ))}
               </dl>
               {panel === "baseline" ? (
-                <InlinePanel title={detail.baselineDate ? "Change baseline" : "Set baseline"} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={detail.baselineDate ? t("drawer.changeBaseline") : t("drawer.setBaseline")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
-                    <Labeled label="New baseline date" htmlFor="baseline-date">
+                    <Labeled label={t("drawer.newBaselineDate")} htmlFor="baseline-date">
                       <Input id="baseline-date" type="date" value={text("newBaselineDate")} onChange={(event) => setField("newBaselineDate", event.target.value)} />
                     </Labeled>
-                    <Labeled label={detail.baselineDate && detail.baselineReasonRequired ? "Reason" : "Reason (optional)"} htmlFor="baseline-reason">
+                    <Labeled label={detail.baselineDate && detail.baselineReasonRequired ? t("drawer.reason") : t("drawer.reasonOptional")} htmlFor="baseline-reason">
                       <Textarea id="baseline-reason" rows={2} value={text("reason")} onChange={(event) => setField("reason", event.target.value)} maxLength={2000} />
                     </Labeled>
-                    <p className="text-meta text-fg-subtle">Baseline changes are recorded in the audit log with the reason.</p>
+                    <p className="text-meta text-fg-subtle">{t("drawer.baselineAudit")}</p>
                     {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
                     <Button type="button" size="sm" disabled={pending || !text("newBaselineDate")} onClick={submitPanel}>
-                      Save baseline
+                      {t("drawer.saveBaseline")}
                     </Button>
                   </div>
                 </InlinePanel>
               ) : null}
               <dl className="mt-3 grid grid-cols-2 gap-3 text-table">
                 <div>
-                  <dt className="text-meta text-fg-subtle">Owner</dt>
+                  <dt className="text-meta text-fg-subtle">{t("drawer.owner")}</dt>
                   <dd className="text-fg">
                     <OwnerName owner={detail.owner} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-meta text-fg-subtle">Progress</dt>
+                  <dt className="text-meta text-fg-subtle">{t("drawer.progress")}</dt>
                   <dd className="flex items-center gap-2">
-                    <ProgressBar value={detail.progressPercent} label="Milestone progress" className="w-20" />
+                    <ProgressBar value={detail.progressPercent} label={t("drawer.milestoneProgress")} className="w-20" />
                     <span className="tabular-nums text-fg">{detail.progressPercent === null ? "—" : `${Math.round(detail.progressPercent)}%`}</span>
                   </dd>
                 </div>
@@ -636,20 +636,20 @@ function MilestoneDrawerBody({
 
             {/* Dependencies (§158, §159) */}
             <Section
-              title="Dependencies"
+              title={t("drawer.dependencies")}
               id="dependencies"
               action={
                 caps?.canManageDependencies ? (
                   <Button type="button" variant="ghost" size="sm" onClick={() => openPanel("dependency")}>
-                    <Plus /> Depends on
+                    <Plus /> {t("drawer.dependsOn")}
                   </Button>
                 ) : null
               }
             >
-              {!detail.predecessors.length && !detail.successors.length ? <p className="text-table text-fg-subtle">No dependencies.</p> : null}
+              {!detail.predecessors.length && !detail.successors.length ? <p className="text-table text-fg-subtle">{t("drawer.noDependencies")}</p> : null}
               {[
-                { label: "Depends on", rows: detail.predecessors },
-                { label: "Blocks", rows: detail.successors },
+                { label: t("drawer.dependsOn"), rows: detail.predecessors },
+                { label: t("drawer.blocks"), rows: detail.successors },
               ].map((group) =>
                 group.rows.length ? (
                   <div key={group.label} className="mb-2">
@@ -660,12 +660,12 @@ function MilestoneDrawerBody({
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-fg">{row.name}</span>
                             <span className="text-meta text-fg-muted">
-                              {row.delayed ? <span className="text-danger-strong">{row.overdueDays} {row.overdueDays === 1 ? "day" : "days"} late</span> : STATUS_LABELS[row.status]} · {dateLabel(row.targetDate)}
+                              {row.delayed ? <span className="text-danger-strong">{t("drawer.daysLate", { count: row.overdueDays })}</span> : t(`milestoneStatus.${row.status}`)} · {dateLabel(row.targetDate)}
                               {row.lagDays ? ` · ${row.lagDays}d lag` : ""}
                             </span>
                           </span>
                           {caps?.canManageDependencies ? (
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove dependency on ${row.name}`} onClick={() => void act(() => planningApi(`${base}/dependencies/${row.dependencyId}`, { method: "DELETE" }), "Dependency removed")}>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.removeDependency", { name: row.name })} onClick={() => void act(() => planningApi(`${base}/dependencies/${row.dependencyId}`, { method: "DELETE" }), "Dependency removed")}>
                               <X />
                             </Button>
                           ) : null}
@@ -676,18 +676,18 @@ function MilestoneDrawerBody({
                 ) : null,
               )}
               {panel === "dependency" ? (
-                <InlinePanel title="Add a milestone this one depends on" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={t("drawer.addDependencyTitle")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2 sm:grid-cols-[1fr_6rem]">
-                    <Labeled label="Predecessor" htmlFor="dependency-milestone">
-                      <OptionSelect id="dependency-milestone" value={text("predecessorMilestoneId")} onChange={(value) => setField("predecessorMilestoneId", value)} options={(options?.milestones ?? []).map((row) => ({ id: row.id, label: `${row.label} · ${row.status}`, disabled: row.blocked }))} placeholder={options ? "Choose a milestone" : "Loading…"} />
+                    <Labeled label={t("drawer.predecessor")} htmlFor="dependency-milestone">
+                      <OptionSelect id="dependency-milestone" value={text("predecessorMilestoneId")} onChange={(value) => setField("predecessorMilestoneId", value)} options={(options?.milestones ?? []).map((row) => ({ id: row.id, label: `${row.label} · ${row.status}`, disabled: row.blocked }))} placeholder={options ? t("drawer.chooseMilestone") : t("drawer.loadingShort")} />
                     </Labeled>
-                    <Labeled label="Lag (days)" htmlFor="dependency-lag">
+                    <Labeled label={t("drawer.lag")} htmlFor="dependency-lag">
                       <Input id="dependency-lag" type="number" min={0} inputMode="numeric" value={text("lagDays")} onChange={(event) => setField("lagDays", event.target.value)} />
                     </Labeled>
                   </div>
                   {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
                   <Button type="button" size="sm" className="mt-2" disabled={pending || !text("predecessorMilestoneId")} onClick={submitPanel}>
-                    Add dependency
+                    {t("drawer.addDependency")}
                   </Button>
                 </InlinePanel>
               ) : null}
@@ -695,19 +695,19 @@ function MilestoneDrawerBody({
 
             {/* Tasks (§49-§55) */}
             <Section
-              title="Tasks"
+              title={t("drawer.tasks")}
               id="tasks"
-              count={detail.taskStats.total ? `${detail.taskStats.completed}/${detail.taskStats.total} complete` : undefined}
+              count={detail.taskStats.total ? t("drawer.tasksComplete", { done: detail.taskStats.completed, total: detail.taskStats.total }) : undefined}
               action={
                 <span className="flex gap-1">
                   {caps?.canLinkTasks ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => openPanel("link-task")}>
-                      <Link2 /> Link
+                      <Link2 /> {t("drawer.link")}
                     </Button>
                   ) : null}
                   {caps?.canCreateTask ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => openPanel("task")}>
-                      <Plus /> Create task
+                      <Plus /> {t("drawer.createTask")}
                     </Button>
                   ) : null}
                 </span>
@@ -726,12 +726,12 @@ function MilestoneDrawerBody({
                           <span className="block truncate text-fg-muted">{task.title}</span>
                         )}
                         <span className="text-meta text-fg-muted">
-                          {TASK_LINK_LABELS[task.linkType]}
+                          {t(`taskLink.${task.linkType}`)}
                           {task.status ? ` · ${task.status.replace("_", " ").toLowerCase()}` : ""}
                         </span>
                       </span>
                       {caps?.canLinkTasks ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Unlink ${task.title}`} onClick={() => void act(() => planningApi(`${base}/tasks/${task.taskId}`, { method: "DELETE" }), "Task unlinked")}>
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.unlink", { name: task.title })} onClick={() => void act(() => planningApi(`${base}/tasks/${task.taskId}`, { method: "DELETE" }), t("drawer.taskUnlinked"))}>
                           <X />
                         </Button>
                       ) : null}
@@ -739,19 +739,19 @@ function MilestoneDrawerBody({
                   ))}
                 </ul>
               ) : (
-                <p className="text-table text-fg-subtle">No linked tasks. Completing tasks never completes the milestone.</p>
+                <p className="text-table text-fg-subtle">{t("drawer.noTasks")}</p>
               )}
               {panel === "link-task" ? (
-                <InlinePanel title="Link a task" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={t("drawer.linkTask")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
-                    <Labeled label="Task" htmlFor="link-task">
-                      <OptionSelect id="link-task" value={text("taskId")} onChange={(value) => setField("taskId", value)} options={(options?.tasks ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? "Choose a task" : "Loading…"} />
+                    <Labeled label={t("drawer.task")} htmlFor="link-task">
+                      <OptionSelect id="link-task" value={text("taskId")} onChange={(value) => setField("taskId", value)} options={(options?.tasks ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? t("drawer.chooseTask") : t("drawer.loadingShort")} />
                     </Labeled>
-                    <Labeled label="Relationship" htmlFor="link-task-type">
+                    <Labeled label={t("drawer.relationship")} htmlFor="link-task-type">
                       <select id="link-task-type" className={selectClass} value={text("linkType")} onChange={(event) => setField("linkType", event.target.value)}>
                         {TASK_LINK_TYPES.map((type) => (
                           <option key={type} value={type}>
-                            {TASK_LINK_LABELS[type]}
+                            {t(`taskLink.${type}`)}
                           </option>
                         ))}
                       </select>
@@ -759,27 +759,27 @@ function MilestoneDrawerBody({
                   </div>
                   {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
                   <Button type="button" size="sm" className="mt-2" disabled={pending || !text("taskId")} onClick={submitPanel}>
-                    Link task
+                    {t("drawer.linkTaskButton")}
                   </Button>
                 </InlinePanel>
               ) : null}
               {panel === "task" ? (
-                <InlinePanel title="Create a task" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={t("drawer.createTaskTitle")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
-                    <Labeled label="Title" htmlFor="task-title">
+                    <Labeled label={t("drawer.title")} htmlFor="task-title">
                       <Input id="task-title" value={text("title")} onChange={(event) => setField("title", event.target.value)} maxLength={200} />
                     </Labeled>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <Labeled label="Assignee" htmlFor="task-assignee">
-                        <OptionSelect id="task-assignee" value={text("assigneeMemberId")} onChange={(value) => setField("assigneeMemberId", value)} options={options?.members ?? members} placeholder="Unassigned" />
+                      <Labeled label={t("drawer.assignee")} htmlFor="task-assignee">
+                        <OptionSelect id="task-assignee" value={text("assigneeMemberId")} onChange={(value) => setField("assigneeMemberId", value)} options={options?.members ?? members} placeholder={t("drawer.unassigned")} />
                       </Labeled>
-                      <Labeled label="Due date" htmlFor="task-due">
+                      <Labeled label={t("drawer.dueDate")} htmlFor="task-due">
                         <Input id="task-due" type="date" value={text("dueDate")} onChange={(event) => setField("dueDate", event.target.value)} />
                       </Labeled>
                     </div>
                     {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
                     <Button type="button" size="sm" disabled={pending || !text("title").trim()} onClick={submitPanel}>
-                      Save task
+                      {t("drawer.saveTask")}
                     </Button>
                   </div>
                 </InlinePanel>
@@ -788,47 +788,47 @@ function MilestoneDrawerBody({
 
             {/* Blockers (§153-§157) */}
             <Section
-              title="Blockers"
+              title={t("drawer.blockers")}
               id="blockers"
               count={detail.blockers.filter((blocker) => !blocker.resolvedAt).length || undefined}
               action={
                 caps?.canManageBlockers ? (
                   <Button type="button" variant="ghost" size="sm" onClick={() => openPanel("blocker")}>
-                    <Plus /> Add blocker
+                    <Plus /> {t("drawer.addBlocker")}
                   </Button>
                 ) : null
               }
             >
               {panel === "blocker" ? (
-                <InlinePanel title="Add a blocker" onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                <InlinePanel title={t("drawer.addBlockerTitle")} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
                   <div className="grid gap-2">
-                    <Labeled label="Title" htmlFor="blocker-title">
+                    <Labeled label={t("drawer.title")} htmlFor="blocker-title">
                       <Input id="blocker-title" value={text("title")} onChange={(event) => setField("title", event.target.value)} maxLength={200} />
                     </Labeled>
                     <div className="grid gap-2 sm:grid-cols-3">
-                      <Labeled label="Severity" htmlFor="blocker-severity">
+                      <Labeled label={t("drawer.severity")} htmlFor="blocker-severity">
                         <select id="blocker-severity" className={selectClass} value={text("severity")} onChange={(event) => setField("severity", event.target.value)}>
                           {BLOCKER_SEVERITIES.map((severity) => (
                             <option key={severity} value={severity}>
-                              {SEVERITY_LABELS[severity]}
+                              {t(`severity.${severity}`)}
                             </option>
                           ))}
                         </select>
                       </Labeled>
-                      <Labeled label="Owner" htmlFor="blocker-owner">
-                        <OptionSelect id="blocker-owner" value={text("ownerMemberId")} onChange={(value) => setField("ownerMemberId", value)} options={options?.members ?? members} placeholder="Unassigned" />
+                      <Labeled label={t("drawer.owner")} htmlFor="blocker-owner">
+                        <OptionSelect id="blocker-owner" value={text("ownerMemberId")} onChange={(value) => setField("ownerMemberId", value)} options={options?.members ?? members} placeholder={t("drawer.unassigned")} />
                       </Labeled>
-                      <Labeled label="Due date" htmlFor="blocker-due">
+                      <Labeled label={t("drawer.dueDate")} htmlFor="blocker-due">
                         <Input id="blocker-due" type="date" value={text("dueDate")} onChange={(event) => setField("dueDate", event.target.value)} />
                       </Labeled>
                     </div>
-                    <Labeled label="Description (optional)" htmlFor="blocker-description">
+                    <Labeled label={t("drawer.descriptionOptional")} htmlFor="blocker-description">
                       <Textarea id="blocker-description" rows={2} value={text("description")} onChange={(event) => setField("description", event.target.value)} maxLength={5000} />
                     </Labeled>
                     {caps?.canCreateTask ? (
                       <label className="flex items-center gap-2 text-table text-fg">
-                        <Checkbox checked={form.createTask === true} onCheckedChange={(checked) => setField("createTask", checked === true)} aria-label="Also create a task" />
-                        Also create a task for it
+                        <Checkbox checked={form.createTask === true} onCheckedChange={(checked) => setField("createTask", checked === true)} aria-label={t("drawer.alsoTask")} />
+                        {t("drawer.alsoTaskFor")}
                       </label>
                     ) : null}
                     {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
@@ -838,7 +838,7 @@ function MilestoneDrawerBody({
                       disabled={pending || !text("title").trim()}
                       onClick={submitPanel}
                     >
-                      Save blocker
+                      {t("drawer.saveBlocker")}
                     </Button>
                   </div>
                 </InlinePanel>
@@ -851,17 +851,17 @@ function MilestoneDrawerBody({
                         <span className="min-w-0 flex-1">
                           <span className={cn("block text-table font-medium", blocker.resolvedAt ? "text-fg-muted line-through decoration-fg-subtle/50" : "text-fg")}>{blocker.title}</span>
                           <span className="text-meta text-fg-muted">
-                            {SEVERITY_LABELS[blocker.severity]}
+                            {t(`severity.${blocker.severity}`)}
                             {blocker.owner ? <> · <PersonLink memberId={blocker.owner.memberId} name={blocker.owner.name} /></> : null}
-                            {blocker.dueDate ? ` · due ${dateLabel(blocker.dueDate)}` : ""}
-                            {blocker.overdue ? <span className="text-danger-strong"> · overdue</span> : null}
-                            {blocker.resolvedAt ? <> · resolved{blocker.resolvedBy ? <> by <PersonLink memberId={blocker.resolvedBy.memberId} name={blocker.resolvedBy.name} /></> : null}</> : null}
+                            {blocker.dueDate ? t("drawer.due", { date: dateLabel(blocker.dueDate) }) : ""}
+                            {blocker.overdue ? <span className="text-danger-strong">{t("drawer.overdue")}</span> : null}
+                            {blocker.resolvedAt ? <>{t("drawer.resolved")}{blocker.resolvedBy ? <> {t("drawer.by")} <PersonLink memberId={blocker.resolvedBy.memberId} name={blocker.resolvedBy.name} /></> : null}</> : null}
                           </span>
                           {blocker.linkedTask ? (
                             <span className="block text-meta">
                               {blocker.linkedTask.href ? (
                                 <Link href={blocker.linkedTask.href} className="text-accent-strong hover:underline">
-                                  Task: {blocker.linkedTask.title}
+                                  {t("drawer.taskPrefix", { title: blocker.linkedTask.title })}
                                 </Link>
                               ) : (
                                 <span className="text-fg-muted">{blocker.linkedTask.title}</span>
@@ -879,15 +879,15 @@ function MilestoneDrawerBody({
                                 setPanel(null);
                               })
                             }>
-                            Resolve
+                            {t("drawer.resolve")}
                           </Button>
                         ) : null}
                       </div>
                       {form.blockerId === blocker.id && !panel ? (
                         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                          <Input aria-label="Resolution note" placeholder="Resolution note (optional)" value={text("resolutionNote")} onChange={(event) => setField("resolutionNote", event.target.value)} maxLength={2000} />
+                          <Input aria-label={t("drawer.resolutionNote")} placeholder={t("drawer.resolutionPlaceholder")} value={text("resolutionNote")} onChange={(event) => setField("resolutionNote", event.target.value)} maxLength={2000} />
                           <Button type="button" size="sm" className="h-10" disabled={pending} onClick={submitPanel}>
-                            Confirm resolve
+                            {t("drawer.confirmResolve")}
                           </Button>
                         </div>
                       ) : null}
@@ -895,22 +895,22 @@ function MilestoneDrawerBody({
                   ))}
                 </ul>
               ) : panel !== "blocker" ? (
-                <p className="text-table text-fg-subtle">No blockers.</p>
+                <p className="text-table text-fg-subtle">{t("drawer.noBlockers")}</p>
               ) : null}
             </Section>
 
             {/* Documents (§57-§59, §182) */}
             {caps?.canViewDocuments ? (
               <Section
-                title="Documents"
+                title={t("drawer.documents")}
                 id="documents"
                 count={detail.documents?.length || undefined}
                 action={
                   caps.canUploadDocuments ? (
                     <>
-                      <input ref={fileRef} type="file" multiple className="sr-only" aria-label="Upload documents" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
+                      <input ref={fileRef} type="file" multiple className="sr-only" aria-label={t("drawer.uploadDocuments")} onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
                       <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                        <Upload /> {uploading ? "Uploading…" : "Upload"}
+                        <Upload /> {uploading ? t("drawer.uploading") : t("drawer.upload")}
                       </Button>
                     </>
                   ) : null
@@ -929,15 +929,15 @@ function MilestoneDrawerBody({
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-table text-fg-subtle">No documents. Approvals, certificates and handover packs belong here.</p>
+                  <p className="text-table text-fg-subtle">{t("drawer.noDocuments")}</p>
                 )}
               </Section>
             ) : null}
 
             {/* Meetings and daily logs (§60-§64) */}
             {[
-              { key: "meetings" as const, title: "Meetings", rows: detail.meetings, can: caps?.canLinkMeetings, panelKey: "meeting" as const, endpoint: "meetings", choices: options?.meetings, empty: "No linked meetings." },
-              { key: "dailyLogs" as const, title: "Daily Logs", rows: detail.dailyLogs, can: caps?.canLinkDailyLogs, panelKey: "log" as const, endpoint: "daily-logs", choices: options?.dailyLogs, empty: "No linked daily logs." },
+              { key: "meetings" as const, title: t("drawer.meetings"), linkTitle: t("drawer.linkMeeting"), rows: detail.meetings, can: caps?.canLinkMeetings, panelKey: "meeting" as const, endpoint: "meetings", choices: options?.meetings, empty: t("drawer.noMeetings") },
+              { key: "dailyLogs" as const, title: t("drawer.dailyLogs"), linkTitle: t("drawer.linkDailyLog"), rows: detail.dailyLogs, can: caps?.canLinkDailyLogs, panelKey: "log" as const, endpoint: "daily-logs", choices: options?.dailyLogs, empty: t("drawer.noDailyLogs") },
             ].map((group) =>
               group.rows.length || group.can ? (
                 <Section
@@ -948,7 +948,7 @@ function MilestoneDrawerBody({
                   action={
                     group.can ? (
                       <Button type="button" variant="ghost" size="sm" onClick={() => openPanel(group.panelKey)}>
-                        <Link2 /> Link
+                        <Link2 /> {t("drawer.link")}
                       </Button>
                     ) : null
                   }
@@ -965,7 +965,7 @@ function MilestoneDrawerBody({
                             <span className="min-w-0 flex-1 truncate text-fg-muted">{row.label}</span>
                           )}
                           {group.can ? (
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Unlink ${row.label}`} onClick={() => void act(() => planningApi(`${base}/links/${row.linkId}`, { method: "DELETE" }), "Link removed")}>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.unlink", { name: row.label })} onClick={() => void act(() => planningApi(`${base}/links/${row.linkId}`, { method: "DELETE" }), t("drawer.linkRemoved"))}>
                               <X />
                             </Button>
                           ) : null}
@@ -976,11 +976,11 @@ function MilestoneDrawerBody({
                     <p className="text-table text-fg-subtle">{group.empty}</p>
                   )}
                   {panel === group.panelKey ? (
-                    <InlinePanel title={`Link ${group.title.toLowerCase().replace(/s$/, "")}`} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
-                      <OptionSelect id={`link-${group.key}`} value={text("recordId")} onChange={(value) => setField("recordId", value)} options={(group.choices ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? `Choose from this project` : "Loading…"} />
+                    <InlinePanel title={group.linkTitle} onCancel={() => void panelEditor.requestDismiss(() => setPanel(null))}>
+                      <OptionSelect id={`link-${group.key}`} value={text("recordId")} onChange={(value) => setField("recordId", value)} options={(group.choices ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? t("drawer.chooseFromProject") : t("drawer.loadingShort")} />
                       {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
                       <Button type="button" size="sm" className="mt-2" disabled={pending || !text("recordId")} onClick={submitPanel}>
-                        Save link
+                        {t("drawer.saveLink")}
                       </Button>
                     </InlinePanel>
                   ) : null}
@@ -989,7 +989,7 @@ function MilestoneDrawerBody({
             )}
 
             {/* Activity and discussion (§178-§181, §210) */}
-            <Section title="Activity" id="activity">
+            <Section title={t("drawer.activity")} id="activity">
               {detail.history.length ? (
                 <ul className="space-y-2">
                   {detail.history.map((entry) => (
@@ -1004,7 +1004,7 @@ function MilestoneDrawerBody({
                   ))}
                 </ul>
               ) : (
-                <p className="text-table text-fg-subtle">Nothing notable yet.</p>
+                <p className="text-table text-fg-subtle">{t("drawer.nothingNotable")}</p>
               )}
               <div className="mt-4">
                 <CollaborationPanel key={`discussion-${detail.id}`} parentType="project_milestone" parentId={detail.id} />
@@ -1012,8 +1012,8 @@ function MilestoneDrawerBody({
             </Section>
 
             <p className="px-5 pb-6 pt-2 text-meta text-fg-subtle">
-              {varianceLabel(detail.varianceDays)} · created {dateLabel(detail.createdAt.slice(0, 10))}
-              {detail.createdBy ? <> by <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.name} /></> : null}
+              {varianceLabel(detail.varianceDays)}{t("drawer.created", { date: dateLabel(detail.createdAt.slice(0, 10)) })}
+              {detail.createdBy ? <> {t("drawer.by")} <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.name} /></> : null}
             </p>
 
             <MilestoneFormDialog
@@ -1041,7 +1041,7 @@ function MilestoneDrawerBody({
                 description: detail.description ?? "",
               }}
               onSaved={() => {
-                toast({ title: "Milestone saved", tone: "success" });
+                toast({ title: t("drawer.saved"), tone: "success" });
                 void load(detail.id);
                 onChanged();
               }}

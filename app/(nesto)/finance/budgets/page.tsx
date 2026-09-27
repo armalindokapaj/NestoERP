@@ -19,10 +19,14 @@ import type { UserContext } from "@/lib/context/types";
 import * as budgets from "@/lib/modules/finance/budgets/budget.service";
 import { parseBudgetQuery } from "@/lib/modules/finance/finance.query";
 import { companyFilterOptions, financeContexts, financeExperience } from "@/lib/modules/finance/finance.workspace";
+import { getTranslations } from "@/lib/i18n/server";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { BUDGET_SORT_KEYS } from "@/lib/modules/finance/budgets/budget.schema";
 
-export const metadata: Metadata = { title: "Budgets" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.budgets") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,6 +42,7 @@ export default async function BudgetsPage({
   const group = inGroupWorkspace(context);
   if (!group && !can(context, "finance.budget.view")) redirect("/access-denied");
 
+  const t = await getTranslations("finance");
   const experience = await financeExperience(context);
   const params = await searchParams;
 
@@ -48,7 +53,7 @@ export default async function BudgetsPage({
       actions={
         !group && can(context, "finance.budget.create") ? (
           <Button asChild size="sm">
-            <Link href="/finance/budgets/new">New budget</Link>
+            <Link href="/finance/budgets/new">{t("budgets.new")}</Link>
           </Button>
         ) : null
       }
@@ -74,6 +79,7 @@ async function BudgetsList({
   context: UserContext;
   searchParams: SearchParams;
 }) {
+  const t = await getTranslations("finance");
   const query = parseBudgetQuery(searchParams);
   const group = inGroupWorkspace(context);
   const company = group ? firstValue(searchParams.company) : undefined;
@@ -91,30 +97,30 @@ async function BudgetsList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search project or budget name…"
+        searchPlaceholder={t("budgets.search")}
         filters={[
-          ...(group ? [{ param: "company", label: "Company", options: companyFilterOptions(readable) }] : []),
+          ...(group ? [{ param: "company", label: t("group.company"), options: companyFilterOptions(readable) }] : []),
           {
             param: "status",
-            label: "Status",
+            label: t("columns.status"),
             options: [
-              { value: "DRAFT", label: "Draft" },
-              { value: "PENDING_APPROVAL", label: "Pending approval" },
-              { value: "APPROVED", label: "Approved" },
-              { value: "REJECTED", label: "Rejected" },
+              { value: "DRAFT", label: t("recordStatus.DRAFT") },
+              { value: "PENDING_APPROVAL", label: t("recordStatus.PENDING_APPROVAL") },
+              { value: "APPROVED", label: t("recordStatus.APPROVED") },
+              { value: "REJECTED", label: t("recordStatus.REJECTED") },
             ],
           },
           {
             param: "current",
-            label: "Version",
-            options: [{ value: "1", label: "Current only" }],
+            label: t("budgets.version"),
+            options: [{ value: "1", label: t("budgets.currentOnly") }],
           },
         ]}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "project-asc", label: "Project A–Z" },
-          { value: "amount-desc", label: "Largest first" },
-          { value: "version-desc", label: "Latest version" },
+          { value: "updated-desc", label: t("sort.updated") },
+          { value: "project-asc", label: t("sort.projectAz") },
+          { value: "amount-desc", label: t("sort.largest") },
+          { value: "version-desc", label: t("sort.latestVersion") },
         ]}
       />
 
@@ -122,18 +128,18 @@ async function BudgetsList({
         hasFilters ? (
           <EmptyState
             icon={<ChartPie />}
-            title="No budgets match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/finance/budgets" }}
+            title={t("budgets.noMatch")}
+            description={t("list.noMatchBody")}
+            action={{ label: t("list.clearFilters"), href: "/finance/budgets" }}
           />
         ) : (
           <EmptyState
             icon={<ChartPie />}
-            title="No project budgets yet."
-            description="A budget is what every variance figure on a project is measured against."
+            title={t("budgets.none")}
+            description={t("budgets.noneBody")}
             action={
               !group && can(context, "finance.budget.create")
-                ? { label: "New budget", href: "/finance/budgets/new" }
+                ? { label: t("budgets.new"), href: "/finance/budgets/new" }
                 : undefined
             }
           />

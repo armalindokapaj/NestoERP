@@ -9,12 +9,17 @@ import {
   loadCommitment,
 } from "../commitment-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ commitmentId: string }> };
 
-export const metadata: Metadata = { title: "Commitment documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("finance");
+  return { title: t("meta.commitmentDocuments") };
+}
 
 export default async function CommitmentDocumentsPage({ params }: Params) {
+  const t = await getTranslations("finance");
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -23,7 +28,7 @@ export default async function CommitmentDocumentsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={commitmentBreadcrumbs(commitment, "Documents")}
+        breadcrumbs={await commitmentBreadcrumbs(commitment, t("crumbs.documents"))}
         title={commitmentLabel(commitment)}
         status={commitment.status}
       />
