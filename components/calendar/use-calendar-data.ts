@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { apiRequest, isAborted } from "@/lib/client/api-request";
 import type { CalendarCategory, CalendarEventDTO, CalendarResponse } from "@/lib/modules/calendar/calendar.types";
 
 /**
@@ -42,14 +43,15 @@ export function useCalendarData(range: { from: Date; to: Date }, filters: Calend
     for (const projectId of filters.projectIds) params.append("projectIds", projectId);
 
     setLoading(true);
-    fetch(`/api/calendar/events?${params}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        setData((await response.json()) as CalendarResponse);
+    // The shared transport: a 10 s deadline and one retry for a transient
+    // failure, so a hung range never leaves the loader running (AUD-07 §7, PS-13).
+    apiRequest<CalendarResponse>(`/api/calendar/events?${params}`, { signal: controller.signal })
+      .then((next) => {
+        setData(next);
         setError(null);
       })
-      .catch((failure: Error) => {
-        if (failure.name !== "AbortError") setError("Some calendar items could not be loaded.");
+      .catch((failure: unknown) => {
+        if (!isAborted(failure)) setError("Some calendar items could not be loaded.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);

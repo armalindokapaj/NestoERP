@@ -82,17 +82,24 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
 
   React.useEffect(() => {
     if (!open || !listing?.canManage) return;
+    // A newer search aborts the read still on its way, so an older answer can
+    // never replace the candidates for what is typed now (AUD-07 §6, PS-10).
+    const controller = new AbortController();
     const handle = window.setTimeout(async () => {
       const params = new URLSearchParams();
       if (search.trim()) params.set("q", search.trim());
       if (form.providerKey) params.set("provider", form.providerKey);
       try {
-        setCandidates(await approvalsApi<Candidate[]>(`/api/approvals/delegations/options?${params}`));
+        const rows = await approvalsApi<Candidate[]>(`/api/approvals/delegations/options?${params}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setCandidates(rows);
       } catch {
-        setCandidates([]);
+        if (!controller.signal.aborted) setCandidates([]);
       }
     }, 200);
-    return () => window.clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
   }, [open, search, form.providerKey, listing?.canManage]);
 
   async function save(): Promise<SaveOutcome> {

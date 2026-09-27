@@ -41,7 +41,7 @@ route / server action / other module
 | Stakeholders in the transaction | `subscribeStakeholdersIn` in `lib/core/collaboration/collaboration.service.ts` |
 | Linked meeting action | `syncActionFromTask` in `lib/modules/meetings/meeting.task-sync.ts` |
 | Pages | `components/tasks/task-edit-form.tsx` (conflict review), `task-actions.tsx`, `task-form.tsx`; `components/forms/record-form.tsx` (`onFailure` → handled, `onSuccess`, `UNCONFIRMED_RESULT`) |
-| Metric | `task_mutation_ms{command,outcome}` in `lib/core/observability/metrics.ts` |
+| Metric | `task_mutation_ms{command,outcome}` (outcome class: committed/unchanged/rejected/error) + `task_mutation_outcome_total{command,outcome}` (exact) in `lib/core/observability/metrics.ts` |
 
 ## Writer inventory (AUD-02 §2, §9)
 

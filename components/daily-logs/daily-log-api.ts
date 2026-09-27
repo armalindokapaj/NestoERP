@@ -1,7 +1,7 @@
 "use client";
 
+import { apiFailureMessage, apiFailureOutcome, apiRequest, isApiFailure, type ApiFailure as SharedApiFailure, type ApiRequestInit } from "@/lib/client/api-request";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { outcomeOf } from "@/lib/unsaved/outcome";
 
 /**
  * The browser side of the daily logs API. Every call answers with the data or
@@ -9,40 +9,19 @@ import { outcomeOf } from "@/lib/unsaved/outcome";
  * already decided; this only relays it.
  */
 
-export type DailyLogApiFailure = { status: number; code: string; message: string; detailCode?: string; details: Record<string, unknown> };
+export type DailyLogApiFailure = SharedApiFailure;
 
-export async function dailyLogApi<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: init?.method ?? (init?.body === undefined ? "GET" : "POST"),
-      headers: init?.body === undefined ? undefined : { "content-type": "application/json" },
-      body: init?.body === undefined ? undefined : JSON.stringify(init.body),
-    });
-  } catch {
-    throw { status: 0, code: "NETWORK", message: "Check your connection and try again.", details: {} } satisfies DailyLogApiFailure;
-  }
-  const json = (await response.json().catch(() => null)) as { data?: T; error?: { code: string; message?: string; details?: Record<string, unknown> } } | null;
-  if (!response.ok) {
-    const details = json?.error?.details ?? {};
-    const field = Object.values(details).find((value): value is string[] => Array.isArray(value) && typeof value[0] === "string");
-    throw {
-      status: response.status,
-      code: json?.error?.code ?? "INTERNAL_ERROR",
-      message: field?.[0] ?? json?.error?.message ?? "Something went wrong.",
-      detailCode: typeof details.code === "string" ? details.code : undefined,
-      details,
-    } satisfies DailyLogApiFailure;
-  }
-  return (json?.data ?? (json as T)) as T;
+/** Through the shared transport: a deadline, one retry for a failed read, never for a write (AUD-07 §7). */
+export function dailyLogApi<T>(url: string, init?: { method?: string; body?: unknown } & Pick<ApiRequestInit, "signal">): Promise<T> {
+  return apiRequest<T>(url, { ...init, messageFrom: "field" });
 }
 
 export function isFailure(error: unknown): error is DailyLogApiFailure {
-  return typeof error === "object" && error !== null && "code" in error && "message" in error;
+  return isApiFailure(error);
 }
 
 export function failureMessage(error: unknown, fallback = "Something went wrong."): string {
-  return isFailure(error) ? error.message : fallback;
+  return apiFailureMessage(error, fallback);
 }
 
 /**
@@ -50,7 +29,5 @@ export function failureMessage(error: unknown, fallback = "Something went wrong.
  * a definite refusal; a request that never got an answer may have committed.
  */
 export function dailyLogFailureOutcome(error: unknown): SaveOutcome {
-  if (!isFailure(error) || error.status === 0) return { kind: "unknown" };
-  const outcome = outcomeOf({ ok: false, code: error.code, error: error.message });
-  return outcome.kind === "invalid" && error.detailCode ? outcomeOf({ ok: false, code: error.detailCode, error: error.message }) : outcome;
+  return apiFailureOutcome(error);
 }

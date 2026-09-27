@@ -44,6 +44,7 @@
     "verify:workflows": "tsx scripts/verify-workflow-consistency.ts",
     "repair:employment": "tsx scripts/repair-employment.ts",
     "security:matrix": "tsx scripts/security/api-matrix.ts",
+    "perf:d10": "tsx scripts/perf/d10-generate.ts",
     "security:access-manifest": "tsx scripts/security/access-manifest.ts",
     "security:access-manifest:check": "tsx scripts/security/access-manifest.ts --check",
     "postinstall": "prisma generate",

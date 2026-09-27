@@ -12,6 +12,8 @@ import { useToast } from "@/components/ui/toast";
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
 import { UnsavedScope } from "@/components/unsaved/use-unsaved";
 import { useMediaQuery } from "@/components/ui/use-breakpoint";
+import { isAborted } from "@/lib/client/api-request";
+import { useLatestRequest } from "@/lib/client/latest-request";
 import { unsaved } from "@/lib/unsaved/coordinator";
 import type {
   ApprovalDecision,
@@ -27,7 +29,7 @@ import { ApprovalDetailView } from "./approval-detail";
 import { ApprovalDraftProvider } from "./approval-drafts";
 import { activeFilterCount, EMPTY_FILTERS, FilterChips, FilterDrawer, type ApprovalFilters } from "./approval-filters";
 import { ApprovalList, ListSkeleton, type Density } from "./approval-list";
-import { approvalsApi, failureMessage, isFailure, newIdempotencyKey } from "./approvals-api";
+import { approvalsApi, approvalsFailureOutcome, failureMessage, isFailure, newIdempotencyKey } from "./approvals-api";
 import { DelegationDialog } from "./delegation-dialog";
 import { HelpEntry } from "@/components/help/help-entry";
 
@@ -194,22 +196,36 @@ export function ApprovalsShell({
     [router],
   );
 
+  /*
+   * Only the newest list read lands: a search typed on, a filter changed twice
+   * or a tab switched before the last answer arrived aborts the older read, so
+   * a slow old query never replaces newer results (AUD-07 §6, PS-10). A new
+   * list read also drops a "Load more" in flight: a page of the old filters is
+   * never appended to the new list.
+   */
+  const listRead = useLatestRequest();
+  const moreRead = useLatestRequest();
+  const detailRead = useLatestRequest();
+
   const loadList = React.useCallback(async (next: ApprovalsState) => {
+    const ticket = listRead.begin();
+    moreRead.cancel();
     setListLoading(true);
     setListError(null);
     try {
-      const result = await approvalsApi<ApprovalQueueResult>(`/api/approvals?${toParams(next)}`);
+      const result = await approvalsApi<ApprovalQueueResult>(`/api/approvals?${toParams(next)}`, { signal: ticket.signal });
+      if (!ticket.current()) return null;
       setData(result);
       setItems(result.items);
       setCursor(result.nextCursor);
       return result;
     } catch (failure) {
-      setListError(failureMessage(failure, "Approvals could not be loaded."));
+      if (ticket.current() && !isAborted(failure)) setListError(failureMessage(failure, "Approvals could not be loaded."));
       return null;
     } finally {
-      setListLoading(false);
+      if (ticket.current()) setListLoading(false);
     }
-  }, []);
+  }, [listRead, moreRead]);
 
   /*
    * Another tab — or the module's own page — may have decided something here.
@@ -239,20 +255,24 @@ export function ApprovalsShell({
 
   const loadDetail = React.useCallback(async (id: string) => {
     const [providerKey, approvalId] = id.split(":");
+    // Another approval opened before this one arrived wins (AUD-07 PS-10).
+    const ticket = detailRead.begin();
     setDetailLoading(true);
     try {
-      const result = await approvalsApi<UnifiedApprovalDetail>(`/api/approvals/${providerKey}/${approvalId}`);
+      const result = await approvalsApi<UnifiedApprovalDetail>(`/api/approvals/${providerKey}/${approvalId}`, { signal: ticket.signal });
+      if (!ticket.current()) return null;
       setDetail(result);
       setDetailFailure(null);
       return result;
     } catch (failure) {
+      if (!ticket.current() || isAborted(failure)) return null;
       setDetail(null);
       setDetailFailure({ message: failureMessage(failure, "This approval could not be opened."), stale: false });
       return null;
     } finally {
-      setDetailLoading(false);
+      if (ticket.current()) setDetailLoading(false);
     }
-  }, []);
+  }, [detailRead]);
 
   function update(patch: Partial<ApprovalsState>) {
     const next = { ...state, ...patch };
@@ -301,7 +321,11 @@ export function ApprovalsShell({
     setSelectedId(id);
     setDetailFailure(null);
     attemptKey.current = null;
-    if (!id) setDetail(null);
+    if (!id) {
+      detailRead.cancel();
+      setDetailLoading(false);
+      setDetail(null);
+    }
     else if (detail?.item.id !== id) {
       setDetail(null);
       void loadDetail(id);
@@ -312,13 +336,15 @@ export function ApprovalsShell({
   async function loadMore() {
     if (!cursor) return;
     setLoadingMore(true);
+    const ticket = moreRead.begin();
     try {
       const params = toParams(state, { cursor });
-      const result = await approvalsApi<ApprovalQueueResult>(`/api/approvals?${params}`);
+      const result = await approvalsApi<ApprovalQueueResult>(`/api/approvals?${params}`, { signal: ticket.signal });
+      if (!ticket.current()) return;
       setItems((current) => [...current, ...result.items.filter((item) => !current.some((row) => row.id === item.id))]);
       setCursor(result.nextCursor);
     } catch (failure) {
-      toast({ title: failureMessage(failure, "More approvals could not be loaded."), tone: "danger" });
+      if (ticket.current() && !isAborted(failure)) toast({ title: failureMessage(failure, "More approvals could not be loaded."), tone: "danger" });
     } finally {
       setLoadingMore(false);
     }
@@ -367,8 +393,11 @@ export function ApprovalsShell({
       }
       return true;
     } catch (failure) {
-      const network = isFailure(failure) && failure.code === "NETWORK";
-      if (!network) attemptKey.current = null;
+      // No answer (a lost connection, the deadline, a gateway's 5xx) may have
+      // been recorded: keep the attempt's key so trying again cannot record it
+      // twice (PRD #41 §123, AUD-07 §7, PS-15).
+      const unconfirmed = approvalsFailureOutcome(failure).kind === "unknown";
+      if (!unconfirmed) attemptKey.current = null;
       const code = isFailure(failure) ? failure.detailCode : undefined;
       const stale = code === "APPROVAL_ALREADY_DECIDED" || code === "APPROVAL_SOURCE_CHANGED";
       setDetailFailure({ message: failureMessage(failure, "The decision could not be recorded."), stale });

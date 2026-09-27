@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { AccessError, type ApiErrorCode } from "@/lib/access/guards";
 import { StaleWorkspaceError } from "@/lib/context/tab-workspace";
+import { isContention } from "@/lib/core/transactions/contention";
 import { detailsFieldErrors, errorCategory, issuesToFieldErrors, type FieldErrors, type FormErrorCategory } from "@/lib/forms/errors";
 
 /**
@@ -126,6 +127,12 @@ export function describeFailure(error: unknown): DescribedFailure {
       details: field ? { code: "UNIQUE_VIOLATION", field } : { code: "UNIQUE_VIOLATION" },
       expected: true,
     };
+  }
+
+  // The database was too busy: the transaction rolled back, so nothing was
+  // saved and trying again is safe (AUD-07 PS-17). Logged as expected, not as a defect.
+  if (isContention(error)) {
+    return { code: "TEMPORARILY_UNAVAILABLE", businessCode: "CONTENTION", category: errorCategory("TEMPORARILY_UNAVAILABLE", "CONTENTION"), message: new AccessError("TEMPORARILY_UNAVAILABLE").message, details: { code: "CONTENTION" }, expected: true };
   }
 
   return { code: "INTERNAL_ERROR", category: "failure", message: GENERIC_FAILURE, expected: false };

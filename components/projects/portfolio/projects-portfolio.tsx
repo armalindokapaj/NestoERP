@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
+import { isAborted } from "@/lib/client/api-request";
+import { useLatestRequest } from "@/lib/client/latest-request";
 import type { PortfolioListDTO, ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { cn } from "@/lib/utils/cn";
 import { GALLERY_GRID, projectCountLabel } from "./gallery";
@@ -53,11 +55,17 @@ export function ProjectsPortfolio({
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [pendingFavorites, setPendingFavorites] = React.useState<ReadonlySet<string>>(new Set());
 
+  // A "Load more" belongs to the search it was asked under: a new search's first
+  // page drops it, so a page of the old query is never appended (AUD-07 §6, PS-10).
+  const moreRead = useLatestRequest();
+
   React.useEffect(() => {
+    moreRead.cancel();
     setItems(initial.items);
     setCursor(initial.pageInfo.nextCursor);
+    setLoadingMore(false);
     setLoadError(null);
-  }, [initial]);
+  }, [initial, moreRead]);
 
   const search = React.useCallback(
     (next: string) => {
@@ -74,21 +82,23 @@ export function ProjectsPortfolio({
 
   async function loadMore() {
     if (!cursor) return;
+    const ticket = moreRead.begin();
     setLoadingMore(true);
     setLoadError(null);
     try {
       const params = new URLSearchParams({ cursor });
       if (q) params.set("q", q);
-      const page = await announcementApi<PortfolioListDTO>(`/api/projects?${params.toString()}`);
+      const page = await announcementApi<PortfolioListDTO>(`/api/projects?${params.toString()}`, { signal: ticket.signal });
+      if (!ticket.current()) return;
       setItems((current) => {
         const seen = new Set(current.map((item) => item.id));
         return [...current, ...page.items.filter((item) => !seen.has(item.id))];
       });
       setCursor(page.pageInfo.nextCursor);
-    } catch {
-      setLoadError("Projects could not be loaded.");
+    } catch (failure) {
+      if (ticket.current() && !isAborted(failure)) setLoadError("Projects could not be loaded.");
     } finally {
-      setLoadingMore(false);
+      if (ticket.current()) setLoadingMore(false);
     }
   }
 

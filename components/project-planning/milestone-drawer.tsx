@@ -195,16 +195,21 @@ function MilestoneDrawerBody({
    * `resetQuick` only when the milestone opens or its quick update was saved:
    * any other refresh keeps an update being typed (AUD-03 §3 rule 6).
    */
+  // The milestone on screen now: a read for one opened earlier never lands on it (AUD-07 §6, PS-10).
+  const shownId = React.useRef(milestoneId);
+  shownId.current = milestoneId;
+
   const load = React.useCallback(async (id: string, resetQuick = false) => {
     try {
       const next = await planningApi<MilestoneDetailDTO>(`/api/project-milestones/${id}`);
+      if (shownId.current !== id) return null;
       const keep = !resetQuick && quickDirtyRef.current;
       setDetail(next);
       setQuick((current) => (keep && current ? current : { status: next.status, forecastDate: next.forecastDate ?? "", progress: next.progressPercent === null ? "" : String(next.progressPercent), reason: "" }));
       setLoadError(null);
       return next;
     } catch (failure) {
-      setLoadError(failureMessage(failure, "This milestone could not be opened."));
+      if (shownId.current === id) setLoadError(failureMessage(failure, "This milestone could not be opened."));
       return null;
     }
   }, []);
@@ -212,6 +217,7 @@ function MilestoneDrawerBody({
   const loadOptions = React.useCallback(async () => {
     if (options || !milestoneId) return options;
     const next = await planningApi<MilestoneOptions>(`/api/project-milestones/${milestoneId}/options`).catch(() => null);
+    if (shownId.current !== milestoneId) return null;
     setOptions(next);
     return next;
   }, [options, milestoneId]);
