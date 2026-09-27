@@ -16,6 +16,12 @@ import { signIn } from "../fixtures";
  * database: each statement Prisma sends outside a transaction commits on its
  * own. A backend reports its counts up to 10 s after it goes idle, so every
  * window has 11 s of quiet on each side.
+ *
+ * AUD-07 §2, PS-04: this is a coarse, database-wide proxy — statements inside
+ * one transaction commit once, and anything else using the database counts —
+ * kept only as supporting evidence and labelled so in its output. The exact,
+ * request-correlated count is the opt-in statement counter
+ * (lib/core/observability/statement-counter.ts), read by aud07-baseline.spec.ts.
  */
 
 const ENABLED = process.env.NAV_QUERY_COUNT === "1";
@@ -110,6 +116,7 @@ test.describe("NAV-01 query count", () => {
 
     const output = {
       label: LABEL,
+      evidence: "transaction-commit proxy (pg_stat_database.xact_commit, whole database): supporting only, not exact SQL statements (AUD-07 PS-04)",
       statements_per_workspaces_call: { median: median(perWorkspacesCall), rounds: perWorkspacesCall },
       dashboard_load_without_prefetch: withoutPrefetch,
       dashboard_load_with_prefetch: withPrefetch,

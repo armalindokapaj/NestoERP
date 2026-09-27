@@ -3924,3 +3924,58 @@ The inventory is [surface-inventory.md](a11y/surface-inventory.md) (AV-01): shel
   - After a desktop navigation, focus stays on the sidebar link. It moves to main only when it would otherwise be lost, and Next.js announces the page title.
   - Chart series keep their data colours in forced-colours mode; the legends carry the text.
   - Disabled controls are exempt from the contrast ratios.
+
+## 50. AUD-07 — Performance and stability
+
+AUD-07 makes slow, failed and interrupted requests recover honestly, and makes the measurements that prove speed trustworthy. The code and its tests are complete. The before/after timing runs, the exact SQL counts per route and the 20-user load test are **not yet run**: [route-manifest.md](perf/route-manifest.md) still reads "lead run" in its timing columns. No speed improvement is claimed here.
+
+### 50.1 What changed
+
+| Before | Now |
+| --- | --- |
+| A statement queued behind another connection's row lock ignored the 5 s transaction timeout: measured, it waited 60 s | Each transaction sets its own lock timeout (4/5 of its deadline) and statement timeout. It fails in about 4 s with nothing written (`lib/core/transactions/transaction.ts`, PS-17) |
+| A lock or pool timeout reached the browser as 500 "something went wrong" | `describeFailure` maps contention to 503 `TEMPORARILY_UNAVAILABLE`, "nothing was saved; try again" (`lib/core/transactions/contention.ts`) |
+| The seven module request helpers had no deadline and no retry rule. A hung request spun forever | One shared browser transport, `lib/client/api-request.ts`: reads stop at 10 s, writes at 30 s. A read gets at most one retry (no answer, 5xx, 408, or a 429 whose Retry-After fits). Writes are never retried |
+| A gateway 502/504 or a timeout on a write showed "failed" and invited a duplicate | These show as unknown, with AUD-03's "couldn't confirm" wording. An approval decision keeps its idempotency key whenever the outcome is unknown, so retrying cannot record it twice |
+| Older responses could overwrite newer results in approvals, delegation search, the projects portfolio and the milestone drawer | `lib/client/latest-request.ts` aborts or ignores the superseded read |
+| A daily-log entry, timesheet or announcement change that was saved, but whose reload failed, reported an error, and the daily-log retry made a duplicate | These report "Saved" and retry only the read |
+| On Vercel a request could wait 30 s for a pooled connection, beyond the browser's deadline | The pool wait is 8 s (`lib/database/prisma.ts`) |
+| Storage calls had no deadline | 10 s for metadata calls, 60 s for transfers |
+| Telemetry had 4,408 series against a budget of 4,000 | `task_mutation_ms` keeps outcome classes, down to 3,932 series. The exact outcomes stay in `task_mutation_outcome_total` |
+| Benchmark defects:<br>• phone lists and desktop tasks gave no usable samples;<br>• warm dashboard and projects timings were ~0 ms, because links already on the origin page matched the destination's selector | The instrument is fixed:<br>• records match phone cards, and Group cards through their title link;<br>• a destination counts as ready only on its own path, with its list hydrated;<br>• each attempt is checked against its intended mode (cold, warm, uncached) |
+
+### 50.2 The evidence
+
+- **Transport, `tests/unit/client/aud07-api-request.test.ts`: 28 pass.** Covers deadlines, a single jittered retry, Retry-After, final statuses, unknown write outcomes and aborted reads.
+- **Contention, `tests/api/jobs/aud07-contention.test.ts`: 3 pass.** Uses a real lock barrier and covers raw SQL, a typed update and an exhausted pool.
+- **Workers, `tests/api/jobs/aud07-worker-stability.test.ts`: 5 pass.**
+  - The outbox event exists exactly when the write committed.
+  - A crash after delivery still gives one delivery.
+  - Leases are taken over.
+  - A poison event stops at 5 attempts, and an operator retry delivers it once.
+- **List growth, `tests/api/perf/aud07-list-query-growth.test.ts`:** 13 reads, 8 company-scope lists and 5 Group reads. A 50-row page issues no more statements than a 10-row page, and exactly as many Prisma calls. No list issues a query per row.
+- **Exact SQL counter, `lib/core/observability/statement-counter.ts`:**
+  - It is on only with `NESTO_PERF_SQL_COUNT=1`, and never on Vercel, production or staging.
+  - It logs counts, never SQL or values, and overlapping requests are marked ambiguous.
+- **Data generator, `scripts/perf/d10-generate.ts` (`pnpm perf:d10`):** creates a data set ten times the demo. It refuses `nesto_erp`, unlisted databases and remote hosts, gives the same checksum on two runs, and `--remove` restores the original counts.
+- **Full vitest:**
+  - `nesto_a6a`: 3,984 of 3,985. The 1 failure is the 3D viewer shell test, which now passes: it needed a router mock after NavLink began using the router.
+  - `nesto_a10e`: 1,938 passed, 2 skipped.
+  - The telemetry-budget test passes.
+- **Gates:**
+  - tsc and eslint are clean.
+  - `verify:ownership`, `state`, `workers`, `production-guards`, `authorization`, `company-integrity`, `organization`, `employment`, `employee-integrity` and `workflows` pass.
+  - The security matrix was regenerated, and the access manifest is current.
+  - A production `next build` passes.
+- **Benchmark discovery:** selectors were checked on both builds, desktop and phone. Every route passes, except phone lists in the 324a3ca9 build, which predates AUD-04's phone cards. Those phone results are not comparable and will be reported as such.
+
+### 50.3 Still open
+
+- **Timing runs:** before (324a3ca9, `nesto_perf`) and after (HEAD, `nesto_perf_head`), desktop and phone. The command lines are in the route manifest.
+- **Other measurements:**
+  - the SQL-count pass;
+  - the 20-user server-load test;
+  - `aud07-recovery.spec.ts`, which joins the final E2E pass.
+- **Needs a review:** meetings, approvals and planning templates use 30–60 s transaction timeouts. These exceed the read deadline.
+- **No alert rules yet:** the thresholds are proposed in [performance-and-stability.md](runbooks/performance-and-stability.md).
+- **Not generated:** the Group data sets with 1, 5 and 10 companies.

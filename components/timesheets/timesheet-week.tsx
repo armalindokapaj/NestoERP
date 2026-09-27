@@ -86,13 +86,19 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
     return next;
   }, [week.periodStart]);
 
+  /**
+   * The save committed before this runs. A failed read-back is not a failed
+   * save: say it saved, and retry the read through the page's refresh — never
+   * the save itself (AUD-07 §7, PS-16).
+   */
   async function afterSave(message?: string) {
+    setSaveState("saved");
+    if (message) toast({ title: message, tone: "success" });
     try {
       await refresh();
-      setSaveState("saved");
-      if (message) toast({ title: message, tone: "success" });
-    } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+    } catch {
+      toast({ title: "Saved", description: "The week could not be refreshed just now; it is being reloaded.", tone: "warning" });
+      router.refresh();
     }
   }
 

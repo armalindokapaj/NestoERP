@@ -16,6 +16,13 @@ vi.mock("next/link", async () => {
   };
 });
 
+// NavLink (AUD-03) guards unsaved work through the router; no App Router is mounted here.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push() {}, replace() {}, refresh() {}, back() {}, forward() {}, prefetch() {} }),
+  usePathname: () => "/projects",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/components/3d/company/ThreeProjectViewer", async () => {
   const ReactModule = await import("react");
   return {

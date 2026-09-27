@@ -56,6 +56,36 @@ export function isTransient(error: unknown): boolean {
   return false;
 }
 
+/**
+ * The deadline every interactive transaction has unless its caller sets its own
+ * (AUD-07 §7, PS-17). Prisma's defaults, written down so the runbook, the
+ * client deadline and the tests read one number: a transaction waits at most
+ * `TRANSACTION_MAX_WAIT_MS` for a pooled connection and runs at most
+ * `TRANSACTION_DEADLINE_MS`, both inside the 10 s client read deadline
+ * (lib/client/api-request.ts) so the server answers before the browser gives up.
+ */
+export const TRANSACTION_DEADLINE_MS = 5_000;
+export const TRANSACTION_MAX_WAIT_MS = 2_000;
+
+export { isContention } from "@/lib/core/transactions/contention";
+
+/**
+ * Prisma's transaction timeout does not interrupt a statement already waiting in
+ * Postgres: measured, an UPDATE queued behind another connection's row lock
+ * waited out the holder's whole minute while its own 5 s deadline had long
+ * passed, and the request with it (AUD-07 PS-17, tests/api/jobs/aud07-contention.test.ts).
+ * So each attempt tells Postgres the same deadline, local to the transaction:
+ * a lock wait gives up at four fifths of it (SQLSTATE 55P03) and any statement
+ * at the deadline itself (57014), both before Prisma closes the transaction, so
+ * the caller gets a contention error and the rollback is Postgres's own. One
+ * round trip, no extra query when the transaction is already doing work.
+ */
+async function boundWaits(tx: Prisma.TransactionClient, timeoutMs: number): Promise<void> {
+  const lock = `${Math.max(100, Math.floor(timeoutMs * 0.8))}ms`;
+  const statement = `${Math.max(100, timeoutMs)}ms`;
+  await tx.$queryRaw`SELECT set_config('lock_timeout', ${lock}, true), set_config('statement_timeout', ${statement}, true)`;
+}
+
 export type TransactionOptions = {
   /** Attempts in total, the first included. */
   attempts?: number;
@@ -72,17 +102,19 @@ export async function runInTransaction<T>(
   options: TransactionOptions = {},
 ): Promise<T> {
   const attempts = options.attempts ?? 3;
+  const timeout = options.timeout ?? TRANSACTION_DEADLINE_MS;
   const started = Date.now();
   const correlationId = currentRequestContext()?.correlationId;
 
   for (let attempt = 1; ; attempt += 1) {
     try {
       const result = await prisma.$transaction(async (tx) => {
+        await boundWaits(tx, timeout);
         if (options.actor) await assertActorCurrent(tx, options.actor);
         return run(tx);
       }, {
-        timeout: options.timeout,
-        maxWait: options.maxWait,
+        timeout,
+        maxWait: options.maxWait ?? TRANSACTION_MAX_WAIT_MS,
         isolationLevel: options.isolationLevel,
       });
       incrementCounter(Metric.TRANSACTION_SUCCESS, { operation });

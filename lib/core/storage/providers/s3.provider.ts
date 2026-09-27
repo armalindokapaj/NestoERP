@@ -25,6 +25,13 @@ import { presignUrl, type SigV4Config } from "./sigv4";
  * (PRD #29 §8, §110, §309).
  */
 
+/**
+ * How long one storage call may take before the request gives up on it
+ * (AUD-07 §7): metadata calls are small, transfers get the presigned URL's own
+ * lifetime. Without a deadline a hung bucket held the request until the platform killed it.
+ */
+const STORAGE_CALL_MS = { head: 10_000, transfer: 60_000 } as const;
+
 export type S3ProviderOptions = {
   endpoint: string;
   region: string;
@@ -130,7 +137,7 @@ export class S3StorageProvider implements StorageProvider {
   }
 
   async headObject(storageKey: string): Promise<StorageObjectMetadata | null> {
-    const response = await fetch(this.presign("HEAD", storageKey, 60), { method: "HEAD" });
+    const response = await fetch(this.presign("HEAD", storageKey, 60), { method: "HEAD", signal: AbortSignal.timeout(STORAGE_CALL_MS.head) });
     if (response.status === 404 || response.status === 403) return null;
     if (!response.ok) throw new Error(`Storage HEAD failed with ${response.status}`);
 
@@ -148,7 +155,7 @@ export class S3StorageProvider implements StorageProvider {
   }
 
   async getObject(storageKey: string): Promise<Uint8Array | null> {
-    const response = await fetch(this.presign("GET", storageKey, 60));
+    const response = await fetch(this.presign("GET", storageKey, 60), { signal: AbortSignal.timeout(STORAGE_CALL_MS.transfer) });
     if (response.status === 404 || response.status === 403) return null;
     if (!response.ok) throw new Error(`Storage GET failed with ${response.status}`);
     return new Uint8Array(await response.arrayBuffer());
@@ -156,6 +163,7 @@ export class S3StorageProvider implements StorageProvider {
 
   async getObjectHead(storageKey: string, byteCount: number): Promise<Uint8Array | null> {
     const response = await fetch(this.presign("GET", storageKey, 60), {
+      signal: AbortSignal.timeout(STORAGE_CALL_MS.head),
       headers: { Range: `bytes=0-${byteCount - 1}` },
     });
     if (response.status === 404 || response.status === 403) return null;
@@ -172,6 +180,7 @@ export class S3StorageProvider implements StorageProvider {
   ): Promise<StorageObjectMetadata> {
     const response = await fetch(this.presign("PUT", storageKey, 120), {
       method: "PUT",
+      signal: AbortSignal.timeout(STORAGE_CALL_MS.transfer),
       headers: { "Content-Type": contentType },
       body: data as unknown as BodyInit,
     });
@@ -187,7 +196,7 @@ export class S3StorageProvider implements StorageProvider {
   }
 
   async deleteObject(storageKey: string): Promise<void> {
-    const response = await fetch(this.presign("DELETE", storageKey, 60), { method: "DELETE" });
+    const response = await fetch(this.presign("DELETE", storageKey, 60), { method: "DELETE", signal: AbortSignal.timeout(STORAGE_CALL_MS.head) });
     // S3 answers 204 for a delete, and also for a key that was never there.
     if (!response.ok && response.status !== 404) {
       throw new Error(`Storage DELETE failed with ${response.status}`);
@@ -209,6 +218,7 @@ export class S3StorageProvider implements StorageProvider {
     try {
       const response = await fetch(this.presign("HEAD", ".nesto-health-probe", 30), {
         method: "HEAD",
+        signal: AbortSignal.timeout(STORAGE_CALL_MS.head),
       });
       return { ok: response.status === 404 || response.ok };
     } catch {

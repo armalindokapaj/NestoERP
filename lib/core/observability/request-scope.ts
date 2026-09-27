@@ -2,6 +2,9 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { cache } from "react";
 
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
+// Publishes the opt-in statement counter's probe (AUD-07 PS-04) wherever a request
+// scope exists; it counts nothing unless the Prisma client was built to report.
+import "@/lib/core/observability/statement-counter";
 
 /**
  * One request's reusable reads (NAV-02 CTX-01, CTX-02).

@@ -43,6 +43,8 @@ export const Metric = {
   MEETING_MINUTES_FINALIZE: "meeting_minutes_finalize_count",
   MEETING_ACTION_TASK_CREATE: "meeting_action_task_create_count",
   MEETING_SERIES_GENERATED: "meeting_series_occurrences_generated_total",
+  // Task commands: every outcome, exactly; the latency histogram keeps only the class (AUD-07 §5).
+  TASK_MUTATION_OUTCOME: "task_mutation_outcome_total",
   // Approvals Center (PRD #41 §256)
   APPROVALS_QUEUE: "approvals_queue_count",
   APPROVALS_QUEUE_DURATION_MS: "approvals_queue_duration_ms_total",
@@ -316,13 +318,46 @@ export const HISTOGRAMS = {
     buckets: DURATION_BUCKETS_MS,
     labels: {
       command: ["edit", "start", "block", "complete", "reopen", "archive", "restore"],
-      outcome: ["committed", "unchanged", "version_conflict", "state_conflict", "version_required", "refused", "retryable", "failure"],
+      outcome: ["committed", "unchanged", "rejected", "error"],
     },
+    /*
+     * The latency of a refusal is one check's, whichever refusal it is: the
+     * histogram keeps the outcome's class, and the exact outcome is counted in
+     * `task_mutation_outcome_total{command,outcome}` (AUD-07 §5, PS-21). Eight
+     * outcomes × seven commands × seventeen series was 952 of the 4,000.
+     */
+    fold: {
+      outcome: {
+        version_conflict: "rejected",
+        state_conflict: "rejected",
+        version_required: "rejected",
+        refused: "rejected",
+        retryable: "error",
+        failure: "error",
+      },
+    },
+    detailCounter: "task_mutation_outcome_total",
   },
-} as const satisfies Record<string, { help: string; buckets: readonly number[]; labels: Record<string, readonly string[]> }>;
+} as const satisfies Record<
+  string,
+  {
+    help: string;
+    buckets: readonly number[];
+    labels: Record<string, readonly string[]>;
+    /** Input values folded into an exported one before the series is chosen: detail without cardinality. */
+    fold?: Record<string, Record<string, string>>;
+    /** A counter that keeps the unfolded labels, so the folded detail is still counted exactly. */
+    detailCounter?: MetricName;
+  }
+>;
 
 export type HistogramName = keyof typeof HISTOGRAMS;
-export type HistogramLabels<N extends HistogramName> = { [K in keyof (typeof HISTOGRAMS)[N]["labels"]]: (typeof HISTOGRAMS)[N]["labels"][K] extends readonly (infer V)[] ? V : never };
+type HistogramDefinition<N extends HistogramName> = (typeof HISTOGRAMS)[N];
+/** The input values a label accepts: its exported values, and any value folded into one of them. */
+type FoldedInput<N extends HistogramName, K> = HistogramDefinition<N> extends { fold: infer F } ? (K extends keyof F ? keyof F[K] & string : never) : never;
+export type HistogramLabels<N extends HistogramName> = {
+  [K in keyof HistogramDefinition<N>["labels"]]: (HistogramDefinition<N>["labels"][K] extends readonly (infer V)[] ? V : never) | FoldedInput<N, K>;
+};
 
 /** The exported series a family can ever have: label combinations × (buckets + +Inf + sum + count). */
 export function histogramSeriesBudget(name: HistogramName): number {
@@ -337,12 +372,20 @@ const histograms = (processHistograms.__nestoHistograms ??= new Map<string, Hist
 
 /** Records one observation; false when a label or the value is not allowed (nothing is recorded). */
 export function observeHistogram<N extends HistogramName>(name: N, labels: HistogramLabels<N>, value: number): boolean {
-  const definition = HISTOGRAMS[name];
+  const definition = HISTOGRAMS[name] as (typeof HISTOGRAMS)[HistogramName] & { fold?: Record<string, Record<string, string>>; detailCounter?: MetricName };
   if (!Number.isFinite(value) || value < 0) return false;
   const allowed = definition.labels as Record<string, readonly string[]>;
-  const given = labels as Record<string, string>;
-  if (Object.keys(given).length !== Object.keys(allowed).length) return false;
-  for (const [key, values] of Object.entries(allowed)) if (!values.includes(given[key])) return false;
+  const input = labels as Record<string, string>;
+  if (Object.keys(input).length !== Object.keys(allowed).length) return false;
+  // Folding happens before validation, and only through the declared map: an undeclared value is still dropped.
+  const given: Record<string, string> = {};
+  for (const [key, values] of Object.entries(allowed)) {
+    const raw = input[key];
+    const folded = raw !== undefined && Object.hasOwn(definition.fold?.[key] ?? {}, raw) ? definition.fold![key]![raw]! : raw;
+    if (!values.includes(folded)) return false;
+    given[key] = folded;
+  }
+  if (definition.detailCounter) incrementCounter(definition.detailCounter, { ...input });
   const key = seriesKey(name, given);
   let series = histograms.get(key);
   if (!series) {

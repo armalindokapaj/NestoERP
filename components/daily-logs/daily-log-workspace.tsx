@@ -215,18 +215,31 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     try {
       if (dialogEntry) await dailyLogApi(`${base}/${dialog.section}/${dialogEntry.id}`, { method: "PATCH", body });
       else await dailyLogApi(`${base}/${dialog.section}`, { body });
-      await refresh();
-      setSaving("saved");
     } catch (error) {
       setSaving("error");
       throw error;
     }
+    // Saved. Reading the log back is not part of the save: if it fails, the
+    // entry is still saved and only the read is tried again — never the create
+    // (AUD-07 §7, PS-16).
+    setSaving("saved");
+    await refreshAfterCommit();
   }
 
   async function removeEntry() {
     if (!dialog || !dialogEntry) return;
     await dailyLogApi(`${base}/${dialog.section}/${dialogEntry.id}`, { method: "DELETE" });
-    await refresh();
+    await refreshAfterCommit();
+  }
+
+  /** After a committed change: the read, and on its failure the page's own refresh — never the change again. */
+  async function refreshAfterCommit() {
+    try {
+      await refresh();
+    } catch {
+      toast({ title: "Saved", description: "The log could not be refreshed just now; it is being reloaded.", tone: "warning" });
+      router.refresh();
+    }
   }
 
   async function saveOverview(field: string, value: string | null): Promise<SaveOutcome> {

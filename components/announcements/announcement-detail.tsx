@@ -84,13 +84,21 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
     setError(null);
     try {
       await run();
-      toast({ title: success, tone: "success" });
-      after?.();
-      await refresh();
-      router.refresh();
     } catch (failure) {
       setError(failureMessage(failure));
+      setPending(null);
+      return;
+    }
+    // Done. A failed read-back is reported as such, and only the read is
+    // retried — never the step (AUD-07 §7, PS-16).
+    toast({ title: success, tone: "success" });
+    after?.();
+    try {
+      await refresh();
+    } catch {
+      toast({ title: "This page could not be refreshed just now; it is being reloaded.", tone: "warning" });
     } finally {
+      router.refresh();
       setPending(null);
     }
   }
