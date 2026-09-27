@@ -9,6 +9,7 @@ import Link from "@/components/navigation/nav-link";
 import { TaskForm, type TaskFormValues } from "@/components/tasks/task-form";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { taskCommandAction, taskReviewSnapshotAction, type TaskReviewSnapshot } from "@/lib/actions/tasks";
 
 /**
@@ -40,19 +41,20 @@ type Recovery =
   | { kind: "archived"; latest: LatestTask }
   | { kind: "lost" };
 
-const FIELDS: Array<{ key: FieldKey; label: string }> = [
-  { key: "title", label: "Title" },
-  { key: "description", label: "Description" },
-  { key: "status", label: "Status" },
-  { key: "priority", label: "Priority" },
-  { key: "projectId", label: "Project" },
-  { key: "assigneeMemberId", label: "Assignee" },
-  { key: "startDate", label: "Start date" },
-  { key: "dueDate", label: "Due date" },
+const FIELDS: Array<{ key: FieldKey }> = [
+  { key: "title" },
+  { key: "description" },
+  { key: "status" },
+  { key: "priority" },
+  { key: "projectId" },
+  { key: "assigneeMemberId" },
+  { key: "startDate" },
+  { key: "dueDate" },
 ];
 
-const STATUS_LABEL: Record<string, string> = { TODO: "To Do", IN_PROGRESS: "In Progress", BLOCKED: "Blocked", COMPLETED: "Completed", ARCHIVED: "Archived" };
-const PRIORITY_LABEL: Record<string, string> = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" };
+const STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED", "ARCHIVED"] as const;
+const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+const isOneOf = <T extends string>(list: readonly T[], value: string): value is T => (list as readonly string[]).includes(value);
 
 function valuesOf(formData: FormData): TaskFormValues {
   const read = (key: FieldKey) => {
@@ -101,6 +103,7 @@ export function TaskEditForm({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("tasks");
   // What the form was loaded with, and against which version it saves.
   // `saved`: the task's saved values when the form opens on reapplied changes,
   // which are unsaved until the next save commits (AUD-03 §3).
@@ -118,20 +121,20 @@ export function TaskEditForm({
 
   const labelOf = React.useCallback(
     (key: FieldKey, value: string, latest?: LatestTask): string => {
-      if (value === "") return key === "projectId" ? "No project" : key === "assigneeMemberId" ? "Unassigned" : "—";
-      if (key === "status") return STATUS_LABEL[value] ?? value;
-      if (key === "priority") return PRIORITY_LABEL[value] ?? value;
+      if (value === "") return key === "projectId" ? t("common.noProject") : key === "assigneeMemberId" ? t("common.unassigned") : "—";
+      if (key === "status") return isOneOf(STATUSES, value) ? t(`status.${value}`) : value;
+      if (key === "priority") return isOneOf(PRIORITIES, value) ? t(`priority.${value}`) : value;
       if (key === "projectId") {
         if (latest && latest.values.projectId === value) return latest.values.projectLabel;
-        return projects.find((option) => option.value === value)?.label ?? "A project";
+        return projects.find((option) => option.value === value)?.label ?? t("conflict.aProject");
       }
       if (key === "assigneeMemberId") {
         if (latest && latest.values.assigneeMemberId === value) return latest.values.assigneeLabel;
-        return assignees.find((option) => option.value === value)?.label ?? "A team member";
+        return assignees.find((option) => option.value === value)?.label ?? t("conflict.aTeamMember");
       }
       return value;
     },
-    [projects, assignees],
+    [projects, assignees, t],
   );
 
   function onFailure(result: Extract<FormActionResult, { ok: false }>, submitted: FormData): boolean {
@@ -158,7 +161,7 @@ export function TaskEditForm({
 
   function onSuccess(result: Extract<FormActionResult, { ok: true }>, mode: "normal" | "continue"): boolean {
     if (!(result as { lostAccess?: boolean }).lostAccess) return false;
-    toast({ title: "Saved. You no longer have access to this task.", tone: "success" });
+    toast({ title: t("conflict.lostAccessSaved"), tone: "success" });
     // After Save and continue the person's own destination wins.
     if (mode === "normal" && result.redirectTo) router.push(result.redirectTo);
     return true;
@@ -220,7 +223,7 @@ export function TaskEditForm({
         toast({ title: result.error, tone: "danger" });
         return;
       }
-      toast({ title: "Task restored. Review the latest version before saving.", tone: "success" });
+      toast({ title: t("conflict.restoredReview"), tone: "success" });
       // A new active snapshot has to be reviewed before the draft can be saved.
       reviewLatest();
     });
@@ -234,27 +237,27 @@ export function TaskEditForm({
     >
       {recovery.kind === "loading" ? (
         <p role="status" className="text-table text-fg">
-          Reading the latest version…
+          {t("conflict.reading")}
         </p>
       ) : null}
 
       {recovery.kind === "conflict" || recovery.kind === "unconfirmed" ? (
         <>
           <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
-            {recovery.kind === "conflict" ? "Your changes have not been saved" : "We couldn't confirm the save"}
+            {recovery.kind === "conflict" ? t("conflict.notSavedTitle") : t("conflict.unconfirmedTitle")}
           </h2>
           <p role="alert" className="text-table text-fg">
             {recovery.kind === "conflict"
-              ? "This task changed while you were editing. Your changes have not been saved."
-              : "We couldn't confirm whether this change was saved. Check the latest task before trying again."}
+              ? t("conflict.conflictBody")
+              : t("conflict.unconfirmedBody")}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={reviewLatest} disabled={busy}>
               <RefreshCw aria-hidden="true" />
-              Review latest
+              {t("conflict.reviewLatest")}
             </Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => setRecovery(null)} disabled={busy}>
-              Keep editing
+              {t("conflict.keepEditing")}
             </Button>
           </div>
         </>
@@ -276,22 +279,22 @@ export function TaskEditForm({
       {recovery.kind === "archived" ? (
         <>
           <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
-            This task can no longer be edited
+            {t("conflict.noLongerEditable")}
           </h2>
           <p role="alert" className="text-table text-fg">
             {recovery.latest.archived
-              ? "It was archived while you were editing. Your changes are still in the form, but they can only be saved once the task is restored and you have reviewed it again."
-              : "You can no longer edit it. Your changes are still in the form, but they cannot be saved."}
+              ? t("conflict.archivedBody")
+              : t("conflict.cannotEditBody")}
           </p>
           <div className="flex flex-wrap gap-2">
             {recovery.latest.archived && recovery.latest.canRestore ? (
               <Button type="button" size="sm" onClick={() => restore(recovery.latest)} disabled={busy}>
                 <ArchiveRestore aria-hidden="true" />
-                Restore task
+                {t("conflict.restoreTask")}
               </Button>
             ) : null}
             <Button asChild size="sm" variant="secondary">
-              <Link href={`/tasks/${taskId}`}>Open the task</Link>
+              <Link href={`/tasks/${taskId}`}>{t("conflict.openTask")}</Link>
             </Button>
           </div>
         </>
@@ -300,14 +303,14 @@ export function TaskEditForm({
       {recovery.kind === "lost" ? (
         <>
           <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
-            You can no longer open this task
+            {t("conflict.lostTitle")}
           </h2>
           <p role="alert" className="text-table text-fg">
-            Your changes have not been saved, and the task is no longer available to you.
+            {t("conflict.lostBody")}
           </p>
           <div>
             <Button asChild size="sm" variant="secondary">
-              <Link href="/tasks">Go to tasks</Link>
+              <Link href="/tasks">{t("conflict.goToTasks")}</Link>
             </Button>
           </div>
         </>
@@ -315,7 +318,7 @@ export function TaskEditForm({
     </section>
   ) : applied ? (
     <p role="status" className="rounded-md border border-info/30 bg-info-soft px-4 py-3 text-table text-fg" data-testid="task-conflict-applied">
-      The form now shows the latest version of the task with the changes you chose. Review it and save.
+      {t("conflict.applied")}
     </p>
   ) : null;
 
@@ -366,21 +369,22 @@ function ReviewLatest({
   onApply: () => void;
   onKeepEditing: () => void;
 }) {
+  const t = useTranslations("tasks");
   const changed = FIELDS.filter(({ key }) => key in choices);
   return (
     <>
       <h2 id="task-conflict-heading" ref={headingRef} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
-        Review the latest version
+        {t("conflict.reviewTitle")}
       </h2>
       <p role="status" className="text-table text-fg">
         {changed.length === 0
-          ? "You had no unsaved changes. Load the latest version to continue."
-          : "Choose which of your changes to apply to the latest version. Fields you did not change keep their latest values."}
+          ? t("conflict.noChanges")
+          : t("conflict.chooseChanges")}
       </p>
       {changed.length > 0 ? (
         <fieldset className="space-y-2">
-          <legend className="sr-only">Your changes</legend>
-          {changed.map(({ key, label }) => (
+          <legend className="sr-only">{t("conflict.yourChanges")}</legend>
+          {changed.map(({ key }) => (
             <div key={key} className="grid gap-2 rounded-md border border-line bg-surface p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,1fr)]" data-testid={`task-conflict-field-${key}`}>
               {/* The whole label is the target: at least 44px tall, the full row wide on a phone (AUD-04 §3, MW-11). */}
               <label className="flex min-h-11 cursor-pointer items-center gap-3 self-start text-table font-medium text-fg">
@@ -391,14 +395,14 @@ function ReviewLatest({
                   onChange={(event) => onToggle(key, event.target.checked)}
                   aria-describedby={`conflict-${key}-latest conflict-${key}-mine`}
                 />
-                <span>Use my {label.toLowerCase()}</span>
+                <span>{t(`conflict.useMy.${key}`)}</span>
               </label>
               <div id={`conflict-${key}-latest`} className="min-w-0">
-                <p className="nesto-eyebrow text-fg-subtle">Latest</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("conflict.latest")}</p>
                 <p className="whitespace-pre-wrap break-words text-table text-fg">{labelOf(key, latest.values[key], latest)}</p>
               </div>
               <div id={`conflict-${key}-mine`} className="min-w-0">
-                <p className="nesto-eyebrow text-fg-subtle">Yours</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("conflict.yours")}</p>
                 <p className="whitespace-pre-wrap break-words text-table text-fg">{labelOf(key, mine[key], latest)}</p>
               </div>
             </div>
@@ -407,10 +411,10 @@ function ReviewLatest({
       ) : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={onApply}>
-          {changed.length === 0 ? "Load the latest version" : "Apply to the latest version"}
+          {changed.length === 0 ? t("conflict.loadLatest") : t("conflict.applyLatest")}
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={onKeepEditing}>
-          Keep editing
+          {t("conflict.keepEditing")}
         </Button>
       </div>
     </>

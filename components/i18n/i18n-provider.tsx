@@ -3,10 +3,16 @@
 import * as React from "react";
 
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
-import { en, type Messages } from "@/lib/i18n/messages/en";
-import { createTranslator, type Namespace, type Translate } from "@/lib/i18n/translator";
+import { en, type Messages as FrameMessages } from "@/lib/i18n/messages/en";
+import type { ModuleMessages } from "@/lib/i18n/modules";
+import {
+  createTranslator,
+  type Messages,
+  type Namespace,
+  type Translate,
+} from "@/lib/i18n/translator";
 
-type I18nValue = { locale: Locale; messages: Messages };
+type I18nValue = { locale: Locale; messages: FrameMessages & Partial<ModuleMessages> };
 
 /*
  * English is the default rather than a thrown error, so a client component
@@ -35,11 +41,38 @@ export function useLocale(): Locale {
   return React.useContext(I18nContext).locale;
 }
 
+/**
+ * Adds module dictionaries to the ones already in context. Mounted by
+ * `ModuleMessages` (a Server Component) in a module's layout, so a module's
+ * strings reach the browser only on that module's pages.
+ */
+export function ModuleMessagesProvider({
+  messages: added,
+  children,
+}: {
+  messages: Partial<ModuleMessages>;
+  children: React.ReactNode;
+}) {
+  const parent = React.useContext(I18nContext);
+  const value = React.useMemo(
+    () => ({ locale: parent.locale, messages: { ...parent.messages, ...added } }),
+    [parent, added],
+  );
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
 /** `t` for a Client Component. */
 export function useTranslations<N extends Namespace>(namespace: N): Translate<N> {
   const { locale, messages } = React.useContext(I18nContext);
+  if (process.env.NODE_ENV !== "production" && !(namespace in messages)) {
+    console.warn(`useTranslations("${namespace}") outside its ModuleMessages boundary.`);
+  }
   return React.useMemo(
-    () => createTranslator(locale, messages[namespace]),
+    () =>
+      createTranslator(
+        locale,
+        ((messages as Partial<Messages>)[namespace] ?? {}) as Messages[N],
+      ),
     [locale, messages, namespace],
   );
 }

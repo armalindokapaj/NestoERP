@@ -10,6 +10,7 @@ import { TableHeaderCell } from "@/components/ui/table";
 import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { appliedSort, headerSortState } from "@/lib/tables/sort";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * How a table's header sort controls read and write the list's sort
@@ -46,6 +47,7 @@ export function SortHeaderCell({
   className?: string;
   colId?: string;
 }) {
+  const t = useTranslations("ui");
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
@@ -80,7 +82,7 @@ export function SortHeaderCell({
         onClick={activate}
         aria-disabled={state.next === null || undefined}
         data-pending={pending || undefined}
-        title={state.next ? `Sort by ${label}` : undefined}
+        title={state.next ? t("sortBy", { label }) : undefined}
         className={cn(
           "-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-[0.08em] transition-colors",
           // A 44px hit area on a touch tablet (AUD-04 §3); the header row grows to fit.

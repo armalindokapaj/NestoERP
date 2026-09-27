@@ -9,6 +9,7 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { appliedSort, type SortChoice } from "@/lib/tables/sort";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * The phone Sort control of a table (AUD-04 §5, MW-06).
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils/cn";
  * way, so a phone never shows two.
  */
 export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[]; sort: TableSortConfig; label?: string }) {
+  const t = useTranslations("ui");
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
@@ -52,16 +54,16 @@ export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[
       data-pending={pending || undefined}
     >
       <label htmlFor={id} className="shrink-0 text-table font-medium text-fg-subtle">
-        Sort
+        {t("sort")}
       </label>
       <select
         id={id}
-        aria-label={label ? `Sort ${label}` : "Sort"}
+        aria-label={label ? t("sortLabel", { label }) : t("sort")}
         className="h-11 min-w-0 flex-1 rounded-md border border-line bg-surface px-3 text-base font-medium text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
         value={known ? applied : ""}
         onChange={(event) => choose(event.target.value)}
       >
-        {known ? null : <option value="">List order</option>}
+        {known ? null : <option value="">{t("listOrder")}</option>}
         {choices.map((choice) => (
           <option key={choice.value} value={choice.value}>
             {choice.label}

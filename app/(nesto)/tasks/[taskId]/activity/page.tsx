@@ -10,6 +10,7 @@ import { History } from "lucide-react";
 import { can } from "@/lib/access/can";
 import * as tasks from "@/lib/modules/tasks/task.service";
 import { formatDateTime } from "@/lib/utils/format";
+import { getTranslations } from "@/lib/i18n/server";
 import { loadTask, taskBreadcrumbs } from "../task-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
@@ -18,7 +19,10 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Task Activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tasks");
+  return { title: t("meta.activity") };
+}
 
 /**
  * Full task history (PRD #11 §75, §166, §168).
@@ -31,6 +35,7 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
   const { context, task } = await loadTask(taskId);
 
   if (!can(context, "task.activity.view")) notFound();
+  const t = await getTranslations("tasks");
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -43,17 +48,17 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={taskBreadcrumbs(task, "Activity")}
+        breadcrumbs={await taskBreadcrumbs(task, t("common.activity"))}
         title={task.title}
-        subtitle={task.project ? task.project.name : "Personal task"}
+        subtitle={task.project ? task.project.name : t("common.personalTask")}
         status={task.status}
       />
 
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No activity recorded yet."
-          description="Changes to this task will be listed here."
+          title={t("common.noActivity")}
+          description={t("detail.activityEmptyDescription")}
         />
       ) : (
         <>
@@ -62,7 +67,7 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
               <li key={entry.id} className="px-5 py-4">
                 {/* Messages quote titles and reasons: they wrap, never widen the page (AUD-04 §3, MW-01). */}
                 <p className="text-table text-fg [overflow-wrap:anywhere]">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">

@@ -44,8 +44,9 @@ type ResolvedCrumb = Crumb & {
 };
 
 function HistoryButton({ direction, disabled, onClick, fallbackLabel }: { direction: "back" | "forward"; disabled: boolean; onClick: () => void; fallbackLabel?: string }) {
+  const t = useTranslations("ui");
   // With no history in this tab, Back leads to the nearest parent and says which (AUD-05 §3, UX-04).
-  const label = fallbackLabel ? `Back to ${fallbackLabel}` : direction === "back" ? "Go back" : "Go forward";
+  const label = fallbackLabel ? t("backTo", { label: fallbackLabel }) : direction === "back" ? t("goBack") : t("goForward");
   const Icon = direction === "back" ? ArrowLeft : ArrowRight;
   return (
     <button
@@ -53,7 +54,7 @@ function HistoryButton({ direction, disabled, onClick, fallbackLabel }: { direct
       aria-label={label}
       aria-disabled={disabled}
       disabled={disabled}
-      title={disabled ? undefined : fallbackLabel ? label : direction === "back" ? "Back" : "Forward"}
+      title={disabled ? undefined : fallbackLabel ? label : direction === "back" ? t("back") : t("forward")}
       onClick={onClick}
       className={cn(
         // 44px under touch: Back is the record's way home on a phone (AUD-04 §4, MW-04, MW-19).

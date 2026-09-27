@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { taskCommandAction, type ActionResult, type TaskCommandName } from "@/lib/actions/tasks";
 import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
 
@@ -51,8 +52,6 @@ import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
  * chooses again — a command is never re-sent against a version they have not
  * seen (§7).
  */
-const UNCONFIRMED = "We couldn't confirm whether this change was saved. Check the latest task before trying again.";
-const CHANGED = "This task changed since you opened it. Its latest state is shown now; choose again.";
 
 type StatusCommand = "start" | "complete" | "reopen";
 type Verb = {
@@ -67,6 +66,9 @@ type Verb = {
 export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("tasks");
+  const UNCONFIRMED = t("actions.unconfirmed");
+  const CHANGED = t("actions.changed");
   const [confirming, setConfirming] = React.useState(false);
   const [blocking, setBlocking] = React.useState(false);
   // A dialog chosen from the menu opens once the menu has finished closing: a
@@ -122,7 +124,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         }
         if (result.ok) {
           if (result.redirectTo) {
-            toast({ title: `${successMessage} You no longer have access to this task.`, tone: "success" });
+            toast({ title: t("actions.lostAccess", { message: successMessage }), tone: "success" });
             router.push(result.redirectTo);
           } else {
             toast({ title: successMessage, tone: "success" });
@@ -144,11 +146,11 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   }
 
   function archive() {
-    void send("archive", "Task archived.", { expectedVersion: task.version }).then(() => setConfirming(false));
+    void send("archive", t("actions.archivedDone"), { expectedVersion: task.version }).then(() => setConfirming(false));
   }
 
   function restore() {
-    void send("restore", "Task restored.", { expectedVersion: task.version });
+    void send("restore", t("actions.restoredDone"), { expectedVersion: task.version });
   }
 
   const canStart = may.canChangeStatus && (status === "TODO" || status === "BLOCKED");
@@ -164,9 +166,9 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   const verbs: Verb[] = archived
     ? []
     : [
-        ...(canStart ? [{ command: "start" as const, label: "Start", pendingLabel: "Starting…", done: "Task started.", icon: Play, variant: "secondary" as const }] : []),
-        ...(may.canComplete ? [{ command: "complete" as const, label: "Complete", pendingLabel: "Completing…", done: "Task completed.", icon: Check, variant: "primary" as const }] : []),
-        ...(may.canReopen ? [{ command: "reopen" as const, label: "Reopen", pendingLabel: "Reopening…", done: "Task reopened.", icon: RotateCcw, variant: "primary" as const }] : []),
+        ...(canStart ? [{ command: "start" as const, label: t("actions.start"), pendingLabel: t("actions.starting"), done: t("actions.started"), icon: Play, variant: "secondary" as const }] : []),
+        ...(may.canComplete ? [{ command: "complete" as const, label: t("actions.complete"), pendingLabel: t("actions.completing"), done: t("actions.completedDone"), icon: Check, variant: "primary" as const }] : []),
+        ...(may.canReopen ? [{ command: "reopen" as const, label: t("actions.reopen"), pendingLabel: t("actions.reopening"), done: t("actions.reopened"), icon: RotateCcw, variant: "primary" as const }] : []),
       ];
   const secondary = verbs.slice(1);
   const canEdit = !archived && may.canEdit;
@@ -179,7 +181,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
       {archived && may.canRestore ? (
         <Button size="sm" onClick={restore} disabled={pending}>
           <ArchiveRestore aria-hidden="true" />
-          {pending ? "Restoring…" : "Restore"}
+          {pending ? t("actions.restoring") : t("actions.restore")}
         </Button>
       ) : null}
 
@@ -203,7 +205,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         <Button asChild variant="secondary" size="sm" className="max-sm:hidden">
           <Link href={`/tasks/${task.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
@@ -211,7 +213,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
       {phoneOnlyItems || desktopItems ? (
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More task actions" className={desktopItems ? undefined : "sm:hidden"}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={desktopItems ? undefined : "sm:hidden"}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -238,7 +240,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
               <DropdownMenuItem asChild className="sm:hidden">
                 <Link href={`/tasks/${task.id}/edit`}>
                   <PenLine />
-                  Edit task
+                  {t("actions.editTask")}
                 </Link>
               </DropdownMenuItem>
             ) : null}
@@ -252,7 +254,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 }}
               >
                 <Ban />
-                Mark blocked
+                {t("actions.markBlocked")}
               </DropdownMenuItem>
             ) : null}
             {!archived && may.canArchive ? (
@@ -262,7 +264,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 }}
               >
                 <Archive />
-                Archive task
+                {t("actions.archiveTask")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -281,22 +283,22 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
       >
         {/* The primitive bounds the dialog to the viewport and scrolls it; the reason is kept short so it and the footer both fit above a phone keyboard in landscape (AUD-04 §6, MW-10). */}
         <DialogContent className="max-w-md">
-          <DialogTitle>Mark this task blocked</DialogTitle>
+          <DialogTitle>{t("actions.blockTitle")}</DialogTitle>
           <DialogDescription>
-            Say what is stopping the work. Everyone watching the task is told, with your reason.
+            {t("actions.blockDescription")}
           </DialogDescription>
           <form
             className="space-y-2"
             onSubmit={(event) => {
               event.preventDefault();
               if (blockReason.trim().length < 3) {
-                setBlockError("Say why the task is blocked.");
+                setBlockError(t("actions.blockReasonRequired"));
                 return;
               }
               setBlockError(null);
               // The dialog stays open, with the reason, until the server has
               // confirmed; a refusal is shown inside it (AUD-02 §7).
-              void send("block", "Task marked blocked.", { expectedVersion: blockVersion, reason: blockReason.trim() }, setBlockError).then(
+              void send("block", t("actions.blockedDone"), { expectedVersion: blockVersion, reason: blockReason.trim() }, setBlockError).then(
                 (committed) => {
                   if (committed) {
                     setBlocking(false);
@@ -308,7 +310,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
           >
             {/* A typed reason is unsaved input; marking blocked is the only way it is kept (AUD-03 §4). */}
             <UnsavedValue module="tasks" saveKind="none" workflow="Mark blocked" label="The reason this task is blocked" dirty={blockReason !== ""} saving={pending} />
-            <Label htmlFor="block-reason">Reason</Label>
+            <Label htmlFor="block-reason">{t("actions.reason")}</Label>
             <Textarea
               id="block-reason"
               rows={3}
@@ -330,11 +332,11 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="secondary">
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Mark blocked"}
+                {pending ? t("common.saving") : t("actions.markBlocked")}
               </Button>
             </DialogFooter>
           </form>
@@ -344,9 +346,9 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title={`Archive ${task.title}?`}
-        description="The task will be removed from active task lists. Its history is kept, and restoring returns it to the status it has now."
-        confirmLabel="Archive task"
+        title={t("actions.archiveConfirmTitle", { title: task.title })}
+        description={t("actions.archiveConfirmDescription")}
+        confirmLabel={t("actions.archiveTask")}
         pending={pending}
         onConfirm={archive}
       />

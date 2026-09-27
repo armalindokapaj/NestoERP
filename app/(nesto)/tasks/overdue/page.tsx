@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { taskExperience } from "@/lib/modules/tasks/task.workspace";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { TasksList } from "../tasks-list";
 
-export const metadata: Metadata = { title: "Overdue" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("tasks");
+  return { title: t("meta.overdue") };
+}
 
 export default async function TasksSectionPage({
   searchParams,
@@ -21,6 +25,7 @@ export default async function TasksSectionPage({
   const context = await requireModule("tasks");
   const experience = taskExperience(context);
   const params = await searchParams;
+  const t = await getTranslations("tasks");
 
   return (
     <ModulePage
@@ -30,7 +35,7 @@ export default async function TasksSectionPage({
         // Creating a task needs a company; the Group workspace only reads (Workspace Context §32).
         !inGroupWorkspace(context) && can(context, "task.create") ? (
           <Button asChild size="sm">
-            <Link href="/tasks/new">New task</Link>
+            <Link href="/tasks/new">{t("common.newTask")}</Link>
           </Button>
         ) : null
       }

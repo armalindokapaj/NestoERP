@@ -4,6 +4,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { TaskSummaryDTO } from "@/lib/modules/tasks/task.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/utils/format";
 
 /**
@@ -23,7 +24,7 @@ import { formatDate } from "@/lib/utils/format";
  * where the page passes `sort` — the server-parsed sort of the rows on screen —
  * and only for the allowlisted stems (`due`, `priority`, `title`).
  */
-export function TaskTable({
+export async function TaskTable({
   tasks,
   listId = "tasks.list",
   sort,
@@ -34,6 +35,7 @@ export function TaskTable({
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("tasks");
   const grouped = tasks.some((task) => task.company);
   const sortable = Boolean(sort);
 
@@ -41,7 +43,7 @@ export function TaskTable({
     {
       key: "title",
       id: "title",
-      label: "Task",
+      label: t("fields.task"),
       primary: true,
       mandatory: true,
       sortKey: sortable ? "title" : undefined,
@@ -50,7 +52,7 @@ export function TaskTable({
           <>
             <span className="block truncate">{task.title}</span>
             <span className="block text-meta font-normal text-fg-subtle">
-              {task.project ? task.project.name : "Personal task"}
+              {task.project ? task.project.name : t("common.personalTask")}
             </span>
           </>
         );
@@ -74,7 +76,7 @@ export function TaskTable({
             key: "company",
             id: "company",
             mandatory: true,
-            label: "Company",
+            label: t("fields.company"),
             render: (task: TaskSummaryDTO) => (task.company ? <CompanyTag name={task.company.name} /> : null),
           },
         ]
@@ -82,7 +84,7 @@ export function TaskTable({
     {
       key: "project",
       id: "project",
-      label: "Project",
+      label: t("fields.project"),
       hideBelow: "lg",
       render: (task) =>
         task.project ? (
@@ -94,7 +96,7 @@ export function TaskTable({
     {
       key: "assignee",
       id: "assignee",
-      label: "Assignee",
+      label: t("fields.assignee"),
       hideBelow: "xl",
       render: (task) =>
         task.assignee ? (
@@ -102,11 +104,11 @@ export function TaskTable({
             <PersonLink memberId={task.assignee.memberId} name={task.assignee.fullName} />
             {task.assignee.membershipActive ? null : (
               // Never silently hide an assignee who has left (PRD #11 §174).
-              <span className="ml-1 text-meta text-fg-subtle">(inactive)</span>
+              <span className="ml-1 text-meta text-fg-subtle">{t("common.inactiveParen")}</span>
             )}
           </span>
         ) : (
-          <span className="text-fg-subtle">Unassigned</span>
+          <span className="text-fg-subtle">{t("common.unassigned")}</span>
         ),
     },
     {
@@ -114,7 +116,7 @@ export function TaskTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("fields.status"),
       render: (task) => <StatusBadge status={task.status} />,
     },
     {
@@ -122,7 +124,7 @@ export function TaskTable({
       id: "priority",
       valueType: "status",
       sortKey: sortable ? "priority" : undefined,
-      label: "Priority",
+      label: t("fields.priority"),
       hideBelow: "lg",
       render: (task) => <PriorityBadge priority={task.priority} />,
     },
@@ -131,14 +133,14 @@ export function TaskTable({
       id: "due",
       valueType: "date",
       sortKey: sortable ? "due" : undefined,
-      label: "Due",
+      label: t("fields.due"),
       hideBelow: "md",
       render: (task) =>
         task.dueDate ? (
           // Overdue is stated in words as well as colour (PRD #11 §200).
           <span className={task.isOverdue ? "font-medium text-danger-strong" : "text-fg-muted"}>
             {formatDate(task.dueDate)}
-            {task.isOverdue ? <span className="ml-1 text-meta">Overdue</span> : null}
+            {task.isOverdue ? <span className="ml-1 text-meta">{t("common.overdue")}</span> : null}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -150,7 +152,7 @@ export function TaskTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Tasks"
+      caption={t("common.tasks")}
       columns={columns}
       records={tasks}
       rowKey={(task) => task.id}

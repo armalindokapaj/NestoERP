@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { ScrollRegion } from "@/components/ui/scroll-region";
+import { TableScrollRegion } from "@/components/ui/scroll-region";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -30,7 +30,7 @@ export function Table({
   label?: string;
 }) {
   return (
-    <ScrollRegion label={label ?? props["aria-label"] ?? "Table"}>
+    <TableScrollRegion label={label ?? props["aria-label"]}>
       <table
         className={cn(
           "w-full border-collapse text-table",
@@ -42,7 +42,7 @@ export function Table({
         )}
         {...props}
       />
-    </ScrollRegion>
+    </TableScrollRegion>
   );
 }
 

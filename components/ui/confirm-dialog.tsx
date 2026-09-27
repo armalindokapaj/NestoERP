@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Confirmation dialog (design spec §69).
@@ -23,8 +24,8 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
+  confirmLabel: confirmLabelProp,
+  cancelLabel: cancelLabelProp,
   destructive = true,
   pending = false,
   onConfirm,
@@ -42,6 +43,9 @@ export function ConfirmDialog({
   /** What the action touches, shown between the description and the buttons. */
   children?: React.ReactNode;
 }) {
+  const t = useTranslations("ui");
+  const confirmLabel = confirmLabelProp ?? t("delete");
+  const cancelLabel = cancelLabelProp ?? t("cancel");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -60,7 +64,7 @@ export function ConfirmDialog({
             disabled={pending}
             onClick={onConfirm}
           >
-            {pending ? "Working…" : confirmLabel}
+            {pending ? t("working") : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,6 +8,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { effectivePageSize } from "@/lib/tables/preferences";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Rows per page (AUD-08 §4, §5, DT-05, DT-09).
@@ -30,6 +31,7 @@ export function PageSizeSelect({
   current: number;
   param?: string;
 }) {
+  const t = useTranslations("ui");
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
@@ -60,7 +62,7 @@ export function PageSizeSelect({
   return (
     <div className="flex items-center gap-2" data-pending={pending || undefined}>
       <label htmlFor={id} className="text-table text-fg-subtle">
-        Rows per page
+        {t("rowsPerPage")}
       </label>
       <select
         id={id}

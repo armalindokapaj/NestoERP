@@ -13,6 +13,7 @@ import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { clearListFilters } from "@/lib/tables/list-url";
 import { parseTaskListQuery, type TaskQueryDefaults } from "@/lib/modules/tasks/task.query";
 import { TASK_SORT_KEYS } from "@/lib/modules/tasks/task.schema";
+import { getTranslations } from "@/lib/i18n/server";
 import { listTasksForWorkspace, taskFilterOptionsForWorkspace } from "@/lib/modules/tasks/task.workspace";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -50,6 +51,7 @@ export async function TasksList({
   // list is the same, its rows name their company and creation is not offered
   // (Workspace Context §32, §45).
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("tasks");
 
   const [result, options] = await Promise.all([
     listTasksForWorkspace(context, query),
@@ -81,7 +83,7 @@ export async function TasksList({
       ? [
           {
             param: "company",
-            label: "Company",
+            label: t("fields.company"),
             options: options.companies.map((company) => ({ value: company.id, label: company.name })),
           },
         ]
@@ -91,30 +93,20 @@ export async function TasksList({
       : [
           {
             param: "status",
-            label: "Status",
-            options: [
-              { value: "TODO", label: "To Do" },
-              { value: "IN_PROGRESS", label: "In Progress" },
-              { value: "BLOCKED", label: "Blocked" },
-              { value: "COMPLETED", label: "Completed" },
-            ],
+            label: t("fields.status"),
+            options: (["TODO", "IN_PROGRESS", "BLOCKED", "COMPLETED"] as const).map((value) => ({ value, label: t(`status.${value}`) })),
           },
         ]),
     {
       param: "priority",
-      label: "Priority",
-      options: [
-        { value: "LOW", label: "Low" },
-        { value: "MEDIUM", label: "Medium" },
-        { value: "HIGH", label: "High" },
-        { value: "CRITICAL", label: "Critical" },
-      ],
+      label: t("fields.priority"),
+      options: (["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const).map((value) => ({ value, label: t(`priority.${value}`) })),
     },
     // Project and assignee options come from the scoped task graph, so a
     // dropdown can never name a record the user may not open (PRD #11 §221).
     {
       param: "projectId",
-      label: "Project",
+      label: t("fields.project"),
       options: options.projects.map((project) => ({ value: project.id, label: project.name })),
     },
     ...(variant === "mine" || group
@@ -122,7 +114,7 @@ export async function TasksList({
       : [
           {
             param: "assignee",
-            label: "Assignee",
+            label: t("fields.assignee"),
             options: options.assignees.map((member) => ({
               value: member.id,
               label: member.name,
@@ -134,14 +126,8 @@ export async function TasksList({
       : [
           {
             param: "due",
-            label: "Due",
-            options: [
-              { value: "overdue", label: "Overdue" },
-              { value: "today", label: "Today" },
-              { value: "week", label: "This week" },
-              { value: "next7", label: "Next 7 days" },
-              { value: "none", label: "No due date" },
-            ],
+            label: t("fields.due"),
+            options: (["overdue", "today", "week", "next7", "none"] as const).map((value) => ({ value, label: t(`list.dueOptions.${value}`) })),
           },
         ]),
   ];
@@ -155,29 +141,23 @@ export async function TasksList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search tasks…"
+        searchPlaceholder={t("list.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "due-asc", label: "Due date soonest" },
-          { value: "due-desc", label: "Due date latest" },
-          { value: "priority-desc", label: "Priority high–low" },
-          { value: "priority-asc", label: "Priority low–high" },
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently created" },
-          { value: "title-asc", label: "Title A–Z" },
-          { value: "title-desc", label: "Title Z–A" },
+          { value: "due-asc", label: t("list.sort.dueAsc") },
+          { value: "due-desc", label: t("list.sort.dueDesc") },
+          { value: "priority-desc", label: t("list.sort.priorityDesc") },
+          { value: "priority-asc", label: t("list.sort.priorityAsc") },
+          { value: "updated-desc", label: t("list.sort.updatedDesc") },
+          { value: "created-desc", label: t("list.sort.createdDesc") },
+          { value: "title-asc", label: t("list.sort.titleAsc") },
+          { value: "title-desc", label: t("list.sort.titleDesc") },
         ]}
       />
       {/* What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15). */}
-      <WhatIsThis id="lists.search-filters" title="Search and filters">
-        <p>
-          Search looks only in this list: a task&apos;s title and description, its project&apos;s name or code, and its assignee&apos;s name. It is not
-          the global search in the top bar.
-        </p>
-        <p>
-          Filters narrow the same list, and Clear removes the search and every filter at once. Both stay in the page address, so refresh, Back
-          and a shared link show the same results.
-        </p>
+      <WhatIsThis id="lists.search-filters" title={t("list.helpTitle")}>
+        <p>{t("list.helpSearch")}</p>
+        <p>{t("list.helpFilters")}</p>
       </WhatIsThis>
 
       {result.data.length === 0 ? (
@@ -186,18 +166,18 @@ export async function TasksList({
           // and offering "New task" here would be the wrong answer (PRD #11 §155).
           <EmptyState
             icon={<SquareCheckBig />}
-            title="No tasks match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: clearHref }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchDescription")}
+            action={{ label: t("list.clearFilters"), href: clearHref }}
           />
         ) : (
           <EmptyState
             icon={<SquareCheckBig />}
-            title={EMPTY_TITLE[variant]}
-            description={group ? "No accessible data for this module." : EMPTY_DESCRIPTION[variant]}
+            title={t(`list.emptyTitle.${variant}`)}
+            description={group ? t("list.groupEmpty") : t(`list.emptyDescription.${variant}`)}
             action={
               variant !== "archived" && variant !== "completed" && !group && can(context, "task.create")
-                ? { label: "New task", href: "/tasks/new" }
+                ? { label: t("common.newTask"), href: "/tasks/new" }
                 : undefined
             }
           />
@@ -211,20 +191,3 @@ export async function TasksList({
     </div>
   );
 }
-
-/** Empty-state copy from PRD #11 §152–§154. */
-const EMPTY_TITLE: Record<TaskListVariant, string> = {
-  mine: "No tasks assigned to you.",
-  all: "No tasks yet.",
-  overdue: "No overdue tasks.",
-  completed: "No completed tasks yet.",
-  archived: "No archived tasks.",
-};
-
-const EMPTY_DESCRIPTION: Record<TaskListVariant, string> = {
-  mine: "Work assigned to you will appear here.",
-  all: "Tasks you can see will appear here.",
-  overdue: "Everything with a due date is still on time.",
-  completed: "Finished work will be listed here.",
-  archived: "Tasks removed from active lists will appear here.",
-};

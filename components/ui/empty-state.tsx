@@ -4,13 +4,14 @@ import { Inbox, SearchX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { UiText } from "@/components/i18n/ui-text";
 
 export type EmptyStateProps = {
-  title: string;
-  description?: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
   icon?: React.ReactNode;
   /** Rendered only when supplied — callers gate this on a permission check. */
-  action?: { label: string; href: string };
+  action?: { label: React.ReactNode; href: string };
   className?: string;
 };
 
@@ -73,9 +74,9 @@ export function NoResultsState({
     <div data-testid="no-results">
       <EmptyState
         icon={<SearchX />}
-        title={`No ${noun} match these filters.`}
-        description="Adjust or clear the search and filters to see more."
-        action={{ label: "Clear filters", href: clearHref }}
+        title={<UiText k="noResultsTitle" values={{ noun }} />}
+        description={<UiText k="noResultsBody" />}
+        action={{ label: <UiText k="clearFilters" />, href: clearHref }}
         className={className}
       />
     </div>

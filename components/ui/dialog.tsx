@@ -9,6 +9,7 @@ import { restoreFocusAfterClose, safeInitialFocus } from "@/lib/a11y/overlay-foc
 
 export { useDialogClose } from "@/components/unsaved/guarded-root";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Dialog (design spec §66).
@@ -39,6 +40,7 @@ export function DialogContent({
   /** Placement of the close control, for a dialog drawn full screen under a notch. */
   closeClassName?: string;
 }) {
+  const t = useTranslations("ui");
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -77,7 +79,7 @@ export function DialogContent({
             "absolute right-4 top-4 grid place-items-center rounded-md p-1 text-fg-subtle transition-colors hover:bg-hover hover:text-fg touch:right-1.5 touch:top-1.5 touch:size-11 touch:p-0",
             closeClassName,
           )}
-          aria-label="Close"
+          aria-label={t("close")}
         >
           <X className="size-4" />
         </DialogPrimitive.Close>

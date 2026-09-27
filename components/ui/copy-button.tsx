@@ -6,6 +6,7 @@ import { Check, Copy } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Copy-to-clipboard control (design spec §68).
@@ -23,6 +24,7 @@ export function CopyButton({
   label: string;
   className?: string;
 }) {
+  const t = useTranslations("ui");
   const toast = useToast();
   const [copied, setCopied] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,13 +37,13 @@ export function CopyButton({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast({ title: `${label} copied`, tone: "success" });
+      toast({ title: t("copiedToast", { label }), tone: "success" });
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({
-        title: "Could not copy",
-        description: "Your browser blocked clipboard access.",
+        title: t("copyFailedTitle"),
+        description: t("copyFailedBody"),
         tone: "danger",
       });
     }
@@ -53,7 +55,7 @@ export function CopyButton({
         <button
           type="button"
           onClick={copy}
-          aria-label={`Copy ${label.toLowerCase()}`}
+          aria-label={t("copyLabel", { label: label.toLowerCase() })}
           className={cn(
             // 44px under touch, the icon unchanged (AUD-04 §3, MW-19).
             "grid size-7 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors touch:size-11",
@@ -68,7 +70,7 @@ export function CopyButton({
           )}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top">{copied ? "Copied" : `Copy ${label.toLowerCase()}`}</TooltipContent>
+      <TooltipContent side="top">{copied ? t("copied") : t("copyLabel", { label: label.toLowerCase() })}</TooltipContent>
     </Tooltip>
   );
 }

@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 import type { FilterChip } from "@/lib/tables/filter-draft";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * The applied filters as removable chips, outside the filter sheet
@@ -25,15 +26,16 @@ export function FilterChips({
   onClearAll?: () => void;
   className?: string;
 }) {
+  const t = useTranslations("ui");
   if (chips.length === 0 && !onClearAll) return null;
   return (
-    <div role="group" aria-label="Active filters" className={cn("flex flex-wrap items-center gap-x-1.5", className)} data-filter-chips>
+    <div role="group" aria-label={t("activeFilters")} className={cn("flex flex-wrap items-center gap-x-1.5", className)} data-filter-chips>
       {chips.map((chip) => (
         <button
           key={chip.param}
           type="button"
           onClick={() => onRemove(chip.param)}
-          aria-label={`Remove filter ${chip.label}: ${chip.valueLabel}`}
+          aria-label={t("removeFilter", { label: chip.label, value: chip.valueLabel })}
           className="group inline-flex min-h-11 min-w-11 max-w-full items-center focus-visible:outline-none"
         >
           <span className="inline-flex min-h-8 max-w-full items-center gap-1 rounded-full border border-line bg-surface py-1 pl-3 pr-2 text-meta font-medium text-fg transition-colors group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-ring/40">
@@ -50,7 +52,7 @@ export function FilterChips({
           onClick={onClearAll}
           className="inline-flex min-h-11 items-center px-2 text-meta font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
-          Clear all
+          {t("clearAll")}
         </button>
       ) : null}
     </div>

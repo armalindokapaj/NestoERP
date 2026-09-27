@@ -10,7 +10,7 @@ import type { UserContext } from "@/lib/context/types";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
 import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { taskStatusLabels } from "@/lib/modules/tasks/task.status";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/utils/format";
 
 /** The module grant a record's page needs to offer "Create task" (mirrors the task service). */
@@ -35,7 +35,7 @@ export async function RecordTasks({
   context,
   parentType,
   parentId,
-  title = "Tasks",
+  title,
 }: {
   context: UserContext;
   parentType: string;
@@ -53,6 +53,7 @@ export async function RecordTasks({
     ),
   ]);
   if (!record) return null;
+  const t = await getTranslations("tasks");
 
   const grant = TASK_GRANT[definition.moduleKey];
   const mayCreate = !record.archived && can(context, "task.create") && (!grant || can(context, grant));
@@ -62,20 +63,20 @@ export async function RecordTasks({
     <section className="space-y-3" aria-labelledby={`tasks-${parentId}`} data-testid="record-tasks">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`tasks-${parentId}`} className="text-card font-semibold text-fg">
-          {title}
+          {title ?? t("common.tasks")}
         </h2>
         {mayCreate && result.data.length > 0 ? (
           <Button asChild size="sm" variant="secondary">
-            <Link href={createHref}>Create task</Link>
+            <Link href={createHref}>{t("common.createTask")}</Link>
           </Button>
         ) : null}
       </div>
       {result.data.length === 0 ? (
         <EmptyState
           icon={<ListTodo />}
-          title="No tasks yet."
-          description={`Follow-up work raised from this ${definition.noun.toLowerCase()} appears here, and in Tasks.`}
-          action={mayCreate ? { label: "Create task", href: createHref } : undefined}
+          title={t("record.emptyTitle")}
+          description={t("record.emptyDescription", { noun: definition.noun.toLowerCase() })}
+          action={mayCreate ? { label: t("common.createTask"), href: createHref } : undefined}
         />
       ) : (
         <ul className="nesto-card divide-y divide-line">
@@ -85,7 +86,7 @@ export async function RecordTasks({
                 {task.title}
               </Link>
               <span className="shrink-0 text-meta text-fg-subtle">
-                {taskStatusLabels[task.status]} · {task.dueDate ? formatDate(task.dueDate) : "No due date"}
+                {t(`status.${task.status}`)} · {task.dueDate ? formatDate(task.dueDate) : t("common.noDueDate")}
                 {task.assignee ? (
                   <>
                     {" · "}

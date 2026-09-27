@@ -14,6 +14,7 @@ import {
   type FilterDraft,
 } from "@/lib/tables/filter-draft";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * The phone filter sheet (AUD-04 §5, MW-06): a staged form, after the
@@ -36,7 +37,7 @@ export function FilterSheet({
   applied,
   activeCount,
   onApply,
-  title = "Filters",
+  title: titleProp,
 }: {
   filters: readonly FilterConfig[];
   /** The applied value of a filter, "" for All. */
@@ -46,6 +47,8 @@ export function FilterSheet({
   onApply: (draft: FilterDraft) => void;
   title?: string;
 }) {
+  const t = useTranslations("ui");
+  const title = titleProp ?? t("filters");
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<FilterDraft>({});
   const id = React.useId();
@@ -67,13 +70,13 @@ export function FilterSheet({
         className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-line bg-surface px-3 text-table font-medium text-fg-muted transition-colors hover:border-line-strong hover:text-fg md:hidden"
       >
         <SlidersHorizontal aria-hidden="true" className="size-4" />
-        Filters
+        {t("filters")}
         {activeCount > 0 ? (
           <>
             <span aria-hidden="true" className="rounded-full bg-accent px-1.5 text-micro text-accent-fg tabular-nums">
               {activeCount}
             </span>
-            <span className="sr-only">, {activeCount} applied</span>
+            <span className="sr-only">{t("filtersApplied", { count: activeCount })}</span>
           </>
         ) : null}
       </button>
@@ -92,10 +95,10 @@ export function FilterSheet({
             <div className="min-w-0 py-1">
               <DrawerTitle className="text-card font-semibold text-fg">{title}</DrawerTitle>
               <DrawerDescription id={`${id}-description`} className="text-meta text-fg-muted">
-                Changes apply when you choose Apply.
+                {t("filtersHint")}
               </DrawerDescription>
             </div>
-            <Button type="button" variant="ghost" size="icon" aria-label="Cancel and close filters" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" size="icon" aria-label={t("closeFilters")} onClick={() => setOpen(false)}>
               <X aria-hidden="true" />
             </Button>
           </div>
@@ -118,7 +121,7 @@ export function FilterSheet({
                   value={draft[filter.param] ?? ""}
                   onChange={(event) => setDraft((current) => setDraftValue(current, filter, event.target.value))}
                 >
-                  <option value="">All</option>
+                  <option value="">{t("all")}</option>
                   {filter.options.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -131,13 +134,13 @@ export function FilterSheet({
 
           <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
             <Button type="button" variant="ghost" onClick={() => setDraft(clearedDraft(filters))} disabled={staged === 0}>
-              Clear
+              {t("clear")}
             </Button>
             <Button type="button" variant="secondary" className="ml-auto" onClick={() => setOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit">
-              Apply
+              {t("apply")}
             </Button>
           </div>
         </form>

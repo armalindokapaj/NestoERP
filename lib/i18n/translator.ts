@@ -1,5 +1,9 @@
 import type { Locale } from "./config";
-import type { Messages } from "./messages/en";
+import type { Messages as FrameMessages } from "./messages/en";
+import type { ModuleMessages } from "./modules";
+
+/** The application frame's namespaces and every module's, under one key space. */
+export type Messages = FrameMessages & ModuleMessages;
 
 export type Namespace = keyof Messages;
 
