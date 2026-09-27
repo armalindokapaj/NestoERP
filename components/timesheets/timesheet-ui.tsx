@@ -1,9 +1,12 @@
+"use client";
+
 import * as React from "react";
 import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { TIMESHEET_STATUS_LABELS, type TimesheetStatus, type TimesheetWarning } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
+import { TimesheetsLabel, useTimesheetsTranslations } from "./timesheets-text";
 
 /**
  * Timesheet presentation pieces (PRD #42 §190-§200). Quiet by design: status
@@ -24,7 +27,7 @@ const STATUS_TONE: Record<TimesheetStatus | "NOT_STARTED", "default" | "neutral"
 export function TimesheetStatusBadge({ status, className }: { status: TimesheetStatus | "NOT_STARTED"; className?: string }) {
   return (
     <Badge tone={STATUS_TONE[status]} className={className} data-testid="timesheet-status">
-      {status === "NOT_STARTED" ? "Not started" : TIMESHEET_STATUS_LABELS[status]}
+      <TimesheetsLabel group="status" value={status} fallback={status === "NOT_STARTED" ? "Not started" : TIMESHEET_STATUS_LABELS[status]} />
     </Badge>
   );
 }
@@ -32,9 +35,10 @@ export function TimesheetStatusBadge({ status, className }: { status: TimesheetS
 const WARNING_ICON = { INFO: Info, WARNING: TriangleAlert, CRITICAL: CircleAlert } as const;
 
 export function TimesheetWarnings({ warnings, className }: { warnings: TimesheetWarning[]; className?: string }) {
+  const t = useTimesheetsTranslations();
   if (warnings.length === 0) return null;
   return (
-    <ul className={cn("space-y-1.5", className)} aria-label="Things to check">
+    <ul className={cn("space-y-1.5", className)} aria-label={t("common.thingsToCheck")}>
       {warnings.map((warning, index) => {
         const Icon = WARNING_ICON[warning.severity];
         return (

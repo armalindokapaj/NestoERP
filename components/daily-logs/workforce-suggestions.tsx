@@ -11,6 +11,8 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { WorkforceSuggestion } from "@/lib/modules/daily-logs/daily-log.workforce";
 import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
+import { useDailyLogsTranslations } from "./daily-logs-text";
+import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 
 /**
  * "From crews" in a log's workforce section (E-04 §182): the project's crews
@@ -22,6 +24,7 @@ import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log
 const BASIS: Record<WorkforceSuggestion["basis"], string> = { ATTENDANCE: "marked present on the site sheet", CREW: "in the crew that day", ASSIGNED: "assigned, in no crew" };
 
 export function WorkforceSuggestions({ base, onApplied }: { base: string; onApplied: (added: number) => Promise<void> }) {
+  const t = useDailyLogsTranslations();
   const [open, setOpen] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<WorkforceSuggestion[] | null>(null);
   const [chosen, setChosen] = React.useState<Set<string>>(new Set());
@@ -39,7 +42,7 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
       setSuggestions(rows);
       setChosen(new Set(rows.map((row) => row.key)));
     } catch (failure) {
-      setError(failureMessage(failure, "The suggestions could not be loaded."));
+      setError(failureMessage(failure, t("suggestions.loadFailed")));
     }
   }
 
@@ -56,7 +59,7 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
       return { kind: "committed" };
     } catch (failure) {
       const outcome = dailyLogFailureOutcome(failure);
-      setError(outcome.kind === "unknown" ? `${failureMessage(failure, "The entries could not be added.")} ${OUTCOME_COPY.unknown}` : failureMessage(failure, "The entries could not be added."));
+      setError(outcome.kind === "unknown" ? `${failureMessage(failure, t("suggestions.addFailed"))} ${OUTCOME_COPY.unknown}` : failureMessage(failure, t("suggestions.addFailed")));
       return outcome;
     } finally {
       setPending(false);
@@ -69,17 +72,17 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
   return (
     <>
       <Button type="button" variant="ghost" size="sm" onClick={() => void load()} data-testid="workforce-suggest">
-        <UsersRound aria-hidden="true" /> <span className="hidden sm:inline">From crews</span>
-        <span className="sr-only sm:hidden">Add the project&apos;s crews</span>
+        <UsersRound aria-hidden="true" /> <span className="hidden sm:inline">{t("suggestions.fromCrews")}</span>
+        <span className="sr-only sm:hidden">{t("suggestions.addCrews")}</span>
       </Button>
       <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
         <DialogContent className="max-w-xl" data-testid="workforce-suggestions">
-          <DialogTitle>The project&apos;s workforce that day</DialogTitle>
-          <DialogDescription>Crews on this project and the people assigned to it. Pick what to add; you can change any entry afterwards.</DialogDescription>
+          <DialogTitle>{t("suggestions.title")}</DialogTitle>
+          <DialogDescription>{t("suggestions.description")}</DialogDescription>
           {/* Inside the dialog, so the picks belong to its guarded close (AUD-03 §5). */}
           <PicksEditor dirty={changed} saving={pending} save={apply} />
-          {suggestions === null && !error ? <p className="mt-4 text-table text-fg-muted">Loading…</p> : null}
-          {suggestions && suggestions.length === 0 ? <p className="mt-4 text-table text-fg-muted">Nothing to add: no crews or assigned people that day, or they are already on the log.</p> : null}
+          {suggestions === null && !error ? <p className="mt-4 text-table text-fg-muted">{t("common.loading")}</p> : null}
+          {suggestions && suggestions.length === 0 ? <p className="mt-4 text-table text-fg-muted">{t("suggestions.nothing")}</p> : null}
           {suggestions && suggestions.length > 0 ? (
             <ul className="mt-4 divide-y divide-line">
               {suggestions.map((row) => (
@@ -97,10 +100,10 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
                     }
                   />
                   <label htmlFor={`suggestion-${row.key}`} className="min-w-0 flex-1 text-table text-fg">
-                    <span className="font-medium">{row.crewName ?? (row.trade ? `${row.trade}` : "Other assigned people")}</span>
+                    <span className="font-medium">{row.crewName ?? (row.trade ? `${row.trade}` : t("suggestions.otherPeople"))}</span>
                     {row.crewName && row.trade ? <span className="text-fg-muted"> · {row.trade}</span> : null}
                     <span className="block text-meta text-fg-subtle">
-                      {row.headcount} {row.headcount === 1 ? "person" : "people"} {BASIS[row.basis]}
+                      {t("suggestions.people", { count: row.headcount, basis: dailyLogsLabel(t, "basis", row.basis, BASIS[row.basis]) })}
                     </span>
                   </label>
                 </li>
@@ -115,11 +118,11 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost" disabled={pending}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </DialogClose>
             <Button type="button" onClick={() => void apply()} disabled={pending || !suggestions || chosen.size === 0}>
-              {pending ? "Adding…" : `Add ${chosen.size || ""}`.trim()}
+              {pending ? t("common.adding") : chosen.size ? t("suggestions.addCount", { count: chosen.size }) : t("common.add")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -130,7 +133,8 @@ export function WorkforceSuggestions({ base, onApplied }: { base: string; onAppl
 
 /** The picks' registration with the unsaved-work coordinator; the dialog keeps them. */
 function PicksEditor({ dirty, saving, save }: { dirty: boolean; saving: boolean; save: () => Promise<SaveOutcome> }) {
-  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "create", label: "Workforce from crews", save });
+  const t = useDailyLogsTranslations();
+  const editor = useUnsavedEditor({ module: "daily_logs", saveKind: "create", label: t("suggestions.editor"), save });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => {
     setDirty(dirty);

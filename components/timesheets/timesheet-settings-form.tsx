@@ -18,6 +18,9 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
+import { useTimesheetsTranslations } from "./timesheets-text";
+import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
+
 
 /**
  * Company timesheet rules and approvers (PRD #42 §12, §30, §35, §39, §59,
@@ -44,6 +47,8 @@ function ToggleRow({ id, label, hint, checked, onChange }: { id: string; label: 
 export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsDTO }) {
   const toast = useToast();
   const router = useRouter();
+  const t = useTimesheetsTranslations();
+  const weekday = (index: number) => timesheetsLabel(t, "weekday", index + 1, WEEKDAYS[index]);
   const [baseline, setBaseline] = React.useState(() => ({
     ...initial,
     daily: formatMinutes(initial.standardDailyMinutes),
@@ -57,7 +62,7 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
 
   // Dirty against the saved settings; "Save and continue" is this same save,
   // with the same checks, and never navigates (AUD-03 §3).
-  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "save", label: "Timesheet settings", save: () => save() });
+  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "save", label: t("settings.form"), save: () => save() });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = EDITABLE.some((key) => state[key] !== baseline[key]);
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -73,10 +78,10 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
     const daily = parseDuration(state.daily);
     const weekly = parseDuration(state.weekly.replace(/h$/, ""));
     const found: Record<string, string> = {};
-    if (!daily || daily < 60 || daily > 1440) found.daily = "Enter a standard day between 1 and 24 hours.";
+    if (!daily || daily < 60 || daily > 1440) found.daily = t("settings.dailyInvalid");
     const weeklyMinutes = weekly ?? (Number(state.weekly) > 0 ? Number(state.weekly) * 60 : null);
-    if (!weeklyMinutes || weeklyMinutes < 60) found.weekly = "Enter the standard week in hours.";
-    if (Boolean(state.submitDay) !== Boolean(state.submitTime)) found.deadline = "Set both the deadline day and time, or neither.";
+    if (!weeklyMinutes || weeklyMinutes < 60) found.weekly = t("settings.weeklyInvalid");
+    if (Boolean(state.submitDay) !== Boolean(state.submitTime)) found.deadline = t("settings.deadlineInvalid");
     setErrors(found);
     if (Object.keys(found).length) return { kind: "invalid" };
     running.current = true;
@@ -105,7 +110,7 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
         toast({ title: OUTCOME_COPY.unknown, tone: "danger" });
         return { kind: "unknown" };
       }
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
       return { kind: error.status === 403 || error.status === 404 ? "refused" : "invalid" };
     } finally {
       running.current = false;
@@ -116,41 +121,41 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
     // The fields were locked while it saved: what was sent is what they hold.
     setBaseline(submitted);
     setDirty(false);
-    toast({ title: "Timesheet settings saved", tone: "success" });
+    toast({ title: t("settings.saved"), tone: "success" });
     router.refresh();
     return { kind: "committed" };
   }
 
   return (
-    <form onSubmit={onSubmit} className="nesto-card divide-y divide-line px-5" aria-label="Timesheet settings" noValidate>
+    <form onSubmit={onSubmit} className="nesto-card divide-y divide-line px-5" aria-label={t("settings.form")} noValidate>
       <fieldset disabled={pending} className="m-0 min-w-0 divide-y divide-line border-0 p-0">
       <div className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
         <label>
-          <span className="text-table font-medium text-fg">Week starts on</span>
+          <span className="text-table font-medium text-fg">{t("settings.weekStartsOn")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={state.weekStartsOn} onChange={(change) => set("weekStartsOn", Number(change.target.value))}>
             {WEEKDAYS.map((day, index) => (
               <option key={day} value={index + 1}>
-                {day}
+                {weekday(index)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="text-table font-medium text-fg">Standard day</span>
+          <span className="text-table font-medium text-fg">{t("settings.standardDay")}</span>
           <Input className="mt-1.5 tabular-nums" value={state.daily} onChange={(change) => set("daily", change.target.value)} aria-invalid={Boolean(errors.daily)} />
           {errors.daily ? <span className="mt-1 block text-meta text-danger-strong">{errors.daily}</span> : null}
         </label>
         <label>
-          <span className="text-table font-medium text-fg">Standard week</span>
+          <span className="text-table font-medium text-fg">{t("settings.standardWeek")}</span>
           <Input className="mt-1.5 tabular-nums" value={state.weekly} onChange={(change) => set("weekly", change.target.value)} aria-invalid={Boolean(errors.weekly)} />
-          {errors.weekly ? <span className="mt-1 block text-meta text-danger-strong">{errors.weekly}</span> : <span className="mt-1 block text-meta text-fg-subtle">Time above it shows as overtime — never pay.</span>}
+          {errors.weekly ? <span className="mt-1 block text-meta text-danger-strong">{errors.weekly}</span> : <span className="mt-1 block text-meta text-fg-subtle">{t("settings.overtimeHint")}</span>}
         </label>
         <label>
-          <span className="text-table font-medium text-fg">Backdating</span>
+          <span className="text-table font-medium text-fg">{t("settings.backdating")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={state.backdateDays} onChange={(change) => set("backdateDays", Number(change.target.value))}>
             {[0, 3, 7, 14, 21, 31, 62].map((days) => (
               <option key={days} value={days}>
-                {days === 0 ? "Today only" : `${days} days back`}
+                {days === 0 ? t("settings.todayOnly") : t("settings.daysBack", { count: days })}
               </option>
             ))}
           </select>
@@ -159,43 +164,43 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
 
       <div className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
         <label>
-          <span className="text-table font-medium text-fg">Duration steps</span>
+          <span className="text-table font-medium text-fg">{t("settings.durationSteps")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={state.incrementMinutes} onChange={(change) => set("incrementMinutes", Number(change.target.value))}>
             {[5, 10, 15, 30, 60].map((minutes) => (
               <option key={minutes} value={minutes}>
-                {minutes} minutes
+                {t("settings.minutes", { count: minutes })}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="text-table font-medium text-fg">Submission deadline</span>
+          <span className="text-table font-medium text-fg">{t("settings.deadline")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={state.submitDay ?? 0} onChange={(change) => set("submitDay", Number(change.target.value) || null)} aria-invalid={Boolean(errors.deadline)}>
-            <option value={0}>No deadline</option>
+            <option value={0}>{t("settings.noDeadline")}</option>
             {WEEKDAYS.map((day, index) => (
               <option key={day} value={index + 1}>
-                {day}
+                {weekday(index)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="text-table font-medium text-fg">Deadline time</span>
+          <span className="text-table font-medium text-fg">{t("settings.deadlineTime")}</span>
           <Input type="time" className="mt-1.5" value={state.submitTime ?? ""} onChange={(change) => set("submitTime", change.target.value || null)} disabled={!state.submitDay} />
         </label>
-        <p className="self-end pb-2 text-meta text-fg-muted">{errors.deadline ?? `A week is due on the first ${state.submitDay ? WEEKDAYS[state.submitDay - 1] : "chosen day"} from its fifth day, in ${state.timezone}.`}</p>
+        <p className="self-end pb-2 text-meta text-fg-muted">{errors.deadline ?? t("settings.dueNote", { day: state.submitDay ? weekday(state.submitDay - 1) : t("settings.chosenDay"), zone: state.timezone })}</p>
       </div>
 
       <div>
-        <ToggleRow id="enforce-increment" label="Only accept whole steps" hint="Refuse durations that are not a multiple of the step." checked={state.enforceIncrement} onChange={(value) => set("enforceIncrement", value)} />
-        <ToggleRow id="descriptions-required" label="Descriptions required" hint="Every entry needs a description before a week can be submitted." checked={state.descriptionsRequired} onChange={(value) => set("descriptionsRequired", value)} />
-        <ToggleRow id="members-billable" label="Members set billable" hint="Otherwise billable follows the work type, and only approvers change it." checked={state.membersSetBillable} onChange={(value) => set("membersSetBillable", value)} />
+        <ToggleRow id="enforce-increment" label={t("settings.enforce")} hint={t("settings.enforceHint")} checked={state.enforceIncrement} onChange={(value) => set("enforceIncrement", value)} />
+        <ToggleRow id="descriptions-required" label={t("settings.descriptionsRequired")} hint={t("settings.descriptionsRequiredHint")} checked={state.descriptionsRequired} onChange={(value) => set("descriptionsRequired", value)} />
+        <ToggleRow id="members-billable" label={t("settings.membersBillable")} hint={t("settings.membersBillableHint")} checked={state.membersSetBillable} onChange={(value) => set("membersSetBillable", value)} />
       </div>
       </fieldset>
 
       <div className="flex justify-end py-3">
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : "Save settings"}
+          {pending ? t("common.saving") : t("settings.save")}
         </Button>
       </div>
     </form>
@@ -205,6 +210,7 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
 export function ApproverAssignments({ assignments, options }: { assignments: ApproverAssignmentDTO[]; options: TimesheetPerson[] }) {
   const toast = useToast();
   const router = useRouter();
+  const t = useTimesheetsTranslations();
   const [pending, setPending] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState("");
   const shown = assignments.filter((row) => !filter || `${row.member.name} ${row.member.department ?? ""}`.toLowerCase().includes(filter.toLowerCase()));
@@ -213,10 +219,10 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
     setPending(memberId);
     try {
       await timesheetApi("/api/timesheets/approvers", { method: "PUT", body: { memberId, approverMemberId: approverMemberId || null } });
-      toast({ title: approverMemberId ? "Approver set" : "Approver cleared", tone: "success" });
+      toast({ title: approverMemberId ? t("settings.approverSet") : t("settings.approverCleared"), tone: "success" });
       router.refresh();
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -227,20 +233,20 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
       <div className="flex flex-wrap items-center gap-3 px-5 pt-4">
         <div className="min-w-0 flex-1">
           <h2 id="approvers-title" className="text-card font-semibold text-fg">
-            Approvers
+            {t("settings.approvers")}
           </h2>
-          <p className="text-meta text-fg-muted">Each person&apos;s weeks go to one approver. With none set, their department manager decides.</p>
+          <p className="text-meta text-fg-muted">{t("settings.approversHint")}</p>
         </div>
-        <Input type="search" placeholder="Find a person…" value={filter} onChange={(change) => setFilter(change.target.value)} className="h-9 w-56" aria-label="Find a person" />
+        <Input type="search" placeholder={t("settings.findPerson")} value={filter} onChange={(change) => setFilter(change.target.value)} className="h-9 w-56" aria-label={t("settings.findPersonLabel")} />
       </div>
       {/* A labelled, keyboard-reachable scroll region (AUD-04 §5, D-07-15, MW-19). */}
-      <ScrollRegion label="Approvers" className="mt-3">
+      <ScrollRegion label={t("settings.approvers")} className="mt-3">
         <table className="w-full min-w-[640px] border-collapse text-table" data-testid="approver-assignments">
           <thead>
             <tr className="border-y border-line text-left text-meta text-fg-muted">
-              <th scope="col" className="px-5 py-2 font-medium">Person</th>
-              <th scope="col" className="px-3 py-2 font-medium">Designated approver</th>
-              <th scope="col" className="px-5 py-2 font-medium">Decides now</th>
+              <th scope="col" className="px-5 py-2 font-medium">{t("common.person")}</th>
+              <th scope="col" className="px-3 py-2 font-medium">{t("settings.designated")}</th>
+              <th scope="col" className="px-5 py-2 font-medium">{t("settings.decidesNow")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -258,9 +264,9 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
                     value={row.assigned?.memberId ?? ""}
                     onChange={(event) => void change(row.member.memberId, event.target.value)}
                     disabled={pending === row.member.memberId}
-                    aria-label={`Approver for ${row.member.name}`}
+                    aria-label={t("settings.approverFor", { name: row.member.name })}
                   >
-                    <option value="">Department manager</option>
+                    <option value="">{t("settings.departmentManager")}</option>
                     {options
                       .filter((option) => option.memberId !== row.member.memberId)
                       .map((option) => (
@@ -274,10 +280,10 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
                   {row.effective ? (
                     <>
                       <PersonLink memberId={row.effective.memberId} name={row.effective.name} />
-                      {row.effective.source === "DEPARTMENT" ? <span className="ml-1 text-meta text-fg-subtle">(department)</span> : null}
+                      {row.effective.source === "DEPARTMENT" ? <span className="ml-1 text-meta text-fg-subtle">{t("settings.department")}</span> : null}
                     </>
                   ) : (
-                    <span className="text-warning-strong">Nobody — cannot submit</span>
+                    <span className="text-warning-strong">{t("settings.nobody")}</span>
                   )}
                 </td>
               </tr>

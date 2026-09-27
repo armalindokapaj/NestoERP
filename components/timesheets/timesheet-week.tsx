@@ -19,6 +19,8 @@ import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { TimesheetEntryDrawer, type EntryDraft } from "./timesheet-entry-drawer";
 import { TimesheetGrid, type CellCommit, type RowTemplate } from "./timesheet-grid";
+import { useTimesheetsTranslations } from "./timesheets-text";
+import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
 import { TimesheetHistory } from "./timesheet-history";
 import { SummaryFigure, TimesheetStatusBadge, TimesheetWarnings } from "./timesheet-ui";
 
@@ -36,6 +38,8 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { initial: TimesheetWeekDTO; options: TimesheetFormOptions; basePath?: string }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTimesheetsTranslations();
+  const workType = (type: WorkLogDTO["workType"]) => timesheetsLabel(t, "workType", type, WORK_LOG_TYPE_LABELS[type]);
   // The shared breakpoint hook (AUD-04 §3, SP-15): it only picks the drawer's
   // side, which matters once somebody opens it, long after hydration.
   const desktop = useIsBelow("lg") === false;
@@ -74,7 +78,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
   const failedCells = Object.values(cellState).some((state) => state === "error");
   const unsavedRows = templates.some((template) => !week.rows.some((row) => row.key === template.key));
   const dirty = failedCells || typedCells.size > 0 || unsavedRows;
-  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "none", label: "Your timesheet week" });
+  const editor = useUnsavedEditor({ module: "timesheets", saveKind: "none", label: t("week.editor") });
   const { setSaving, setDirty } = editor;
   React.useEffect(() => setSaving(pendingSaves), [pendingSaves, setSaving]);
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -97,7 +101,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
     try {
       await refresh();
     } catch {
-      toast({ title: "Saved", description: "The week could not be refreshed just now; it is being reloaded.", tone: "warning" });
+      toast({ title: t("common.saved"), description: t("week.savedRefreshing"), tone: "warning" });
       router.refresh();
     }
   }
@@ -116,7 +120,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
     } catch (error) {
       setCellState((current) => ({ ...current, [key]: "error" }));
       setSaveState("error");
-      toast({ title: failureMessage(error, "That time could not be saved."), tone: "danger" });
+      toast({ title: failureMessage(error, t("week.cellFailed")), tone: "danger" });
       return false;
     } finally {
       inflight.current -= 1;
@@ -134,13 +138,13 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       const next = await timesheetApi<TimesheetWeekDTO>(`/api/timesheets/${week.id}/submit`, { body: { expectedVersion: week.version, acknowledgeShortfall } });
       setWeek(next);
       setConfirmShortfall(false);
-      toast({ title: "Week submitted", description: next.approver ? `${next.approver.name} will review it.` : undefined, tone: "success" });
+      toast({ title: t("week.submitted"), description: next.approver ? t("week.willReview", { name: next.approver.name }) : undefined, tone: "success" });
       router.refresh();
     } catch (error) {
       if (isFailure(error) && error.detailCode === "TIMESHEET_BELOW_EXPECTED") setConfirmShortfall(true);
       else {
         setConfirmShortfall(false);
-        toast({ title: failureMessage(error), tone: "danger" });
+        toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
         if (isFailure(error) && error.detailCode === "STALE_VERSION") void refresh();
       }
     } finally {
@@ -155,11 +159,11 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       });
       if (withDurations) {
         await refresh();
-        toast({ title: result.copied ? `Copied ${result.copied} ${result.copied === 1 ? "entry" : "entries"}` : "Nothing to copy", description: result.skipped ? `${result.skipped} could not be copied — a future day, or a project no longer open to you.` : undefined, tone: result.copied ? "success" : "default" });
+        toast({ title: result.copied ? t("week.copied", { count: result.copied }) : t("week.nothingToCopy"), description: result.skipped ? t("week.skipped", { count: result.skipped }) : undefined, tone: result.copied ? "success" : "default" });
         return;
       }
       if (result.rows.length === 0) {
-        toast({ title: "Last week has no rows to copy." });
+        toast({ title: t("week.noRows") });
         return;
       }
       const known = new Set([...week.rows.map((row) => row.key), ...templates.map((row) => row.key)]);
@@ -167,9 +171,9 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
         .map((row) => ({ key: `${row.workType}|${row.projectId ?? ""}|${row.taskId ?? ""}`, workType: row.workType, project: row.project, task: row.task }))
         .filter((row) => !known.has(row.key));
       setTemplates((current) => [...current, ...added]);
-      toast({ title: added.length ? `Added ${added.length} ${added.length === 1 ? "row" : "rows"} from last week` : "Last week's rows are already here." });
+      toast({ title: added.length ? t("week.addedRows", { count: added.length }) : t("week.rowsHere") });
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, t("common.somethingWrong")), tone: "danger" });
     }
   }
 
@@ -194,12 +198,12 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <Button asChild variant="secondary" size="icon-sm">
-            <Link href={nav(-1)} aria-label="Previous week">
+            <Link href={nav(-1)} aria-label={t("common.previousWeek")}>
               <ChevronLeft />
             </Link>
           </Button>
           <Button asChild variant="secondary" size="icon-sm">
-            <Link href={nav(1)} aria-label="Next week" aria-disabled={isCurrent} className={cn(isCurrent && "pointer-events-none opacity-50")} tabIndex={isCurrent ? -1 : undefined}>
+            <Link href={nav(1)} aria-label={t("common.nextWeek")} aria-disabled={isCurrent} className={cn(isCurrent && "pointer-events-none opacity-50")} tabIndex={isCurrent ? -1 : undefined}>
               <ChevronRight />
             </Link>
           </Button>
@@ -210,17 +214,17 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
         <TimesheetStatusBadge status={week.status} />
         {!isCurrent ? (
           <Link href={basePath} className="text-table font-medium text-accent-strong hover:underline">
-            This week
+            {t("week.thisWeek")}
           </Link>
         ) : null}
         <span className="flex-1" />
         <span className="text-meta text-fg-muted" aria-live="polite" data-testid="save-indicator">
-          {saveState === "saving" || pendingSaves ? "Saving…" : saveState === "saved" ? (
+          {saveState === "saving" || pendingSaves ? t("common.saving") : saveState === "saved" ? (
             <span className="inline-flex items-center gap-1">
-              <Check className="size-3.5 text-success-strong" aria-hidden="true" /> Saved
+              <Check className="size-3.5 text-success-strong" aria-hidden="true" /> {t("common.saved")}
             </span>
           ) : saveState === "error" ? (
-            <span className="text-danger-strong">Not saved</span>
+            <span className="text-danger-strong">{t("common.notSaved")}</span>
           ) : null}
         </span>
         {editable ? (
@@ -229,22 +233,22 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
               <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="sm">
                   <Copy aria-hidden="true" />
-                  Copy last week
+                  {t("week.copyLastWeek")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => void copyLastWeek(false)}>Rows only</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void copyLastWeek(true)}>Rows and hours</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void copyLastWeek(false)}>{t("week.rowsOnly")}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void copyLastWeek(true)}>{t("week.rowsAndHours")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="secondary" size="sm" onClick={() => setDraft({})}>
               <Plus aria-hidden="true" />
-              Log time
+              {t("week.logTime")}
             </Button>
             {week.capabilities.canSubmit ? (
               <Button size="sm" onClick={() => void submit(false)} disabled={submitting || !week.id || week.logs.length === 0 || pendingSaves}>
                 <Send aria-hidden="true" />
-                {week.status === "DRAFT" ? "Submit week" : "Resubmit week"}
+                {week.status === "DRAFT" ? t("week.submitWeek") : t("week.resubmitWeek")}
               </Button>
             ) : null}
           </div>
@@ -254,14 +258,14 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       <StatusBanner week={week} />
 
       {/* The week summary (§56, §210) */}
-      <section aria-label="Week summary" className="nesto-card px-5 py-4">
+      <section aria-label={t("common.weekSummary")} className="nesto-card px-5 py-4">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-          <SummaryFigure label="Total" value={formatMinutes(week.totals.totalMinutes)} testId="summary-total" />
-          <SummaryFigure label="Expected" value={formatMinutes(week.totals.expectedMinutes)} tone="muted" />
-          <SummaryFigure label="Billable" value={formatMinutes(week.totals.billableMinutes)} />
-          <SummaryFigure label="Non-billable" value={formatMinutes(week.totals.nonBillableMinutes)} />
-          <SummaryFigure label="Overtime" value={formatMinutes(week.totals.overtimeMinutes)} tone={week.totals.overtimeMinutes > 0 ? "warning" : "muted"} />
-          <SummaryFigure label={shortfall > 0 ? "Still to log" : "Balance"} value={shortfall > 0 ? formatMinutes(shortfall) : "On track"} tone="muted" />
+          <SummaryFigure label={t("common.total")} value={formatMinutes(week.totals.totalMinutes)} testId="summary-total" />
+          <SummaryFigure label={t("common.expected")} value={formatMinutes(week.totals.expectedMinutes)} tone="muted" />
+          <SummaryFigure label={t("common.billable")} value={formatMinutes(week.totals.billableMinutes)} />
+          <SummaryFigure label={t("common.nonBillable")} value={formatMinutes(week.totals.nonBillableMinutes)} />
+          <SummaryFigure label={t("common.overtime")} value={formatMinutes(week.totals.overtimeMinutes)} tone={week.totals.overtimeMinutes > 0 ? "warning" : "muted"} />
+          <SummaryFigure label={shortfall > 0 ? t("week.stillToLog") : t("week.balance")} value={shortfall > 0 ? formatMinutes(shortfall) : t("week.onTrack")} tone="muted" />
         </dl>
         {week.totals.projects.length ? (
           <div className="mt-4 border-t border-line pt-3">
@@ -270,7 +274,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
                 <span key={project.projectId ?? "internal"} className={cn("h-full", index % 3 === 0 ? "bg-accent" : index % 3 === 1 ? "bg-accent/60" : "bg-accent/30", !project.projectId && "bg-line-strong")} style={{ width: `${(project.minutes / Math.max(1, week.totals.totalMinutes)) * 100}%` }} />
               ))}
             </div>
-            <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-table" aria-label="Time by project">
+            <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-table" aria-label={t("common.timeByProject")}>
               {week.totals.projects.map((project) => (
                 <li key={project.projectId ?? "internal"} className="flex items-baseline gap-2">
                   <span className="text-fg-muted">{project.name}</span>
@@ -311,7 +315,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
                 <h3 className="text-card font-semibold text-fg">
                   {label.weekday} <span className="font-normal text-fg-muted">{label.day}</span>
                 </h3>
-                {day.date === week.today ? <span className="text-micro font-medium uppercase tracking-wide text-accent-strong">Today</span> : null}
+                {day.date === week.today ? <span className="text-micro font-medium uppercase tracking-wide text-accent-strong">{t("week.today")}</span> : null}
                 {day.leave ? <span className="text-meta text-info-strong">{day.leave.label}</span> : null}
                 <span className="flex-1" />
                 <span className="text-body font-semibold tabular-nums text-fg">{day.totalMinutes ? formatMinutes(day.totalMinutes) : "–"}</span>
@@ -322,8 +326,8 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
                     <li key={log.id}>
                       <button type="button" disabled={!editable} onClick={() => openLog(log)} className="flex w-full items-start gap-3 py-2.5 text-left disabled:cursor-default">
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-table font-medium text-fg">{log.project?.name ?? WORK_LOG_TYPE_LABELS[log.workType]}</span>
-                          <span className="block truncate text-meta text-fg-muted">{[log.task?.title, log.description].filter(Boolean).join(" · ") || WORK_LOG_TYPE_LABELS[log.workType]}</span>
+                          <span className="block truncate text-table font-medium text-fg">{log.project?.name ?? workType(log.workType)}</span>
+                          <span className="block truncate text-meta text-fg-muted">{[log.task?.title, log.description].filter(Boolean).join(" · ") || workType(log.workType)}</span>
                         </span>
                         <span className="text-table font-medium tabular-nums text-fg">{formatMinutes(log.minutes)}</span>
                         {editable ? <Pencil className="mt-0.5 size-3.5 text-fg-subtle" aria-hidden="true" /> : null}
@@ -335,7 +339,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
               {canLog ? (
                 <Button type="button" variant="ghost" size="sm" className="mt-1 -ml-2 text-accent-strong" onClick={() => setDraft({ workDate: day.date })}>
                   <Plus aria-hidden="true" />
-                  Log time
+                  {t("week.logTime")}
                 </Button>
               ) : null}
             </section>
@@ -349,7 +353,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
         <p className="text-table text-fg-muted">
           <Link href={`/timesheets/${week.id}`} className="inline-flex items-center gap-1.5 font-medium text-accent-strong hover:underline">
             <MessageSquare className="size-4" aria-hidden="true" />
-            Open the discussion
+            {t("week.openDiscussion")}
           </Link>
         </p>
       ) : null}
@@ -358,9 +362,9 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       {editable ? (
         <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden" data-testid="timesheet-sticky-actions" data-sticky-action-bar>
           <div className="min-w-0">
-            <p className="text-meta text-fg-muted">This week</p>
+            <p className="text-meta text-fg-muted">{t("week.thisWeek")}</p>
             <p className="text-body font-semibold tabular-nums text-fg">
-              {formatMinutes(week.totals.totalMinutes)} <span className="font-normal text-fg-muted">of {formatMinutes(week.totals.expectedMinutes)}</span>
+              {formatMinutes(week.totals.totalMinutes)} <span className="font-normal text-fg-muted">{t("week.ofExpected", { expected: formatMinutes(week.totals.expectedMinutes) })}</span>
             </p>
           </div>
           <span className="flex-1" />
@@ -371,24 +375,24 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
             */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="secondary" size="icon" aria-label="More week actions">
+              <Button type="button" variant="secondary" size="icon" aria-label={t("week.moreActions")}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top">
               <DropdownMenuItem onSelect={() => void copyLastWeek(true)}>
                 <Copy aria-hidden="true" className="size-4" />
-                Copy last week (rows and hours)
+                {t("week.copyRowsAndHours")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button type="button" variant="secondary" size="icon" onClick={() => setDraft({})} aria-label="Log time">
+          <Button type="button" variant="secondary" size="icon" onClick={() => setDraft({})} aria-label={t("week.logTime")}>
             <Plus />
           </Button>
           {week.capabilities.canSubmit ? (
             <Button type="button" onClick={() => void submit(false)} disabled={submitting || !week.id || week.logs.length === 0 || pendingSaves}>
               <Send aria-hidden="true" />
-              Submit
+              {t("week.submit")}
             </Button>
           ) : null}
         </div>
@@ -406,8 +410,8 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 
       <Dialog open={entries !== null} onOpenChange={(open) => !open && setEntries(null)}>
         <DialogContent className="max-w-md">
-          <DialogTitle>{entries ? `${dayLabel(entries.date).weekday} ${dayLabel(entries.date).day}` : "Entries"}</DialogTitle>
-          <DialogDescription>Each entry is kept as it was logged. Open one to change it.</DialogDescription>
+          <DialogTitle>{entries ? `${dayLabel(entries.date).weekday} ${dayLabel(entries.date).day}` : t("common.entries")}</DialogTitle>
+          <DialogDescription>{t("week.entriesDescription")}</DialogDescription>
           <ul className="mt-4 divide-y divide-line">
             {(entries?.logIds ?? []).map((id) => logsById.get(id)).filter((log): log is WorkLogDTO => Boolean(log)).map((log) => (
               <li key={log.id}>
@@ -420,8 +424,8 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
                   }}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-table font-medium text-fg">{log.task?.title ?? log.project?.name ?? WORK_LOG_TYPE_LABELS[log.workType]}</span>
-                    <span className="block truncate text-meta text-fg-muted">{log.description ?? "No description"}</span>
+                    <span className="block text-table font-medium text-fg">{log.task?.title ?? log.project?.name ?? workType(log.workType)}</span>
+                    <span className="block truncate text-meta text-fg-muted">{log.description ?? t("week.noDescription")}</span>
                   </span>
                   <span className="text-table font-medium tabular-nums">{formatMinutes(log.minutes)}</span>
                 </button>
@@ -434,9 +438,9 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
       <ConfirmDialog
         open={confirmShortfall}
         onOpenChange={setConfirmShortfall}
-        title="Submit a short week?"
-        description={`You logged ${formatMinutes(week.totals.totalMinutes)} of the expected ${formatMinutes(week.totals.expectedMinutes)}. Submit it anyway?`}
-        confirmLabel="Submit anyway"
+        title={t("week.shortTitle")}
+        description={t("week.shortDescription", { logged: formatMinutes(week.totals.totalMinutes), expected: formatMinutes(week.totals.expectedMinutes) })}
+        confirmLabel={t("week.submitAnyway")}
         destructive={false}
         pending={submitting}
         onConfirm={() => void submit(true)}
@@ -446,6 +450,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 }
 
 function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
+  const t = useTimesheetsTranslations();
   const decided = week.decidedBy ? <PersonLink memberId={week.decidedBy.memberId} name={week.decidedBy.name} /> : null;
   const approver = week.approver ? <PersonLink memberId={week.approver.memberId} name={week.approver.name} /> : null;
   if (week.status === "SUBMITTED") {
@@ -453,13 +458,13 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <Send className="size-4 text-info-strong" aria-hidden="true" />
         <span className="flex-1">
-          {week.capabilities.isOwn ? <>Submitted{approver ? <> to {approver}</> : null}. Its entries are locked until it is decided.</> : <>Waiting for {approver ?? "its approver"}.</>}
+          {week.capabilities.isOwn ? <>{t("week.bannerSubmitted")}{approver ? <> {t("week.bannerTo")} {approver}</> : null}{t("week.bannerLocked")}</> : <>{t("week.waitingFor")} {approver ?? t("week.itsApprover")}.</>}
         </span>
         {week.capabilities.approvalHref ? (
           <Button asChild size="sm">
             <Link href={week.capabilities.approvalHref}>
               <Stamp aria-hidden="true" />
-              Review in Approvals
+              {t("common.reviewInApprovals")}
             </Link>
           </Button>
         ) : null}
@@ -470,7 +475,7 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <Check className="size-4 text-success-strong" aria-hidden="true" />
-        <span>Approved{decided ? <> by {decided}</> : null}. The week is locked.</span>
+        <span>{t("week.approved")}{decided ? <> {t("common.by")} {decided}</> : null}{t("week.approvedLocked")}</span>
       </div>
     );
   }
@@ -478,11 +483,11 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
     return (
       <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-table text-fg" role="status" data-testid="timesheet-banner">
         <p className="font-medium">
-          {week.status === "RETURNED" ? "Returned for correction" : "Rejected"}
-          {decided ? <> by {decided}</> : null}
+          {week.status === "RETURNED" ? t("common.returnedForCorrection") : t("common.rejected")}
+          {decided ? <> {t("common.by")} {decided}</> : null}
         </p>
         {week.decisionNote ? <p className="mt-1 whitespace-pre-line text-fg-muted">“{week.decisionNote}”</p> : null}
-        {week.capabilities.isOwn ? <p className="mt-1 text-fg-muted">Correct the week and submit it again.</p> : null}
+        {week.capabilities.isOwn ? <p className="mt-1 text-fg-muted">{t("week.correctAgain")}</p> : null}
       </div>
     );
   }
@@ -490,7 +495,7 @@ function StatusBanner({ week }: { week: TimesheetWeekDTO }) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted" role="status">
         <CalendarDays className="size-4" aria-hidden="true" />
-        Nobody is set to approve your timesheets yet. You can log time; ask HR to assign an approver before you submit.
+        {t("week.noApprover")}
       </div>
     );
   }

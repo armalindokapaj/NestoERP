@@ -24,5 +24,5 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function ProjectsLayout({ children }: { children: React.ReactNode }) {
   await requireProjectPortfolio();
-  return <ModuleMessages namespaces={["projects", "finance", "sales", "contracts", "meetings", "documents", "contractors"]}>{children}</ModuleMessages>;
+  return <ModuleMessages namespaces={["projects", "finance", "sales", "contracts", "meetings", "documents", "contractors", "dailyLogs"]}>{children}</ModuleMessages>;
 }

@@ -5,6 +5,7 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { TimesheetReview } from "@/components/timesheets/timesheet-review";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { getTimesheet } from "@/lib/modules/timesheets/timesheet.service";
 import { weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 
@@ -22,11 +23,12 @@ async function load(timesheetId: string) {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { timesheetId } = await params;
+  const t = await getTranslations("timesheets");
   try {
     const week = await load(timesheetId);
-    return { title: `Timesheet · ${week.member.name} · ${weekLabel(week.periodStart)}` };
+    return { title: `${t("meta.timesheet")} · ${week.member.name} · ${weekLabel(week.periodStart)}` };
   } catch {
-    return { title: "Timesheet" };
+    return { title: t("meta.timesheet") };
   }
 }
 

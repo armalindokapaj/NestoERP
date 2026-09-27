@@ -1,8 +1,11 @@
+"use client";
+
 import { PersonLink } from "@/components/people/person-link";
 import { localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 import { dayLabel } from "@/lib/modules/timesheets/timesheet.time";
 import type { TimesheetHistoryEntry } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
+import { TimesheetsText } from "./timesheets-text";
 
 /**
  * The week's decision trail (PRD #42 §84-§86, §117-§119): every submission,
@@ -26,7 +29,7 @@ export function TimesheetHistory({ history, zone, className }: { history: Timesh
   return (
     <section aria-labelledby="timesheet-history-title" className={cn("nesto-card px-5 py-4", className)} data-testid="timesheet-history">
       <h2 id="timesheet-history-title" className="text-card font-semibold text-fg">
-        History
+        <TimesheetsText k="common.history" />
       </h2>
       <ol className="mt-3 space-y-3">
         {history.map((entry) => (

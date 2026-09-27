@@ -63,6 +63,8 @@ import { entriesOf, payloadFromValues, valuesFromEntry } from "./entry-fields";
 import { EvidenceGallery } from "./evidence-gallery";
 import { WorkforceSuggestions } from "./workforce-suggestions";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
+import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
+import { DailyLogsText, useDailyLogsTranslations } from "./daily-logs-text";
 
 /**
  * The daily log workspace (PRD #43 §145-§160, §201, §214-§221).
@@ -99,6 +101,7 @@ const opensAsSheet = () => typeof window !== "undefined" && window.matchMedia(be
 
 function EntryLine({ primary, secondary, meta, onEdit, testId }: { primary: React.ReactNode; secondary?: React.ReactNode; meta?: React.ReactNode; onEdit?: () => void; testId: string }) {
   // The edit control names its entry, not just "Edit entry" (AUD-04 §5, J-D4).
+  const t = useDailyLogsTranslations();
   const name = typeof primary === "string" && primary ? primary : null;
   return (
     <li className="flex items-start gap-3 py-2.5" data-testid={testId}>
@@ -108,7 +111,7 @@ function EntryLine({ primary, secondary, meta, onEdit, testId }: { primary: Reac
       </span>
       {meta ? <span className="shrink-0 text-table tabular-nums text-fg">{meta}</span> : null}
       {onEdit ? (
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit} aria-label={name ? `Edit ${name}` : "Edit entry"}>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit} aria-label={name ? t("workspace.editNamed", { name }) : t("workspace.editEntry")}>
           <Pencil />
         </Button>
       ) : null}
@@ -127,6 +130,10 @@ const joinedNodes = (...parts: React.ReactNode[]) => {
 export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string; favorite?: React.ReactNode }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useDailyLogsTranslations();
+  const L = (group: Parameters<typeof dailyLogsLabel>[1], value: string, fallback: string) => dailyLogsLabel(t, group, value, fallback);
+  const sectionLabel = (key: SectionKey) => L("section", key, SECTION_LABELS[key]);
+  const failed = (error: unknown, label?: string) => failureMessage(error, label ? t("common.failed", { label }) : t("common.somethingWrong"));
   const [log, setLog] = React.useState(initial);
   const [options, setOptions] = React.useState<EntryOptions | null>(null);
   const [dialog, setDialog] = React.useState<{ section: SectionKey; entryId?: string } | null>(null);
@@ -145,7 +152,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
   // The overview saves as it goes (on blur, on change): while one is on its
   // way, or never got an answer, leaving would lose it (AUD-03 §3). Each text
   // field reports what is typed but not yet sent itself.
-  const overviewEditor = useUnsavedEditor({ module: "daily_logs", saveKind: "none", label: "Daily log overview" });
+  const overviewEditor = useUnsavedEditor({ module: "daily_logs", saveKind: "none", label: t("workspace.overviewEditor") });
   const overviewSaves = React.useRef(0);
 
   const refresh = React.useCallback(async () => {
@@ -175,7 +182,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       const outcome = dailyLogFailureOutcome(error);
       // No answer is not a refusal: the step may have happened. Never "try
       // again" blindly — show the log as it now stands (AUD-03 §6, AUD-04 §6).
-      toast({ title: failureMessage(error, `${label} failed.`), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : undefined, tone: "danger" });
+      toast({ title: failed(error, label), description: outcome.kind === "unknown" ? OUTCOME_COPY.unknown : undefined, tone: "danger" });
       if (outcome.kind === "unknown" || (isFailure(error) && (error.status === 409 || error.detailCode === "DAILY_LOG_STALE"))) void refresh().catch(() => undefined);
       stepping.current = false;
       setPending(false);
@@ -237,7 +244,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     try {
       await refresh();
     } catch {
-      toast({ title: "Saved", description: "The log could not be refreshed just now; it is being reloaded.", tone: "warning" });
+      toast({ title: t("common.saved"), description: t("workspace.savedRefreshing"), tone: "warning" });
       router.refresh();
     }
   }
@@ -270,7 +277,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       const outcome = dailyLogFailureOutcome(error);
       overviewEditor.setUnresolved(outcome.kind === "unknown");
       setSaving("error");
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failed(error), tone: "danger" });
       if (isFailure(error) && error.status === 409) void refresh();
       return outcome;
     } finally {
@@ -283,12 +290,12 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
   const issueCount = log.issues.length;
   const rail: Array<{ key: Rail; label: string; count?: number }> = [
-    { key: "overview", label: "Overview" },
-    ...SECTION_KEYS.map((key) => ({ key, label: SECTION_LABELS[key], count: entriesOf(log, key).length })),
-    { key: "qaqc", label: "QA/QC & HSE", count: log.records.length },
-    { key: "evidence", label: "Evidence", count: log.counts.photos + (log.counts.documents - log.counts.photos) },
-    { key: "tasks", label: "Tasks", count: log.tasks.length },
-    { key: "history", label: "History" },
+    { key: "overview", label: t("workspace.overview") },
+    ...SECTION_KEYS.map((key) => ({ key, label: sectionLabel(key), count: entriesOf(log, key).length })),
+    { key: "qaqc", label: t("workspace.qaqcHse"), count: log.records.length },
+    { key: "evidence", label: t("workspace.evidence"), count: log.counts.photos + (log.counts.documents - log.counts.photos) },
+    { key: "tasks", label: t("workspace.tasks"), count: log.tasks.length },
+    { key: "history", label: t("workspace.history") },
   ];
   const toggle = (key: string) => setOpen((current) => ({ ...current, [key]: !current[key] }));
 
@@ -324,8 +331,8 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
   const addButton = (section: SectionKey) =>
     caps.sections[section] ? (
-      <Button type="button" variant="ghost" size="sm" onClick={() => void openEntry(section)} aria-label={`Add ${SECTION_LABELS[section].toLowerCase()}`}>
-        <Plus aria-hidden="true" /> <span className="hidden sm:inline">Add</span>
+      <Button type="button" variant="ghost" size="sm" onClick={() => void openEntry(section)} aria-label={t("workspace.addSection", { section: sectionLabel(section).toLowerCase() })}>
+        <Plus aria-hidden="true" /> <span className="hidden sm:inline">{t("common.add")}</span>
       </Button>
     ) : null;
 
@@ -335,35 +342,35 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     weather: log.weather.length ? (
       <ul className="divide-y divide-line">
         {log.weather.map((entry) => (
-          <EntryLine key={entry.id} testId="weather-entry" primary={joined(entry.observedAt, entry.condition ? WEATHER_CONDITION_LABELS[entry.condition] : null)} secondary={joined(entry.precipitationMm !== null && `${entry.precipitationMm} mm rain`, entry.windKph !== null && `wind ${entry.windKph} km/h`, entry.humidityPct !== null && `${entry.humidityPct}% humidity`, entry.notes)} meta={entry.temperatureC !== null ? `${entry.temperatureC} °C` : undefined} onEdit={caps.sections.weather ? () => void openEntry("weather", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="weather-entry" primary={joined(entry.observedAt, entry.condition ? L("weather", entry.condition, WEATHER_CONDITION_LABELS[entry.condition]) : null)} secondary={joined(entry.precipitationMm !== null && t("workspace.line.rain", { value: entry.precipitationMm }), entry.windKph !== null && t("workspace.line.wind", { value: entry.windKph }), entry.humidityPct !== null && t("workspace.line.humidity", { value: entry.humidityPct }), entry.notes)} meta={entry.temperatureC !== null ? `${entry.temperatureC} °C` : undefined} onEdit={caps.sections.weather ? () => void openEntry("weather", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No weather readings."),
+    ) : empty(t("workspace.empty.weather")),
     workforce: log.workforce.length ? (
       <ul className="divide-y divide-line">
         {log.workforce.map((entry) => (
-          <EntryLine key={entry.id} testId="workforce-entry" primary={entry.organizationName} secondary={joined(entry.trade, entry.crewName, entry.contractor ? `Contractor: ${entry.contractor.label}` : null, entry.workPackage?.label, entry.supplier ? `Supplier: ${entry.supplier.label}` : null, entry.notes)} meta={`${entry.headcount}`} onEdit={caps.sections.workforce ? () => void openEntry("workforce", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="workforce-entry" primary={entry.organizationName} secondary={joined(entry.trade, entry.crewName, entry.contractor ? t("workspace.line.contractor", { label: entry.contractor.label }) : null, entry.workPackage?.label, entry.supplier ? t("workspace.line.supplier", { label: entry.supplier.label }) : null, entry.notes)} meta={`${entry.headcount}`} onEdit={caps.sections.workforce ? () => void openEntry("workforce", entry.id) : undefined} />
         ))}
         <li className="flex justify-between pt-2.5 text-table font-medium text-fg">
-          <span>On site</span>
+          <span>{t("workspace.onSite")}</span>
           <span className="tabular-nums" data-testid="workforce-total">{log.counts.workforce}</span>
         </li>
       </ul>
-    ) : empty("No workforce recorded."),
+    ) : empty(t("workspace.empty.workforce")),
     activities: log.activities.length ? (
       <ul className="divide-y divide-line">
         {log.activities.map((entry) => (
-          <EntryLine key={entry.id} testId="activity-entry" primary={entry.title} secondary={joined(entry.projectArea, entry.floorZone, entry.trade, entry.contractor ? `Contractor: ${entry.contractor.label}` : null, entry.workPackage?.label, entry.task ? `Task: ${entry.task.label}` : null, entry.description)} meta={entry.progressPercent !== null ? `${entry.progressPercent}%` : undefined} onEdit={caps.sections.activities ? () => void openEntry("activities", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="activity-entry" primary={entry.title} secondary={joined(entry.projectArea, entry.floorZone, entry.trade, entry.contractor ? t("workspace.line.contractor", { label: entry.contractor.label }) : null, entry.workPackage?.label, entry.task ? t("workspace.line.task", { label: entry.task.label }) : null, entry.description)} meta={entry.progressPercent !== null ? `${entry.progressPercent}%` : undefined} onEdit={caps.sections.activities ? () => void openEntry("activities", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No work recorded."),
+    ) : empty(t("workspace.empty.activities")),
     equipment: log.equipment.length ? (
       <ul className="divide-y divide-line">
         {log.equipment.map((entry) => (
-          <EntryLine key={entry.id} testId="equipment-entry" primary={joined(entry.equipmentName, entry.equipmentCode)} secondary={joined(entry.status ? EQUIPMENT_STATUS_LABELS[entry.status] : null, entry.hoursUsed !== null && `${entry.hoursUsed} h`, entry.supplier?.label, entry.notes)} meta={`× ${entry.quantity}`} onEdit={caps.sections.equipment ? () => void openEntry("equipment", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="equipment-entry" primary={joined(entry.equipmentName, entry.equipmentCode)} secondary={joined(entry.status ? L("equipment", entry.status, EQUIPMENT_STATUS_LABELS[entry.status]) : null, entry.hoursUsed !== null && `${entry.hoursUsed} h`, entry.supplier?.label, entry.notes)} meta={`× ${entry.quantity}`} onEdit={caps.sections.equipment ? () => void openEntry("equipment", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No equipment recorded."),
+    ) : empty(t("workspace.empty.equipment")),
     deliveries: log.deliveries.length ? (
       <ul className="divide-y divide-line">
         {log.deliveries.map((entry) => (
@@ -373,7 +380,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             primary={entry.description}
             secondary={
               <>
-                {joined(entry.supplier?.label, entry.deliveredTime && `arrived ${entry.deliveredTime}`, entry.outsideWorkDate && entry.deliveredDate ? `on ${dateLabel(entry.deliveredDate)}` : null, entry.conditionNote)}
+                {joined(entry.supplier?.label, entry.deliveredTime && t("workspace.line.arrived", { time: entry.deliveredTime }), entry.outsideWorkDate && entry.deliveredDate ? t("workspace.line.on", { date: dateLabel(entry.deliveredDate) }) : null, entry.conditionNote)}
                 {[entry.purchaseOrder, entry.goodsReceipt, entry.inventoryReceipt].filter(Boolean).map((ref) =>
                   ref!.href ? (
                     <Link key={ref!.id} href={ref!.href} className="ml-2 text-accent-strong hover:underline">
@@ -390,35 +397,35 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
           />
         ))}
       </ul>
-    ) : empty("No deliveries recorded."),
+    ) : empty(t("workspace.empty.deliveries")),
     visitors: log.visitors.length ? (
       <ul className="divide-y divide-line">
         {log.visitors.map((entry) => (
-          <EntryLine key={entry.id} testId="visitor-entry" primary={joined(entry.name, entry.organization)} secondary={joinedNodes(entry.purpose, entry.escortedBy && <>escorted by <PersonLink memberId={entry.escortedBy.memberId} name={entry.escortedBy.name} /></>, entry.notes)} meta={entry.arrivedAt ? `${entry.arrivedAt}${entry.departedAt ? `–${entry.departedAt}` : ""}` : undefined} onEdit={caps.sections.visitors ? () => void openEntry("visitors", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="visitor-entry" primary={joined(entry.name, entry.organization)} secondary={joinedNodes(entry.purpose, entry.escortedBy && <>{t("workspace.line.escortedBy")} <PersonLink memberId={entry.escortedBy.memberId} name={entry.escortedBy.name} /></>, entry.notes)} meta={entry.arrivedAt ? `${entry.arrivedAt}${entry.departedAt ? `–${entry.departedAt}` : ""}` : undefined} onEdit={caps.sections.visitors ? () => void openEntry("visitors", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No visitors recorded."),
+    ) : empty(t("workspace.empty.visitors")),
     delays: log.delays.length ? (
       <ul className="divide-y divide-line">
         {log.delays.map((entry) => (
-          <EntryLine key={entry.id} testId="delay-entry" primary={entry.title} secondary={joined(DELAY_CATEGORY_LABELS[entry.category], entry.impact && `${DELAY_IMPACT_LABELS[entry.impact]} impact`, entry.startedAt && `${entry.startedAt}–${entry.endedAt ?? "…"}`, entry.responsiblePartyText, entry.task ? `Task: ${entry.task.label}` : null)} meta={entry.durationMinutes ? formatDuration(entry.durationMinutes) : undefined} onEdit={caps.sections.delays ? () => void openEntry("delays", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="delay-entry" primary={entry.title} secondary={joined(L("delayCategory", entry.category, DELAY_CATEGORY_LABELS[entry.category]), entry.impact && t("workspace.line.impact", { impact: L("delayImpact", entry.impact, DELAY_IMPACT_LABELS[entry.impact]) }), entry.startedAt && `${entry.startedAt}–${entry.endedAt ?? "…"}`, entry.responsiblePartyText, entry.task ? t("workspace.line.task", { label: entry.task.label }) : null)} meta={entry.durationMinutes ? formatDuration(entry.durationMinutes) : undefined} onEdit={caps.sections.delays ? () => void openEntry("delays", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No delays recorded."),
+    ) : empty(t("workspace.empty.delays")),
     instructions: log.instructions.length ? (
       <ul className="divide-y divide-line">
         {log.instructions.map((entry) => (
-          <EntryLine key={entry.id} testId="instruction-entry" primary={entry.title} secondary={joinedNodes(entry.issuedByText ?? (entry.issuedBy && <PersonLink memberId={entry.issuedBy.memberId} name={entry.issuedBy.name} />), entry.recipientText && `to ${entry.recipientText}`, entry.issuedAt, entry.requiresAction && "Requires action", entry.task ? `Task: ${entry.task.label}` : null, entry.description)} onEdit={caps.sections.instructions ? () => void openEntry("instructions", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="instruction-entry" primary={entry.title} secondary={joinedNodes(entry.issuedByText ?? (entry.issuedBy && <PersonLink memberId={entry.issuedBy.memberId} name={entry.issuedBy.name} />), entry.recipientText && t("workspace.line.to", { recipient: entry.recipientText }), entry.issuedAt, entry.requiresAction && t("workspace.line.requiresAction"), entry.task ? t("workspace.line.task", { label: entry.task.label }) : null, entry.description)} onEdit={caps.sections.instructions ? () => void openEntry("instructions", entry.id) : undefined} />
         ))}
       </ul>
-    ) : empty("No instructions recorded."),
+    ) : empty(t("workspace.empty.instructions")),
   };
 
   const statusBanner = () => {
     if (log.status === "CORRECTION_REQUIRED") {
       return (
         <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
-          <p className="font-medium">Returned for correction</p>
+          <p className="font-medium">{t("workspace.banner.returned")}</p>
           {log.returnReason ? <p className="mt-1 whitespace-pre-line text-fg-muted">“{log.returnReason}”</p> : null}
         </div>
       );
@@ -426,8 +433,8 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     if (log.status === "SUBMITTED") {
       return (
         <div className="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
-          Submitted{log.submittedBy ? <> by <PersonLink memberId={log.submittedBy.memberId} name={log.submittedBy.name} /></> : null}
-          {log.reviewer ? <>, waiting for <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} />&apos;s review</> : null}. The log cannot change until it is reviewed or returned.
+          {t("workspace.banner.submitted")}{log.submittedBy ? <> {t("workspace.banner.by")} <PersonLink memberId={log.submittedBy.memberId} name={log.submittedBy.name} /></> : null}
+          {log.reviewer ? <>{t("workspace.banner.waitingFor")} <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} />{t("workspace.banner.review")}</> : null}{t("workspace.banner.cannotChange")}
         </div>
       );
     }
@@ -435,13 +442,13 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       return (
         <div className="rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
           <p className="flex items-center gap-2 font-medium">
-            <Lock className="size-4 text-success-strong" aria-hidden="true" /> The official record{log.lockedBy ? <>, locked by <PersonLink memberId={log.lockedBy.memberId} name={log.lockedBy.name} /></> : null}.
+            <Lock className="size-4 text-success-strong" aria-hidden="true" /> {t("workspace.banner.official")}{log.lockedBy ? <>{t("workspace.banner.lockedBy")} <PersonLink memberId={log.lockedBy.memberId} name={log.lockedBy.name} /></> : null}.
           </p>
           {log.corrections.map((correction) => (
             <div key={correction.id} className="mt-2 border-t border-success/20 pt-2" data-testid="daily-log-correction">
-              <p className="font-medium">Official correction added {dateLabel(correction.createdAt.slice(0, 10))}{correction.createdBy ? <> by <PersonLink memberId={correction.createdBy.memberId} name={correction.createdBy.name} /></> : null}</p>
+              <p className="font-medium">{t("workspace.banner.correctionAdded", { date: dateLabel(correction.createdAt.slice(0, 10)) })}{correction.createdBy ? <> {t("workspace.banner.by")} <PersonLink memberId={correction.createdBy.memberId} name={correction.createdBy.name} /></> : null}</p>
               <p className="whitespace-pre-line text-fg">{correction.correctionSummary}</p>
-              <p className="text-meta text-fg-muted">Reason: {correction.reason}</p>
+              <p className="text-meta text-fg-muted">{t("workspace.banner.reason", { reason: correction.reason })}</p>
             </div>
           ))}
         </div>
@@ -450,7 +457,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     if (log.status === "VOID") {
       return (
         <div className="rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted" role="status" data-testid="daily-log-banner">
-          <p className="font-medium text-fg">This log was voided.</p>
+          <p className="font-medium text-fg">{t("workspace.banner.voided")}</p>
           {log.voidReason ? <p className="mt-1">“{log.voidReason}”</p> : null}
         </div>
       );
@@ -458,7 +465,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     if (log.status === "REVIEWED") {
       return (
         <div className="rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-table text-fg" role="status" data-testid="daily-log-banner">
-          Reviewed{log.reviewedBy ? <> by <PersonLink memberId={log.reviewedBy.memberId} name={log.reviewedBy.name} /></> : null}. Lock it to make it the official record.
+          {t("workspace.banner.reviewed")}{log.reviewedBy ? <> {t("workspace.banner.by")} <PersonLink memberId={log.reviewedBy.memberId} name={log.reviewedBy.name} /></> : null}{t("workspace.banner.lockIt")}
         </div>
       );
     }
@@ -468,28 +475,28 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
   const primaryActions = (
     <>
       {caps.canSubmit ? (
-        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("submit", "Submitting", "Daily log submitted")}>
-          <Send aria-hidden="true" /> Submit
+        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("submit", t("workspace.actions.submitting"), t("workspace.actions.submitted"))}>
+          <Send aria-hidden="true" /> {t("workspace.actions.submit")}
         </Button>
       ) : null}
       {caps.canReview ? (
-        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("review", "Reviewing", "Daily log reviewed")}>
-          <FileCheck2 aria-hidden="true" /> Mark reviewed
+        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("review", t("workspace.actions.reviewing"), t("workspace.actions.reviewed"))}>
+          <FileCheck2 aria-hidden="true" /> {t("workspace.actions.markReviewed")}
         </Button>
       ) : null}
       {caps.canReturn ? (
         <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => setAction("return")}>
-          <RotateCcw aria-hidden="true" /> Return
+          <RotateCcw aria-hidden="true" /> {t("workspace.actions.return")}
         </Button>
       ) : null}
       {caps.canLock ? (
-        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("lock", "Locking", "Daily log locked")}>
-          <Lock aria-hidden="true" /> Lock
+        <Button type="button" size="sm" disabled={pending} onClick={() => void transition("lock", t("workspace.actions.locking"), t("workspace.actions.locked"))}>
+          <Lock aria-hidden="true" /> {t("workspace.actions.lock")}
         </Button>
       ) : null}
       {caps.canCorrect ? (
         <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => setAction("correction")}>
-          <Pencil aria-hidden="true" /> Add correction
+          <Pencil aria-hidden="true" /> {t("workspace.actions.addCorrection")}
         </Button>
       ) : null}
     </>
@@ -504,11 +511,11 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
    * (J-D1, J-D2, D-08-05, D-08-06).
    */
   const steps: Array<{ key: string; label: string; run: () => void; variant?: "secondary" }> = [
-    ...(caps.canSubmit ? [{ key: "submit", label: "Submit log", run: () => void transition("submit", "Submitting", "Daily log submitted") }] : []),
-    ...(caps.canReview ? [{ key: "review", label: "Mark reviewed", run: () => void transition("review", "Reviewing", "Daily log reviewed") }] : []),
-    ...(caps.canLock ? [{ key: "lock", label: "Lock", run: () => void transition("lock", "Locking", "Daily log locked") }] : []),
-    ...(caps.canReturn ? [{ key: "return", label: "Return for correction", run: () => setAction("return"), variant: "secondary" as const }] : []),
-    ...(caps.canCorrect ? [{ key: "correction", label: "Add correction", run: () => setAction("correction"), variant: "secondary" as const }] : []),
+    ...(caps.canSubmit ? [{ key: "submit", label: t("workspace.actions.submitLog"), run: () => void transition("submit", t("workspace.actions.submitting"), t("workspace.actions.submitted")) }] : []),
+    ...(caps.canReview ? [{ key: "review", label: t("workspace.actions.markReviewed"), run: () => void transition("review", t("workspace.actions.reviewing"), t("workspace.actions.reviewed")) }] : []),
+    ...(caps.canLock ? [{ key: "lock", label: t("workspace.actions.lock"), run: () => void transition("lock", t("workspace.actions.locking"), t("workspace.actions.locked")) }] : []),
+    ...(caps.canReturn ? [{ key: "return", label: t("workspace.actions.returnForCorrection"), run: () => setAction("return"), variant: "secondary" as const }] : []),
+    ...(caps.canCorrect ? [{ key: "correction", label: t("workspace.actions.addCorrection"), run: () => setAction("correction"), variant: "secondary" as const }] : []),
   ];
   // The first forward step is the bar's own button; Return and Add correction are never it when a forward step exists.
   const barStep = steps.find((step) => !step.variant) ?? (editable ? undefined : steps[0]);
@@ -537,7 +544,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             <Link href={`/projects/${log.project.id}/daily-logs`} className="hover:text-accent-strong">
               {log.project.name}
             </Link>{" "}
-            · Daily log
+            · {t("workspace.dailyLog")}
           </p>
           <h1 className="text-page font-semibold text-fg" data-testid="daily-log-date">
             {longDateLabel(log.workDate)}
@@ -547,7 +554,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             {log.lateEntry ? <LateEntryBadge /> : null}
             {log.corrections.length ? <CorrectedBadge /> : null}
             <span className="text-meta text-fg-muted" aria-live="polite" data-testid="save-indicator">
-              {saving === "saving" ? "Saving…" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved" : null}
+              {saving === "saving" ? t("common.saving") : saving === "saved" ? t("common.saved") : saving === "error" ? t("common.notSaved") : null}
             </span>
           </div>
         </div>
@@ -556,28 +563,28 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" size="sm" variant="secondary" className="hidden md:inline-flex">
-                  <Plus aria-hidden="true" /> Add
+                  <Plus aria-hidden="true" /> {t("common.add")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {SECTION_KEYS.filter((key) => caps.sections[key]).map((key) => (
                   <DropdownMenuItem key={key} onSelect={() => void openEntry(key)}>
-                    {SECTION_LABELS[key]}
+                    {sectionLabel(key)}
                   </DropdownMenuItem>
                 ))}
-                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => setAction("task")}>Task</DropdownMenuItem> : null}
+                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => setAction("task")}>{t("workspace.task")}</DropdownMenuItem> : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
           <div className="hidden items-center gap-2 md:flex">{primaryActions}</div>
           {favorite}
           <Button asChild size="sm" variant="ghost">
-            <Link href={`/projects/${log.project.id}/daily-logs/${log.id}/print`} aria-label="Print">
+            <Link href={`/projects/${log.project.id}/daily-logs/${log.id}/print`} aria-label={t("workspace.print")}>
               <Printer aria-hidden="true" />
             </Link>
           </Button>
           {caps.canVoid ? (
-            <Button type="button" size="sm" variant="ghost" className="text-danger-strong hover:text-danger-strong" onClick={() => setAction("void")} aria-label="Void log">
+            <Button type="button" size="sm" variant="ghost" className="text-danger-strong hover:text-danger-strong" onClick={() => setAction("void")} aria-label={t("workspace.voidLog")}>
               <Ban aria-hidden="true" />
             </Button>
           ) : null}
@@ -588,7 +595,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
       {editable && issueCount ? (
         <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-table" role="status" data-testid="daily-log-issues">
-          <p className="font-medium text-fg">{issueCount} {issueCount === 1 ? "issue needs" : "issues need"} attention before submitting</p>
+          <p className="font-medium text-fg">{t("workspace.issues", { count: issueCount })}</p>
           <ul className="mt-1 list-disc pl-5 text-fg-muted">
             {log.issues.map((issue, index) => (
               <li key={index}>{issue.message}</li>
@@ -598,18 +605,18 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
       ) : null}
 
       {/* Summary cards (§146, §153) */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label="Daily summary">
-        <Stat label="Workforce" value={log.counts.workforce} testId="count-workforce" />
-        <Stat label="Activities" value={log.counts.activities} />
-        <Stat label="Deliveries" value={log.counts.deliveries} />
-        <Stat label="Delays" value={log.counts.delays} />
-        <Stat label="QA/QC · HSE" value={`${log.counts.qaqc} · ${log.counts.hse}`} />
-        <Stat label="Photos" value={log.counts.photos} testId="count-photos" />
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label={t("workspace.summary")}>
+        <Stat label={t("workspace.stat.workforce")} value={log.counts.workforce} testId="count-workforce" />
+        <Stat label={t("workspace.stat.activities")} value={log.counts.activities} />
+        <Stat label={t("workspace.stat.deliveries")} value={log.counts.deliveries} />
+        <Stat label={t("workspace.stat.delays")} value={log.counts.delays} />
+        <Stat label={t("workspace.stat.qaqcHse")} value={`${log.counts.qaqc} · ${log.counts.hse}`} />
+        <Stat label={t("workspace.stat.photos")} value={log.counts.photos} testId="count-photos" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
         {/* Section rail (§147) */}
-        <nav aria-label="Log sections" className="hidden md:block">
+        <nav aria-label={t("workspace.sections")} className="hidden md:block">
           <ul className="sticky top-20 space-y-0.5">
             {rail.map((item) => (
               <li key={item.key}>
@@ -625,33 +632,33 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         <div className="min-w-0 space-y-3">
           {sectionShell(
             "overview",
-            "Overview",
+            t("workspace.overview"),
             <NotebookPen className="size-4" />,
             <div className="grid gap-3 sm:grid-cols-2">
-              <OverviewField label="Summary" value={log.summary} editable={editable} wide onSave={(value) => saveOverview("summary", value)} testId="overview-summary" />
-              <OverviewField label="Weather summary" value={log.weatherSummary} editable={editable} onSave={(value) => saveOverview("weatherSummary", value)} />
+              <OverviewField label={t("workspace.field.summary")} value={log.summary} editable={editable} wide onSave={(value) => saveOverview("summary", value)} testId="overview-summary" />
+              <OverviewField label={t("workspace.field.weatherSummary")} value={log.weatherSummary} editable={editable} onSave={(value) => saveOverview("weatherSummary", value)} />
               <div>
                 <label htmlFor="site-condition" className="text-table font-medium text-fg">
-                  Site condition
+                  {t("workspace.field.siteCondition")}
                 </label>
                 {editable ? (
                   <select id="site-condition" className={cn(selectClass, "mt-1.5")} value={log.siteCondition ?? ""} onChange={(event) => void saveOverview("siteCondition", event.target.value)}>
-                    <option value="">Not recorded</option>
+                    <option value="">{t("workspace.field.notRecorded")}</option>
                     {SITE_CONDITIONS.map((condition) => (
                       <option key={condition} value={condition}>
-                        {SITE_CONDITION_LABELS[condition]}
+                        {L("site", condition, SITE_CONDITION_LABELS[condition])}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <p className="mt-1 text-table text-fg">{log.siteCondition ? SITE_CONDITION_LABELS[log.siteCondition] : "—"}</p>
+                  <p className="mt-1 text-table text-fg">{log.siteCondition ? L("site", log.siteCondition, SITE_CONDITION_LABELS[log.siteCondition]) : "—"}</p>
                 )}
               </div>
-              <OverviewField label="Site condition notes" value={log.siteConditionNotes} editable={editable} onSave={(value) => saveOverview("siteConditionNotes", value)} />
-              <OverviewField label="Delays in brief" value={log.delaySummary} editable={editable} onSave={(value) => saveOverview("delaySummary", value)} />
-              <OverviewField label="Instructions in brief" value={log.instructionSummary} editable={editable} onSave={(value) => saveOverview("instructionSummary", value)} />
-              <OverviewField label="General notes" value={log.generalNotes} editable={editable} wide onSave={(value) => saveOverview("generalNotes", value)} />
-              <p className="text-meta text-fg-muted sm:col-span-2">{joinedNodes(log.createdBy && <>Started by <PersonLink memberId={log.createdBy.memberId} name={log.createdBy.name} /></>, log.reviewer && <>Reviewer <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} /></>)}</p>
+              <OverviewField label={t("workspace.field.siteConditionNotes")} value={log.siteConditionNotes} editable={editable} onSave={(value) => saveOverview("siteConditionNotes", value)} />
+              <OverviewField label={t("workspace.field.delaySummary")} value={log.delaySummary} editable={editable} onSave={(value) => saveOverview("delaySummary", value)} />
+              <OverviewField label={t("workspace.field.instructionSummary")} value={log.instructionSummary} editable={editable} onSave={(value) => saveOverview("instructionSummary", value)} />
+              <OverviewField label={t("workspace.field.generalNotes")} value={log.generalNotes} editable={editable} wide onSave={(value) => saveOverview("generalNotes", value)} />
+              <p className="text-meta text-fg-muted sm:col-span-2">{joinedNodes(log.createdBy && <>{t("workspace.field.startedBy")} <PersonLink memberId={log.createdBy.memberId} name={log.createdBy.name} /></>, log.reviewer && <>{t("workspace.field.reviewer")} <PersonLink memberId={log.reviewer.memberId} name={log.reviewer.name} /></>)}</p>
             </div>,
           )}
 
@@ -661,18 +668,18 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             const actions =
               key === "workforce" && caps.sections.workforce ? (
                 <>
-                  <WorkforceSuggestions base={base} onApplied={async (added) => void (await run("Adding", async () => null, added ? `${added} ${added === 1 ? "entry" : "entries"} added.` : undefined))} />
+                  <WorkforceSuggestions base={base} onApplied={async (added) => void (await run(t("workspace.actions.addingLabel"), async () => null, added ? t("workspace.actions.entriesAdded", { count: added }) : undefined))} />
                   {addButton(key)}
                 </>
               ) : (
                 addButton(key)
               );
-            return <React.Fragment key={key}>{sectionShell(key, SECTION_LABELS[key], <Icon className="size-4" />, sections[key], actions, entriesOf(log, key).length)}</React.Fragment>;
+            return <React.Fragment key={key}>{sectionShell(key, sectionLabel(key), <Icon className="size-4" />, sections[key], actions, entriesOf(log, key).length)}</React.Fragment>;
           })}
 
           {sectionShell(
             "qaqc",
-            "QA/QC & HSE",
+            t("workspace.qaqcHse"),
             <ShieldCheck className="size-4" />,
             log.records.length ? (
               <ul className="divide-y divide-line">
@@ -690,7 +697,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                       {record.detail ? <span className="ml-2 text-meta text-fg-muted">{record.detail}</span> : null}
                     </span>
                     {(record.domain === "hse" ? caps.sections.hse : caps.sections.qaqc) ? (
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove link to ${record.label}`} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run("Unlinking", () => dailyLogApi(`${base}/record-links/${record.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t("workspace.removeLink", { label: record.label })} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run(t("workspace.actions.unlinking"), () => dailyLogApi(`${base}/record-links/${record.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
                         <X />
                       </Button>
                     ) : null}
@@ -698,11 +705,11 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                 ))}
               </ul>
             ) : (
-              empty("No QA/QC or HSE records linked. The records themselves stay in their own modules.")
+              empty(t("workspace.empty.records"))
             ),
             caps.sections.qaqc || caps.sections.hse ? (
               <Button type="button" variant="ghost" size="sm" onClick={() => setAction("link-record")}>
-                <Link2 aria-hidden="true" /> <span className="hidden sm:inline">Link</span>
+                <Link2 aria-hidden="true" /> <span className="hidden sm:inline">{t("common.link")}</span>
               </Button>
             ) : null,
             log.records.length,
@@ -710,10 +717,10 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
           {sectionShell(
             "evidence",
-            "Photos & documents",
+            t("workspace.photosDocuments"),
             <FileCheck2 className="size-4" />,
             log.evidence === null ? (
-              empty("You cannot view files on this log.")
+              empty(t("workspace.empty.evidence"))
             ) : (
               <EvidenceGallery dailyLogId={log.id} evidence={log.evidence} canUpload={caps.canUploadEvidence} canEdit={editable} zone={zone} onChanged={async () => void (await refresh())} />
             ),
@@ -723,7 +730,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
           {sectionShell(
             "tasks",
-            "Follow-up tasks",
+            t("workspace.followUpTasks"),
             <ListChecks className="size-4" />,
             log.tasks.length ? (
               <ul className="divide-y divide-line">
@@ -737,10 +744,10 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                       ) : (
                         <span className="block text-table text-fg-muted">{task.title}</span>
                       )}
-                      <span className="block text-meta text-fg-muted">{joined(TASK_LINK_TYPE_LABELS[task.linkType], task.status)}</span>
+                      <span className="block text-meta text-fg-muted">{joined(L("taskLink", task.linkType, TASK_LINK_TYPE_LABELS[task.linkType]), task.status)}</span>
                     </span>
                     {caps.sections.tasks ? (
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label={`Unlink task ${task.title}`} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run("Unlinking", () => dailyLogApi(`${base}/tasks/${task.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t("workspace.unlinkTask", { title: task.title })} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run(t("workspace.actions.unlinking"), () => dailyLogApi(`${base}/tasks/${task.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
                         <X />
                       </Button>
                     ) : null}
@@ -748,16 +755,16 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                 ))}
               </ul>
             ) : (
-              empty("No tasks linked. Completing a task stays in Tasks.")
+              empty(t("workspace.empty.tasks"))
             ),
             caps.sections.tasks ? (
               <div className="flex gap-1">
                 <Button type="button" variant="ghost" size="sm" onClick={() => { void loadOptions(); setAction("link-task"); }}>
-                  <Link2 aria-hidden="true" /> <span className="hidden sm:inline">Link</span>
+                  <Link2 aria-hidden="true" /> <span className="hidden sm:inline">{t("common.link")}</span>
                 </Button>
                 {caps.canCreateTask ? (
                   <Button type="button" variant="ghost" size="sm" onClick={() => { void loadOptions(); setAction("task"); }}>
-                    <Plus aria-hidden="true" /> <span className="hidden sm:inline">Create</span>
+                    <Plus aria-hidden="true" /> <span className="hidden sm:inline">{t("common.create")}</span>
                   </Button>
                 ) : null}
               </div>
@@ -767,7 +774,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
           {sectionShell(
             "history",
-            "History",
+            t("workspace.history"),
             <Check className="size-4" />,
             log.history.length ? (
               <ol className="space-y-2">
@@ -780,7 +787,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                 ))}
               </ol>
             ) : (
-              empty("Nothing yet.")
+              empty(t("workspace.empty.history"))
             ),
           )}
 
@@ -795,17 +802,17 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="secondary" className="min-w-0 flex-1">
-                  <Plus aria-hidden="true" /> Add
+                  <Plus aria-hidden="true" /> {t("common.add")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" onCloseAutoFocus={openAfterMenu}>
                 {SECTION_KEYS.filter((key) => caps.sections[key]).map((key) => (
                   <DropdownMenuItem key={key} onSelect={() => (afterMenu.current = () => void openEntry(key))}>
-                    {SECTION_LABELS[key]}
+                    {sectionLabel(key)}
                   </DropdownMenuItem>
                 ))}
-                {caps.canUploadEvidence ? <DropdownMenuItem onSelect={() => { setOpen((current) => ({ ...current, evidence: true })); requestAnimationFrame(() => document.getElementById("section-evidence")?.scrollIntoView({ block: "start" })); }}>Photo</DropdownMenuItem> : null}
-                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => (afterMenu.current = () => setAction("task"))}>Task</DropdownMenuItem> : null}
+                {caps.canUploadEvidence ? <DropdownMenuItem onSelect={() => { setOpen((current) => ({ ...current, evidence: true })); requestAnimationFrame(() => document.getElementById("section-evidence")?.scrollIntoView({ block: "start" })); }}>{t("workspace.photo")}</DropdownMenuItem> : null}
+                {caps.canCreateTask ? <DropdownMenuItem onSelect={() => (afterMenu.current = () => setAction("task"))}>{t("workspace.task")}</DropdownMenuItem> : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
@@ -818,8 +825,8 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
           {moreSteps.length ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="secondary" disabled={pending} aria-label="More log actions">
-                  <MoreHorizontal aria-hidden="true" /> More
+                <Button type="button" variant="secondary" disabled={pending} aria-label={t("workspace.moreActions")}>
+                  <MoreHorizontal aria-hidden="true" /> {t("workspace.more")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" onCloseAutoFocus={openAfterMenu}>
@@ -848,22 +855,22 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
 
       <ReasonDialog
         open={action === "return" || action === "void"}
-        title={action === "void" ? "Void this log?" : "Return for correction?"}
-        description={action === "void" ? "A void log stays in the history with its reason, and the day has no valid log." : "The authors can edit the log again and resubmit it."}
-        label={action === "void" ? "Why it is void" : "What needs correcting"}
-        confirm={action === "void" ? "Void log" : "Return"}
+        title={action === "void" ? t("workspace.reason.voidTitle") : t("workspace.reason.returnTitle")}
+        description={action === "void" ? t("workspace.reason.voidDescription") : t("workspace.reason.returnDescription")}
+        label={action === "void" ? t("workspace.reason.voidLabel") : t("workspace.reason.returnLabel")}
+        confirm={action === "void" ? t("workspace.voidLog") : t("workspace.actions.return")}
         destructive={action === "void"}
         pending={pending}
         onClose={() => setAction(null)}
         onConfirm={async (reason) => {
           const path = action === "void" ? "void" : "return";
-          const outcome = await perform(action === "void" ? "Voiding" : "Returning", () => dailyLogApi(`${base}/${path}`, { body: { expectedVersion: log.version, reason } }), action === "void" ? "Daily log voided" : "Returned for correction");
+          const outcome = await perform(action === "void" ? t("workspace.actions.voiding") : t("workspace.actions.returning"), () => dailyLogApi(`${base}/${path}`, { body: { expectedVersion: log.version, reason } }), action === "void" ? t("workspace.actions.voided") : t("workspace.actions.returned"));
           if (outcome.kind === "committed") setAction(null);
           return outcome;
         }}
       />
 
-      <CorrectionDialog open={action === "correction"} pending={pending} onClose={() => setAction(null)} onConfirm={async (input) => { const outcome = await perform("Adding the correction", () => dailyLogApi(`${base}/corrections`, { body: input }), "Correction added"); if (outcome.kind === "committed") setAction(null); return outcome; }} />
+      <CorrectionDialog open={action === "correction"} pending={pending} onClose={() => setAction(null)} onConfirm={async (input) => { const outcome = await perform(t("workspace.actions.addingCorrection"), () => dailyLogApi(`${base}/corrections`, { body: input }), t("workspace.actions.correctionAdded")); if (outcome.kind === "committed") setAction(null); return outcome; }} />
 
       <TaskDialog
         open={action === "task"}
@@ -871,15 +878,15 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         pending={pending}
         onClose={() => setAction(null)}
         onConfirm={async (input) => {
-          const outcome = await perform("Creating the task", () => dailyLogApi(`${base}/tasks/create`, { body: input }), "Task created");
+          const outcome = await perform(t("workspace.actions.creatingTask"), () => dailyLogApi(`${base}/tasks/create`, { body: input }), t("workspace.actions.taskCreated"));
           if (outcome.kind === "committed") setAction(null);
           return outcome;
         }}
       />
 
-      <LinkTaskDialog open={action === "link-task"} options={options} pending={pending} onClose={() => setAction(null)} onConfirm={async (taskId) => { const outcome = await perform("Linking", () => dailyLogApi(`${base}/tasks`, { body: { taskId, linkType: "RELATED" } }), "Task linked"); if (outcome.kind === "committed") setAction(null); return outcome; }} />
+      <LinkTaskDialog open={action === "link-task"} options={options} pending={pending} onClose={() => setAction(null)} onConfirm={async (taskId) => { const outcome = await perform(t("workspace.actions.linking"), () => dailyLogApi(`${base}/tasks`, { body: { taskId, linkType: "RELATED" } }), t("workspace.actions.taskLinked")); if (outcome.kind === "committed") setAction(null); return outcome; }} />
 
-      <LinkRecordDialog open={action === "link-record"} base={base} pending={pending} onClose={() => setAction(null)} onConfirm={async (recordType, recordId) => { if (await run("Linking", () => dailyLogApi(`${base}/record-links`, { body: { recordType, recordId } }), "Record linked")) setAction(null); }} />
+      <LinkRecordDialog open={action === "link-record"} base={base} pending={pending} onClose={() => setAction(null)} onConfirm={async (recordType, recordId) => { if (await run(t("workspace.actions.linking"), () => dailyLogApi(`${base}/record-links`, { body: { recordType, recordId } }), t("workspace.actions.recordLinked"))) setAction(null); }} />
     </div>
   );
 }
@@ -960,6 +967,7 @@ function ReasonDialog(props: ReasonDialogProps) {
 }
 
 function ReasonForm({ title, label, confirm, destructive, pending, onConfirm }: ReasonDialogProps) {
+  const t = useDailyLogsTranslations();
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const step = useDialogStep({ label: title, saveKind: "none", workflow: confirm, dirty: reason !== "", confirm: () => onConfirm(reason.trim()) });
@@ -973,10 +981,10 @@ function ReasonForm({ title, label, confirm, destructive, pending, onConfirm }: 
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="secondary" disabled={pending}>
-            Cancel
+            <DailyLogsText k="common.cancel" />
           </Button>
         </DialogClose>
-        <Button variant={destructive ? "danger" : "primary"} disabled={pending} onClick={() => (reason.trim() ? void step() : setError("Give a reason."))}>
+        <Button variant={destructive ? "danger" : "primary"} disabled={pending} onClick={() => (reason.trim() ? void step() : setError(t("workspace.reason.giveReason")))}>
           {confirm}
         </Button>
       </DialogFooter>
@@ -990,8 +998,8 @@ function CorrectionDialog(props: CorrectionDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
       <DialogContent>
-        <DialogTitle>Add an official correction</DialogTitle>
-        <DialogDescription>The locked log stays exactly as it was; the correction is added beside it, dated and attributed.</DialogDescription>
+        <DialogTitle><DailyLogsText k="workspace.correction.title" /></DialogTitle>
+        <DialogDescription><DailyLogsText k="workspace.correction.description" /></DialogDescription>
         {/* Inside the dialog, so the correction belongs to its guarded close (AUD-03 §5). */}
         <CorrectionForm {...props} />
       </DialogContent>
@@ -1002,28 +1010,29 @@ function CorrectionDialog(props: CorrectionDialogProps) {
 function CorrectionForm({ pending, onConfirm }: CorrectionDialogProps) {
   const [reason, setReason] = React.useState("");
   const [summary, setSummary] = React.useState("");
+  const t = useDailyLogsTranslations();
   const [error, setError] = React.useState<string | null>(null);
   // An official correction is a workflow step on a locked record (AUD-03 §3).
-  const step = useDialogStep({ label: "Official correction", saveKind: "none", workflow: "Add correction", dirty: reason !== "" || summary !== "", confirm: () => onConfirm({ reason: reason.trim(), correctionSummary: summary.trim() }) });
+  const step = useDialogStep({ label: t("workspace.correction.editor"), saveKind: "none", workflow: t("workspace.actions.addCorrection"), dirty: reason !== "" || summary !== "", confirm: () => onConfirm({ reason: reason.trim(), correctionSummary: summary.trim() }) });
   return (
     <>
       <label htmlFor="correction-reason" className="mt-4 block text-table font-medium text-fg">
-        Why it needs correcting
+        {t("workspace.correction.why")}
       </label>
       <Input id="correction-reason" className="mt-1.5" value={reason} readOnly={pending} onChange={(event) => setReason(event.target.value)} />
       <label htmlFor="correction-summary" className="mt-3 block text-table font-medium text-fg">
-        The correction
+        {t("workspace.correction.text")}
       </label>
       <Textarea id="correction-summary" rows={4} className="mt-1.5" value={summary} readOnly={pending} onChange={(event) => setSummary(event.target.value)} />
       {error ? <p role="alert" className="mt-1 text-meta text-danger-strong">{error}</p> : null}
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="secondary" disabled={pending}>
-            Cancel
+            <DailyLogsText k="common.cancel" />
           </Button>
         </DialogClose>
-        <Button disabled={pending} onClick={() => (reason.trim() && summary.trim() ? void step() : setError("Give the reason and the correction."))}>
-          Add correction
+        <Button disabled={pending} onClick={() => (reason.trim() && summary.trim() ? void step() : setError(t("workspace.correction.missing")))}>
+          {t("workspace.actions.addCorrection")}
         </Button>
       </DialogFooter>
     </>
@@ -1036,8 +1045,8 @@ function TaskDialog(props: TaskDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
       <DialogContent>
-        <DialogTitle>Create a follow-up task</DialogTitle>
-        <DialogDescription>The task is created in Tasks, on this log&apos;s project, and linked here.</DialogDescription>
+        <DialogTitle><DailyLogsText k="workspace.taskDialog.title" /></DialogTitle>
+        <DialogDescription><DailyLogsText k="workspace.taskDialog.description" /></DialogDescription>
         {/* Inside the dialog, so the task belongs to its guarded close (AUD-03 §5). */}
         <TaskForm {...props} />
       </DialogContent>
@@ -1050,15 +1059,16 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
   const [assignee, setAssignee] = React.useState("");
   const [due, setDue] = React.useState("");
   const [priority, setPriority] = React.useState("MEDIUM");
+  const t = useDailyLogsTranslations();
   const [error, setError] = React.useState<string | null>(null);
   const valid = title.trim().length >= 2;
   const step = useDialogStep({
-    label: "Follow-up task",
+    label: t("workspace.taskDialog.editor"),
     saveKind: "create",
     dirty: title !== "" || assignee !== "" || due !== "" || priority !== "MEDIUM",
     confirm: async () => {
       if (!valid) {
-        setError("Give the task a title.");
+        setError(t("workspace.taskDialog.needTitle"));
         return { kind: "invalid" };
       }
       return onConfirm({ title: title.trim(), assigneeMemberId: assignee || null, dueDate: due || null, priority });
@@ -1068,13 +1078,13 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
     <>
       <fieldset disabled={pending} className="m-0 mt-4 grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2">
         <label className="flex flex-col sm:col-span-2">
-          <span className="text-table font-medium text-fg">Title</span>
-          <Input className="mt-1.5" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Task title" />
+          <span className="text-table font-medium text-fg">{t("workspace.taskDialog.titleLabel")}</span>
+          <Input className="mt-1.5" value={title} onChange={(event) => setTitle(event.target.value)} aria-label={t("workspace.taskDialog.taskTitle")} />
         </label>
         <label className="flex flex-col">
-          <span className="text-table font-medium text-fg">Assignee</span>
+          <span className="text-table font-medium text-fg">{t("workspace.taskDialog.assignee")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={assignee} onChange={(event) => setAssignee(event.target.value)}>
-            <option value="">Unassigned</option>
+            <option value="">{t("workspace.taskDialog.unassigned")}</option>
             {options?.members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
@@ -1083,15 +1093,15 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
           </select>
         </label>
         <label className="flex flex-col">
-          <span className="text-table font-medium text-fg">Due</span>
+          <span className="text-table font-medium text-fg">{t("workspace.taskDialog.due")}</span>
           <Input type="date" className="mt-1.5" value={due} onChange={(event) => setDue(event.target.value)} />
         </label>
         <label className="flex flex-col">
-          <span className="text-table font-medium text-fg">Priority</span>
+          <span className="text-table font-medium text-fg">{t("workspace.taskDialog.priority")}</span>
           <select className={cn(selectClass, "mt-1.5")} value={priority} onChange={(event) => setPriority(event.target.value)}>
             {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
               <option key={value} value={value}>
-                {value.charAt(0) + value.slice(1).toLowerCase()}
+                {dailyLogsLabel(t, "priority", value, value.charAt(0) + value.slice(1).toLowerCase())}
               </option>
             ))}
           </select>
@@ -1101,11 +1111,11 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="secondary" disabled={pending}>
-            Cancel
+            <DailyLogsText k="common.cancel" />
           </Button>
         </DialogClose>
         <Button disabled={pending} onClick={() => void step()}>
-          Create task
+          {t("workspace.taskDialog.create")}
         </Button>
       </DialogFooter>
     </>
@@ -1118,8 +1128,8 @@ function LinkTaskDialog(props: LinkTaskDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={(value) => !value && props.onClose()}>
       <DialogContent>
-        <DialogTitle>Link a task</DialogTitle>
-        <DialogDescription>Tasks on this project that you can open.</DialogDescription>
+        <DialogTitle><DailyLogsText k="workspace.linkTask.title" /></DialogTitle>
+        <DialogDescription><DailyLogsText k="workspace.linkTask.description" /></DialogDescription>
         {/* Inside the dialog, so the pick belongs to its guarded close (AUD-03 §5). */}
         <LinkTaskForm {...props} />
       </DialogContent>
@@ -1129,11 +1139,12 @@ function LinkTaskDialog(props: LinkTaskDialogProps) {
 
 function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
   const [taskId, setTaskId] = React.useState("");
-  const step = useDialogStep({ label: "Link a task", saveKind: "create", dirty: taskId !== "", confirm: async () => (taskId ? onConfirm(taskId) : { kind: "invalid" }) });
+  const t = useDailyLogsTranslations();
+  const step = useDialogStep({ label: t("workspace.linkTask.title"), saveKind: "create", dirty: taskId !== "", confirm: async () => (taskId ? onConfirm(taskId) : { kind: "invalid" }) });
   return (
     <>
-      <select className={cn(selectClass, "mt-4")} value={taskId} disabled={pending} onChange={(event) => setTaskId(event.target.value)} aria-label="Task">
-        <option value="">Choose a task</option>
+      <select className={cn(selectClass, "mt-4")} value={taskId} disabled={pending} onChange={(event) => setTaskId(event.target.value)} aria-label={t("workspace.task")}>
+        <option value="">{t("workspace.linkTask.choose")}</option>
         {options?.tasks.map((task) => (
           <option key={task.id} value={task.id}>
             {task.label}
@@ -1143,11 +1154,11 @@ function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="secondary" disabled={pending}>
-            Cancel
+            <DailyLogsText k="common.cancel" />
           </Button>
         </DialogClose>
         <Button disabled={pending || !taskId} onClick={() => void step()}>
-          Link task
+          {t("workspace.linkTask.submit")}
         </Button>
       </DialogFooter>
     </>
@@ -1155,6 +1166,7 @@ function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
 }
 
 function LinkRecordDialog({ open, base, pending, onClose, onConfirm }: { open: boolean; base: string; pending: boolean; onClose: () => void; onConfirm: (recordType: string, recordId: string) => Promise<void> }) {
+  const t = useDailyLogsTranslations();
   const [candidates, setCandidates] = React.useState<Array<{ recordType: string; recordId: string; label: string; noun: string; domain: "qaqc" | "hse"; linked: boolean }> | null>(null);
   React.useEffect(() => {
     if (!open) return;
@@ -1164,11 +1176,11 @@ function LinkRecordDialog({ open, base, pending, onClose, onConfirm }: { open: b
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
       <DialogContent>
-        <DialogTitle>Link a QA/QC or HSE record</DialogTitle>
-        <DialogDescription>Records on this project around the log&apos;s day. Linking changes nothing on the record.</DialogDescription>
+        <DialogTitle>{t("workspace.linkRecord.title")}</DialogTitle>
+        <DialogDescription>{t("workspace.linkRecord.description")}</DialogDescription>
         <ul className="mt-4 max-h-80 divide-y divide-line overflow-y-auto">
-          {candidates === null ? <li className="py-3 text-table text-fg-muted">Loading…</li> : null}
-          {candidates?.length === 0 ? <li className="py-3 text-table text-fg-muted">No records on this project for this day.</li> : null}
+          {candidates === null ? <li className="py-3 text-table text-fg-muted">{t("common.loading")}</li> : null}
+          {candidates?.length === 0 ? <li className="py-3 text-table text-fg-muted">{t("workspace.linkRecord.none")}</li> : null}
           {candidates?.map((candidate) => (
             <li key={`${candidate.recordType}:${candidate.recordId}`} className="flex items-center gap-3 py-2.5">
               <span className="min-w-0 flex-1">
@@ -1176,14 +1188,14 @@ function LinkRecordDialog({ open, base, pending, onClose, onConfirm }: { open: b
                 <span className="block text-meta text-fg-muted">{candidate.noun}</span>
               </span>
               <Button size="sm" variant="secondary" disabled={pending || candidate.linked} onClick={() => void onConfirm(candidate.recordType, candidate.recordId)}>
-                {candidate.linked ? "Linked" : "Link"}
+                {candidate.linked ? t("common.linked") : t("common.link")}
               </Button>
             </li>
           ))}
         </ul>
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>
