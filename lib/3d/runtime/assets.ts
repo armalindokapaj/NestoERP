@@ -3,7 +3,11 @@ export const PROJECT_3D_ASSETS = {
   waterNormals: "/3d/textures/waternormals.jpg",
   caustics: "/3d/textures/caustics.jpg",
   lutRoot: "/3d/luts",
-  dracoDecoderRoot: "https://www.gstatic.com/draco/versioned/decoders/1.5.6/",
+  // three.js's own glTF Draco decoder (WebAssembly), copied from
+  // node_modules/three/examples/jsm/libs/draco/gltf/ and served from this
+  // origin, so the CSP names no third party and the decoder matches the
+  // installed loader (tests/unit/project-3d/draco-decoder.test.ts).
+  dracoDecoderRoot: "/3d/draco/",
 } as const;
 
 export const PROJECT_3D_LUTS = [

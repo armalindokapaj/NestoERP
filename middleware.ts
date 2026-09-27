@@ -6,6 +6,7 @@ import {
   buildContentSecurityPolicy,
   CSP_NONCE_HEADER,
   newCspNonce,
+  storageOriginForCsp,
 } from "@/lib/core/security/csp";
 import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { REQUEST_METHOD_HEADER, REQUEST_SIGNATURE_HEADER, signRequestMethod } from "@/lib/core/security/request-method";
@@ -37,6 +38,10 @@ export default auth(async (req) => {
     nonce,
     isProduction: process.env.NODE_ENV === "production",
     mapboxEnabled: Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN),
+    // A CSP belongs to the document, not to an RSC response: every signed-in
+    // page must already allow a later client-side navigation into 3D.
+    threeDEnabled: isAuthenticated,
+    storageOrigin: storageOriginForCsp(process.env),
   });
 
   /*

@@ -116,8 +116,26 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
     return bootstrap.units.filter((unit) => (!term || `${unit.code} ${unit.name ?? ""} ${unit.type?.name ?? ""}`.toLocaleLowerCase().includes(term)) && (!buildingId || unit.building?.id === buildingId) && (!floorId || unit.floor?.id === floorId) && (!unitStatus || unit.status === unitStatus));
   }, [bootstrap, search, buildingId, floorId, unitStatus]);
 
+  // Kept stable between renders. The renderer re-syncs whenever these change and reports
+  // "loading" through setModelStatus; rebuilt on every render, that was an endless render loop.
+  const config = React.useMemo<Project3DConfig | null>(() => {
+    if (!bootstrap) return null;
+    const authored = bootstrap.experience as unknown as Project3DConfig;
+    return bootstrap.capabilities.mapbox ? authored : { ...authored, mapViewEnabled: false, siteEnabled: false };
+  }, [bootstrap]);
+  const siteConfig = React.useMemo(() => config ? { ...config, latitude: config.mapViewLatitude, longitude: config.mapViewLongitude } : undefined, [config]);
+  const detailModels = React.useMemo(() => bootstrap ? bootstrap.models.map((entry) => ({
+    slotId: entry.slotId,
+    slotName: entry.slotName,
+    slotRole: entry.slotRole.toLocaleLowerCase() as "building" | "units" | "surroundings" | "context" | "custom",
+    transformParentSlotId: entry.transformParentSlotId,
+    model: modelForRuntime(entry, bootstrap.release.publishedAt),
+    units: bootstrap.units,
+    statusPreviewEnabled: true,
+  })) : [], [bootstrap]);
+
   if (loading && !bootstrap) return <ViewerLoading message="Opening the published 3D experience…" />;
-  if (bootstrapError || !bootstrap) {
+  if (bootstrapError || !bootstrap || !config) {
     return (
       <div className="grid min-h-[460px] place-items-center rounded-xl border border-line bg-surface-muted p-6">
         <div className="max-w-md text-center">
@@ -129,22 +147,6 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
       </div>
     );
   }
-
-  const authored = bootstrap.experience as unknown as Project3DConfig;
-  const config: Project3DConfig = bootstrap.capabilities.mapbox ? authored : {
-    ...authored,
-    mapViewEnabled: false,
-    siteEnabled: false,
-  };
-  const detailModels = bootstrap.models.map((entry) => ({
-    slotId: entry.slotId,
-    slotName: entry.slotName,
-    slotRole: entry.slotRole.toLocaleLowerCase() as "building" | "units" | "surroundings" | "context" | "custom",
-    transformParentSlotId: entry.transformParentSlotId,
-    model: modelForRuntime(entry, bootstrap.release.publishedAt),
-    units: bootstrap.units,
-    statusPreviewEnabled: true,
-  }));
 
   function selectUnit(unitId: string | null) {
     setSelectedUnitId(unitId);
@@ -187,7 +189,7 @@ export function Project3DViewer({ projectId }: { projectId: string }) {
             lightingConfig={config}
             renderingConfig={config}
             unitsConfig={config}
-            siteConfig={{ ...config, latitude: config.mapViewLatitude, longitude: config.mapViewLongitude }}
+            siteConfig={siteConfig}
             onModelLoadStatus={setModelStatus}
             onUnitClick={selectUnit}
             className="absolute inset-0 h-full w-full"

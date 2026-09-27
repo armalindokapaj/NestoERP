@@ -8,5 +8,5 @@ export default async function ExperienceModelsPage({ params }: { params: Promise
   const { projectId } = await params;
   const context = await requirePlatformContext();
   const workspace = await getProject3DEditorWorkspace(context, projectId);
-  return <ModelIngestionPanel projectId={projectId} slots={workspace.slots} />;
+  return <ModelIngestionPanel projectId={projectId} slots={workspace.slots} uploadLimitBytes={workspace.uploadLimitBytes} />;
 }

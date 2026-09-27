@@ -66,6 +66,17 @@ export function useResponseBeats(): void {
   }, []);
 }
 
+/**
+ * For a shell without the navigation feedback provider — Platform Admin and the
+ * Experience Editor tab: the after-response beats alone, so a `router.refresh()`
+ * whose data has arrived is shown (a saved draft, a model that finished
+ * preparing) instead of waiting for an unrelated update.
+ */
+export function ResponseBeats(): null {
+  useResponseBeats();
+  return null;
+}
+
 /** For a loading surface: it keeps the beat for as long as it is on screen. */
 export function RevealWatchdog(): null {
   useRevealWatchdog(true);

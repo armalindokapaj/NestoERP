@@ -38,7 +38,7 @@ has them, which is how `tests/e2e/auth/demo-user-switch.spec.ts` runs.
 | `AUTH_SECRET` | optional | required | required |
 | `APP_ENV` | optional | required | required |
 | `NEXT_PUBLIC_APP_URL` | optional | required | required |
-| `STORAGE_DRIVER` | `local` | `s3` | `s3` (`local` is refused) |
+| `STORAGE_DRIVER` | `local` | `s3` or `supabase` | `s3` or `supabase` (`local` is refused) |
 | `STORAGE_SCANNER` | `none` | `clamav` | `clamav` (a scanner is required) |
 | `LOG_LEVEL` | `debug` | `info` | `info` |
 | `MAIL_PROVIDER` | `memory` | `resend` / `postmark` | `resend` / `postmark` (sinks refused) |

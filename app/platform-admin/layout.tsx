@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { LiveAnnouncer } from "@/components/layout/live-announcer";
+import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
 import { PlatformShell } from "@/components/platform/platform-shell";
@@ -38,6 +39,8 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
     <SkipLink />
     <LiveAnnouncer />
     <RouteFocus />
+    {/* vercel/next.js#86151: a refreshed page is shown once its data lands, as in the application shell. */}
+    <ResponseBeats />
     <PlatformShell
       user={context.fullName}
       actions={<>{isDevMode ? <Suspense fallback={null}><DevUserSwitcher /></Suspense> : null}<SignOutButton /></>}

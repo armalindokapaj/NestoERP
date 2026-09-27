@@ -34,7 +34,40 @@ function emptyGlb(): Uint8Array {
   return bytes;
 }
 
+/** A GLB with one named triangle: small, valid, and preparable by the real pipeline. */
+function triangleGlb(nodeName: string): Uint8Array {
+  const binary = new Uint8Array(44);
+  new Float32Array(binary.buffer, 0, 9).set([0, 0, 0, 10, 0, 0, 0, 10, 0]);
+  new Uint16Array(binary.buffer, 36, 3).set([0, 1, 2]);
+  const json = new TextEncoder().encode(JSON.stringify({
+    asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ name: nodeName, mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: "VEC3", min: [0, 0, 0], max: [10, 10, 0] }, { bufferView: 1, componentType: 5123, count: 3, type: "SCALAR" }],
+    bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }, { buffer: 0, byteOffset: 36, byteLength: 6 }],
+    buffers: [{ byteLength: 44 }],
+  }));
+  const jsonLength = Math.ceil(json.length / 4) * 4;
+  const bytes = new Uint8Array(20 + jsonLength + 8 + binary.length);
+  const view = new DataView(bytes.buffer);
+  bytes.set(new TextEncoder().encode("glTF"), 0);
+  view.setUint32(4, 2, true);
+  view.setUint32(8, bytes.length, true);
+  view.setUint32(12, jsonLength, true);
+  view.setUint32(16, 0x4e4f534a, true);
+  bytes.fill(0x20, 20, 20 + jsonLength);
+  bytes.set(json, 20);
+  view.setUint32(20 + jsonLength, binary.length, true);
+  view.setUint32(24 + jsonLength, 0x004e4942, true);
+  bytes.set(binary, 28 + jsonLength);
+  return bytes;
+}
+
 async function removeFixture() {
+  // Every object an upload in these tests wrote, not only the fixture's own two.
+  const uploaded = await db.project3DModelVersion.findMany({ where: { projectId: PROJECT_ID }, select: { sourceStorageKey: true, runtimeStorageKey: true } });
+  for (const key of uploaded.flatMap((version) => [version.sourceStorageKey, version.runtimeStorageKey])) {
+    if (key && key !== SOURCE_KEY && key !== RUNTIME_KEY) await storageProvider().deleteObject(key).catch(() => undefined);
+  }
   await db.project3DConfig.updateMany({ where: { projectId: PROJECT_ID }, data: { activeReleaseId: null } });
   await db.project3DUnitMeshBinding.deleteMany({ where: { projectId: PROJECT_ID } });
   await db.project3DRelease.deleteMany({ where: { projectId: PROJECT_ID } });
@@ -434,4 +467,40 @@ test("The editor address checks access for itself", async ({ page, browser }) =>
   await expect(tenantPage.getByRole("link", { name: "View in 3D" })).toBeVisible();
   await expect(tenantPage.locator('a[href*="/editor"]')).toHaveCount(0);
   await tenant.close();
+});
+
+test("A GLB uploaded in the editor is prepared, shown and editable, and a removed model leaves the scene", async ({ page }) => {
+  await signIn(page, "PLATFORM_ADMIN", { to: EDITOR_URL });
+  const scene = page.getByRole("complementary", { name: "Scene" });
+  const upload = scene.getByRole("region", { name: "Upload a model" });
+  await upload.getByLabel("GLB file").setInputFiles({ name: "e2e-tower.glb", mimeType: "model/gltf-binary", buffer: Buffer.from(triangleGlb("E2E_Tower")) });
+  await expect(upload.getByLabel("Model name")).toHaveValue("e2e-tower");
+  await upload.getByLabel("Model name").fill("E2E tower");
+  await upload.getByLabel("Reason").fill("Upload from the editor");
+  await upload.getByRole("button", { name: "Upload GLB" }).click();
+
+  // No worker runs here: the request that completed the upload prepares it.
+  await expect(upload.getByRole("status")).toHaveText("Model ready in the scene.", { timeout: 60_000 });
+  const slot = await db.project3DModelSlot.findFirstOrThrow({ where: { projectId: PROJECT_ID, displayName: "E2E tower" }, include: { versions: true } });
+  expect(slot.versions).toHaveLength(1);
+  expect(slot.versions[0]).toMatchObject({ status: "READY", validationStatus: "READY", originalFileName: "e2e-tower.glb" });
+  await expect(scene.getByRole("button", { name: /v1 · e2e-tower\.glb/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(scene.getByRole("button", { name: "E2E_Tower", exact: true })).toBeVisible();
+
+  // Selected once ready, and its settings save like any other model's.
+  const positionX = page.getByRole("complementary", { name: "Properties" }).getByLabel("Position X");
+  await expect(positionX).toBeEnabled();
+  await positionX.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.getByLabel("Reason for this change").fill("Move the uploaded tower");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(saveStatus(page)).toHaveText("Saved");
+  await expect.poll(async () => (await db.project3DModelVersion.findUniqueOrThrow({ where: { id: slot.versions[0].id } })).positionX).toBe(0.5);
+
+  await scene.getByRole("button", { name: "Remove E2E tower" }).click();
+  const dialog = page.getByRole("dialog", { name: "Remove E2E tower?" });
+  await dialog.getByLabel("Reason").fill("Only an upload check");
+  await dialog.getByRole("button", { name: "Remove model" }).click();
+  await expect(scene.getByRole("button", { name: "Remove E2E tower" })).toHaveCount(0);
+  await expect(db.project3DModelSlot.findUniqueOrThrow({ where: { id: slot.id } })).resolves.toMatchObject({ isActive: false });
 });

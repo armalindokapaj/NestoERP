@@ -2,8 +2,10 @@ import type { Prisma, Project3DValidationStatus } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
 import type { PlatformContext } from "@/lib/context/platform-context";
+import { MAX_MODEL_BYTES } from "@/lib/3d/platform/model-upload";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction, recordSystemAction } from "@/lib/core/audit/audit.service";
+import { liveWorkers } from "@/lib/core/jobs/worker.process";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
@@ -14,8 +16,134 @@ import type { Project3DSlotCreate, Project3DUploadCreate } from "./project-3d.sc
 import { assertProject3DStorageKey, buildProject3DStorageKey } from "./project-3d.storage";
 
 const UPLOAD_TTL_SECONDS = 15 * 60;
-const MAX_MODEL_BYTES = 200 * 1024 * 1024;
 const GLB_CONTENT_TYPE = "model/gltf-binary";
+const NOT_A_FIXTURE = { company: { parentGroup: { isTestFixture: false } } } as const;
+
+/**
+ * How long a version may sit in PROCESSING before whatever was preparing it
+ * counts as gone: longer than a request may run (300 s), and than a normal
+ * worker pass takes. After this the author can put it back in line.
+ */
+export const PROJECT_3D_PROCESSING_STALE_MS = 6 * 60 * 1000;
+
+function mb(bytes: number): string {
+  return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+/**
+ * The largest GLB this deployment takes: the product ceiling, or the object
+ * store's own per-file limit when that is lower (a Supabase Free project allows
+ * 50 MB). The editor shows it and refuses a bigger file before any upload.
+ */
+export async function project3DUploadLimitBytes(): Promise<number> {
+  const storeLimit = (await storageProvider().maxObjectBytes?.().catch(() => null)) ?? null;
+  return storeLimit ? Math.min(MAX_MODEL_BYTES, storeLimit) : MAX_MODEL_BYTES;
+}
+
+/**
+ * Whether the request that completed an upload also prepares it.
+ *
+ * Wherever a worker runs, its `project-3d.process-models` job does (PRD #51).
+ * A serverless deployment has no worker process — on Vercel a completed upload
+ * would wait in PROCESSING for ever — so there the completing request prepares
+ * its own version once its response is sent. That is the author's upload
+ * finishing, not a scheduled job started over HTTP (§216), and it stays safe
+ * beside a worker: only a PROCESSING row moves on, and the runtime key is the
+ * version's own id, so a second run writes the same object.
+ *
+ * `PROJECT_3D_PROCESSING=worker|inline` decides it; by default the request
+ * does it unless a live worker runs the documents group.
+ */
+export async function project3DProcessingInRequest(env: NodeJS.ProcessEnv = process.env): Promise<boolean> {
+  if (env.PROJECT_3D_PROCESSING === "worker") return false;
+  if (env.PROJECT_3D_PROCESSING === "inline") return true;
+  try {
+    return !(await liveWorkers()).some((worker) => worker.groups.includes("documents"));
+  } catch {
+    return true;
+  }
+}
+
+/** The editor's processing poll: statuses only — nothing is signed and no manifest or unit is read. */
+export async function getProject3DModelStatuses(context: PlatformContext, projectId: string) {
+  assertProject3DPlatformPermission(context, "platform.3d.view");
+  assertFound(await prisma.project3DConfig.findFirst({ where: { projectId, project: NOT_A_FIXTURE }, select: { id: true } }));
+  const versions = await prisma.project3DModelVersion.findMany({
+    where: { projectId, deletedAt: null, slot: { isActive: true } },
+    select: { id: true, status: true, validationStatus: true, updatedAt: true },
+  });
+  const now = Date.now();
+  return versions.map((version) => ({
+    id: version.id,
+    status: version.status,
+    validationStatus: version.validationStatus,
+    stalled: version.status === "PROCESSING" && now - version.updatedAt.getTime() > PROJECT_3D_PROCESSING_STALE_MS,
+  }));
+}
+
+/**
+ * Puts a version back in line when whatever was preparing it is gone: a
+ * request cut off at its time limit, or a worker that crashed. Refused while
+ * the preparation may still be running, so two never overlap on purpose.
+ */
+export async function retryProject3DModelProcessing(context: PlatformContext, projectId: string, versionId: string, reason: string) {
+  assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
+  const version = assertFound(await prisma.project3DModelVersion.findFirst({
+    where: { id: versionId, projectId, deletedAt: null, project: NOT_A_FIXTURE },
+    select: { id: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, updatedAt: true, slot: { select: { displayName: true } }, project: { select: { company: { select: { parentGroupId: true } } } } },
+  }));
+  if (version.status !== "PROCESSING") throw new AccessError("CONFLICT", "Only a model that is still being prepared can be retried.", { code: "MODEL_NOT_PROCESSING" });
+  if (Date.now() - version.updatedAt.getTime() < PROJECT_3D_PROCESSING_STALE_MS) {
+    throw new AccessError("CONFLICT", "This model is still being prepared. Try again in a few minutes.", { code: "MODEL_STILL_PROCESSING" });
+  }
+  const snapshot = { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName };
+  await prisma.$transaction(async (tx) => {
+    const changed = await tx.project3DModelVersion.updateMany({
+      where: { id: version.id, status: "PROCESSING", updatedAt: version.updatedAt },
+      data: { processingDiagnostics: { stage: "queued", retriedAt: new Date().toISOString() } },
+    });
+    if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being retried. Refresh and try again.");
+    await recordPlatformAction(context, version.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
+      entity: { type: "Project3DModelVersion", id: version.id, label: `${version.slot.displayName} v${version.version}` },
+      projectId,
+      before: snapshot,
+      after: snapshot,
+      reason,
+    }, { tx });
+  });
+  return { id: version.id, status: "PROCESSING" as const };
+}
+
+/**
+ * Takes a model out of the Experience. Its versions stay (a published release
+ * keeps showing it until the next release), but it no longer asks for a
+ * version when publishing — so an abandoned or mistaken model cannot block
+ * every future release. Models that followed its transform stop following it.
+ */
+export async function deactivateProject3DModelSlot(context: PlatformContext, projectId: string, slotId: string, reason: string) {
+  assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  const slot = assertFound(await prisma.project3DModelSlot.findFirst({
+    where: { id: slotId, projectId, isActive: true, project: NOT_A_FIXTURE },
+    select: { id: true, companyId: true, slotKey: true, displayName: true, kind: true, role: true, project: { select: { company: { select: { parentGroupId: true } } } } },
+  }));
+  return prisma.$transaction(async (tx) => {
+    const changed = await tx.project3DModelSlot.updateMany({ where: { id: slot.id, projectId, isActive: true }, data: { isActive: false } });
+    if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being removed. Refresh and try again.");
+    await tx.project3DModelSlot.updateMany({ where: { projectId, transformParentSlotId: slot.id }, data: { transformParentSlotId: null } });
+    const before = { projectId, slotId: slot.id, slotKey: slot.slotKey, displayName: slot.displayName, kind: slot.kind, role: slot.role, isActive: true };
+    await recordPlatformAction(context, slot.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
+      entity: { type: "Project3DModelSlot", id: slot.id, label: slot.displayName },
+      projectId,
+      before,
+      after: { ...before, isActive: false },
+      reason,
+    }, { tx });
+    return { id: slot.id, isActive: false };
+  });
+}
 
 function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -63,7 +191,10 @@ export async function createProject3DModelSlot(context: PlatformContext, project
 export async function createProject3DModelUpload(context: PlatformContext, projectId: string, slotId: string, input: Project3DUploadCreate) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
   if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
-  if (input.sizeBytes > MAX_MODEL_BYTES) throw new AccessError("VALIDATION_ERROR", "The model is larger than 200 MB.", { field: "sizeBytes" });
+  const limit = await project3DUploadLimitBytes();
+  if (input.sizeBytes > limit) {
+    throw new AccessError("VALIDATION_ERROR", `The model is larger than this deployment accepts (${mb(limit)}). Compress it (Draco or Meshopt) or split it into several models.`, { field: "sizeBytes", limitBytes: limit });
+  }
   const slot = assertFound(await prisma.project3DModelSlot.findFirst({
     where: { id: slotId, projectId, isActive: true, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true, projectId: true, companyId: true, displayName: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } }, versions: { take: 1, orderBy: { version: "desc" }, select: { version: true } } },
@@ -165,6 +296,8 @@ async function failProcessing(version: { id: string; companyId: string; projectI
 export async function processProject3DModelVersion(versionId: string): Promise<"READY" | "FAILED" | "SKIPPED"> {
   const version = await prisma.project3DModelVersion.findFirst({ where: { id: versionId, status: "PROCESSING", deletedAt: null }, include: { slot: { select: { kind: true, role: true } } } });
   if (!version) return "SKIPPED";
+  // Marks the start, so the stalled-preparation clock runs from real activity, not from the queue.
+  await prisma.project3DModelVersion.updateMany({ where: { id: version.id, status: "PROCESSING" }, data: { processingDiagnostics: { stage: "processing", startedAt: new Date().toISOString() } } });
   try {
     assertProject3DStorageKey(version.sourceStorageKey, version.companyId, version.projectId, "source");
     const source = await storageProvider().getObject(version.sourceStorageKey);
