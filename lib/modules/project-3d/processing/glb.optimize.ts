@@ -24,10 +24,32 @@ export interface OptimizeResult {
   report: OptimizeReport;
 }
 
+/**
+ * Optimization is an improvement, never a gate: a GLB the validator accepted is
+ * delivered as uploaded when the optimizer cannot read or rewrite it (an
+ * extension NodeIO cannot handle, a missing native dependency on the host).
+ */
 export async function optimizeGlbForDeliveryDetailed(
   buffer: ArrayBuffer,
   options: OptimizeOptions = {}
 ): Promise<OptimizeResult> {
+  try {
+    return await optimize(buffer, options);
+  } catch (error) {
+    const json = parseGlbJsonChunk(buffer);
+    return {
+      bytes: new Uint8Array(buffer),
+      report: {
+        inputBytes: buffer.byteLength, outputBytes: buffer.byteLength,
+        textureCount: json.images?.length ?? 0, meshCount: json.meshes?.length ?? 0,
+        texturesCompressed: false,
+        texturesSkippedReason: `Optimizer skipped: ${error instanceof Error ? error.message.slice(0, 300) : String(error)}`,
+      },
+    };
+  }
+}
+
+async function optimize(buffer: ArrayBuffer, options: OptimizeOptions): Promise<OptimizeResult> {
   const json = parseGlbJsonChunk(buffer);
   const compression = [...(json.extensionsUsed ?? []), ...(json.extensionsRequired ?? [])]
     .find((name) => name === "KHR_draco_mesh_compression" || name === "EXT_meshopt_compression");

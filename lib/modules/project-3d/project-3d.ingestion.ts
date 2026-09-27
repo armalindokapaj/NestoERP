@@ -8,6 +8,7 @@ import { recordPlatformAction, recordSystemAction } from "@/lib/core/audit/audit
 import { liveWorkers } from "@/lib/core/jobs/worker.process";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
+import { logger } from "@/lib/core/observability/logger";
 import { prisma } from "@/lib/database/prisma";
 import { optimizeGlbForDeliveryDetailed } from "./processing/glb.optimize";
 import { validateGlb } from "./processing/glb.validate";
@@ -25,6 +26,14 @@ const NOT_A_FIXTURE = { company: { parentGroup: { isTestFixture: false } } } as 
  * counts as gone: longer than a request may run (300 s), and than a normal
  * worker pass takes. After this the author can put it back in line.
  */
+const PROCESSING_CRASHED = "Model processing failed. Review the source GLB and retry with a new version.";
+
+/** Failed on the server while preparing — not refused by validation — so the same file can be tried again. */
+export function project3DProcessingCrashed(version: { status: string; processingDiagnostics: unknown }): boolean {
+  const diagnostics = version.processingDiagnostics as { stage?: unknown; message?: unknown } | null;
+  return version.status === "FAILED" && diagnostics?.stage === "failed" && diagnostics.message === PROCESSING_CRASHED;
+}
+
 export const PROJECT_3D_PROCESSING_STALE_MS = 6 * 60 * 1000;
 
 function mb(bytes: number): string {
@@ -92,17 +101,18 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
   if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: NOT_A_FIXTURE },
-    select: { id: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, updatedAt: true, slot: { select: { displayName: true } }, project: { select: { company: { select: { parentGroupId: true } } } } },
+    select: { id: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, processingDiagnostics: true, updatedAt: true, slot: { select: { displayName: true } }, project: { select: { company: { select: { parentGroupId: true } } } } },
   }));
-  if (version.status !== "PROCESSING") throw new AccessError("CONFLICT", "Only a model that is still being prepared can be retried.", { code: "MODEL_NOT_PROCESSING" });
-  if (Date.now() - version.updatedAt.getTime() < PROJECT_3D_PROCESSING_STALE_MS) {
+  const crashed = project3DProcessingCrashed(version);
+  if (version.status !== "PROCESSING" && !crashed) throw new AccessError("CONFLICT", "Only a model that is still being prepared, or whose preparation failed on the server, can be retried.", { code: "MODEL_NOT_PROCESSING" });
+  if (!crashed && Date.now() - version.updatedAt.getTime() < PROJECT_3D_PROCESSING_STALE_MS) {
     throw new AccessError("CONFLICT", "This model is still being prepared. Try again in a few minutes.", { code: "MODEL_STILL_PROCESSING" });
   }
   const snapshot = { projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName };
   await prisma.$transaction(async (tx) => {
     const changed = await tx.project3DModelVersion.updateMany({
-      where: { id: version.id, status: "PROCESSING", updatedAt: version.updatedAt },
-      data: { processingDiagnostics: { stage: "queued", retriedAt: new Date().toISOString() } },
+      where: { id: version.id, status: version.status, updatedAt: version.updatedAt },
+      data: { status: "PROCESSING", validationStatus: "PENDING", validationIssues: [], processingDiagnostics: { stage: "queued", retriedAt: new Date().toISOString() } },
     });
     if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being retried. Refresh and try again.");
     await recordPlatformAction(context, version.project.company.parentGroupId, {
@@ -112,7 +122,7 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
       before: snapshot,
       after: snapshot,
       reason,
-      metadata: project3DAuditMetadata("MODEL_PREPARATION_RETRIED", "Stalled preparation retried"),
+      metadata: project3DAuditMetadata("MODEL_PREPARATION_RETRIED", crashed ? "Failed preparation retried" : "Stalled preparation retried"),
     }, { tx });
   });
   return { id: version.id, status: "PROCESSING" as const };
@@ -290,9 +300,9 @@ export async function completeProject3DModelUpload(context: PlatformContext, pro
   return { id: version.id, status: "PROCESSING" as const };
 }
 
-async function failProcessing(version: { id: string; companyId: string; projectId: string; slotId: string; version: number; originalFileName: string }, message: string, issues: string[] = []) {
+async function failProcessing(version: { id: string; companyId: string; projectId: string; slotId: string; version: number; originalFileName: string }, message: string, issues: string[] = [], error?: string) {
   await prisma.$transaction(async (tx) => {
-    const changed = await tx.project3DModelVersion.updateMany({ where: { id: version.id, status: "PROCESSING" }, data: { status: "FAILED", validationStatus: "BLOCKED", validationIssues: issues, processingDiagnostics: { stage: "failed", message } } });
+    const changed = await tx.project3DModelVersion.updateMany({ where: { id: version.id, status: "PROCESSING" }, data: { status: "FAILED", validationStatus: "BLOCKED", validationIssues: issues, processingDiagnostics: { stage: "failed", message, ...(error ? { error } : {}) } } });
     if (changed.count !== 1) return;
     await recordSystemAction(version.companyId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
@@ -352,8 +362,10 @@ export async function processProject3DModelVersion(versionId: string): Promise<"
       }, { tx });
     });
     return "READY";
-  } catch {
-    await failProcessing(version, "Model processing failed. Review the source GLB and retry with a new version.");
+  } catch (error) {
+    const detail = error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500);
+    logger.error("project3d.model.processing_failed", { versionId: version.id, error: detail });
+    await failProcessing(version, PROCESSING_CRASHED, [], detail);
     return "FAILED";
   }
 }

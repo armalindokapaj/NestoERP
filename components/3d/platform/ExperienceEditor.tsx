@@ -79,6 +79,7 @@ type EditorVersion = {
   updatedAt: string;
   /** Still PROCESSING long after anything could be preparing it: it can be put back in line. */
   stalled?: boolean;
+  retryable?: boolean;
   /** Ready, but its prepared file is no longer in storage. */
   assetMissing?: boolean;
   asset: { url: string; expiresAt: string; fileName: string; contentType: "model/gltf-binary" } | null;
@@ -534,9 +535,9 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   const modelLocked = !model || !permissions.manageModels || !isReady(model);
   const modelState = model && (!isReady(model) || model.assetMissing) ? <Panel title="Model state">
     <p className="text-xs text-neutral-200">{versionStateLabel(model)}</p>
-    <p className="text-xs leading-5 text-neutral-400">{model.assetMissing ? "Its prepared file is no longer in storage. Upload the GLB again as a new version of this model." : model.status === "FAILED" ? "Upload a corrected GLB as a new version of this model." : model.status === "UPLOADED" ? "Its file never finished uploading. Upload it again." : model.stalled ? "Nothing has worked on it for several minutes." : "It appears in the scene when it is ready. Its settings can be edited then."}</p>
+    <p className="text-xs leading-5 text-neutral-400">{model.assetMissing ? "Its prepared file is no longer in storage. Upload the GLB again as a new version of this model." : model.retryable ? "Preparing it failed on the server. Retry it, or upload a corrected GLB as a new version." : model.status === "FAILED" ? "Upload a corrected GLB as a new version of this model." : model.status === "UPLOADED" ? "Its file never finished uploading. Upload it again." : model.stalled ? "Nothing has worked on it for several minutes." : "It appears in the scene when it is ready. Its settings can be edited then."}</p>
     {versionIssues(model).map((issue, index) => <p key={index} className="text-xs leading-5 text-amber-200">{issue}</p>)}
-    {model.stalled && permissions.manageModels ? <Button type="button" size="sm" variant="secondary" disabled={retryingId === model.id} onClick={() => void retryProcessing(model.id)}><RefreshCw aria-hidden="true" />{retryingId === model.id ? "Retrying…" : "Retry preparation"}</Button> : null}
+    {(model.stalled || model.retryable) && permissions.manageModels ? <Button type="button" size="sm" variant="secondary" disabled={retryingId === model.id} onClick={() => void retryProcessing(model.id)}><RefreshCw aria-hidden="true" />{retryingId === model.id ? "Retrying…" : "Retry preparation"}</Button> : null}
   </Panel> : null;
   const inspector = tool === "scene" ? <>
     {modelState}
