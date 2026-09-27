@@ -25,7 +25,7 @@ const schema = z
 
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
 
-    STORAGE_DRIVER: z.enum(["local", "s3"]).optional(),
+    STORAGE_DRIVER: z.enum(["local", "s3", "supabase"]).optional(),
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_SCANNER: z.enum(["none", "eicar", "clamav"]).optional(),
     STORAGE_SCANNER_REQUIRED: z.enum(["true", "false"]).optional(),

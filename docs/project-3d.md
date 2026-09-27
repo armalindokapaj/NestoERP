@@ -84,14 +84,87 @@ companies/{companyId}/projects/{projectId}/3d/runtime/{opaque}.glb
 ```
 
 Platform upload grants expire after 15 minutes. The local storage endpoint
-accepts bytes only while the matching native version is `UPLOADED`; verification
-moves the version to `PROCESSING` and prevents replay. Completion verifies the
-actual size and GLB header before queuing work.
+accepts bytes only while the matching native version is `UPLOADED`; an S3 or
+Supabase grant is create-only (`If-None-Match: *`, or a Supabase token signed
+without upsert). Verification moves the version to `PROCESSING` and prevents
+replay. Completion verifies the actual size and GLB header before preparing it.
 
-`project-3d.process-models` reads source bytes through `StorageProvider`, checks
-manifest and complexity limits, optimizes with glTF Transform, writes a distinct
-runtime GLB, and records deterministic scene metadata. It is a singleton durable
-job and can resume from the immutable source object.
+Preparing a version reads its source through `StorageProvider`, checks the
+manifest and complexity limits, optimizes it with glTF Transform, writes a
+distinct runtime GLB (keyed by the version id), and records deterministic scene
+metadata. Two things run it:
+
+- the worker's `project-3d.process-models` job, wherever a worker process runs
+  the documents group; it drains every version left in `PROCESSING`;
+- the request that completed the upload, after its response is sent (`after()`,
+  `maxDuration` 300 s), when no live worker runs that group — a serverless
+  deployment such as Vercel has none. `PROJECT_3D_PROCESSING=worker|inline`
+  forces one or the other. Both are safe together: only a `PROCESSING` row
+  moves on, and a second run writes the same object.
+
+A version nothing has touched for six minutes counts as stalled (the request
+was cut off, the worker crashed). The editor then offers **Retry preparation**
+(`POST …/versions/{id}/process`), which puts it back in line.
+
+### Uploading in the Experience Editor
+
+The Scene panel and the Models page share one upload component. Choose **A new
+model** (named from the file unless you type a name, with its purpose) or **New
+version of** an existing model, add a reason, choose a GLB, and upload. The
+bytes go straight to the signed private storage grant with measured progress —
+never through the app server, never as base64. The browser reads only the
+12-byte header first; the server verifies size and header again, then the
+complexity and unit names while preparing.
+
+The limit is 200 MB per GLB 2.0 file, or the storage's own limit when that is
+lower: a Supabase bucket's file size limit (50 MB on the Free plan) is read from
+the bucket and shown in the panel. Larger scenes should be compressed (Draco or
+Meshopt, e.g. `gltf-transform optimize`) or split into several models. Other
+formats (FBX, OBJ, RVT, standalone glTF) must be exported as GLB first.
+
+A retry reuses the same grant and version; once the bytes arrived it repeats
+only the verification, and "already exists" from storage (S3 412, Supabase
+409) counts as arrived. A retry after a failed grant request reuses the model it
+already created. The editor watches models being prepared (statuses only,
+every three seconds, while visible) and refreshes when one is ready, failed or
+stalled; a refresh keeps every unsaved edit, and the renderer keeps the model
+it already downloaded. A model uploaded in the tab is selected once ready.
+Models that are not ready cannot be edited, and their state, validation issues
+and actions are in the Properties panel. Uploading never publishes.
+
+**Remove model** (Scene panel or Models page) takes a model out of the
+Experience: its versions stay, the published viewer keeps showing it until the
+next release, and publishing no longer asks for a version of it. Without it, a
+model created by mistake blocked every release.
+
+Ordinary GLBs get the lossless geometry passes; output larger than the source
+is dropped in favour of the source bytes. Draco and Meshopt GLBs keep their
+compressed bytes (the server has no codecs; the browser decodes both). A model
+that requires KTX2/Basis textures (`KHR_texture_basisu`) is blocked, since the
+viewer has no transcoder.
+
+### Hosted storage
+
+- `STORAGE_DRIVER=supabase` uses a private Supabase Storage bucket through its
+  REST API with the project URL (`SUPABASE_URL`) and server key
+  (`SUPABASE_SECRET_KEY`, or the legacy `SUPABASE_SERVICE_ROLE_KEY`) that the
+  Vercel Supabase integration provides, plus `STORAGE_BUCKET`. Create the bucket
+  private, with a file size limit. Supabase answers CORS for browsers itself.
+  Unlike an S3 presign, it refuses to sign a missing object: the editor then
+  shows that version as "File missing" instead of failing.
+- `STORAGE_DRIVER=s3` uses any S3-compatible private bucket. Its CORS must allow
+  the application origin, PUT and GET, and the signed headers `Content-Type`
+  and `If-None-Match`; never drop the immutable-write header to get past CORS.
+- The CSP adds the storage origin (`storageOriginForCsp`, HTTPS only in
+  production) to `connect-src`, `img-src`, `media-src`, `object-src` and
+  `frame-src`. Signed-in documents also allow `blob:` workers and fetches (Draco
+  decoding, embedded GLB textures) and `'wasm-unsafe-eval'` (the Draco and
+  Meshopt decoders); JavaScript eval stays disallowed. They are on every
+  signed-in page because a client-side navigation can reach 3D from any page.
+- The Draco decoder is three.js's own, served from `/3d/draco/` (see
+  `tests/unit/project-3d/draco-decoder.test.ts` after a three.js upgrade).
+- Check a real hosted upload, preparation, editor preview and publish/view flow
+  after changing storage. Unit tests cannot verify a deployed bucket.
 
 The Company bootstrap never returns source keys, storage credentials, draft
 configuration, diagnostics, processing state, or Platform capabilities. It

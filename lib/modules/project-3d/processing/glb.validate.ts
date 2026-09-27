@@ -34,6 +34,8 @@ interface GltfNode {
   children?: number[];
 }
 interface GltfJson {
+  extensionsUsed?: string[];
+  extensionsRequired?: string[];
   meshes?: GltfMesh[];
   materials?: unknown[];
   images?: unknown[];
@@ -75,6 +77,9 @@ export function buildSceneManifest(json: GltfJson): Project3DSceneNode[] {
   });
 }
 
+/** Required extensions three.js cannot load in this viewer (no KTX2Loader is configured). */
+const VIEWER_UNSUPPORTED_EXTENSIONS = new Set(["KHR_texture_basisu"]);
+
 const GLB_MAGIC = 0x46546c67;
 const CHUNK_TYPE_JSON = 0x4e4f534a;
 
@@ -87,17 +92,20 @@ export type ModelKind = keyof typeof VALIDATION_THRESHOLDS;
 
 export const UNITS_SLOT_TRIANGLE_THRESHOLDS = { warnTriangles: 100_000, blockTriangles: 250_000 } as const;
 
-function parseGlbJsonChunk(buffer: ArrayBuffer): GltfJson {
+export function parseGlbJsonChunk(buffer: ArrayBuffer): GltfJson {
   const view = new DataView(buffer);
   if (buffer.byteLength < 20) throw new Error("File too small to be a valid GLB.");
   const magic = view.getUint32(0, true);
   if (magic !== GLB_MAGIC) throw new Error("Not a GLB file (bad magic bytes).");
+  if (view.getUint32(4, true) !== 2) throw new Error("Only GLB 2.0 models are supported.");
   const totalLength = view.getUint32(8, true);
-  if (totalLength > buffer.byteLength) throw new Error("GLB header length exceeds file size.");
+  if (totalLength !== buffer.byteLength) throw new Error("GLB header length does not match file size.");
 
   const chunkLength = view.getUint32(12, true);
   const chunkType = view.getUint32(16, true);
   if (chunkType !== CHUNK_TYPE_JSON) throw new Error("First GLB chunk isn't JSON.");
+  // Bounds only: an unpadded chunk breaks the spec's alignment but three.js still reads it.
+  if (chunkLength === 0 || chunkLength > buffer.byteLength - 20) throw new Error("Invalid GLB JSON chunk length.");
   const jsonBytes = new Uint8Array(buffer, 20, chunkLength);
   const jsonText = new TextDecoder("utf-8").decode(jsonBytes);
   return JSON.parse(jsonText) as GltfJson;
@@ -150,6 +158,13 @@ export async function validateGlb(
 
   if (meshCount === 0) issues.push("No meshes found in the GLB.");
 
+  // The viewer decodes Draco and Meshopt geometry but has no KTX2 transcoder,
+  // and three.js refuses a model that requires one rather than skipping it.
+  const unloadable = (json.extensionsRequired ?? []).filter((name) => VIEWER_UNSUPPORTED_EXTENSIONS.has(name));
+  if (unloadable.length > 0) {
+    issues.push(`This model requires ${unloadable.join(", ")} (KTX2/Basis textures), which the 3D viewer cannot load. Export it again with PNG, JPEG or WebP textures.`);
+  }
+
   const isUnitsSlot = kind === "detailModel" && slotRole === "UNITS";
   const { warnTriangles, blockTriangles } = isUnitsSlot ? UNITS_SLOT_TRIANGLE_THRESHOLDS : VALIDATION_THRESHOLDS[kind];
   const consequence =
@@ -200,9 +215,8 @@ export async function validateGlb(
   }
 
   let status: ValidationStatus = "ready";
-  if (meshCount === 0 || triangleCount > blockTriangles || blockingDuplicateUnitNames) status = "blocked";
+  if (meshCount === 0 || triangleCount > blockTriangles || blockingDuplicateUnitNames || unloadable.length > 0) status = "blocked";
   else if (issues.length > 0) status = "warning";
 
   return { status, issues, triangleCount, meshCount, materialCount, textureCount, unitNodeNames, sceneManifest };
 }
-

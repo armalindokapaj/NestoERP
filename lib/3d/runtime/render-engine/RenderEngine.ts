@@ -6,6 +6,7 @@ import { buildSiteTerrain, type SiteTerrainResult } from "./siteTerrain";
 import { isSlotCutBySections } from "./sectionScope";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { SkyMesh } from "three/examples/jsm/objects/SkyMesh.js";
 import { WaterMesh } from "three/examples/jsm/objects/WaterMesh.js";
@@ -874,6 +875,7 @@ export class RenderEngine {
     this.dracoLoader = dracoLoader;
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
+    loader.setMeshoptDecoder(MeshoptDecoder);
     this.loader = loader;
 
     const resizeObserver = new ResizeObserver(() => {

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePlatformContext } from "@/lib/context/platform-context";
@@ -26,6 +27,8 @@ export default async function ExperienceEditorLayout({ children }: { children: R
   return (
     <div data-experience-editor className="fixed inset-0 h-dvh w-screen overflow-hidden bg-neutral-950 text-neutral-100 [color-scheme:dark]">
       <style>{":root:root{color-scheme:dark}body{background:#0a0a0a}"}</style>
+      {/* A refresh (a model finished preparing) is shown once its data lands (vercel/next.js#86151). */}
+      <ResponseBeats />
       <ToastProvider>
         <TooltipProvider>{children}</TooltipProvider>
       </ToastProvider>

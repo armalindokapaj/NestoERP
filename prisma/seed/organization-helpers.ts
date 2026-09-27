@@ -10,6 +10,7 @@ import type { MembershipStatus, ParentGroupStatus, PrismaClient, UserStatus } fr
 import { GROUP_DEPARTMENTS, groupDepartmentId, groupDepartmentRows, type GroupDepartmentKey } from "../../config/group-departments";
 import type { ModuleKey } from "../../config/modules";
 import type { RoleKey } from "../../config/roles";
+import { defaultUnitTypeRows } from "../../config/unit-types";
 
 export async function upsertParentGroup(
   prisma: PrismaClient,
@@ -47,7 +48,13 @@ export async function upsertCompany(
     phone: rest.phone ?? null,
     website: rest.website ?? null,
   };
-  return prisma.company.upsert({ where: { id }, update: data, create: { id, ...data } });
+  const row = await prisma.company.upsert({ where: { id }, update: data, create: { id, ...data } });
+  // Every company starts with the default unit types, as company bootstrap gives a real one;
+  // without them none of its projects can have units (E-05B §20, §21). Never over a company's own list.
+  if ((await prisma.projectUnitType.count({ where: { companyId: id } })) === 0) {
+    await prisma.projectUnitType.createMany({ data: defaultUnitTypeRows(id), skipDuplicates: true });
+  }
+  return row;
 }
 
 export async function seedCompanyModules(prisma: PrismaClient, companyId: string, disabled: readonly ModuleKey[] = []) {

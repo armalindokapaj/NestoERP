@@ -1,4 +1,5 @@
 import type { Document } from "@gltf-transform/core";
+import { parseGlbJsonChunk } from "./glb.validate";
 
 // Lossless passes always run; texture re-encode is opt-in because it changes
 // image data and needs a real look in the viewer. See scripts/optimize-blob-assets.ts.
@@ -15,6 +16,7 @@ export interface OptimizeReport {
   meshCount: number;
   texturesCompressed: boolean;
   texturesSkippedReason?: string;
+  geometryPreservedReason?: string;
 }
 
 export interface OptimizeResult {
@@ -26,6 +28,23 @@ export async function optimizeGlbForDeliveryDetailed(
   buffer: ArrayBuffer,
   options: OptimizeOptions = {}
 ): Promise<OptimizeResult> {
+  const json = parseGlbJsonChunk(buffer);
+  const compression = [...(json.extensionsUsed ?? []), ...(json.extensionsRequired ?? [])]
+    .find((name) => name === "KHR_draco_mesh_compression" || name === "EXT_meshopt_compression");
+  // These formats already have compressed geometry. Our browser loader decodes
+  // them, but NodeIO has no corresponding decoder/encoder dependencies. Keep
+  // their bytes intact instead of failing upload or expanding them for delivery.
+  if (compression) {
+    return {
+      bytes: new Uint8Array(buffer),
+      report: {
+        inputBytes: buffer.byteLength, outputBytes: buffer.byteLength,
+        textureCount: json.images?.length ?? 0, meshCount: json.meshes?.length ?? 0,
+        texturesCompressed: false, texturesSkippedReason: "Already-compressed model preserved",
+        geometryPreservedReason: compression,
+      },
+    };
+  }
   // Do NOT hoist these to static imports. @gltf-transform/core is dual CJS/ESM;
   // a static import here resolves the CJS copy while `functions` resolves the ESM
   // one, and Document.fromGraph() then returns null across the two instances —
@@ -59,7 +78,13 @@ export async function optimizeGlbForDeliveryDetailed(
     }
   }
 
-  const bytes = await io.writeBinary(document);
+  const candidate = await io.writeBinary(document);
+  // Optimization should never make delivery heavier than the source.
+  const bytes = candidate.byteLength < buffer.byteLength ? candidate : new Uint8Array(buffer);
+  if (bytes !== candidate && texturesCompressed) {
+    texturesCompressed = false;
+    texturesSkippedReason = "Optimized output was not smaller than the source";
+  }
   return {
     bytes,
     report: {
@@ -97,4 +122,3 @@ export async function optimizeGlbForDelivery(buffer: ArrayBuffer): Promise<Uint8
   const { bytes } = await optimizeGlbForDeliveryDetailed(buffer);
   return bytes;
 }
-

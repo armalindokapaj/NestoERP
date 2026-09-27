@@ -167,7 +167,9 @@ const checks: Check[] = [
         .split("\n")
         .find((line) => line.includes("nonce-${options.nonce}"));
       if (nonceLine === undefined) return "the production policy carries no nonce";
-      if (nonceLine.includes("unsafe-inline") || nonceLine.includes("unsafe-eval")) {
+      // Whole quoted tokens: `'wasm-unsafe-eval'` (the 3D geometry decoders)
+      // allows WebAssembly compilation only, never JavaScript eval (CSP3).
+      if (nonceLine.includes("'unsafe-inline'") || nonceLine.includes("'unsafe-eval'")) {
         return "the production script-src allows unsafe inline script";
       }
       return null;

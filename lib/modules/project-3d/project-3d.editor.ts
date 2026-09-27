@@ -6,8 +6,10 @@ import { parseProject3DExperience } from "@/lib/3d/shared/experience";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
+import { StorageError } from "@/lib/core/storage/storage.errors";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
+import { PROJECT_3D_PROCESSING_STALE_MS, project3DUploadLimitBytes } from "./project-3d.ingestion";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DExperienceUpdate, Project3DModelSettingsUpdate } from "./project-3d.schema";
 import { assertProject3DStorageKey } from "./project-3d.storage";
@@ -120,16 +122,23 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
     transformParentSlotId: slot.transformParentSlotId,
     versions: await Promise.all(slot.versions.map(async (version) => {
       let asset: { url: string; expiresAt: string; fileName: string; contentType: "model/gltf-binary" } | null = null;
+      let assetMissing = false;
       if (version.runtimeStorageKey && (version.status === "READY" || version.status === "PUBLISHED")) {
         assertProject3DStorageKey(version.runtimeStorageKey, version.companyId, version.projectId, "runtime");
-        const signed = await provider.createDownloadUrl({
-          storageKey: version.runtimeStorageKey,
-          expiresInSeconds: PREVIEW_TTL_SECONDS,
-          disposition: "inline",
-          fileName: version.originalFileName,
-          contentType: "model/gltf-binary",
-        });
-        asset = { url: signed.url, expiresAt: signed.expiresAt.toISOString(), fileName: version.originalFileName, contentType: "model/gltf-binary" };
+        try {
+          const signed = await provider.createDownloadUrl({
+            storageKey: version.runtimeStorageKey,
+            expiresInSeconds: PREVIEW_TTL_SECONDS,
+            disposition: "inline",
+            fileName: version.originalFileName,
+            contentType: "model/gltf-binary",
+          });
+          asset = { url: signed.url, expiresAt: signed.expiresAt.toISOString(), fileName: version.originalFileName, contentType: "model/gltf-binary" };
+        } catch (error) {
+          // One lost object (a store that was switched, a manual delete) must not close the editor.
+          if (!(error instanceof StorageError && error.storageCode === "STORAGE_OBJECT_MISSING")) throw error;
+          assetMissing = true;
+        }
       }
       return {
         id: version.id,
@@ -166,6 +175,9 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
           poiHeightOverride: binding.poiHeightOverride,
         })),
         updatedAt: version.updatedAt.toISOString(),
+        // Nothing has touched it for longer than any preparation takes: it can be put back in line.
+        stalled: version.status === "PROCESSING" && Date.now() - version.updatedAt.getTime() > PROJECT_3D_PROCESSING_STALE_MS,
+        assetMissing,
         asset,
       };
     })),
@@ -183,6 +195,7 @@ export async function getProject3DEditorWorkspace(context: PlatformContext, proj
       document: experience(config.authoringDocument),
     },
     permissions: project3DEditorPermissions(context),
+    uploadLimitBytes: await project3DUploadLimitBytes(),
     slots,
     units: project.units,
   };

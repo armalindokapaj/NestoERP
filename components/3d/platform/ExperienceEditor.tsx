@@ -5,12 +5,15 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   Camera, CircleGauge, Cuboid, ExternalLink, Layers3, Lightbulb, LoaderCircle, Mountain, Palette, PanelLeftClose,
-  PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, ScanLine, Sun, Video, X,
+  PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, ScanLine, Sun, Trash2, Video, X,
 } from "lucide-react";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";
 import { UnitBindingEditor } from "@/components/3d/platform/UnitBindingEditor";
+import { ModelIngestionPanel, versionIssues, versionStateLabel } from "@/components/3d/platform/ModelIngestionPanel";
+import { RemoveModelDialog } from "@/components/3d/platform/RemoveModelDialog";
+import { useModelProcessingPoll } from "@/components/3d/platform/use-model-processing-poll";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -74,6 +77,10 @@ type EditorVersion = {
   nodeOverrides: unknown;
   unitBindings: Array<{ meshName: string; unitId: string; unitCode: string; poiYawDeg: number; poiEnabled: boolean; poiDistanceOverride: number | null; poiHeightOverride: number | null }>;
   updatedAt: string;
+  /** Still PROCESSING long after anything could be preparing it: it can be put back in line. */
+  stalled?: boolean;
+  /** Ready, but its prepared file is no longer in storage. */
+  assetMissing?: boolean;
   asset: { url: string; expiresAt: string; fileName: string; contentType: "model/gltf-binary" } | null;
 };
 
@@ -99,6 +106,8 @@ export type Project3DEditorWorkspace = {
     document: { schemaVersion: 1; revision: number; config: Project3DConfig };
   };
   permissions: { configure: boolean; manageModels: boolean; manageBindings: boolean };
+  /** The largest GLB this deployment's storage accepts. */
+  uploadLimitBytes: number;
   slots: EditorSlot[];
   units: EditorUnit[];
 };
@@ -147,10 +156,21 @@ function settingsOf(version: EditorVersion): ModelSettings {
   };
 }
 
-function runtimeModel(version: EditorVersion, settings: ModelSettings): ProjectDetailModel | null {
+function isReady(version: Pick<EditorVersion, "status">): boolean {
+  return version.status === "READY" || version.status === "PUBLISHED";
+}
+
+/**
+ * `pinned` keeps the first signed address each version was given: a refresh
+ * signs new ones, and a changed address would make the renderer download a
+ * model it already shows. A failed load clears it (Retry).
+ */
+function runtimeModel(version: EditorVersion, settings: ModelSettings, pinned: Map<string, string>): ProjectDetailModel | null {
   if (!version.asset) return null;
+  const glbUrl = pinned.get(version.id) ?? version.asset.url;
+  pinned.set(version.id, glbUrl);
   return {
-    glbUrl: version.asset.url,
+    glbUrl,
     fileName: version.asset.fileName,
     fileSize: 0,
     scale: settings.scale,
@@ -217,6 +237,12 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   const [savedSettings, setSavedSettings] = React.useState<Record<string, ModelSettings>>(() => Object.fromEntries(versions.map((version) => [version.id, settingsOf(version)])));
   const [modelEdits, setModelEdits] = React.useState<Record<string, ModelSettings>>({});
   const [bindingsDirty, setBindingsDirty] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  /** A version uploaded in this tab, selected once it is ready. */
+  const [autoSelectId, setAutoSelectId] = React.useState<string | null>(null);
+  const [removingSlot, setRemovingSlot] = React.useState<EditorSlot | null>(null);
+  const [retryingId, setRetryingId] = React.useState<string | null>(null);
+  const assetUrls = React.useRef(new Map<string, string>());
   const [bindingsOpened, setBindingsOpened] = React.useState(tool === "units");
   const [reason, setReason] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -246,6 +272,44 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   React.useEffect(() => {
     if (tool === "units") setBindingsOpened(true);
   }, [tool]);
+
+  // Models being prepared are watched; the page data refreshes when one is ready or failed.
+  useModelProcessingPoll(projectId, initial.slots, autoSelectId);
+
+  // Server truth for every version this tab has not saved since: after a refresh (a model finished
+  // preparing, another tab saved it) the next Save must carry the row's current `updatedAt`.
+  React.useEffect(() => {
+    setSavedSettings((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const version of versions) {
+        const known = current[version.id];
+        if (!known || Date.parse(version.updatedAt) > Date.parse(known.updatedAt)) {
+          next[version.id] = settingsOf(version);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [versions]);
+
+  // A model uploaded here is selected once it is ready; with nothing selected, the first model is.
+  React.useEffect(() => {
+    if (autoSelectId && versions.some((version) => version.id === autoSelectId && version.asset)) {
+      setAutoSelectId(null);
+      if (!bindingsDirty) {
+        setActiveVersionId(autoSelectId);
+        setSelectedNodeId(null);
+      }
+      return;
+    }
+    if (activeVersionId && versions.some((version) => version.id === activeVersionId)) return;
+    const first = versions.find((version) => version.asset) ?? versions[0] ?? null;
+    if ((first?.id ?? null) !== activeVersionId) {
+      setActiveVersionId(first?.id ?? null);
+      setSelectedNodeId(null);
+    }
+  }, [versions, autoSelectId, activeVersionId, bindingsDirty]);
 
   function setTool(next: Tool) {
     updateLayout({ tool: next });
@@ -287,10 +351,12 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   }
 
   const units = React.useMemo(() => initial.units.map((unit) => ({ id: unit.id, code: unit.unitCode, status: statusOf(unit) })), [initial.units]);
+  const siteConfig = React.useMemo(() => ({ ...draft, latitude: draft.mapViewLatitude, longitude: draft.mapViewLongitude }), [draft]);
   const models = React.useMemo(() => initial.slots.flatMap((slot) => {
-    const chosen = slot.versions.find((version) => version.id === activeVersionId) ?? slot.versions.find((version) => version.asset);
+    // The selected version when it is this model's and is ready; otherwise the model's newest ready one.
+    const chosen = slot.versions.find((version) => version.id === activeVersionId && version.asset) ?? slot.versions.find((version) => version.asset);
     if (!chosen) return [];
-    const runtime = runtimeModel(chosen, modelEdits[chosen.id] ?? savedSettings[chosen.id] ?? settingsOf(chosen));
+    const runtime = runtimeModel(chosen, modelEdits[chosen.id] ?? savedSettings[chosen.id] ?? settingsOf(chosen), assetUrls.current);
     return runtime ? [{ slotId: slot.id, slotName: slot.displayName, slotRole: slot.role.toLowerCase() as "building" | "units" | "surroundings" | "context" | "custom", transformParentSlotId: slot.transformParentSlotId, model: runtime, units }] : [];
   }), [activeVersionId, initial.slots, units, modelEdits, savedSettings]);
 
@@ -356,7 +422,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   saveRef.current = save;
 
   // Unsaved work is protected against closing, reloading and leaving the tab (§46-§48).
-  const guarded = dirty || bindingsDirty;
+  const guarded = dirty || bindingsDirty || uploading;
   React.useEffect(() => {
     if (!guarded) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -426,7 +492,35 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
 
   function retryModels() {
     // A refresh signs fresh model addresses; the draft in this tab is untouched.
+    assetUrls.current.clear();
     setModelStatus({ state: "loading" });
+    router.refresh();
+  }
+
+  async function retryProcessing(versionId: string) {
+    setRetryingId(versionId);
+    setError(null);
+    try {
+      await engineeringApi(`${API}/projects/${projectId}/versions/${versionId}/process`, { body: { reason: "Retried a stalled model preparation from the Experience Editor" } });
+      toast({ title: "Preparing the model again.", tone: "success" });
+      router.refresh();
+    } catch (failure) {
+      setError(failureMessage(failure, "The model could not be put back in line."));
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  function modelRemoved(slotId: string) {
+    const removed = initial.slots.find((slot) => slot.id === slotId);
+    const ids = new Set(removed?.versions.map((version) => version.id) ?? []);
+    // Unsaved settings of the removed model's versions have nothing left to apply to.
+    setModelEdits((current) => Object.fromEntries(Object.entries(current).filter(([versionId]) => !ids.has(versionId))));
+    if (activeVersionId && ids.has(activeVersionId)) {
+      setActiveVersionId(null);
+      setSelectedNodeId(null);
+    }
+    toast({ title: `${removed?.displayName ?? "Model"} removed.`, description: "The published viewer changes only when a release is published.", tone: "success" });
     router.refresh();
   }
 
@@ -442,11 +536,19 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
     changeConfig({ sections: [...draft.sections, section] });
   }
 
-  const modelLocked = !model || !permissions.manageModels;
+  const modelLocked = !model || !permissions.manageModels || !isReady(model);
+  const modelState = model && (!isReady(model) || model.assetMissing) ? <Panel title="Model state">
+    <p className="text-xs text-neutral-200">{versionStateLabel(model)}</p>
+    <p className="text-xs leading-5 text-neutral-400">{model.assetMissing ? "Its prepared file is no longer in storage. Upload the GLB again as a new version of this model." : model.status === "FAILED" ? "Upload a corrected GLB as a new version of this model." : model.status === "UPLOADED" ? "Its file never finished uploading. Upload it again." : model.stalled ? "Nothing has worked on it for several minutes." : "It appears in the scene when it is ready. Its settings can be edited then."}</p>
+    {versionIssues(model).map((issue, index) => <p key={index} className="text-xs leading-5 text-amber-200">{issue}</p>)}
+    {model.stalled && permissions.manageModels ? <Button type="button" size="sm" variant="secondary" disabled={retryingId === model.id} onClick={() => void retryProcessing(model.id)}><RefreshCw aria-hidden="true" />{retryingId === model.id ? "Retrying…" : "Retry preparation"}</Button> : null}
+  </Panel> : null;
   const inspector = tool === "scene" ? <>
+    {modelState}
     <Panel title="Model visibility"><Toggle label="Visible" value={model?.visible ?? false} disabled={modelLocked} onChange={(visible) => changeModel({ visible })} /><Toggle label="Cast shadows" value={model?.castShadow ?? false} disabled={modelLocked} onChange={(castShadow) => changeModel({ castShadow })} /><Toggle label="Receive shadows" value={model?.receiveShadow ?? false} disabled={modelLocked} onChange={(receiveShadow) => changeModel({ receiveShadow })} /><Toggle label="Selectable" value={model?.selectable ?? false} disabled={modelLocked} onChange={(selectable) => changeModel({ selectable })} /><Toggle label="Lock transform" value={model?.transformLocked ?? false} disabled={modelLocked} onChange={(transformLocked) => changeModel({ transformLocked })} /></Panel>
     <Panel title="Transform"><Range label="Scale" value={model?.scale ?? 1} min={0.01} max={20} step={0.01} onChange={(scale) => changeModel({ scale })} disabled={modelLocked || !model?.asset || model?.transformLocked} /><Range label="Position X" value={model?.positionX ?? 0} min={-500} max={500} step={0.5} suffix="m" onChange={(positionX) => changeModel({ positionX })} disabled={modelLocked || model?.transformLocked} /><Range label="Position Y" value={model?.altitudeOffset ?? 0} min={-500} max={500} step={0.5} suffix="m" onChange={(altitudeOffset) => changeModel({ altitudeOffset })} disabled={modelLocked || model?.transformLocked} /><Range label="Position Z" value={model?.positionZ ?? 0} min={-500} max={500} step={0.5} suffix="m" onChange={(positionZ) => changeModel({ positionZ })} disabled={modelLocked || model?.transformLocked} /><Range label="Rotation Y" value={model?.rotationDeg ?? 0} min={-180} max={180} step={1} suffix="°" onChange={(rotationDeg) => changeModel({ rotationDeg })} disabled={modelLocked || model?.transformLocked} /></Panel>
   </> : tool === "materials" ? <>
+    {modelState}
     <Panel title="Scene node"><Choice label="Node" value={selectedNodeId ?? ""} options={[{ value: "", label: "Choose a mesh" }, ...sceneManifest.filter((node) => node.isMesh && node.autoClassification !== "unit_block").map((node) => ({ value: node.nodeId, label: node.name }))]} onChange={(value) => setSelectedNodeId(value || null)} /></Panel>
     {selectedNodeId ? <Panel title="Material override"><Toggle label="Override material" value={selectedOverride?.materialOverrideEnabled ?? true} disabled={modelLocked} onChange={(materialOverrideEnabled) => changeOverride({ materialOverrideEnabled })} /><Choice label="Preset" value={selectedOverride?.materialPreset ?? "concrete"} disabled={modelLocked} options={["concrete", "plaster", "stone", "wood", "aluminium", "steel", "chrome", "ceramic"].map((value) => ({ value, label: value }))} onChange={(materialPreset) => changeOverride({ materialPreset: materialPreset as Project3DNodeOverride["materialPreset"] })} /><Color label="Base color" value={selectedOverride?.colorHex ?? "#cccccc"} disabled={modelLocked} onChange={(colorHex) => changeOverride({ colorHex })} /><Range label="Roughness" value={selectedOverride?.roughness ?? 0.5} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(roughness) => changeOverride({ roughness })} /><Range label="Metalness" value={selectedOverride?.metalness ?? 0} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(metalness) => changeOverride({ metalness })} /><Range label="Opacity" value={selectedOverride?.opacity ?? 1} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(opacity) => changeOverride({ opacity })} /><Range label="Clearcoat" value={selectedOverride?.clearcoat ?? 0} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(clearcoat) => changeOverride({ clearcoat })} /><Toggle label="Transmission" value={selectedOverride?.transmissionEnabled ?? false} disabled={modelLocked} onChange={(transmissionEnabled) => changeOverride({ transmissionEnabled })} /></Panel> : null}
   </> : tool === "environment" ? <><Panel title="Sun and sky"><Toggle label="Sky" value={draft.skyEnabled} onChange={(skyEnabled) => changeConfig({ skyEnabled })} /><Range label="Sun azimuth" value={draft.sunAzimuthDeg} min={0} max={360} step={1} suffix="°" onChange={(sunAzimuthDeg) => changeConfig({ sunAzimuthDeg })} /><Range label="Sun elevation" value={draft.sunElevationDeg} min={-10} max={90} step={1} suffix="°" onChange={(sunElevationDeg) => changeConfig({ sunElevationDeg })} /><Range label="Environment intensity" value={draft.environmentIntensity} min={0} max={5} step={0.05} onChange={(environmentIntensity) => changeConfig({ environmentIntensity })} /><Range label="Turbidity" value={draft.skyTurbidity} min={0} max={20} step={0.1} onChange={(skyTurbidity) => changeConfig({ skyTurbidity })} /></Panel><Panel title="Atmosphere"><Toggle label="Clouds" value={draft.cloudsEnabled} onChange={(cloudsEnabled) => changeConfig({ cloudsEnabled })} /><Toggle label="Fog" value={draft.fogEnabled} onChange={(fogEnabled) => changeConfig({ fogEnabled })} /><Range label="Fog density" value={draft.fogDensity} min={0} max={0.2} step={0.001} onChange={(fogDensity) => changeConfig({ fogDensity })} /><Toggle label="Water" value={draft.waterEnabled} onChange={(waterEnabled) => changeConfig({ waterEnabled })} /><Toggle label="Ground" value={draft.groundEnabled} onChange={(groundEnabled) => changeConfig({ groundEnabled })} /><Color label="Ground color" value={draft.groundColor} onChange={(groundColor) => changeConfig({ groundColor })} /></Panel></> : tool === "lighting" ? <><Panel title="Sun light"><Toggle label="Sun light" value={draft.sunLightEnabled} onChange={(sunLightEnabled) => changeConfig({ sunLightEnabled })} /><Range label="Temperature" value={draft.sunTemperatureK} min={1000} max={12000} step={50} suffix="K" onChange={(sunTemperatureK) => changeConfig({ sunTemperatureK })} /><Toggle label="Automatic intensity" value={draft.autoSunIntensityEnabled} onChange={(autoSunIntensityEnabled) => changeConfig({ autoSunIntensityEnabled })} /><Range label="Manual intensity" value={draft.manualSunIntensity} min={0} max={10} step={0.05} onChange={(manualSunIntensity) => changeConfig({ manualSunIntensity })} /></Panel><Panel title="Shadows and GI"><Toggle label="Shadows" value={draft.shadowsEnabled} onChange={(shadowsEnabled) => changeConfig({ shadowsEnabled })} /><Toggle label="Soft shadows" value={draft.softShadowsEnabled} onChange={(softShadowsEnabled) => changeConfig({ softShadowsEnabled })} /><Toggle label="Cascaded shadows" value={draft.csmEnabled} onChange={(csmEnabled) => changeConfig({ csmEnabled })} /><Toggle label="Contact shadows" value={draft.contactShadowsEnabled} onChange={(contactShadowsEnabled) => changeConfig({ contactShadowsEnabled })} /><Toggle label="Global illumination" value={draft.giEnabled} onChange={(giEnabled) => changeConfig({ giEnabled })} /><Toggle label="Volumetric lighting" value={draft.volumetricLightingEnabled} onChange={(volumetricLightingEnabled) => changeConfig({ volumetricLightingEnabled })} /></Panel></> : tool === "rendering" ? <><Panel title="Post processing"><Toggle label="Screen-space reflections" value={draft.ssrEnabled} onChange={(ssrEnabled) => changeConfig({ ssrEnabled })} /><Toggle label="Anti-aliasing" value={draft.antialiasEnabled} onChange={(antialiasEnabled) => changeConfig({ antialiasEnabled })} /><Toggle label="Bloom" value={draft.bloomEnabled} onChange={(bloomEnabled) => changeConfig({ bloomEnabled })} /><Range label="Bloom strength" value={draft.bloomStrength} min={0} max={5} step={0.05} onChange={(bloomStrength) => changeConfig({ bloomStrength })} /><Toggle label="Depth of field" value={draft.depthOfFieldEnabled} onChange={(depthOfFieldEnabled) => changeConfig({ depthOfFieldEnabled })} /><Toggle label="Motion blur" value={draft.motionBlurEnabled} onChange={(motionBlurEnabled) => changeConfig({ motionBlurEnabled })} /></Panel><Panel title="Color"><Range label="Exposure" value={draft.exposure} min={0.1} max={5} step={0.05} onChange={(exposure) => changeConfig({ exposure })} /><Choice label="Tone mapping" value={draft.toneMapping} options={["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"].map((value) => ({ value, label: value }))} onChange={(toneMapping) => changeConfig({ toneMapping: toneMapping as Project3DConfig["toneMapping"] })} /><Toggle label="Color LUT" value={draft.lutEnabled} onChange={(lutEnabled) => changeConfig({ lutEnabled })} /><Range label="LUT intensity" value={draft.lutIntensity} min={0} max={1} step={0.01} onChange={(lutIntensity) => changeConfig({ lutIntensity })} /></Panel></> : tool === "camera" ? <><Panel title="Controls"><Toggle label="Orbit" value={draft.cameraOrbitEnabled} onChange={(cameraOrbitEnabled) => changeConfig({ cameraOrbitEnabled })} /><Toggle label="Pan" value={draft.cameraPanEnabled} onChange={(cameraPanEnabled) => changeConfig({ cameraPanEnabled })} /><Toggle label="Zoom" value={draft.cameraZoomEnabled} onChange={(cameraZoomEnabled) => changeConfig({ cameraZoomEnabled })} /><Toggle label="Damping" value={draft.cameraDampingEnabled} onChange={(cameraDampingEnabled) => changeConfig({ cameraDampingEnabled })} /><Toggle label="Auto rotate" value={draft.autoRotate} onChange={(autoRotate) => changeConfig({ autoRotate })} /></Panel><Panel title="Lens and limits"><Range label="Desktop FOV" value={draft.cameraFovDesktop} min={10} max={120} step={1} suffix="°" onChange={(cameraFovDesktop) => changeConfig({ cameraFovDesktop })} /><Range label="Mobile FOV" value={draft.cameraFovMobile} min={10} max={120} step={1} suffix="°" onChange={(cameraFovMobile) => changeConfig({ cameraFovMobile })} /><Range label="Near clip" value={draft.cameraNearClip} min={0.01} max={10} step={0.01} suffix="m" onChange={(cameraNearClip) => changeConfig({ cameraNearClip })} /><Range label="Far clip" value={draft.cameraFarClip} min={100} max={20000} step={50} suffix="m" onChange={(cameraFarClip) => changeConfig({ cameraFarClip })} /></Panel><Panel title="Idle camera"><Toggle label="Idle drone" value={draft.idleDroneEnabled} onChange={(idleDroneEnabled) => changeConfig({ idleDroneEnabled })} /><Range label="Start after" value={draft.idleDroneDelaySec} min={5} max={600} step={1} suffix="s" onChange={(idleDroneDelaySec) => changeConfig({ idleDroneDelaySec })} /><Range label="Orbit duration" value={draft.idleDroneOrbitDurationSec} min={20} max={300} step={1} suffix="s" onChange={(idleDroneOrbitDurationSec) => changeConfig({ idleDroneOrbitDurationSec })} /><Button type="button" variant="secondary" size="sm" onClick={() => viewerRef.current?.previewIdleDrone()}>Preview flight</Button></Panel></> : tool === "shots" ? <Panel title="Camera shots"><Button type="button" variant="secondary" size="sm" onClick={addShot}>Capture current view</Button>{draft.cameraPresets.map((shot, index) => <div key={shot.id} className="flex items-center justify-between gap-2 rounded border border-neutral-800 p-2 text-xs"><button type="button" className="min-w-0 flex-1 truncate text-left text-neutral-200" onClick={() => viewerRef.current?.flyToPreset(shot)}>{index === 0 ? "Opening · " : ""}{shot.label}</button><button type="button" className="text-red-300" onClick={() => changeConfig({ cameraPresets: draft.cameraPresets.filter((item) => item.id !== shot.id) })}>Remove</button></div>)}</Panel> : tool === "sections" ? <Panel title="Sections"><Button type="button" variant="secondary" size="sm" onClick={addSection}>Add section from model</Button>{draft.sections.map((section) => <div key={section.id} className="rounded border border-neutral-800 p-2 text-xs text-neutral-300"><button type="button" className="font-medium" onClick={() => viewerRef.current?.activateSection(section, { showIndicator: true })}>{section.name}</button><div className="mt-2 flex gap-2"><button type="button" onClick={() => viewerRef.current?.activateSection(null)}>Clear</button><button type="button" className="text-red-300" onClick={() => changeConfig({ sections: draft.sections.filter((item) => item.id !== section.id) })}>Remove</button></div></div>)}</Panel> : tool === "performance" ? <><Panel title="Quality"><Choice label="Profile" value={draft.qualityPreset} options={["ultra_desktop", "high_desktop", "balanced", "mobile_high", "mobile_low", "custom"].map((value) => ({ value, label: value.replaceAll("_", " ") }))} onChange={(qualityPreset) => changeConfig({ qualityPreset: qualityPreset as Project3DConfig["qualityPreset"] })} /><Choice label="Renderer" value={draft.renderingMode} options={[{ value: "auto", label: "Auto" }, { value: "webgpu", label: "WebGPU" }, { value: "webgl2", label: "WebGL 2" }]} onChange={(renderingMode) => changeConfig({ renderingMode: renderingMode as Project3DConfig["renderingMode"] })} /><Toggle label="Adaptive quality" value={draft.adaptiveQualityEnabled} onChange={(adaptiveQualityEnabled) => changeConfig({ adaptiveQualityEnabled })} /><Toggle label="Reduce quality during interaction" value={draft.interactionQualityReductionEnabled} onChange={(interactionQualityReductionEnabled) => changeConfig({ interactionQualityReductionEnabled })} /></Panel>{perf ? <Panel title="Live renderer"><p className="font-mono text-xs text-neutral-300">{Math.round(perf.fps)} fps · {perf.frameTimeMs.toFixed(1)} ms</p><p className="font-mono text-xs text-neutral-400">{perf.drawCalls} draws · {perf.triangles.toLocaleString()} triangles · DPR {perf.dpr.toFixed(2)}</p></Panel> : null}</> : <Panel title="Unit binding"><p className="text-xs leading-5 text-neutral-400">Link named scene nodes of the selected model to canonical NESTO units. Unit links save on their own, with their own reason, and reach the published viewer only through a release.</p><p className="text-xs text-neutral-500">{initial.units.length} active units in this project.</p></Panel>;
@@ -491,13 +593,21 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
           <Rail side="left" label="Show scene panel" onExpand={() => updateLayout({ leftCollapsed: false })} />
         ) : <>
           <aside aria-label="Scene" style={{ width: layout.leftWidth }} className="flex shrink-0 flex-col bg-neutral-950">
-            <PanelHeader title="Scene" action={<Button type="button" size="icon-sm" variant="ghost" className="text-neutral-500 hover:text-white" aria-label="Hide scene panel" onClick={() => updateLayout({ leftCollapsed: true })}><PanelLeftClose aria-hidden="true" /></Button>} />
+            <PanelHeader title="Scene" action={<Button type="button" size="icon-sm" variant="ghost" disabled={uploading} className="text-neutral-500 hover:text-white" aria-label="Hide scene panel" onClick={() => updateLayout({ leftCollapsed: true })}><PanelLeftClose aria-hidden="true" /></Button>} />
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="border-b border-neutral-800 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Models</p>
                 {initial.slots.length === 0 ? <p className="mt-2 text-xs text-neutral-500">No models yet.</p> : null}
-                {initial.slots.map((slot) => <div key={slot.id} className="mt-3"><p className="text-xs font-semibold text-neutral-300">{slot.displayName}</p>{slot.versions.map((version) => <button key={version.id} type="button" aria-pressed={activeVersionId === version.id} onClick={() => chooseVersion(version.id)} className={cn("mt-1 flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs", activeVersionId === version.id ? "bg-indigo-500/20 text-indigo-200" : "text-neutral-400 hover:bg-neutral-900")}><span className="truncate">v{version.version} · {version.originalFileName}{modelEdits[version.id] ? " •" : ""}</span><span className={version.asset ? "text-emerald-400" : "text-neutral-600"} aria-label={version.asset ? "Ready" : "Not ready"}>●</span></button>)}</div>)}
+                {initial.slots.map((slot) => <div key={slot.id} className="mt-3">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="min-w-0 truncate text-xs font-semibold text-neutral-300">{slot.displayName}</p>
+                    {permissions.manageModels ? <Button type="button" size="icon-sm" variant="ghost" className="shrink-0 text-neutral-500 hover:text-red-300" aria-label={`Remove ${slot.displayName}`} title="Remove model" disabled={uploading} onClick={() => setRemovingSlot(slot)}><Trash2 aria-hidden="true" /></Button> : null}
+                  </div>
+                  {slot.versions.length === 0 ? <p className="text-[11px] text-neutral-600">No version uploaded yet.</p> : null}
+                  {slot.versions.map((version) => <button key={version.id} type="button" aria-pressed={activeVersionId === version.id} onClick={() => chooseVersion(version.id)} className={cn("mt-1 flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs", activeVersionId === version.id ? "bg-indigo-500/20 text-indigo-200" : "text-neutral-400 hover:bg-neutral-900")}><span className="min-w-0 truncate">v{version.version} · {version.originalFileName}{modelEdits[version.id] ? " •" : ""}</span><VersionStateMark version={version} /></button>)}
+                </div>)}
               </div>
+              {permissions.manageModels ? <ModelIngestionPanel compact projectId={projectId} slots={initial.slots} uploadLimitBytes={initial.uploadLimitBytes} onBusyChange={setUploading} onQueued={setAutoSelectId} /> : null}
               <div className="p-3">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Scene nodes</p>
                 {sceneManifest.length === 0 ? <p className="text-xs text-neutral-500">The selected model has no scene nodes.</p> : null}
@@ -509,13 +619,9 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
         </>}
 
         <main aria-label="3D viewport" className="relative min-w-0 flex-1 overflow-hidden bg-neutral-900">
-          <ThreeProjectViewer ref={viewerRef} detailModels={models} cameraConfig={draft} qualityConfig={draft} environmentConfig={draft} lightingConfig={draft} renderingConfig={draft} unitsConfig={draft} siteConfig={{ ...draft, latitude: draft.mapViewLatitude, longitude: draft.mapViewLongitude }} className="absolute inset-0 h-full w-full" showPerfStats={tool === "performance"} onPerfStats={setPerf} onModelLoadStatus={setModelStatus} />
+          <ThreeProjectViewer ref={viewerRef} detailModels={models} cameraConfig={draft} qualityConfig={draft} environmentConfig={draft} lightingConfig={draft} renderingConfig={draft} unitsConfig={draft} siteConfig={siteConfig} className="absolute inset-0 h-full w-full" showPerfStats={tool === "performance"} onPerfStats={setPerf} onModelLoadStatus={setModelStatus} />
           <div className="absolute left-3 top-3 flex gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => viewerRef.current?.resetView()}>Reset view</Button></div>
-          {versions.length === 0 ? (
-            <ViewportMessage>
-              No processed model yet. <a className="text-indigo-300 underline-offset-4 hover:underline" href={`${managementHref}/models`} target="_blank" rel="noopener noreferrer">Upload one in Models</a>; the editor settings below still save.
-            </ViewportMessage>
-          ) : null}
+          {models.length === 0 ? <EmptyViewport versions={versions} canUpload={permissions.manageModels} /> : null}
           {loadingShown && modelStatus.state === "loading" ? (
             <div role="status" className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
               <span className="flex items-center gap-2 rounded-full bg-neutral-950/85 px-3 py-1.5 text-xs text-neutral-300 shadow"><LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />Loading models…</span>
@@ -567,6 +673,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
           setConfirmReset(false);
         }}
       />
+      <RemoveModelDialog projectId={projectId} slot={removingSlot} onOpenChange={(open) => { if (!open) setRemovingSlot(null); }} onRemoved={modelRemoved} />
       <ConfirmDialog
         open={pendingVersionId !== null}
         onOpenChange={(open) => { if (!open) setPendingVersionId(null); }}
@@ -591,6 +698,25 @@ function PanelHeader({ title, action }: { title: string; action: React.ReactNode
 function Rail({ side, label, onExpand }: { side: "left" | "right"; label: string; onExpand: () => void }) {
   const Icon = side === "left" ? PanelLeftOpen : PanelRightOpen;
   return <div className={cn("flex w-9 shrink-0 flex-col items-center bg-neutral-950 py-1", side === "left" ? "border-r border-neutral-800" : "border-l border-neutral-800")}><Button type="button" size="icon-sm" variant="ghost" className="text-neutral-500 hover:text-white" aria-label={label} onClick={onExpand}><Icon aria-hidden="true" /></Button></div>;
+}
+
+/** What the viewport says while it has no model to show, from the models' own state. */
+function EmptyViewport({ versions, canUpload }: { versions: EditorVersion[]; canUpload: boolean }) {
+  const preparing = versions.find((version) => version.status === "PROCESSING" && !version.stalled);
+  const stalled = versions.find((version) => version.stalled);
+  const failed = versions.find((version) => version.status === "FAILED");
+  if (preparing) return <ViewportMessage busy>Preparing {preparing.originalFileName}. It appears here when it is ready; you can keep editing.</ViewportMessage>;
+  if (stalled) return <ViewportMessage>Preparing {stalled.originalFileName} stalled. Select it in the Scene panel to retry.</ViewportMessage>;
+  if (failed) return <ViewportMessage>{failed.originalFileName} could not be prepared. Select it in the Scene panel to see why{canUpload ? ", then upload a corrected GLB" : ""}.</ViewportMessage>;
+  return <ViewportMessage>{canUpload ? "No model yet. Upload a GLB from the Scene panel; the settings on the right still save." : "No model yet. Ask a Platform Administrator to upload one."}</ViewportMessage>;
+}
+
+/** Ready, preparing, stalled, failed or unfinished, as a mark with its name for assistive technology. */
+function VersionStateMark({ version }: { version: EditorVersion }) {
+  const label = versionStateLabel(version);
+  if (version.status === "PROCESSING" && !version.stalled) return <LoaderCircle className="size-3.5 shrink-0 animate-spin text-indigo-300" aria-label={label} role="img" />;
+  const tone = version.assetMissing || version.status === "FAILED" ? "text-red-400" : isReady(version) ? (version.validationStatus === "WARNING" ? "text-amber-300" : "text-emerald-400") : version.stalled ? "text-amber-300" : "text-neutral-600";
+  return <span className={cn("shrink-0", tone)} role="img" aria-label={label} title={label}>●</span>;
 }
 
 function ViewportMessage({ children, busy }: { children: React.ReactNode; busy?: boolean }) {

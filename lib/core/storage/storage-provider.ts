@@ -81,6 +81,13 @@ export interface StorageProvider {
 
   copyObject?(input: { fromKey: string; toKey: string }): Promise<void>;
 
+  /**
+   * The largest object the store itself accepts, when it enforces one below
+   * the product's own ceilings (a Supabase bucket's file size limit). Null when
+   * it does not say. Callers refuse a larger file before any bytes move.
+   */
+  maxObjectBytes?(): Promise<number | null>;
+
   /** Bucket reachability, for the health probe (PRD #29 §397, §398). */
   healthCheck(): Promise<{ ok: boolean }>;
 }

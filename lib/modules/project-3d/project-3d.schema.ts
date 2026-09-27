@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_MODEL_BYTES } from "@/lib/3d/platform/model-upload";
 
 const reason = z.string().trim().min(3, "Give a reason for this action.").max(500);
 
@@ -92,9 +93,12 @@ export const project3DSlotCreateSchema = z.object({
   reason,
 });
 
+/** Removing a model from the Experience (its versions and releases stay). */
+export const project3DSlotRemoveSchema = z.object({ reason });
+
 export const project3DUploadCreateSchema = z.object({
   fileName: z.string().trim().min(1).max(240).refine((value) => value.toLowerCase().endsWith(".glb"), "Upload a binary GLB file."),
-  sizeBytes: z.number().int().positive().max(200 * 1024 * 1024),
+  sizeBytes: z.number().int().positive().max(MAX_MODEL_BYTES),
   scale: z.number().positive().max(1000).default(1),
   rotationDeg: z.number().min(-36000).max(36000).default(0),
   altitudeOffset: z.number().min(-100000).max(100000).default(0),
