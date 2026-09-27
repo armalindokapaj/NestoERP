@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { notFound } from "next/navigation";
@@ -28,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const order = await orders.getOrder(context, purchaseOrderId);
     return { title: `${order.poNumber} — ${order.supplier.name}` };
   } catch {
-    return { title: "Purchase order" };
+    return { title: (await getTranslations("procurement"))("meta.order") };
   }
 }
 
@@ -57,37 +58,38 @@ export default async function OrderDetailPage({ params }: Params) {
       ? await pendingCycle(context, "PURCHASE_ORDER", order.id)
       : null;
   const money = (value: string) => formatAmount(value, order.currency);
+  const t = await getTranslations("procurement");
 
   return (
     <div className="space-y-5">
       <RecordHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Orders", href: "/procurement/orders" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.orders"), href: "/procurement/orders" },
           { label: order.poNumber },
         ]}
         title={`${order.poNumber} — ${order.supplier.name}`}
-        subtitle={`Ordered ${formatDate(order.orderDate)}`}
+        subtitle={t("orders.orderedOn", { date: formatDate(order.orderDate) })}
         status={order.status}
         badges={
           <>
             {order.attention.overdue ? (
-              <Badge tone="warning">{dueLabel(order.attention.daysToRequired)}</Badge>
+              <Badge tone="warning">{dueLabel(t, order.attention.daysToRequired)}</Badge>
             ) : null}
             {order.attention.awaitingReceipt ? (
-              <Badge tone="info">{receivedLabel(order.receivedFraction)}</Badge>
+              <Badge tone="info">{receivedLabel(t, order.receivedFraction)}</Badge>
             ) : null}
             {order.modifiedFromQuote ? (
-              <Badge tone="warning">Changed from the quote</Badge>
+              <Badge tone="warning">{t("orders.changedFromQuote")}</Badge>
             ) : null}
           </>
         }
         meta={[
-          { label: "Supplier", value: order.supplier.name },
-          { label: "Value", value: money(order.totalAmount) },
+          { label: t("common.supplier"), value: order.supplier.name },
+          { label: t("orders.value"), value: money(order.totalAmount) },
           {
-            label: "Required",
-            value: order.requiredDate ? formatDate(order.requiredDate) : "No date",
+            label: t("orders.required"),
+            value: order.requiredDate ? formatDate(order.requiredDate) : t("common.noDate"),
           },
         ]}
         actions={
@@ -100,13 +102,13 @@ export default async function OrderDetailPage({ params }: Params) {
 
       {order.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This order is archived and read-only. Restore it to make changes.
+          {t("orders.archivedNotice")}
         </p>
       ) : null}
 
       {order.rejectionReason ? (
         <p className="rounded-md bg-warning-soft px-4 py-3 text-table text-warning-strong">
-          <span className="font-medium">Rejected:</span> {order.rejectionReason}
+          <span className="font-medium">{t("common.rejectedPrefix")}</span> {order.rejectionReason}
         </p>
       ) : null}
 
@@ -114,22 +116,22 @@ export default async function OrderDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 p-5">
-              <h2 className="text-card font-semibold text-fg">Ordered</h2>
+              <h2 className="text-card font-semibold text-fg">{t("common.ordered")}</h2>
               <span className="text-meta text-fg-subtle">
-                {receivedLabel(order.receivedFraction)}
+                {receivedLabel(t, order.receivedFraction)}
               </span>
             </div>
 
-            <ScrollRegion label="Order lines and what has arrived" className="hidden md:block">
+            <ScrollRegion label={t("orders.linesLabel")} className="hidden md:block">
               <table className="w-full text-table">
-                <caption className="sr-only">Order lines and what has arrived</caption>
+                <caption className="sr-only">{t("orders.linesLabel")}</caption>
                 <thead>
                   <tr className="border-y border-line text-left text-meta text-fg-subtle">
-                    <th scope="col" className="px-5 py-2 font-medium">Description</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Ordered</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Received</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Unit price</th>
-                    <th scope="col" className="px-5 py-2 text-right font-medium">Line total</th>
+                    <th scope="col" className="px-5 py-2 font-medium">{t("common.description")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.ordered")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.received")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.unitPrice")}</th>
+                    <th scope="col" className="px-5 py-2 text-right font-medium">{t("common.lineTotal")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -159,19 +161,19 @@ export default async function OrderDetailPage({ params }: Params) {
                 </tbody>
                 <tfoot className="border-t border-line">
                   <tr>
-                    <td colSpan={4} className="px-5 py-2 text-right text-fg-muted">Subtotal</td>
+                    <td colSpan={4} className="px-5 py-2 text-right text-fg-muted">{t("common.subtotal")}</td>
                     <td className="px-5 py-2 text-right tabular-nums text-fg">
                       {money(order.subtotal)}
                     </td>
                   </tr>
                   <tr>
-                    <td colSpan={4} className="px-5 py-2 text-right text-fg-muted">Tax</td>
+                    <td colSpan={4} className="px-5 py-2 text-right text-fg-muted">{t("common.tax")}</td>
                     <td className="px-5 py-2 text-right tabular-nums text-fg">
                       {money(order.taxAmount)}
                     </td>
                   </tr>
                   <tr>
-                    <td colSpan={4} className="px-5 py-3 text-right font-medium text-fg">Total</td>
+                    <td colSpan={4} className="px-5 py-3 text-right font-medium text-fg">{t("common.total")}</td>
                     <td className="px-5 py-3 text-right tabular-nums font-semibold text-fg">
                       {money(order.totalAmount)}
                     </td>
@@ -184,7 +186,7 @@ export default async function OrderDetailPage({ params }: Params) {
               under the list, instead of scrolling a five-column table sideways to
               reach the money (AUD-04 §5, MW-05).
             */}
-            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label="Order lines and what has arrived" data-testid="order-line-cards">
+            <ul className="divide-y divide-line border-t border-line md:hidden" aria-label={t("orders.linesLabel")} data-testid="order-line-cards">
               {order.items.map((item) => (
                 <li key={item.id} className="space-y-1 px-5 py-3 text-table">
                   <p className="break-words text-fg">{item.description}</p>
@@ -192,7 +194,7 @@ export default async function OrderDetailPage({ params }: Params) {
                     {item.quantity} {item.unit} × {money(item.unitPrice)} = <span className="font-medium text-fg">{money(item.totalAmount)}</span>
                   </p>
                   <p className="text-meta text-fg-subtle">
-                    Received{" "}
+                    {t("common.received")}{" "}
                     <span className={Number(item.outstandingQuantity) > 0 ? "tabular-nums text-warning-strong" : "tabular-nums text-fg"}>{item.receivedQuantity}</span>
                   </p>
                 </li>
@@ -200,15 +202,15 @@ export default async function OrderDetailPage({ params }: Params) {
             </ul>
             <dl className="space-y-1 border-t border-line px-5 py-3 text-table md:hidden">
               <div className="flex justify-between gap-3">
-                <dt className="text-fg-muted">Subtotal</dt>
+                <dt className="text-fg-muted">{t("common.subtotal")}</dt>
                 <dd className="tabular-nums text-fg">{money(order.subtotal)}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-fg-muted">Tax</dt>
+                <dt className="text-fg-muted">{t("common.tax")}</dt>
                 <dd className="tabular-nums text-fg">{money(order.taxAmount)}</dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="font-medium text-fg">Total</dt>
+                <dt className="font-medium text-fg">{t("common.total")}</dt>
                 <dd className="font-semibold tabular-nums text-fg">{money(order.totalAmount)}</dd>
               </div>
             </dl>
@@ -216,28 +218,28 @@ export default async function OrderDetailPage({ params }: Params) {
 
           {order.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Notes</h2>
+              <h2 className="text-card font-semibold text-fg">{t("common.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{order.notes}</p>
             </section>
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">Approval history</h2>
+            <h2 className="text-card font-semibold text-fg">{t("common.approvalHistory")}</h2>
             <ProcurementApprovalHistory approvals={order.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Where it came from</h2>
+            <h2 className="text-card font-semibold text-fg">{t("orders.whereFrom")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
               items={[
-                { label: "Request", value: <LinkOrText link={order.requestLink} fallback="Direct order" /> },
-                { label: "Enquiry", value: <LinkOrText link={order.rfqLink} fallback="No enquiry" /> },
-                { label: "Project", value: <LinkOrText link={order.projectLink} fallback="Company" /> },
-                { label: "Contract", value: <LinkOrText link={order.contractLink} fallback="None" /> },
+                { label: t("common.request"), value: <LinkOrText link={order.requestLink} fallback={t("orders.directOrder")} /> },
+                { label: t("common.enquiry"), value: <LinkOrText link={order.rfqLink} fallback={t("orders.noEnquiry")} /> },
+                { label: t("common.project"), value: <LinkOrText link={order.projectLink} fallback={t("common.company")} /> },
+                { label: t("common.contract"), value: <LinkOrText link={order.contractLink} fallback={t("common.none")} /> },
               ]}
             />
           </section>
@@ -245,17 +247,17 @@ export default async function OrderDetailPage({ params }: Params) {
           {/* Absent without `procurement.commitment.view` (PRD #19 §262). */}
           {order.commitment ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Finance commitment</h2>
+              <h2 className="text-card font-semibold text-fg">{t("orders.commitment")}</h2>
               <p className="mt-3 text-table text-fg">{money(order.commitment.amount)}</p>
               <p className="mt-1 text-meta text-fg-subtle">
-                Committed when this order was approved.
+                {t("orders.commitmentNote")}
               </p>
               {order.commitment.href ? (
                 <Link
                   href={order.commitment.href}
                   className="mt-2 inline-block text-table font-medium text-accent-strong"
                 >
-                  Open in Finance
+                  {t("orders.openInFinance")}
                 </Link>
               ) : null}
             </section>
@@ -263,29 +265,29 @@ export default async function OrderDetailPage({ params }: Params) {
 
           <section className="nesto-card p-5">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">Deliveries</h2>
+              <h2 className="text-card font-semibold text-fg">{t("orders.deliveries")}</h2>
               {order.capabilities.canViewReceipts ? (
                 <Link
                   href={`/procurement/orders/${order.id}/receipts`}
                   className="text-table font-medium text-accent-strong"
                 >
-                  View all
+                  {t("common.viewAll")}
                 </Link>
               ) : null}
             </div>
             <p className="mt-3 text-table text-fg">
-              {order.receiptCount} recorded
+              {t("orders.recordedCount", { count: order.receiptCount })}
             </p>
-            <p className="mt-1 text-meta text-fg-subtle">{receivedLabel(order.receivedFraction)}</p>
+            <p className="mt-1 text-meta text-fg-subtle">{receivedLabel(t, order.receivedFraction)}</p>
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">Record</h2>
+            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label="Created" value={formatDateTime(order.createdAt)} />
+              <Meta label={t("common.created")} value={formatDateTime(order.createdAt)} />
               {order.dates.approvedAt ? (
                 <Meta
-                  label="Approved"
+                  label={t("common.approved")}
                   value={
                     <>
                       {formatDateTime(order.dates.approvedAt)}
@@ -300,20 +302,20 @@ export default async function OrderDetailPage({ params }: Params) {
                 />
               ) : null}
               {order.dates.issuedAt ? (
-                <Meta label="Issued" value={formatDateTime(order.dates.issuedAt)} />
+                <Meta label={t("common.issued")} value={formatDateTime(order.dates.issuedAt)} />
               ) : null}
               {order.dates.closedAt ? (
-                <Meta label="Closed" value={formatDateTime(order.dates.closedAt)} />
+                <Meta label={t("common.closed")} value={formatDateTime(order.dates.closedAt)} />
               ) : null}
               <Meta
-                label="Raised by"
+                label={t("common.raisedBy")}
                 value={order.createdBy ? <PersonLink memberId={order.createdBy.memberId} name={order.createdBy.fullName} /> : "—"}
               />
             </dl>
           </section>
         </div>
       </div>
-      <RecordDocuments context={context} entityType="purchase_order" entityId={purchaseOrderId} title="Documents" emptyDescription="The issued order, supplier confirmations and delivery notes appear here." />
+      <RecordDocuments context={context} entityType="purchase_order" entityId={purchaseOrderId} title={t("common.documents")} emptyDescription={t("orders.documentsEmpty")} />
       {/* Follow-up work raised from this record, in the reader's task scope (PRD #38 §45). */}
       <RecordTasks context={context} parentType="purchase_order" parentId={purchaseOrderId} />
       {/* Discussion on this record: comments, mentions, watchers (PRD #38 §36). */}

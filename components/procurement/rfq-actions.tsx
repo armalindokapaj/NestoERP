@@ -11,11 +11,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { rfqLifecycleAction, type RfqLifecycleAction } from "@/lib/actions/procurement";
 import type { RfqDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /** What a reader may do to an enquiry (PRD #19 §73–§77). */
 export function RfqActions({ rfq }: { rfq: RfqDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<"none" | "issue" | "close" | "cancel">("none");
 
@@ -29,7 +32,7 @@ export function RfqActions({ rfq }: { rfq: RfqDetailDTO }) {
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -40,75 +43,75 @@ export function RfqActions({ rfq }: { rfq: RfqDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/procurement/rfqs/${rfq.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canViewQuotes ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/procurement/rfqs/${rfq.id}/comparison`}>Compare answers</Link>
+          <Link href={`/procurement/rfqs/${rfq.id}/comparison`}>{t("rfqs.compare")}</Link>
         </Button>
       ) : null}
 
       {may.canRecordQuote ? (
         <Button asChild size="sm">
-          <Link href={`/procurement/rfqs/${rfq.id}/quotes`}>Record a quote</Link>
+          <Link href={`/procurement/rfqs/${rfq.id}/quotes`}>{t("rfqs.recordQuote")}</Link>
         </Button>
       ) : null}
 
       {may.canIssue ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("issue")}>
-          Issue to suppliers
+          {t("rfqs.issue")}
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("close")}>
-          Close
+          {t("common.close")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={dialog === "issue"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Issue ${rfq.rfqNumber}?`}
-        description="The lines are fixed once it is issued, because suppliers price what they were sent."
-        confirmLabel="Issue enquiry"
+        title={t("rfqs.issueTitle", { number: rfq.rfqNumber })}
+        description={t("rfqs.issueDescription")}
+        confirmLabel={t("rfqs.issueConfirm")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("issue", "Enquiry issued.")}
+        onConfirm={() => run("issue", t("rfqs.issued"))}
       />
 
       <ConfirmDialog
         open={dialog === "close"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Close ${rfq.rfqNumber}?`}
-        description="No further answers will be recorded. The quotes already in stay comparable."
-        confirmLabel="Close enquiry"
+        title={t("rfqs.closeTitle", { number: rfq.rfqNumber })}
+        description={t("rfqs.closeDescription")}
+        confirmLabel={t("rfqs.closeConfirm")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("close", "Enquiry closed.")}
+        onConfirm={() => run("close", t("rfqs.closedToast"))}
       />
 
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Cancel ${rfq.rfqNumber}?`}
-        description="The enquiry stays on the record, marked cancelled."
-        label="Note"
-        placeholder="Why is this no longer being sourced?"
-        confirmLabel="Cancel enquiry"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it is being cancelled."
+        title={t("rfqs.cancelTitle", { number: rfq.rfqNumber })}
+        description={t("rfqs.cancelDescription")}
+        label={t("common.note")}
+        placeholder={t("rfqs.cancelPlaceholder")}
+        confirmLabel={t("rfqs.cancelConfirm")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("rfqs.cancelEmpty")}
         onReject={async (note) => {
-          run("cancel", "Enquiry cancelled.", note);
+          run("cancel", t("rfqs.cancelled"), note);
           return true;
         }}
       />

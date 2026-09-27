@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 import { Truck } from "lucide-react";
 
@@ -21,7 +22,10 @@ import * as receipts from "@/lib/modules/procurement/receipts/receipt.service";
 
 type Params = { params: Promise<{ purchaseOrderId: string }> };
 
-export const metadata: Metadata = { title: "Deliveries" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.deliveries") };
+}
 
 /**
  * Deliveries against one order (PRD #19 §275, §276).
@@ -45,6 +49,7 @@ export default async function ReceiptsPage({ params }: Params) {
   if (!order.capabilities.canViewReceipts && !order.capabilities.canReceive) notFound();
 
   const recorded = await receipts.listForOrder(context, purchaseOrderId);
+  const t = await getTranslations("procurement");
 
   /*
    * The Inventory handoff, when the reader holds *both* sides (PRD #20 §303).
@@ -81,10 +86,10 @@ export default async function ReceiptsPage({ params }: Params) {
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Orders", href: "/procurement/orders" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.orders"), href: "/procurement/orders" },
           { label: order.poNumber, href: `/procurement/orders/${order.id}` },
-          { label: "Deliveries" },
+          { label: t("crumbs.deliveries") },
         ]}
         title={`${order.poNumber} — ${order.supplier.name}`}
         status={order.status}
@@ -93,12 +98,12 @@ export default async function ReceiptsPage({ params }: Params) {
       {order.capabilities.canReceive ? <ReceiptForm order={order} /> : null}
 
       <section className="space-y-3">
-        <h2 className="text-card font-semibold text-fg">Recorded deliveries</h2>
+        <h2 className="text-card font-semibold text-fg">{t("receipts.recorded")}</h2>
         {recorded.length === 0 ? (
           <EmptyState
             icon={<Truck />}
-            title="Nothing has arrived yet."
-            description="Deliveries booked in against this order appear here, newest first."
+            title={t("receipts.emptyTitle")}
+            description={t("receipts.emptyDescription")}
           />
         ) : (
           <ReceiptList

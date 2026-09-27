@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { QuoteComparison } from "@/components/procurement/quote-comparison";
@@ -10,7 +11,10 @@ import * as quotes from "@/lib/modules/procurement/quotes/quote.service";
 
 type Params = { params: Promise<{ rfqId: string }> };
 
-export const metadata: Metadata = { title: "Quote comparison" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.comparison") };
+}
 
 /**
  * The comparison screen (PRD #19 §88–§91, §270).
@@ -32,14 +36,16 @@ export default async function ComparisonPage({ params }: Params) {
     throw error;
   }
 
+  const t = await getTranslations("procurement");
+
   return (
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Enquiries", href: "/procurement/rfqs" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.enquiries"), href: "/procurement/rfqs" },
           { label: comparison.rfq.rfqNumber, href: `/procurement/rfqs/${rfqId}` },
-          { label: "Comparison" },
+          { label: t("crumbs.comparison") },
         ]}
         title={comparison.rfq.title}
         subtitle={comparison.rfq.rfqNumber}
@@ -48,7 +54,7 @@ export default async function ComparisonPage({ params }: Params) {
 
       {!comparison.canCompare ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          You can see who was asked and who answered. Supplier prices need a separate permission.
+          {t("comparison.permissionNote")}
         </p>
       ) : null}
 

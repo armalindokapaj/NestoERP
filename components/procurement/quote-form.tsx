@@ -15,6 +15,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { recordQuoteAction } from "@/lib/actions/procurement";
 import type { RfqDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementTranslations } from "./procurement-text";
 
 /**
  * Records what one supplier answered (PRD #19 §85, §269).
@@ -32,6 +33,7 @@ import type { RfqDetailDTO } from "@/lib/modules/procurement/procurement.types";
  */
 export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
   const toast = useToast();
+  const t = useProcurementTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   // AUD-03 §3, §6: registered with the tab's coordinator; a normal save opens
   // the comparison, Save and continue leaves the destination to the departure.
@@ -43,9 +45,9 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
     },
     module: "procurement",
     saveKind: "create",
-    label: "Quote",
+    label: t("quote.editorLabel"),
     onCommitted: () => {
-      toast({ title: "Quote recorded.", tone: "success" });
+      toast({ title: t("quote.recorded"), tone: "success" });
     },
   });
   const { pending, fieldErrors } = save;
@@ -55,7 +57,7 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
   if (awaiting.length === 0) {
     return (
       <p className="nesto-card p-5 text-table text-fg-subtle">
-        Every invited supplier has already answered. Invite another supplier to record one more.
+        {t("quote.allAnswered")}
       </p>
     );
   }
@@ -68,13 +70,13 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
         <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-5 border-0 p-0">
 
           <section className="nesto-card space-y-4 p-5">
-            <h2 className="text-card font-semibold text-fg">The answer</h2>
+            <h2 className="text-card font-semibold text-fg">{t("quote.answer")}</h2>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Supplier" name="supplierId" required>
+              <Field label={t("common.supplier")} name="supplierId" required>
                 <select id="supplierId" name="supplierId" className={selectClass} required defaultValue="">
                   <option value="" disabled>
-                    Choose a supplier
+                    {t("common.chooseSupplier")}
                   </option>
                   {awaiting.map((entry) => (
                     <option key={entry.id} value={entry.supplier.id}>
@@ -84,37 +86,37 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
                 </select>
               </Field>
 
-              <Field label="Their reference" name="quoteNumber" hint="Optional.">
+              <Field label={t("quote.theirReference")} name="quoteNumber" hint={t("common.optional")}>
                 <Input id="quoteNumber" name="quoteNumber" maxLength={60} />
               </Field>
 
-              <Field label="Quote date" name="quoteDate" required>
+              <Field label={t("quote.quoteDate")} name="quoteDate" required>
                 <Input id="quoteDate" name="quoteDate" type="date" required defaultValue={localToday()} />
               </Field>
 
-              <Field label="Valid until" name="validUntil" hint="Optional. On or after the quote date.">
+              <Field label={t("quote.validUntil")} name="validUntil" hint={t("quote.afterQuoteHint")}>
                 <Input id="validUntil" name="validUntil" type="date" />
               </Field>
 
-              <Field label="Lead time (days)" name="leadTimeDays" hint="Optional. A whole number of days.">
+              <Field label={t("quote.leadTime")} name="leadTimeDays" hint={t("quote.leadHint")}>
                 <Input id="leadTimeDays" name="leadTimeDays" type="number" inputMode="numeric" min={0} max={3650} step={1} />
               </Field>
 
-              <Field label="Offered delivery" name="deliveryDate" hint="Optional. On or after the quote date.">
+              <Field label={t("quote.offeredDelivery")} name="deliveryDate" hint={t("quote.afterQuoteHint")}>
                 <Input id="deliveryDate" name="deliveryDate" type="date" />
               </Field>
             </div>
 
-            <Field label="Notes" name="notes">
+            <Field label={t("common.notes")} name="notes">
               <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
             </Field>
           </section>
 
           <section className="nesto-card overflow-hidden">
             <div className="p-5">
-              <h2 className="text-card font-semibold text-fg">Their prices</h2>
+              <h2 className="text-card font-semibold text-fg">{t("quote.prices")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
-                Priced in {rfq.currency}. Tax is a fraction — 0.2 is twenty per cent.
+                {t("quote.pricedIn", { currency: rfq.currency })}
               </p>
             </div>
 
@@ -130,7 +132,7 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
         <div className="flex items-center justify-end gap-2">
           <UnsavedIndicator save={save} />
           <Button type="submit" disabled={pending || Boolean(save.saved)}>
-            {pending ? "Recording…" : "Record quote"}
+            {pending ? t("quote.recording") : t("quote.record")}
           </Button>
         </div>
       </form>
@@ -138,8 +140,6 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
   );
 }
 
-const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero");
-const fractionRate = (value: string) => (compareDecimal(value, "1") <= 0 ? null : "Tax rate is a fraction such as 0.2 and cannot exceed 1");
 
 /** One enquiry line's price; its server errors are `items.<index>.<field>`. */
 function QuoteLine({
@@ -153,6 +153,9 @@ function QuoteLine({
   errors: Record<string, string[]>;
   currency: string;
 }) {
+  const t = useProcurementTranslations();
+  const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : t("lineItems.positiveQuantity"));
+  const fractionRate = (value: string) => (compareDecimal(value, "1") <= 0 ? null : t("lineItems.fractionRate"));
   const [quantity, setQuantity] = React.useState(item.quantity);
   const [unitPrice, setUnitPrice] = React.useState("");
   const [taxRate, setTaxRate] = React.useState("0");
@@ -178,9 +181,9 @@ function QuoteLine({
         <DecimalCell
           id={`quote-${item.id}-quantity`}
           name={`items.${index}.quantity`}
-          label="Quantity"
+          label={t("common.quantity")}
           value={quantity}
-          rule={{ label: "Quantity", ...RATE_RULE }}
+          rule={{ label: t("common.quantity"), ...RATE_RULE }}
           refine={positiveQuantity}
           serverError={error("quantity")}
           onChange={edit("quantity", setQuantity)}
@@ -188,21 +191,21 @@ function QuoteLine({
         <DecimalCell
           id={`quote-${item.id}-unitPrice`}
           name={`items.${index}.unitPrice`}
-          label="Unit price"
+          label={t("common.unitPrice")}
           unit={currency}
           value={unitPrice}
-          rule={{ label: "Unit price", ...RATE_RULE }}
+          rule={{ label: t("common.unitPrice"), ...RATE_RULE }}
           serverError={error("unitPrice")}
           onChange={edit("unitPrice", setUnitPrice)}
         />
         <DecimalCell
           id={`quote-${item.id}-taxRate`}
           name={`items.${index}.taxRate`}
-          label="Tax rate"
-          unit="fraction"
+          label={t("lineItems.taxRate")}
+          unit={t("lineItems.fraction")}
           value={taxRate}
           required={false}
-          rule={{ label: "Tax rate", scale: 4, maxIntegerDigits: 1 }}
+          rule={{ label: t("lineItems.taxRate"), scale: 4, maxIntegerDigits: 1 }}
           refine={fractionRate}
           serverError={error("taxRate")}
           onChange={edit("taxRate", setTaxRate)}

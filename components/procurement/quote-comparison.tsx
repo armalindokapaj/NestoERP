@@ -18,6 +18,8 @@ import type { QuoteComparisonDTO } from "@/lib/modules/procurement/procurement.t
 import { quoteStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { cn } from "@/lib/utils/cn";
 import { formatAmount } from "./procurement-format";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * The quote comparison grid (PRD #19 §270, §271, §290).
@@ -42,6 +44,9 @@ export function QuoteComparison({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
+  const statusLabel = (status: keyof typeof quoteStatusLabels) => procurementLabel(t, "quoteStatus", status, quoteStatusLabels[status]);
   const [pending, startTransition] = React.useTransition();
   const [selecting, setSelecting] = React.useState<string | null>(null);
   const [disqualifying, setDisqualifying] = React.useState<string | null>(null);
@@ -52,10 +57,10 @@ export function QuoteComparison({
     startTransition(async () => {
       const result = await orderFromQuoteAction(quoteId);
       if (result.ok) {
-        toast({ title: "Draft order created from the quote.", tone: "success" });
+        toast({ title: t("comparison.draftCreated"), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -65,10 +70,10 @@ export function QuoteComparison({
       const result = await selectQuoteAction(rfq.id, quoteId);
       setSelecting(null);
       if (result.ok) {
-        toast({ title: "Quote selected.", tone: "success" });
+        toast({ title: t("comparison.selected"), tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -76,7 +81,7 @@ export function QuoteComparison({
   if (rows.length === 0) {
     return (
       <p className="nesto-card p-5 text-table text-fg-subtle">
-        No supplier has answered this enquiry yet.
+        {t("comparison.none")}
       </p>
     );
   }
@@ -92,7 +97,7 @@ export function QuoteComparison({
             disabled={pending}
             onClick={() => setDisqualifying(row.quoteId)}
           >
-            Disqualify
+            {t("comparison.disqualify")}
           </Button>
         ) : null}
         {canSelect && row.status === "RECEIVED" ? (
@@ -101,7 +106,7 @@ export function QuoteComparison({
             disabled={pending}
             onClick={() => setSelecting(row.quoteId)}
           >
-            Select
+            {t("comparison.select")}
           </Button>
         ) : null}
         {/*
@@ -112,7 +117,7 @@ export function QuoteComparison({
           */}
         {canSelect && row.status === "SELECTED" ? (
           <Button size="sm" disabled={pending} onClick={() => draft(row.quoteId)}>
-            Draft order
+            {t("comparison.draftOrder")}
           </Button>
         ) : null}
       </>
@@ -125,22 +130,22 @@ export function QuoteComparison({
     <div className="space-y-3">
       {canCompare && lowest ? (
         <p className="text-table text-fg-muted">
-          Lowest qualified price:{" "}
+          {t("comparison.lowestPrefix")}{" "}
           <span className="font-medium text-fg">{lowest.supplier.name}</span>
-          {lowest.pricing ? ` at ${formatAmount(lowest.pricing.totalAmount, lowest.pricing.currency)}` : ""}.
-          A low price is not automatically the right choice — lead time and terms are on the row too.
+          {lowest.pricing ? t("comparison.at", { amount: formatAmount(lowest.pricing.totalAmount, lowest.pricing.currency) }) : ""}.{" "}
+          {t("comparison.lowestNote")}
         </p>
       ) : null}
 
-      <ScrollRegion label={`Supplier quotes for enquiry ${rfq.rfqNumber}`} className="nesto-card hidden md:block">
+      <ScrollRegion label={t("comparison.quotesLabel", { number: rfq.rfqNumber })} className="nesto-card hidden md:block">
         <table className="w-full text-table">
           <caption className="sr-only">
-            Supplier quotes for enquiry {rfq.rfqNumber}, compared line by line
+            {t("comparison.caption", { number: rfq.rfqNumber })}
           </caption>
           <thead>
             <tr className="border-b border-line text-left text-meta text-fg-subtle">
               {/* The supplier column stays put while the prices pan beside it. */}
-              <th scope="col" className="sticky left-0 z-[1] bg-surface px-5 py-3 font-medium">Supplier</th>
+              <th scope="col" className="sticky left-0 z-[1] bg-surface px-5 py-3 font-medium">{t("common.supplier")}</th>
               {canCompare
                 ? items.map((item) => (
                     <th key={item.id} scope="col" className="px-5 py-3 text-right font-medium">
@@ -152,10 +157,10 @@ export function QuoteComparison({
                   ))
                 : null}
               {canCompare ? (
-                <th scope="col" className="px-5 py-3 text-right font-medium">Total</th>
+                <th scope="col" className="px-5 py-3 text-right font-medium">{t("common.total")}</th>
               ) : null}
-              <th scope="col" className="px-5 py-3 text-right font-medium">Lead time</th>
-              <th scope="col" className="px-5 py-3 font-medium">Status</th>
+              <th scope="col" className="px-5 py-3 text-right font-medium">{t("comparison.leadTime")}</th>
+              <th scope="col" className="px-5 py-3 font-medium">{t("common.status")}</th>
               {canSelect || canDisqualify ? <th scope="col" className="px-5 py-3" /> : null}
             </tr>
           </thead>
@@ -168,7 +173,7 @@ export function QuoteComparison({
                     {row.supplier.name}
                     {row.isLowest ? (
                       <span className="ml-2 align-middle">
-                        <Badge tone="success">Lowest</Badge>
+                        <Badge tone="success">{t("comparison.lowest")}</Badge>
                       </span>
                     ) : null}
                   </th>
@@ -192,7 +197,7 @@ export function QuoteComparison({
                   ) : null}
 
                   <td className="px-5 py-3 text-right tabular-nums text-fg-muted">
-                    {row.leadTimeDays === null ? "—" : `${row.leadTimeDays} days`}
+                    {row.leadTimeDays === null ? "—" : t("common.days", { count: row.leadTimeDays })}
                   </td>
 
                   <td className="px-5 py-3">
@@ -205,7 +210,7 @@ export function QuoteComparison({
                             : "neutral"
                       }
                     >
-                      {quoteStatusLabels[row.status]}
+                      {statusLabel(row.status)}
                     </Badge>
                   </td>
 
@@ -227,31 +232,31 @@ export function QuoteComparison({
         decision buttons in view, the per-line prices a tap away — instead of a
         matrix whose actions sit off-screen to the right (AUD-04 §5, MW-05).
       */}
-      <ul className="space-y-2 md:hidden" aria-label={`Supplier quotes for enquiry ${rfq.rfqNumber}`} data-testid="quote-cards">
+      <ul className="space-y-2 md:hidden" aria-label={t("comparison.quotesLabel", { number: rfq.rfqNumber })} data-testid="quote-cards">
         {rows.map((row) => {
           const excluded = row.status === "DISQUALIFIED";
           return (
             <li key={row.quoteId} className={cn("nesto-card space-y-2 p-4 text-table", excluded && "opacity-60")} data-testid="quote-card">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="min-w-0 break-words font-medium text-fg">{row.supplier.name}</span>
-                {row.isLowest ? <Badge tone="success">Lowest</Badge> : null}
+                {row.isLowest ? <Badge tone="success">{t("comparison.lowest")}</Badge> : null}
                 <span className="ml-auto">
-                  <Badge tone={row.status === "SELECTED" ? "success" : row.status === "DISQUALIFIED" ? "danger" : "neutral"}>{quoteStatusLabels[row.status]}</Badge>
+                  <Badge tone={row.status === "SELECTED" ? "success" : row.status === "DISQUALIFIED" ? "danger" : "neutral"}>{statusLabel(row.status)}</Badge>
                 </span>
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {canCompare ? (
                   <>
-                    <dt className="text-fg-subtle">Total</dt>
+                    <dt className="text-fg-subtle">{t("common.total")}</dt>
                     <dd className="text-right font-medium tabular-nums text-fg">{row.pricing ? formatAmount(row.pricing.totalAmount, row.pricing.currency) : "—"}</dd>
                   </>
                 ) : null}
-                <dt className="text-fg-subtle">Lead time</dt>
-                <dd className="text-right tabular-nums text-fg-muted">{row.leadTimeDays === null ? "—" : `${row.leadTimeDays} days`}</dd>
+                <dt className="text-fg-subtle">{t("comparison.leadTime")}</dt>
+                <dd className="text-right tabular-nums text-fg-muted">{row.leadTimeDays === null ? "—" : t("common.days", { count: row.leadTimeDays })}</dd>
               </dl>
               {canCompare && items.length ? (
                 <details className="rounded-md border border-line">
-                  <summary className="cursor-pointer px-3 py-2 text-fg-muted touch:min-h-11 touch:content-center">Prices by line ({items.length})</summary>
+                  <summary className="cursor-pointer px-3 py-2 text-fg-muted touch:min-h-11 touch:content-center">{t("comparison.pricesByLine", { count: items.length })}</summary>
                   <dl className="space-y-1 border-t border-line px-3 py-2">
                     {items.map((item) => (
                       <div key={item.id} className="flex items-baseline justify-between gap-3">
@@ -273,9 +278,9 @@ export function QuoteComparison({
       <ConfirmDialog
         open={selecting !== null}
         onOpenChange={(open) => !open && setSelecting(null)}
-        title="Select this quote?"
-        description="Every other qualified answer is marked not selected. An order can then be raised from it at the price that was accepted."
-        confirmLabel="Select quote"
+        title={t("comparison.selectTitle")}
+        description={t("comparison.selectDescription")}
+        confirmLabel={t("comparison.selectConfirm")}
         destructive={false}
         pending={pending}
         onConfirm={() => selecting && select(selecting)}
@@ -284,23 +289,23 @@ export function QuoteComparison({
       <RejectDialog
         open={disqualifying !== null}
         onOpenChange={(open) => !open && setDisqualifying(null)}
-        title="Disqualify this quote?"
-        description="It stays on the record so the comparison is complete, but it cannot win."
-        label="Reason"
-        placeholder="Why is this answer excluded?"
-        confirmLabel="Disqualify"
-        pendingLabel="Disqualifying…"
-        emptyMessage="Say why it is excluded."
+        title={t("comparison.disqualifyTitle")}
+        description={t("comparison.disqualifyDescription")}
+        label={t("common.reason")}
+        placeholder={t("comparison.disqualifyPlaceholder")}
+        confirmLabel={t("comparison.disqualify")}
+        pendingLabel={t("comparison.disqualifying")}
+        emptyMessage={t("comparison.disqualifyEmpty")}
         onReject={async (reason) => {
           if (!disqualifying) return false;
           const result = await disqualifyQuoteAction(rfq.id, disqualifying, reason);
           if (result.ok) {
-            toast({ title: "Quote disqualified.", tone: "success" });
+            toast({ title: t("comparison.disqualified"), tone: "success" });
             setDisqualifying(null);
             router.refresh();
             return true;
           }
-          toast({ title: result.error, tone: "danger" });
+          toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
           return false;
         }}
       />

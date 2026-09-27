@@ -14,6 +14,8 @@ import {
   SUPPLIER_TYPES,
   supplierTypeLabels,
 } from "@/lib/modules/procurement/procurement.status";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import { useProcurementTranslations } from "./procurement-text";
 
 export type SupplierFormValues = {
   code: string;
@@ -56,6 +58,7 @@ export function SupplierForm({
   submitLabel: string;
   pendingLabel: string;
 }) {
+  const t = useProcurementTranslations();
   return (
     <RecordForm
       action={action}
@@ -66,14 +69,14 @@ export function SupplierForm({
       versionUpdatedAt={versionUpdatedAt}
     >
       <FormSection
-        title="Supplier"
-        description="Who the company buys from. A supplier is not a client — the same organisation can be both, recorded twice."
+        title={t("common.supplier")}
+        description={t("suppliers.formDescription")}
       >
-        <Field label="Name" name="name" required className="sm:col-span-2">
+        <Field label={t("suppliers.name")} name="name" required className="sm:col-span-2">
           <Input id="name" name="name" defaultValue={values?.name ?? ""} required maxLength={200} />
         </Field>
 
-        <Field label="Legal name" name="legalName" className="sm:col-span-2">
+        <Field label={t("suppliers.legalName")} name="legalName" className="sm:col-span-2">
           <Input
             id="legalName"
             name="legalName"
@@ -82,11 +85,11 @@ export function SupplierForm({
           />
         </Field>
 
-        <Field label="Supplier code" name="code">
+        <Field label={t("suppliers.sortCode")} name="code">
           <Input id="code" name="code" defaultValue={values?.code ?? ""} maxLength={40} />
         </Field>
 
-        <Field label="Type" name="supplierType" required>
+        <Field label={t("common.type")} name="supplierType" required>
           <select
             id="supplierType"
             name="supplierType"
@@ -95,45 +98,45 @@ export function SupplierForm({
           >
             {SUPPLIER_TYPES.map((type) => (
               <option key={type} value={type}>
-                {supplierTypeLabels[type]}
+                {procurementLabel(t, "supplierType", type, supplierTypeLabels[type])}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Status" name="status" required>
+        <Field label={t("common.status")} name="status" required>
           <select
             id="status"
             name="status"
             className={selectClass}
             defaultValue={values?.status === "ARCHIVED" ? "INACTIVE" : (values?.status ?? "ACTIVE")}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ACTIVE">{t("suppliers.active")}</option>
+            <option value="INACTIVE">{t("suppliers.inactive")}</option>
           </select>
         </Field>
       </FormSection>
 
-      <FormSection title="Contact">
-        <Field label="Email" name="email">
+      <FormSection title={t("suppliers.contact")}>
+        <Field label={t("suppliers.email")} name="email">
           <Input id="email" name="email" type="email" defaultValue={values?.email ?? ""} />
         </Field>
 
-        <Field label="Phone" name="phone">
+        <Field label={t("suppliers.phone")} name="phone">
           <Input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={values?.phone ?? ""} maxLength={40} />
         </Field>
 
-        <Field label="Website" name="website" className="sm:col-span-2" hint="Starting http:// or https://">
+        <Field label={t("suppliers.website")} name="website" className="sm:col-span-2" hint={t("suppliers.websiteHint")}>
           <Input id="website" name="website" inputMode="url" autoComplete="url" defaultValue={values?.website ?? ""} />
         </Field>
       </FormSection>
 
-      <FormSection title="Registration and terms">
-        <Field label="Tax number" name="taxId">
+      <FormSection title={t("suppliers.registration")}>
+        <Field label={t("suppliers.taxNumber")} name="taxId">
           <Input id="taxId" name="taxId" defaultValue={values?.taxId ?? ""} maxLength={60} />
         </Field>
 
-        <Field label="Registration number" name="registrationNumber">
+        <Field label={t("suppliers.registrationNumber")} name="registrationNumber">
           <Input
             id="registrationNumber"
             name="registrationNumber"
@@ -142,7 +145,7 @@ export function SupplierForm({
           />
         </Field>
 
-        <Field label="Payment terms" name="paymentTermsDays" hint="Days from invoice">
+        <Field label={t("suppliers.paymentTerms")} name="paymentTermsDays" hint={t("suppliers.paymentTermsHint")}>
           <Input
             id="paymentTermsDays"
             name="paymentTermsDays"
@@ -154,14 +157,14 @@ export function SupplierForm({
           />
         </Field>
 
-        <Field label="Default currency" name="defaultCurrency">
+        <Field label={t("suppliers.defaultCurrency")} name="defaultCurrency">
           <select
             id="defaultCurrency"
             name="defaultCurrency"
             className={selectClass}
             defaultValue={values?.defaultCurrency ?? ""}
           >
-            <option value="">Not set</option>
+            <option value="">{t("common.notSet")}</option>
             {currencyOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -171,22 +174,22 @@ export function SupplierForm({
         </Field>
       </FormSection>
 
-      <FormSection title="Address">
-        <Field label="Address" name="address" className="sm:col-span-2">
+      <FormSection title={t("suppliers.address")}>
+        <Field label={t("suppliers.address")} name="address" className="sm:col-span-2">
           <Input id="address" name="address" defaultValue={values?.address ?? ""} maxLength={400} />
         </Field>
 
-        <Field label="City" name="city">
+        <Field label={t("suppliers.city")} name="city">
           <Input id="city" name="city" defaultValue={values?.city ?? ""} maxLength={120} />
         </Field>
 
-        <Field label="Country" name="country">
+        <Field label={t("common.country")} name="country">
           <Input id="country" name="country" defaultValue={values?.country ?? ""} maxLength={120} />
         </Field>
       </FormSection>
 
-      <FormSection title="Notes">
-        <Field label="Internal notes" name="notes" className="sm:col-span-2">
+      <FormSection title={t("common.notes")}>
+        <Field label={t("suppliers.internalNotes")} name="notes" className="sm:col-span-2">
           <Textarea id="notes" name="notes" rows={4} defaultValue={values?.notes ?? ""} maxLength={4000} />
         </Field>
       </FormSection>

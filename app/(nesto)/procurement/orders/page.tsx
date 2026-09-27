@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { PackageCheck } from "lucide-react";
@@ -23,8 +24,12 @@ import {
 } from "@/lib/modules/procurement/procurement.workspace";
 import { ORDER_STATUSES, orderStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
-export const metadata: Metadata = { title: "Purchase orders" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.orders") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -45,6 +50,7 @@ export default async function OrdersPage({
   if (!(await canReadProcurement(context, "procurement.order.view"))) redirect("/access-denied");
 
   const experience = await resolveProcurementExperience(context);
+  const t = await getTranslations("procurement");
   const params = await searchParams;
 
   return (
@@ -54,7 +60,7 @@ export default async function OrdersPage({
       actions={
         !inGroupWorkspace(context) && can(context, "procurement.order.create") ? (
           <Button asChild size="sm">
-            <Link href="/procurement/orders/new">New order</Link>
+            <Link href="/procurement/orders/new">{t("orders.newOrder")}</Link>
           </Button>
         ) : null
       }
@@ -81,6 +87,7 @@ async function OrderList({
     .filter((value) => (ORDER_STATUSES as readonly string[]).includes(value));
 
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("procurement");
 
   const query = orderListQuerySchema.parse({
     // The Group `company` filter; a company workspace never reads it (§86, §87).
@@ -111,21 +118,21 @@ async function OrderList({
 
   const filters: FilterConfig[] = [
     ...(group && options.companies.length > 1
-      ? [{ param: "company", label: "Company", options: options.companies }]
+      ? [{ param: "company", label: t("common.company"), options: options.companies }]
       : []),
     {
       param: "status",
-      label: "Status",
+      label: t("common.status"),
       options: ORDER_STATUSES.filter((status) => status !== "ARCHIVED").map((value) => ({
         value,
-        label: orderStatusLabels[value],
+        label: procurementLabel(t, "orderStatus", value, orderStatusLabels[value]),
       })),
     },
     ...(options.suppliers.length > 0
       ? [
           {
             param: "supplierId",
-            label: "Supplier",
+            label: t("common.supplier"),
             options: options.suppliers.map((supplier) => ({
               value: supplier.id,
               label: supplier.company ? `${supplier.name} · ${supplier.company.name}` : supplier.name,
@@ -137,7 +144,7 @@ async function OrderList({
       ? [
           {
             param: "projectId",
-            label: "Project",
+            label: t("common.project"),
             options: options.projects.map((project) => ({
               value: project.id,
               label: `${project.code} — ${project.name}${project.company ? ` · ${project.company.name}` : ""}`,
@@ -149,7 +156,7 @@ async function OrderList({
       ? [
           {
             param: "currency",
-            label: "Currency",
+            label: t("common.currency"),
             options: options.currencies.map((code) => ({ value: code, label: code })),
           },
         ]
@@ -163,15 +170,15 @@ async function OrderList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search order number, supplier or line…"
+        searchPlaceholder={t("orders.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "order-desc", label: "Order date" },
-          { value: "number-asc", label: "Order number" },
-          { value: "required-asc", label: "Due soonest" },
-          { value: "value-desc", label: "Value high–low" },
-          { value: "status-asc", label: "Status" },
+          { value: "updated-desc", label: t("common.recentlyUpdated") },
+          { value: "order-desc", label: t("orders.sortOrderDate") },
+          { value: "number-asc", label: t("orders.sortNumber") },
+          { value: "required-asc", label: t("orders.sortDue") },
+          { value: "value-desc", label: t("orders.sortValue") },
+          { value: "status-asc", label: t("common.status") },
         ]}
       />
 
@@ -179,22 +186,22 @@ async function OrderList({
         hasFilters ? (
           <EmptyState
             icon={<PackageCheck />}
-            title="No orders match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/procurement/orders" }}
+            title={t("orders.noMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/procurement/orders" }}
           />
         ) : (
           <EmptyState
             icon={<PackageCheck />}
-            title="No purchase orders yet."
+            title={t("orders.empty")}
             description={
               group
-                ? "No company you can read has a purchase order yet. Raising one is done inside a company."
-                : "An order is the commitment: issuing one is the moment the company owes a supplier money."
+                ? t("orders.emptyGroup")
+                : t("orders.emptyCompany")
             }
             action={
               !group && can(context, "procurement.order.create")
-                ? { label: "New order", href: "/procurement/orders/new" }
+                ? { label: t("orders.newOrder"), href: "/procurement/orders/new" }
                 : undefined
             }
           />

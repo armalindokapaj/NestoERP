@@ -18,6 +18,7 @@ import {
 } from "@/lib/actions/procurement";
 import type { PendingCycle } from "@/lib/core/approvals/approval-guard";
 import type { OrderDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * What a reader may do to a purchase order (PRD #19 §110–§131, §273).
@@ -40,6 +41,8 @@ export function OrderActions({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [pending, startTransition] = React.useTransition();
   const [dialog, setDialog] = React.useState<
     "none" | "reject" | "cancel" | "close" | "archive" | "approve"
@@ -53,7 +56,7 @@ export function OrderActions({
       toast({ title: success, tone: "success" });
       router.refresh();
     } else {
-      toast({ title: result.error, tone: "danger" });
+      toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
     }
   }
 
@@ -69,83 +72,83 @@ export function OrderActions({
         <Button asChild variant="secondary" size="sm">
           <Link href={`/procurement/orders/${order.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canSubmit ? (
-        <Button size="sm" disabled={pending} onClick={() => run("submit", "Sent for approval.")}>
-          Submit for approval
+        <Button size="sm" disabled={pending} onClick={() => run("submit", t("common.sentForApproval"))}>
+          {t("common.submitForApproval")}
         </Button>
       ) : null}
 
       {may.canReject ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("reject")}>
-          Reject
+          {t("common.reject")}
         </Button>
       ) : null}
 
       {may.canApprove ? (
         <Button size="sm" disabled={pending} onClick={() => setDialog("approve")}>
-          Approve
+          {t("common.approve")}
         </Button>
       ) : null}
 
       {may.canIssue ? (
-        <Button size="sm" disabled={pending} onClick={() => run("issue", "Order issued.")}>
-          Issue to supplier
+        <Button size="sm" disabled={pending} onClick={() => run("issue", t("orders.issued"))}>
+          {t("orders.issue")}
         </Button>
       ) : null}
 
       {may.canReceive ? (
         <Button asChild variant="secondary" size="sm">
-          <Link href={`/procurement/orders/${order.id}/receipts`}>Record delivery</Link>
+          <Link href={`/procurement/orders/${order.id}/receipts`}>{t("orders.recordDelivery")}</Link>
         </Button>
       ) : null}
 
       {may.canClose ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("close")}>
-          Close
+          {t("common.close")}
         </Button>
       ) : null}
 
       {may.canCancel ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("cancel")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setDialog("archive")}>
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
       {may.canRestore ? (
-        <Button variant="secondary" size="sm" disabled={pending} onClick={() => run("restore", "Order restored.")}>
-          Restore
+        <Button variant="secondary" size="sm" disabled={pending} onClick={() => run("restore", t("orders.restored"))}>
+          {t("common.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={dialog === "approve"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Approve ${order.poNumber}?`}
-        description="Approving commits the company to this spend. A commitment is recorded against the project budget straight away."
-        confirmLabel="Approve order"
+        title={t("orders.approveTitle", { number: order.poNumber })}
+        description={t("orders.approveDescription")}
+        confirmLabel={t("orders.approveConfirm")}
         destructive={false}
         pending={pending}
-        onConfirm={() => run("approve", "Order approved.")}
+        onConfirm={() => run("approve", t("orders.approved"))}
       />
 
       <RejectDialog
         open={dialog === "reject"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Reject ${order.poNumber}?`}
+        title={t("orders.rejectTitle", { number: order.poNumber })}
         onReject={async (reason) => {
           const result = await rejectOrderAction(order.id, reason, cycle);
-          handle(result, "Order rejected.");
+          handle(result, t("orders.rejected"));
           return result.ok;
         }}
       />
@@ -153,16 +156,16 @@ export function OrderActions({
       <RejectDialog
         open={dialog === "cancel"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Cancel ${order.poNumber}?`}
-        description="The order stays on the record, marked cancelled, and its commitment is released."
-        label="Note"
-        placeholder="Why is this order being cancelled?"
-        confirmLabel="Cancel order"
-        pendingLabel="Cancelling…"
-        emptyMessage="Say why it is being cancelled."
+        title={t("orders.cancelTitle", { number: order.poNumber })}
+        description={t("orders.cancelDescription")}
+        label={t("common.note")}
+        placeholder={t("orders.cancelPlaceholder")}
+        confirmLabel={t("orders.cancelConfirm")}
+        pendingLabel={t("common.cancelling")}
+        emptyMessage={t("orders.cancelEmpty")}
         onReject={async (note) => {
           const result = await cancelOrderAction(order.id, note);
-          handle(result, "Order cancelled.");
+          handle(result, t("orders.cancelled"));
           return result.ok;
         }}
       />
@@ -170,16 +173,16 @@ export function OrderActions({
       <RejectDialog
         open={dialog === "close"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Close ${order.poNumber}?`}
-        description="Use this when nothing further is coming, even if some of the order was never delivered."
-        label="Note"
-        placeholder="Why is this being closed now?"
-        confirmLabel="Close order"
-        pendingLabel="Closing…"
-        emptyMessage="Say why it is being closed."
+        title={t("orders.closeTitle", { number: order.poNumber })}
+        description={t("orders.closeDescription")}
+        label={t("common.note")}
+        placeholder={t("orders.closePlaceholder")}
+        confirmLabel={t("orders.closeConfirm")}
+        pendingLabel={t("orders.closing")}
+        emptyMessage={t("orders.closeEmpty")}
         onReject={async (note) => {
           const result = await orderLifecycleAction(order.id, "close", note);
-          handle(result, "Order closed.");
+          handle(result, t("orders.closed"));
           return result.ok;
         }}
       />
@@ -187,10 +190,10 @@ export function OrderActions({
       <ConfirmDialog
         open={dialog === "archive"}
         onOpenChange={(open) => !open && setDialog("none")}
-        title={`Archive ${order.poNumber}?`}
-        description="It leaves the register and can be restored to the state it holds now."
-        confirmLabel="Archive order"
-        onConfirm={() => run("archive", "Order archived.")}
+        title={t("orders.archiveTitle", { number: order.poNumber })}
+        description={t("common.archiveDescription")}
+        confirmLabel={t("orders.archiveConfirm")}
+        onConfirm={() => run("archive", t("orders.archived"))}
       />
     </>
   );

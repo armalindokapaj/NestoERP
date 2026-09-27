@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { QuoteForm } from "@/components/procurement/quote-form";
@@ -9,7 +10,10 @@ import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 
 type Params = { params: Promise<{ rfqId: string }> };
 
-export const metadata: Metadata = { title: "Record a quote" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.recordQuote") };
+}
 
 /** Records a supplier's answer against the enquiry's own lines (PRD #19 §269). */
 export default async function QuotesPage({ params }: Params) {
@@ -25,15 +29,16 @@ export default async function QuotesPage({ params }: Params) {
   }
 
   if (!rfq.capabilities.canRecordQuote) notFound();
+  const t = await getTranslations("procurement");
 
   return (
     <div className="space-y-5">
       <RecordContextHeader
         breadcrumbs={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Enquiries", href: "/procurement/rfqs" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.enquiries"), href: "/procurement/rfqs" },
           { label: rfq.rfqNumber, href: `/procurement/rfqs/${rfq.id}` },
-          { label: "Record a quote" },
+          { label: t("crumbs.recordQuote") },
         ]}
         title={rfq.title}
         subtitle={rfq.rfqNumber}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { SupplierForm } from "@/components/procurement/supplier-form";
@@ -10,7 +11,10 @@ import * as suppliers from "@/lib/modules/procurement/suppliers/supplier.service
 
 type Params = { params: Promise<{ supplierId: string }> };
 
-export const metadata: Metadata = { title: "Edit supplier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.editSupplier") };
+}
 
 /** Edit a supplier. An archived one is read-only until restored (PRD #19 §37). */
 export default async function EditSupplierPage({ params }: Params) {
@@ -26,6 +30,7 @@ export default async function EditSupplierPage({ params }: Params) {
   }
 
   if (!supplier.capabilities.canEdit) notFound();
+  const t = await getTranslations("procurement");
 
   async function action(formData: FormData) {
     "use server";
@@ -36,15 +41,15 @@ export default async function EditSupplierPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Suppliers", href: "/procurement/suppliers" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.suppliers"), href: "/procurement/suppliers" },
           { label: supplier.name, href: `/procurement/suppliers/${supplier.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit supplier</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editSupplier")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{supplier.name}</p>
       </div>
 
@@ -52,8 +57,8 @@ export default async function EditSupplierPage({ params }: Params) {
         action={action}
         versionUpdatedAt={supplier.updatedAt}
         cancelHref={`/procurement/suppliers/${supplier.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         values={{
           code: supplier.code ?? "",
           name: supplier.name,

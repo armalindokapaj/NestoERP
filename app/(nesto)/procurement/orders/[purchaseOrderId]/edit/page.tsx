@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { OrderForm } from "@/components/procurement/order-form";
@@ -10,7 +11,10 @@ import * as orders from "@/lib/modules/procurement/orders/order.service";
 
 type Params = { params: Promise<{ purchaseOrderId: string }> };
 
-export const metadata: Metadata = { title: "Edit purchase order" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.editOrder") };
+}
 
 /**
  * Edit an order (PRD #19 §109).
@@ -34,6 +38,7 @@ export default async function EditOrderPage({ params }: Params) {
   if (!order.capabilities.canEdit) notFound();
 
   const options = await orders.orderFormOptions(context);
+  const t = await getTranslations("procurement");
 
   async function action(formData: FormData) {
     "use server";
@@ -44,15 +49,15 @@ export default async function EditOrderPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: "Procurement", href: "/procurement" },
-          { label: "Orders", href: "/procurement/orders" },
+          { label: t("crumbs.procurement"), href: "/procurement" },
+          { label: t("crumbs.orders"), href: "/procurement/orders" },
           { label: order.poNumber, href: `/procurement/orders/${order.id}` },
-          { label: "Edit" },
+          { label: t("crumbs.edit") },
         ]}
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">Edit purchase order</h1>
+        <h1 className="text-page font-semibold text-fg">{t("meta.editOrder")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {order.poNumber} — {order.supplier.name}
         </p>
@@ -62,8 +67,8 @@ export default async function EditOrderPage({ params }: Params) {
         action={action}
         versionUpdatedAt={order.updatedAt}
         cancelHref={`/procurement/orders/${order.id}`}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
+        submitLabel={t("common.saveChanges")}
+        pendingLabel={t("common.saving")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,
           label: supplier.code ? `${supplier.code} — ${supplier.name}` : supplier.name,

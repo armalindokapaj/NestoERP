@@ -16,6 +16,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { recordReceiptAction } from "@/lib/actions/procurement";
 import type { OrderDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
  * Books a delivery in against an order (PRD #19 §275, §276).
@@ -56,6 +57,8 @@ export function ReceiptForm({ order }: { order: OrderDetailDTO }) {
 function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecorded: () => void }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [overReceipt, setOverReceipt] = React.useState(false);
   const [overMessage, setOverMessage] = React.useState<string | null>(null);
@@ -65,7 +68,7 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
     action: (formData: FormData) => recordReceiptAction(order.id, formData),
     module: "procurement",
     saveKind: "create",
-    label: "Delivery",
+    label: t("receipts.editorLabel"),
     // The acknowledgement is the person's answer to one refusal, not input.
     ignore: ["acknowledgeOverReceipt"],
     // More arrived than was ordered: a question for a person, never answered
@@ -78,11 +81,11 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
       }
       // Ask once, then accept it: the goods are on site either way.
       setOverReceipt(true);
-      setOverMessage(result.error ?? null);
+      setOverMessage(serverText(result.error) ?? null);
       return true;
     },
     onCommitted: () => {
-      toast({ title: "Delivery recorded.", tone: "success" });
+      toast({ title: t("receipts.recordedToast"), tone: "success" });
       setOverReceipt(false);
       setOverMessage(null);
       onRecorded();
@@ -101,37 +104,35 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
             {overMessage ? <p>{overMessage}</p> : null}
             <label className="mt-2 flex items-center gap-2.5">
               <Checkbox name="acknowledgeOverReceipt" value="true" defaultChecked disabled={pending} />
-              <span>Record it anyway — this is what actually arrived.</span>
+              <span>{t("receipts.overAck")}</span>
             </label>
           </div>
         ) : null}
 
         <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-5 border-0 p-0">
           <section className="nesto-card space-y-4 p-5">
-            <h2 className="text-card font-semibold text-fg">The delivery</h2>
+            <h2 className="text-card font-semibold text-fg">{t("receipts.delivery")}</h2>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Date received" name="receiptDate" required>
+              <Field label={t("receipts.dateReceived")} name="receiptDate" required>
                 <Input id="receiptDate" name="receiptDate" type="date" required defaultValue={localToday()} />
               </Field>
 
-              <Field label="Delivery note" name="deliveryReference" hint="Optional.">
+              <Field label={t("receipts.deliveryNote")} name="deliveryReference" hint={t("common.optional")}>
                 <Input id="deliveryReference" name="deliveryReference" maxLength={120} />
               </Field>
             </div>
 
-            <Field label="Notes" name="notes">
+            <Field label={t("common.notes")} name="notes">
               <Textarea id="notes" name="notes" rows={2} maxLength={2000} />
             </Field>
           </section>
 
           <section className="nesto-card overflow-hidden">
             <div className="p-5">
-              <h2 className="text-card font-semibold text-fg">What arrived</h2>
+              <h2 className="text-card font-semibold text-fg">{t("receipts.arrived")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
-                Prefilled with what is still outstanding; leave 0 for a line that did not arrive.
-                Anything turned away goes in the rejected column, and accepted is worked out from the
-                two.
+                {t("receipts.arrivedNote")}
               </p>
             </div>
 
@@ -147,7 +148,7 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
         <div className="flex items-center justify-end gap-2">
           <UnsavedIndicator save={save} />
           <Button type="submit" disabled={pending || Boolean(save.saved)}>
-            {pending ? "Recording…" : "Record delivery"}
+            {pending ? t("receipts.recording") : t("receipts.record")}
           </Button>
         </div>
       </form>
@@ -157,6 +158,7 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
 
 /** One order line's delivery; its server errors are `items.<index>.<field>`. */
 function ReceiptLine({ item, index, errors }: { item: OrderDetailDTO["items"][number]; index: number; errors: Record<string, string[]> }) {
+  const t = useProcurementTranslations();
   const [received, setReceived] = React.useState(item.outstandingQuantity);
   const [rejected, setRejected] = React.useState("0");
   const [edited, setEdited] = React.useState<Record<string, boolean>>({});
@@ -171,7 +173,7 @@ function ReceiptLine({ item, index, errors }: { item: OrderDetailDTO["items"][nu
     <div className="space-y-2" data-line-row={item.id}>
       <p className="text-table font-medium text-fg">{item.description}</p>
       <p className="text-meta text-fg-subtle">
-        {item.quantity} {item.unit} ordered · {item.receivedQuantity} received so far · {item.outstandingQuantity} outstanding
+        {t("receipts.lineSummary", { quantity: item.quantity, unit: item.unit, received: item.receivedQuantity, outstanding: item.outstandingQuantity })}
       </p>
 
       <input type="hidden" name={`items.${index}.purchaseOrderItemId`} value={item.id} />
@@ -181,11 +183,11 @@ function ReceiptLine({ item, index, errors }: { item: OrderDetailDTO["items"][nu
         <DecimalCell
           id={`receipt-${item.id}-received`}
           name={`items.${index}.receivedQuantity`}
-          label="Received now"
+          label={t("receipts.receivedNow")}
           unit={item.unit}
           value={received}
           required={false}
-          rule={{ label: "Received quantity", ...RATE_RULE }}
+          rule={{ label: t("receipts.receivedQuantity"), ...RATE_RULE }}
           serverError={error("receivedQuantity")}
           onChange={(value) => {
             setReceived(value);
@@ -195,11 +197,11 @@ function ReceiptLine({ item, index, errors }: { item: OrderDetailDTO["items"][nu
         <DecimalCell
           id={`receipt-${item.id}-rejected`}
           name={`items.${index}.rejectedQuantity`}
-          label="Rejected"
+          label={t("common.rejected")}
           unit={item.unit}
           value={rejected}
           required={false}
-          rule={{ label: "Rejected quantity", ...RATE_RULE }}
+          rule={{ label: t("receipts.rejectedQuantity"), ...RATE_RULE }}
           serverError={error("rejectedQuantity")}
           onChange={(value) => {
             setRejected(value);

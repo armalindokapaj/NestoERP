@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Factory } from "lucide-react";
@@ -28,8 +29,12 @@ import {
   supplierTypeLabels,
 } from "@/lib/modules/procurement/procurement.status";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
-export const metadata: Metadata = { title: "Suppliers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("procurement");
+  return { title: t("meta.suppliers") };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -51,6 +56,7 @@ export default async function SuppliersPage({
   if (!(await canReadProcurement(context, "procurement.supplier.view"))) redirect("/access-denied");
 
   const experience = await resolveProcurementExperience(context);
+  const t = await getTranslations("procurement");
   const params = await searchParams;
 
   return (
@@ -60,7 +66,7 @@ export default async function SuppliersPage({
       actions={
         !inGroupWorkspace(context) && can(context, "procurement.supplier.create") ? (
           <Button asChild size="sm">
-            <Link href="/procurement/suppliers/new">New supplier</Link>
+            <Link href="/procurement/suppliers/new">{t("suppliers.newSupplier")}</Link>
           </Button>
         ) : null
       }
@@ -90,6 +96,7 @@ async function SupplierList({
     .filter((value) => (SUPPLIER_TYPES as readonly string[]).includes(value));
 
   const group = inGroupWorkspace(context);
+  const t = await getTranslations("procurement");
 
   const query = supplierListQuerySchema.parse({
     // The Group `company` filter; a company workspace never reads it (§86, §87).
@@ -117,26 +124,26 @@ async function SupplierList({
 
   const filters: FilterConfig[] = [
     ...(group && options.companies.length > 1
-      ? [{ param: "company", label: "Company", options: options.companies }]
+      ? [{ param: "company", label: t("common.company"), options: options.companies }]
       : []),
     {
       param: "status",
-      label: "Status",
+      label: t("common.status"),
       options: SUPPLIER_STATUSES.map((value) => ({
         value,
-        label: supplierStatusLabels[value],
+        label: procurementLabel(t, "supplierStatus", value, supplierStatusLabels[value]),
       })),
     },
     {
       param: "type",
-      label: "Type",
-      options: SUPPLIER_TYPES.map((value) => ({ value, label: supplierTypeLabels[value] })),
+      label: t("common.type"),
+      options: SUPPLIER_TYPES.map((value) => ({ value, label: procurementLabel(t, "supplierType", value, supplierTypeLabels[value]) })),
     },
     ...(options.countries.length > 1
       ? [
           {
             param: "country",
-            label: "Country",
+            label: t("common.country"),
             options: options.countries.map((country) => ({ value: country, label: country })),
           },
         ]
@@ -150,14 +157,14 @@ async function SupplierList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search name, code or tax number…"
+        searchPlaceholder={t("suppliers.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "code-asc", label: "Supplier code" },
-          { value: "updated-desc", label: "Recently updated" },
-          { value: "created-desc", label: "Recently added" },
+          { value: "name-asc", label: t("suppliers.sortNameAsc") },
+          { value: "name-desc", label: t("suppliers.sortNameDesc") },
+          { value: "code-asc", label: t("suppliers.sortCode") },
+          { value: "updated-desc", label: t("common.recentlyUpdated") },
+          { value: "created-desc", label: t("suppliers.sortAdded") },
         ]}
       />
 
@@ -165,22 +172,22 @@ async function SupplierList({
         hasFilters ? (
           <EmptyState
             icon={<Factory />}
-            title="No suppliers match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: "/procurement/suppliers" }}
+            title={t("suppliers.noMatch")}
+            description={t("common.adjustFilters")}
+            action={{ label: t("common.clearFilters"), href: "/procurement/suppliers" }}
           />
         ) : (
           <EmptyState
             icon={<Factory />}
-            title="No suppliers yet."
+            title={t("suppliers.empty")}
             description={
               group
-                ? "No company you can read has a supplier yet. Adding one is done inside a company."
-                : "A supplier is who the company buys from — separate from a client, who is who it sells to."
+                ? t("suppliers.emptyGroup")
+                : t("suppliers.emptyCompany")
             }
             action={
               !group && can(context, "procurement.supplier.create")
-                ? { label: "New supplier", href: "/procurement/suppliers/new" }
+                ? { label: t("suppliers.newSupplier"), href: "/procurement/suppliers/new" }
                 : undefined
             }
           />

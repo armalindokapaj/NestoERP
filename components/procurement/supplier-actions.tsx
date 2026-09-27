@@ -10,11 +10,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { supplierLifecycleAction } from "@/lib/actions/procurement";
 import type { SupplierDetailDTO } from "@/lib/modules/procurement/procurement.types";
+import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /** What a reader may do to a supplier (PRD #19 §36–§38). */
 export function SupplierActions({ supplier }: { supplier: SupplierDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useProcurementTranslations();
+  const serverText = useProcurementServerText();
   const [pending, startTransition] = React.useTransition();
   const [archiving, setArchiving] = React.useState(false);
 
@@ -28,7 +31,7 @@ export function SupplierActions({ supplier }: { supplier: SupplierDetailDTO }) {
         toast({ title: success, tone: "success" });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -39,14 +42,14 @@ export function SupplierActions({ supplier }: { supplier: SupplierDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/procurement/suppliers/${supplier.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("common.edit")}
           </Link>
         </Button>
       ) : null}
 
       {may.canArchive ? (
         <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArchiving(true)}>
-          Archive
+          {t("common.archive")}
         </Button>
       ) : null}
 
@@ -55,20 +58,20 @@ export function SupplierActions({ supplier }: { supplier: SupplierDetailDTO }) {
           variant="secondary"
           size="sm"
           disabled={pending}
-          onClick={() => run("restore", "Supplier restored as inactive.")}
+          onClick={() => run("restore", t("suppliers.restored"))}
         >
-          Restore
+          {t("common.restore")}
         </Button>
       ) : null}
 
       <ConfirmDialog
         open={archiving}
         onOpenChange={setArchiving}
-        title={`Archive ${supplier.name}?`}
-        description="They leave the directory and cannot be named on new buying. Orders already running must be closed first."
-        confirmLabel="Archive supplier"
+        title={t("suppliers.archiveTitle", { name: supplier.name })}
+        description={t("suppliers.archiveDescription")}
+        confirmLabel={t("suppliers.archiveConfirm")}
         pending={pending}
-        onConfirm={() => run("archive", "Supplier archived.")}
+        onConfirm={() => run("archive", t("suppliers.archivedToast"))}
       />
     </>
   );

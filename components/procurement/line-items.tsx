@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { compareDecimal, isPositiveDecimal, pricedLinePreview, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
+import { useProcurementTranslations } from "./procurement-text";
 
 /**
  * The line editor every priced document shares (PRD #19 §266; AUD-09 §3, §7,
@@ -56,14 +57,12 @@ const EMPTY: LineValue = {
   category: "",
 };
 
-const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : "Quantity must be more than zero");
-const fractionRate = (value: string) => (compareDecimal(value, "1") <= 0 ? null : "Tax rate is a fraction such as 0.2 and cannot exceed 1");
 
 export function LineItemsEditor({
   initial,
   columns,
   categories,
-  priceLabel = "Unit price",
+  priceLabel: priceLabelProp,
   priceField = "unitPrice",
   currency,
 }: {
@@ -75,6 +74,10 @@ export function LineItemsEditor({
   /** Shown beside the price, when the document has one. */
   currency?: string;
 }) {
+  const t = useProcurementTranslations();
+  const priceLabel = priceLabelProp ?? t("common.unitPrice");
+  const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : t("lineItems.positiveQuantity"));
+  const fractionRate = (value: string) => (compareDecimal(value, "1") <= 0 ? null : t("lineItems.fractionRate"));
   const instance = React.useId();
   const empty = React.useCallback((): LineValue => ({ ...EMPTY }), []);
   const { rows, add, remove, update, atLimit, removed, undo, dismissRemoved } = useLineRows(initial ?? [], empty, { max: MAX_LINE_ITEMS });
@@ -104,7 +107,7 @@ export function LineItemsEditor({
   return (
     <div className="space-y-3" aria-describedby={errors.list ? listErrorId : undefined}>
       <p className="text-meta text-fg-subtle">
-        Quantities and prices take up to 4 decimals, e.g. 12.5 or 12,5.{showTax ? " Tax is a fraction: 0.2 is 20%." : ""}
+        {t("lineItems.hint")}{showTax ? t("lineItems.taxHint") : ""}
       </p>
       <CellError id={listErrorId} message={errors.list} />
 
@@ -116,13 +119,13 @@ export function LineItemsEditor({
           return (
             <div key={row.rowId} className="nesto-card space-y-3 p-4" data-line-row={row.rowId}>
               <div className="flex items-start justify-between gap-3">
-                <p className="nesto-eyebrow text-fg-subtle">Line {index + 1}</p>
+                <p className="nesto-eyebrow text-fg-subtle">{t("lineItems.line", { number: index + 1 })}</p>
                 {rows.length > 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`Remove line ${index + 1}${row.description ? `: ${row.description}` : ""}`}
+                    aria-label={row.description ? t("lineItems.removeNamed", { number: index + 1, description: row.description }) : t("lineItems.remove", { number: index + 1 })}
                     onClick={() => remove(row.rowId)}
                   >
                     <Trash2 aria-hidden="true" />
@@ -133,7 +136,7 @@ export function LineItemsEditor({
               {row.id ? <input type="hidden" name={`items.${index}.id`} value={row.id} /> : null}
 
               <div className="space-y-1.5">
-                <Label htmlFor={`${base}-description`}>Description</Label>
+                <Label htmlFor={`${base}-description`}>{t("common.description")}</Label>
                 <Input
                   id={`${base}-description`}
                   name={`items.${index}.description`}
@@ -152,16 +155,16 @@ export function LineItemsEditor({
                 <DecimalCell
                   id={`${base}-quantity`}
                   name={`items.${index}.quantity`}
-                  label="Quantity"
+                  label={t("common.quantity")}
                   value={row.quantity}
-                  rule={{ label: "Quantity", ...RATE_RULE }}
+                  rule={{ label: t("common.quantity"), ...RATE_RULE }}
                   refine={positiveQuantity}
                   serverError={rowErrors.quantity}
                   onChange={(value) => change(row.rowId, "quantity", value)}
                 />
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${base}-unit`}>Unit</Label>
+                  <Label htmlFor={`${base}-unit`}>{t("common.unit")}</Label>
                   <Input
                     id={`${base}-unit`}
                     name={`items.${index}.unit`}
@@ -169,7 +172,7 @@ export function LineItemsEditor({
                     onChange={(event) => change(row.rowId, "unit", event.target.value)}
                     required
                     maxLength={24}
-                    placeholder="each, m3, tonne…"
+                    placeholder={t("lineItems.unitPlaceholder")}
                     aria-invalid={rowErrors.unit ? true : undefined}
                     aria-describedby={rowErrors.unit ? `${base}-unit-error` : undefined}
                   />
@@ -194,10 +197,10 @@ export function LineItemsEditor({
                   <DecimalCell
                     id={`${base}-taxRate`}
                     name={`items.${index}.taxRate`}
-                    label="Tax rate"
-                    unit="fraction"
+                    label={t("lineItems.taxRate")}
+                    unit={t("lineItems.fraction")}
                     value={row.taxRate ?? ""}
-                    rule={{ label: "Tax rate", scale: 4, maxIntegerDigits: 1 }}
+                    rule={{ label: t("lineItems.taxRate"), scale: 4, maxIntegerDigits: 1 }}
                     required={false}
                     refine={fractionRate}
                     serverError={rowErrors.taxRate}
@@ -207,7 +210,7 @@ export function LineItemsEditor({
 
                 {showCategory ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor={`${base}-category`}>Category</Label>
+                    <Label htmlFor={`${base}-category`}>{t("common.category")}</Label>
                     <select
                       id={`${base}-category`}
                       name={`items.${index}.category`}
@@ -217,7 +220,7 @@ export function LineItemsEditor({
                       aria-invalid={rowErrors.category ? true : undefined}
                       aria-describedby={rowErrors.category ? `${base}-category-error` : undefined}
                     >
-                      <option value="">Not set</option>
+                      <option value="">{t("common.notSet")}</option>
                       {categories!.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -231,9 +234,9 @@ export function LineItemsEditor({
 
               {showPrice ? (
                 <p className="text-meta text-fg-subtle">
-                  Line total (preview){" "}
+                  {t("lineItems.previewPrefix")}{" "}
                   <span className="tabular-nums text-fg">{preview ? preview.totalAmount : "—"}</span>
-                  {showTax ? " including tax." : " before tax."}
+                  {showTax ? t("lineItems.includingTax") : t("lineItems.beforeTax")}
                 </p>
               ) : null}
             </div>
@@ -247,11 +250,11 @@ export function LineItemsEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button type="button" variant="secondary" size="sm" onClick={add} disabled={atLimit}>
           <Plus aria-hidden="true" />
-          Add line
+          {t("lineItems.addLine")}
         </Button>
         {showPrice ? (
           <p className="text-table text-fg-muted">
-            Total (preview){" "}
+            {t("lineItems.totalPreview")}{" "}
             <span className="font-semibold tabular-nums text-fg">
               {documentTotal ?? "—"}
               {documentTotal && currency ? ` ${currency}` : ""}
@@ -259,7 +262,7 @@ export function LineItemsEditor({
           </p>
         ) : null}
       </div>
-      {atLimit ? <p className="text-meta text-fg-subtle">A document can have at most {MAX_LINE_ITEMS} lines.</p> : null}
+      {atLimit ? <p className="text-meta text-fg-subtle">{t("lineItems.limit", { count: MAX_LINE_ITEMS })}</p> : null}
     </div>
   );
 }
