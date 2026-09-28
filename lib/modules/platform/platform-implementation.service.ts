@@ -12,6 +12,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { bootstrapCompany } from "@/lib/modules/company/company-bootstrap.service";
+import { freeSlug } from "@/lib/modules/platform/platform-company.service";
 import {
   GROUP_LEVEL_ROLES,
   type CreateGroupCompanyInput,
@@ -77,12 +78,14 @@ function departmentKeyFor(role: string): string {
 export async function createParentGroup(context: PlatformContext, input: CreateParentGroupInput): Promise<{ id: string }> {
   assertPlatform(context, "platform.group.create");
   return prisma.$transaction(async (tx) => {
-    if ((await tx.parentGroup.count({ where: { slug: input.slug } })) > 0) {
+    if (input.slug && (await tx.parentGroup.count({ where: { slug: input.slug } })) > 0) {
       throw new AccessError("CONFLICT", "Another group already uses that slug.", { field: "slug" });
     }
+    // A name is enough (Organizations PRD §18): the code is made from it when not given.
+    const slug = input.slug ?? (await freeSlug(tx, input.name));
     const group = await tx.parentGroup.create({
       data: {
-        slug: input.slug,
+        slug,
         name: input.name,
         legalName: input.legalName ?? null,
         country: input.country ?? null,
@@ -94,7 +97,7 @@ export async function createParentGroup(context: PlatformContext, input: CreateP
     });
     // Every function once for the group, from the start (§11, §36).
     await tx.groupDepartment.createMany({ data: groupDepartmentRows(group.id), skipDuplicates: true });
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, entity: { type: "ParentGroup", id: group.id, label: input.name }, after: { slug: input.slug, name: input.name, status: "IMPLEMENTING" } }, { tx });
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, entity: { type: "ParentGroup", id: group.id, label: input.name }, after: { slug, name: input.name, status: "IMPLEMENTING" } }, { tx });
     return group;
   });
 }
@@ -259,7 +262,9 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
   assertPlatform(context, "platform.company.create");
   const group = await groupOrNotFound(groupId);
   if (group.status === "ARCHIVED" || group.status === "SUSPENDED") throw new AccessError("CONFLICT", "Companies are not added to a suspended or archived group.", { code: "GROUP_CLOSED" });
-  if ((await prisma.company.count({ where: { slug: input.slug } })) > 0) throw new AccessError("CONFLICT", "Another company already uses that slug.", { field: "slug" });
+  if (input.slug && (await prisma.company.count({ where: { slug: input.slug } })) > 0) throw new AccessError("CONFLICT", "Another company already uses that slug.", { field: "slug" });
+  // A name is enough (Organizations PRD §3, §26): the code is made from it when not given.
+  const slug = input.slug ?? (await freeSlug(prisma, input.name));
 
   // The departments it runs, chosen among the group's active ones (E-13 §48, §49).
   let departmentKeys: string[] | undefined;
@@ -271,7 +276,7 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
 
   const result = await bootstrapCompany({
     name: input.name,
-    slug: input.slug,
+    slug: slug,
     legalName: input.legalName,
     registrationNumber: input.registrationNumber,
     taxNumber: input.taxNumber,
@@ -302,7 +307,7 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
       });
       if (joined.count > 0 && branch) await memberPlace(tx, { parentGroupId: group.id, userId, companyId: result.companyId, branch, roleKey: held.role.key, actorUserId: context.userId });
     }
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, entity: { type: "Company", id: result.companyId, label: input.name }, after: { companyId: result.companyId, slug: input.slug, name: input.name, groupLevelMembers: groupLevel.length } }, { tx });
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, entity: { type: "Company", id: result.companyId, label: input.name }, after: { companyId: result.companyId, slug, name: input.name, groupLevelMembers: groupLevel.length } }, { tx });
   });
 
   return { companyId: result.companyId };

@@ -50,8 +50,8 @@ export function slugFromName(name: string): string {
   return base.length >= 2 ? base : "company";
 }
 
-/** The first code free for both the company and its standalone root. */
-async function freeSlug(client: Prisma.TransactionClient | typeof prisma, name: string): Promise<string> {
+/** The first code free for both companies and roots (groups and standalone roots). */
+export async function freeSlug(client: Prisma.TransactionClient | typeof prisma, name: string): Promise<string> {
   const base = slugFromName(name);
   for (let attempt = 1; attempt < 1000; attempt += 1) {
     const candidate = attempt === 1 ? base : `${base.slice(0, SLUG_MAX - String(attempt).length - 1)}-${attempt}`;
@@ -124,11 +124,23 @@ export async function attachCompanyToGroup(context: PlatformContext, companyId: 
   assertPlatform(context, "platform.company.configure");
   const company = await companyOrNotFound(companyId);
   if (company.parentGroup.kind !== "STANDALONE") throw new AccessError("CONFLICT", "This company already belongs to a group. Detach it first.", { code: "ALREADY_IN_GROUP" });
+  const group = await openGroup(groupId);
+  await prisma.$transaction((tx) => attachInTx(tx, context, company, group, reason, true));
+}
+
+type MovingCompany = { id: string; name: string; parentGroupId: string };
+type TargetGroup = { id: string; name: string; status: string };
+
+async function openGroup(groupId: string): Promise<TargetGroup> {
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, kind: "GROUP", isTestFixture: false }, select: { id: true, name: true, status: true } }));
   if (group.status === "SUSPENDED" || group.status === "ARCHIVED") throw new AccessError("CONFLICT", "Companies are not added to a suspended or archived group.", { code: "GROUP_CLOSED" });
-  const rootId = company.parentGroupId;
+  return group;
+}
 
-  await prisma.$transaction(async (tx) => {
+/** The attach itself, inside the caller's transaction; `record` false when a move records one event instead. */
+async function attachInTx(tx: Prisma.TransactionClient, context: PlatformContext, company: MovingCompany, group: TargetGroup, reason: string, record: boolean): Promise<void> {
+  const rootId = company.parentGroupId;
+  {
     if ((await tx.company.count({ where: { parentGroupId: rootId } })) !== 1) throw new AccessError("CONFLICT", "The company's workspace is shared and cannot be merged.");
     await deferRootKeys(tx);
 
@@ -164,14 +176,14 @@ export async function attachCompanyToGroup(context: PlatformContext, companyId: 
 
     // Sessions carry the root they were built in; the next request builds afresh.
     await revokeSessions(tx, { companyId: company.id });
-    await recordPlatformAction(context, group.id, {
+    if (record) await recordPlatformAction(context, group.id, {
       actionKey: AuditAction.PLATFORM_COMPANY_ATTACHED_TO_GROUP,
       entity: { type: "Company", id: company.id, label: company.name },
       before: { companyId: company.id, structure: "STANDALONE" },
       after: { companyId: company.id, name: company.name, parentGroupId: group.id, parentGroupName: group.name, structure: "GROUP", people, departmentsMerged: merged },
       reason,
     }, { tx });
-  });
+  }
 }
 
 /** Every row of one root that is not the company or a department, moved to another. */
@@ -280,9 +292,13 @@ export async function detachCompanyFromGroup(context: PlatformContext, companyId
   assertPlatform(context, "platform.company.configure");
   const company = await companyOrNotFound(companyId);
   if (company.parentGroup.kind !== "GROUP") throw new AccessError("CONFLICT", "This company is already standalone.", { code: "ALREADY_STANDALONE" });
-  const group = company.parentGroup;
+  await prisma.$transaction((tx) => detachInTx(tx, context, company, reason, true));
+}
 
-  await prisma.$transaction(async (tx) => {
+/** The detach itself, inside the caller's transaction; returns the new standalone root. */
+async function detachInTx(tx: Prisma.TransactionClient, context: PlatformContext, company: MovingCompany & { parentGroup: { id: string; name: string } }, reason: string, record: boolean): Promise<string> {
+  const group = company.parentGroup;
+  {
     const plan = await planDetach(tx, company);
     if (plan.sharedNames.length > 0) {
       throw new AccessError("CONFLICT", `These people also work in another company of the group: ${plan.sharedNames.join(", ")}. End their place in one of the companies first.`, { code: "SHARED_PEOPLE" });
@@ -344,9 +360,41 @@ export async function detachCompanyFromGroup(context: PlatformContext, companyId
       reason,
     };
     // Recorded on both sides, so each keeps the history of the move.
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_DETACHED_FROM_GROUP, ...audit }, { tx });
-    await recordPlatformAction(context, root.id, { actionKey: AuditAction.PLATFORM_COMPANY_DETACHED_FROM_GROUP, ...audit }, { tx });
-  });
+    if (record) {
+      await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_DETACHED_FROM_GROUP, ...audit }, { tx });
+      await recordPlatformAction(context, root.id, { actionKey: AuditAction.PLATFORM_COMPANY_DETACHED_FROM_GROUP, ...audit }, { tx });
+    }
+    return root.id;
+  }
+}
+
+/**
+ * Moves a group company straight into another group, in one transaction
+ * (Organizations PRD §31, §72): the detach and the attach both happen or
+ * neither does, so the company is never left standalone half-way. The same
+ * rules hold as for each step — shared people refuse it, and no group-wide
+ * reach travels — and one event is recorded on each group.
+ */
+export async function moveCompanyToGroup(context: PlatformContext, companyId: string, groupId: string, reason: string): Promise<void> {
+  assertPlatform(context, "platform.company.configure");
+  const company = await companyOrNotFound(companyId);
+  if (company.parentGroup.kind !== "GROUP") throw new AccessError("CONFLICT", "This company is standalone. Assign it to a group instead.", { code: "ALREADY_STANDALONE" });
+  if (company.parentGroupId === groupId) throw new AccessError("CONFLICT", "The company already belongs to that group.", { code: "SAME_GROUP" });
+  const group = await openGroup(groupId);
+  const from = company.parentGroup;
+  await prisma.$transaction(async (tx) => {
+    const rootId = await detachInTx(tx, context, company, reason, false);
+    await attachInTx(tx, context, { ...company, parentGroupId: rootId }, group, reason, false);
+    const audit = {
+      actionKey: AuditAction.PLATFORM_COMPANY_MOVED_BETWEEN_GROUPS,
+      entity: { type: "Company", id: company.id, label: company.name },
+      before: { companyId: company.id, parentGroupId: from.id, parentGroupName: from.name },
+      after: { companyId: company.id, parentGroupId: group.id, parentGroupName: group.name },
+      reason,
+    };
+    await recordPlatformAction(context, from.id, audit, { tx });
+    await recordPlatformAction(context, group.id, audit, { tx });
+  }, { timeout: 30_000 });
 }
 
 /* -------------------------------------------------------------------------- */

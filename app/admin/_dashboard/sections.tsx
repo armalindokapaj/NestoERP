@@ -79,7 +79,7 @@ export async function FirstRun({ summary }: { summary: Promise<Summary> }) {
         <h2 className="text-card font-semibold text-fg">No companies have been created yet.</h2>
         <p className="mt-1 text-table text-fg-muted">Create the first company to begin configuring NESTO.</p>
       </div>
-      <Link href="/admin/organizations/companies?create=company" className="inline-flex h-9 items-center rounded-lg bg-accent px-3.5 text-table font-medium text-accent-fg hover:bg-accent-strong">Create company</Link>
+      <Link href="/admin/organizations?create=company" className="inline-flex h-9 items-center rounded-lg bg-accent px-3.5 text-table font-medium text-accent-fg hover:bg-accent-strong">Create company</Link>
     </section>
   );
 }
@@ -162,7 +162,7 @@ export async function OrganizationsSection({ context }: { context: PlatformConte
       {rows.length === 0 ? (
         <div className="px-5 py-4 text-table text-fg-muted">
           <p>No organizations yet. Create a Company or Parent Group.</p>
-          <Link href="/admin/organizations/companies?create=company" className="mt-2 inline-block font-medium text-accent-strong hover:underline">Create</Link>
+          <Link href="/admin/organizations?create=company" className="mt-2 inline-block font-medium text-accent-strong hover:underline">Create</Link>
         </div>
       ) : (
         <div className="overflow-x-auto">

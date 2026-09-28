@@ -121,19 +121,20 @@ test("a company's Finance manager staffs their own branch and cannot open anothe
 });
 
 test("the Platform Admin sets up a company with only the departments it needs, and staffs one (§124, §127)", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
-  await page.getByRole("button", { name: "Create parent group" }).click();
-  const create = page.getByTestId("create-group-dialog");
-  await create.getByRole("textbox", { name: /^Name/ }).fill("E2E North Group");
-  await create.getByLabel("Slug").fill(PLATFORM_GROUP);
-  await create.getByRole("button", { name: "Create group" }).click();
+  await signIn(page, "PLATFORM_ADMIN", { to: "/admin/organizations" });
+  await page.getByTestId("organization-create").click();
+  await page.getByRole("menuitem", { name: "Create Parent Group" }).click();
+  const create = page.getByTestId("new-group-dialog");
+  // The code is made from the name: "E2E North Group" → PLATFORM_GROUP.
+  await create.getByRole("textbox", { name: /^Group name/ }).fill("E2E North Group");
+  await create.getByRole("button", { name: "Create Group" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "E2E North Group" })).toBeVisible();
   const actions = page.getByTestId("implementation-actions");
 
   await actions.getByRole("button", { name: "New company" }).click();
   const company = page.getByTestId("create-company-dialog");
   await company.getByRole("textbox", { name: /^Name/ }).fill("E2E North Build");
-  await company.getByLabel("Slug").fill(`${PLATFORM_GROUP}-build`);
+  await company.getByLabel("Code").fill(`${PLATFORM_GROUP}-build`);
   // Every department starts ticked; this company runs three of them (§49).
   for (const department of GROUP_DEPARTMENTS.filter((row) => !["finance", "hr", "procurement"].includes(row.key))) {
     await company.getByRole("checkbox", { name: `${department.name} (${department.code})` }).uncheck();

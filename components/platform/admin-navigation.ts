@@ -27,11 +27,7 @@ export const adminDestinations: AdminDestination[] = [
   { key: "dashboard", label: "Dashboard", href: "/admin", icon: LayoutDashboard, permission: "platform.dashboard.view" },
   {
     key: "organizations", label: "Organizations", href: "/admin/organizations", icon: Building2, permission: "platform.group.view",
-    tabs: [
-      { label: "Groups", href: "/admin/organizations" },
-      { label: "Companies", href: "/admin/organizations/companies", permission: "platform.company.view" },
-      { label: "Implementations", href: "/admin/organizations/implementations", permission: "platform.implementation.manage" },
-    ],
+    // Its own All / Groups / Companies / Standalone tabs live in the page (Organizations PRD §6).
   },
   { key: "projects", label: "Projects", href: "/admin/projects", icon: FolderKanban, permission: "platform.project.view" },
   {
