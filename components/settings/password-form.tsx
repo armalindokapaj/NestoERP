@@ -24,7 +24,7 @@ const EMPTY = { currentPassword: "", newPassword: "", confirmPassword: "" };
  * the section title, never a value. Changing the password signs other sessions
  * out, so it is the form's own step: the prompt offers Stay or Discard only.
  */
-export function PasswordForm() {
+export function PasswordForm({ action = changePasswordAction }: { action?: typeof changePasswordAction } = {}) {
   const t = useTranslations("settings");
   const router = useRouter();
   const toast = useToast();
@@ -48,7 +48,7 @@ export function PasswordForm() {
     void (async () => {
       let result: Awaited<ReturnType<typeof changePasswordAction>>;
       try {
-        result = await changePasswordAction(values);
+        result = await action(values);
       } catch {
         // No answer: the password may or may not have changed (§6).
         setUnresolved(true);

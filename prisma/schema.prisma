@@ -1354,15 +1354,22 @@ model User {
   /// was used (PRD #50 §17).
   temporaryPasswordExpiresAt DateTime?
 
+  /// A verified address that may receive password-recovery links (ADM-01).
+  /// Unlike `email`, ownership is proven: it is only ever written by a
+  /// completed verification challenge.
+  recoveryEmail           String?   @unique
+  recoveryEmailVerifiedAt DateTime?
+
   phone       String?
   avatarUrl   String?
   status      UserStatus @default(ACTIVE)
   lastLoginAt DateTime?
 
-  memberships         CompanyMember[]
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
-  authEvents          AuthEvent[]
+  memberships             CompanyMember[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  recoveryEmailChallenges RecoveryEmailChallenge[]
+  authEvents              AuthEvent[]
 
   /// The person this login belongs to (E-06 §26, E-08 §60). One login, one person;
   /// a person may exist long before, or without, a login.
@@ -4081,13 +4088,13 @@ enum WorkspaceScope {
 /// so revoking access is a delete rather than a wait for a token to expire
 /// (PRD #6 §51, §113).
 model Session {
-  id               String          @id @default(cuid())
-  sessionToken     String          @unique
-  userId           String
+  id                    String          @id @default(cuid())
+  sessionToken          String          @unique
+  userId                String
   /// Both null for a platform session: the Platform Admin works outside every
   /// company and has no membership to point at (E-06 §6.1, §19, §116).
-  membershipId     String?
-  currentCompanyId String?
+  membershipId          String?
+  currentCompanyId      String?
   /// The workspace the session works in (Workspace Context §4, §15). COMPANY is
   /// one company, the membership above. GROUP is the parent group: the
   /// membership stays as the home company that keeps the operational context
@@ -4095,16 +4102,16 @@ model Session {
   /// NULL: not chosen yet. A new sign-in starts there, and the context resolver
   /// — the one place that can read a person's standing — fills in the default
   /// (§16). Server state only: nothing a browser sends is read for it (§14, §15).
-  workspaceScope   WorkspaceScope?
+  workspaceScope        WorkspaceScope?
   /// Monotonic context generation. Every successful workspace transition
   /// increments it so stale browser responses and other tabs can be rejected.
-  workspaceVersion Int             @default(0)
+  workspaceVersion      Int             @default(0)
   /// Client transition ordering for this session. A late older request cannot
   /// overwrite a workspace selected more recently.
-  workspaceTransitionId BigInt     @default(0)
-  expiresAt        DateTime
-  userAgent        String?
-  ipAddress        String?
+  workspaceTransitionId BigInt          @default(0)
+  expiresAt             DateTime
+  userAgent             String?
+  ipAddress             String?
 
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   membership CompanyMember? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
@@ -4122,6 +4129,24 @@ model Session {
 
 /// Only the hash is stored; the raw token exists solely in the emailed link
 /// (PRD #6 §57).
+/// Proof that a person controls an address before it becomes their recovery
+/// email (ADM-01). The raw token exists only in the emailed link.
+model RecoveryEmailChallenge {
+  id        String    @id @default(cuid())
+  userId    String
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("recovery_email_challenges")
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String

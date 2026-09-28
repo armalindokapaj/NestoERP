@@ -29,7 +29,11 @@ export type SessionRow = {
 };
 
 /** Where the person is signed in, and a way to end each of those sessions (PRD #38 §20). */
-export function SessionList({ sessions }: { sessions: SessionRow[] }) {
+export type SessionActions = { revokeOne: typeof revokeSessionAction; revokeOthers: typeof revokeOtherSessionsAction; everywhere: typeof signOutEverywhereAction };
+
+const TENANT_ACTIONS: SessionActions = { revokeOne: revokeSessionAction, revokeOthers: revokeOtherSessionsAction, everywhere: signOutEverywhereAction };
+
+export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: SessionRow[]; actions?: SessionActions }) {
   const t = useTranslations("settings");
   const router = useRouter();
   const toast = useToast();
@@ -41,7 +45,7 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
   function revoke(sessionId: string) {
     setPendingId(sessionId);
     startTransition(async () => {
-      const result = await revokeSessionAction(sessionId);
+      const result = await actions.revokeOne(sessionId);
       setPendingId(null);
       if (!result.ok) toast({ title: t(`profile.errors.${result.code === "NOT_FOUND" ? "NOT_FOUND" : "SAVE_FAILED"}`), tone: "danger" });
       router.refresh();
@@ -50,7 +54,7 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
 
   function revokeOthers() {
     startTransition(async () => {
-      const result = await revokeOtherSessionsAction();
+      const result = await actions.revokeOthers();
       if (result.ok) {
         toast({ title: t("profile.sessions.othersDone", { count: result.revokedSessions ?? 0 }), tone: "success" });
       }
@@ -65,7 +69,7 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
     if (!approval || !approval.run(() => undefined)) return;
     startTransition(async () => {
       try {
-        await signOutEverywhereAction();
+        await actions.everywhere();
       } catch (error) {
         // The redirect to sign-in is the departure itself; anything else failed.
         if (!isNextControlFlow(error)) approval.release();

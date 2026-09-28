@@ -1,13 +1,18 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
 import { SignInRateLimited } from "@/lib/auth/errors";
 import { recordAuthEvent } from "@/lib/auth/events";
 import { credentialsSchema } from "@/lib/auth/schema";
 import { revokeSession } from "@/lib/auth/session-store";
+import { completePasswordReset, confirmRecoveryEmail, requestPasswordReset } from "@/lib/auth/password-recovery";
+import { clientAddress, hitThrottle, userAgentOf } from "@/lib/core/security/throttle";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 
@@ -98,3 +103,70 @@ export async function signOutAction(): Promise<void> {
   redirect("/login");
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* Password recovery (ADM-01)                                                  */
+/* -------------------------------------------------------------------------- */
+
+const recoveryIdentifier = z.string().trim().min(1).max(254);
+const resetSchema = z
+  .object({
+    token: z.string().min(20).max(200),
+    password: z.string().min(10, "Use at least 10 characters").max(200, "That password is too long"),
+    confirmPassword: z.string().min(1, "Confirm your new password"),
+  })
+  .refine((values) => values.password === values.confirmPassword, { message: "Both passwords must match", path: ["confirmPassword"] });
+
+/**
+ * Asks for a reset link. The answer is the same whether or not the account
+ * exists, has a verified recovery address, or was throttled — and the lookup
+ * and sending happen after the response, so its timing says nothing either.
+ */
+export async function requestPasswordResetAction(identifier: string): Promise<{ ok: true }> {
+  const parsed = recoveryIdentifier.safeParse(identifier);
+  if (!parsed.success) return { ok: true };
+  const requestHeaders = await headers();
+  const ipAddress = clientAddress(requestHeaders);
+  const userAgent = userAgentOf(requestHeaders);
+  const allowance = await hitThrottle("AUTH_RESET_REQUEST", { account: parsed.data.toLowerCase(), ip: ipAddress });
+  if (!allowance.allowed) return { ok: true };
+  after(async () => {
+    try {
+      await requestPasswordReset(parsed.data, { ipAddress, userAgent });
+    } catch (error) {
+      logger.error("auth.reset_request_failed", { error: serialiseError(error) });
+    }
+  });
+  return { ok: true };
+}
+
+export type ResetPasswordResult = { ok: true } | { ok: false; error: string; expired?: boolean };
+
+/** Sets a new password from a reset link. Never signs the person in. */
+export async function resetPasswordAction(input: { token: string; password: string; confirmPassword: string }): Promise<ResetPasswordResult> {
+  const parsed = resetSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please review the form and try again." };
+  const requestHeaders = await headers();
+  const meta = { ipAddress: clientAddress(requestHeaders), userAgent: userAgentOf(requestHeaders) };
+  const allowance = await hitThrottle("AUTH_RESET_SUBMIT", { token: parsed.data.token, ip: meta.ipAddress });
+  if (!allowance.allowed) return { ok: false, error: "Too many attempts. Wait a few minutes and try again." };
+  const result = await completePasswordReset(parsed.data.token, parsed.data.password, meta);
+  if (result.ok) return { ok: true };
+  return {
+    ok: false,
+    expired: true,
+    error: result.reason === "EXPIRED" ? "That reset link has expired. Request a new one." : "That reset link is no longer valid. Request a new one.",
+  };
+}
+
+/** Confirms a recovery address from its emailed link — on a button press, so a link preview cannot spend it. */
+export async function confirmRecoveryEmailAction(token: string): Promise<{ ok: true } | { ok: false; reason: "EXPIRED" | "INVALID" | "RATE_LIMITED" }> {
+  if (typeof token !== "string" || token.length < 20 || token.length > 200) return { ok: false, reason: "INVALID" };
+  const requestHeaders = await headers();
+  const meta = { ipAddress: clientAddress(requestHeaders), userAgent: userAgentOf(requestHeaders) };
+  const allowance = await hitThrottle("AUTH_RESET_SUBMIT", { token, ip: meta.ipAddress });
+  if (!allowance.allowed) return { ok: false, reason: "RATE_LIMITED" };
+  const result = await confirmRecoveryEmail(token, meta);
+  if (result.ok) return { ok: true };
+  return { ok: false, reason: result.reason === "VALID" ? "INVALID" : result.reason };
+}

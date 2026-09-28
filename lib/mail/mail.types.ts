@@ -17,6 +17,10 @@ export const MAIL_TEMPLATE_KEYS = [
   "calendar.reminder",
   "meeting.invitation",
   "announcement.critical",
+  "auth.password_reset",
+  "auth.password_reset_completed",
+  "auth.recovery_email_verify",
+  "auth.recovery_email_changed",
 ] as const;
 
 export type MailTemplateKey = (typeof MAIL_TEMPLATE_KEYS)[number];

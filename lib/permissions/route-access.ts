@@ -16,6 +16,9 @@ export const PUBLIC_ROUTES = [
   "/",
   "/login",
   "/forgot-password",
+  /* Recovery links (ADM-01): the token is in the query, and the page checks it. */
+  "/reset-password",
+  "/verify-recovery-email",
   /* Public site (app/(public)/(site)) */
   "/platform",
   "/pricing",
