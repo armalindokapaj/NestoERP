@@ -1466,6 +1466,7 @@ model Company {
   integrationSettings CompanyIntegrationSettings?
   storageQuota        CompanyStorageQuota?
   storageUsage        CompanyStorageUsage?
+  entitlement         CompanyEntitlement?
   uploadSessions      DocumentUploadSession[]
   numberingSchemes    CompanyNumberingScheme[]
 
@@ -12939,4 +12940,85 @@ model PricingAuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([action, createdAt])
   @@map("pricing_audit_logs")
+}
+
+/// What a company may use (Admin Modules PRD #4 §3): the plan it holds, its
+/// limits and its per-module exceptions. Configuration inside a granted module
+/// stays with the company (`CompanyModule.enabled`); a module is on for its
+/// users only when it is both entitled here and switched on there.
+enum EntitlementPlanStatus {
+  ACTIVE
+  RETIRED
+}
+
+enum ModuleEntitlementMode {
+  ENABLED
+  DISABLED
+  TRIAL
+}
+
+/// A reusable entitlement template (§24-§26). Never a price: pricing refers
+/// to plans separately.
+model EntitlementPlan {
+  id              String                @id @default(cuid())
+  key             String                @unique
+  name            String
+  description     String?
+  status          EntitlementPlanStatus @default(ACTIVE)
+  /// Switchable module keys the plan grants; core modules are always granted.
+  moduleKeys      String[]
+  maxActiveUsers  Int?
+  maxProjects     Int?
+  maxStorageBytes BigInt?
+
+  companies CompanyEntitlement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("entitlement_plans")
+}
+
+/// One company's plan and limits (§27, §47). No plan is "Custom": only its
+/// overrides grant modules. A null limit is unlimited.
+model CompanyEntitlement {
+  companyId       String  @id
+  planId          String?
+  maxActiveUsers  Int?
+  maxProjects     Int?
+  /// Optimistic version for staged saves (§62-§64).
+  version         Int     @default(0)
+  updatedByUserId String?
+
+  company   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan      EntitlementPlan?           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  overrides CompanyModuleEntitlement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planId])
+  @@map("company_entitlements")
+}
+
+/// A company's exception to its plan for one module (§21-§23, §28): on, off,
+/// or a trial between two dates. `startsAt` alone schedules an ENABLED grant.
+model CompanyModuleEntitlement {
+  id              String                @id @default(cuid())
+  companyId       String
+  moduleKey       String
+  mode            ModuleEntitlementMode
+  startsAt        DateTime?
+  endsAt          DateTime?
+  note            String?
+  updatedByUserId String?
+
+  entitlement CompanyEntitlement @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, moduleKey])
+  @@index([moduleKey])
+  @@map("company_module_entitlements")
 }

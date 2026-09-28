@@ -66,7 +66,9 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
         // Blockers explain why something cannot be turned *off*, so they never
         // stand in the way of turning one back on.
         const blocker = module.enabled ? module.blockers[0] : undefined;
-        const disabled = !module.canManage || pendingKey !== null || Boolean(blocker);
+        // Outside the company's plan the switch has no effect, so it cannot be turned on (Admin Modules PRD #4 §3).
+        const notEntitled = !module.entitled && !module.enabled;
+        const disabled = !module.canManage || pendingKey !== null || Boolean(blocker) || notEntitled;
 
         return (
           <div key={module.key} className="flex items-center gap-3 px-5 py-3.5">
@@ -79,6 +81,9 @@ export function ModuleToggleList({ modules }: { modules: CompanyModuleDTO[] }) {
               <p className="truncate text-meta text-fg-subtle">
                 {definition ? tModules(`${definition.key}.description`) : module.key}
               </p>
+              {!module.entitled ? (
+                <p className="mt-1 text-meta text-fg-muted">{t("modules.notEntitled")}</p>
+              ) : null}
               {blocker ? (
                 <p className="mt-1 flex items-start gap-1.5 text-meta text-warning">
                   <TriangleAlert className="mt-px size-3.5 shrink-0" />

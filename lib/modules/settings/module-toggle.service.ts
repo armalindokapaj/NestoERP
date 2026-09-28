@@ -9,6 +9,7 @@ import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { integrationBlockers } from "./integration-settings.service";
+import { entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
 
 /**
  * Module activation (PRD #24 §50-§70, PRD #37 §31).
@@ -42,6 +43,8 @@ export type CompanyModuleDTO = {
   description: string;
   enabled: boolean;
   requiredCore: boolean;
+  /** Granted by the platform; a module outside the plan cannot be switched on here. */
+  entitled: boolean;
   dependencies: Array<{ moduleKey: ModuleKey; enabled: boolean }>;
   blockers: ModuleBlocker[];
   canManage: boolean;
@@ -114,7 +117,8 @@ async function disableBlockers(
 export async function listCompanyModules(context: UserContext): Promise<CompanyModuleDTO[]> {
   assertPermission(context, "company.modules.view");
   const canManage = context.permissions.includes("company.modules.manage");
-  const enabled = await enabledMap(context.companyId);
+  const [enabled, entitled] = await Promise.all([enabledMap(context.companyId), entitledModulesFor([context.companyId])]);
+  const granted = entitled.get(context.companyId) ?? new Set<ModuleKey>();
 
   return Promise.all(
     MODULE_KEYS.map(async (key) => ({
@@ -123,6 +127,7 @@ export async function listCompanyModules(context: UserContext): Promise<CompanyM
       description: registry[key].description,
       enabled: enabled.get(key) ?? false,
       requiredCore: CORE_MODULES.includes(key),
+      entitled: granted.has(key),
       dependencies: (DEPENDENCIES[key] ?? []).map((dep) => ({
         moduleKey: dep,
         enabled: enabled.get(dep) ?? false,
@@ -167,6 +172,10 @@ export async function applyModuleChange(
   return prisma.$transaction(async (tx) => {
     const company = await tx.company.findUniqueOrThrow({ where: { id: companyId }, select: { configVersion: true } });
     const current = await enabledMap(companyId, tx);
+    // A company switches on only what the platform granted it (Admin Modules PRD #4 §1, §3).
+    if (enabled && !(await entitledModulesFor([companyId], tx)).get(companyId)?.has(key)) {
+      throw new ModulePolicyError({ code: "MODULE_NOT_ENTITLED", message: `${registry[key].label} is not included in this company's plan.` });
+    }
     const blockers = enabled ? enableBlockers(key, current) : await disableBlockers(companyId, key, current, tx);
     if (blockers.length > 0) throw new ModulePolicyError(blockers[0]);
 

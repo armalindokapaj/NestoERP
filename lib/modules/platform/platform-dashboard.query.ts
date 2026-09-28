@@ -1,4 +1,4 @@
-import { modules as moduleRegistry } from "@/config/modules";
+import { ENTITLABLE_MODULES, entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
@@ -245,19 +245,22 @@ export async function dashboardProjects(context: PlatformContext, limit = 5) {
 
 export async function dashboardUsage(context: PlatformContext) {
   assertDashboard(context);
-  const [storage, quota, moduleAssignments, companiesWithModules, visibility] = await Promise.all([
+  const [storage, quota, companies, companiesWithModules, visibility] = await Promise.all([
     prisma.companyStorageUsage.aggregate({ where: { company: REAL_COMPANY }, _sum: { usedBytes: true } }),
     prisma.companyStorageQuota.aggregate({ where: { company: REAL_COMPANY, maxStorageBytes: { not: null } }, _sum: { maxStorageBytes: true }, _count: { _all: true } }),
-    prisma.companyModule.count({ where: { enabled: true, company: REAL_COMPANY } }),
+    prisma.company.findMany({ where: REAL_COMPANY, select: { id: true } }),
     prisma.company.count({ where: REAL_COMPANY }),
     prisma.project3DConfig.groupBy({ by: ["visibility"], where: { deletedAt: null, project: { company: REAL_COMPANY } }, _count: { _all: true } }),
   ]);
   const count = (key: string) => visibility.find((row) => row.visibility === key)?._count._all ?? 0;
+  // Granted modules, from the canonical entitlements (Admin Modules PRD #4 §57); core modules are not counted.
+  const entitled = await entitledModulesFor(companies.map((row) => row.id));
+  const moduleAssignments = [...entitled.values()].reduce((sum, keys) => sum + [...keys].filter((key) => ENTITLABLE_MODULES.includes(key)).length, 0);
   // A platform-wide quota exists only when every company has one (§28).
   const quotaBytes = quota._count._all > 0 && quota._count._all === companiesWithModules ? Number(quota._sum.maxStorageBytes ?? 0) : null;
   return {
     storage: { usedBytes: Number(storage._sum.usedBytes ?? 0), quotaBytes },
-    modules: { available: Object.keys(moduleRegistry).length, assignments: moduleAssignments },
+    modules: { available: ENTITLABLE_MODULES.length, assignments: moduleAssignments },
     threeD: { configured: visibility.reduce((sum, row) => sum + row._count._all, 0), public: count("PUBLIC"), companyOnly: count("COMPANY_ONLY"), offline: count("OFFLINE") },
   };
 }

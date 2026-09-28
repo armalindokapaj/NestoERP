@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
 import { AccessError } from "@/lib/access/guards";
 import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema, moveCompanySchema } from "@/lib/modules/platform/platform.schema";
+import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import {
@@ -101,6 +102,25 @@ export async function POST(request: Request) {
         const input = moveCompanySchema.extend({ companyId: id }).parse(body);
         await moveCompanyToGroup(context, input.companyId, input.groupId, input.reason);
         return apiOk({ data: { ok: true } });
+      }
+      case "entitlements.apply": {
+        const input = z.object({ companyId: id }).passthrough().parse(body);
+        return apiOk({ data: await applyEntitlementChanges(context, input.companyId, body) });
+      }
+      case "entitlements.preview": {
+        const input = z.object({ companyId: id, planId: z.string().trim().max(64).nullable() }).parse(body);
+        return apiOk({ data: await previewPlanChange(context, input.companyId, input.planId) });
+      }
+      case "entitlements.limits": {
+        const input = z.object({ companyId: id }).passthrough().parse(body);
+        await setCompanyLimits(context, input.companyId, body);
+        return apiOk({ data: { ok: true } });
+      }
+      case "plan.save": {
+        const input = z.object({ planId: id.nullable().optional() }).passthrough().parse(body);
+        // The form sends one checkbox per module ("module:finance": true).
+        const moduleKeys = Object.entries(input).filter(([key, value]) => key.startsWith("module:") && value === true).map(([key]) => key.slice("module:".length));
+        return apiOk({ data: await savePlan(context, input.planId ?? null, { ...input, moduleKeys }) });
       }
       case "company.detach": {
         const input = detachCompanySchema.extend({ companyId: id }).parse(body);

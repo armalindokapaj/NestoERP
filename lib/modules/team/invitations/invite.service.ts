@@ -5,6 +5,7 @@ import { Prisma, type CompanyInviteStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
 import { prisma } from "@/lib/database/prisma";
+import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import type { UserContext } from "@/lib/context/types";
 import { sendMail } from "@/lib/mail";
 import { hitThrottle, retryAfterMinutes } from "@/lib/core/security/throttle";
@@ -686,6 +687,7 @@ export async function acceptInvite(
       }
       membership = { id: existing.id };
     } else {
+      await assertWithinLimit(tx, invite.companyId, "users");
       membership = await tx.companyMember.create({
         data: {
           companyId: invite.companyId,

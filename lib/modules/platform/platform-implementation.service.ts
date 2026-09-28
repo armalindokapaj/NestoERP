@@ -11,6 +11,7 @@ import { type PlatformPermission } from "@/config/platform";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { bootstrapCompany } from "@/lib/modules/company/company-bootstrap.service";
 import { freeSlug } from "@/lib/modules/platform/platform-company.service";
 import {
@@ -386,6 +387,7 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
           throw new AccessError("CONFLICT", "That department already has a manager in one of the chosen companies. Replace them from the group's departments.", { field: "position", code: "MANAGER_EXISTS" });
         }
       }
+      await assertWithinLimit(tx, company.id, "users");
       const member = await tx.companyMember.create({
         data: { companyId: company.id, userId: account.id, roleId: roleRow.id, departmentId: branch?.id ?? null, jobTitle: input.jobTitle ?? null, status: "ACTIVE", joinedAt: new Date() },
         select: { id: true },

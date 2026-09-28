@@ -462,6 +462,7 @@ export const sq: Messages = {
       disabledToast: "{name} u çaktivizua.",
       enable: "Aktivizo {name}",
       disable: "Çaktivizo {name}",
+      notEntitled: "Nuk përfshihet në planin e kompanisë suaj. Kontaktoni NESTO për ta shtuar.",
       enabled: "Aktiv",
       disabled: "Joaktiv",
     },

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { AccessError } from "@/lib/access/guards";
 
 /**
@@ -22,6 +23,8 @@ export async function createProvisionedMembership(
   if (existing) {
     throw new AccessError("CONFLICT", "This person already has a membership in that company.", { code: "MEMBERSHIP_EXISTS" });
   }
+  // The company's contracted active-user limit (Admin Modules PRD #4 §49).
+  await assertWithinLimit(tx, input.companyId, "users");
   return tx.companyMember.create({
     data: {
       companyId: input.companyId,
