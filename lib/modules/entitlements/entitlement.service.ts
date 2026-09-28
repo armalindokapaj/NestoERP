@@ -6,7 +6,7 @@ import { type PlatformPermission } from "@/config/platform";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
-import { recordPlatformAction } from "@/lib/core/audit/audit.service";
+import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import {
   ENTITLABLE_MODULES, ENTITLEMENT_DEPENDENCIES, REQUIRED_MODULES, loadEntitlementSources, missingDependencies, moduleLabel, resolveCompany, type EntitlementState,
@@ -104,7 +104,7 @@ export async function savePlan(context: PlatformContext, planId: string | null, 
       : await tx.entitlementPlan.create({ data: { key, name: input.name, description: input.description || null, moduleKeys: input.moduleKeys, status: input.status, maxActiveUsers: input.maxActiveUsers, maxProjects: input.maxProjects, maxStorageBytes } });
     // Every company on the plan reads its modules afresh.
     await tx.company.updateMany({ where: { entitlement: { planId: plan.id } }, data: { configVersion: { increment: 1 } } });
-    await recordPlatformAction(context, await platformRoot(tx), {
+    await recordGlobalPlatformAction(context, {
       actionKey: AuditAction.PLATFORM_ENTITLEMENT_PLAN_SAVED,
       entity: { type: "EntitlementPlan", id: plan.id, label: plan.name },
       before: before ? { key: before.key, name: before.name, moduleKeys: before.moduleKeys.join(", "), status: before.status } : undefined,
@@ -112,17 +112,6 @@ export async function savePlan(context: PlatformContext, planId: string | null, 
     }, { tx });
     return { id: plan.id };
   });
-}
-
-/**
- * Platform-wide records (a plan belongs to no tenant) are audited on the
- * oldest real group's root, as other platform-wide actions are; with no
- * group yet, on any root.
- */
-async function platformRoot(db: Db): Promise<string> {
-  const root = await db.parentGroup.findFirst({ where: { isTestFixture: false }, orderBy: [{ kind: "asc" }, { createdAt: "asc" }], select: { id: true } });
-  if (!root) throw new AccessError("CONFLICT", "Create an organization before managing plans.");
-  return root.id;
 }
 
 // ── Directories (§10-§12, §35, §36, §58, §59) ──────────────────────────────

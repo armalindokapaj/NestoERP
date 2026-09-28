@@ -7786,6 +7786,10 @@ model AuditEvent {
   @@index([projectId, occurredAt])
   @@index([correlationId])
   @@index([requestId])
+  /// The platform Audit Log reads across every tenant (Admin Audit PRD #6 §101).
+  @@index([occurredAt, id])
+  @@index([actorUserId, occurredAt])
+  @@index([actionKey, occurredAt])
   @@map("audit_events")
 }
 

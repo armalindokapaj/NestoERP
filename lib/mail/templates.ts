@@ -133,6 +133,18 @@ const TEMPLATES: Record<MailTemplateKey, TemplateDefinition> = {
     action: () => "Sign in",
     footnote: () => "If this wasn't you, contact your NESTO platform administrator at once.",
   },
+  "platform.test_email": {
+    variables: ["firstName", "loginUrl"],
+    linkVariable: "loginUrl",
+    subject: () => "NESTO test email",
+    heading: () => "Email delivery works",
+    paragraphs: (v) => [
+      `Hello ${v.firstName},`,
+      "This test was sent from NESTO Platform Admin → System → Email. If you received it, password-reset and notification emails can be delivered.",
+    ],
+    action: () => "Open NESTO",
+    footnote: () => "No action is needed.",
+  },
   "auth.recovery_email_verify": {
     variables: ["firstName", "verifyUrl", "expiresInMinutes"],
     linkVariable: "verifyUrl",

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
 import { AccessError } from "@/lib/access/guards";
 import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema, moveCompanySchema } from "@/lib/modules/platform/platform.schema";
+import { sendTestEmail } from "@/lib/modules/platform/platform-system.service";
 import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
@@ -36,6 +37,8 @@ import {
   createMembership,
   createPlatformGrant,
   archivePlatformProject,
+  revokeUserSessions,
+  sendUserPasswordReset,
   createPlatformProject,
   updatePlatformProject,
   createPlatformPerson,
@@ -129,6 +132,17 @@ export async function POST(request: Request) {
         const input = detachCompanySchema.extend({ companyId: id }).parse(body);
         await detachCompanyFromGroup(context, input.companyId, input.reason);
         return apiOk({ data: { ok: true } });
+      }
+      case "user.signOutEverywhere": {
+        const input = z.object({ userId: id, reason: z.string().trim().min(3).max(500) }).parse(body);
+        return apiOk({ data: await revokeUserSessions(context, input.userId, input.reason) });
+      }
+      case "user.passwordReset": {
+        const input = z.object({ userId: id }).parse(body);
+        return apiOk({ data: await sendUserPasswordReset(context, input.userId) });
+      }
+      case "system.testEmail": {
+        return apiOk({ data: await sendTestEmail(context, body) });
       }
       case "user.status": {
         const input = userStatusSchema.extend({ userId: id }).parse(body);
