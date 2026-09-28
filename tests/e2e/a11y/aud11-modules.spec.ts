@@ -181,7 +181,7 @@ for (const identity of SURFACES) {
 
 test.describe("AV-17 axe scans — Platform Admin", () => {
   for (const theme of THEMES) {
-    for (const path of ["/admin", "/admin/organizations/companies", "/admin/audit"]) {
+    for (const path of ["/admin", "/admin/organizations?type=company", "/admin/audit"]) {
       test(`${path} (${theme})`, async ({ page }, testInfo) => {
         await useTheme(page, testInfo, theme);
         await signIn(page, "PLATFORM_ADMIN", { to: path });

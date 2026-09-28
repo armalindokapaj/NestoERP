@@ -7,6 +7,9 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
  */
 const STATES: Record<string, { label: string; tone: BadgeProps["tone"] }> = {
   ACTIVE: { label: "Active", tone: "success" },
+  ENABLED: { label: "Enabled", tone: "success" },
+  DISABLED: { label: "Disabled", tone: "default" },
+  INVITED: { label: "Invited", tone: "info" },
   SUSPENDED: { label: "Suspended", tone: "danger" },
   INACTIVE: { label: "Inactive", tone: "default" },
   ARCHIVED: { label: "Archived", tone: "default" },

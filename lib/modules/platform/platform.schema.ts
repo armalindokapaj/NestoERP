@@ -19,9 +19,13 @@ const slug = z
   .toLowerCase()
   .regex(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/, "Use lowercase letters, digits and hyphens");
 
+/** Blank or absent means "make it from the name". */
+const optionalSlug = z.preprocess((value) => (value === null || value === "" ? undefined : value), slug.optional());
+
 export const createParentGroupSchema = z.object({
   name: requiredText(2, 120, "Name"),
-  slug,
+  // Optional: a group needs only its name; the code is made from it (Organizations PRD §18).
+  slug: optionalSlug,
   legalName: unset(optionalText(200)),
   country: unset(optionalText(80)),
   timezone: unset(optionalText(64)),
@@ -34,7 +38,8 @@ export type UpdateParentGroupInput = z.infer<typeof updateParentGroupSchema>;
 
 export const createGroupCompanySchema = z.object({
   name: requiredText(2, 120, "Name"),
-  slug,
+  // Optional: made from the name when not given (Organizations PRD §3, §26).
+  slug: optionalSlug,
   legalName: unset(optionalText(200)),
   // The company is the employing legal entity (E-01 §28, ADR 0002).
   registrationNumber: unset(optionalText(60)),
@@ -94,3 +99,5 @@ export const attachCompanySchema = z.object({
 export const detachCompanySchema = z.object({
   reason: requiredText(3, 500, "Reason"),
 });
+/** Moving a group company straight into another group, in one step (Organizations PRD §31). */
+export const moveCompanySchema = attachCompanySchema;

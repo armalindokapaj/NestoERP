@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
 import { AccessError } from "@/lib/access/guards";
-import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema } from "@/lib/modules/platform/platform.schema";
-import { attachCompanyToGroup, createCompany, detachCompanyFromGroup } from "@/lib/modules/platform/platform-company.service";
+import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema, moveCompanySchema } from "@/lib/modules/platform/platform.schema";
+import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import {
   accessInspectorSchema,
@@ -95,6 +95,11 @@ export async function POST(request: Request) {
       case "company.attach": {
         const input = attachCompanySchema.extend({ companyId: id }).parse(body);
         await attachCompanyToGroup(context, input.companyId, input.groupId, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "company.move": {
+        const input = moveCompanySchema.extend({ companyId: id }).parse(body);
+        await moveCompanyToGroup(context, input.companyId, input.groupId, input.reason);
         return apiOk({ data: { ok: true } });
       }
       case "company.detach": {

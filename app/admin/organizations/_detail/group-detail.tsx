@@ -1,12 +1,10 @@
 import Link from "@/components/navigation/nav-link";
 import { CheckCircle2, Circle } from "lucide-react";
 
-import { StatusBadge } from "@/components/modules/status-badge";
 import { GroupImplementationActions } from "@/components/platform/platform-actions";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import type { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
-import { formatDate } from "@/lib/utils/format";
 
 type Props = { implementation: Awaited<ReturnType<typeof getGroupImplementation>> };
 
@@ -15,35 +13,25 @@ type Props = { implementation: Awaited<ReturnType<typeof getGroupImplementation>
  * the initial roster, the checklist the platform hands it over against, and
  * the controls that move it along. Configuration only — never business records.
  */
-export function GroupDetail({ implementation }: Props) {
+/** The group's own controls, in the page header (Organizations PRD §20, §52). */
+export function GroupHeaderActions({ implementation }: Props) {
   const { group } = implementation;
   // A group suspended before its handover resumes into setup; only the checklist activates it (ADM audit §2).
   const resumeTo = group.activatedAt ? "ACTIVE" : "IMPLEMENTING";
-
   return (
-    <div className="space-y-5">
-      <nav aria-label="Breadcrumb" className="text-meta text-fg-subtle">
-        <Link href="/admin/organizations" className="hover:text-fg hover:underline">
-          Organizations
-        </Link>{" "}
-        / {group.name}
-      </nav>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{group.name}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted">
-            <StatusBadge status={group.status} />
-            <span className="font-mono text-meta">{group.slug}</span>
-            {group.activatedAt ? <span>Active since {formatDate(group.activatedAt)}</span> : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2"><GroupImplementationActions implementation={implementation} />
+    <div className="flex flex-wrap items-center gap-2"><GroupImplementationActions implementation={implementation} />
           {/* The tenant's mark in its sidebar (OW §12, §44); the group's name is its display name. */}
           {group.status !== "ARCHIVED" ? <PlatformCommandButton label="Branding" title={`${group.name} branding`} description="The logo leads the tenant's sidebar, beside the group's name. Without one, the group's initials stand in." action="group.branding" fixed={{ groupId: group.id }} fields={[{ name: "logoUrl", label: "Logo", type: "textarea", hint: "A path on this deployment (/branding/logo.svg) or an inline image (data:image/png;base64,…), shown square at the top of the sidebar. Leave empty for initials." }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ logoUrl: group.logoUrl ?? "" }} success="Group branding saved." /> : null}
           <PlatformCommandButton label="Lifecycle" title={`Change ${group.name} lifecycle`} description="Suspension immediately ends tenant sessions. Archiving preserves the tenant as read-only history." action="group.status" fixed={{ groupId: group.id }} fields={[{ name: "status", label: "Status", type: "select", required: true, options: (group.status === "SUSPENDED" ? [resumeTo, "ARCHIVED"] : ["SUSPENDED", "ARCHIVED"]).map((value) => ({ value, label: value === "IMPLEMENTING" ? "IMPLEMENTING (resume setup)" : value })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ status: group.status === "SUSPENDED" ? resumeTo : "SUSPENDED" }} destructive success="Group lifecycle changed." />
         </div>
-      </div>
+  );
+}
 
+/** The Overview tab: implementation state, departments and the initial roster (§23). */
+export function GroupOverview({ implementation }: Props) {
+  const { group } = implementation;
+  return (
+    <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="implementation-checklist">
         <h2 id="implementation-checklist" className="text-card font-semibold text-fg">
           Implementation checklist
@@ -75,45 +63,6 @@ export function GroupDetail({ implementation }: Props) {
         <Link href={`/admin/organizations/${group.id}/departments`} className="text-table font-medium text-accent-strong hover:underline">
           Set up departments
         </Link>
-      </section>
-
-      <section className="nesto-card p-5" aria-labelledby="group-companies">
-        <h2 id="group-companies" className="text-card font-semibold text-fg">
-          Companies
-        </h2>
-        {implementation.companies.length === 0 ? (
-          <p className="mt-3 text-table text-fg-muted">No company yet.</p>
-        ) : (
-          <Table flush className="mt-3" aria-labelledby="group-companies">
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>Company</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Departments</TableHeaderCell>
-                <TableHeaderCell>With a manager</TableHeaderCell>
-                <TableHeaderCell>People</TableHeaderCell>
-                <TableHeaderCell>Projects</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {implementation.companies.map((company) => (
-                <TableRow key={company.id} data-testid="implementation-company">
-                  <TableCell>
-                    <p className="font-medium text-fg">{company.name}</p>
-                    <p className="font-mono text-meta text-fg-subtle">{company.slug}</p>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={company.status} />
-                  </TableCell>
-                  <TableCell className="tabular-nums">{company.branches}</TableCell>
-                  <TableCell className="tabular-nums">{company.branches === 0 ? "—" : `${company.managers} of ${company.branches}`}</TableCell>
-                  <TableCell className="tabular-nums">{company.members}</TableCell>
-                  <TableCell>{company.projects.length === 0 ? "—" : company.projects.map((project) => project.name).join(", ")}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="group-people">

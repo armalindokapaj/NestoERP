@@ -27,16 +27,15 @@ test.afterAll(async () => {
 });
 
 test("the Platform Admin creates a group, a company and its first people, and activates it", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
-  await expect(page.getByRole("heading", { name: "Parent groups" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "NESTO Demo Group" })).toBeVisible();
+  await signIn(page, "PLATFORM_ADMIN", { to: "/admin/organizations" });
+  await expect(page.getByRole("heading", { level: 1, name: "Organizations" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Create parent group" }).click();
-  const create = page.getByTestId("create-group-dialog");
-  await create.getByRole("textbox", { name: /^Name/ }).fill("E2E Harbour Group");
-  await create.getByLabel("Slug").fill(SLUG);
-  await create.getByLabel("Country").fill("Albania");
-  await create.getByRole("button", { name: "Create group" }).click();
+  // A name is all a group needs; its code is made from it (Organizations PRD §18).
+  await page.getByTestId("organization-create").click();
+  await page.getByRole("menuitem", { name: "Create Parent Group" }).click();
+  const create = page.getByTestId("new-group-dialog");
+  await create.getByRole("textbox", { name: /^Group name/ }).fill("E2E Harbour Group");
+  await create.getByRole("button", { name: "Create Group" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "E2E Harbour Group" })).toBeVisible();
   await expect(page.getByText("Implementing").first()).toBeVisible();
@@ -46,7 +45,7 @@ test("the Platform Admin creates a group, a company and its first people, and ac
   await actions.getByRole("button", { name: "New company" }).click();
   const company = page.getByTestId("create-company-dialog");
   await company.getByRole("textbox", { name: /^Name/ }).fill("E2E Harbour Build");
-  await company.getByLabel("Slug").fill(`${SLUG}-build`);
+  await company.getByLabel("Code").fill(`${SLUG}-build`);
   await company.getByLabel("Industry").fill("Construction");
   await company.getByRole("button", { name: "Create company" }).click();
   await expect(page.getByTestId("implementation-company").filter({ hasText: "E2E Harbour Build" })).toContainText("13");
