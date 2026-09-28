@@ -12,6 +12,7 @@ import { canPlatform, type PlatformContext } from "@/lib/context/platform-contex
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { maskEmail, requestPasswordReset } from "@/lib/auth/password-recovery";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { invalidateMaintenanceSnapshot } from "@/lib/core/maintenance/platform-maintenance";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -190,10 +191,46 @@ export async function setUserStatus(context: PlatformContext, userId: string, st
   const user = assertFound(await prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true, firstName: true, lastName: true, status: true } }));
   if (user.status === status) return;
   await prisma.$transaction(async (tx) => {
+    // The platform never loses its last administrator (Admin Users PRD #6 §23).
+    if (status !== "ACTIVE" && (await tx.platformAccess.count({ where: { userId: user.id, status: "ACTIVE" } })) > 0) {
+      const others = await tx.platformAccess.count({ where: { status: "ACTIVE", userId: { not: user.id }, user: { status: "ACTIVE" } } });
+      if (others === 0) throw new AccessError("CONFLICT", "This is the last active Platform Admin. Give another account Platform Admin access first.", { code: "LAST_PLATFORM_ADMIN" });
+    }
     assertUpdated(await tx.user.updateMany({ where: { id: user.id, status: user.status }, data: { status } }));
     const revoked = status === "ACTIVE" ? 0 : await revokeSessions(tx, { userId: user.id });
     await recordGlobalPlatformAction(context, { actionKey: AuditAction.PLATFORM_USER_STATUS_CHANGED, entity: { type: "User", id: user.id, label: `${user.firstName} ${user.lastName}` }, before: { status: user.status }, after: { status, sessionsRevoked: revoked }, reason }, { tx });
   });
+}
+
+/**
+ * Signs a user out everywhere (Admin Users PRD #6 §40, §41): every server
+ * session is deleted, so the next request from any device must sign in again.
+ */
+export async function revokeUserSessions(context: PlatformContext, userId: string, reason: string): Promise<{ revoked: number }> {
+  assertPlatform(context, "platform.session.revoke");
+  const user = assertFound(await prisma.user.findUnique({ where: { id: userId }, select: { id: true, firstName: true, lastName: true } }));
+  return prisma.$transaction(async (tx) => {
+    const revoked = await revokeSessions(tx, { userId: user.id });
+    await recordGlobalPlatformAction(context, { actionKey: AuditAction.PLATFORM_USER_SIGNED_OUT_EVERYWHERE, entity: { type: "User", id: user.id, label: `${user.firstName} ${user.lastName}` }, after: { sessionsRevoked: revoked }, reason }, { tx });
+    return { revoked };
+  });
+}
+
+/**
+ * Sends the user's own reset link to their verified recovery address (Admin
+ * Users PRD #6 §26-§29). The Platform Admin never sees or chooses the
+ * password; without a verified address nothing is sent and the admin is told
+ * why, since this person is already known to them.
+ */
+export async function sendUserPasswordReset(context: PlatformContext, userId: string): Promise<{ sentTo: string }> {
+  assertPlatform(context, "platform.user.manage");
+  const user = assertFound(await prisma.user.findUnique({ where: { id: userId }, select: { id: true, username: true, firstName: true, lastName: true, status: true, recoveryEmail: true, recoveryEmailVerifiedAt: true } }));
+  if (user.status !== "ACTIVE") throw new AccessError("CONFLICT", "Reactivate the account before sending a reset link.", { code: "ACCOUNT_INACTIVE" });
+  if (!user.recoveryEmail || !user.recoveryEmailVerifiedAt) throw new AccessError("CONFLICT", "This account has no verified recovery email, so no link can be sent. The person adds one under My Account.", { code: "NO_RECOVERY_EMAIL" });
+  await requestPasswordReset(user.username);
+  const sentTo = maskEmail(user.recoveryEmail) ?? "their recovery email";
+  await recordGlobalPlatformAction(context, { actionKey: AuditAction.PLATFORM_USER_PASSWORD_RESET_SENT, entity: { type: "User", id: user.id, label: `${user.firstName} ${user.lastName}` }, after: { sentTo } });
+  return { sentTo };
 }
 
 export async function createMembership(context: PlatformContext, input: { userId: string; companyId: string; roleKey: string; status: MembershipStatus; jobTitle?: string; reason: string }) {

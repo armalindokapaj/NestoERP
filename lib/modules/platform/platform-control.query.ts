@@ -357,7 +357,7 @@ export async function platformSearch(context: PlatformContext, query: string) {
     ...groups.map((row) => ({ type: "Group", id: row.id, title: row.name, subtitle: row.slug, href: `/admin/organizations/${row.id}` })),
     ...companies.map((row) => ({ type: "Company", id: row.id, title: row.name, subtitle: row.parentGroup.kind === "STANDALONE" ? "Standalone company" : row.parentGroup.name, href: `/admin/organizations/${row.id}` })),
     ...projects.map((row) => ({ type: "Project", id: row.id, title: row.name, subtitle: `${row.company.name} · ${row.code}`, href: `/admin/projects/${row.id}` })),
-    ...users.map((row) => ({ type: "User", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.username, href: `/admin/users?q=${encodeURIComponent(row.username)}` })),
+    ...users.map((row) => ({ type: "User", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.username, href: `/admin/users/${row.id}` })),
     ...people.map((row) => ({ type: "Person", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.parentGroup.name, href: "/admin/users/people" })),
   ].slice(0, 20);
 }

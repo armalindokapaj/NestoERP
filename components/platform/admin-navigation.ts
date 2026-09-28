@@ -36,7 +36,6 @@ export const adminDestinations: AdminDestination[] = [
       { label: "Entitlements", href: "/admin/modules" },
       { label: "Plans", href: "/admin/modules/plans" },
       { label: "Catalog", href: "/admin/modules/catalog" },
-      { label: "Feature flags", href: "/admin/modules/feature-flags", permission: "platform.feature_flag.view" },
       { label: "Templates", href: "/admin/modules/templates" },
       { label: "Pricing", href: "/admin/modules/pricing", permission: "platform.pricing.view" },
     ],
@@ -75,7 +74,12 @@ export const adminDestinations: AdminDestination[] = [
   {
     key: "system", label: "System", href: "/admin/system", icon: Settings2, permission: "platform.settings.view", utility: true,
     tabs: [
-      { label: "Settings", href: "/admin/system" },
+      { label: "General", href: "/admin/system" },
+      { label: "Authentication", href: "/admin/system/authentication" },
+      { label: "Email", href: "/admin/system/email" },
+      { label: "Integrations", href: "/admin/system/integrations" },
+      { label: "Security", href: "/admin/system/security", permission: "platform.security.view" },
+      { label: "Feature flags", href: "/admin/system/feature-flags", permission: "platform.feature_flag.view" },
       { label: "Maintenance", href: "/admin/system/maintenance", permission: "platform.maintenance.manage" },
       { label: "Health", href: "/admin/system/health", permission: "platform.operations.view" },
       { label: "Jobs", href: "/admin/system/jobs", permission: "platform.operations.view" },

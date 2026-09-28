@@ -21,6 +21,7 @@ export const MAIL_TEMPLATE_KEYS = [
   "auth.password_reset_completed",
   "auth.recovery_email_verify",
   "auth.recovery_email_changed",
+  "platform.test_email",
 ] as const;
 
 export type MailTemplateKey = (typeof MAIL_TEMPLATE_KEYS)[number];
