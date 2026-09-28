@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import { RenderEngine } from "@/lib/3d/runtime/render-engine/RenderEngine";
 import type { ThreeProjectViewerHandle, ThreeProjectViewerProps } from "./viewerTypes";
 
@@ -11,6 +12,7 @@ export const ThreeProjectViewer = forwardRef<ThreeProjectViewerHandle, ThreeProj
     { detailModels, className, showPerfStats, onPerfStats, cameraConfig, qualityConfig, environmentConfig, lightingConfig, renderingConfig, unitsConfig, siteConfig, onUnitClick, onUnitHover, onReady, onModelLoadStatus, onSiteStatus, onRendererFacts, onContextLost },
     ref
   ) {
+    const t = useThreeDTranslations();
     const containerRef = useRef<HTMLDivElement>(null);
     const engineRef = useRef<RenderEngine | null>(null);
     const [webglFailed, setWebglFailed] = useState(false);
@@ -148,18 +150,18 @@ export const ThreeProjectViewer = forwardRef<ThreeProjectViewerHandle, ThreeProj
       <div ref={containerRef} className={className}>
         {webglFailed && (
           <div className="flex h-full w-full items-center justify-center bg-neutral-900 text-sm text-white/60">
-            This device can&apos;t display the 3D viewer.
+            {t("renderer.cannotDisplay")}
           </div>
         )}
         {contextLost && !webglFailed && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900/95 p-6 text-center text-sm text-white/70">
-            <p>The 3D view was interrupted by this device&apos;s graphics driver.</p>
+            <p>{t("renderer.interrupted")}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
               className="rounded-control border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
             >
-              Reload
+              {t("renderer.reload")}
             </button>
           </div>
         )}

@@ -4,6 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { ChevronLeft, RefreshCw } from "lucide-react";
 
+import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import Link from "@/components/navigation/nav-link";
 import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
 import type { ModelLoadStatus } from "@/lib/3d/runtime/render-engine/RenderEngine";
@@ -19,8 +20,9 @@ const ProjectViewerRuntime = dynamic(
 
 /** The viewer's own loading screen (Rozaris' HUD overlay), shown until the runtime takes over. */
 function ViewerSplash() {
+  const t = useThreeDTranslations();
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900" role="status" aria-label="Opening the 3D viewer">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900" role="status" aria-label={t("page.opening")}>
       <span className="font-serif text-lg tracking-[0.3em] text-white">NESTO</span>
       <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
     </div>
@@ -41,6 +43,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [modelStatus, setModelStatus] = React.useState<ModelLoadStatus>({ state: "loading" });
+  const t = useThreeDTranslations();
   const backHref = `/projects/${projectId}`;
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
@@ -54,18 +57,18 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
         signal,
       });
       const json = await response.json() as ApiEnvelope;
-      if (!response.ok) throw new Error(json.error?.message ?? "Could not open the 3D viewer.");
+      if (!response.ok) throw new Error(json.error?.message ?? t("page.openFailed"));
       const parsed = project3DBootstrapSchema.safeParse(json.data);
-      if (!parsed.success) throw new Error("The published 3D release could not be read.");
+      if (!parsed.success) throw new Error(t("page.releaseUnreadable"));
       setBootstrap(parsed.data);
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === "AbortError") return;
       setBootstrap(null);
-      setError(failure instanceof Error ? failure.message : "Could not open the 3D viewer.");
+      setError(failure instanceof Error ? failure.message : t("page.openFailed"));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, t]);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -80,21 +83,21 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 p-4">
         <div className="viewer-glass w-full max-w-sm rounded-panel p-5 text-center" role="alert">
-          <p className="text-sm font-semibold text-white">{error ?? "No published 3D experience is available."}</p>
+          <p className="text-sm font-semibold text-white">{error ?? t("page.noExperience")}</p>
           <p className="mt-1 text-xs text-white/55">{projectName}</p>
           <div className="mt-4 flex gap-2">
             <Link
               href={backHref}
               className="flex h-9 flex-1 items-center justify-center gap-1 rounded-control border border-white/15 text-[13px] font-semibold text-white/85 hover:bg-white/10 hover:text-white"
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Back to project
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> {t("page.backToProject")}
             </Link>
             <button
               type="button"
               onClick={() => void load()}
               className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-control bg-brand-500 text-[13px] font-semibold text-white hover:bg-brand-600"
             >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("page.tryAgain")}
             </button>
           </div>
         </div>
@@ -115,9 +118,9 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
         <div className="absolute inset-x-0 top-16 z-[60] flex justify-center px-3 sm:top-20">
           <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-white" role="alert">
             <div className="min-w-0">
-              <p className="text-xs font-semibold">One or more published models could not be loaded.</p>
+              <p className="text-xs font-semibold">{t("page.modelsFailed")}</p>
               <p className="mt-0.5 truncate text-[11px] text-white/55">
-                {modelStatus.forbidden ? "The signed model access may have expired." : `Affected: ${modelStatus.models.join(", ")}`}
+                {modelStatus.forbidden ? t("page.modelAccessExpired") : t("page.affected", { models: modelStatus.models.join(", ") })}
               </p>
             </div>
             <button
@@ -126,7 +129,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
               disabled={loading}
               className="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
             >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("page.retry")}
             </button>
           </div>
         </div>

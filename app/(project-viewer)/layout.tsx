@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { requireUserContext } from "@/lib/context/current-user";
 import { admitPage, getPageMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
@@ -34,7 +35,7 @@ export default async function ProjectViewerLayout({ children }: { children: Reac
       className={`${nunitoSans.variable} ${roboto.variable} fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}
     >
       <ResponseBeats />
-      {children}
+      <ModuleMessages namespaces={["threeD"]}>{children}</ModuleMessages>
     </div>
   );
 }
