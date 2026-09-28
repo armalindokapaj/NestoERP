@@ -2,6 +2,7 @@
 
 import Link from "@/components/navigation/nav-link";
 
+import { useTeamTranslations } from "@/components/team/team-text";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -12,9 +13,9 @@ import { cn } from "@/lib/utils/cn";
  * them (PRD #14 §142).
  */
 const TABS = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "projects", label: "Projects", suffix: "/projects" },
-  { key: "activity", label: "Activity", suffix: "/activity" },
+  { key: "overview", suffix: "" },
+  { key: "projects", suffix: "/projects" },
+  { key: "activity", suffix: "/activity" },
 ] as const;
 
 export type MemberTabKey = (typeof TABS)[number]["key"];
@@ -28,10 +29,11 @@ export function MemberTabs({
   active: MemberTabKey;
   show: Partial<Record<MemberTabKey, boolean>>;
 }) {
+  const t = useTeamTranslations();
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (
-    <nav aria-label="Member sections" className="border-b border-line">
+    <nav aria-label={t("tabs.sections")} className="border-b border-line">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {visible.map((tab) => {
           const isActive = tab.key === active;
@@ -47,7 +49,7 @@ export function MemberTabs({
                     : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
-                {tab.label}
+                {t(`tabs.${tab.key}`)}
               </Link>
             </li>
           );

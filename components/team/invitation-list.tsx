@@ -6,6 +6,7 @@ import { MailCheck, MailWarning, RotateCw, X } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { useTeamServerText, useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -19,24 +20,25 @@ import { formatDate } from "@/lib/utils/format";
  * it (PRD #38 §21).
  */
 function DeliveryNote({ delivery }: { delivery: InvitationDTO["delivery"] }) {
+  const t = useTeamTranslations();
   if (!delivery) return null;
   if (delivery.status === "FAILED") {
     return (
       <p className="mt-0.5 flex items-center gap-1 text-meta text-danger-strong">
         <MailWarning aria-hidden="true" className="size-3.5" />
-        The email could not be delivered. Resend to try again.
+        {t("invitations.deliveryFailed")}
       </p>
     );
   }
   if (delivery.status === "SUPPRESSED") {
     return (
       <p className="mt-0.5 text-meta text-warning-strong">
-        Not sent: this environment only mails allowlisted addresses.
+        {t("invitations.suppressed")}
       </p>
     );
   }
   if (delivery.status === "SENT") {
-    return <p className="mt-0.5 text-meta text-fg-subtle">Email sent {formatDate(delivery.at)}</p>;
+    return <p className="mt-0.5 text-meta text-fg-subtle">{t("invitations.emailSent", { date: formatDate(delivery.at) })}</p>;
   }
   return null;
 }
@@ -58,6 +60,8 @@ export function InvitationList({
   canCancel: boolean;
 }) {
   const router = useRouter();
+  const t = useTeamTranslations();
+  const serverText = useTeamServerText();
   const toast = useToast();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [cancelling, setCancelling] = React.useState<InvitationDTO | null>(null);
@@ -71,13 +75,13 @@ export function InvitationList({
       if (result.ok) {
         toast({
           title: result.delivered
-            ? `Invitation resent to ${result.email}.`
-            : `A fresh link was created for ${result.email}, but the email could not be delivered.`,
+            ? t("invitations.resent", { email: result.email })
+            : t("invitations.freshLink", { email: result.email }),
           tone: result.delivered ? "success" : "warning",
         });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -91,10 +95,10 @@ export function InvitationList({
       setPendingId(null);
       setCancelling(null);
       if (result.ok) {
-        toast({ title: "Invitation cancelled." });
+        toast({ title: t("invitations.cancelled") });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
@@ -123,8 +127,8 @@ export function InvitationList({
                   {invite.jobTitle ? ` · ${invite.jobTitle}` : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  Invited {formatDate(invite.invitedAt)} by {invite.invitedBy ? <PersonLink memberId={invite.invitedByMemberId} name={invite.invitedBy} /> : "—"} ·{" "}
-                  {expired ? "Expired" : "Expires"} {formatDate(invite.expiresAt)}
+                  {t("invitations.invited", { date: formatDate(invite.invitedAt) })} {invite.invitedBy ? <PersonLink memberId={invite.invitedByMemberId} name={invite.invitedBy} /> : "—"} ·{" "}
+                  {expired ? t("invitations.expired") : t("invitations.expires")} {formatDate(invite.expiresAt)}
                 </p>
                 {open || expired ? <DeliveryNote delivery={invite.delivery} /> : null}
               </div>
@@ -140,7 +144,7 @@ export function InvitationList({
                     disabled={rowBusy}
                   >
                     <RotateCw aria-hidden="true" />
-                    {rowBusy ? "Sending…" : "Resend"}
+                    {rowBusy ? t("invitations.sending") : t("invitations.resend")}
                   </Button>
                 ) : null}
 
@@ -148,7 +152,7 @@ export function InvitationList({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Cancel invitation for ${invite.email}`}
+                    aria-label={t("invitations.cancelFor", { email: invite.email ?? "" })}
                     onClick={() => setCancelling(invite)}
                     disabled={rowBusy}
                   >
@@ -173,9 +177,9 @@ export function InvitationList({
         onOpenChange={(open) => {
           if (!open) setCancelling(null);
         }}
-        title={cancelling ? `Cancel the invitation for ${cancelling.email}?` : "Cancel invitation"}
-        description="The link stops working immediately. You can invite the same address again later."
-        confirmLabel="Cancel invitation"
+        title={cancelling ? t("invitations.cancelTitle", { email: cancelling.email ?? "" }) : t("invitations.cancelInvitation")}
+        description={t("invitations.cancelDescription")}
+        confirmLabel={t("invitations.cancelInvitation")}
         pending={busy}
         onConfirm={cancel}
       />

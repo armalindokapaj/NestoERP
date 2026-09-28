@@ -8,6 +8,7 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useTeamTranslations } from "@/components/team/team-text";
 import { Input } from "@/components/ui/input";
 
 /**
@@ -39,33 +40,35 @@ export function MemberForm({
   canAssignRole: boolean;
   canAssignDepartment: boolean;
 }) {
+  const t = useTeamTranslations();
   return (
     <RecordForm
       action={action}
       cancelHref={cancelHref}
-      submitLabel="Save changes"
-      pendingLabel="Saving…"
+      submitLabel={t("form.save")}
+      saveKind="save"
+      pendingLabel={t("form.saving")}
       versionUpdatedAt={versionUpdatedAt}
       module="team"
     >
       <FormSection
-        title="Person"
-        description="Managed in their own profile, not by the company."
+        title={t("form.person")}
+        description={t("form.personDescription")}
       >
-        <Field label="Name" name="fullName">
+        <Field label={t("form.name")} name="fullName">
           <Input id="fullName" value={profile.fullName} readOnly disabled />
         </Field>
-        <Field label="Email" name="email">
+        <Field label={t("form.email")} name="email">
           <Input id="email" value={profile.email ?? ""} placeholder="—" readOnly disabled />
         </Field>
       </FormSection>
 
-      <FormSection title="Membership" description="What this person can reach in this company.">
+      <FormSection title={t("form.membership")} description={t("form.membershipDescription")}>
         <Field
-          label="Role"
+          label={t("form.role")}
           name="roleId"
           required
-          hint={canAssignRole ? undefined : "You do not have permission to change roles."}
+          hint={canAssignRole ? undefined : t("form.noRolePermission")}
         >
           {/* A disabled select submits nothing, so the current value travels in
               a hidden field and the server still receives a complete record. */}
@@ -87,12 +90,12 @@ export function MemberForm({
         </Field>
 
         <Field
-          label="Department"
+          label={t("form.department")}
           name="departmentId"
           hint={
             canAssignDepartment
               ? undefined
-              : "You do not have permission to change departments."
+              : t("form.noDepartmentPermission")
           }
         >
           <select
@@ -102,7 +105,7 @@ export function MemberForm({
             defaultValue={values.departmentId ?? ""}
             disabled={!canAssignDepartment}
           >
-            <option value="">No department</option>
+            <option value="">{t("form.noDepartment")}</option>
             {departments.map((department) => (
               <option key={department.value} value={department.value}>
                 {department.label}
@@ -110,19 +113,19 @@ export function MemberForm({
             ))}
             {/* An archived department the member is still in stays chosen, so saving the title does not remove it (AUD-09 §5, FV-09). */}
             {values.departmentId && !departments.some((department) => department.value === values.departmentId) ? (
-              <option value={values.departmentId}>Current department — no longer offered</option>
+              <option value={values.departmentId}>{t("form.currentDepartment")}</option>
             ) : null}
           </select>
           {/* Not the reader's to change: nothing is sent, and the server keeps it (AUD-09 §5, FV-10). */}
         </Field>
 
-        <Field label="Job title" name="jobTitle" className="sm:col-span-2">
+        <Field label={t("form.jobTitle")} name="jobTitle" className="sm:col-span-2">
           <Input
             id="jobTitle"
             name="jobTitle"
             maxLength={160}
             defaultValue={values.jobTitle ?? ""}
-            placeholder="Site Engineer"
+            placeholder={t("form.jobTitlePlaceholder")}
           />
         </Field>
       </FormSection>

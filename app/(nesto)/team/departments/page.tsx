@@ -10,9 +10,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import * as departments from "@/lib/modules/team/departments/department.service";
 
-export const metadata: Metadata = { title: "Departments" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.departments") };
+}
 
 /**
  * The company's departments (PRD #14 §34, §112; E-13 §39).
@@ -32,6 +35,7 @@ export default async function TeamDepartmentsPage({
   if (!can(context, "team.department.view")) redirect("/access-denied");
 
   const experience = resolveModuleExperience(context, "team");
+  const t = await getTranslations("team");
   const { inactive } = await searchParams;
   const includeInactive = inactive === "1";
 
@@ -47,12 +51,12 @@ export default async function TeamDepartmentsPage({
         <div className="flex items-center gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={includeInactive ? "/team/departments" : "/team/departments?inactive=1"}>
-              {includeInactive ? "Hide inactive" : "Show inactive"}
+              {includeInactive ? t("departments.hideInactive") : t("departments.showInactive")}
             </Link>
           </Button>
           {organization ? (
             <Button asChild size="sm">
-              <Link href={manageHref}>Manage in Organization</Link>
+              <Link href={manageHref}>{t("departments.manage")}</Link>
             </Button>
           ) : null}
         </div>
@@ -61,9 +65,9 @@ export default async function TeamDepartmentsPage({
       {rows.length === 0 ? (
         <EmptyState
           icon={<Building2 />}
-          title="No departments are active here."
-          description="A company runs the group's departments it needs. They are activated from Organization."
-          action={organization ? { label: "Open Organization", href: manageHref } : undefined}
+          title={t("departments.emptyTitle")}
+          description={t("departments.emptyDescription")}
+          action={organization ? { label: t("departments.openOrganization"), href: manageHref } : undefined}
         />
       ) : (
         <DepartmentTable departments={rows} linkToOrganization={organization} />

@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { MoreHorizontal, PenLine, ShieldOff, UserCheck, UserMinus } from "lucide-react";
 
+import { useTeamServerText, useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -16,6 +17,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { memberStatusAction } from "@/lib/actions/team";
 import type { TeamMemberDetailDTO } from "@/lib/modules/team/team.types";
+import type { Translate } from "@/lib/i18n/translator";
 
 type StatusAction = "deactivate" | "reactivate" | "suspend" | "unsuspend";
 
@@ -32,6 +34,8 @@ type StatusAction = "deactivate" | "reactivate" | "suspend" | "unsuspend";
 export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTeamTranslations();
+  const serverText = useTeamServerText();
   const [confirming, setConfirming] = React.useState<StatusAction | null>(null);
   const [pending, startTransition] = React.useTransition();
 
@@ -44,20 +48,20 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
       const result = await memberStatusAction(member.id, action);
       setConfirming(null);
       if (result.ok) {
-        toast({ title: MESSAGES[action] });
+        toast({ title: t(MESSAGES[action]) });
         router.refresh();
       } else {
-        toast({ title: result.error, tone: "danger" });
+        toast({ title: serverText(result.error) ?? result.error, tone: "danger" });
       }
     });
   }
 
   const menuItems: { action: StatusAction; label: string; icon: React.ReactNode }[] = [
     ...(may.canSuspend
-      ? [{ action: "suspend" as const, label: "Suspend access", icon: <ShieldOff /> }]
+      ? [{ action: "suspend" as const, label: t("actions.suspendAccess"), icon: <ShieldOff /> }]
       : []),
     ...(may.canDeactivate
-      ? [{ action: "deactivate" as const, label: "Deactivate member", icon: <UserMinus /> }]
+      ? [{ action: "deactivate" as const, label: t("actions.deactivateMember"), icon: <UserMinus /> }]
       : []),
   ];
 
@@ -67,7 +71,7 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
         <Button asChild variant="secondary" size="sm">
           <Link href={`/team/${member.id}/edit`}>
             <PenLine aria-hidden="true" />
-            Edit
+            {t("actions.edit")}
           </Link>
         </Button>
       ) : null}
@@ -75,21 +79,21 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
       {may.canUnsuspend ? (
         <Button size="sm" onClick={() => run("unsuspend")} disabled={pending}>
           <UserCheck aria-hidden="true" />
-          {pending ? "Working…" : "Lift suspension"}
+          {pending ? t("actions.working") : t("actions.liftSuspension")}
         </Button>
       ) : null}
 
       {may.canReactivate ? (
         <Button size="sm" onClick={() => run("reactivate")} disabled={pending}>
           <UserCheck aria-hidden="true" />
-          {pending ? "Working…" : "Reactivate"}
+          {pending ? t("actions.working") : t("actions.reactivate")}
         </Button>
       ) : null}
 
       {menuItems.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${name}`}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { name })}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -116,10 +120,10 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
           if (!open) setConfirming(null);
         }}
         title={
-          confirming === "suspend" ? `Suspend ${name}?` : `Deactivate ${name}?`
+          confirming === "suspend" ? t("actions.suspendTitle", { name }) : t("actions.deactivateTitle", { name })
         }
-        description={describe(confirming, guards)}
-        confirmLabel={confirming === "suspend" ? "Suspend access" : "Deactivate member"}
+        description={describe(t, confirming, guards)}
+        confirmLabel={confirming === "suspend" ? t("actions.suspendAccess") : t("actions.deactivateMember")}
         pending={pending}
         onConfirm={() => confirming && run(confirming)}
       />
@@ -127,38 +131,30 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
   );
 }
 
-const MESSAGES: Record<StatusAction, string> = {
-  deactivate: "Member deactivated. Their sessions have ended.",
-  reactivate: "Member reactivated.",
-  suspend: "Access suspended. Their sessions have ended.",
-  unsuspend: "Suspension lifted.",
-};
+const MESSAGES = {
+  deactivate: "actions.deactivated",
+  reactivate: "actions.reactivated",
+  suspend: "actions.suspended",
+  unsuspend: "actions.unsuspended",
+} as const satisfies Record<StatusAction, string>;
 
-function describe(action: StatusAction | null, guards: TeamMemberDetailDTO["guards"]): string {
+function describe(t: Translate<"team">, action: StatusAction | null, guards: TeamMemberDetailDTO["guards"]): string {
   if (guards.lastActiveOwner) {
-    return "This is the company's last active Owner. Assign another active Owner before changing their access.";
+    return t("actions.lastOwner");
   }
 
   const warnings: string[] = [];
   if (action === "deactivate" && guards.managedActiveProjects > 0) {
-    warnings.push(
-      `They manage ${guards.managedActiveProjects} active project${
-        guards.managedActiveProjects === 1 ? "" : "s"
-      }, which must be reassigned first.`,
-    );
+    warnings.push(t("actions.managedProjects", { count: guards.managedActiveProjects }));
   }
   if (guards.openAssignedTasks > 0) {
-    warnings.push(
-      `${guards.openAssignedTasks} open task${
-        guards.openAssignedTasks === 1 ? " stays" : "s stay"
-      } assigned to them.`,
-    );
+    warnings.push(t("actions.openTasks", { count: guards.openAssignedTasks }));
   }
 
   const base =
     action === "suspend"
-      ? "They are signed out immediately and cannot sign in until the suspension is lifted. Nothing they created is removed."
-      : "They are signed out immediately and lose access to this company. Their assignments, approvals and comments stay in place, and they can be reactivated later.";
+      ? t("actions.suspendBase")
+      : t("actions.deactivateBase");
 
   return warnings.length > 0 ? `${warnings.join(" ")} ${base}` : base;
 }

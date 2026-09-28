@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
+import { usePeopleTranslations } from "@/components/people/people-text";
 import { Button } from "@/components/ui/button";
 
 type Profile = {
@@ -24,30 +25,32 @@ type Profile = {
  */
 export function EditOwnProfileButton({ profile }: { profile: Profile }) {
   const { run } = useCommand();
+  const t = usePeopleTranslations();
   const [open, setOpen] = React.useState(false);
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-        Edit your profile
+        {t("editor.editOwn")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title="Your work profile"
-        description="What your colleagues across the group see. Your name and phone are changed in Settings → Profile."
+        title={t("editor.ownTitle")}
+        description={t("editor.ownDescription")}
         fields={[
-          { name: "preferredName", label: "Name you go by", type: "text", placeholder: "Optional" },
-          { name: "workPhoneExtension", label: "Extension", type: "text" },
-          { name: "officeLocation", label: "Where to find you", type: "text", placeholder: "Office, floor or site" },
-          { name: "professionalBio", label: "About your work", type: "textarea", rows: 4, hint: "A few lines, up to 1 000 characters." },
+          { name: "preferredName", label: t("editor.preferredName"), type: "text", placeholder: t("editor.optional") },
+          { name: "workPhoneExtension", label: t("editor.extension"), type: "text" },
+          { name: "officeLocation", label: t("editor.whereFindYou"), type: "text", placeholder: t("editor.wherePlaceholder") },
+          { name: "professionalBio", label: t("editor.aboutWork"), type: "textarea", rows: 4, hint: t("editor.aboutHint") },
         ]}
         initial={profile}
-        submitLabel="Save"
+        submitLabel={t("editor.save")}
+        saveKind="save"
         module="people"
         testId="own-profile-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/people/me/work-profile", { method: "PATCH", body: payload });
-          await run("own-profile", async () => null, "Profile saved.");
+          await run("own-profile", async () => null, t("editor.saved"));
         }}
       />
     </>
@@ -56,31 +59,33 @@ export function EditOwnProfileButton({ profile }: { profile: Profile }) {
 
 export function ManageProfileButton({ profile, name }: { profile: Profile; name: string }) {
   const { run } = useCommand();
+  const t = usePeopleTranslations();
   const [open, setOpen] = React.useState(false);
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-        Edit work profile
+        {t("editor.editWork")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={`${name}'s work profile`}
-        description="The record colleagues across the group read. Personal details and employment are kept in HR."
+        title={t("editor.managedTitle", { name })}
+        description={t("editor.managedDescription")}
         fields={[
-          { name: "jobTitle", label: "Job title", type: "text" },
-          { name: "preferredName", label: "Name they go by", type: "text" },
-          { name: "workEmail", label: "Work email", type: "email" },
-          { name: "workPhoneExtension", label: "Extension", type: "text" },
-          { name: "officeLocation", label: "Where to find them", type: "text" },
+          { name: "jobTitle", label: t("editor.jobTitle"), type: "text" },
+          { name: "preferredName", label: t("editor.preferredNameThey"), type: "text" },
+          { name: "workEmail", label: t("editor.workEmail"), type: "email" },
+          { name: "workPhoneExtension", label: t("editor.extension"), type: "text" },
+          { name: "officeLocation", label: t("editor.whereFindThem"), type: "text" },
         ]}
         initial={profile}
-        submitLabel="Save"
+        submitLabel={t("editor.save")}
+        saveKind="save"
         module="people"
         testId="managed-profile-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/people/${profile.personId}/work-profile`, { method: "PATCH", body: payload });
-          await run("managed-profile", async () => null, "Profile saved.");
+          await run("managed-profile", async () => null, t("editor.saved"));
         }}
       />
     </>

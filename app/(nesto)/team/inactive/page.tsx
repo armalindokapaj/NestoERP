@@ -5,9 +5,12 @@ import { ModulePage } from "@/components/modules/module-page";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { TeamList } from "../team-list";
 
-export const metadata: Metadata = { title: "Inactive" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.inactive") };
+}
 
 /**
  * People who no longer have access (PRD #14 §36, §104).

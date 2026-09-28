@@ -3,6 +3,7 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Avatar } from "@/components/ui/avatar";
 import type { TeamMemberSummaryDTO } from "@/lib/modules/team/team.types";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /**
@@ -13,7 +14,7 @@ import { formatDate, orDash } from "@/lib/utils/format";
  * home address and medical data belong to HR and never appear here
  * (PRD #14 §44, §174).
  */
-export function TeamTable({
+export async function TeamTable({
   members,
   showLastLogin = false,
   listId = "team.members",
@@ -27,13 +28,14 @@ export function TeamTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const t = await getTranslations("team");
   const columns: TableColumn<TeamMemberSummaryDTO>[] = [
     {
       key: "name",
       id: "name",
       mandatory: true,
       sortKey: sort ? "name" : undefined,
-      label: "Member",
+      label: t("table.member"),
       primary: true,
       render: (member) => (
         <span className="flex items-center gap-2.5">
@@ -55,20 +57,20 @@ export function TeamTable({
     {
       key: "role",
       id: "role",
-      label: "Role",
+      label: t("table.role"),
       render: (member) => <span className="text-fg-muted">{member.role.name}</span>,
     },
     {
       key: "department",
       id: "department",
-      label: "Department",
+      label: t("table.department"),
       hideBelow: "lg",
       render: (member) => <span className="text-fg-muted">{orDash(member.department?.name)}</span>,
     },
     {
       key: "jobTitle",
       id: "jobTitle",
-      label: "Job title",
+      label: t("table.jobTitle"),
       hideBelow: "xl",
       render: (member) => <span className="text-fg-muted">{orDash(member.jobTitle)}</span>,
     },
@@ -77,14 +79,14 @@ export function TeamTable({
       id: "status",
       mandatory: true,
       valueType: "status",
-      label: "Status",
+      label: t("table.status"),
       render: (member) => <StatusBadge status={member.status} />,
     },
     {
       key: "projects",
       id: "projects",
       valueType: "number",
-      label: "Projects",
+      label: t("table.projects"),
       hideBelow: "lg",
       align: "right",
       render: (member) => <span className="text-fg-muted">{member.projectCount}</span>,
@@ -95,7 +97,7 @@ export function TeamTable({
             key: "lastLogin",
             id: "lastLogin",
             valueType: "datetime" as const,
-            label: "Last login",
+            label: t("table.lastLogin"),
             hideBelow: "xl" as const,
             render: (member: TeamMemberSummaryDTO) => (
               <span className="text-fg-muted">
@@ -111,7 +113,7 @@ export function TeamTable({
     <DataTable
       listId={listId}
       sort={sort}
-      caption="Team members"
+      caption={t("table.caption")}
       columns={columns}
       records={members}
       rowKey={(member) => member.id}

@@ -12,6 +12,7 @@ import {
   selectClass,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
@@ -40,6 +41,7 @@ export function InviteForm({
   cancelHref: string;
 }) {
   const [sent, setSent] = React.useState<Sent | null>(null);
+  const t = useTeamTranslations();
 
   if (sent) {
     return (
@@ -62,13 +64,13 @@ export function InviteForm({
           <div className="min-w-0">
             <p className="text-card font-semibold text-fg">
               {sent.delivered
-                ? `Invitation sent to ${sent.email}.`
-                : `Invitation created for ${sent.email}.`}
+                ? t("invite.sentTo", { email: sent.email })
+                : t("invite.createdFor", { email: sent.email })}
             </p>
             <p className="mt-1 text-table text-fg-muted">
               {sent.delivered
-                ? "It expires in 7 days. You can resend or cancel it from Invitations."
-                : "The invitation exists, but the email could not be delivered. Resend it from Invitations, or share the link below."}
+                ? t("invite.sentBody")
+                : t("invite.createdBody")}
             </p>
             {sent.inviteUrl ? (
               <p className="mt-3 break-all rounded-md border border-line bg-surface-muted px-3 py-2 font-mono text-meta text-fg-muted">
@@ -80,10 +82,10 @@ export function InviteForm({
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button asChild size="sm">
-            <Link href="/team/invitations">View invitations</Link>
+            <Link href="/team/invitations">{t("invite.viewInvitations")}</Link>
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setSent(null)}>
-            Invite someone else
+            {t("invite.inviteAnother")}
           </Button>
         </div>
       </div>
@@ -109,13 +111,14 @@ function InviteFields({
 }) {
   const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
+  const t = useTeamTranslations();
   const save = useEditorSave({
     formRef,
     action: inviteMemberAction,
     module: "team",
     saveKind: "none",
     workflow: "Send",
-    label: "Invitation",
+    label: t("invite.label"),
     onCommitted: (result) => {
       if (result) onSent({ email: result.email, delivered: result.delivered, ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}) });
       router.refresh();
@@ -132,10 +135,10 @@ function InviteFields({
         {/* The submitted snapshot is sent as it was (AUD-03 §6). */}
         <fieldset disabled={pending} className="m-0 min-w-0 space-y-5 border-0 p-0">
         <FormSection
-          title="Who are you inviting?"
-          description="They receive an email with a link that expires in 7 days."
+          title={t("invite.whoTitle")}
+          description={t("invite.whoDescription")}
         >
-          <Field label="Email address" name="email" required className="sm:col-span-2">
+          <Field label={t("invite.email")} name="email" required className="sm:col-span-2">
             <Input
               id="email"
               name="email"
@@ -147,23 +150,23 @@ function InviteFields({
             />
           </Field>
 
-          <Field label="First name" name="firstName">
+          <Field label={t("invite.firstName")} name="firstName">
             <Input id="firstName" name="firstName" maxLength={120} />
           </Field>
 
-          <Field label="Last name" name="lastName">
+          <Field label={t("invite.lastName")} name="lastName">
             <Input id="lastName" name="lastName" maxLength={120} />
           </Field>
         </FormSection>
 
         <FormSection
-          title="Access"
-          description="Role decides what they can see and do. It can be changed later."
+          title={t("invite.accessTitle")}
+          description={t("invite.accessDescription")}
         >
-          <Field label="Role" name="roleId" required>
+          <Field label={t("invite.role")} name="roleId" required>
             <select id="roleId" name="roleId" required className={selectClass} defaultValue="">
               <option value="" disabled>
-                Choose a role
+                {t("invite.chooseRole")}
               </option>
               {roles.map((role) => (
                 <option key={role.value} value={role.value}>
@@ -173,9 +176,9 @@ function InviteFields({
             </select>
           </Field>
 
-          <Field label="Department" name="departmentId">
+          <Field label={t("invite.department")} name="departmentId">
             <select id="departmentId" name="departmentId" className={selectClass} defaultValue="">
-              <option value="">No department</option>
+              <option value="">{t("invite.noDepartment")}</option>
               {departments.map((department) => (
                 <option key={department.value} value={department.value}>
                   {department.label}
@@ -184,18 +187,18 @@ function InviteFields({
             </select>
           </Field>
 
-          <Field label="Job title" name="jobTitle" className="sm:col-span-2">
-            <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder="Site Engineer" />
+          <Field label={t("invite.jobTitle")} name="jobTitle" className="sm:col-span-2">
+            <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder={t("invite.jobTitlePlaceholder")} />
           </Field>
         </FormSection>
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={pending}>
-            {pending ? "Sending…" : "Send invitation"}
+            {pending ? t("invite.sending") : t("invite.send")}
           </Button>
           <Button asChild type="button" variant="secondary">
-            <Link href={cancelHref}>Cancel</Link>
+            <Link href={cancelHref}>{t("invite.cancel")}</Link>
           </Button>
           <UnsavedIndicator save={save} />
         </div>

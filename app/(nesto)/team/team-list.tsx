@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { TeamTable } from "@/components/team/team-table";
 import { EmptyState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
+import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import { parseTeamListQuery, type TeamQueryDefaults } from "@/lib/modules/team/team.query";
 import { teamFilterOptions } from "@/lib/modules/team/team.repository";
@@ -44,6 +45,7 @@ export async function TeamList({
   variant: TeamListVariant;
   basePath: string;
 }) {
+  const t = await getTranslations("team");
   const query = parseTeamListQuery(searchParams, VARIANT_DEFAULTS[variant]);
 
   const [result, options] = await Promise.all([
@@ -60,12 +62,12 @@ export async function TeamList({
     // have no access to (PRD #14 §52, §221).
     {
       param: "roleId",
-      label: "Role",
+      label: t("list.role"),
       options: options.roles.map((role) => ({ value: role.id, label: role.name })),
     },
     {
       param: "departmentId",
-      label: "Department",
+      label: t("list.department"),
       options: options.departments.map((department) => ({
         value: department.id,
         label: department.name,
@@ -75,20 +77,20 @@ export async function TeamList({
       ? [
           {
             param: "status",
-            label: "Status",
+            label: t("list.status"),
             options: [
-              { value: "ACTIVE", label: "Active" },
-              { value: "INVITED", label: "Invited" },
+              { value: "ACTIVE", label: t("list.active") },
+              { value: "INVITED", label: t("list.invited") },
             ],
           },
         ]
       : [
           {
             param: "status",
-            label: "Status",
+            label: t("list.status"),
             options: [
-              { value: "INACTIVE", label: "Inactive" },
-              { value: "SUSPENDED", label: "Suspended" },
+              { value: "INACTIVE", label: t("list.inactive") },
+              { value: "SUSPENDED", label: t("list.suspended") },
             ],
           },
         ]),
@@ -103,16 +105,16 @@ export async function TeamList({
   return (
     <div className="space-y-4">
       <ListToolbar
-        searchPlaceholder="Search name, email or job title…"
+        searchPlaceholder={t("list.searchPlaceholder")}
         filters={filters}
         sortOptions={[
-          { value: "name-asc", label: "Name A–Z" },
-          { value: "name-desc", label: "Name Z–A" },
-          { value: "role-asc", label: "Role" },
-          { value: "department-asc", label: "Department" },
-          { value: "created-desc", label: "Recently added" },
-          { value: "updated-desc", label: "Recently updated" },
-          ...(showLastLogin ? [{ value: "last-login-desc", label: "Last login" }] : []),
+          { value: "name-asc", label: t("list.sortNameAsc") },
+          { value: "name-desc", label: t("list.sortNameDesc") },
+          { value: "role-asc", label: t("list.sortRole") },
+          { value: "department-asc", label: t("list.sortDepartment") },
+          { value: "created-desc", label: t("list.sortCreated") },
+          { value: "updated-desc", label: t("list.sortUpdated") },
+          ...(showLastLogin ? [{ value: "last-login-desc", label: t("list.sortLastLogin") }] : []),
         ]}
       />
 
@@ -120,22 +122,22 @@ export async function TeamList({
         hasFilters ? (
           <EmptyState
             icon={<UsersRound />}
-            title="No people match these filters."
-            description="Adjust or clear the filters to see more."
-            action={{ label: "Clear filters", href: basePath }}
+            title={t("list.noMatchTitle")}
+            description={t("list.noMatchDescription")}
+            action={{ label: t("list.clearFilters"), href: basePath }}
           />
         ) : (
           <EmptyState
             icon={<UsersRound />}
-            title={variant === "people" ? "No team members yet." : "Nobody is inactive."}
+            title={variant === "people" ? t("overview.emptyTitle") : t("list.nobodyInactive")}
             description={
               variant === "people"
-                ? "Invite someone to give them access to this workspace."
-                : "Everyone in your view still has access."
+                ? t("overview.emptyDescription")
+                : t("list.everyoneHasAccess")
             }
             action={
               variant === "people" && can(context, "team.member.invite")
-                ? { label: "Invite member", href: "/team/invite" }
+                ? { label: t("overview.inviteMember"), href: "/team/invite" }
                 : undefined
             }
           />

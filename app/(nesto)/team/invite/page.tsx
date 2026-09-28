@@ -5,9 +5,12 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { InviteForm } from "@/components/team/invite-form";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { teamFormOptions } from "@/lib/modules/team/team.options";
 
-export const metadata: Metadata = { title: "Invite member" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.inviteMember") };
+}
 
 /**
  * Invite a member (PRD #14 §61).
@@ -24,13 +27,14 @@ export default async function InviteMemberPage() {
   }
 
   const options = await teamFormOptions(context);
+  const t = await getTranslations("team");
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={[{ label: "Team", href: "/team" }, { label: "Invite member" }]}
-        title="Invite member"
-        subtitle="They choose their own password when they accept."
+        breadcrumbs={[{ label: t("member.crumbTeam"), href: "/team" }, { label: t("invite.title") }]}
+        title={t("invite.title")}
+        subtitle={t("invite.subtitle")}
       />
 
       <InviteForm

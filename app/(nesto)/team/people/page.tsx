@@ -8,9 +8,12 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { TeamList } from "../team-list";
 
-export const metadata: Metadata = { title: "People" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.people") };
+}
 
 export default async function TeamPeoplePage({
   searchParams,
@@ -20,6 +23,7 @@ export default async function TeamPeoplePage({
   const context = await requireModule("team");
   const experience = resolveModuleExperience(context, "team");
   const params = await searchParams;
+  const t = await getTranslations("team");
 
   return (
     <ModulePage
@@ -28,7 +32,7 @@ export default async function TeamPeoplePage({
       actions={
         can(context, "team.member.invite") ? (
           <Button asChild size="sm">
-            <Link href="/team/invite">Invite member</Link>
+            <Link href="/team/invite">{t("overview.inviteMember")}</Link>
           </Button>
         ) : null
       }

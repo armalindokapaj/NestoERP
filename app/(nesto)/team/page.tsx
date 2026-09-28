@@ -9,10 +9,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { departmentDistribution } from "@/lib/modules/team/team.repository";
 import * as team from "@/lib/modules/team/team.service";
 
-export const metadata: Metadata = { title: "Team" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.team") };
+}
 
 /**
  * Team overview (PRD #14 §8, §9, §11).
@@ -24,6 +27,7 @@ export const metadata: Metadata = { title: "Team" };
 export default async function TeamOverviewPage() {
   const context = await requireModule("team");
   const experience = resolveModuleExperience(context, "team");
+  const t = await getTranslations("team");
 
   const canSeeInvitations = can(context, "team.invitation.view");
   const canSeeDepartments = can(context, "team.department.view");
@@ -34,20 +38,21 @@ export default async function TeamOverviewPage() {
   ]);
 
   const cards = [
-    { label: "Active members", value: stats.activeMembers, href: "/team/people" },
+    { key: "active", label: t("overview.activeMembers"), value: stats.activeMembers, href: "/team/people" },
     ...(canSeeDepartments
-      ? [{ label: "Departments", value: stats.departments, href: "/team/departments" }]
+      ? [{ key: "departments", label: t("overview.departments"), value: stats.departments, href: "/team/departments" }]
       : []),
     ...(canSeeInvitations
       ? [
           {
-            label: "Pending invitations",
+            key: "invitations",
+            label: t("overview.pendingInvitations"),
             value: stats.pendingInvitations,
             href: "/team/invitations",
           },
         ]
       : []),
-    { label: "Inactive", value: stats.inactiveMembers + stats.suspendedMembers, href: "/team/inactive" },
+    { key: "inactive", label: t("overview.inactive"), value: stats.inactiveMembers + stats.suspendedMembers, href: "/team/inactive" },
   ];
 
   return (
@@ -57,7 +62,7 @@ export default async function TeamOverviewPage() {
       actions={
         can(context, "team.member.invite") ? (
           <Button asChild size="sm">
-            <Link href="/team/invite">Invite member</Link>
+            <Link href="/team/invite">{t("overview.inviteMember")}</Link>
           </Button>
         ) : null
       }
@@ -66,7 +71,7 @@ export default async function TeamOverviewPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
             <Link
-              key={card.label}
+              key={card.key}
               href={card.href}
               className="nesto-card p-4 transition-colors hover:border-line-strong"
             >
@@ -79,11 +84,11 @@ export default async function TeamOverviewPage() {
         {stats.activeMembers === 0 ? (
           <EmptyState
             icon={<UsersRound />}
-            title="No team members yet."
-            description="Invite someone to give them access to this workspace."
+            title={t("overview.emptyTitle")}
+            description={t("overview.emptyDescription")}
             action={
               can(context, "team.member.invite")
-                ? { label: "Invite member", href: "/team/invite" }
+                ? { label: t("overview.inviteMember"), href: "/team/invite" }
                 : undefined
             }
           />
@@ -92,18 +97,18 @@ export default async function TeamOverviewPage() {
             {canSeeDepartments ? (
               <section className="nesto-card p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-card font-semibold text-fg">People by department</h2>
+                  <h2 className="text-card font-semibold text-fg">{t("overview.byDepartment")}</h2>
                   <Link
                     href="/team/departments"
                     className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                   >
-                    Departments
+                    {t("overview.departments")}
                     <ArrowRight aria-hidden="true" className="size-3.5" />
                   </Link>
                 </div>
                 {distribution.length === 0 ? (
                   <p className="mt-4 text-table text-fg-subtle">
-                    Nobody has been assigned to a department yet.
+                    {t("overview.noDepartmentYet")}
                   </p>
                 ) : (
                   <ul className="mt-4 divide-y divide-line">
@@ -129,23 +134,23 @@ export default async function TeamOverviewPage() {
             ) : null}
 
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">Access</h2>
+              <h2 className="text-card font-semibold text-fg">{t("overview.access")}</h2>
               <dl className="mt-4 divide-y divide-line">
-                <Row label="Active members" value={stats.activeMembers} href="/team/people?status=ACTIVE" />
+                <Row label={t("overview.activeMembers")} value={stats.activeMembers} href="/team/people?status=ACTIVE" />
                 {canSeeInvitations ? (
                   <Row
-                    label="Awaiting acceptance"
+                    label={t("overview.awaiting")}
                     value={stats.pendingInvitations}
                     href="/team/invitations"
                   />
                 ) : null}
                 <Row
-                  label="Deactivated"
+                  label={t("overview.deactivated")}
                   value={stats.inactiveMembers}
                   href="/team/inactive?status=INACTIVE"
                 />
                 <Row
-                  label="Suspended"
+                  label={t("overview.suspended")}
                   value={stats.suspendedMembers}
                   href="/team/inactive?status=SUSPENDED"
                   tone={stats.suspendedMembers > 0 ? "danger" : undefined}

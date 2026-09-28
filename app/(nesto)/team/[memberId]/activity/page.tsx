@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getTranslations } from "@/lib/i18n/server";
 import * as team from "@/lib/modules/team/team.service";
 import { formatDateTime } from "@/lib/utils/format";
 import { loadMember, memberBreadcrumbs } from "../member-context";
@@ -17,7 +18,9 @@ type Params = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const metadata: Metadata = { title: "Member activity" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.memberActivity") };
+}
 
 /**
  * Membership history (PRD #14 §55–§58).
@@ -31,6 +34,7 @@ export default async function MemberActivityPage({ params, searchParams }: Param
   const { context, member } = await loadMember(memberId);
 
   if (!member.capabilities.canViewActivity) notFound();
+  const t = await getTranslations("team");
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -43,7 +47,7 @@ export default async function MemberActivityPage({ params, searchParams }: Param
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={memberBreadcrumbs(member, "Activity")}
+        breadcrumbs={memberBreadcrumbs(t, member, t("member.crumbActivity"))}
         title={member.profile.fullName}
         subtitle={member.membership.role.name}
         status={member.membership.status}
@@ -54,8 +58,8 @@ export default async function MemberActivityPage({ params, searchParams }: Param
       {activity.data.length === 0 ? (
         <EmptyState
           icon={<History />}
-          title="No membership changes recorded."
-          description="Role, department and access changes will be listed here."
+          title={t("activity.emptyTitle")}
+          description={t("activity.emptyDescription")}
         />
       ) : (
         <>
@@ -63,7 +67,7 @@ export default async function MemberActivityPage({ params, searchParams }: Param
             {activity.data.map((entry) => (
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
-                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                  {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("member.someone")}</span>}{" "}
                   {entry.message ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
