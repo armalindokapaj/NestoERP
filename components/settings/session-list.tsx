@@ -15,7 +15,7 @@ import {
   signOutEverywhereAction,
 } from "@/lib/actions/account";
 import { unsaved } from "@/lib/unsaved/coordinator";
-import { isNextControlFlow } from "@/lib/unsaved/outcome";
+import { logout } from "@/lib/auth/client-lifecycle";
 
 export type SessionRow = {
   id: string;
@@ -43,6 +43,7 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
   const others = sessions.filter((session) => !session.current);
 
   function revoke(sessionId: string) {
+    if (sessions.some((session) => session.id === sessionId && session.current)) { void logout(); return; }
     setPendingId(sessionId);
     startTransition(async () => {
       const result = await actions.revokeOne(sessionId);
@@ -70,10 +71,10 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
     startTransition(async () => {
       try {
         await actions.everywhere();
-      } catch (error) {
-        // The redirect to sign-in is the departure itself; anything else failed.
-        if (!isNextControlFlow(error)) approval.release();
-        throw error;
+      } catch {
+        // End this browser even if the other-device revocation failed.
+      } finally {
+        await logout();
       }
     });
   }

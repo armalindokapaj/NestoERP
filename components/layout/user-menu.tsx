@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { resetUserScopedClientState } from "@/components/layout/user-scoped-state";
+import { logout } from "@/lib/auth/client-lifecycle";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,9 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/toast";
-import { announceSignOut } from "@/components/unsaved/unsaved-host";
-import { endSessionAction } from "@/lib/actions/auth";
 import { unsaved } from "@/lib/unsaved/coordinator";
 import { fullName, roleAndCompany } from "@/lib/utils/format";
 
@@ -55,7 +52,6 @@ const keyboardFocus =
  */
 export function UserMenu({ user }: { user: UserMenuUser }) {
   const t = useTranslations("shell");
-  const toast = useToast();
   const [signingOut, setSigningOut] = useState(false);
   const [input, setInput] = useState<"keyboard" | "pointer">("pointer");
   const leaving = useRef(false);
@@ -64,7 +60,7 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
   const name = fullName(user.firstName, user.lastName);
   const context = roleAndCompany(user.roleLabel, user.companyName);
 
-  async function logout() {
+  async function handleLogout() {
     if (leaving.current) return;
     // Unsaved work is asked about before the session ends; a save offered here
     // runs as this person, before anything changes (AUD-03 §7).
@@ -77,22 +73,7 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
     leaving.current = true;
     setSigningOut(true);
 
-    const result = await endSessionAction().catch(() => ({ ok: false }) as const);
-    if (!result.ok) {
-      approval.release();
-      leaving.current = false;
-      setSigningOut(false);
-      toast({ title: t("logoutFailed"), tone: "danger" });
-      return;
-    }
-
-    // The browser's other tabs hold nothing unsaved for a session that is gone.
-    announceSignOut();
-    // A full load, not a client navigation, and the row stays busy until it
-    // lands: nothing of this person's pages or caches comes along (§39, §44).
-    unsaved.forceLeave();
-    resetUserScopedClientState();
-    window.location.replace("/login");
+    await logout();
   }
 
   return (
@@ -167,7 +148,7 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
           disabled={signingOut}
           onSelect={(event) => {
             event.preventDefault();
-            void logout();
+            void handleLogout();
           }}
         >
           <LogOut aria-hidden="true" />

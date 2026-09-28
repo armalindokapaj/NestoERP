@@ -97,7 +97,7 @@ test.describe("route protection", () => {
 
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login\?reason=session-expired/);
-    await expect(page.getByRole("status")).toContainText(/session expired/i);
+    await expect(page.getByRole("status")).toContainText(/session (?:has )?expired/i);
 
     // And the login page stays reachable when asked for directly, stale cookie
     // and all — this is the navigation that used to end in ERR_TOO_MANY_REDIRECTS.

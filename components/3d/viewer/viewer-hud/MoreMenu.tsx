@@ -1,5 +1,6 @@
 "use client";
 
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { gsap } from "gsap";
@@ -139,6 +140,7 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
 
       {section === "none" && (
         <div role="menu" className="space-y-0.5">
+          <SignOutButton className="h-11 w-full justify-start" />
           {menuItems.map(({ id, icon: Icon, label }) => (
             <button
               key={id}

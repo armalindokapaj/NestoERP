@@ -118,6 +118,10 @@ export async function switchDemoUserAction(username: string): Promise<DemoUserSw
     return { ok: false, error: SWITCH_FAILED, landing: "/login?reason=demo-switch-failed" };
   }
 
+  await recordAuthEvent({
+    type: "USER_SWITCHED", userId: target.userId,
+    metadata: { fromUserId: current?.id ?? null, switchType: "DEMO_USER_SWITCH" },
+  });
   revalidatePath("/", "layout");
   return { ok: true, landing: target.landing };
 }

@@ -6,15 +6,14 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { signIn, signOut } from "@/lib/auth";
+import { auth, signIn, signOut } from "@/lib/auth";
 import { SignInRateLimited } from "@/lib/auth/errors";
 import { recordAuthEvent } from "@/lib/auth/events";
 import { credentialsSchema } from "@/lib/auth/schema";
-import { revokeSession } from "@/lib/auth/session-store";
+import { endOwnSession } from "@/lib/auth/session-store";
 import { completePasswordReset, confirmRecoveryEmail, requestPasswordReset } from "@/lib/auth/password-recovery";
 import { clientAddress, hitThrottle, userAgentOf } from "@/lib/core/security/throttle";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
-import { resolveUserContext } from "@/lib/context/resolve-user-context";
 
 export type SignInResult = { error: string } | undefined;
 
@@ -64,43 +63,31 @@ function readCode(error: AuthError): string | undefined {
 
 export type EndSessionResult = { ok: true } | { ok: false };
 
-/**
- * Sign out (PRD #6 §53) without leaving the page: the caller decides where to go.
- *
- * The server-side session row is deleted first, so the session is genuinely
- * invalid rather than merely forgotten by this browser: any other tab holding
- * the same cookie fails on its next protected request (PRD #6 §54). The top-bar
- * menu uses this so it can report a failure, and so the way to sign-in is a
- * full load that carries nothing of this user along (Profile Menu §39, §42, §44).
- */
+/** End the cookie's own session regardless of workspace or membership health. */
 export async function endSessionAction(): Promise<EndSessionResult> {
+  let ok = true;
   try {
-    const result = await resolveUserContext();
-
-    if (result.ok) {
-      await revokeSession(result.context.sessionId);
-      await recordAuthEvent({
-        type: "LOGOUT",
-        userId: result.context.userId,
-        companyId: result.context.companyId,
-        sessionId: result.context.sessionId,
+    const user = (await auth())?.user;
+    if (user?.id && user.sessionId) {
+      const ended = await endOwnSession({ sessionId: user.sessionId, userId: user.id });
+      if (ended.ended) await recordAuthEvent({
+        type: "LOGOUT", userId: user.id, companyId: ended.companyId, sessionId: user.sessionId,
       });
     }
-
-    await signOut({ redirect: false });
-    return { ok: true };
   } catch (error) {
-    // Reported as a failure the menu can say plainly and let the person retry.
+    ok = false;
     logger.error("auth.logout.failed", serialiseError(error));
-    return { ok: false };
+  } finally {
+    // Cookie removal must still run when the database is unavailable.
+    try { await signOut({ redirect: false }); }
+    catch (error) { ok = false; logger.error("auth.logout.cookie_failed", serialiseError(error)); }
   }
+  return { ok };
 }
 
-/** Sign out and land on sign-in, for pages without the application shell. */
 export async function signOutAction(): Promise<void> {
-  const result = await endSessionAction();
-  if (!result.ok) throw new Error("Sign-out failed.");
-  redirect("/login");
+  await endSessionAction();
+  redirect("/login?reason=signed-out");
 }
 
 

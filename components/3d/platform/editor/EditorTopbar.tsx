@@ -1,5 +1,6 @@
 "use client";
 
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import * as React from "react";
 import { ExternalLink, MoreHorizontal, RotateCcw, Save } from "lucide-react";
 
@@ -59,6 +60,7 @@ export function EditorTopbar({
       <Button type="button" size="sm" className="shrink-0" onClick={onSave} disabled={saving || !dirty || !canEdit} aria-keyshortcuts="Control+S Meta+S">
         <Save aria-hidden="true" />{saving ? "Saving…" : "Save"}
       </Button>
+      <SignOutButton className="shrink-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-neutral-400 hover:text-white" aria-label="More editor actions">

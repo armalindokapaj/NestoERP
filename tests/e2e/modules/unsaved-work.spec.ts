@@ -533,7 +533,7 @@ test.describe("workspace and identity", () => {
     await expect(page.getByTestId("unsaved-context-notice")).toHaveCount(0, { timeout: 15_000 });
   });
 
-  test("UW-19: signing out in another tab masks the draft; the same person signing in again gets it back", async ({ page }) => {
+  test("UW-19: manual logout in another tab discards the old authenticated draft", async ({ page }) => {
     await signIn(page, "OWNER", { company: AURELIA });
     const draft = `${PREFIX} Signed out`;
     await dirtyClient(page, draft);
@@ -543,18 +543,10 @@ test.describe("workspace and identity", () => {
     await other.getByRole("menuitem", { name: /logout/i }).click();
     await other.waitForURL(/\/login/);
 
-    const notice = page.getByTestId("unsaved-context-notice");
-    await expect(notice).toHaveAttribute("data-reason", "signed-out");
-    await expect(mainRegion(page)).toBeHidden();
-
+    await expect(page).toHaveURL(/\/login/);
+    await expect(clientName(page)).toHaveCount(0);
     await signIn(other, "OWNER", { company: AURELIA });
-    // The same person again: the hold lifts once the context is read again —
-    // or, when the new sign-in began in another workspace, offers the way back.
-    await expect(notice).not.toHaveAttribute("data-reason", "signed-out", { timeout: 15_000 });
-    if ((await notice.count()) > 0) await notice.getByTestId("unsaved-context-return").click();
-    await expect(notice).toHaveCount(0, { timeout: 15_000 });
-    await expect(mainRegion(page)).toBeVisible();
-    await expect(clientName(page)).toHaveValue(draft);
+    await expect(other.getByText(draft, { exact: true })).toHaveCount(0);
     await other.close();
   });
 

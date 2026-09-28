@@ -562,7 +562,8 @@ html[data-nesto-covered] body {
 
 /* The session ended or changed hands while a draft was open (AUD-03 §7):
    nothing of it stays readable behind the notice. */
-html[data-unsaved-masked] #nesto-main {
+html[data-unsaved-masked] #nesto-main,
+html[data-unsaved-masked] [data-experience-editor] {
   visibility: hidden;
 }
 

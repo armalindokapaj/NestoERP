@@ -3,6 +3,7 @@ import type { ParentGroupStatus } from "@prisma/client";
 
 import type { WorkspaceScopeType } from "@/config/workspace";
 import { prisma } from "@/lib/database/prisma";
+import { recordAuthEvent } from "./events";
 import { SESSION_TTL_MS } from "./constants";
 
 export { SESSION_TTL_MS };
@@ -33,6 +34,7 @@ export async function createSession(input: {
   userAgent?: string | null;
   ipAddress?: string | null;
 }): Promise<{ id: string; expiresAt: Date }> {
+  const createdAt = new Date();
   const session = await prisma.session.create({
     data: {
       sessionToken: randomBytes(32).toString("hex"),
@@ -40,7 +42,8 @@ export async function createSession(input: {
       ...(input.membershipId ? { membershipId: input.membershipId } : {}),
       ...(input.companyId ? { currentCompanyId: input.companyId } : {}),
       workspaceScope: input.workspaceScope === "DEFAULT" ? null : (input.workspaceScope ?? "COMPANY"),
-      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      createdAt,
+      expiresAt: new Date(createdAt.getTime() + SESSION_TTL_MS),
       userAgent: input.userAgent ?? null,
       ipAddress: input.ipAddress ?? null,
     },
@@ -204,7 +207,7 @@ export async function revokeSessionsForUser(
  * commits with the change that caused it.
  */
 export async function revokeSessions(
-  client: Pick<typeof prisma, "session" | "companyMember">,
+  client: Pick<typeof prisma, "session" | "companyMember" | "authEvent">,
   target: {
     userId?: string;
     membershipId?: string;
@@ -223,6 +226,9 @@ export async function revokeSessions(
     relocate?: boolean;
   },
 ): Promise<number> {
+  // Revocation and its audit commit together. Password/account workflows that
+  // already supply a transaction keep both operations inside that transaction.
+  if (client === prisma) return prisma.$transaction((tx) => revokeSessions(tx, target));
   if (!target.userId && !target.membershipId && !target.companyId && !target.parentGroupId && !target.sessionId) {
     throw new Error("revokeSessions needs a user, membership, company, parent group or session");
   }
@@ -267,6 +273,49 @@ export async function revokeSessions(
     }
   }
 
-  const { count } = await client.session.deleteMany({ where });
-  return count;
+  const candidates = await client.session.findMany({
+    where,
+    // Overlapping revocations acquire row locks in the same order.
+    orderBy: { id: "asc" },
+    select: { id: true, userId: true, currentCompanyId: true, userAgent: true, ipAddress: true },
+  });
+  if (!candidates.length) return 0;
+  const started = new Set((await client.authEvent.findMany({
+    where: { sessionId: { in: candidates.map((row) => row.id) }, type: "IMPERSONATION_STARTED" },
+    select: { sessionId: true },
+  })).map((event) => event.sessionId));
+  const removed: typeof candidates = [];
+  for (const row of candidates) {
+    // Recheck the predicate: another request may have moved or revoked this
+    // row while we waited. Only the request actually deleting it records it.
+    const { count } = await client.session.deleteMany({ where: { AND: [where, { id: row.id }] } });
+    if (!count) continue;
+    removed.push(row);
+  }
+  if (removed.length) await client.authEvent.createMany({ data: removed.flatMap((row) => {
+    const event = { userId: row.userId, sessionId: row.id, companyId: row.currentCompanyId, userAgent: row.userAgent, ipAddress: row.ipAddress };
+    return [
+      { ...event, type: "SESSION_REVOKED" as const },
+      ...(started.has(row.id) ? [{ ...event, type: "IMPERSONATION_ENDED" as const }] : []),
+    ];
+  }) });
+  return removed.length;
+}
+
+/** Conditional deletion records expiration once, even with concurrent tabs. */
+export async function expireSession(sessionId: string): Promise<void> {
+  const row = await prisma.session.findUnique({ where: { id: sessionId }, select: { userId: true, currentCompanyId: true } });
+  if (!row) return;
+  const { count } = await prisma.session.deleteMany({ where: { id: sessionId, expiresAt: { lte: new Date() } } });
+  if (count) {
+    await recordAuthEvent({ type: "SESSION_EXPIRED", sessionId, userId: row.userId, companyId: row.currentCompanyId });
+    await endImpersonation(sessionId, row.userId, row.currentCompanyId);
+  }
+}
+
+async function endImpersonation(sessionId: string, userId: string, companyId: string | null): Promise<void> {
+  try {
+    const started = await prisma.authEvent.findFirst({ where: { sessionId, type: "IMPERSONATION_STARTED" }, select: { id: true } });
+    if (started) await recordAuthEvent({ type: "IMPERSONATION_ENDED", sessionId, userId, companyId });
+  } catch { /* Audit availability must not prevent session termination. */ }
 }

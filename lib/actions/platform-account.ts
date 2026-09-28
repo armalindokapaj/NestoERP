@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
-import { signOut } from "@/lib/auth";
+import { endSessionAction } from "@/lib/actions/auth";
 import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
 import { clientAddress, userAgentOf } from "@/lib/core/security/throttle";
 import { changePasswordSchema } from "@/lib/modules/account/account.schema";
@@ -87,7 +87,7 @@ export async function revokePlatformSessionAction(sessionId: string): Promise<Ac
   } catch (error) {
     return failure(error);
   }
-  if (current) await signOut({ redirectTo: "/login" });
+  if (current) await endSessionAction();
   revalidatePath(PATH);
   return { ok: true, revokedSessions: 1 };
 }
@@ -104,5 +104,5 @@ export async function signOutPlatformEverywhereAction(): Promise<void> {
   const context = await platformCaller();
   if (!context) redirect("/access-denied");
   await platformAccount.revokePlatformAllSessions(context);
-  await signOut({ redirectTo: "/login" });
+  await endSessionAction();
 }

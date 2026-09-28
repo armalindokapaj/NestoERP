@@ -100,6 +100,7 @@ export function DevUserSwitcherDialog({
         // it lands. A switch that failed after signing out lands on sign-in (§46).
         unsaved.forceLeave();
         resetUserScopedClientState();
+        document.documentElement.setAttribute("data-nesto-covered", "");
         window.location.assign(result.landing);
         return;
       }

@@ -44,7 +44,7 @@ export function announceSignOut(): void {
 /** The session ended under this tab — the bell's poll answered 401 (§7). */
 export function handleSessionLost(): void {
   if (unsaved.hasBlocking({ kind: "reload" })) unsaved.freeze({ reason: "session-expired" });
-  else window.location.reload();
+  else window.location.replace("/login?reason=session-expired");
 }
 
 /**
@@ -171,7 +171,10 @@ export function UnsavedHost({ identity, workspace }: { identity: TabIdentity; wo
         // Somebody else now owns this browser's session. Security first: the
         // draft is not kept for them to see (§7).
         if (holding) unsaved.freeze({ reason: "identity-changed" });
-        else window.location.reload();
+        else {
+          document.documentElement.setAttribute("data-nesto-covered", "");
+          window.location.reload();
+        }
         return;
       }
       if (message.type === "signed-out" && message.session === mine.session) {
@@ -400,6 +403,7 @@ function FreezeNotice({ freeze, workspace }: { freeze: Freeze; workspace: TabWor
     if (freeze.reason !== "identity-changed") return;
     // Another person: nothing of this tab's draft is kept for them.
     unsaved.forceLeave();
+    document.documentElement.setAttribute("data-nesto-covered", "");
     window.location.reload();
   }, [freeze.reason]);
 
@@ -474,7 +478,7 @@ function FreezeNotice({ freeze, workspace }: { freeze: Freeze; workspace: TabWor
           >
             {t("discardAndSignIn")}
           </Button>
-          <Button size="lg" onClick={() => window.open("/login", "_blank", "noopener")} data-testid="unsaved-context-newtab">
+          <Button size="lg" onClick={() => window.open("/login?reason=session-expired", "_blank", "noopener")} data-testid="unsaved-context-newtab">
             {t("signInNewTab")}
           </Button>
         </>

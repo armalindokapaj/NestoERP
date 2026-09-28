@@ -12,4 +12,14 @@ import { clearSearchHomeCache } from "@/lib/productivity/client";
 export function resetUserScopedClientState(): void {
   clearSearchHomeCache();
   clearActivityCache();
+  if (typeof window !== "undefined") {
+    for (const name of ["sessionStorage", "localStorage"] as const) {
+      try {
+        const storage = window[name];
+        for (const key of Object.keys(storage)) {
+          if (/^nesto[.:-]/i.test(key) && key !== "nesto.auth.lifecycle") storage.removeItem(key);
+        }
+      } catch { /* Storage is optional; memory still gets cleared. */ }
+    }
+  }
 }
