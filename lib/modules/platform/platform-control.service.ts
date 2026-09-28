@@ -15,7 +15,7 @@ import { prisma } from "@/lib/database/prisma";
 import { invalidateMaintenanceSnapshot } from "@/lib/core/maintenance/platform-maintenance";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
-import { CORE_MODULES, DEPENDENCIES, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
+import { applyModuleChange, ModulePolicyError, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
 import type { AccessInspectorInput } from "./platform-control.schema";
 import { inspectAccess } from "./platform-control.query";
 import { describeLogo } from "@/lib/workspace/branding";
@@ -129,10 +129,18 @@ export async function createPlatformUser(context: PlatformContext, input: { pers
 
 export async function setGroupStatus(context: PlatformContext, groupId: string, status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED", reason: string) {
   assertPlatform(context, "platform.group.lifecycle");
-  const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true } }));
+  const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true, activatedAt: true } }));
   if (group.status === "ARCHIVED") throw new AccessError("CONFLICT", "An archived group is historical and cannot be reopened from the console.");
-  if (status === "ACTIVE" && ["IMPLEMENTING", "READY_FOR_VALIDATION"].includes(group.status)) {
-    throw new AccessError("CONFLICT", "Complete the implementation checklist and use the handover action to activate this group.");
+  // activatedAt is the record of a completed handover. A group without one was
+  // still being set up, so whatever state it is in now — suspension included —
+  // it reaches ACTIVE only through the checklist (ADM audit §2): resuming it
+  // goes back into setup. A handed-over group resumes as ACTIVE and never
+  // returns to setup.
+  if (status === "ACTIVE" && !group.activatedAt) {
+    throw new AccessError("CONFLICT", group.status === "SUSPENDED" ? "This group was suspended before its handover. Resume it into setup, then complete the checklist to activate it." : "Complete the implementation checklist and use the handover action to activate this group.", { code: "ACTIVATION_REQUIRES_CHECKLIST" });
+  }
+  if ((status === "IMPLEMENTING" || status === "READY_FOR_VALIDATION") && group.activatedAt) {
+    throw new AccessError("CONFLICT", "A group that has been handed over does not return to setup. Resume it as active.", { code: "ALREADY_HANDED_OVER" });
   }
   if (group.status === status) return;
   await prisma.$transaction(async (tx) => {
@@ -248,24 +256,16 @@ export async function revokePlatformSession(context: PlatformContext, sessionId:
 export async function setPlatformModule(context: PlatformContext, input: { companyId: string; moduleKey: ModuleKey; enabled: boolean; reason: string }) {
   assertPlatform(context, "platform.module.manage");
   const company = assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true } }));
-  const moduleRow = assertFound(await prisma.module.findUnique({ where: { key: input.moduleKey }, select: { id: true, name: true } }));
-  if (!input.enabled && ([...CORE_MODULES, ...SHARED_MODULES] as ModuleKey[]).includes(input.moduleKey)) throw new AccessError("CONFLICT", `${moduleRow.name} is required by the platform.`);
-  const currentRows = await prisma.companyModule.findMany({ where: { companyId: company.id }, select: { enabled: true, module: { select: { key: true } } } });
-  const current = new Map(currentRows.map((row) => [row.module.key, row.enabled]));
-  if (input.enabled) {
-    const missing = (DEPENDENCIES[input.moduleKey] ?? []).filter((key) => !current.get(key));
-    if (missing.length) throw new AccessError("CONFLICT", `Enable ${missing.map((key) => moduleRegistry[key].label).join(", ")} first.`);
-  } else {
-    const dependants = Object.entries(DEPENDENCIES).filter(([key, dependencies]) => current.get(key) && dependencies?.includes(input.moduleKey)).map(([key]) => moduleRegistry[key as ModuleKey].label);
-    if (dependants.length) throw new AccessError("CONFLICT", `${dependants.join(", ")} depends on this module.`);
+  const label = moduleRegistry[input.moduleKey].label;
+  // The same policy company Settings enforces, integrations included (ADM audit §2).
+  try {
+    await applyModuleChange(company.id, input.moduleKey, input.enabled, (tx, was) =>
+      recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_MODULE_CHANGED, entity: { type: "CompanyModule", id: `${company.id}:${input.moduleKey}`, label: `${company.name} · ${label}` }, before: { companyId: company.id, moduleKey: input.moduleKey, enabled: was }, after: { companyId: company.id, moduleKey: input.moduleKey, enabled: input.enabled }, reason: input.reason }, { tx }).then(() => undefined),
+    );
+  } catch (error) {
+    if (error instanceof ModulePolicyError) throw new AccessError(error.blocker.code === "MODULE_NOT_FOUND" ? "NOT_FOUND" : "CONFLICT", error.blocker.message, { code: error.blocker.code });
+    throw error;
   }
-  const was = current.get(input.moduleKey) ?? false;
-  if (was === input.enabled) return;
-  await prisma.$transaction(async (tx) => {
-    await tx.companyModule.upsert({ where: { companyId_moduleId: { companyId: company.id, moduleId: moduleRow.id } }, update: { enabled: input.enabled }, create: { companyId: company.id, moduleId: moduleRow.id, enabled: input.enabled } });
-    await tx.company.update({ where: { id: company.id }, data: { configVersion: { increment: 1 } } });
-    await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_MODULE_CHANGED, entity: { type: "CompanyModule", id: `${company.id}:${input.moduleKey}`, label: `${company.name} · ${moduleRow.name}` }, before: { companyId: company.id, moduleKey: input.moduleKey, enabled: was }, after: { companyId: company.id, moduleKey: input.moduleKey, enabled: input.enabled }, reason: input.reason }, { tx });
-  });
 }
 
 export async function createFeatureFlag(context: PlatformContext, input: { key: string; name: string; description?: string; defaultState: FeatureFlagState; reason: string }) {
