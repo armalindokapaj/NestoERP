@@ -1,3 +1,13 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { ListSkeleton, SummarySkeleton } from "./_dashboard/sections";
+
 export default function PlatformAdminLoading() {
-  return <div className="space-y-5" role="status" aria-busy="true" aria-label="Loading platform administration"><div className="h-10 w-72 animate-pulse rounded-lg bg-hover" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl border border-line bg-surface" />)}</div><div className="h-96 animate-pulse rounded-xl border border-line bg-surface" /></div>;
+  return (
+    <div className="space-y-5" role="status" aria-busy="true" aria-label="Loading dashboard">
+      <div className="space-y-2"><Skeleton className="h-8 w-40" /><Skeleton className="h-4 w-72" /></div>
+      <SummarySkeleton />
+      <div className="grid gap-5 xl:grid-cols-[3fr_2fr]"><ListSkeleton rows={3} label="attention" /><ListSkeleton rows={6} label="recent activity" /></div>
+    </div>
+  );
 }
