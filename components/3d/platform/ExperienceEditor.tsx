@@ -226,7 +226,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   const toast = useToast();
   const projectId = initial.project.id;
   const { permissions } = initial;
-  const managementHref = `/platform-admin/3d/projects/${projectId}`;
+  const managementHref = `/admin/3d/projects/${projectId}`;
   const versions = React.useMemo(() => initial.slots.flatMap((slot) => slot.versions), [initial.slots]);
   const [layout, updateLayout] = useEditorLayout(TOOL_IDS, "scene");
   const tool = layout.tool;

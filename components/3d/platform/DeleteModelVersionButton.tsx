@@ -93,10 +93,10 @@ export function DeleteModelVersionButton({ versionId, fileName }: { versionId: s
           <DialogFooter>
             <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
             {usage?.blockers.includes("RELEASED") ? (
-              <Button asChild variant="secondary"><Link href={`/platform-admin/3d/projects/${usage.experience.projectId}/releases`}>View usages</Link></Button>
+              <Button asChild variant="secondary"><Link href={`/admin/3d/projects/${usage.experience.projectId}/releases`}>View usages</Link></Button>
             ) : null}
             {usage?.blockers.includes("SHOWN_IN_EXPERIENCE") ? (
-              <Button asChild><Link href={`/platform-admin/3d/projects/${usage.experience.projectId}/models`}>Remove from this Experience</Link></Button>
+              <Button asChild><Link href={`/admin/3d/projects/${usage.experience.projectId}/models`}>Remove from this Experience</Link></Button>
             ) : null}
           </DialogFooter>
         </DialogContent>

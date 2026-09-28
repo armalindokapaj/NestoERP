@@ -183,7 +183,7 @@ describe("the demo user switch replaces the session (C-01 §7, §21-§24)", () =
 
   it("goes to the platform and back, each a real session of its own (§26, §27, §78)", async () => {
     const owner = await signInOnTheForm("armaar.owner");
-    await expect(switchTo("platform-admin")).resolves.toEqual({ ok: true, landing: "/platform-admin" });
+    await expect(switchTo("platform-admin")).resolves.toEqual({ ok: true, landing: "/admin" });
     const platform = browser.user!;
     expect(await prisma.session.findUniqueOrThrow({ where: { id: platform.sessionId } })).toMatchObject({ membershipId: null, currentCompanyId: null });
     await expect(resolveContextForSession(platform.sessionId, { expectedUserId: platform.id })).resolves.toEqual({ ok: false, reason: "PLATFORM_SESSION" });

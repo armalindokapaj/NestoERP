@@ -92,8 +92,8 @@ test.describe("scope by the URL (RP-08, RP-13)", () => {
 
   test("a company's Owner is turned away from the platform administration, page and API", async ({ page }) => {
     await signIn(page, "OWNER");
-    await page.goto("/platform-admin");
-    await expect(page).not.toHaveURL(/\/platform-admin/);
+    await page.goto("/admin");
+    await expect(page).not.toHaveURL(/\/admin/);
     const api = await page.request.get("/api/platform/parent-groups");
     expect([401, 403, 404]).toContain(api.status());
   });

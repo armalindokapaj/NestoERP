@@ -71,4 +71,4 @@ export function isPlatformRoleKey(value: string): value is PlatformRoleKey {
 }
 
 /** The Platform Admin's own area (E-06 §128); never part of a company's sidebar. */
-export const PLATFORM_HOME = "/platform-admin";
+export const PLATFORM_HOME = "/admin";

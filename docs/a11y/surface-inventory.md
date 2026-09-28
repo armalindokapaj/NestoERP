@@ -35,7 +35,7 @@ Shared/shell rows first, then every module and Platform Admin area. Findings are
 | Theme | config/theme.ts vs CSS | config/theme.ts | — | — | — | — | — | D: drift — z-index listed 5 of 9 rungs (floating 65, tooltip 66, sheet 55, prompt 80 missing), radius 6 and motion rise 600 missing, colours missing strong/soft/fg variants → aligned; `--nesto-z-*` tokens added | unit theme-drift (every number checked against the CSS) |
 | Motion | reduced motion | globals.css | — | — | — | — | — | W global 0.01ms rule + static skeletons; D: smooth scrolling not disabled → `scroll-behavior: auto` | unit; e2e reduced motion |
 | Forced colours | global | globals.css `@media (forced-colors: active)` | — | — | — | — | — | D: every `ring-*` focus indicator (box-shadow) vanished in forced colours → system Highlight outline; selected tints → underline | unit; e2e forced colours (Chromium) |
-| Platform Admin | shell | app/platform-admin/layout.tsx (outside partition) | — | — | — | — | — | OPEN: no skip link / LiveAnnouncer in the platform layout (not in partition) | e2e scans light/dark |
+| Platform Admin | shell | app/admin/layout.tsx (outside partition) | — | — | — | — | — | OPEN: no skip link / LiveAnnouncer in the platform layout (not in partition) | e2e scans light/dark |
 
 ## Modules and Platform Admin
 
@@ -83,9 +83,9 @@ Shared/shell rows first, then every module and Platform Admin area. Findings are
 | Settings | company, storage, users, numbering | settings/*.tsx, app/(nesto)/settings/** | Tab | ownership share was bare-span `aria-label` → sr-only prefix (settings/company/page.tsx:71); storage progressbar named | — | tokens | none | D fixed | R, S |
 | Pricing (in-app) | wizard | pricing/*.tsx | Tab | — | — | tokens | decorative grid background aria-hidden | U | — |
 | Search / help / support | pages | app/(nesto)/search, help, support | Tab | — | — | tokens | none | U (help registry is AUD-05) | — |
-| Platform Admin | shell, overview, loading | components/platform/platform-shell.tsx, app/platform-admin/page.tsx, loading.tsx | Open navigation button (named, aria-expanded) | loading now `role=status aria-busy` (loading.tsx:2) | loading | tokens | none | D fixed (bare-div aria-label) | R, S |
-| Platform Admin | organizations, groups, people, access, security, audit, operations, data, product, settings, support, demo, pricing | app/platform-admin/** | Tab | text statuses (feature flags, companies) | — | tokens | none | U; no static defect found | S (overview, companies, audit, light/dark) |
-| Platform Admin | 3D projects/models/publishing | app/platform-admin/3d/** | Tab | cover `alt=""`, experience name as text | — | — | 3d/page.tsx:41-42 slate/cyan cover placeholder behind cover image — justified media surface | W; 3D editor itself out of scope (other session) | R (allowlist) |
+| Platform Admin | shell, overview, loading | components/platform/platform-shell.tsx, app/admin/page.tsx, loading.tsx | Open navigation button (named, aria-expanded) | loading now `role=status aria-busy` (loading.tsx:2) | loading | tokens | none | D fixed (bare-div aria-label) | R, S |
+| Platform Admin | organizations, groups, people, access, security, audit, operations, data, product, settings, support, demo, pricing | app/admin/** | Tab | text statuses (feature flags, companies) | — | tokens | none | U; no static defect found | S (overview, companies, audit, light/dark) |
+| Platform Admin | 3D projects/models/publishing | app/admin/3d/** | Tab | cover `alt=""`, experience name as text | — | — | 3d/page.tsx:41-42 slate/cyan cover placeholder behind cover image — justified media surface | W; 3D editor itself out of scope (other session) | R (allowlist) |
 
 Status pills to migrate (brief item 3): the shared primitive already exists — `components/ui/badge.tsx` + `components/modules/status-badge.tsx` (68 importers). The only ad hoc soft-tone text pills in module code were the four calendar Overdue/Critical spans, now `Badge`. Remaining `rounded-full bg-*-soft` elements are fixed-size step markers / icon discs (approval-detail.tsx:313, agenda-panel.tsx:274, team/invite-form.tsx:48) that sit beside a text label — not pills.
 

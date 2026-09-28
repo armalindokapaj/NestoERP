@@ -127,7 +127,7 @@ describe("AUD-11 module semantics (§3, AV-06)", () => {
   it("scans a meaningful partition", () => {
     expect(FILES.length).toBeGreaterThan(500);
     expect(FILES).toContain("components/calendar/event-card.tsx");
-    expect(FILES.some((file) => file.startsWith("app/platform-admin/"))).toBe(true);
+    expect(FILES.some((file) => file.startsWith("app/admin/"))).toBe(true);
   });
 
   it("uses no positive tabindex to patch the DOM order", () => {
@@ -241,7 +241,7 @@ describe("AUD-11 module visual system (§6, AV-13)", () => {
       "components/projects/project-media-gallery.tsx",
       "components/daily-logs/evidence-gallery.tsx",
       "components/projects/portfolio/project-card.tsx",
-      "app/platform-admin/3d/page.tsx",
+      "app/admin/3d/page.tsx",
     ];
     const palette = sweep(
       /\b(?:text|bg|border|ring|fill|stroke|from|via|to)-(?:red|green|blue|yellow|amber|emerald|orange|purple|sky|rose|slate|gray|zinc|neutral|indigo|violet|teal|cyan|lime|pink|fuchsia|stone|white|black)\b(?:-\d{2,3})?/,

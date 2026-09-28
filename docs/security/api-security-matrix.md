@@ -2090,53 +2090,53 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/platform` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
 
-## Pages — /platform-admin
+## Pages — /admin
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/platform-admin` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/3d` | PLATFORM | — | project-3d | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`, `unit/a11y/aud11-modules.test.ts`; via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
-| PAGE | `/platform-admin/3d/diagnostics` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/3d/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listProject3DModels`: `api/project-3d/model-lifecycle.test.ts` | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`; via `getProject3DWorkspace`: `api/project-3d/platform-authorization.test.ts` | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]/bindings` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]/editor` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | `e2e/modules/project-3d.spec.ts` | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]/releases` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/platform-admin/3d/projects/[projectId]/structure` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` +1 | — | via `getPlatformProjectStructure`: `api/project-3d/platform-structure.test.ts` | covered |
-| PAGE | `/platform-admin/3d/publishing` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/grants` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/access/inspector` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/memberships` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/permissions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/roles` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/sessions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/access/users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/account` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/audit` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts` | covered |
-| PAGE | `/platform-admin/data/diagnostics` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/data/storage` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/demo` | PLATFORM | — | — | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/groups/[groupId]` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
-| PAGE | `/platform-admin/groups/[groupId]/departments` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getDepartmentDetail`: `api/organization/departments.test.ts` +3 | covered |
-| PAGE | `/platform-admin/operations/health` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/operations/jobs` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/organizations/companies` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/organizations/groups` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/organizations/implementations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/organizations/projects` | PLATFORM | — | platform | `projects` | `project.create` | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/people` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/pricing` | PLATFORM | — | pricing | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts` | covered |
-| PAGE | `/platform-admin/product/feature-flags` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/platform-admin/product/modules` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/product/templates` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/security/access-changes` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/security/audit` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/security/failed-logins` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/security/sessions` | PLATFORM | — | — | — | — | platform session; tenant refused | — | — | — | uncovered |
-| PAGE | `/platform-admin/settings` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/platform-admin/settings/maintenance` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `maintenanceState`: `api/platform/maintenance-propagation.test.ts` | covered |
-| PAGE | `/platform-admin/support` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/3d` | PLATFORM | — | project-3d | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`, `unit/a11y/aud11-modules.test.ts`; via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/diagnostics` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/3d/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listProject3DModels`: `api/project-3d/model-lifecycle.test.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`; via `getProject3DWorkspace`: `api/project-3d/platform-authorization.test.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]/bindings` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/editor` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | `e2e/modules/project-3d.spec.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/releases` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/structure` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` +1 | — | via `getPlatformProjectStructure`: `api/project-3d/platform-structure.test.ts` | covered |
+| PAGE | `/admin/3d/publishing` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/grants` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/users/inspector` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/memberships` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/permissions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/roles` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/sessions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/account` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts` | covered |
+| PAGE | `/admin/system/diagnostics` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/storage` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/demo` | PLATFORM | — | — | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/organizations/[groupId]` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
+| PAGE | `/admin/organizations/[groupId]/departments` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getDepartmentDetail`: `api/organization/departments.test.ts` +3 | covered |
+| PAGE | `/admin/system/health` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/jobs` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/organizations/companies` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/organizations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/organizations/implementations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/projects` | PLATFORM | — | platform | `projects` | `project.create` | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/people` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/modules/pricing` | PLATFORM | — | pricing | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts` | covered |
+| PAGE | `/admin/modules/feature-flags` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
+| PAGE | `/admin/modules` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules/templates` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit/access-changes` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit/security` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit/failed-logins` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/sessions` | PLATFORM | — | — | — | — | platform session; tenant refused | — | — | — | uncovered |
+| PAGE | `/admin/system` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/maintenance` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `maintenanceState`: `api/platform/maintenance-propagation.test.ts` | covered |
+| PAGE | `/admin/system/support` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 
 ## Pages — /pricing
 

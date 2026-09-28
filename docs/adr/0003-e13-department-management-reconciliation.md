@@ -111,7 +111,7 @@ E-06 had built most of the skeleton, with gaps E-13 closes:
 | Team, members, coverage (§23-§31) | EXTEND | MEMBER assignments; home rule (decision 5) |
 | Organization → Departments, detail tabs, Company → Departments (§32-§39) | EXTEND / NEW | `/organization/departments`, `/organization/departments/[id]?tab=`, `/organization/companies`, `/organization/companies/[id]` |
 | Create / activate UX, selectors (§40-§47) | NEW | `components/organization/department-actions.tsx`; candidates service |
-| Company setup, Platform Admin (§48-§51, §94-§96) | EXTEND | `bootstrapCompany({ departmentKeys })`, add-company department choice, `/platform-admin/groups/[id]/departments`, checklist |
+| Company setup, Platform Admin (§48-§51, §94-§96) | EXTEND | `bootstrapCompany({ departmentKeys })`, add-company department choice, `/admin/organizations/[id]/departments`, checklist |
 | Authority (§52-§60) | EXTEND | decisions 3, 8, 9 |
 | Data model (§61-§67) | EXTEND | decisions 1, 2, 4, 5 |
 | API (§68-§75) | NEW / SUPERSEDE | `app/api/organization/{departments,company-departments,department-assignments,companies}`, platform mirrors; E-06's `POST /department-assignments` and Team's `/api/departments` writes removed |

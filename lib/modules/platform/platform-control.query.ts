@@ -82,6 +82,30 @@ export async function listPlatformProjects(context: PlatformContext) {
   }));
 }
 
+/** One project for its Platform Admin page (Admin IA §7): identity, owner, 3D state. Never its business records. */
+export async function getPlatformProject(context: PlatformContext, projectId: string) {
+  assertPlatform(context, "platform.project.view");
+  const row = await prisma.project.findFirst({
+    where: { id: projectId, company: { parentGroup: { isTestFixture: false } } },
+    select: {
+      id: true, code: true, name: true, description: true, status: true, archivedAt: true, createdAt: true, updatedAt: true,
+      company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true, kind: true } } } },
+      project3DEntitlement: { select: { status: true } },
+      project3DConfig: { select: { activeReleaseId: true } },
+      _count: { select: { members: true } },
+    },
+  });
+  if (!row) throw new AccessError("NOT_FOUND", "Project not found.");
+  return {
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    archivedAt: iso(row.archivedAt),
+    members: row._count.members,
+    threeD: row.project3DConfig ? (row.project3DConfig.activeReleaseId ? "Published" : "Draft") : row.project3DEntitlement ? "Entitled" : null,
+  };
+}
+
 export async function listImplementations(context: PlatformContext) {
   assertPlatform(context, "platform.group.view");
   const rows = await prisma.parentGroup.findMany({
@@ -372,17 +396,17 @@ export async function platformSearch(context: PlatformContext, query: string) {
   const contains = { contains: q, mode: "insensitive" as const };
   const [groups, companies, people, users, projects] = await Promise.all([
     prisma.parentGroup.findMany({ where: { isTestFixture: false, kind: "GROUP", OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true } }),
-    prisma.company.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true } }),
+    prisma.company.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true, parentGroup: { select: { kind: true, name: true } } } }),
     prisma.personProfile.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ firstName: contains }, { lastName: contains }, { workEmail: contains }] }, take: 6, select: { id: true, firstName: true, lastName: true, parentGroup: { select: { name: true } } } }),
     prisma.user.findMany({ where: { OR: [{ username: contains }, { firstName: contains }, { lastName: contains }] }, take: 6, select: { id: true, username: true, firstName: true, lastName: true } }),
     prisma.project.findMany({ where: { company: { parentGroup: { isTestFixture: false } }, OR: [{ name: contains }, { code: contains }] }, take: 6, select: { id: true, name: true, code: true, company: { select: { name: true } } } }),
   ]);
   return [
-    ...groups.map((row) => ({ type: "Parent Group", id: row.id, title: row.name, subtitle: row.slug, href: `/platform-admin/groups/${row.id}` })),
-    ...companies.map((row) => ({ type: "Company", id: row.id, title: row.name, subtitle: row.slug, href: "/platform-admin/organizations/companies" })),
-    ...people.map((row) => ({ type: "Person", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.parentGroup.name, href: "/platform-admin/people" })),
-    ...users.map((row) => ({ type: "User", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.username, href: "/platform-admin/access/users" })),
-    ...projects.map((row) => ({ type: "Project", id: row.id, title: row.name, subtitle: `${row.company.name} · ${row.code}`, href: "/platform-admin/organizations/projects" })),
+    ...groups.map((row) => ({ type: "Group", id: row.id, title: row.name, subtitle: row.slug, href: `/admin/organizations/${row.id}` })),
+    ...companies.map((row) => ({ type: "Company", id: row.id, title: row.name, subtitle: row.parentGroup.kind === "STANDALONE" ? "Standalone company" : row.parentGroup.name, href: `/admin/organizations/${row.id}` })),
+    ...projects.map((row) => ({ type: "Project", id: row.id, title: row.name, subtitle: `${row.company.name} · ${row.code}`, href: `/admin/projects/${row.id}` })),
+    ...users.map((row) => ({ type: "User", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.username, href: `/admin/users?q=${encodeURIComponent(row.username)}` })),
+    ...people.map((row) => ({ type: "Person", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.parentGroup.name, href: "/admin/users/people" })),
   ].slice(0, 20);
 }
 

@@ -18,7 +18,7 @@ database model is a runtime dependency.
 | Water normals, caustic texture, LUT assets | `public/3d/` | Local immutable assets under the NESTO public namespace. |
 | `ThreeProjectViewer` | `components/3d/company/ThreeProjectViewer.tsx` | Shared render host with cleanup and controlled model/WebGL failures. |
 | Public/white-label viewer shell | `components/3d/company/Project3DViewer.tsx` | Rebuilt around the Company release DTO; no marketplace, account, Publisher, or editing actions. |
-| Experience Editor | `components/3d/platform/ExperienceEditor.tsx` | Platform-only NESTO editor with optimistic revisions and native API adapters, rendered only in its own browser tab at `/platform-admin/3d/projects/{id}/editor` (see `docs/project-3d.md`). |
+| Experience Editor | `components/3d/platform/ExperienceEditor.tsx` | Platform-only NESTO editor with optimistic revisions and native API adapters, rendered only in its own browser tab at `/admin/3d/projects/{id}/editor` (see `docs/project-3d.md`). |
 | Model upload/editor panels | `components/3d/platform/ModelIngestionPanel.tsx` | Private signed NESTO storage, semantic slots, immutable source versions, durable processing. |
 | Unit mesh-link editor | `components/3d/platform/UnitBindingEditor.tsx` | Links meshes to canonical `ProjectUnit` rows with Project/Company validation and composite foreign keys. |
 | Publish UI | `components/3d/platform/ReleaseManager.tsx` | Immutable release creation and active-release rollback. |
@@ -42,10 +42,10 @@ database model is a runtime dependency.
 
 | Source behavior | NESTO route |
 | --- | --- |
-| Cross-project administration | `/platform-admin/3d` |
-| Project authoring workspace | `/platform-admin/3d/projects/[projectId]` |
-| Publication overview | `/platform-admin/3d/publishing` |
-| Processing and release findings | `/platform-admin/3d/diagnostics` |
+| Cross-project administration | `/admin/3d` |
+| Project authoring workspace | `/admin/3d/projects/[projectId]` |
+| Publication overview | `/admin/3d/publishing` |
+| Processing and release findings | `/admin/3d/diagnostics` |
 | Read-only Company viewer | `/projects/[projectId]/3d` |
 | Company bootstrap | `/api/projects/[projectId]/3d/bootstrap` |
 | Entitlement and workspace | `/api/platform/3d/projects/[projectId]/**` |

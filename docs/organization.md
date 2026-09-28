@@ -34,7 +34,7 @@ PLATFORM ADMIN ──implements──→ PARENT GROUP (IMPLEMENTING → READY_FO
 | A person's positions in a context | `lib/context/organization-access.ts` (`positionFor`, `assignmentsInCompany`), `lib/context/member-context.ts` (`contextInCompany`) |
 | Role × position permissions | `config/role-defaults.ts` (`permissionsForRole(role, position)`, `POSITION_ORGANIZATION`, `HEAD_EXTRAS`, `HEAD_OVERRIDES`) |
 | Group departments and their roles | `config/group-departments.ts` |
-| Platform | `lib/context/platform-context.ts`, `config/platform.ts`, `lib/modules/platform/`, `app/platform-admin/` |
+| Platform | `lib/context/platform-context.ts`, `config/platform.ts`, `lib/modules/platform/`, `app/admin/` |
 | Project team changes by department managers | `lib/modules/projects/project.assignment.ts` |
 | Group dashboard rows | `lib/modules/dashboard/dashboard.group.ts` |
 | Demo | `prisma/seed/demo/`, `prisma/seed/fixtures/`, `prisma/seed/recruitment.ts`, `config/demo-accounts.ts` |
@@ -269,7 +269,7 @@ It expires, and the account carries `mustChangePassword`, as PRD #50 left it.
 
 ## Platform
 
-The Platform Admin signs in to `/platform-admin`, which is outside the
+The Platform Admin signs in to `/admin`, which is outside the
 application shell. A session with a membership is never a platform session, and
 every platform route runs inside `withPlatformContext`. From there the Platform
 Admin:

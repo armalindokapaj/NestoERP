@@ -168,7 +168,7 @@ describe("response shape and launch targets (§12, QC-04, QC-10)", () => {
 
   it("opens only internal application paths", () => {
     expect(isInternalAppPath("/tasks/new?projectId=p1")).toBe(true);
-    for (const bad of ["https://evil.test/x", "//evil.test", "/\\evil.test", "javascript:alert(1)", "/api/quick-create/actions", "/platform-admin", "tasks/new", 42]) {
+    for (const bad of ["https://evil.test/x", "//evil.test", "/\\evil.test", "javascript:alert(1)", "/api/quick-create/actions", "/admin", "tasks/new", 42]) {
       expect(isInternalAppPath(bad)).toBe(false);
     }
   });

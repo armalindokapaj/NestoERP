@@ -45,7 +45,7 @@ describe("Platform 3D Experience provisioning", () => {
 
   it("creates entitlement and metadata atomically and refuses duplicates", async () => {
     const created = await createProject3DExperience(admin, { parentGroupId: groupId!, companyId: companyId!, projectId: projectId!, experienceName: "Flagship Experience", internalNotes: "Initial implementation", activateEntitlement: true, structureMode: "CREATE_LATER", reason: "Provision flagship Experience" });
-    expect(created).toMatchObject({ projectId, openPath: `/platform-admin/3d/projects/${projectId}` });
+    expect(created).toMatchObject({ projectId, openPath: `/admin/3d/projects/${projectId}` });
     await expect(prisma.project3DEntitlement.findUnique({ where: { projectId: projectId! } })).resolves.toMatchObject({ status: "ACTIVE", viewerEnabled: true });
     expect((await listProject3DExperiences(admin, { q: "Flagship" })).map((row) => row.projectId)).toContain(projectId);
     await expect(createProject3DExperience(admin, { parentGroupId: groupId!, companyId: companyId!, projectId: projectId!, experienceName: "Duplicate", internalNotes: null, activateEntitlement: true, structureMode: "CREATE_LATER", reason: "Reject duplicate" })).rejects.toMatchObject({ code: "CONFLICT" });

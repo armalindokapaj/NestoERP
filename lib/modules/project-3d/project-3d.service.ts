@@ -173,7 +173,7 @@ export async function createProject3DExperience(context: PlatformContext, input:
         reason: input.reason,
         metadata: project3DAuditMetadata("EXPERIENCE_CREATED", `${input.experienceName} provisioned`, { structureMode: input.structureMode, existingStructure: project._count }),
       }, { tx });
-      return { id: config.id, projectId: project.id, openPath: input.structureMode === "CREATE_NOW" ? `/platform-admin/3d/projects/${project.id}/structure` : `/platform-admin/3d/projects/${project.id}` };
+      return { id: config.id, projectId: project.id, openPath: input.structureMode === "CREATE_NOW" ? `/admin/3d/projects/${project.id}/structure` : `/admin/3d/projects/${project.id}` };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new AccessError("CONFLICT", "This Project already has a 3D Experience.", { code: "EXPERIENCE_EXISTS" });

@@ -83,7 +83,7 @@ test.describe("AV-17 automated scans, light and dark", () => {
     }
 
     test(`${theme}: Platform Admin`, async ({ page }) => {
-      await signIn(page, "PLATFORM_ADMIN", { to: "/platform-admin" });
+      await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
       await useTheme(page, theme);
       await page.reload();
       await expect(page.locator("h1").first()).toBeVisible();

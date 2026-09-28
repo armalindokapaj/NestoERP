@@ -69,6 +69,36 @@ const nextConfig: NextConfig = {
     return [
       { source: "/legal", destination: "/contracts", permanent: true },
       { source: "/legal/:path*", destination: "/contracts/:path*", permanent: true },
+      // Platform Admin moved to /admin (Admin IA §6, §49, §50). Temporary, so a
+      // later rework can re-home these without browsers holding stale 308s.
+      ...[
+        ["/platform-admin/overview", "/admin"],
+        ["/platform-admin/dashboard", "/admin"],
+        ["/platform-admin/groups/:id/departments", "/admin/organizations/:id/departments"],
+        ["/platform-admin/groups/:id", "/admin/organizations/:id"],
+        ["/platform-admin/organizations/groups", "/admin/organizations"],
+        ["/platform-admin/organizations/companies/:id", "/admin/organizations/:id"],
+        ["/platform-admin/organizations/projects", "/admin/projects"],
+        ["/platform-admin/access/users", "/admin/users"],
+        ["/platform-admin/access/:path*", "/admin/users/:path*"],
+        ["/platform-admin/people", "/admin/users/people"],
+        ["/platform-admin/security/sessions", "/admin/users/sessions"],
+        ["/platform-admin/security/audit", "/admin/audit/security"],
+        ["/platform-admin/security/:path*", "/admin/audit/:path*"],
+        ["/platform-admin/product/modules", "/admin/modules"],
+        ["/platform-admin/product/:path*", "/admin/modules/:path*"],
+        ["/platform-admin/pricing", "/admin/modules/pricing"],
+        ["/platform-admin/settings/:path*", "/admin/system/:path*"],
+        ["/platform-admin/settings", "/admin/system"],
+        ["/platform-admin/operations/:path*", "/admin/system/:path*"],
+        ["/platform-admin/data/:path*", "/admin/system/:path*"],
+        ["/platform-admin/support", "/admin/system/support"],
+        ["/platform-admin/demo", "/admin/system/demo"],
+        ["/platform-admin", "/admin"],
+        ["/platform-admin/:path*", "/admin/:path*"],
+        ["/admin/overview", "/admin"],
+        ["/admin/dashboard", "/admin"],
+      ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];
   },
 

@@ -15,7 +15,7 @@ import type { AccountActionResult } from "./account";
 
 /** My Account & Security in the Platform console (ADM-01). Same result shape as the tenant account actions. */
 
-const PATH = "/platform-admin/account";
+const PATH = "/admin/account";
 
 /**
  * The platform caller, or null. An action refuses a tenant session with an

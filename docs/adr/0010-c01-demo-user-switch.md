@@ -55,7 +55,7 @@ be the same as signing out and signing back in as them.
    It holds each demo tenant's people read from its data, then the curated
    personas, now with each person's name (§16, §17, §41, §44).
 5. **The browser loads the landing page from scratch.** The action returns
-   `/dashboard`, or `/platform-admin` for a Platform Admin. The client calls
+   `/dashboard`, or `/admin` for a Platform Admin. The client calls
    `window.location.assign`, not a client-side navigation, so no page, router
    cache or React state of the previous user survives (§47-§49). Choosing the
    account already signed in changes nothing (§42).

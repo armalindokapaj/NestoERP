@@ -200,7 +200,7 @@ export function isInternalAppPath(href: unknown): href is string {
   if (typeof href !== "string" || !href.startsWith("/") || href.startsWith("//") || href.startsWith("/\\")) return false;
   try {
     const url = new URL(href, "https://nesto.invalid");
-    return url.origin === "https://nesto.invalid" && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/platform-admin");
+    return url.origin === "https://nesto.invalid" && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/admin");
   } catch {
     return false;
   }

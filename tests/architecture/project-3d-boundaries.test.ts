@@ -73,13 +73,13 @@ describe("Project 3D bundle boundaries", () => {
   });
 
   it("guards the Platform page tree at its root layout", () => {
-    const source = readFileSync("app/platform-admin/layout.tsx", "utf8");
+    const source = readFileSync("app/admin/layout.tsx", "utf8");
     expect(source).toContain("requirePlatformContext()");
   });
 });
 
 const EDITOR_GROUP = "app/(experience-editor)";
-const EDITOR_FRAME = `${EDITOR_GROUP}/platform-admin/3d/projects/[projectId]`;
+const EDITOR_FRAME = `${EDITOR_GROUP}/admin/3d/projects/[projectId]`;
 const EDITOR_ROUTE = `${EDITOR_FRAME}/editor`;
 
 /** Imports that reach the bundle: `import type` and `export type` are erased and skipped. */
@@ -138,7 +138,7 @@ describe("Experience Editor tab (3D Editor PRD §9-§11, §180-§183, §202-§20
       /^@\/components\/platform(?:\/|$)/,
       /^@\/components\/layout(?:\/|$)/,
       /^@\/components\/auth(?:\/|$)/,
-      /app\/platform-admin\/layout/,
+      /app\/admin\/layout/,
     ];
     // The authentication lifecycle PRD requires logout even in standalone
     // editors. Allow only these edges, not other auth or shell components.
@@ -164,7 +164,7 @@ describe("Experience Editor tab (3D Editor PRD §9-§11, §180-§183, §202-§20
   });
 
   it("keeps the 3D renderer out of every Platform Admin page, including Experience detail", () => {
-    const { modules, packages } = reachableFrom(sourceFiles("app/platform-admin"));
+    const { modules, packages } = reachableFrom(sourceFiles("app/admin"));
     expect([...packages].filter((name) => name === "three" || name.startsWith("three/") || name.startsWith("postprocessing"))).toEqual([]);
     expect([...modules].filter((file) => file.startsWith("lib/3d/runtime/render-engine") || file === "components/3d/company/ThreeProjectViewer.tsx" || file === "components/3d/platform/ExperienceEditor.tsx")).toEqual([]);
   });

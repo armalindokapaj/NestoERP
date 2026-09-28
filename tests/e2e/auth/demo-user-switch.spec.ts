@@ -109,7 +109,7 @@ test.describe("demo user switcher (C-01)", () => {
   test("goes to the Platform Admin's area and back into a company (§26, §27, §78)", async ({ page }) => {
     await signInOnTheForm(page, "armaar.owner");
     await page.goto("/settings/profile");
-    await switchTo(page, "platform", /\(platform-admin\)$/, /\/platform-admin$/);
+    await switchTo(page, "platform", /\(platform-admin\)$/, /\/admin$/);
     await expect(page.getByRole("button", { name: "Switch demo user" })).toBeVisible();
 
     await switchTo(page, "Armand", /^Armand Lilo — /, /\/dashboard$/);

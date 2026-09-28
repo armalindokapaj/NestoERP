@@ -27,7 +27,7 @@ test.afterAll(async () => {
 });
 
 test("the Platform Admin creates a group, a company and its first people, and activates it", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: "/platform-admin" });
+  await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
   await expect(page.getByRole("heading", { name: "Parent groups" })).toBeVisible();
   await expect(page.getByRole("link", { name: "NESTO Demo Group" })).toBeVisible();
 
@@ -72,7 +72,7 @@ test("the Platform Admin creates a group, a company and its first people, and ac
 
 test("the Owner is not let into the platform area (§116, §137)", async ({ page }) => {
   await signIn(page, "OWNER", { to: "/dashboard" });
-  await page.goto("/platform-admin");
+  await page.goto("/admin");
   await expect(page).toHaveURL(/\/dashboard$/);
   const response = await page.request.post("/api/platform/parent-groups", { data: { name: "Not mine", slug: "e2e-not-mine" } });
   expect(response.status()).toBe(403);

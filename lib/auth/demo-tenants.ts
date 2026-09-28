@@ -221,7 +221,7 @@ export type DemoAccountTarget =
       /** A Platform Admin: the session names no membership (E-06 §19). */
       platform: boolean;
       /** Where a normal sign-in of this account lands (C-01 §26, §27). */
-      landing: "/platform-admin" | "/dashboard";
+      landing: "/admin" | "/dashboard";
       /** The demo password this account was seeded with. Server-side only. */
       password: string;
     }
@@ -295,7 +295,7 @@ export async function resolveDemoAccountTarget(input: string, requestHeaders?: H
     username: account.username,
     name: nameOf(account),
     platform: workspace.platform,
-    landing: workspace.platform ? "/platform-admin" : "/dashboard",
+    landing: workspace.platform ? "/admin" : "/dashboard",
     password,
   };
 }
