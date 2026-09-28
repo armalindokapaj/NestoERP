@@ -9,6 +9,7 @@ import { prisma } from "@/lib/database/prisma";
 import { bindingChangeSummary, project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DUnitBindingsReplace } from "./project-3d.schema";
+import { assertProject3DExperienceLive } from "./project-3d.lifecycle";
 
 function sceneNodes(value: Prisma.JsonValue | null): Project3DSceneNode[] {
   if (!Array.isArray(value)) return [];
@@ -113,6 +114,7 @@ export async function replaceProject3DUnitBindings(
   input: Project3DUnitBindingsReplace,
 ) {
   assertProject3DPlatformPermission(context, "platform.3d.binding.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   const version = await requireVersion(projectId, versionId);
   if (!(["READY", "PUBLISHED"] as string[]).includes(version.status)) {
     throw stateDenied("Finish processing this model before linking units.", { code: "MODEL_NOT_READY" });

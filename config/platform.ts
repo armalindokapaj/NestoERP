@@ -42,6 +42,10 @@ export const PLATFORM_PERMISSIONS = [
   "platform.3d.binding.manage",
   "platform.3d.publish",
   "platform.3d.model.delete",
+  // ADM-04A §4: audience and whole-experience lifecycle are their own decisions.
+  "platform.3d.visibility.manage",
+  "platform.3d.experience.delete",
+  "platform.3d.experience.restore",
   "platform.operations.view",
   "platform.security.view",
   "platform.support.view",

@@ -70,6 +70,7 @@ const OWNED: Record<string, string[]> = {
     "project3DUnitMeshBinding",
     "project3DRelease",
     "platform3DEnvironmentPreset",
+    "project3DMutationRequest",
   ],
 
   /* Shared foundation ------------------------------------------------------ */

@@ -79,6 +79,11 @@ function isUniqueViolation(error: unknown): error is Prisma.PrismaClientKnownReq
   return error.code === "P2010" && (error.meta as { code?: unknown } | undefined)?.code === "23505";
 }
 
+/** The project_3d_refuse_deleted trigger's refusal, however Prisma wrapped it. */
+export function isDeletedExperienceWrite(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("PROJECT_3D_EXPERIENCE_DELETED");
+}
+
 /** Reads any thrown value into the one failure description both transports answer from. */
 export function describeFailure(error: unknown): DescribedFailure {
   if (error instanceof AccessError) {
@@ -127,6 +132,12 @@ export function describeFailure(error: unknown): DescribedFailure {
       details: field ? { code: "UNIQUE_VIOLATION", field } : { code: "UNIQUE_VIOLATION" },
       expected: true,
     };
+  }
+
+  // A write under a soft-deleted 3D experience, refused by its trigger
+  // whichever path it came from (ADM-04A §9).
+  if (isDeletedExperienceWrite(error)) {
+    return { code: "CONFLICT", businessCode: "EXPERIENCE_DELETED", category: "conflict", message: "This 3D experience has been deleted. Restore it before changing it.", details: { code: "EXPERIENCE_DELETED" }, expected: true };
   }
 
   // The database was too busy: the transaction rolled back, so nothing was
