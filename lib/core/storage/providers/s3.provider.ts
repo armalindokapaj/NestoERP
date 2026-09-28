@@ -161,6 +161,17 @@ export class S3StorageProvider implements StorageProvider {
     return new Uint8Array(await response.arrayBuffer());
   }
 
+  async openObjectRange(storageKey: string, start: number, end: number): Promise<ReadableStream<Uint8Array> | null> {
+    const response = await fetch(this.presign("GET", storageKey, 60), {
+      signal: AbortSignal.timeout(STORAGE_CALL_MS.transfer),
+      headers: { Range: `bytes=${start}-${end}` },
+    });
+    if (response.status === 404 || response.status === 403) return null;
+    // A store that ignored Range would send the wrong bytes for a partial read.
+    if (response.status !== 206 && !(response.status === 200 && start === 0)) throw new Error(`Storage range GET failed with ${response.status}`);
+    return response.body;
+  }
+
   async getObjectHead(storageKey: string, byteCount: number): Promise<Uint8Array | null> {
     const response = await fetch(this.presign("GET", storageKey, 60), {
       signal: AbortSignal.timeout(STORAGE_CALL_MS.head),

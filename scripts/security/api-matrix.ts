@@ -73,6 +73,8 @@ const REVIEWED: Record<string, string> = {
   "GET /api/productivity/palette": "search providers plus favorites/recent, each resolved in the reader's scope",
   "GET /api/productivity/settings": "company productivity preferences (retention, palette limits) every member's UI reads",
   "GET /api/settings/runtime": "company timezone, locale, currency and enabled modules every member's UI reads",
+  "GET /api/projects/[projectId]/3d/assets/[handle]": "deliverProject3DAsset re-checks hasActiveProject3DViewer (projects module, project.view, project scope, entitlement, release) and the handle's audience/epoch on every request (ADM-04A §8)",
+  "HEAD /api/projects/[projectId]/3d/assets/[handle]": "the same delivery as GET, without a body (ADM-04A §8)",
   "ACTION lib/actions/records.ts#decideRecordAction": "delegates to the record section's own decide(), which checks permission and scope",
 };
 
@@ -487,7 +489,7 @@ function layoutsAbove(file: string): Evidence {
 }
 
 const inShell = (file: string) => file.startsWith("app/(nesto)/");
-const isPublicPage = (file: string) => file.startsWith("app/(public)/") || file === "app/maintenance/page.tsx" || file === "app/workspace-unavailable/page.tsx";
+const isPublicPage = (file: string) => file.startsWith("app/(public)/") || file.startsWith("app/(public-viewer)/") || file === "app/maintenance/page.tsx" || file === "app/workspace-unavailable/page.tsx";
 
 function pageClass(file: string, route: string, own: Evidence, layouts: Evidence, redirectOnly: boolean): { cls: string; note?: string } {
   const guards = new Set([...own.guards, ...layouts.guards]);

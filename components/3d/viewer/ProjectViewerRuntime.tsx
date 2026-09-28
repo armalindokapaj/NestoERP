@@ -55,7 +55,7 @@ export function ProjectViewerRuntime({
 }) {
   const { project, construction, detailModels, viewerConfig, units } = bootstrap;
 
-  use3DAssetCache(`/projects/${project.id}/3d`);
+  use3DAssetCache(channel === "public" ? `/view/3d/${project.id}` : `/projects/${project.id}/3d`);
 
   const mainRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ThreeProjectViewerHandle>(null);

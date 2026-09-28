@@ -7,14 +7,19 @@ import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/comp
 import { parseProject3DExperience } from "@/lib/3d/shared/experience";
 import { project3DReleaseManifestSchema } from "@/lib/3d/shared/release.schema";
 import type { UserContext } from "@/lib/context/types";
-import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { planningOpen } from "@/lib/modules/project-planning/planning.permissions";
 import { isProject3DEntitlementActive } from "./project-3d.entitlement";
+import { project3DViewerToken, signProject3DAssetHandle } from "./project-3d.delivery";
 import { assertProject3DStorageKey } from "./project-3d.storage";
 
-const VIEWER_ASSET_TTL_SECONDS = 5 * 60;
+/**
+ * How long the browser treats a bootstrap as fresh. Handles do not expire on
+ * their own — the accessEpoch and each request's checks revoke them — but the
+ * viewer still refreshes its bootstrap on this cadence.
+ */
+const VIEWER_HANDLE_NOMINAL_SECONDS = 60 * 60;
 
 function canOpenProjects(context: UserContext): boolean {
   return isModuleEnabled(context, "projects")
@@ -151,6 +156,8 @@ export async function getProject3DViewerBootstrap(
       project3DEntitlement: true,
       project3DConfig: {
         select: {
+          id: true,
+          accessEpoch: true,
           deletedAt: true,
           visibility: true,
           activeRelease: {
@@ -232,16 +239,13 @@ export async function getProject3DViewerBootstrap(
   const mediaByUnit = new Map<string, typeof mediaRows>();
   for (const media of mediaRows) mediaByUnit.set(media.unitId, [...(mediaByUnit.get(media.unitId) ?? []), media]);
 
-  const provider = storageProvider();
-  const models = await Promise.all(manifest.models.map(async (model) => {
+  // Gated handles, never storage URLs (ADM-04A §8): each request re-checks this
+  // reader's access, and any audience or release decision revokes them.
+  const config = project.project3DConfig!;
+  const handleValidUntil = new Date(Date.now() + VIEWER_HANDLE_NOMINAL_SECONDS * 1000).toISOString();
+  const models = manifest.models.map((model) => {
     assertProject3DStorageKey(model.runtimeStorageKey, project.companyId, project.id, "runtime");
-    const signed = await provider.createDownloadUrl({
-      storageKey: model.runtimeStorageKey,
-      expiresInSeconds: VIEWER_ASSET_TTL_SECONDS,
-      disposition: "inline",
-      fileName: model.runtimeFileName,
-      contentType: "model/gltf-binary",
-    });
+    const handle = signProject3DAssetHandle({ c: config.id, r: release.id, a: model.versionId, au: "company", e: config.accessEpoch });
     return {
       slotId: model.slotId,
       slotName: model.slotName,
@@ -250,8 +254,8 @@ export async function getProject3DViewerBootstrap(
       versionId: model.versionId,
       versionNumber: model.versionNumber,
       asset: {
-        url: signed.url,
-        expiresAt: signed.expiresAt.toISOString(),
+        url: `/api/projects/${encodeURIComponent(project.id)}/3d/assets/${handle}`,
+        expiresAt: handleValidUntil,
         fileName: model.runtimeFileName,
         contentType: "model/gltf-binary" as const,
       },
@@ -264,7 +268,7 @@ export async function getProject3DViewerBootstrap(
       nodeOverrides: model.nodeOverrides,
       unitBindings: model.unitBindings,
     };
-  }));
+  });
 
   return project3DBootstrapSchema.parse({
     schemaVersion: 1,
@@ -303,4 +307,17 @@ export async function getProject3DViewerBootstrap(
       files: filesVisible,
     },
   });
+}
+
+/**
+ * The open company viewer's poll (ADM-04A §8): whether this reader may still
+ * view, and a token that changes when the release or any grant changes — never
+ * the epoch itself. Unavailable is an answer, not an error, so the viewer can
+ * clear its scene.
+ */
+export async function getProject3DViewerStatus(context: UserContext, projectId: string): Promise<{ available: boolean; token: string | null }> {
+  if (!await hasActiveProject3DViewer(context, projectId)) return { available: false, token: null };
+  const config = await prisma.project3DConfig.findFirst({ where: { projectId, deletedAt: null }, select: { activeReleaseId: true, accessEpoch: true } });
+  if (!config) return { available: false, token: null };
+  return { available: true, token: project3DViewerToken(config.activeReleaseId, config.accessEpoch) };
 }

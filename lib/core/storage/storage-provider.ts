@@ -74,6 +74,13 @@ export interface StorageProvider {
    */
   getObjectHead(storageKey: string, byteCount: number): Promise<Uint8Array | null>;
 
+  /**
+   * Bytes `start`..`end` (inclusive) as a stream, for gated delivery that must
+   * not buffer a whole model in memory nor hand the browser a reusable storage
+   * URL (ADM-04A §8). The caller bounds the range against `headObject` first.
+   */
+  openObjectRange(storageKey: string, start: number, end: number): Promise<ReadableStream<Uint8Array> | null>;
+
   /** A server-side write. Used by fixtures, seeds and quarantine moves. */
   putObject(storageKey: string, data: Uint8Array, contentType: string): Promise<StorageObjectMetadata>;
 

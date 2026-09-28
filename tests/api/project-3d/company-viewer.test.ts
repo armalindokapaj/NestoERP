@@ -5,12 +5,11 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { GET as getStorageObject } from "@/app/api/storage/objects/[...key]/route";
 import { DEFAULT_PROJECT_3D_CONFIG } from "@/lib/3d/shared/experience";
 import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
 import { setStorageProvider } from "@/lib/core/storage/storage-provider.factory";
-import { encodeClaims } from "@/lib/core/storage/url-signing";
 import { publishProject3DRelease } from "@/lib/modules/project-3d/project-3d.release";
+import { deliverProject3DAsset } from "@/lib/modules/project-3d/project-3d.delivery";
 import { getProject3DViewerBootstrap, hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma, PROJECT } from "@/tests/helpers";
 
@@ -188,10 +187,9 @@ describe("Company Project 3D viewer", () => {
       capabilities: { unitDetails: true },
       models: [{ transformParentSlotId: null, unitBindings: [{ unitId, unitCode: "CV-101" }] }],
     });
-    expect(bootstrap.models[0]?.asset.url).toContain(`/api/storage/objects/companies/${COMPANY.a}/projects/${projectId}/3d/runtime/`);
-    const remainingMs = new Date(bootstrap.models[0]!.asset.expiresAt).getTime() - Date.now();
-    expect(remainingMs).toBeGreaterThan(4 * 60_000);
-    expect(remainingMs).toBeLessThanOrEqual(5 * 60_000);
+    // A gated handle, not a storage URL (ADM-04A §8).
+    expect(bootstrap.models[0]?.asset.url).toContain(`/api/projects/${projectId}/3d/assets/`);
+    expect(bootstrap.models[0]?.asset.url).not.toContain("/api/storage/objects/");
     expect(bootstrap.models[0]).not.toHaveProperty("runtimeStorageKey");
     const serialized = JSON.stringify(bootstrap);
     expect(serialized).not.toContain(sourceStorageKey);
@@ -246,31 +244,47 @@ describe("Company Project 3D viewer", () => {
     }
   });
 
-  it("binds runtime asset grants to the exact key and expiry", async () => {
+  it("delivers models only through gated handles that each request re-checks (ADM-04A §8, EV-08, EV-10, EV-22, EV-25)", async () => {
     const bootstrap = await getProject3DViewerBootstrap(owner, projectId);
-    const signed = new URL(bootstrap.models[0]!.asset.url);
-    const encodedKey = signed.pathname.replace(/^\/api\/storage\/objects\//, "").split("/");
-    const allowed = await getStorageObject(new Request(signed), { params: Promise.resolve({ key: encodedKey }) });
-    expect(allowed.status).toBe(200);
-    expect(allowed.headers.get("cache-control")).toBe("private, no-store");
+    const url = bootstrap.models[0]!.asset.url;
+    // No storage URL reaches the browser any more.
+    expect(url).toMatch(new RegExp(`^/api/projects/${projectId}/3d/assets/[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$`));
+    expect(JSON.stringify(bootstrap)).not.toContain(runtimeStorageKey);
+    const handle = url.split("/").pop()!;
+    const get = (headers: Record<string, string> = {}, method = "GET", who = owner, h = handle, forProject = projectId) =>
+      deliverProject3DAsset(new Request(`http://localhost${url}`, { method, headers }), h, { audience: "company", context: who, projectId: forProject });
 
-    const wrongKey = runtimeStorageKey.replace(`/projects/${projectId}/`, `/projects/${PROJECT.companyB}/`);
-    const tampered = new URL(signed);
-    tampered.pathname = `/api/storage/objects/${wrongKey}`;
-    const denied = await getStorageObject(new Request(tampered), { params: Promise.resolve({ key: wrongKey.split("/") }) });
-    expect(denied.status).toBe(403);
+    const full = await get();
+    expect(full.status).toBe(200);
+    expect(full.headers.get("cache-control")).toBe("no-store, private");
+    expect(await full.text()).toBe("published runtime fixture");
+    const partial = await get({ range: "bytes=0-8" });
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get("content-range")).toBe("bytes 0-8/25");
+    expect(await partial.text()).toBe("published");
+    expect((await get({}, "HEAD")).headers.get("content-length")).toBe("25");
+    expect((await get({ range: "bytes=0-1,4-5" })).status).toBe(416);
+    expect((await get({ range: "bytes=900-" })).status).toBe(416);
 
-    const expired = new URL(`http://localhost/api/storage/objects/${runtimeStorageKey}`);
-    expired.search = encodeClaims({
-      method: "GET",
-      storageKey: runtimeStorageKey,
-      expiresAt: Date.now() - 10_000,
-      contentType: "model/gltf-binary",
-      disposition: "inline",
-      fileName: "viewer.glb",
-    }).toString();
-    const stale = await getStorageObject(new Request(expired), { params: Promise.resolve({ key: runtimeStorageKey.split("/") }) });
-    expect(stale.status).toBe(403);
+    // Forged, cross-project and cross-audience handles are one indistinguishable 404.
+    expect((await get({}, "GET", owner, `${handle.split(".")[0]}.forged`)).status).toBe(404);
+    expect((await get({}, "GET", owner, handle, PROJECT.companyB)).status).toBe(404);
+    expect((await get({}, "GET", projectManager)).status).toBe(404);
+    expect((await deliverProject3DAsset(new Request(`http://localhost${url}`), handle, { audience: "public", publicId: "whatever12" })).status).toBe(404);
+
+    // Offline: the handle issued before the change stops working at once.
+    await prisma.project3DConfig.update({ where: { projectId }, data: { visibility: "OFFLINE", accessEpoch: { increment: 1 } } });
+    expect((await get({ range: "bytes=0-8" })).status).toBe(404);
+    await prisma.project3DConfig.update({ where: { projectId }, data: { visibility: "COMPANY_ONLY" } });
+    expect((await get()).status).toBe(404);
+    const fresh = (await getProject3DViewerBootstrap(owner, projectId)).models[0]!.asset.url.split("/").pop()!;
+    expect((await get({}, "GET", owner, fresh)).status).toBe(200);
+
+    // Entitlement disabled without touching the experience: refused on the next request, no cache expiry involved.
+    await prisma.project3DEntitlement.update({ where: { projectId }, data: { viewerEnabled: false } });
+    expect((await get({}, "GET", owner, fresh)).status).toBe(404);
+    await prisma.project3DEntitlement.update({ where: { projectId }, data: { viewerEnabled: true } });
+    expect((await get({}, "GET", owner, fresh)).status).toBe(200);
   });
 
   it("enforces current-company and project scope before returning viewer data", async () => {

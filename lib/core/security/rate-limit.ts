@@ -23,7 +23,11 @@ export type RateLimitCategory =
   | "PUBLIC_PRICING"
   | "PUBLIC_PRICING_LEAD"
   /** Browser navigation telemetry batches, per session, per instance (NAV-03 TELEMETRY-03). */
-  | "TELEMETRY";
+  | "TELEMETRY"
+  /** The anonymous 3D viewer's bootstrap and status polls, per address (ADM-04A §12). */
+  | "PUBLIC_3D"
+  /** The anonymous 3D viewer's model requests, per address; Range reads count each. */
+  | "PUBLIC_3D_ASSET";
 
 type Rule = { limit: number; windowMs: number; failClosed: boolean };
 
@@ -40,6 +44,9 @@ const RULES: Record<RateLimitCategory, Rule> = {
   PUBLIC_PRICING_LEAD: { limit: 10, windowMs: 60 * 60_000, failClosed: true },
   // Six batches a minute; a limiter failure refuses rather than admits.
   TELEMETRY: { limit: 6, windowMs: 60_000, failClosed: true },
+  // A visible viewer polls status every 15 s (20 a 5-minute window) plus focus checks.
+  PUBLIC_3D: { limit: 120, windowMs: 5 * 60_000, failClosed: false },
+  PUBLIC_3D_ASSET: { limit: 300, windowMs: 5 * 60_000, failClosed: false },
 };
 
 type Counter = { count: number; resetAt: number };

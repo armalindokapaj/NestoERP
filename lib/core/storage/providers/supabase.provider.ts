@@ -127,6 +127,14 @@ export class SupabaseStorageProvider implements StorageProvider {
     return new Uint8Array(await response.arrayBuffer());
   }
 
+  async openObjectRange(storageKey: string, start: number, end: number): Promise<ReadableStream<Uint8Array> | null> {
+    const response = await this.request(`/object/authenticated/${this.objectPath(storageKey)}`, { method: "GET", headers: { Range: `bytes=${start}-${end}` } }, STORAGE_CALL_MS.transfer);
+    if (await isMissing(response)) return null;
+    // A store that ignored Range would send the wrong bytes for a partial read.
+    if (response.status !== 206 && !(response.status === 200 && start === 0)) throw new Error(`Storage range GET failed with ${response.status}`);
+    return response.body;
+  }
+
   async getObjectHead(storageKey: string, byteCount: number): Promise<Uint8Array | null> {
     const response = await this.request(`/object/authenticated/${this.objectPath(storageKey)}`, { method: "GET", headers: { Range: `bytes=0-${byteCount - 1}` } }, STORAGE_CALL_MS.head);
     if (await isMissing(response)) return null;

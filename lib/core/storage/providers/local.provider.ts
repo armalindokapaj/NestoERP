@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { Readable } from "node:stream";
 import path from "node:path";
 
 import type {
@@ -131,6 +133,16 @@ export class LocalStorageProvider implements StorageProvider {
       // A missing object is a state the caller handles, not a crash (§157).
       return null;
     }
+  }
+
+  async openObjectRange(storageKey: string, start: number, end: number): Promise<ReadableStream<Uint8Array> | null> {
+    const target = this.resolve(storageKey);
+    try {
+      await stat(target);
+    } catch {
+      return null;
+    }
+    return Readable.toWeb(createReadStream(target, { start, end })) as ReadableStream<Uint8Array>;
   }
 
   async getObjectHead(storageKey: string, byteCount: number): Promise<Uint8Array | null> {
