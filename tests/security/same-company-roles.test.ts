@@ -6,6 +6,7 @@ import type { RoleKey } from "@/config/roles";
 import type { UserContext } from "@/lib/context/types";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, PROJECT, prisma, projectTypeId, taskVersion } from "../helpers";
 import { actAs } from "./harness/actor";
+import { signedInAs } from "./harness/platform-session";
 import type { ServerAction } from "./harness/actions";
 import { companySnapshot, snapshotDifferences } from "./harness/company-data";
 import {
@@ -26,6 +27,8 @@ import { idsByFieldName } from "./harness/params";
 import { callRoute, discoverApiRoutes, fillPattern, HTTP_METHODS, type HttpMethod } from "./harness/routes";
 
 vi.mock("@/lib/context/resolve-user-context", () => import("./harness/actor"));
+// The platform actions read the cookie through auth(); the same session stands behind it (ADM-01).
+vi.mock("@/lib/auth", () => import("./harness/platform-session"));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn }));
 
 /**
@@ -215,6 +218,7 @@ describe("a Viewer forging writes in their own company (RP-09, RP-23)", () => {
 
   it("refuses every server action, creates included, and nothing changes", async () => {
     const before = await companySnapshot(COMPANY.a);
+    signedInAs({ userId: actors.viewer.userId, sessionId: actors.viewer.sessionId });
     const { attempts } = await sweepAllActions(actors.viewer, COMPANY.a, { only: (action) => !SELF_SERVICE_ACTIONS(action) });
     const changed = snapshotDifferences(before, await companySnapshot(COMPANY.a));
     // A thrown AccessError is a refusal; a thrown ZodError never reached the check and wrote nothing.

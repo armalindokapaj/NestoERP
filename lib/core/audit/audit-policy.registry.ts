@@ -17,6 +17,7 @@ export const AuditAction = {
   AUTH_PASSWORD_RESET_COMPLETED: "AUTH_PASSWORD_RESET_COMPLETED",
   // Account basics (PRD #38 §20, §156)
   AUTH_PASSWORD_CHANGED: "AUTH_PASSWORD_CHANGED",
+  AUTH_RECOVERY_EMAIL_CHANGED: "AUTH_RECOVERY_EMAIL_CHANGED",
   AUTH_SESSIONS_REVOKED: "AUTH_SESSIONS_REVOKED",
   AUTH_COMPANY_CONTEXT_SWITCHED: "AUTH_COMPANY_CONTEXT_SWITCHED",
   USER_PROFILE_UPDATED: "USER_PROFILE_UPDATED",
@@ -524,6 +525,7 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.AUTH_PASSWORD_RESET_REQUESTED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: false },
   { actionKey: AuditAction.AUTH_PASSWORD_RESET_COMPLETED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
   // Never the password, old or new — that it changed is the whole record (PRD #38 §156).
+  { actionKey: AuditAction.AUTH_RECOVERY_EMAIL_CHANGED, moduleKey: "settings", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["recoveryEmail"], required: true },
   { actionKey: AuditAction.AUTH_PASSWORD_CHANGED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
   { actionKey: AuditAction.AUTH_SESSIONS_REVOKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["scope", "revoked"], required: false },
   // Recorded in the company the session moved into; the auth event keeps both ends (E-05A §26).

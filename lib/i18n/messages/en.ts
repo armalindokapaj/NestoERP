@@ -627,8 +627,46 @@ export const en = {
       metaTitle: "Forgotten password",
       title: "Forgotten your password?",
       description:
-        "Contact your NESTO administrator to reset it. They can set a temporary password for you, which you will be asked to change when you next sign in.",
+        "Enter your username or your recovery email. If the account has a verified recovery email, a reset link is sent there.",
+      identifier: "Username or recovery email",
+      identifierPlaceholder: "your.username or name@example.com",
+      submit: "Send reset link",
+      sentTitle: "Check your recovery email",
+      sentDescription:
+        "If that account has a verified recovery email, a reset link is on its way. It expires in 30 minutes and works once.",
+      sentHint:
+        "No recovery email on the account? Ask your NESTO administrator to set a temporary password for you.",
       backToSignIn: "Back to sign in",
+    },
+
+    reset: {
+      metaTitle: "Choose a new password",
+      title: "Choose a new password",
+      description: "Every session on this account is signed out when the password changes.",
+      newPassword: "New password",
+      confirmPassword: "Confirm new password",
+      passwordHint: "At least 10 characters.",
+      submit: "Set new password",
+      submitting: "Saving…",
+      doneTitle: "Password changed",
+      doneDescription: "Sign in with your new password.",
+      signIn: "Sign in",
+      requestNewLink: "Request a new link",
+      invalidTitle: "This link cannot be used",
+      invalidDescription: "Reset links expire after 30 minutes and work only once.",
+    },
+
+    verifyRecovery: {
+      metaTitle: "Confirm recovery email",
+      title: "Confirm your recovery email",
+      description: "Password-recovery links for your account will go to this address from now on.",
+      confirm: "Confirm this address",
+      confirming: "Confirming…",
+      doneTitle: "Recovery email confirmed",
+      doneDescription: "You can now recover your password through this address.",
+      invalid: "This link is no longer valid. Start the change again from My Account & Security.",
+      expired: "This link has expired. Start the change again from My Account & Security.",
+      rateLimited: "Too many attempts. Wait a few minutes and try again.",
     },
 
     errors: {
@@ -643,6 +681,8 @@ export const en = {
       reviewForm: "Please review the form and try again.",
       tooManySignIns: "Too many sign-in attempts. Wait a few minutes and try again.",
       tooManyAttempts: "Too many attempts. Wait a few minutes and try again.",
+      resetExpired: "That reset link has expired. Request a new one.",
+      resetInvalid: "That reset link is no longer valid. Request a new one.",
     },
   },
 

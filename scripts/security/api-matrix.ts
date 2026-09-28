@@ -53,6 +53,11 @@ const SELF_SERVICE = [/^\/api\/me(\/|$)/, /^\/api\/notifications(\/|$)/, /^\/api
 /** Server actions whose subject is the caller, or that carry their own credential. */
 const ACTION_CLASSES: Record<string, string> = {
   "lib/actions/account.ts": "AUTHENTICATED",
+  // The Platform Admin's own account (ADM-01): requirePlatformContext, tenant sessions refused.
+  "lib/actions/platform-account.ts": "PLATFORM",
+  // Recovery links (ADM-01): the credential is the emailed token, checked by its hash.
+  "lib/actions/auth.ts#resetPasswordAction": "TOKEN",
+  "lib/actions/auth.ts#confirmRecoveryEmailAction": "TOKEN",
   "lib/actions/team.ts#acceptInviteAction": "TOKEN",
   "lib/actions/team.ts#acceptInviteAsCurrentUserAction": "TOKEN",
 };

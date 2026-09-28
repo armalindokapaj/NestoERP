@@ -622,8 +622,46 @@ export const sq: Messages = {
       metaTitle: "Fjalëkalim i harruar",
       title: "Keni harruar fjalëkalimin?",
       description:
-        "Kontaktoni administratorin tuaj të NESTO-s për ta rivendosur. Ai mund t'ju caktojë një fjalëkalim të përkohshëm, të cilin do t'ju kërkohet ta ndryshoni herën tjetër që hyni.",
+        "Shkruani emrin e përdoruesit ose emailin e rikuperimit. Nëse llogaria ka një email rikuperimi të verifikuar, lidhja për rivendosje dërgohet atje.",
+      identifier: "Emri i përdoruesit ose emaili i rikuperimit",
+      identifierPlaceholder: "emri.juaj ose emri@shembull.com",
+      submit: "Dërgo lidhjen e rivendosjes",
+      sentTitle: "Kontrolloni emailin e rikuperimit",
+      sentDescription:
+        "Nëse llogaria ka një email rikuperimi të verifikuar, lidhja për rivendosje po vjen. Skadon pas 30 minutash dhe funksionon një herë.",
+      sentHint:
+        "Llogaria nuk ka email rikuperimi? Kërkojini administratorit të NESTO-s t'ju caktojë një fjalëkalim të përkohshëm.",
       backToSignIn: "Kthehu te hyrja",
+    },
+
+    reset: {
+      metaTitle: "Zgjidhni një fjalëkalim të ri",
+      title: "Zgjidhni një fjalëkalim të ri",
+      description: "Kur ndryshon fjalëkalimi, dilni nga të gjitha seancat e kësaj llogarie.",
+      newPassword: "Fjalëkalimi i ri",
+      confirmPassword: "Konfirmoni fjalëkalimin e ri",
+      passwordHint: "Të paktën 10 karaktere.",
+      submit: "Vendos fjalëkalimin e ri",
+      submitting: "Duke ruajtur…",
+      doneTitle: "Fjalëkalimi u ndryshua",
+      doneDescription: "Hyni me fjalëkalimin tuaj të ri.",
+      signIn: "Hyr",
+      requestNewLink: "Kërkoni një lidhje të re",
+      invalidTitle: "Kjo lidhje nuk mund të përdoret",
+      invalidDescription: "Lidhjet e rivendosjes skadojnë pas 30 minutash dhe funksionojnë vetëm një herë.",
+    },
+
+    verifyRecovery: {
+      metaTitle: "Konfirmoni emailin e rikuperimit",
+      title: "Konfirmoni emailin e rikuperimit",
+      description: "Lidhjet për rikuperimin e fjalëkalimit do të vijnë tani e tutje në këtë adresë.",
+      confirm: "Konfirmo këtë adresë",
+      confirming: "Duke konfirmuar…",
+      doneTitle: "Emaili i rikuperimit u konfirmua",
+      doneDescription: "Tani mund ta rikuperoni fjalëkalimin përmes kësaj adrese.",
+      invalid: "Kjo lidhje nuk është më e vlefshme. Filloni ndryshimin përsëri nga Llogaria ime dhe siguria.",
+      expired: "Kjo lidhje ka skaduar. Filloni ndryshimin përsëri nga Llogaria ime dhe siguria.",
+      rateLimited: "Shumë përpjekje. Prisni disa minuta dhe provoni përsëri.",
     },
 
     errors: {
@@ -638,6 +676,8 @@ export const sq: Messages = {
       reviewForm: "Ju lutemi kontrolloni formularin dhe provoni përsëri.",
       tooManySignIns: "Shumë përpjekje për hyrje. Prisni disa minuta dhe provoni përsëri.",
       tooManyAttempts: "Shumë përpjekje. Prisni disa minuta dhe provoni përsëri.",
+      resetExpired: "Kjo lidhje rivendosjeje ka skaduar. Kërkoni një të re.",
+      resetInvalid: "Kjo lidhje rivendosjeje nuk është më e vlefshme. Kërkoni një të re.",
     },
   },
 

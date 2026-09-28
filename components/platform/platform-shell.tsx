@@ -109,7 +109,7 @@ export function PlatformShell({ user, actions, children }: { user: string; actio
         <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6">
           <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
           <PlatformSearch />
-          <div className="ml-auto flex items-center gap-3"><span className="hidden text-table text-fg-muted xl:inline">{user}</span>{actions}</div>
+          <div className="ml-auto flex items-center gap-3"><Link href="/platform-admin/account" title="My Account & Security" className="max-w-40 truncate rounded-md px-1 text-table text-fg-muted hover:text-fg hover:underline">{user}</Link>{actions}</div>
         </div>
       </header>
       <main id="nesto-main" tabIndex={-1} className="mx-auto max-w-[1600px] px-4 py-6 outline-none sm:px-6 lg:px-8">{children}</main>

@@ -107,6 +107,56 @@ const TEMPLATES: Record<MailTemplateKey, TemplateDefinition> = {
     action: () => "Open in NESTO",
     footnote: () => "You are receiving this because email is on for calendar reminders in your notification settings.",
   },
+  // Account recovery (ADM-01). Sent only to a verified recovery address, or —
+  // for verification — to the address being proven. Never the password.
+  "auth.password_reset": {
+    variables: ["firstName", "resetUrl", "expiresInMinutes"],
+    linkVariable: "resetUrl",
+    subject: () => "Reset your NESTO password",
+    heading: () => "Reset your password",
+    paragraphs: (v) => [
+      `Hello ${v.firstName},`,
+      `Use the link below to choose a new password. It expires in ${v.expiresInMinutes} minutes and can only be used once.`,
+    ],
+    action: () => "Choose a new password",
+    footnote: () => "If you didn't ask for this, you can ignore this message. Your password has not changed.",
+  },
+  "auth.password_reset_completed": {
+    variables: ["firstName", "loginUrl"],
+    linkVariable: "loginUrl",
+    subject: () => "Your NESTO password was reset",
+    heading: () => "Your password was reset",
+    paragraphs: (v) => [
+      `Hello ${v.firstName},`,
+      "The password of your NESTO account was just reset from a recovery link, and every session was signed out.",
+    ],
+    action: () => "Sign in",
+    footnote: () => "If this wasn't you, contact your NESTO platform administrator at once.",
+  },
+  "auth.recovery_email_verify": {
+    variables: ["firstName", "verifyUrl", "expiresInMinutes"],
+    linkVariable: "verifyUrl",
+    subject: () => "Confirm your NESTO recovery email",
+    heading: () => "Confirm your recovery email",
+    paragraphs: (v) => [
+      `Hello ${v.firstName},`,
+      `Confirm that this address may receive password-recovery links for your NESTO account. The link expires in ${v.expiresInMinutes} minutes.`,
+    ],
+    action: () => "Confirm this address",
+    footnote: () => "If you didn't ask for this, ignore this message; nothing changes until the link is used.",
+  },
+  "auth.recovery_email_changed": {
+    variables: ["firstName", "loginUrl"],
+    linkVariable: "loginUrl",
+    subject: () => "Your NESTO recovery email changed",
+    heading: () => "Your recovery email changed",
+    paragraphs: (v) => [
+      `Hello ${v.firstName},`,
+      "Password-recovery links for your NESTO account now go to a different address, and no longer to this one.",
+    ],
+    action: () => "Open NESTO",
+    footnote: () => "If this wasn't you, contact your NESTO platform administrator at once.",
+  },
   "announcement.critical": {
     variables: ["title", "link"],
     linkVariable: "link",
