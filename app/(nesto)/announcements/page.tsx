@@ -20,8 +20,13 @@ import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.s
 import { prisma } from "@/lib/database/prisma";
 import { cn } from "@/lib/utils/cn";
 import { HelpEntry } from "@/components/help/help-entry";
+import { getTranslations } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/translator";
 
-export const metadata: Metadata = { title: "Announcements" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("announcements");
+  return { title: t("meta.announcements") };
+}
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
@@ -35,6 +40,12 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
   const context = await requireModule("announcements");
   if (!announcementsOpen(context)) redirect("/access-denied");
   const params = await searchParams;
+  const t = await getTranslations("announcements");
+  const label = (group: "priority" | "audience" | "status" | "tab", value: string, fallback: string) => {
+    const key = `labels.${group}.${value}` as MessageKey<"announcements">;
+    const text = t(key);
+    return text === key ? fallback : text;
+  };
   const audiences = addressableAudiences(context);
   const canManage = audiences.length > 0 || (await prisma.announcement.count({ where: { companyId: context.companyId, AND: [managedWhere(context)] } })) > 0;
   // Reading happens in the Activity Center (Activity Center §4, §164); this route keeps what authors
@@ -58,79 +69,79 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-page font-semibold tracking-tight text-fg">Manage announcements</h1>
-          <p className="mt-1.5 text-body text-fg-muted">Drafts, schedules and published notices you write or manage. Readers see them in the Activity Center.</p>
+          <h1 className="text-page font-semibold tracking-tight text-fg">{t("page.title")}</h1>
+          <p className="mt-1.5 text-body text-fg-muted">{t("page.description")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <HelpEntry moduleKey="announcements" moduleLabel="Announcements" />
+          <HelpEntry moduleKey="announcements" moduleLabel={t("meta.announcements")} />
           {audiences.length && can(context, "announcement.create") ? (
             <Button asChild size="sm">
               <Link href="/announcements/new">
-                <Plus /> New announcement
+                <Plus /> {t("page.newAnnouncement")}
               </Link>
             </Button>
           ) : null}
         </div>
       </header>
 
-      <nav aria-label="Announcement views" className="flex items-center gap-1 overflow-x-auto border-b border-line">
+      <nav aria-label={t("page.views")} className="flex items-center gap-1 overflow-x-auto border-b border-line">
         {tabs.map((key) => (
           <Link key={key} href={`/announcements${key === "for_me" ? "" : `?tab=${key}`}`} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 touch:min-h-11 text-table font-medium transition-colors", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")} data-testid={`announcement-tab-${key}`}>
-            {FEED_TAB_LABELS[key]}
+            {label("tab", key, FEED_TAB_LABELS[key])}
             {count(key) ? <span className="rounded-full bg-accent-soft px-1.5 text-micro font-semibold tabular-nums text-accent-strong">{count(key)}</span> : null}
           </Link>
         ))}
       </nav>
 
-      <form method="get" className="flex flex-wrap items-center gap-2" aria-label="Filter announcements">
+      <form method="get" className="flex flex-wrap items-center gap-2" aria-label={t("page.filter")}>
         {tab !== "for_me" ? <input type="hidden" name="tab" value={tab} /> : null}
         <label className="relative min-w-[12rem] flex-1 sm:max-w-xs">
-          <span className="sr-only">Search announcements</span>
+          <span className="sr-only">{t("page.search")}</span>
           <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-          <Input name="q" defaultValue={query.q} placeholder="Search announcements" className="h-9 pl-8" />
+          <Input name="q" defaultValue={query.q} placeholder={t("page.search")} className="h-9 pl-8" />
         </label>
-        <select name="priority" defaultValue={query.priority ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label="Priority">
-          <option value="">Any priority</option>
+        <select name="priority" defaultValue={query.priority ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.priority")}>
+          <option value="">{t("page.anyPriority")}</option>
           {ANNOUNCEMENT_PRIORITIES.map((priority) => (
             <option key={priority} value={priority}>
-              {PRIORITY_LABELS[priority]}
+              {label("priority", priority, PRIORITY_LABELS[priority])}
             </option>
           ))}
         </select>
-        <select name="audience" defaultValue={query.audienceType ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label="Scope">
-          <option value="">Any scope</option>
+        <select name="audience" defaultValue={query.audienceType ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.scope")}>
+          <option value="">{t("page.anyScope")}</option>
           {AUDIENCE_TYPES.map((type) => (
             <option key={type} value={type}>
-              {AUDIENCE_LABELS[type]}
+              {label("audience", type, AUDIENCE_LABELS[type])}
             </option>
           ))}
         </select>
         {tab === "manage" ? (
-          <select name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label="Status">
-            <option value="">Any status</option>
+          <select name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.status")}>
+            <option value="">{t("page.anyStatus")}</option>
             {ANNOUNCEMENT_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                {label("status", status, STATUS_LABELS[status])}
               </option>
             ))}
           </select>
         ) : null}
         <Button type="submit" size="sm" variant="secondary" className="h-9">
-          Apply
+          {t("page.apply")}
         </Button>
         {query.q || query.priority || query.audienceType || query.status ? (
           <Link href={href({ q: undefined, priority: undefined, audience: undefined, status: undefined })} className="text-table text-fg-muted hover:text-fg">
-            Clear
+            {t("page.clear")}
           </Link>
         ) : null}
       </form>
 
-      {feed ? <AnnouncementList initial={feed} tab={tab} query={queryString} zone={company.timezone} /> : <EmptyState title="Announcements are switched off." description="Your company has turned announcements off." />}
+      {feed ? <AnnouncementList initial={feed} tab={tab} query={queryString} zone={company.timezone} /> : <EmptyState title={t("page.offTitle")} description={t("page.offBody")} />}
 
       {tab === "manage" && can(context, "announcement.manage_company") ? (
         <section className="max-w-2xl space-y-2 pt-4" aria-labelledby="productivity-settings">
           <h2 id="productivity-settings" className="text-card font-semibold text-fg">
-            Settings
+            {t("page.settings")}
           </h2>
           <ProductivitySettingsForm initial={settings} />
         </section>

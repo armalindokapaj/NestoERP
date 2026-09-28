@@ -4,9 +4,12 @@ import { redirect } from "next/navigation";
 import { AnnouncementEditor } from "@/components/announcements/announcement-editor";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { announcementOptions } from "@/lib/modules/announcements/announcement.service";
 
-export const metadata: Metadata = { title: "New announcement" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("announcements"))("meta.newAnnouncement") };
+}
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || "";
@@ -18,6 +21,7 @@ export default async function NewAnnouncementPage({ searchParams }: Params) {
   const options = await announcementOptions(context);
   if (!options.audiences.length) redirect("/access-denied");
   const params = await searchParams;
+  const t = await getTranslations("announcements");
   const projectId = one(params.projectId);
   const fromProject = Boolean(projectId && options.audiences.includes("PROJECT") && options.projects.some((project) => project.id === projectId));
   const audienceType = fromProject ? "PROJECT" : options.audiences.includes("COMPANY") ? "COMPANY" : options.audiences[0];
@@ -25,8 +29,8 @@ export default async function NewAnnouncementPage({ searchParams }: Params) {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
-        <h1 className="text-page font-semibold tracking-tight text-fg">New announcement</h1>
-        <p className="mt-1.5 text-body text-fg-muted">Saved as a draft until you publish or schedule it.</p>
+        <h1 className="text-page font-semibold tracking-tight text-fg">{t("meta.newAnnouncement")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{t("page.newDescription")}</p>
       </header>
       <AnnouncementEditor
         mode="create"

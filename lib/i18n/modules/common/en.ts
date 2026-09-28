@@ -318,4 +318,21 @@ export const commonEn = {
     clearTitle: "Clear recent work?",
     clearBody: "This removes every record from your Recent Work. Your favorites stay as they are.",
   },
+  announcementBanner: {
+    critical: "Critical announcement:",
+    readAndAcknowledge: "Read and acknowledge",
+    read: "Read",
+    dismiss: "Dismiss",
+  },
+  person: {
+    restricted: "Restricted user",
+    unknown: "Unknown",
+  },
+  help: {
+    help: "Help",
+    helpFor: " for {module}",
+    whatIsThis: "What is this?",
+    close: "Close",
+    hideTip: "Hide this tip",
+  },
 };

@@ -4,6 +4,7 @@ import Link from "@/components/navigation/nav-link";
 import { Button } from "@/components/ui/button";
 import type { ModuleKey } from "@/config/modules";
 import { helpHref } from "@/lib/help/help-routes";
+import { HelpText } from "./help-text";
 
 /**
  * The module's Help entry (AUD-05 §7, UX-16), in the module header beside its
@@ -20,8 +21,8 @@ export function HelpEntry({ moduleKey, moduleLabel }: { moduleKey: ModuleKey; mo
     <Button asChild variant="ghost" size="sm">
       <Link href={helpHref(moduleKey)} data-testid="module-help-entry">
         <CircleHelp aria-hidden="true" />
-        Help
-        <span className="sr-only"> for {moduleLabel}</span>
+        <HelpText k="help" />
+        <span className="sr-only"><HelpText k="helpFor" values={{ module: moduleLabel }} /></span>
       </Link>
     </Button>
   );

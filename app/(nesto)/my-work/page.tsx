@@ -5,9 +5,12 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { requireUserContext } from "@/lib/context/current-user";
 import { listMyWork } from "@/lib/modules/productivity/my-work.service";
 import { myWorkQuerySchema, myWorkRange } from "@/lib/modules/productivity/productivity.schema";
+import { getTranslations } from "@/lib/i18n/server";
 import { productivityAvailability } from "@/lib/modules/productivity/productivity.workspace";
 
-export const metadata: Metadata = { title: "My Work" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("myWork.title") };
+}
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -23,6 +26,7 @@ export default async function MyWorkPage({ searchParams }: Params) {
   const parsed = myWorkQuerySchema.safeParse(flat);
   // A malformed parameter resets the filters rather than failing the page (§168).
   const input = parsed.success ? parsed.data : myWorkQuerySchema.parse({ tab: flat.tab === "favorites" ? "favorites" : "recent" });
+  const m = await getTranslations("misc");
   const [page, availability] = await Promise.all([listMyWork(context, { ...input, ...myWorkRange(input), cursor: null }), productivityAvailability(context)]);
 
   // Only filters the service kept are echoed back into the form.
@@ -38,10 +42,10 @@ export default async function MyWorkPage({ searchParams }: Params) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <Breadcrumbs items={[{ label: "My Work" }]} />
+      <Breadcrumbs items={[{ label: m("myWork.title") }]} />
       <header>
-        <h1 className="text-page font-semibold tracking-tight text-fg">My Work</h1>
-        <p className="mt-1.5 text-body text-fg-muted">Records you opened lately and records you starred, across your companies. Only you can see these.</p>
+        <h1 className="text-page font-semibold tracking-tight text-fg">{m("myWork.title")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{m("myWork.description")}</p>
       </header>
       <MyWorkView key={JSON.stringify({ tab: input.tab, query })} tab={input.tab} query={query} initial={page} favoritesEnabled={availability.favoritesEnabled} recentEnabled={availability.recentWorkEnabled} />
     </div>

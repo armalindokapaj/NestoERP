@@ -4,6 +4,7 @@ import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { UserContext } from "@/lib/context/types";
 import { getCompany, getCompanyModules, getTeamMembers } from "@/lib/database/queries";
+import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, orDash } from "@/lib/utils/format";
 
 /**
@@ -18,6 +19,7 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
     getTeamMembers(context.companyId),
     getCompanyModules(context.companyId),
   ]);
+  const m = await getTranslations("misc");
 
   if (!company) notFound();
 
@@ -28,10 +30,10 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Team members", value: String(active) },
-          { label: "Enabled modules", value: String(enabled) },
-          { label: "Industry", value: orDash(company.industry) },
-          { label: "Country", value: orDash(company.country) },
+          { label: m("company.teamMembers"), value: String(active) },
+          { label: m("company.enabledModules"), value: String(enabled) },
+          { label: m("company.industry"), value: orDash(company.industry) },
+          { label: m("company.country"), value: orDash(company.country) },
         ].map((card) => (
           <div key={card.label} className="nesto-card p-4">
             <p className="text-table text-fg-muted">{card.label}</p>
@@ -45,12 +47,12 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
         <DetailGrid
           className="mt-4"
           items={[
-            { label: "Legal name", value: orDash(company.legalName) },
-            { label: "Status", value: <StatusBadge status={company.status} /> },
-            { label: "Email", value: orDash(company.email) },
-            { label: "Phone", value: orDash(company.phone) },
-            { label: "Website", value: orDash(company.website) },
-            { label: "Created", value: formatDate(company.createdAt) },
+            { label: m("company.legalName"), value: orDash(company.legalName) },
+            { label: m("company.status"), value: <StatusBadge status={company.status} /> },
+            { label: m("company.email"), value: orDash(company.email) },
+            { label: m("company.phone"), value: orDash(company.phone) },
+            { label: m("company.website"), value: orDash(company.website) },
+            { label: m("company.created"), value: formatDate(company.createdAt) },
           ]}
         />
       </section>
@@ -61,21 +63,22 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
 export async function CompanyDetails({ context }: { context: UserContext }) {
   const company = await getCompany(context.companyId);
   if (!company) notFound();
+  const m = await getTranslations("misc");
 
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">Company details</h2>
+      <h2 className="text-card font-semibold text-fg">{m("company.details")}</h2>
       <DetailGrid
         className="mt-4"
         items={[
-          { label: "Company name", value: company.name },
-          { label: "Legal name", value: orDash(company.legalName) },
-          { label: "Industry", value: orDash(company.industry) },
-          { label: "Country", value: orDash(company.country) },
-          { label: "Address", value: orDash(company.address) },
-          { label: "Email", value: orDash(company.email) },
-          { label: "Phone", value: orDash(company.phone) },
-          { label: "Website", value: orDash(company.website) },
+          { label: m("company.companyName"), value: company.name },
+          { label: m("company.legalName"), value: orDash(company.legalName) },
+          { label: m("company.industry"), value: orDash(company.industry) },
+          { label: m("company.country"), value: orDash(company.country) },
+          { label: m("company.address"), value: orDash(company.address) },
+          { label: m("company.email"), value: orDash(company.email) },
+          { label: m("company.phone"), value: orDash(company.phone) },
+          { label: m("company.website"), value: orDash(company.website) },
         ]}
       />
     </section>

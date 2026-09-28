@@ -4,9 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { AnnouncementEditor, toLocalInput } from "@/components/announcements/announcement-editor";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { announcementOptions, getAnnouncement } from "@/lib/modules/announcements/announcement.service";
 
-export const metadata: Metadata = { title: "Edit announcement" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("announcements"))("meta.editAnnouncement") };
+}
 
 type Params = { params: Promise<{ announcementId: string }> };
 
@@ -20,12 +23,13 @@ export default async function EditAnnouncementPage({ params }: Params) {
   });
   if (!announcement.capabilities.canEdit) redirect(`/announcements/${announcement.id}`);
   const options = await announcementOptions(context);
+  const t = await getTranslations("announcements");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
-        <h1 className="text-page font-semibold tracking-tight text-fg">Edit announcement</h1>
-        <p className="mt-1.5 text-body text-fg-muted">{announcement.status === "PUBLISHED" ? "Corrections are marked as updated for readers." : "Changes stay in the draft until it is published."}</p>
+        <h1 className="text-page font-semibold tracking-tight text-fg">{t("meta.editAnnouncement")}</h1>
+        <p className="mt-1.5 text-body text-fg-muted">{announcement.status === "PUBLISHED" ? t("page.editPublished") : t("page.editDraft")}</p>
       </header>
       <AnnouncementEditor
         mode="edit"

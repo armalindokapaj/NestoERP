@@ -4,10 +4,13 @@ import { notFound } from "next/navigation";
 import { ModulePage } from "@/components/modules/module-page";
 import { resolveModuleExperience, resolveSection } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { CompanyDetails, CompanyModules, CompanyOverview } from "../company-sections";
 
 /** A page title of its own (AUD-11 §3, AV-02). */
-export const metadata: Metadata = { title: "Company" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("company.title") };
+}
 
 export default async function CompanySectionPage({
   params,

@@ -4,6 +4,7 @@ import * as React from "react";
 import { CircleHelp, X } from "lucide-react";
 
 import Link from "@/components/navigation/nav-link";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { tabIdentity } from "@/lib/unsaved/tab-context";
 import { cn } from "@/lib/utils/cn";
 
@@ -77,7 +78,8 @@ export type WhatIsThisProps = {
   className?: string;
 };
 
-export function WhatIsThis({ id, version = 1, label = "What is this?", title, children, link, className }: WhatIsThisProps) {
+export function WhatIsThis({ id, version = 1, label, title, children, link, className }: WhatIsThisProps) {
+  const t = useCommonTranslations();
   const panelId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
@@ -102,7 +104,7 @@ export function WhatIsThis({ id, version = 1, label = "What is this?", title, ch
         className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 font-medium text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11"
       >
         <CircleHelp aria-hidden="true" className="size-4" />
-        {label}
+        {label ?? t("help.whatIsThis")}
       </button>
       <div
         id={panelId}
@@ -115,7 +117,7 @@ export function WhatIsThis({ id, version = 1, label = "What is this?", title, ch
           <p className="font-semibold text-fg">{title}</p>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t("help.close")}
             onClick={() => {
               setOpen(false);
               triggerRef.current?.focus();
@@ -140,7 +142,7 @@ export function WhatIsThis({ id, version = 1, label = "What is this?", title, ch
             }}
             className="min-h-8 font-medium text-fg-muted hover:text-fg hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11"
           >
-            Hide this tip
+            {t("help.hideTip")}
           </button>
         </div>
       </div>

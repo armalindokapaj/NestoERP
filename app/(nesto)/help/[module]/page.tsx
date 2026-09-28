@@ -2,18 +2,19 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ModuleHelpPage } from "@/components/help/help-page";
-import { modules } from "@/config/modules";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireUserContext } from "@/lib/context/current-user";
 import { helpAccess } from "@/lib/help/help-access";
 import { MODULE_HELP } from "@/lib/help/help-content";
 import { moduleForHelpSlug } from "@/lib/help/help-routes";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Props = { params: Promise<{ module: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const key = moduleForHelpSlug((await params).module);
-  return { title: key ? `${modules[key].label} help` : "Help" };
+  const [m, t] = await Promise.all([getTranslations("misc"), getTranslations("modules")]);
+  return { title: key ? m("help.moduleTitle", { module: t(`${key}.label`) }) : m("help.title") };
 }
 
 /**

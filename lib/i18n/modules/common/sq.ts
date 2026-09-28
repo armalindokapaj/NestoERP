@@ -315,4 +315,21 @@ export const commonSq: typeof commonEn = {
     clearTitle: "Të pastrohet puna e fundit?",
     clearBody: "Kjo heq çdo regjistër nga Puna e fundit. Të preferuarat tuaja mbeten siç janë.",
   },
+  announcementBanner: {
+    critical: "Njoftim kritik:",
+    readAndAcknowledge: "Lexo dhe konfirmo",
+    read: "Lexo",
+    dismiss: "Mbyll",
+  },
+  person: {
+    restricted: "Përdorues i kufizuar",
+    unknown: "I panjohur",
+  },
+  help: {
+    help: "Ndihmë",
+    helpFor: " për {module}",
+    whatIsThis: "Çfarë është kjo?",
+    close: "Mbyll",
+    hideTip: "Fshihe këtë këshillë",
+  },
 };

@@ -5,13 +5,16 @@ import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
+import { getTranslations } from "@/lib/i18n/server";
 import { previewInvite } from "@/lib/modules/team/invitations/invite.service";
 import { AcceptInviteForm } from "./accept-invite-form";
 import { JoinButton } from "./join-button";
 
 type Params = { params: Promise<{ token: string }> };
 
-export const metadata: Metadata = { title: "Accept invitation" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("invite.metaTitle") };
+}
 
 /**
  * The invitation landing page (PRD #14 §73–§79, §240).
@@ -29,7 +32,7 @@ export const metadata: Metadata = { title: "Accept invitation" };
 export default async function AcceptInvitePage({ params }: Params) {
   const { token } = await params;
 
-  const [invite, session] = await Promise.all([previewInvite(token), auth()]);
+  const [invite, session, m] = await Promise.all([previewInvite(token), auth(), getTranslations("misc")]);
   const signedInUserId = session?.user?.id ?? null;
 
   return (
@@ -38,7 +41,7 @@ export default async function AcceptInvitePage({ params }: Params) {
 
       <div className="flex min-h-dvh flex-col bg-surface lg:min-h-0">
         <header className="flex h-16 shrink-0 items-center px-4 sm:px-8 lg:hidden">
-          <Link href="/" aria-label="NESTO home">
+          <Link href="/" aria-label={m("invite.home")}>
             <NestoLogo />
           </Link>
         </header>
@@ -46,41 +49,38 @@ export default async function AcceptInvitePage({ params }: Params) {
         <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
           <div className="w-full max-w-lg">
             {!invite ? (
-              <InvalidInvitation />
+              <InvalidInvitation m={m} />
             ) : !invite.hasAccount ? (
               <>
                 <h1 className="text-section font-semibold text-fg">
-                  Join {invite.companyName}
+                  {m("invite.join", { company: invite.companyName })}
                 </h1>
                 <p className="mb-6 mt-1.5 text-body text-fg-muted">
-                  You have been invited as {invite.roleName}. Choose a password to finish
-                  setting up your account.
+                  {m("invite.invitedNew", { role: invite.roleName })}
                 </p>
                 <AcceptInviteForm token={token} email={invite.email} />
               </>
             ) : signedInUserId ? (
               <>
                 <h1 className="text-section font-semibold text-fg">
-                  Join {invite.companyName}
+                  {m("invite.join", { company: invite.companyName })}
                 </h1>
                 <p className="mb-6 mt-1.5 text-body text-fg-muted">
-                  {invite.email} has been invited as {invite.roleName}. Accepting adds this
-                  company to your existing NESTO account.
+                  {m("invite.invitedSignedIn", { email: invite.email, role: invite.roleName })}
                 </p>
                 <JoinButton token={token} companyName={invite.companyName} />
               </>
             ) : (
               <>
                 <h1 className="text-section font-semibold text-fg">
-                  Sign in to join {invite.companyName}
+                  {m("invite.signInToJoin", { company: invite.companyName })}
                 </h1>
                 <p className="mb-6 mt-1.5 text-body text-fg-muted">
-                  {invite.email} already has a NESTO account. Sign in with it and you will
-                  come straight back here to accept.
+                  {m("invite.hasAccount", { email: invite.email })}
                 </p>
                 <Button asChild className="w-full">
                   <Link href={`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`}>
-                    Sign in
+                    {m("invite.signIn")}
                   </Link>
                 </Button>
               </>
@@ -102,16 +102,15 @@ export default async function AcceptInvitePage({ params }: Params) {
  * Distinguishing "expired" from "never existed" here would turn the page into a
  * way of testing addresses, so it does not.
  */
-function InvalidInvitation() {
+function InvalidInvitation({ m }: { m: Awaited<ReturnType<typeof getTranslations<"misc">>> }) {
   return (
     <>
-      <h1 className="text-section font-semibold text-fg">This invitation is no longer valid</h1>
+      <h1 className="text-section font-semibold text-fg">{m("invite.invalidTitle")}</h1>
       <p className="mb-6 mt-1.5 text-body text-fg-muted">
-        The link may have expired, already been used, or been cancelled. Ask whoever invited
-        you to send a new one.
+        {m("invite.invalidBody")}
       </p>
       <Button asChild variant="secondary">
-        <Link href="/login">Back to sign in</Link>
+        <Link href="/login">{m("invite.backToSignIn")}</Link>
       </Button>
     </>
   );

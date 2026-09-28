@@ -36,6 +36,7 @@ export default async function ActivityPage({ searchParams }: Params) {
   if (!parsed.success) redirect("/activity");
   const input = parsed.data;
   const t = await getTranslations("activity");
+  const m = await getTranslations("misc");
 
   let page: ActivityPage;
   try {
@@ -59,7 +60,7 @@ export default async function ActivityPage({ searchParams }: Params) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-page font-semibold tracking-tight text-fg">{t("title")}</h1>
-          <p className="mt-1.5 text-body text-fg-muted">What happened, what needs you, and what your companies have communicated — across every company you work in.</p>
+          <p className="mt-1.5 text-body text-fg-muted">{m("activity.description")}</p>
         </div>
         <div className="flex items-center gap-2">
           {context.permissions.includes("announcement.create") ? (
@@ -69,7 +70,7 @@ export default async function ActivityPage({ searchParams }: Params) {
           ) : null}
           <Link href="/settings/notifications" className="inline-flex h-8 items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-table font-medium text-fg hover:bg-hover">
             <Settings2 aria-hidden="true" className="size-4" />
-            Settings
+            {m("activity.settings")}
           </Link>
         </div>
       </header>
