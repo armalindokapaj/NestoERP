@@ -84,7 +84,8 @@ describe("Platform Admin Dashboard", () => {
   it("keeps 3D audience apart from project lifecycle, and lists at most five projects (§9, §21, §22)", async () => {
     expect(threeDState(null)).toBe("Not configured");
     expect(threeDState({ visibility: "PUBLIC", deletedAt: null })).toBe("Public");
-    expect(threeDState({ visibility: "COMPANY_ONLY", deletedAt: null })).toBe("Company only");
+    expect(threeDState({ visibility: "COMPANY_ONLY", deletedAt: null })).toBe("Company users");
+    expect(threeDState({ visibility: "PRIVATE", deletedAt: null })).toBe("Private");
     expect(threeDState({ visibility: "OFFLINE", deletedAt: null })).toBe("Offline");
     const projects = await dashboardProjects(admin);
     expect(projects.length).toBeLessThanOrEqual(5);
@@ -95,7 +96,7 @@ describe("Platform Admin Dashboard", () => {
     const usage = await dashboardUsage(admin);
     expect(usage.modules.assignments).toBeGreaterThanOrEqual(0);
     expect(usage.modules.available).toBeGreaterThan(0);
-    expect(usage.threeD.configured).toBe(usage.threeD.public + usage.threeD.companyOnly + usage.threeD.offline);
+    expect(usage.threeD.configured).toBe(usage.threeD.public + usage.threeD.companyOnly + usage.threeD.private + usage.threeD.offline);
     expect(usage.storage.usedBytes).toBeGreaterThanOrEqual(0);
   });
 

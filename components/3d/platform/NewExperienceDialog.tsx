@@ -32,14 +32,21 @@ export type ExperienceProvisioningGroup = {
 
 type StructureMode = "USE_EXISTING" | "CREATE_NOW" | "CREATE_LATER";
 
-export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }: { groups: ExperienceProvisioningGroup[]; triggerLabel?: string }) {
+/** Where a project chosen elsewhere sits, so the dialog can open on it (Admin Projects & 3D PRD #5 §22). */
+function locate(groups: ExperienceProvisioningGroup[], projectId: string | undefined) {
+  for (const group of groups) for (const company of group.companies) if (company.projects.some((project) => project.id === projectId)) return { groupId: group.id, companyId: company.id, projectId: projectId! };
+  return { groupId: "", companyId: "", projectId: "" };
+}
+
+export function NewExperienceDialog({ groups, triggerLabel = "New Experience", initialProjectId, defaultOpen = false }: { groups: ExperienceProvisioningGroup[]; triggerLabel?: string; initialProjectId?: string; defaultOpen?: boolean }) {
   const router = useRouter();
   const toast = useToast();
-  const [open, setOpen] = React.useState(false);
+  const start = locate(groups, initialProjectId);
+  const [open, setOpen] = React.useState(defaultOpen && Boolean(start.projectId));
   const [step, setStep] = React.useState(1);
-  const [groupId, setGroupId] = React.useState("");
-  const [companyId, setCompanyId] = React.useState("");
-  const [projectId, setProjectId] = React.useState("");
+  const [groupId, setGroupId] = React.useState(start.groupId);
+  const [companyId, setCompanyId] = React.useState(start.companyId);
+  const [projectId, setProjectId] = React.useState(start.projectId);
   const [experienceName, setExperienceName] = React.useState("");
   const [internalNotes, setInternalNotes] = React.useState("");
   const [structureMode, setStructureMode] = React.useState<StructureMode>("CREATE_LATER");
@@ -54,6 +61,8 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience" }:
 
   function reset() {
     setStep(1); setGroupId(""); setCompanyId(""); setProjectId("");
+    // Opened on one project from a list: closing it clears the address that asked for it.
+    if (initialProjectId) { const url = new URL(window.location.href); url.searchParams.delete("configure"); window.history.replaceState(null, "", url.pathname + url.search); }
     setExperienceName(""); setInternalNotes(""); setStructureMode("CREATE_LATER");
     setError(null);
   }

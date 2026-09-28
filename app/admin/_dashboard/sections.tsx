@@ -253,7 +253,7 @@ export async function UsageSection({ context }: { context: PlatformContext }) {
         <div className="px-5 py-4">
           <p className="text-table font-medium text-fg-muted">3D / Rozaris</p>
           <p className="mt-1 text-xl font-semibold text-fg tabular-nums">{threeD.configured}</p>
-          <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? "No projects configured" : `projects configured · ${threeD.public} Public · ${threeD.companyOnly} Company only · ${threeD.offline} Offline`}</p>
+          <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? "No projects configured" : `projects configured · ${threeD.public} Public · ${threeD.companyOnly} Company users · ${threeD.private} Private · ${threeD.offline} Offline`}</p>
           <Link href="/admin/3d" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">Manage 3D<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
       </div>

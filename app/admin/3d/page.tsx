@@ -10,23 +10,32 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { project3DExperienceListQuerySchema } from "@/lib/modules/project-3d/project-3d.schema";
 import { listProject3DExperiences, listProject3DProvisioningOptions } from "@/lib/modules/project-3d/project-3d.service";
+import { unconfiguredProjects } from "@/lib/modules/platform/platform-projects.query";
 
-export const metadata = { title: "3D Experiences" };
+export const metadata = { title: "3D / Rozaris" };
 const selectClass = "h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25";
 
-type Search = { q?: string; group?: string; company?: string; state?: string; publication?: string; entitlement?: string };
+type Search = { q?: string; group?: string; company?: string; state?: string; publication?: string; entitlement?: string; tab?: string; configure?: string };
 
 export default async function ThreeDExperiencesPage({ searchParams }: { searchParams: Promise<Search> }) {
   const context = await requirePlatformContext();
   const raw = await searchParams;
   const parsed = project3DExperienceListQuerySchema.safeParse(raw);
   const query = parsed.success ? parsed.data : {};
-  const [experiences, groups] = await Promise.all([listProject3DExperiences(context, query), listProject3DProvisioningOptions(context)]);
+  const tab = raw.tab === "configured" || raw.tab === "unconfigured" ? raw.tab : "all";
+  const [experiences, groups, unconfigured] = await Promise.all([
+    tab === "unconfigured" ? Promise.resolve([]) : listProject3DExperiences(context, query),
+    listProject3DProvisioningOptions(context),
+    tab === "configured" ? Promise.resolve([]) : unconfiguredProjects(context, raw.q?.trim() ?? ""),
+  ]);
+  const tabLink = (value: string) => { const params = new URLSearchParams(Object.entries(raw).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[0] !== "tab" && entry[0] !== "configure")); if (value !== "all") params.set("tab", value); return `/admin/3d${params.size ? `?${params}` : ""}`; };
   const companies = groups.flatMap((group) => group.companies.map((company) => ({ ...company, groupName: group.name })));
 
   return <div className="space-y-5">
-    <PageHeader title="3D Experiences" description="Provision, author, bind, and publish premium 3D Experiences from one Platform workspace." actions={<NewExperienceDialog groups={groups} />} />
+    <PageHeader title="3D / Rozaris" description="Provision and manage interactive Project experiences." actions={<NewExperienceDialog key={raw.configure ?? "new"} groups={groups} triggerLabel="Configure Project" initialProjectId={raw.configure} defaultOpen={Boolean(raw.configure)} />} />
+    <nav aria-label="3D sections" className="border-b border-line"><ul className="flex gap-1">{([["all", "All"], ["configured", "Configured"], ["unconfigured", "Not Configured"]] as const).map(([value, label]) => <li key={value}><Link href={tabLink(value)} aria-current={tab === value ? "page" : undefined} data-testid={`three-d-tab-${value}`} className={`-mb-px flex h-10 items-center border-b-2 px-3 text-table ${tab === value ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg"}`}>{label}{value === "unconfigured" && tab !== "configured" ? <span className="ml-1.5 text-meta text-fg-subtle">{unconfigured.length}</span> : null}</Link></li>)}</ul></nav>
 
+    {tab !== "unconfigured" ? <>
     <form className="nesto-card grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-7">
       <Input name="q" defaultValue={query.q} placeholder="Search Experience or Project" className="xl:col-span-2" />
       <select name="group" defaultValue={query.group ?? ""} className={selectClass}><option value="">All groups</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>
@@ -57,6 +66,11 @@ export default async function ThreeDExperiencesPage({ searchParams }: { searchPa
         </div>
       </article>)}
     </section> : <section className="nesto-card flex min-h-80 flex-col items-center justify-center p-8 text-center"><span className="rounded-2xl bg-accent-soft p-4 text-accent-strong"><Orbit className="size-8" /></span><h2 className="mt-4 text-card font-semibold text-fg">No 3D Experiences found</h2><p className="mt-1 max-w-md text-body text-fg-muted">Create the first Experience or change the filters to view another part of the library.</p><div className="mt-5 flex gap-2"><NewExperienceDialog groups={groups} triggerLabel="Create Experience" />{Object.keys(query).length ? <Button asChild variant="secondary"><Link href="/admin/3d">Clear filters</Link></Button> : null}</div></section>}
+    </> : null}
+    {tab !== "configured" ? <section className="nesto-card overflow-hidden" aria-label="Projects without a 3D Experience" data-testid="unconfigured-projects">
+      <div className="border-b border-line px-5 py-3.5"><h2 className="text-card font-semibold text-fg">Not configured</h2><p className="text-table text-fg-muted">Eligible Projects without a 3D Experience.</p></div>
+      {unconfigured.length === 0 ? <p className="px-5 py-4 text-table text-fg-muted">Every eligible Project has a 3D Experience.</p> : <div className="overflow-x-auto"><table className="w-full text-left text-table"><thead className="border-b border-line text-meta text-fg-subtle"><tr><th className="px-5 py-2 font-medium">Project</th><th className="px-5 py-2 font-medium max-sm:hidden">Company</th><th className="px-5 py-2 font-medium max-md:hidden">Units</th><th className="px-5 py-2 font-medium">3D Viewer</th><th className="px-5 py-2" /></tr></thead><tbody className="divide-y divide-line">{unconfigured.map((project) => <tr key={project.id}><td className="px-5 py-2.5"><Link href={`/admin/projects/${project.id}`} className="font-medium text-fg hover:underline">{project.name}</Link><p className="font-mono text-micro text-fg-subtle">{project.code}</p></td><td className="px-5 py-2.5 max-sm:hidden">{project.company.name}</td><td className="px-5 py-2.5 tabular-nums max-md:hidden">{project.units}</td><td className="px-5 py-2.5">{project.entitled ? "Entitled" : <Link href={`/admin/modules/${project.company.id}?tab=projects`} className="text-accent-strong hover:underline">Not enabled</Link>}</td><td className="px-5 py-2.5 text-right"><Button asChild size="sm" variant="secondary"><Link href={`${tabLink(tab)}${tabLink(tab).includes("?") ? "&" : "?"}configure=${project.id}`}>Configure</Link></Button></td></tr>)}</tbody></table></div>}
+    </section> : null}
   </div>;
 }
 

@@ -111,7 +111,7 @@ export async function authorizeProject3DAsset(handle: string, requester: Request
     if (requester.audience === "public") {
       if (row.publicId !== requester.publicId || row.visibility !== "PUBLIC" || !availabilityOf(row).available) return null;
     } else {
-      if (row.projectId !== requester.projectId || (row.visibility !== "COMPANY_ONLY" && row.visibility !== "PUBLIC")) return null;
+      if (row.projectId !== requester.projectId || (row.visibility !== "COMPANY_ONLY" && row.visibility !== "PUBLIC" && row.visibility !== "PRIVATE")) return null;
       // Module, permission, project scope, entitlement and the published release — as the viewer page checks them.
       if (!await hasActiveProject3DViewer(requester.context, row.projectId)) return null;
     }

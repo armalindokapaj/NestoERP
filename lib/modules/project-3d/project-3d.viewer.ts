@@ -83,7 +83,17 @@ function viewerUnitStatus(status: UnitCommercialStatus | null): "available" | "r
  * experiences are closed to everyone here.
  */
 function companyAudience(config: { deletedAt: Date | null; visibility: string } | null | undefined): boolean {
-  return Boolean(config && !config.deletedAt && (config.visibility === "COMPANY_ONLY" || config.visibility === "PUBLIC"));
+  return Boolean(config && !config.deletedAt && (config.visibility === "COMPANY_ONLY" || config.visibility === "PUBLIC" || config.visibility === "PRIVATE"));
+}
+
+/**
+ * Private (Admin Projects & 3D PRD #5 §50): beyond everything Company users
+ * need, the person must be assigned to the project itself. Seeing the project
+ * through a company-wide scope is not enough.
+ */
+async function privateAudienceAllows(context: UserContext, projectId: string, visibility: string | undefined): Promise<boolean> {
+  if (visibility !== "PRIVATE") return true;
+  return (await prisma.projectMember.count({ where: { projectId, companyId: context.companyId, companyMemberId: context.membershipId, status: "ACTIVE" } })) > 0;
 }
 
 /** Cheap navigation gate. It never signs assets or reads draft authoring data. */
@@ -96,7 +106,7 @@ export async function hasActiveProject3DViewer(context: UserContext, projectId: 
       project3DConfig: { select: { deletedAt: true, visibility: true, activeRelease: { select: { status: true } } } },
     },
   });
-  return Boolean(project && isProject3DEntitlementActive(project.project3DEntitlement) && companyAudience(project.project3DConfig) && project.project3DConfig?.activeRelease?.status === "PUBLISHED");
+  return Boolean(project && isProject3DEntitlementActive(project.project3DEntitlement) && companyAudience(project.project3DConfig) && project.project3DConfig?.activeRelease?.status === "PUBLISHED" && await privateAudienceAllows(context, projectId, project.project3DConfig?.visibility));
 }
 
 /** Lightweight published-experience resolver used by Project navigation. */

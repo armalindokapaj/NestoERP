@@ -58,30 +58,6 @@ export async function listPlatformProjects(context: PlatformContext) {
   }));
 }
 
-/** One project for its Platform Admin page (Admin IA §7): identity, owner, 3D state. Never its business records. */
-export async function getPlatformProject(context: PlatformContext, projectId: string) {
-  assertPlatform(context, "platform.project.view");
-  const row = await prisma.project.findFirst({
-    where: { id: projectId, company: { parentGroup: { isTestFixture: false } } },
-    select: {
-      id: true, code: true, name: true, description: true, status: true, archivedAt: true, createdAt: true, updatedAt: true,
-      company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true, kind: true } } } },
-      project3DEntitlement: { select: { status: true } },
-      project3DConfig: { select: { activeReleaseId: true } },
-      _count: { select: { members: true } },
-    },
-  });
-  if (!row) throw new AccessError("NOT_FOUND", "Project not found.");
-  return {
-    ...row,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    archivedAt: iso(row.archivedAt),
-    members: row._count.members,
-    threeD: row.project3DConfig ? (row.project3DConfig.activeReleaseId ? "Published" : "Draft") : row.project3DEntitlement ? "Entitled" : null,
-  };
-}
-
 export async function listImplementations(context: PlatformContext) {
   assertPlatform(context, "platform.group.view");
   const rows = await prisma.parentGroup.findMany({

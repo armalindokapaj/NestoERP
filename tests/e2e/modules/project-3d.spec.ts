@@ -185,8 +185,8 @@ test.afterAll(async () => {
 
 test("Platform Admin provisions the native Project 3D workspace", async ({ page }) => {
   await signIn(page, "PLATFORM_ADMIN", { to: `/admin/3d?q=${encodeURIComponent(PROJECT_CODE)}` });
-  await expect(page.getByRole("heading", { name: "3D Experiences", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "New Experience" }).click();
+  await expect(page.getByRole("heading", { name: "3D / Rozaris", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Configure Project" }).click();
   await expect(page.getByRole("heading", { name: "New 3D Experience" })).toBeVisible();
   await page.getByLabel("Group").selectOption({ label: groupName });
   await page.getByLabel("Company").selectOption({ label: companyName });

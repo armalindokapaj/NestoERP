@@ -3,9 +3,10 @@ import { Box, GitBranch, Layers3, PackageCheck } from "lucide-react";
 
 import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";
 import { ExperienceMetadataForm } from "@/components/3d/platform/ExperienceMetadataForm";
+import { PublicationControl } from "@/components/3d/platform/PublicationControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requirePlatformContext } from "@/lib/context/platform-context";
+import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { getProject3DWorkspace } from "@/lib/modules/project-3d/project-3d.service";
 
 export const metadata = { title: "3D Experience Overview" };
@@ -25,6 +26,14 @@ export default async function ExperienceOverviewPage({ params }: { params: Promi
       <Summary href={`/admin/3d/projects/${projectId}/bindings`} icon={<GitBranch />} label="Unit binding" value={`${versions.reduce((total, version) => total + version._count.unitBindings, 0)} linked nodes`} />
       <Summary href={`/admin/3d/projects/${projectId}/releases`} icon={<PackageCheck />} label="Publishing" value={`${config.releases.length} releases · ${config.activeReleaseId ? "active" : "unpublished"}`} />
     </div>
+    <PublicationControl
+      projectId={projectId}
+      visibility={config.visibility}
+      controlVersion={config.controlVersion}
+      activeRelease={config.activeReleaseId ? { id: config.activeReleaseId, publicManifestHash: config.releases.find((release) => release.id === config.activeReleaseId)?.publicManifestHash ?? null } : null}
+      deleted={Boolean(config.deletedAt)}
+      canManage={canPlatform(context, "platform.3d.visibility.manage")}
+    />
     <ExperienceMetadataForm projectId={projectId} name={config.experienceName || `${workspace.name} 3D Experience`} notes={config.internalNotes} />
     <EntitlementControl projectId={projectId} entitlement={workspace.project3DEntitlement} />
   </div>;

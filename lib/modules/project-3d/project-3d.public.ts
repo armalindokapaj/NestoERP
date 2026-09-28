@@ -325,7 +325,7 @@ async function configByPublicId(publicId: string) {
 export async function getPublic3DStatus(publicId: string): Promise<Public3DStatus> {
   const row = await configByPublicId(publicId);
   if (!row || row.deletedAt) return { state: "UNAVAILABLE", token: null };
-  if (row.visibility === "COMPANY_ONLY") return { state: "LOGIN_REQUIRED", token: null };
+  if (row.visibility === "COMPANY_ONLY" || row.visibility === "PRIVATE") return { state: "LOGIN_REQUIRED", token: null };
   if (row.visibility !== "PUBLIC" || !availabilityOf(row).available || !row.activeRelease?.publicApprovedAt) return { state: "UNAVAILABLE", token: null };
   return { state: "AVAILABLE", token: project3DViewerToken(row.activeReleaseId, row.accessEpoch) };
 }
@@ -351,7 +351,7 @@ export async function getPublic3DBootstrap(publicId: string): Promise<{ state: "
  */
 export async function resolveCompanyViewerForPublicId(context: UserContext, publicId: string): Promise<string | null> {
   const row = await configByPublicId(publicId);
-  if (!row || row.deletedAt || (row.visibility !== "COMPANY_ONLY" && row.visibility !== "PUBLIC")) return null;
+  if (!row || row.deletedAt || (row.visibility !== "COMPANY_ONLY" && row.visibility !== "PUBLIC" && row.visibility !== "PRIVATE")) return null;
   if (row.companyId !== context.companyId || !await hasActiveProject3DViewer(context, row.projectId)) return null;
   return `/projects/${encodeURIComponent(row.projectId)}/3d`;
 }
