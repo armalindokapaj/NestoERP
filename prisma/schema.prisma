@@ -166,6 +166,15 @@ enum DemoSourceType {
   USER_PROVIDED
 }
 
+/// What a business root is (Simplified Company Creation §3, §9). A GROUP is the
+/// Parent Group people see. A STANDALONE root is the private workspace of one
+/// company created without a group: it holds that company's people, departments
+/// and grants, and is never listed, named or shown as a group.
+enum ParentGroupKind {
+  GROUP
+  STANDALONE
+}
+
 enum ParentGroupStatus {
   IMPLEMENTING
   READY_FOR_VALIDATION
@@ -1410,8 +1419,10 @@ model Company {
   website            String?
   status             CompanyStatus @default(ACTIVE)
 
-  /// The business root this company belongs to (E-06 §3.1, §9). Exactly one in
-  /// V0.1, and never changed: it is part of the company's isolation boundary.
+  /// The business root this company belongs to (E-06 §3.1, §9): its Parent
+  /// Group, or its own STANDALONE root when it has none (Simplified Company
+  /// Creation §3). It changes only when the Platform Admin attaches the company
+  /// to a group or detaches it, which moves the root's rows with it.
   parentGroupId String
   parentGroup   ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
 
@@ -1914,6 +1925,7 @@ model ParentGroup {
   currency           String?
   logoUrl            String?
   status             ParentGroupStatus @default(IMPLEMENTING)
+  kind               ParentGroupKind   @default(GROUP)
   /// A deterministic test tenant: kept out of the Platform Admin's group list and
   /// the demo sign-in screen (E-06 §45, §150). Never set outside the seed.
   isTestFixture      Boolean           @default(false)
@@ -1941,6 +1953,7 @@ model ParentGroup {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([kind])
   @@map("parent_groups")
 }
 

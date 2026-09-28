@@ -67,6 +67,8 @@ export async function updatePlatformCompany(context: PlatformContext, companyId:
         configVersion: { increment: 1 },
       },
     });
+    // A standalone company's root carries its name, since the workspace shows the root's (Simplified Company Creation §3).
+    await tx.parentGroup.updateMany({ where: { id: company.parentGroupId, kind: "STANDALONE" }, data: { name: after.name } });
     await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_UPDATED, entity: { type: "Company", id: company.id, label: after.name }, before: { ...company, logo: describeLogo(company.logoUrl) }, after: { ...after, logo: describeLogo(logoUrl) }, reason: input.reason }, { tx });
   });
 }

@@ -76,3 +76,21 @@ export const initialProjectMemberSchema = z.object({
   projectRole: unset(optionalText(120)),
 });
 export type InitialProjectMemberInput = z.infer<typeof initialProjectMemberSchema>;
+
+/**
+ * A new company needs only its name (Simplified Company Creation §2, §10). Its
+ * code is derived from the name; everything else is completed later.
+ */
+export const createCompanySchema = z.object({
+  name: requiredText(2, 120, "Company name"),
+});
+export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
+
+/** Attaching a standalone company to a Parent Group (§6), and detaching it (§7). */
+export const attachCompanySchema = z.object({
+  groupId: z.string().trim().min(1).max(128),
+  reason: requiredText(3, 500, "Reason"),
+});
+export const detachCompanySchema = z.object({
+  reason: requiredText(3, 500, "Reason"),
+});

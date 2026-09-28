@@ -59,6 +59,11 @@ export const bootstrapCompanySchema = z.object({
     .optional(),
   parentGroupName: z.string().trim().min(2).max(120).optional(),
   /**
+   * A company without a Parent Group (Simplified Company Creation §3): its root
+   * is created as a STANDALONE workspace under `parentGroupSlug`, never joined.
+   */
+  standalone: z.boolean().optional(),
+  /**
    * Who is invited as the company's Owner. Optional for a company the Platform
    * Admin adds to an implemented group, whose Owner already works in every
    * company of it (E-06 §34, §39).
@@ -143,7 +148,7 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
     const groupSlug = input.parentGroupSlug ?? input.slug;
     const parentGroupId =
       existing?.parentGroupId ??
-      (await tx.parentGroup.findUnique({ where: { slug: groupSlug }, select: { id: true } }))?.id ??
+      (input.standalone ? undefined : (await tx.parentGroup.findUnique({ where: { slug: groupSlug }, select: { id: true } }))?.id) ??
       (
         await tx.parentGroup.create({
           data: {
@@ -155,6 +160,7 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
             ...(input.baseCurrency ? { currency: input.baseCurrency } : {}),
             status: "ACTIVE",
             activatedAt: now,
+            ...(input.standalone ? { kind: "STANDALONE" as const } : {}),
           },
           select: { id: true },
         })

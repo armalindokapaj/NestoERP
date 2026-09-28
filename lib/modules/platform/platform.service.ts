@@ -1,4 +1,4 @@
-import type { ParentGroupStatus } from "@prisma/client";
+import type { ParentGroupKind, ParentGroupStatus } from "@prisma/client";
 
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
@@ -18,20 +18,26 @@ export type PlatformGroupSummaryDTO = {
   name: string;
   country: string | null;
   status: ParentGroupStatus;
+  kind: ParentGroupKind;
   companyCount: number;
   activatedAt: string | null;
 };
 
-export async function listParentGroups(context: PlatformContext): Promise<PlatformGroupSummaryDTO[]> {
+/**
+ * The Parent Groups. A standalone company's own root is not a group and is left
+ * out, unless a picker that files people or grants under a root asks for it.
+ */
+export async function listParentGroups(context: PlatformContext, options: { includeStandalone?: boolean } = {}): Promise<PlatformGroupSummaryDTO[]> {
   if (!canPlatform(context, "platform.group.view")) throw new AccessError("FORBIDDEN");
 
   const groups = await prisma.parentGroup.findMany({
-    where: { isTestFixture: false },
+    where: { isTestFixture: false, ...(options.includeStandalone ? {} : { kind: "GROUP" as const }) },
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
       slug: true,
       name: true,
+      kind: true,
       country: true,
       status: true,
       activatedAt: true,
@@ -42,7 +48,8 @@ export async function listParentGroups(context: PlatformContext): Promise<Platfo
   return groups.map((group) => ({
     id: group.id,
     slug: group.slug,
-    name: group.name,
+    name: group.kind === "STANDALONE" ? `${group.name} (standalone company)` : group.name,
+    kind: group.kind,
     country: group.country,
     status: group.status,
     companyCount: group._count.companies,

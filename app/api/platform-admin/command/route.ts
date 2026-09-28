@@ -2,7 +2,8 @@ import { z } from "zod";
 
 import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
 import { AccessError } from "@/lib/access/guards";
-import { createGroupCompanySchema } from "@/lib/modules/platform/platform.schema";
+import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema } from "@/lib/modules/platform/platform.schema";
+import { attachCompanyToGroup, createCompany, detachCompanyFromGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import {
   accessInspectorSchema,
@@ -84,8 +85,22 @@ export async function POST(request: Request) {
         return apiOk({ data: { ok: true } });
       }
       case "company.create": {
-        const input = createGroupCompanySchema.extend({ groupId: id }).parse(body);
-        return apiOk({ data: await createGroupCompany(context, input.groupId, input) }, { status: 201 });
+        // Name alone makes a standalone company (Simplified Company Creation §10); a group adds it there.
+        if (typeof body === "object" && body !== null && "groupId" in body && body.groupId) {
+          const input = createGroupCompanySchema.extend({ groupId: id }).parse(body);
+          return apiOk({ data: await createGroupCompany(context, input.groupId, input) }, { status: 201 });
+        }
+        return apiOk({ data: await createCompany(context, createCompanySchema.parse(body)) }, { status: 201 });
+      }
+      case "company.attach": {
+        const input = attachCompanySchema.extend({ companyId: id }).parse(body);
+        await attachCompanyToGroup(context, input.companyId, input.groupId, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "company.detach": {
+        const input = detachCompanySchema.extend({ companyId: id }).parse(body);
+        await detachCompanyFromGroup(context, input.companyId, input.reason);
+        return apiOk({ data: { ok: true } });
       }
       case "user.status": {
         const input = userStatusSchema.extend({ userId: id }).parse(body);

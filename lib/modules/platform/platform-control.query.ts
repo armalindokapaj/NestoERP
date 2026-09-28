@@ -21,16 +21,18 @@ const iso = (value: Date | null | undefined) => value?.toISOString() ?? null;
 export async function platformDashboard(context: PlatformContext) {
   assertPlatform(context, "platform.dashboard.view");
   const groupFilter = { isTestFixture: false } as const;
+  // Standalone companies' own roots are not groups (Simplified Company Creation §8).
+  const realGroups = { ...groupFilter, kind: "GROUP" } as const;
   const [groups, companies, activeUsers, activeProjects, implementations, disabledAccounts, failedJobs, alerts, recentGroups, recentAudit] = await Promise.all([
-    prisma.parentGroup.count({ where: groupFilter }),
+    prisma.parentGroup.count({ where: realGroups }),
     prisma.company.count({ where: { parentGroup: groupFilter } }),
     prisma.user.count({ where: { status: "ACTIVE" } }),
     prisma.project.count({ where: { status: "ACTIVE", archivedAt: null, company: { parentGroup: groupFilter } } }),
-    prisma.parentGroup.count({ where: { ...groupFilter, status: { in: ["IMPLEMENTING", "READY_FOR_VALIDATION"] } } }),
+    prisma.parentGroup.count({ where: { ...realGroups, status: { in: ["IMPLEMENTING", "READY_FOR_VALIDATION"] } } }),
     prisma.user.count({ where: { status: { not: "ACTIVE" } } }),
     prisma.jobFailure.count({ where: { retriedAt: null } }),
     prisma.authEvent.count({ where: { type: { in: ["LOGIN_FAILED", "LOGIN_RATE_LIMITED", "ACCOUNT_BLOCKED"] }, createdAt: { gte: new Date(Date.now() - 86_400_000) } } }),
-    prisma.parentGroup.findMany({ where: groupFilter, take: 5, orderBy: { createdAt: "desc" }, select: { id: true, name: true, slug: true, status: true, createdAt: true } }),
+    prisma.parentGroup.findMany({ where: realGroups, take: 5, orderBy: { createdAt: "desc" }, select: { id: true, name: true, slug: true, status: true, createdAt: true } }),
     prisma.auditEvent.findMany({ where: { moduleKey: "platform" }, take: 8, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], select: { id: true, actionKey: true, entityType: true, entityLabelSnapshot: true, actorDisplayNameSnapshot: true, occurredAt: true, severity: true } }),
   ]);
   return {
@@ -45,7 +47,7 @@ export async function listPlatformCompanies(context: PlatformContext) {
   const rows = await prisma.company.findMany({
     where: { parentGroup: { isTestFixture: false } },
     orderBy: [{ parentGroup: { name: "asc" } }, { name: "asc" }, { id: "asc" }],
-    select: { id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true, parentGroup: { select: { id: true, name: true } }, _count: { select: { memberships: true, projects: true, modules: { where: { enabled: true } } } } },
+    select: { id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true, parentGroup: { select: { id: true, name: true, kind: true } }, _count: { select: { memberships: true, projects: true, modules: { where: { enabled: true } } } } },
   });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString(), users: row._count.memberships, projects: row._count.projects, modules: row._count.modules }));
 }
@@ -83,7 +85,7 @@ export async function listPlatformProjects(context: PlatformContext) {
 export async function listImplementations(context: PlatformContext) {
   assertPlatform(context, "platform.group.view");
   const rows = await prisma.parentGroup.findMany({
-    where: { isTestFixture: false }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    where: { isTestFixture: false, kind: "GROUP" }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     select: { id: true, name: true, slug: true, status: true, updatedAt: true, activatedAt: true, _count: { select: { companies: true, people: true, departments: true } } },
   });
   return rows.map((row) => ({
@@ -354,7 +356,7 @@ export async function platformSupport(context: PlatformContext) {
   assertPlatform(context, "platform.support.view");
   const now = new Date();
   const [groups, companies, users, projects, sessions] = await Promise.all([
-    prisma.parentGroup.findMany({ where: { isTestFixture: false }, orderBy: { name: "asc" }, select: { id: true, name: true, status: true } }),
+    prisma.parentGroup.findMany({ where: { isTestFixture: false, kind: "GROUP" }, orderBy: { name: "asc" }, select: { id: true, name: true, status: true } }),
     prisma.company.findMany({ where: { parentGroup: { isTestFixture: false } }, orderBy: { name: "asc" }, select: { id: true, name: true, status: true, parentGroupId: true } }),
     prisma.user.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }], select: { id: true, username: true, firstName: true, lastName: true, status: true } }),
     prisma.project.findMany({ where: { company: { parentGroup: { isTestFixture: false } } }, orderBy: { name: "asc" }, select: { id: true, code: true, name: true, companyId: true, status: true } }),
@@ -369,7 +371,7 @@ export async function platformSearch(context: PlatformContext, query: string) {
   if (q.length < 2) return [];
   const contains = { contains: q, mode: "insensitive" as const };
   const [groups, companies, people, users, projects] = await Promise.all([
-    prisma.parentGroup.findMany({ where: { isTestFixture: false, OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true } }),
+    prisma.parentGroup.findMany({ where: { isTestFixture: false, kind: "GROUP", OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true } }),
     prisma.company.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true } }),
     prisma.personProfile.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ firstName: contains }, { lastName: contains }, { workEmail: contains }] }, take: 6, select: { id: true, firstName: true, lastName: true, parentGroup: { select: { name: true } } } }),
     prisma.user.findMany({ where: { OR: [{ username: contains }, { firstName: contains }, { lastName: contains }] }, take: 6, select: { id: true, username: true, firstName: true, lastName: true } }),
