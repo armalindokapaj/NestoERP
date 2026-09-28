@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField, type FormValues } from "@/components/engineering/form-kit";
+import { useWorkforceTranslations } from "@/components/workforce/workforce-text";
 import { Button } from "@/components/ui/button";
 import { localDay } from "@/components/hr/local-day";
 
@@ -27,7 +28,7 @@ export function AssignCrewButton({
   crewId,
   crews = [],
   name,
-  label = "Add to crew",
+  label,
   variant = "secondary",
 }: {
   /** The worker, when the button sits on their page; otherwise one is chosen. */
@@ -41,64 +42,68 @@ export function AssignCrewButton({
   variant?: "primary" | "secondary";
 }) {
   const { run } = useCommand();
+  const t = useWorkforceTranslations();
   const [open, setOpen] = React.useState(false);
   const fields: FormField[] = [
-    ...(employeeId ? [] : [{ name: "employeeId", label: "Worker", type: "select" as const, required: true, emptyLabel: "Choose somebody…", options: workers, wide: true }]),
-    ...(crewId ? [] : [{ name: "crewId", label: "Crew", type: "select" as const, required: true, emptyLabel: "Choose a crew…", options: crews, wide: true }]),
-    { name: "startDate", label: "From", type: "date", required: true },
-    { name: "role", label: "Role in the crew", type: "text", placeholder: "For example Foreman's assistant" },
-    { name: "transfer", label: "If they are in another crew, move them from it", type: "checkbox", hint: "Their membership there ends the day before; both stay in their history." },
+    ...(employeeId ? [] : [{ name: "employeeId", label: t("actions.worker"), type: "select" as const, required: true, emptyLabel: t("actions.chooseSomebody"), options: workers, wide: true }]),
+    ...(crewId ? [] : [{ name: "crewId", label: t("actions.crew"), type: "select" as const, required: true, emptyLabel: t("actions.chooseCrew"), options: crews, wide: true }]),
+    { name: "startDate", label: t("actions.from"), type: "date", required: true },
+    { name: "role", label: t("actions.roleInCrew"), type: "text", placeholder: t("actions.roleInCrewPlaceholder") },
+    { name: "transfer", label: t("actions.transfer"), type: "checkbox", hint: t("actions.transferHint") },
   ];
   return (
     <>
       <Button size="sm" variant={variant} onClick={() => setOpen(true)} data-testid="assign-crew">
-        {label}
+        {label ?? t("actions.addToCrew")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={name ? `Put ${name} in a crew` : "Add somebody to this crew"}
-        description="Somebody is in one crew at a time. With or without a NESTO account."
+        title={name ? t("actions.putInCrew", { name }) : t("actions.addSomebody")}
+        description={t("actions.crewDescription")}
         fields={fields}
         initial={{ startDate: today(), transfer: false }}
-        submitLabel="Add to crew"
+        submitLabel={t("actions.addToCrew")}
+        saveKind="create"
         module="workforce"
         testId="assign-crew-dialog"
         onSubmit={async (payload) => {
           const worker = employeeId ?? String(payload.employeeId ?? "");
           await engineeringApi(`/api/workforce/employees/${worker}/crew-assignments`, { body: { crewId: crewId ?? payload.crewId, startDate: payload.startDate, role: payload.role, transfer: payload.transfer } });
-          await run("crew", async () => null, "Added to the crew.");
+          await run("crew", async () => null, t("actions.added"));
         }}
       />
     </>
   );
 }
 
-export function EndMembershipButton({ employeeId, membershipId, what, url, label = "End" }: { employeeId: string; membershipId: string; what: string; url: "crew-assignments" | "project-assignments"; label?: string }) {
+export function EndMembershipButton({ employeeId, membershipId, what, url, label }: { employeeId: string; membershipId: string; what: string; url: "crew-assignments" | "project-assignments"; label?: string }) {
   const { run } = useCommand();
+  const t = useWorkforceTranslations();
   const [open, setOpen] = React.useState(false);
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)} data-testid={`end-${url}`}>
-        {label}
+        {label ?? t("actions.end")}
         <span className="sr-only"> {what}</span>
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={`End ${what}`}
-        description="The last day is included. The history keeps it."
+        title={t("actions.endTitle", { what })}
+        description={t("actions.endDescription")}
         fields={[
-          { name: "endDate", label: "Last day", type: "date", required: true },
-          { name: "reason", label: "Reason", type: "textarea", rows: 2 },
+          { name: "endDate", label: t("actions.lastDay"), type: "date", required: true },
+          { name: "reason", label: t("actions.reason"), type: "textarea", rows: 2 },
         ]}
         initial={{ endDate: today() }}
-        submitLabel="End"
+        submitLabel={t("actions.end")}
+        saveKind="none"
         module="workforce"
         testId="end-assignment-dialog"
         onSubmit={async (payload) => {
           await engineeringApi(`/api/workforce/employees/${employeeId}/${url}/${membershipId}/end`, { body: payload });
-          await run("end", async () => null, "Ended.");
+          await run("end", async () => null, t("actions.ended"));
         }}
       />
     </>
@@ -116,7 +121,7 @@ export function AssignProjectButton({
   trades,
   moveFrom = [],
   name,
-  label = "Assign to project",
+  label,
   variant = "secondary",
 }: {
   employeeId?: string;
@@ -132,34 +137,35 @@ export function AssignProjectButton({
   variant?: "primary" | "secondary";
 }) {
   const { run } = useCommand();
+  const t = useWorkforceTranslations();
   const [open, setOpen] = React.useState(false);
   const [values, setValues] = React.useState<FormValues>({});
   const chosenProject = projectId ?? String(values.projectId ?? "");
   const siteOptions = sites.filter((site) => site.projectId === chosenProject).map((site) => ({ value: site.id, label: site.name }));
   const fields: FormField[] = [
-    ...(employeeId ? [] : [{ name: "employeeId", label: "Worker", type: "select" as const, required: true, emptyLabel: "Choose somebody…", options: workers, wide: true }]),
-    ...(projectId ? [] : [{ name: "projectId", label: "Project", type: "select" as const, required: true, emptyLabel: "Choose a project…", options: projects.map((project) => ({ value: project.id, label: project.name })), wide: true }]),
-    { name: "siteId", label: "Site", type: "select", emptyLabel: siteOptions.length ? "The whole project" : "The project has no sites", options: siteOptions, disabled: siteOptions.length === 0 },
-    { name: "tradeId", label: "Trade on this project", type: "select", emptyLabel: "Their usual trade", options: trades },
-    { name: "role", label: "Role", type: "text", placeholder: "For example Site foreman" },
-    { name: "startDate", label: "From", type: "date", required: true },
-    ...(moveFrom.length ? [{ name: "transferFromId", label: "Moving from", type: "select" as const, emptyLabel: "Not a move — an extra assignment", options: moveFrom, wide: true, hint: "That assignment ends the day before this one starts." }] : []),
-    { name: "isPrimary", label: "Their main project", type: "checkbox", hint: "One main project at a time. A move keeps it main." },
+    ...(employeeId ? [] : [{ name: "employeeId", label: t("actions.worker"), type: "select" as const, required: true, emptyLabel: t("actions.chooseSomebody"), options: workers, wide: true }]),
+    ...(projectId ? [] : [{ name: "projectId", label: t("actions.project"), type: "select" as const, required: true, emptyLabel: t("actions.chooseProject"), options: projects.map((project) => ({ value: project.id, label: project.name })), wide: true }]),
+    { name: "siteId", label: t("actions.site"), type: "select", emptyLabel: siteOptions.length ? t("actions.wholeProject") : t("actions.noSites"), options: siteOptions, disabled: siteOptions.length === 0 },
+    { name: "tradeId", label: t("actions.tradeOnProject"), type: "select", emptyLabel: t("actions.usualTrade"), options: trades },
+    { name: "role", label: t("actions.role"), type: "text", placeholder: t("actions.rolePlaceholder") },
+    { name: "startDate", label: t("actions.from"), type: "date", required: true },
+    ...(moveFrom.length ? [{ name: "transferFromId", label: t("actions.movingFrom"), type: "select" as const, emptyLabel: t("actions.notAMove"), options: moveFrom, wide: true, hint: t("actions.movingHint") }] : []),
+    { name: "isPrimary", label: t("actions.mainProject"), type: "checkbox", hint: t("actions.mainHint") },
   ];
   return (
     <>
       <Button size="sm" variant={variant} onClick={() => setOpen(true)} data-testid="assign-project">
-        {label}
+        {label ?? t("actions.assignToProject")}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={name ? `Assign ${name}` : "Assign somebody to this project"}
-        description="A workforce assignment: where they work. It gives no NESTO access to the project."
+        title={name ? t("actions.assignName", { name }) : t("actions.assignSomebody")}
+        description={t("actions.assignDescription")}
         fields={fields}
         initial={{ startDate: today(), isPrimary: false }}
         onValuesChange={setValues}
-        submitLabel="Assign"
+        submitLabel={t("actions.assign")}
         // An assignment is a record like any other: the prompt may save it (AUD-03 §3).
         saveKind="create"
         module="workforce"
@@ -169,7 +175,7 @@ export function AssignProjectButton({
           const { employeeId: _chosen, ...body } = payload;
           void _chosen;
           await engineeringApi(`/api/workforce/employees/${worker}/project-assignments`, { body: { ...body, projectId: projectId ?? payload.projectId } });
-          await run("assign", async () => null, "Assigned.");
+          await run("assign", async () => null, t("actions.assigned"));
         }}
       />
     </>
@@ -199,37 +205,39 @@ export function CrewFormButton({
   label?: string;
 }) {
   const { run } = useCommand();
+  const t = useWorkforceTranslations();
   const [open, setOpen] = React.useState(false);
   const [values, setValues] = React.useState<FormValues>({});
   const chosenProject = String(values.projectId ?? crew?.projectId ?? "");
   const siteOptions = sites.filter((site) => site.projectId === chosenProject).map((site) => ({ value: site.id, label: site.name }));
   const fields: FormField[] = [
-    { name: "name", label: "Name", type: "text", required: true, placeholder: "For example Block A formwork", wide: true },
-    { name: "projectId", label: "Project", type: "select", required: projectRequired, emptyLabel: projectRequired ? "Choose a project…" : "No project — company crew", options: projects.map((project) => ({ value: project.id, label: project.name })) },
-    { name: "siteId", label: "Site", type: "select", emptyLabel: siteOptions.length ? "The whole project" : "—", options: siteOptions, disabled: siteOptions.length === 0 },
-    { name: "supervisorEmployeeId", label: "Supervisor (foreman)", type: "select", emptyLabel: "Nobody yet", options: supervisors, hint: "Anybody employed here — a NESTO account is not needed." },
-    { name: "tradeId", label: "Trade", type: "select", emptyLabel: "Mixed", options: trades },
-    { name: "notes", label: "Notes", type: "textarea", rows: 2 },
+    { name: "name", label: t("actions.name"), type: "text", required: true, placeholder: t("actions.crewNamePlaceholder"), wide: true },
+    { name: "projectId", label: t("actions.project"), type: "select", required: projectRequired, emptyLabel: projectRequired ? t("actions.chooseProject") : t("actions.noProject"), options: projects.map((project) => ({ value: project.id, label: project.name })) },
+    { name: "siteId", label: t("actions.site"), type: "select", emptyLabel: siteOptions.length ? t("actions.wholeProject") : "—", options: siteOptions, disabled: siteOptions.length === 0 },
+    { name: "supervisorEmployeeId", label: t("actions.supervisor"), type: "select", emptyLabel: t("actions.nobodyYet"), options: supervisors, hint: t("actions.supervisorHint") },
+    { name: "tradeId", label: t("actions.trade"), type: "select", emptyLabel: t("actions.mixed"), options: trades },
+    { name: "notes", label: t("actions.notes"), type: "textarea", rows: 2 },
   ];
   return (
     <>
       <Button size="sm" variant={crew ? "secondary" : "primary"} onClick={() => setOpen(true)} data-testid={crew ? "edit-crew" : "new-crew"}>
-        {label ?? (crew ? "Edit crew" : "New crew")}
+        {label ?? (crew ? t("actions.editCrew") : t("actions.newCrew"))}
       </Button>
       <FormDialog
         open={open}
         onOpenChange={setOpen}
-        title={crew ? `Edit ${crew.name}` : "New crew"}
+        title={crew ? t("actions.editName", { name: crew.name }) : t("actions.newCrew")}
         fields={fields}
         initial={crew ?? {}}
         onValuesChange={setValues}
-        submitLabel={crew ? "Save" : "Create crew"}
+        submitLabel={crew ? t("actions.save") : t("actions.createCrew")}
+        saveKind={crew ? "save" : "create"}
         module="workforce"
         testId="crew-dialog"
         onSubmit={async (payload) => {
           if (crew?.id) await engineeringApi(`/api/workforce/crews/${crew.id}`, { method: "PATCH", body: payload });
           else await engineeringApi("/api/workforce/crews", { body: payload });
-          await run("crew", async () => null, crew ? "Crew saved." : "Crew created.");
+          await run("crew", async () => null, crew ? t("actions.crewSaved") : t("actions.crewCreated"));
         }}
       />
     </>
@@ -238,14 +246,15 @@ export function CrewFormButton({
 
 export function CrewStatusButton({ crewId, archived }: { crewId: string; archived: boolean }) {
   const { run, pending } = useCommand();
+  const t = useWorkforceTranslations();
   return (
     <Button
       size="sm"
       variant="ghost"
       disabled={pending !== null}
-      onClick={() => void run("status", () => engineeringApi(`/api/workforce/crews/${crewId}`, { method: "PATCH", body: { status: archived ? "ACTIVE" : "ARCHIVED" } }), archived ? "Crew in use again." : "Crew archived.")}
+      onClick={() => void run("status", () => engineeringApi(`/api/workforce/crews/${crewId}`, { method: "PATCH", body: { status: archived ? "ACTIVE" : "ARCHIVED" } }), archived ? t("actions.inUseAgain") : t("actions.crewArchived"))}
     >
-      {archived ? "Use again" : "Archive"}
+      {archived ? t("actions.useAgain") : t("actions.archive")}
     </Button>
   );
 }

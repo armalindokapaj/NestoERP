@@ -4,12 +4,15 @@ import { redirect } from "next/navigation";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { MemberForm } from "@/components/team/member-form";
 import { updateMemberAction } from "@/lib/actions/team";
+import { getTranslations } from "@/lib/i18n/server";
 import { teamFormOptions } from "@/lib/modules/team/team.options";
 import { loadMember, memberBreadcrumbs } from "../member-context";
 
 type Params = { params: Promise<{ memberId: string }> };
 
-export const metadata: Metadata = { title: "Edit membership" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("team"))("meta.editMembership") };
+}
 
 /**
  * Edit a membership (PRD #14 §85).
@@ -25,6 +28,7 @@ export default async function EditMemberPage({ params }: Params) {
   if (!member.capabilities.canEditMembership) redirect(`/team/${memberId}`);
 
   const options = await teamFormOptions(context);
+  const t = await getTranslations("team");
 
   // The member's current role must stay selectable even when the reader could
   // not assign it themselves — otherwise saving a job title would silently
@@ -44,7 +48,7 @@ export default async function EditMemberPage({ params }: Params) {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <RecordContextHeader
-        breadcrumbs={memberBreadcrumbs(member, "Edit")}
+        breadcrumbs={memberBreadcrumbs(t, member, t("member.crumbEdit"))}
         title={member.profile.fullName}
         subtitle={member.membership.role.name}
         status={member.membership.status}

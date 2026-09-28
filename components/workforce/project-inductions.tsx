@@ -5,6 +5,7 @@ import * as React from "react";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
 import { PersonLink } from "@/components/people/person-link";
+import { useWorkforceTranslations } from "@/components/workforce/workforce-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { HseWorkerRef, InductionDTO } from "@/lib/modules/hse/hse.workforce";
@@ -37,6 +38,7 @@ export function ProjectInductions({
   sites: Option[];
 }) {
   const { run, pending } = useCommand();
+  const t = useWorkforceTranslations();
   const [recording, setRecording] = React.useState<{ employeeId: string } | null>(null);
   const [voiding, setVoiding] = React.useState<InductionDTO | null>(null);
 
@@ -44,11 +46,11 @@ export function ProjectInductions({
     <section className="nesto-card p-0" aria-labelledby="inductions-heading" data-testid="project-inductions">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
         <h2 id="inductions-heading" className="text-card font-semibold text-fg">
-          Site inductions
+          {t("inductions.heading")}
         </h2>
         {canRecord ? (
           <Button size="sm" variant="secondary" onClick={() => setRecording({ employeeId: "" })} data-testid="record-induction">
-            Record induction
+            {t("inductions.record")}
           </Button>
         ) : null}
       </div>
@@ -56,14 +58,14 @@ export function ProjectInductions({
       {missing.length > 0 ? (
         <div className="border-b border-line bg-warning-soft px-5 py-3" data-testid="missing-inductions">
           <p className="text-table font-medium text-warning-strong">
-            {missing.length} {missing.length === 1 ? "person works" : "people work"} here without a valid induction
+            {t("inductions.missing", { count: missing.length })}
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {missing.map((worker) => (
               <li key={worker.employeeId}>
                 {canRecord ? (
                   <Button size="sm" variant="secondary" onClick={() => setRecording({ employeeId: worker.employeeId })} data-testid="induct-worker">
-                    Induct {worker.name}
+                    {t("inductions.induct", { name: worker.name })}
                   </Button>
                 ) : (
                   <span className="text-table text-fg">
@@ -77,7 +79,7 @@ export function ProjectInductions({
       ) : null}
 
       {inductions.length === 0 ? (
-        <p className="px-5 py-6 text-table text-fg-muted">No inductions recorded on this project.</p>
+        <p className="px-5 py-6 text-table text-fg-muted">{t("inductions.none")}</p>
       ) : (
         <ul className="divide-y divide-line">
           {inductions.map((row) => (
@@ -88,16 +90,16 @@ export function ProjectInductions({
                 </p>
                 <p className="text-meta text-fg-subtle">
                   {row.inductedOn}
-                  {row.validUntil ? ` · valid until ${row.validUntil}` : ""}
-                  {row.site ? ` · ${row.site.name}` : ""} · by <PersonLink memberId={row.conductedByMemberId} name={row.conductedBy} />
-                  {row.voidReason ? ` · void: ${row.voidReason}` : ""}
+                  {row.validUntil ? t("inductions.validUntil", { date: row.validUntil }) : ""}
+                  {row.site ? ` · ${row.site.name}` : ""}{t("inductions.by")} <PersonLink memberId={row.conductedByMemberId} name={row.conductedBy} />
+                  {row.voidReason ? t("inductions.voidReason", { reason: row.voidReason }) : ""}
                 </p>
               </div>
               <span className="flex items-center gap-2">
-                <Badge tone={row.voided ? "default" : row.valid ? "success" : "warning"}>{row.voided ? "Void" : row.valid ? "Valid" : "Expired"}</Badge>
+                <Badge tone={row.voided ? "default" : row.valid ? "success" : "warning"}>{row.voided ? t("inductions.void") : row.valid ? t("inductions.valid") : t("inductions.expired")}</Badge>
                 {row.canVoid ? (
                   <Button size="sm" variant="ghost" disabled={pending !== null} onClick={() => setVoiding(row)}>
-                    Void<span className="sr-only"> {row.worker.name}&apos;s induction</span>
+                    {t("inductions.void")}<span className="sr-only">{t("inductions.voidSr", { name: row.worker.name })}</span>
                   </Button>
                 ) : null}
               </span>
@@ -109,36 +111,38 @@ export function ProjectInductions({
       <FormDialog
         open={recording !== null}
         onOpenChange={(open) => !open && setRecording(null)}
-        title="Record a site induction"
-        description="Given today or earlier. Anybody the company employs — with or without a NESTO account."
+        title={t("inductions.recordTitle")}
+        description={t("inductions.recordDescription")}
         fields={[
-          { name: "employeeId", label: "Who was inducted", type: "select", required: true, emptyLabel: "Choose somebody…", options: employees, wide: true },
-          { name: "siteId", label: "Site", type: "select", emptyLabel: sites.length ? "The whole project" : "—", options: sites, disabled: sites.length === 0 },
-          { name: "inductedOn", label: "Given on", type: "date", required: true },
-          { name: "validUntil", label: "Valid until", type: "date", hint: "Leave empty if it does not expire." },
-          { name: "notes", label: "Note", type: "textarea", rows: 2 },
+          { name: "employeeId", label: t("inductions.who"), type: "select", required: true, emptyLabel: t("inductions.chooseSomebody"), options: employees, wide: true },
+          { name: "siteId", label: t("inductions.site"), type: "select", emptyLabel: sites.length ? t("inductions.wholeProject") : "—", options: sites, disabled: sites.length === 0 },
+          { name: "inductedOn", label: t("inductions.givenOn"), type: "date", required: true },
+          { name: "validUntil", label: t("inductions.validUntilLabel"), type: "date", hint: t("inductions.validHint") },
+          { name: "notes", label: t("inductions.note"), type: "textarea", rows: 2 },
         ]}
         initial={{ employeeId: recording?.employeeId ?? "", inductedOn: today() }}
-        submitLabel="Record"
+        submitLabel={t("inductions.recordSubmit")}
+        saveKind="create"
         module="workforce"
         testId="induction-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/hse/inductions", { body: { ...payload, projectId } });
-          await run("induct", async () => null, "Induction recorded.");
+          await run("induct", async () => null, t("inductions.recorded"));
         }}
       />
       <FormDialog
         open={voiding !== null}
         onOpenChange={(open) => !open && setVoiding(null)}
-        title={voiding ? `Void ${voiding.worker.name}'s induction` : "Void induction"}
-        description="It stays on the record, marked void with the reason."
-        fields={[{ name: "reason", label: "Reason", type: "textarea", required: true, rows: 2 }]}
-        submitLabel="Void"
+        title={voiding ? t("inductions.voidTitle", { name: voiding.worker.name }) : t("inductions.voidInduction")}
+        description={t("inductions.voidDescription")}
+        fields={[{ name: "reason", label: t("inductions.reason"), type: "textarea", required: true, rows: 2 }]}
+        submitLabel={t("inductions.void")}
+        saveKind="none"
         module="workforce"
         onSubmit={async (payload) => {
           if (!voiding) return;
           await engineeringApi(`/api/hse/inductions/${voiding.id}/void`, { body: payload });
-          await run("void", async () => null, "Induction voided.");
+          await run("void", async () => null, t("inductions.voided"));
         }}
       />
     </section>

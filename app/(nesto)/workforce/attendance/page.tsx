@@ -10,6 +10,7 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { getTranslations } from "@/lib/i18n/server";
 import { todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { listCrews } from "@/lib/modules/workforce/crew.service";
 import { getAttendanceSheet } from "@/lib/modules/workforce/site-attendance.service";
@@ -17,7 +18,9 @@ import { projectChoices, siteChoices } from "@/lib/modules/workforce/workforce.d
 import { sheetScopeSchema } from "@/lib/modules/workforce/workforce.schema";
 import type { AttendanceSheetDTO } from "@/lib/modules/workforce/workforce.types";
 
-export const metadata: Metadata = { title: "Site attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("workforce"))("meta.attendance") };
+}
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 
@@ -30,6 +33,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
   const context = await requireModule("workforce");
   if (!can(context, "workforce.attendance.view")) redirect("/access-denied");
   const params = await searchParams;
+  const t = await getTranslations("workforce");
   const [projects, crews] = await Promise.all([projectChoices(context), listCrews(context)]);
   const sites = await siteChoices(context, projects.map((project) => project.id));
 
@@ -42,7 +46,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
   let problem: string | null = null;
   if (projectId || crewId) {
     const scope = sheetScopeSchema.safeParse({ date, projectId, siteId, crewId });
-    if (!scope.success) problem = scope.error.issues[0]?.message ?? "Choose a day and a project or crew.";
+    if (!scope.success) problem = scope.error.issues[0]?.message ?? t("attendance.chooseScope");
     else {
       try {
         sheet = await getAttendanceSheet(context, scope.data);
@@ -58,15 +62,15 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
   return (
     <ModulePage experience={resolveModuleExperience(context, "workforce")} activeSection="attendance">
       <div className="space-y-4">
-        <AttendanceSheetFilter className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end" aria-label="Choose the sheet">
+        <AttendanceSheetFilter className="nesto-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end" aria-label={t("attendance.chooseSheet")}>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
-            Day
+            {t("attendance.day")}
             <Input type="date" name="date" defaultValue={date} max={todayDay()} required />
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
-            Crew
+            {t("attendance.crew")}
             <select name="crewId" defaultValue={crewId ?? ""} className={selectClass}>
-              <option value="">Any crew</option>
+              <option value="">{t("attendance.anyCrew")}</option>
               {crews.map((crew) => (
                 <option key={crew.id} value={crew.id}>
                   {crew.project ? `${crew.name} · ${crew.project.name}` : crew.name}
@@ -75,9 +79,9 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
             </select>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
-            Project
+            {t("attendance.project")}
             <select name="projectId" defaultValue={projectId ?? ""} className={selectClass}>
-              <option value="">{crewId ? "The crew's project" : "Choose a project"}</option>
+              <option value="">{crewId ? t("attendance.crewsProject") : t("attendance.chooseProject")}</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -86,9 +90,9 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
             </select>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
-            Site
+            {t("attendance.site")}
             <select name="siteId" defaultValue={siteId ?? ""} className={selectClass}>
-              <option value="">The whole project</option>
+              <option value="">{t("attendance.wholeProject")}</option>
               {projects
                 .filter((project) => sites.some((site) => site.projectId === project.id))
                 .map((project) => (
@@ -105,7 +109,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
             </select>
           </label>
           <Button type="submit" data-testid="open-sheet">
-            Open sheet
+            {t("attendance.openSheet")}
           </Button>
         </AttendanceSheetFilter>
         {problem ? (
@@ -116,7 +120,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
         {sheet ? (
           <AttendanceSheet sheet={sheet} />
         ) : problem ? null : (
-          <p className="nesto-card px-5 py-8 text-center text-table text-fg-muted">Choose a crew, or a project and site, to see who is working there.</p>
+          <p className="nesto-card px-5 py-8 text-center text-table text-fg-muted">{t("attendance.choosePrompt")}</p>
         )}
       </div>
     </ModulePage>

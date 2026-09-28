@@ -4,6 +4,7 @@ import type { Crumb } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import type { Translate } from "@/lib/i18n/translator";
 import * as team from "@/lib/modules/team/team.service";
 import type { TeamMemberDetailDTO } from "@/lib/modules/team/team.types";
 
@@ -29,10 +30,10 @@ export async function loadMember(
   }
 }
 
-export function memberBreadcrumbs(member: TeamMemberDetailDTO, trailing?: string): Crumb[] {
+export function memberBreadcrumbs(t: Translate<"team">, member: TeamMemberDetailDTO, trailing?: string): Crumb[] {
   const crumbs: Crumb[] = [
-    { label: "Team", href: "/team" },
-    { label: "People", href: "/team/people" },
+    { label: t("member.crumbTeam"), href: "/team" },
+    { label: t("member.crumbPeople"), href: "/team/people" },
     trailing
       ? { label: member.profile.fullName, href: `/team/${member.id}` }
       : { label: member.profile.fullName },

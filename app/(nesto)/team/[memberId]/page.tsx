@@ -6,6 +6,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { MemberActions } from "@/components/team/member-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { getTranslations } from "@/lib/i18n/server";
 import * as team from "@/lib/modules/team/team.service";
 import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
 import { loadMember, memberBreadcrumbs } from "./member-context";
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { member } = await loadMember(memberId);
     return { title: member.profile.fullName };
   } catch {
-    return { title: "Team member" };
+    return { title: (await getTranslations("team"))("meta.teamMember") };
   }
 }
 
@@ -35,6 +36,7 @@ export default async function MemberOverviewPage({ params }: Params) {
   const { context, member } = await loadMember(memberId);
 
   const may = member.capabilities;
+  const t = await getTranslations("team");
 
   const activity = may.canViewActivity
     ? await team.listMemberActivity(context, memberId, { page: 1, limit: 5 })
@@ -45,7 +47,7 @@ export default async function MemberOverviewPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordHeader
-        breadcrumbs={memberBreadcrumbs(member)}
+        breadcrumbs={memberBreadcrumbs(t, member)}
         title={member.profile.fullName}
         subtitle={member.membership.jobTitle ?? member.membership.role.name}
         status={member.membership.status}
@@ -55,12 +57,12 @@ export default async function MemberOverviewPage({ params }: Params) {
             {member.membership.department ? (
               <Badge tone="default">{member.membership.department.name}</Badge>
             ) : null}
-            {isSelf ? <Badge tone="info">You</Badge> : null}
+            {isSelf ? <Badge tone="info">{t("member.you")}</Badge> : null}
           </>
         }
         meta={[
           {
-            label: "Email",
+            label: t("member.email"),
             value: (
               <a href={`mailto:${member.profile.email}`} className="hover:text-accent">
                 {member.profile.email}
@@ -68,7 +70,7 @@ export default async function MemberOverviewPage({ params }: Params) {
             ),
           },
           {
-            label: "Projects",
+            label: t("member.projects"),
             value: (
               <Link
                 href={`/team/${member.id}/projects`}
@@ -79,13 +81,13 @@ export default async function MemberOverviewPage({ params }: Params) {
             ),
           },
           {
-            label: "Joined",
+            label: t("member.joined"),
             value: member.membership.joinedAt ? formatDate(member.membership.joinedAt) : "—",
           },
           ...(member.personId
             ? [
                 {
-                  label: "Profile",
+                  label: t("member.profile"),
                   value: <PersonLink personId={member.personId} name={member.profile.fullName} />,
                 },
               ]
@@ -102,22 +104,21 @@ export default async function MemberOverviewPage({ params }: Params) {
 
       {member.membership.status === "SUSPENDED" ? (
         <p className="rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong">
-          This member is suspended. They cannot sign in until the suspension is lifted.
+          {t("member.suspendedNote")}
         </p>
       ) : null}
 
       {member.membership.status === "INACTIVE" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This member no longer has access. Their history stays in place and they can be
-          reactivated.
+          {t("member.inactiveNote")}
         </p>
       ) : null}
 
       {member.membership.status === "INVITED" ? (
         <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-          This invitation has not been accepted yet. Manage it from{" "}
+          {t("member.invitedNote")}{" "}
           <Link href="/team/invitations" className="text-accent-strong hover:underline">
-            Invitations
+            {t("member.invitations")}
           </Link>
           .
         </p>
@@ -133,9 +134,9 @@ export default async function MemberOverviewPage({ params }: Params) {
               size="lg"
             />
             <div className="min-w-0">
-              <h2 className="text-card font-semibold text-fg">Membership</h2>
+              <h2 className="text-card font-semibold text-fg">{t("member.membership")}</h2>
               <p className="text-meta text-fg-subtle">
-                What this person can reach inside this company.
+                {t("member.membershipDescription")}
               </p>
             </div>
           </div>
@@ -143,11 +144,11 @@ export default async function MemberOverviewPage({ params }: Params) {
           <DetailGrid
             className="mt-4"
             items={[
-              { label: "Role", value: member.membership.role.name },
-              { label: "Department", value: orDash(member.membership.department?.name) },
-              { label: "Job title", value: orDash(member.membership.jobTitle) },
+              { label: t("member.role"), value: member.membership.role.name },
+              { label: t("member.department"), value: orDash(member.membership.department?.name) },
+              { label: t("member.jobTitle"), value: orDash(member.membership.jobTitle) },
               {
-                label: "Phone",
+                label: t("member.phone"),
                 value: member.profile.phone ? (
                   <a href={`tel:${member.profile.phone}`} className="hover:text-accent">
                     {member.profile.phone}
@@ -157,7 +158,7 @@ export default async function MemberOverviewPage({ params }: Params) {
                 ),
               },
               {
-                label: "Invited",
+                label: t("member.invited"),
                 value: member.membership.invitedAt
                   ? formatDate(member.membership.invitedAt)
                   : "—",
@@ -166,8 +167,8 @@ export default async function MemberOverviewPage({ params }: Params) {
                 label:
                   member.membership.status === "INACTIVE" ||
                   member.membership.status === "SUSPENDED"
-                    ? "Access removed"
-                    : "Deactivated",
+                    ? t("member.accessRemoved")
+                    : t("member.deactivated"),
                 value: member.membership.deactivatedAt
                   ? formatDate(member.membership.deactivatedAt)
                   : "—",
@@ -178,10 +179,10 @@ export default async function MemberOverviewPage({ params }: Params) {
               ...(member.securityMetadata
                 ? [
                     {
-                      label: "Last login",
+                      label: t("member.lastLogin"),
                       value: member.securityMetadata.lastLoginAt
                         ? formatDateTime(member.securityMetadata.lastLoginAt)
-                        : "Never",
+                        : t("member.never"),
                     },
                   ]
                 : []),
@@ -192,38 +193,38 @@ export default async function MemberOverviewPage({ params }: Params) {
               employs them (PRD #14 §86, §87). */}
           <p className="mt-4 border-t border-line pt-4 text-meta text-fg-subtle">
             {isSelf
-              ? "Your name, phone and photo are part of your own profile and are changed in Settings."
-              : "Name, phone and photo belong to this person's own profile and can only be changed by them."}
+              ? t("member.selfNote")
+              : t("member.otherNote")}
           </p>
         </section>
 
         <section className="nesto-card p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-card font-semibold text-fg">Recent activity</h2>
+            <h2 className="text-card font-semibold text-fg">{t("member.recentActivity")}</h2>
             {may.canViewActivity ? (
               <Link
                 href={`/team/${member.id}/activity`}
                 className="text-table font-medium text-accent-strong"
               >
-                All
+                {t("member.all")}
               </Link>
             ) : null}
           </div>
 
           {!activity ? (
             <p className="mt-4 text-table text-fg-subtle">
-              You do not have access to membership history.
+              {t("member.noActivityAccess")}
             </p>
           ) : activity.data.length === 0 ? (
             <p className="mt-4 text-table text-fg-subtle">
-              No membership changes have been recorded.
+              {t("member.noChanges")}
             </p>
           ) : (
             <ol className="mt-4 divide-y divide-line">
               {activity.data.map((entry) => (
                 <li key={entry.id} className="py-2.5 first:pt-0">
                   <p className="text-table text-fg">
-                    {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">Someone</span>}{" "}
+                    {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("member.someone")}</span>}{" "}
                     {entry.message ?? entry.action}
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">

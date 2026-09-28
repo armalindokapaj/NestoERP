@@ -6,6 +6,7 @@ import { engineeringApi, failureMessage, failureOutcome } from "@/components/eng
 import { useCommand } from "@/components/engineering/form-kit";
 import { selectClass } from "@/components/forms/record-form";
 import { guardNavigation, useRouter } from "@/components/navigation/guarded-router";
+import { useWorkforceTranslations } from "@/components/workforce/workforce-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { SHEET_STATUSES, sheetStatusLabels, type AttendanceSheetDTO, type AttendanceSheetResult, type SheetStatus } from "@/lib/modules/workforce/workforce.types";
 import { statusLabel } from "@/lib/utils/status";
+import { workforceLabel } from "@/lib/i18n/modules/workforce/labels";
 
 /**
  * The site sheet (E-04 §123, §124): everybody working there that day, marked
@@ -69,6 +71,7 @@ function sameDraft(a: Draft | undefined, b: Draft | undefined): boolean {
 
 export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
   const { run, pending } = useCommand();
+  const t = useWorkforceTranslations();
   const [baseline, setBaseline] = React.useState<Record<string, Draft>>(() => draftsOf(sheet));
   const [drafts, setDrafts] = React.useState<Record<string, Draft>>(baseline);
   const [error, setError] = React.useState<string | null>(null);
@@ -82,7 +85,7 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
     setDrafts(loaded);
   }, [sheet]);
 
-  const editor = useUnsavedEditor({ module: "workforce", saveKind: "save", label: `Attendance sheet ${sheet.date}`, save: () => save() });
+  const editor = useUnsavedEditor({ module: "workforce", saveKind: "save", label: t("sheet.label", { date: sheet.date }), save: () => save() });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = editable.some((row) => !sameDraft(drafts[row.employeeId], baseline[row.employeeId]));
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -107,7 +110,7 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
       .filter((row) => row.status !== "")
       .map((row) => ({ employeeId: row.employeeId, status: row.status, checkIn: row.status === "PRESENT" ? row.checkIn || null : null, checkOut: row.status === "PRESENT" ? row.checkOut || null : null, notes: row.notes || null }));
     if (rows.length === 0) {
-      setError("Mark at least one worker.");
+      setError(t("sheet.markAtLeastOne"));
       return { kind: "invalid" };
     }
     let outcome = { kind: "unknown" } as SaveOutcome;
@@ -127,7 +130,7 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
           throw failure;
         }
       },
-      "Attendance saved.",
+      t("sheet.saved"),
     );
     setUnresolved(outcome.kind === "unknown");
     if (outcome.kind === "committed") {
@@ -139,19 +142,19 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
   }
 
   if (sheet.rows.length === 0) {
-    return <p className="nesto-card px-5 py-8 text-center text-table text-fg-muted">Nobody is assigned here on {sheet.date}. Assign people to the project or put them in the crew first.</p>;
+    return <p className="nesto-card px-5 py-8 text-center text-table text-fg-muted">{t("sheet.nobody", { date: sheet.date })}</p>;
   }
 
   return (
     <section className="nesto-card p-0" aria-labelledby="sheet-heading" data-testid="attendance-sheet">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
         <h2 id="sheet-heading" className="text-card font-semibold text-fg">
-          {sheet.rows.length} {sheet.rows.length === 1 ? "worker" : "workers"} · {sheet.date}
+          {t("sheet.heading", { count: sheet.rows.length, date: sheet.date })}
         </h2>
         {editable.length > 0 ? (
           <div className="flex gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => markAll("PRESENT")} disabled={pending !== null}>
-              Mark the rest present
+              {t("sheet.markRest")}
             </Button>
           </div>
         ) : null}
@@ -167,28 +170,28 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
                 <p className="truncate text-meta text-fg-subtle">{[row.trade, row.crew].filter(Boolean).join(" · ") || "—"}</p>
               </div>
               {open ? (
-                <select aria-label={`Attendance for ${row.name}`} className={selectClass} value={draft.status} onChange={(event) => change(row.employeeId, { status: event.target.value as SheetStatus | "" })}>
-                  <option value="">Not marked</option>
+                <select aria-label={t("sheet.attendanceFor", { name: row.name })} className={selectClass} value={draft.status} onChange={(event) => change(row.employeeId, { status: event.target.value as SheetStatus | "" })}>
+                  <option value="">{t("sheet.notMarked")}</option>
                   {SHEET_STATUSES.map((status) => (
                     <option key={status} value={status}>
-                      {sheetStatusLabels[status]}
+                      {workforceLabel(t, "sheetStatus", status, sheetStatusLabels[status])}
                     </option>
                   ))}
                 </select>
               ) : (
                 <p className="text-table text-fg-muted">
-                  {row.attendance ? statusLabel(row.attendance.status) : "Not marked"}
+                  {row.attendance ? workforceLabel(t, "attendanceStatus", row.attendance.status, statusLabel(row.attendance.status)) : t("sheet.notMarked")}
                   {row.locked ? <Badge className="ml-2">{row.locked}</Badge> : null}
                 </p>
               )}
               {open && draft.status === "PRESENT" ? (
                 <div className="flex flex-wrap gap-2">
-                  <Input type="time" aria-label={`Check-in for ${row.name}`} value={draft.checkIn} onChange={(event) => change(row.employeeId, { checkIn: event.target.value })} className="w-28" />
-                  <Input type="time" aria-label={`Check-out for ${row.name}`} value={draft.checkOut} onChange={(event) => change(row.employeeId, { checkOut: event.target.value })} className="w-28" />
-                  <Input aria-label={`Note for ${row.name}`} placeholder="Note" value={draft.notes} onChange={(event) => change(row.employeeId, { notes: event.target.value })} className="min-w-0 flex-1" />
+                  <Input type="time" aria-label={t("sheet.checkIn", { name: row.name })} value={draft.checkIn} onChange={(event) => change(row.employeeId, { checkIn: event.target.value })} className="w-28" />
+                  <Input type="time" aria-label={t("sheet.checkOut", { name: row.name })} value={draft.checkOut} onChange={(event) => change(row.employeeId, { checkOut: event.target.value })} className="w-28" />
+                  <Input aria-label={t("sheet.noteFor", { name: row.name })} placeholder={t("sheet.note")} value={draft.notes} onChange={(event) => change(row.employeeId, { notes: event.target.value })} className="min-w-0 flex-1" />
                 </div>
               ) : open ? (
-                <Input aria-label={`Note for ${row.name}`} placeholder="Note" value={draft.notes} onChange={(event) => change(row.employeeId, { notes: event.target.value })} />
+                <Input aria-label={t("sheet.noteFor", { name: row.name })} placeholder={t("sheet.note")} value={draft.notes} onChange={(event) => change(row.employeeId, { notes: event.target.value })} />
               ) : (
                 <p className="text-meta text-fg-subtle">{[row.attendance?.checkIn && row.attendance.checkOut ? `${row.attendance.checkIn}–${row.attendance.checkOut}` : null, row.attendance?.notes].filter(Boolean).join(" · ")}</p>
               )}
@@ -204,7 +207,7 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
             </p>
           ) : null}
           <Button onClick={() => void save()} disabled={pending !== null || editable.length === 0} data-testid="save-sheet">
-            {pending === "save" ? "Saving…" : "Save attendance"}
+            {pending === "save" ? t("sheet.saving") : t("sheet.save")}
           </Button>
         </div>
       ) : null}
