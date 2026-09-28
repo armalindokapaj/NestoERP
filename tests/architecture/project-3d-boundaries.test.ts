@@ -133,18 +133,26 @@ describe("Experience Editor tab (3D Editor PRD §9-§11, §180-§183, §202-§20
     expect(sourceFiles(EDITOR_GROUP).filter((file) => file.endsWith("page.tsx"))).toEqual([path.join(EDITOR_ROUTE, "page.tsx")]);
   });
 
-  it("never renders the Platform Admin shell, search or account controls around the editor", () => {
+  it("keeps the Platform Admin shell and account menu out while allowing shared logout", () => {
     const forbidden = [
       /^@\/components\/platform(?:\/|$)/,
       /^@\/components\/layout(?:\/|$)/,
       /^@\/components\/auth(?:\/|$)/,
       /app\/platform-admin\/layout/,
     ];
+    // The authentication lifecycle PRD requires logout even in standalone
+    // editors. Allow only these edges, not other auth or shell components.
+    const lifecycleEdges = new Set([
+      "components/3d/platform/editor/EditorTopbar.tsx -> @/components/auth/sign-out-button",
+      "lib/auth/client-lifecycle.ts -> @/components/layout/user-scoped-state",
+    ]);
     const { modules } = reachableFrom(sourceFiles(EDITOR_GROUP));
     const violations = [...modules].flatMap((file) => runtimeImportsIn(file)
       .filter((dependency) => forbidden.some((pattern) => pattern.test(dependency)))
-      .map((dependency) => `${file} -> ${dependency}`));
+      .map((dependency) => `${file} -> ${dependency}`)
+      .filter((edge) => !lifecycleEdges.has(edge)));
     expect(violations).toEqual([]);
+    expect(modules.has("components/auth/sign-out-button.tsx")).toBe(true);
   });
 
   it("keeps one Experience Editor implementation, rendered only by the editor tab", () => {
