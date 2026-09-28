@@ -318,6 +318,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-company.service.ts",
+    reason:
+      "Attaching a company to a Parent Group or detaching it moves the company and its business root's rows — people, departments, placements, grants, candidates, qualifications, requests and audit history — between roots in one transaction, because the composite (id, parentGroupId) keys between them only hold once all have moved. Group-wide reach is ended in the same transaction so nobody gains access through the move (Simplified Company Creation §6, §7, §11).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-control.service.ts",
     reason:
       "The Platform Admin control plane coordinates reviewed, permission-checked and audited changes across tenant domains. It validates each canonical record in its owning scope and keeps cross-domain lifecycle changes in one transaction without creating a second persistence model.",

@@ -47,7 +47,8 @@ function assertPlatform(context: PlatformContext, permission: PlatformPermission
 async function groupOrNotFound(groupId: string) {
   return assertFound(
     await prisma.parentGroup.findFirst({
-      where: { id: groupId, isTestFixture: false },
+      // A standalone company's own root is not a group to implement or add companies to.
+      where: { id: groupId, isTestFixture: false, kind: "GROUP" },
       select: { id: true, slug: true, name: true, legalName: true, country: true, timezone: true, currency: true, status: true, activatedAt: true, logoUrl: true },
     }),
   );
