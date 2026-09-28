@@ -1,5 +1,8 @@
+"use client";
+
 import { ChevronLeft } from "lucide-react";
 
+import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import Link from "@/components/navigation/nav-link";
 
 /**
@@ -17,11 +20,12 @@ export function ProjectIdentity({
   city: string;
   backHref: string;
 }) {
+  const t = useThreeDTranslations();
   return (
     <div className="viewer-glass flex h-12 min-w-0 items-center gap-2.5 rounded-panel px-3.5 sm:gap-3 sm:px-4">
       <Link
         href={backHref}
-        aria-label={`Back to ${projectName}`}
+        aria-label={t("hud.backTo", { project: projectName })}
         data-testid="project-3d-back"
         className="-ml-1 flex shrink-0 items-center gap-1 font-serif text-xs tracking-[0.14em] text-white transition-colors hover:text-white/70 sm:text-sm"
       >

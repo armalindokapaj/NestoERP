@@ -1,6 +1,8 @@
 "use client";
 
 import { Building2, Home, LayoutGrid, ImageIcon, User, PlayCircle } from "lucide-react";
+import { useThreeDTranslations } from "@/components/3d/three-d-text";
+import { threeDLabel } from "@/lib/i18n/modules/threeD/labels";
 import { cn } from "@/lib/3d/viewer/utils";
 
 const GRADIENTS: Array<[string, string]> = [
@@ -46,6 +48,7 @@ export function PlaceholderImage({
   iconClassName?: string;
   watermark?: boolean;
 }) {
+  const t = useThreeDTranslations();
   const idx = hash(seed) % GRADIENTS.length;
   const [from, to] = GRADIENTS[idx];
   const angle = (hash(seed + "a") % 4) * 45;
@@ -61,7 +64,7 @@ export function PlaceholderImage({
         backgroundImage: `linear-gradient(${angle}deg, ${from}, ${to})`,
       }}
       role="img"
-      aria-label={`${kind} placeholder image`}
+      aria-label={t("hud.placeholderImage", { kind: threeDLabel(t, "placeholderKind", kind, kind) })}
     >
       <div
         className="absolute inset-0 opacity-[0.07]"

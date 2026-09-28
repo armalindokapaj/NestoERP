@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, type ChangeEvent } from "react";
+import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import { clamp } from "@/lib/3d/viewer/utils";
 
 export type SliderScale = {
@@ -77,6 +78,7 @@ export function RangeSlider({
   formatValue: (value: number) => string;
   ariaLabel: string;
 }) {
+  const t = useThreeDTranslations();
   const effectiveMin = clamp(valueMin ?? scale.min, scale.min, scale.max);
   const effectiveMax = clamp(valueMax ?? scale.max, scale.min, scale.max);
 
@@ -126,7 +128,7 @@ export function RangeSlider({
           max={RESOLUTION}
           value={posMin}
           onChange={handleMinInput}
-          aria-label={`${ariaLabel} minimum`}
+          aria-label={t("hud.rangeMinimum", { label: ariaLabel })}
           className="rz-range-thumb"
           style={{ zIndex: minThumbOnTop ? 5 : 3 }}
         />
@@ -136,7 +138,7 @@ export function RangeSlider({
           max={RESOLUTION}
           value={posMax}
           onChange={handleMaxInput}
-          aria-label={`${ariaLabel} maximum`}
+          aria-label={t("hud.rangeMaximum", { label: ariaLabel })}
           className="rz-range-thumb"
           style={{ zIndex: minThumbOnTop ? 3 : 4 }}
         />
