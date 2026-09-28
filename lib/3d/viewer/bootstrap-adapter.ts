@@ -1,4 +1,5 @@
 import type { Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
+import type { Public3DBootstrap } from "@/lib/3d/public/public-manifest";
 import type { DetailModelSlotRole, Project3DConfig, ProjectDetailModel } from "@/lib/3d/runtime/types";
 import type { ProjectViewerRuntimeBootstrap } from "@/lib/3d/viewer/runtimeTypes";
 import {
@@ -199,4 +200,78 @@ export function adaptProjectViewerBootstrap(bootstrap: Project3DBootstrap): Proj
     viewerConfig,
     units,
   };
+}
+
+/**
+ * Public bootstrap → the same runtime shape (ADM-04A §7). Everything the
+ * public projection withheld stays neutral here: no developer contact, no
+ * prices, no unit pages, no map, no construction timeline. Unit ids are the
+ * release-local refs (u1…), never canonical ids.
+ */
+export function adaptPublicViewerBootstrap(bootstrap: Public3DBootstrap, publicId: string): ProjectViewerRuntimeBootstrap {
+  const viewerConfig = bootstrap.experience as unknown as Project3DConfig;
+  const units: Unit[] = bootstrap.units.map((unit) => ({
+    id: unit.ref,
+    code: unit.label,
+    type: unit.type ?? "residential",
+    buildingName: "",
+    floor: unit.floor ?? 0,
+    area: unit.area ?? 0,
+    bedrooms: 0,
+    bathrooms: 0,
+    price: null,
+    currency: "EUR",
+    transaction: "sale",
+    // Without the availability field every unit reads alike; status colours are off in that case.
+    status: unit.status ?? "available",
+    images: [],
+    floorPlanImage: "",
+    href: null,
+  }));
+  const project: Project = {
+    id: publicId,
+    slug: publicId,
+    name: bootstrap.title,
+    developer: { id: "public", slug: "public", name: "", type: "developer", verified: false, phone: "", whatsapp: "" },
+    status: "under_construction",
+    progressPercent: 0,
+    coords: null,
+    city: bootstrap.city ?? "",
+    propertyType: propertyType(units),
+    availableUnits: units.filter((unit) => unit.status === "available").length,
+    totalUnits: units.length,
+    buildings: [],
+    completionLabel: "—",
+    units,
+    constructionStages: [],
+    commercialVisible: false,
+    backHref: "/",
+  };
+  const detailModels: ProjectDetailModelSlotEntry[] = bootstrap.models.map((model) => ({
+    slotId: model.assetId,
+    slotName: model.assetId,
+    slotRole: model.role.toLocaleLowerCase() as DetailModelSlotRole,
+    transformParentSlotId: model.parentAssetId,
+    model: {
+      glbUrl: model.assetUrl,
+      fileName: `${model.assetId}.glb`,
+      fileSize: 0,
+      ...model.transform,
+      enabled: true,
+      visible: model.visible,
+      castShadow: model.castShadow,
+      receiveShadow: model.receiveShadow,
+      selectable: model.selectable,
+      transformLocked: true,
+      updatedAt: new Date(0).toISOString(),
+      unitLinks: model.unitBindings.map((binding) => ({ meshName: binding.meshName, unitId: binding.unitRef, unitCode: binding.unitRef, poiYawDeg: binding.poiYawDeg, poiEnabled: binding.poiEnabled, poiDistanceOverride: binding.poiDistanceOverride, poiHeightOverride: binding.poiHeightOverride })),
+      sceneManifest: model.sceneManifest,
+      nodeOverrides: model.nodeOverrides,
+      triangleCount: null,
+      meshCount: null,
+      materialCount: null,
+      textureCount: null,
+    },
+  }));
+  return { project, construction: { progressPercent: 0, stages: [] }, detailModels, viewerConfig, units };
 }

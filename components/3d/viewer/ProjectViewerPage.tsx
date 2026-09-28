@@ -9,6 +9,13 @@ import Link from "@/components/navigation/nav-link";
 import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
 import type { ModelLoadStatus } from "@/lib/3d/runtime/render-engine/RenderEngine";
 import { adaptProjectViewerBootstrap } from "@/lib/3d/viewer/bootstrap-adapter";
+import { useViewerAvailability } from "./hooks/use-viewer-availability";
+
+type StatusBody = { available?: unknown; token?: unknown } | undefined;
+const readCompanyStatus = (body: unknown) => {
+  const status = body as StatusBody;
+  return { available: status?.available === true, token: typeof status?.token === "string" ? status.token : null };
+};
 
 type ApiEnvelope = { data?: unknown; error?: { message?: string } };
 
@@ -43,6 +50,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [modelStatus, setModelStatus] = React.useState<ModelLoadStatus>({ state: "loading" });
+  const [token, setToken] = React.useState<string | null>(null);
   const t = useThreeDTranslations();
   const backHref = `/projects/${projectId}`;
 
@@ -60,7 +68,11 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
       if (!response.ok) throw new Error(json.error?.message ?? t("page.openFailed"));
       const parsed = project3DBootstrapSchema.safeParse(json.data);
       if (!parsed.success) throw new Error(t("page.releaseUnreadable"));
+      // The grant this bootstrap was issued under, so a later change is noticed.
+      const status = await fetch(`/api/projects/${encodeURIComponent(projectId)}/3d/status`, { cache: "no-store", signal });
+      const statusBody = status.ok ? readCompanyStatus((await status.json() as ApiEnvelope).data) : { available: false, token: null };
       setBootstrap(parsed.data);
+      setToken(statusBody.token);
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === "AbortError") return;
       setBootstrap(null);
@@ -75,6 +87,19 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  const { availability, check } = useViewerAvailability({ statusUrl: `/api/projects/${encodeURIComponent(projectId)}/3d/status`, token, read: readCompanyStatus });
+  // Revoked (audience, entitlement, membership, deletion): the scene goes, not just a banner (ADM-04A §8).
+  React.useEffect(() => {
+    if (availability !== "revoked") return;
+    setBootstrap(null);
+    setToken(null);
+    setError(t("page.noLongerAvailable"));
+  }, [availability, t]);
+  // A failed model request is a reason to ask at once.
+  React.useEffect(() => {
+    if (modelStatus.state === "failed") check();
+  }, [check, modelStatus]);
 
   const runtimeBootstrap = React.useMemo(() => (bootstrap ? adaptProjectViewerBootstrap(bootstrap) : null), [bootstrap]);
 
@@ -114,6 +139,16 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
         channel="company"
         onModelLoadStatus={setModelStatus}
       />
+      {availability === "changed" ? (
+        <div className="absolute inset-x-0 top-16 z-[60] flex justify-center px-3 sm:top-20">
+          <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-white" role="status">
+            <p className="min-w-0 text-xs font-semibold">{t("page.updatedTitle")}</p>
+            <button type="button" onClick={() => void load()} disabled={loading} className="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("page.reload")}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {modelStatus.state === "failed" ? (
         <div className="absolute inset-x-0 top-16 z-[60] flex justify-center px-3 sm:top-20">
           <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-white" role="alert">

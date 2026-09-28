@@ -11,4 +11,10 @@ export const ROUTE_CLASSES: Record<string, "PUBLIC" | "TOKEN" | "SIGNED" | "AUTH
   ...Object.fromEntries(TOKEN_AUTHENTICATED_ROUTES.map((route) => [route, "TOKEN" as const])),
   "/api/storage/objects/[...key]": "SIGNED",
   "/api/auth/[...nextauth]": "AUTH_PROVIDER",
+  // The anonymous 3D viewer (ADM-04A §7): read-only, keyed by an opaque share id,
+  // answering only for a live PUBLIC experience with an approved projection.
+  "/api/public/3d/[publicId]": "PUBLIC",
+  "/api/public/3d/[publicId]/status": "PUBLIC",
+  // Its model bytes: the credential is the server-signed, epoch-bound handle.
+  "/api/public/3d/[publicId]/assets/[handle]": "SIGNED",
 };

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_MODEL_BYTES } from "@/lib/3d/platform/model-upload";
+import { PUBLIC_3D_OPTIONAL_FIELDS } from "@/lib/3d/public/public-manifest";
 
 /**
  * An optional note kept with the audit event. No 3D authoring action asks for
@@ -62,6 +63,19 @@ export const project3DVisibilitySchema = z.object({
 export const project3DDeleteSchema = z.object({
   expectedControlVersion: controlVersion,
   confirmationName: z.string().trim().min(1).max(200),
+  reason: decisionReason,
+  requestId,
+});
+
+export const project3DPublicPrepareSchema = z.object({
+  title: z.string().trim().min(2).max(160),
+  description: z.string().trim().max(2000).nullish(),
+  fields: z.array(z.enum(PUBLIC_3D_OPTIONAL_FIELDS)).max(PUBLIC_3D_OPTIONAL_FIELDS.length).refine((fields) => new Set(fields).size === fields.length, "Choose each field once."),
+});
+
+export const project3DPublicApproveSchema = z.object({
+  publicManifestHash: z.string().trim().regex(/^[a-f0-9]{64}$/),
+  confirmPublicDistribution: z.literal(true, { message: "Confirm the content is approved for public distribution." }),
   reason: decisionReason,
   requestId,
 });

@@ -74,7 +74,13 @@ export const TOKEN_AUTHENTICATED_ROUTES = ["/api/internal/metrics"] as const;
  * kept to this one list, and each entry is a deliberate decision — the page
  * itself still treats every invalid token identically (PRD #14 §73, §240).
  */
-const PUBLIC_ROUTE_PREFIXES = ["/invite/"] as const;
+const PUBLIC_ROUTE_PREFIXES = [
+  "/invite/",
+  // The anonymous 3D viewer and its read-only API (ADM-04A §7, §12): narrowly
+  // these two prefixes, never the Platform 3D API. Each checks its share id itself.
+  "/view/3d/",
+  "/api/public/3d/",
+] as const;
 
 /** Public routes an authenticated user should never sit on. */
 const AUTHED_REDIRECT_ROUTES = ["/login", "/forgot-password"] as const;

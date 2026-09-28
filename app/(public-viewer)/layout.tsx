@@ -1,0 +1,16 @@
+import type { ReactNode } from "react";
+
+import { ModuleMessages } from "@/components/i18n/module-messages";
+import { nunitoSans, roboto } from "@/lib/fonts";
+
+/**
+ * The anonymous 3D viewer's layout (ADM-04A §7): full window, no NESTO shell,
+ * no session required. The page checks the share address itself.
+ */
+export default function PublicViewerLayout({ children }: { children: ReactNode }) {
+  return (
+    <div data-project-viewer className={`${nunitoSans.variable} ${roboto.variable} fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}>
+      <ModuleMessages namespaces={["threeD"]}>{children}</ModuleMessages>
+    </div>
+  );
+}

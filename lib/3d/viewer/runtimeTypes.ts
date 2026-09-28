@@ -10,4 +10,4 @@ export interface ProjectViewerRuntimeBootstrap {
 }
 
 /** Rozaris serves a marketplace and a white-label channel; NESTO has the one Company channel. */
-export type ViewerChannel = "company";
+export type ViewerChannel = "company" | "public";
