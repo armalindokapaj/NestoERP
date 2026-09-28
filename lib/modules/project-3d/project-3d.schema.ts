@@ -52,7 +52,7 @@ const decisionReason = z.string().trim().min(3, "Give a reason for this change."
 const requestId = z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9_-]+$/).nullish();
 
 export const project3DVisibilitySchema = z.object({
-  visibility: z.enum(["OFFLINE", "PUBLIC", "COMPANY_ONLY"]),
+  visibility: z.enum(["OFFLINE", "PRIVATE", "COMPANY_ONLY", "PUBLIC"]),
   expectedControlVersion: controlVersion,
   releaseId: z.string().trim().min(1).max(128).nullish(),
   publicManifestHash: z.string().trim().regex(/^[a-f0-9]{64}$/).nullish(),

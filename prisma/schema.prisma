@@ -2382,6 +2382,8 @@ enum Project3DVisibility {
   OFFLINE
   PUBLIC
   COMPANY_ONLY
+  /// Only people assigned to the project (Admin Projects & 3D PRD #5 §50).
+  PRIVATE
 }
 
 enum Project3DPurgeStatus {

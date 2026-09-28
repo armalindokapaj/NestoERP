@@ -227,7 +227,7 @@ export async function dashboardOrganizations(context: PlatformContext, limit = 5
 export function threeDState(config: { visibility: string; deletedAt: Date | null } | null): string {
   if (!config) return "Not configured";
   if (config.deletedAt) return "Deleted";
-  return config.visibility === "PUBLIC" ? "Public" : config.visibility === "COMPANY_ONLY" ? "Company only" : "Offline";
+  return config.visibility === "PUBLIC" ? "Public" : config.visibility === "COMPANY_ONLY" ? "Company users" : config.visibility === "PRIVATE" ? "Private" : "Offline";
 }
 
 export async function dashboardProjects(context: PlatformContext, limit = 5) {
@@ -261,6 +261,6 @@ export async function dashboardUsage(context: PlatformContext) {
   return {
     storage: { usedBytes: Number(storage._sum.usedBytes ?? 0), quotaBytes },
     modules: { available: ENTITLABLE_MODULES.length, assignments: moduleAssignments },
-    threeD: { configured: visibility.reduce((sum, row) => sum + row._count._all, 0), public: count("PUBLIC"), companyOnly: count("COMPANY_ONLY"), offline: count("OFFLINE") },
+    threeD: { configured: visibility.reduce((sum, row) => sum + row._count._all, 0), public: count("PUBLIC"), companyOnly: count("COMPANY_ONLY"), private: count("PRIVATE"), offline: count("OFFLINE") },
   };
 }

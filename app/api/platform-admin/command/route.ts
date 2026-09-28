@@ -26,6 +26,7 @@ import {
   personCreateSchema,
   personUpdateSchema,
   projectCreateSchema,
+  projectUpdateSchema,
   sessionRevokeSchema,
   supportAccessSchema,
   userStatusSchema,
@@ -34,7 +35,9 @@ import {
   createFeatureFlag,
   createMembership,
   createPlatformGrant,
+  archivePlatformProject,
   createPlatformProject,
+  updatePlatformProject,
   createPlatformPerson,
   createPlatformUser,
   createSupportAccess,
@@ -181,6 +184,15 @@ export async function POST(request: Request) {
       case "project.create": {
         const input = projectCreateSchema.parse(body);
         return apiOk({ data: await createPlatformProject(context, input) }, { status: 201 });
+      }
+      case "project.update": {
+        await updatePlatformProject(context, projectUpdateSchema.parse(body));
+        return apiOk({ data: { ok: true } });
+      }
+      case "project.archive": {
+        const input = z.object({ projectId: id, reason: z.string().trim().min(3).max(500) }).parse(body);
+        await archivePlatformProject(context, input.projectId, input.reason);
+        return apiOk({ data: { ok: true } });
       }
       case "grant.create": {
         const input = platformGrantSchema.parse(body);
