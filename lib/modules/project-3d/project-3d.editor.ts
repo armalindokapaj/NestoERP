@@ -14,6 +14,7 @@ import { PROJECT_3D_PROCESSING_STALE_MS, project3DProcessingCrashed, project3DUp
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DExperienceUpdate, Project3DModelSettingsUpdate } from "./project-3d.schema";
 import { assertProject3DStorageKey } from "./project-3d.storage";
+import { assertProject3DExperienceLive } from "./project-3d.lifecycle";
 
 const PREVIEW_TTL_SECONDS = 5 * 60;
 
@@ -54,8 +55,9 @@ export function canOpenProject3DEditor(context: PlatformContext): boolean {
  */
 export async function authorizeProject3DEditor(context: PlatformContext, projectId: string): Promise<void> {
   if (!canOpenProject3DEditor(context)) throw new AccessError("FORBIDDEN");
+  // A deleted experience has no editor: it is restored first (ADM-04A §9).
   assertFound(await prisma.project3DConfig.findFirst({
-    where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
+    where: { projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true },
   }));
 }
@@ -210,6 +212,7 @@ export async function updateProject3DExperience(
   input: Project3DExperienceUpdate,
 ) {
   assertProject3DPlatformPermission(context, "platform.3d.configure");
+  await assertProject3DExperienceLive(prisma, projectId);
   const config = assertFound(await prisma.project3DConfig.findFirst({
     where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true, projectId: true, companyId: true, authoringDocument: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
@@ -251,6 +254,7 @@ export async function updateProject3DModelSettings(
   input: Project3DModelSettingsUpdate,
 ) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true, companyId: true, slotId: true, version: true, originalFileName: true, status: true, validationStatus: true, sceneManifest: true, updatedAt: true, scale: true, rotationDeg: true, altitudeOffset: true, positionX: true, positionZ: true, rotationXDeg: true, rotationZDeg: true, visible: true, castShadow: true, receiveShadow: true, selectable: true, transformLocked: true, nodeOverrides: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },

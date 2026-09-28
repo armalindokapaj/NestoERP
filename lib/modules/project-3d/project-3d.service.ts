@@ -8,6 +8,7 @@ import { prisma } from "@/lib/database/prisma";
 import { defaultProject3DExperience } from "@/lib/3d/shared/experience";
 import { readAuthorizedDocumentThumbnail, type Thumbnail } from "@/lib/modules/documents/storage/thumbnail.service";
 import { project3DAuditMetadata } from "./project-3d.audit";
+import { availabilityOf, newProject3DPublicId, PROJECT_3D_AVAILABILITY_SELECT } from "./project-3d.lifecycle";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DEntitlementUpdate, Project3DExperienceCreate, Project3DExperienceListQuery, Project3DExperienceMetadata } from "./project-3d.schema";
 
@@ -68,29 +69,34 @@ export async function listProject3DExperiences(context: PlatformContext, query: 
   };
   const rows = await prisma.project3DConfig.findMany({
     where: {
+      // Trash lists deleted experiences; every other view leaves them out (ADM-04A §11).
+      deletedAt: query.trash === "1" ? { not: null } : null,
       project: projectWhere,
       ...(q ? { OR: [{ experienceName: { contains: q, mode: "insensitive" } }, { project: { name: { contains: q, mode: "insensitive" } } }, { project: { code: { contains: q, mode: "insensitive" } } }] } : {}),
       ...(query.publication === "PUBLISHED" ? { activeReleaseId: { not: null } } : query.publication === "DRAFT" ? { activeReleaseId: null } : {}),
     },
     orderBy: [{ updatedAt: "desc" }, { project: { name: "asc" } }],
     select: {
-      id: true,
-      projectId: true,
+      ...PROJECT_3D_AVAILABILITY_SELECT,
       experienceName: true,
       internalNotes: true,
-      activeReleaseId: true,
       updatedAt: true,
-      activeRelease: { select: { id: true, releaseNumber: true, publishedAt: true } },
+      deletedByUserId: true,
+      deleteReason: true,
+      purgeAfter: true,
+      purgeStatus: true,
+      activeRelease: { select: { id: true, releaseNumber: true, publishedAt: true, status: true, publicManifestHash: true } },
       project: {
         select: {
+          archivedAt: true,
+          company: { select: { id: true, name: true, status: true, parentGroup: { select: { id: true, name: true, status: true } } } },
           id: true,
           code: true,
           name: true,
           status: true,
           coverImageDocumentId: true,
           coverImage: { select: { status: true, storageStatus: true, detectedMimeType: true, mimeType: true } },
-          company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true } } } },
-          project3DEntitlement: { select: { status: true, viewerEnabled: true, expiresAt: true } },
+          project3DEntitlement: { select: { status: true, viewerEnabled: true, activatedAt: true, expiresAt: true } },
           _count: { select: { buildings: true, floors: true, units: true } },
         },
       },
@@ -107,18 +113,23 @@ export async function listProject3DExperiences(context: PlatformContext, query: 
       const publishedAt = row.activeRelease?.publishedAt ?? null;
       const publicationState = row.activeReleaseId ? (publishedAt && row.updatedAt > publishedAt ? "DRAFT_CHANGES" : "PUBLISHED") : "DRAFT";
       const cover = row.project.coverImage;
+      const availability = availabilityOf(row);
       return {
         id: row.id,
         projectId: row.projectId,
         experienceName: row.experienceName || `${row.project.name} 3D Experience`,
         internalNotes: row.internalNotes,
-        project: { id: row.project.id, code: row.project.code, name: row.project.name, status: row.project.status, company: row.project.company },
+        project: { id: row.project.id, code: row.project.code, name: row.project.name, status: row.project.status, company: { id: row.project.company.id, name: row.project.company.name, parentGroup: { id: row.project.company.parentGroup.id, name: row.project.company.parentGroup.name } } },
+        visibility: row.visibility,
+        controlVersion: row.controlVersion,
+        availability,
+        deleted: row.deletedAt ? { at: row.deletedAt.toISOString(), reason: row.deleteReason, purgeAfter: row.purgeAfter?.toISOString() ?? null, purgeStatus: row.purgeStatus } : null,
         structure: row.project._count,
         models: { slots: row._count.slots, readiness },
         releases: row._count.releases,
         publicationState,
         activeRelease: row.activeRelease ? { ...row.activeRelease, publishedAt: row.activeRelease.publishedAt.toISOString() } : null,
-        entitlement: row.project.project3DEntitlement ? { ...row.project.project3DEntitlement, expiresAt: row.project.project3DEntitlement.expiresAt?.toISOString() ?? null } : null,
+        entitlement: row.project.project3DEntitlement ? { status: row.project.project3DEntitlement.status, viewerEnabled: row.project.project3DEntitlement.viewerEnabled, expiresAt: row.project.project3DEntitlement.expiresAt?.toISOString() ?? null } : null,
         coverUrl: row.project.coverImageDocumentId && cover?.status === "ACTIVE" && cover.storageStatus === "AVAILABLE" ? `/api/platform/3d/projects/${row.projectId}/cover` : null,
         updatedAt: row.updatedAt.toISOString(),
       };
@@ -135,8 +146,10 @@ export async function createProject3DExperience(context: PlatformContext, input:
       company: { id: input.companyId, parentGroupId: input.parentGroupId, parentGroup: { id: input.parentGroupId, isTestFixture: false } },
       archivedAt: null,
     },
-    select: { id: true, name: true, companyId: true, project3DConfig: { select: { id: true } }, project3DEntitlement: { select: { id: true, status: true } }, _count: { select: { buildings: true, floors: true, units: true } } },
+    select: { id: true, name: true, companyId: true, project3DConfig: { select: { id: true, deletedAt: true } }, project3DEntitlement: { select: { id: true, status: true } }, _count: { select: { buildings: true, floors: true, units: true } } },
   }));
+  // A deleted one is restored, not recreated, while it can be (ADM-04A §9).
+  if (project.project3DConfig?.deletedAt) throw new AccessError("CONFLICT", "This Project's 3D experience was deleted. Restore it from Trash instead of creating a new one.", { code: "EXPERIENCE_DELETED_RESTORE" });
   if (project.project3DConfig) throw new AccessError("CONFLICT", "This Project already has a 3D Experience.", { code: "EXPERIENCE_EXISTS" });
   if (input.structureMode === "USE_EXISTING" && project._count.buildings + project._count.floors + project._count.units === 0) {
     throw new AccessError("VALIDATION_ERROR", "This Project has no structure to reuse.", { structureMode: ["Choose Create now or Create later."] });
@@ -147,7 +160,8 @@ export async function createProject3DExperience(context: PlatformContext, input:
         ? await tx.project3DEntitlement.update({ where: { id: project.project3DEntitlement.id, status: project.project3DEntitlement.status }, data: { status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId } })
         : await tx.project3DEntitlement.create({ data: { companyId: project.companyId, projectId: project.id, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId, planKey: "PREMIUM_3D" } });
       const config = await tx.project3DConfig.create({
-        data: { companyId: project.companyId, projectId: project.id, experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+        // New experiences start OFFLINE (the column default): nobody views until an audience is chosen (§3).
+        data: { companyId: project.companyId, projectId: project.id, publicId: newProject3DPublicId(), experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
         select: { id: true },
       });
       await recordPlatformAction(context, input.parentGroupId, {
@@ -167,14 +181,26 @@ export async function createProject3DExperience(context: PlatformContext, input:
   }
 }
 
+/**
+ * Display details only (ADM-04A §5): the experience name is its own, never the
+ * ERP Project's, and no metadata edit moves an experience to another Project,
+ * Company or Group. Guarded by controlVersion when the caller sends it.
+ */
 export async function updateProject3DExperienceMetadata(context: PlatformContext, projectId: string, input: Project3DExperienceMetadata) {
   assertProject3DPlatformPermission(context, "platform.3d.configure");
   const config = assertFound(await prisma.project3DConfig.findFirst({
     where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
-    select: { id: true, experienceName: true, internalNotes: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
+    select: { id: true, experienceName: true, internalNotes: true, controlVersion: true, deletedAt: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
   }));
+  if (config.deletedAt) throw new AccessError("CONFLICT", "This 3D experience has been deleted. Restore it before changing it.", { code: "EXPERIENCE_DELETED" });
+  const expected = input.expectedControlVersion ?? config.controlVersion;
   return prisma.$transaction(async (tx) => {
-    const updated = await tx.project3DConfig.update({ where: { id: config.id }, data: { experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, updatedByUserId: context.userId } });
+    const moved = await tx.project3DConfig.updateMany({
+      where: { id: config.id, controlVersion: expected, deletedAt: null },
+      data: { experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, updatedByUserId: context.userId, controlVersion: { increment: 1 } },
+    });
+    if (moved.count !== 1) throw new AccessError("CONFLICT", "Someone else changed this 3D experience. Reload to see the latest details, then try again.", { code: "STALE_CONTROL_VERSION" });
+    const updated = await tx.project3DConfig.findUniqueOrThrow({ where: { id: config.id }, select: { id: true, experienceName: true, internalNotes: true, controlVersion: true } });
     await recordPlatformAction(context, config.project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
       entity: { type: "Project3DConfig", id: config.id, label: input.experienceName }, projectId,
@@ -182,7 +208,7 @@ export async function updateProject3DExperienceMetadata(context: PlatformContext
       after: { projectId, configurationId: config.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes }, reason: input.reason,
       metadata: project3DAuditMetadata("EXPERIENCE_DETAILS_UPDATED", "Experience details updated"),
     }, { tx });
-    return { id: updated.id, experienceName: updated.experienceName, internalNotes: updated.internalNotes };
+    return updated;
   });
 }
 
@@ -353,7 +379,7 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
     await tx.project3DConfig.upsert({
       where: { projectId: project.id },
       update: { updatedByUserId: context.userId },
-      create: { companyId: project.companyId, projectId: project.id, experienceName: `${project.name} 3D Experience`, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+      create: { companyId: project.companyId, projectId: project.id, publicId: newProject3DPublicId(), experienceName: `${project.name} 3D Experience`, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
     });
     await recordPlatformAction(context, project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_ENTITLEMENT_CHANGED,

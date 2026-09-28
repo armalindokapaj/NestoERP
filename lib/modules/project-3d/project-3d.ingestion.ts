@@ -15,7 +15,9 @@ import { validateGlb } from "./processing/glb.validate";
 import { countProject3DOperation, project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DSlotCreate, Project3DUploadCreate } from "./project-3d.schema";
+import { isDeletedExperienceWrite } from "@/lib/api/failure";
 import { assertProject3DStorageKey, buildProject3DStorageKey } from "./project-3d.storage";
+import { assertProject3DExperienceLive } from "./project-3d.lifecycle";
 
 const UPLOAD_TTL_SECONDS = 15 * 60;
 const GLB_CONTENT_TYPE = "model/gltf-binary";
@@ -98,6 +100,7 @@ export async function getProject3DModelStatuses(context: PlatformContext, projec
  */
 export async function retryProject3DModelProcessing(context: PlatformContext, projectId: string, versionId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: NOT_A_FIXTURE },
@@ -136,6 +139,7 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
  */
 export async function deactivateProject3DModelSlot(context: PlatformContext, projectId: string, slotId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   const slot = assertFound(await prisma.project3DModelSlot.findFirst({
     where: { id: slotId, projectId, isActive: true, project: NOT_A_FIXTURE },
     select: { id: true, companyId: true, slotKey: true, displayName: true, kind: true, role: true, project: { select: { company: { select: { parentGroupId: true } } } } },
@@ -173,6 +177,7 @@ function isGlbHeader(bytes: Uint8Array, expectedLength: number): boolean {
 
 export async function createProject3DModelSlot(context: PlatformContext, projectId: string, input: Project3DSlotCreate) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   const config = assertFound(await prisma.project3DConfig.findFirst({
     where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true, projectId: true, companyId: true, project: { select: { name: true, company: { select: { parentGroupId: true } } } } },
@@ -207,6 +212,7 @@ export async function createProject3DModelSlot(context: PlatformContext, project
 
 export async function createProject3DModelUpload(context: PlatformContext, projectId: string, slotId: string, input: Project3DUploadCreate) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   if ((await getMaintenanceState()).disable3DProcessing) throw new AccessError("CONFLICT", "3D processing is disabled by platform maintenance policy.");
   const limit = await project3DUploadLimitBytes();
   if (input.sizeBytes > limit) {
@@ -262,6 +268,7 @@ export async function createProject3DModelUpload(context: PlatformContext, proje
 
 export async function completeProject3DModelUpload(context: PlatformContext, projectId: string, versionId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
   const version = assertFound(await prisma.project3DModelVersion.findFirst({
     where: { id: versionId, projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
     select: { id: true, projectId: true, companyId: true, slotId: true, version: true, originalFileName: true, sourceStorageKey: true, sourceSizeBytes: true, sourceContentType: true, status: true, createdAt: true, slot: { select: { displayName: true } }, project: { select: { company: { select: { parentGroupId: true } } } } },
@@ -317,6 +324,9 @@ async function failProcessing(version: { id: string; companyId: string; projectI
 export async function processProject3DModelVersion(versionId: string): Promise<"READY" | "FAILED" | "SKIPPED"> {
   const version = await prisma.project3DModelVersion.findFirst({ where: { id: versionId, status: "PROCESSING", deletedAt: null }, include: { slot: { select: { kind: true, role: true } } } });
   if (!version) return "SKIPPED";
+  // A deleted experience is frozen: its queue is left as it stands (ADM-04A §9).
+  if (await prisma.project3DConfig.count({ where: { projectId: version.projectId, deletedAt: { not: null } } })) return "SKIPPED";
+  let producedRuntimeKey: string | null = null;
   // Marks the start, so the stalled-preparation clock runs from real activity, not from the queue.
   await prisma.project3DModelVersion.updateMany({ where: { id: version.id, status: "PROCESSING" }, data: { processingDiagnostics: { stage: "processing", startedAt: new Date().toISOString() } } });
   try {
@@ -334,6 +344,7 @@ export async function processProject3DModelVersion(versionId: string): Promise<"
     const optimized = await optimizeGlbForDeliveryDetailed(asArrayBuffer(source));
     const runtimeStorageKey = buildProject3DStorageKey({ companyId: version.companyId, projectId: version.projectId, kind: "runtime", extension: "glb", objectId: version.id });
     const runtime = await storageProvider().putObject(runtimeStorageKey, optimized.bytes, GLB_CONTENT_TYPE);
+    producedRuntimeKey = runtimeStorageKey;
     const validationStatus: Project3DValidationStatus = validation.status === "warning" ? "WARNING" : "READY";
     await prisma.$transaction(async (tx) => {
       const changed = await tx.project3DModelVersion.updateMany({ where: { id: version.id, status: "PROCESSING" }, data: {
@@ -363,6 +374,13 @@ export async function processProject3DModelVersion(versionId: string): Promise<"
     });
     return "READY";
   } catch (error) {
+    // Deleted while this ran: the trigger refused the result, so nothing was
+    // resurrected. The runtime file it produced is owned by no record; remove it.
+    if (isDeletedExperienceWrite(error)) {
+      logger.warn("project3d.model.processing_after_delete", { versionId: version.id });
+      if (producedRuntimeKey) await storageProvider().deleteObject(producedRuntimeKey).catch(() => undefined);
+      return "SKIPPED";
+    }
     const detail = error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500);
     logger.error("project3d.model.processing_failed", { versionId: version.id, error: detail });
     await failProcessing(version, PROCESSING_CRASHED, [], detail);

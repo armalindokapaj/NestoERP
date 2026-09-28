@@ -14,6 +14,7 @@ import { isProject3DEntitlementActive } from "./project-3d.entitlement";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DReleasePublish } from "./project-3d.schema";
 import { assertProject3DStorageKey } from "./project-3d.storage";
+import { assertProject3DExperienceLive } from "./project-3d.lifecycle";
 
 function jsonArray<T>(value: Prisma.JsonValue | null): T[] {
   return Array.isArray(value) ? value as T[] : [];
@@ -48,13 +49,14 @@ export async function publishProject3DRelease(
   input: Project3DReleasePublish,
 ) {
   assertProject3DPlatformPermission(context, "platform.3d.publish");
+  await assertProject3DExperienceLive(prisma, projectId);
   const now = new Date();
   try {
     return await prisma.$transaction(async (tx) => {
       const config = assertFound(await tx.project3DConfig.findFirst({
         where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } },
         select: {
-          id: true, projectId: true, companyId: true, activeReleaseId: true, authoringDocument: true,
+          id: true, projectId: true, companyId: true, activeReleaseId: true, authoringDocument: true, visibility: true,
           project: { select: { name: true, project3DEntitlement: true, company: { select: { parentGroupId: true } } } },
           slots: {
             where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -135,9 +137,26 @@ export async function publishProject3DRelease(
         })),
       };
       const hash = manifestHash(manifest);
+      // Public viewers only ever receive an approved public projection. While
+      // the experience is PUBLIC a new release is staged, not activated: it
+      // goes live after its projection is prepared and approved (ADM-04A §5),
+      // and the current public release keeps serving until then.
+      if (config.visibility === "PUBLIC") {
+        const staged = await tx.project3DRelease.create({ data: { id: releaseId, companyId: config.companyId, projectId, configId: config.id, releaseNumber, schemaVersion: PROJECT_3D_SCHEMA_VERSION, experienceSnapshot: experience as unknown as Prisma.InputJsonValue, manifest: manifest as unknown as Prisma.InputJsonValue, manifestHash: hash, status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now, activatedAt: now, supersededAt: now } });
+        await tx.project3DModelVersion.updateMany({ where: { id: { in: input.versionIds }, status: { in: ["READY", "PUBLISHED"] } }, data: { status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now } });
+        await recordPlatformAction(context, config.project.company.parentGroupId, {
+          actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_PUBLISHED,
+          entity: { type: "Project3DRelease", id: staged.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
+          before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
+          after: { projectId, configurationId: config.id, releaseId: staged.id, releaseNumber, manifestHash: hash }, reason: input.reason,
+          metadata: project3DAuditMetadata("RELEASE_PUBLISHED", `Release ${releaseNumber} staged; it goes live once its public projection is approved`, { versionIds: input.versionIds, staged: true }),
+        }, { tx });
+        return { id: staged.id, releaseNumber, manifestHash: hash, active: false, needsPublicReview: true };
+      }
       if (config.activeReleaseId) await tx.project3DRelease.updateMany({ where: { id: config.activeReleaseId, companyId: config.companyId, projectId, configId: config.id }, data: { supersededAt: now } });
       const release = await tx.project3DRelease.create({ data: { id: releaseId, companyId: config.companyId, projectId, configId: config.id, releaseNumber, schemaVersion: PROJECT_3D_SCHEMA_VERSION, experienceSnapshot: experience as unknown as Prisma.InputJsonValue, manifest: manifest as unknown as Prisma.InputJsonValue, manifestHash: hash, status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now, activatedAt: now } });
-      const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId }, data: { activeReleaseId: release.id, updatedByUserId: context.userId } });
+      // accessEpoch: delivery handles of the previous release stop working (§8).
+      const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId, deletedAt: null }, data: { activeReleaseId: release.id, updatedByUserId: context.userId, accessEpoch: { increment: 1 } } });
       if (moved.count !== 1) throw new AccessError("CONFLICT", "Another release became active while publishing. Reload and try again.", { code: "RELEASE_RACED" });
       await tx.project3DModelVersion.updateMany({ where: { id: { in: input.versionIds }, status: { in: ["READY", "PUBLISHED"] } }, data: { status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now } });
       await recordPlatformAction(context, config.project.company.parentGroupId, {
@@ -154,7 +173,7 @@ export async function publishProject3DRelease(
         after: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber }, reason: input.reason,
         metadata: project3DAuditMetadata("RELEASE_ACTIVATED", `Release ${releaseNumber} is live`),
       }, { tx });
-      return { id: release.id, releaseNumber, manifestHash: hash, active: true };
+      return { id: release.id, releaseNumber, manifestHash: hash, active: true, needsPublicReview: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") throw new AccessError("CONFLICT", "Another release was published at the same moment. Reload and try again.", { code: "RELEASE_RACED" });
@@ -164,16 +183,22 @@ export async function publishProject3DRelease(
 
 export async function activateProject3DRelease(context: PlatformContext, projectId: string, releaseId: string, reason: string | null = null) {
   assertProject3DPlatformPermission(context, "platform.3d.publish");
+  await assertProject3DExperienceLive(prisma, projectId);
   const now = new Date();
   return prisma.$transaction(async (tx) => {
-    const config = assertFound(await tx.project3DConfig.findFirst({ where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } }, select: { id: true, projectId: true, companyId: true, activeReleaseId: true, project: { select: { name: true, project3DEntitlement: true, company: { select: { parentGroupId: true } } } } } }));
+    const config = assertFound(await tx.project3DConfig.findFirst({ where: { projectId, project: { company: { parentGroup: { isTestFixture: false } } } }, select: { id: true, projectId: true, companyId: true, activeReleaseId: true, visibility: true, project: { select: { name: true, project3DEntitlement: true, company: { select: { parentGroupId: true } } } } } }));
     if (!isProject3DEntitlementActive(config.project.project3DEntitlement, now)) throw stateDenied("Activate this Project's 3D entitlement before changing its release.", { code: "ENTITLEMENT_INACTIVE" });
     if (config.activeReleaseId === releaseId) throw new AccessError("CONFLICT", "This release is already active.", { code: "RELEASE_ALREADY_ACTIVE" });
-    const target = assertFound(await tx.project3DRelease.findFirst({ where: { id: releaseId, projectId, companyId: config.companyId, configId: config.id, status: "PUBLISHED" }, select: { id: true, releaseNumber: true } }));
+    const target = assertFound(await tx.project3DRelease.findFirst({ where: { id: releaseId, projectId, companyId: config.companyId, configId: config.id, status: "PUBLISHED" }, select: { id: true, releaseNumber: true, publicManifestHash: true, publicApprovedAt: true } }));
+    // Rollback never changes the audience; while PUBLIC it may only move to a
+    // release whose public projection was approved (§5).
+    if (config.visibility === "PUBLIC" && (!target.publicManifestHash || !target.publicApprovedAt)) {
+      throw stateDenied(`Release ${target.releaseNumber} has no approved public projection. Prepare and approve it before making it live while this experience is public.`, { code: "PUBLIC_PROJECTION_REQUIRED" });
+    }
     if (config.activeReleaseId) await tx.project3DRelease.updateMany({ where: { id: config.activeReleaseId, companyId: config.companyId, projectId, configId: config.id }, data: { supersededAt: now } });
     const activated = await tx.project3DRelease.updateMany({ where: { id: target.id, companyId: config.companyId, projectId, configId: config.id }, data: { activatedAt: now, supersededAt: null } });
     if (activated.count !== 1) throw new AccessError("NOT_FOUND");
-    const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId }, data: { activeReleaseId: target.id, updatedByUserId: context.userId } });
+    const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId, deletedAt: null }, data: { activeReleaseId: target.id, updatedByUserId: context.userId, accessEpoch: { increment: 1 } } });
     if (moved.count !== 1) throw new AccessError("CONFLICT", "The active release changed. Reload and try again.", { code: "RELEASE_RACED" });
     await recordPlatformAction(context, config.project.company.parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_ACTIVATED,

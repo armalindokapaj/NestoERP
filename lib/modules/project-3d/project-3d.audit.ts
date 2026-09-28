@@ -28,7 +28,14 @@ export type Project3DOperation =
   | "RELEASE_ACTIVATED"
   | "STRUCTURE_CREATED"
   | "STRUCTURE_UPDATED"
-  | "STRUCTURE_DELETED";
+  | "STRUCTURE_DELETED"
+  | "VISIBILITY_CHANGED"
+  | "PUBLIC_PROJECTION_PREPARED"
+  | "PUBLIC_PROJECTION_APPROVED"
+  | "PUBLIC_LINK_ROTATED"
+  | "EXPERIENCE_DELETED"
+  | "EXPERIENCE_RESTORED"
+  | "EXPERIENCE_PURGED";
 
 export function project3DAuditMetadata(operation: Project3DOperation, summary: string | null = null, extra: Record<string, unknown> = {}) {
   return { operation, summary, ...extra };

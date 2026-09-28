@@ -71,6 +71,16 @@ function viewerUnitStatus(status: UnitCommercialStatus | null): "available" | "r
   return "available";
 }
 
+/**
+ * Signed-in company viewing is open when the experience is live and its
+ * audience is Company login only — or Public, which never closes the internal
+ * route to those it was already open to (ADM-04A §3). Offline and deleted
+ * experiences are closed to everyone here.
+ */
+function companyAudience(config: { deletedAt: Date | null; visibility: string } | null | undefined): boolean {
+  return Boolean(config && !config.deletedAt && (config.visibility === "COMPANY_ONLY" || config.visibility === "PUBLIC"));
+}
+
 /** Cheap navigation gate. It never signs assets or reads draft authoring data. */
 export async function hasActiveProject3DViewer(context: UserContext, projectId: string): Promise<boolean> {
   if (!canOpenProjects(context)) return false;
@@ -78,10 +88,10 @@ export async function hasActiveProject3DViewer(context: UserContext, projectId: 
     where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
     select: {
       project3DEntitlement: true,
-      project3DConfig: { select: { activeRelease: { select: { status: true } } } },
+      project3DConfig: { select: { deletedAt: true, visibility: true, activeRelease: { select: { status: true } } } },
     },
   });
-  return Boolean(project && isProject3DEntitlementActive(project.project3DEntitlement) && project.project3DConfig?.activeRelease?.status === "PUBLISHED");
+  return Boolean(project && isProject3DEntitlementActive(project.project3DEntitlement) && companyAudience(project.project3DConfig) && project.project3DConfig?.activeRelease?.status === "PUBLISHED");
 }
 
 /** Lightweight published-experience resolver used by Project navigation. */
@@ -98,12 +108,13 @@ export async function getProject3DAvailability(context: UserContext, projectId: 
     where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
     select: {
       project3DEntitlement: true,
-      project3DConfig: { select: { id: true, activeRelease: { select: { id: true, status: true } } } },
+      project3DConfig: { select: { id: true, deletedAt: true, visibility: true, activeRelease: { select: { id: true, status: true } } } },
     },
   }));
   const available = Boolean(
     project
     && isProject3DEntitlementActive(project.project3DEntitlement)
+    && companyAudience(project.project3DConfig)
     && project.project3DConfig?.activeRelease?.status === "PUBLISHED",
   );
   return {
@@ -140,6 +151,8 @@ export async function getProject3DViewerBootstrap(
       project3DEntitlement: true,
       project3DConfig: {
         select: {
+          deletedAt: true,
+          visibility: true,
           activeRelease: {
             select: {
               id: true,
@@ -155,7 +168,7 @@ export async function getProject3DViewerBootstrap(
   }));
 
   const release = project.project3DConfig?.activeRelease;
-  if (!isProject3DEntitlementActive(project.project3DEntitlement) || !release || release.status !== "PUBLISHED") {
+  if (!isProject3DEntitlementActive(project.project3DEntitlement) || !companyAudience(project.project3DConfig) || !release || release.status !== "PUBLISHED") {
     throw new AccessError("NOT_FOUND");
   }
 

@@ -40,14 +40,40 @@ export const project3DExperienceCreateSchema = z.object({
 export const project3DExperienceMetadataSchema = z.object({
   experienceName: z.string().trim().min(2).max(160),
   internalNotes: z.string().trim().max(2_000).nullable().optional(),
+  /** The controlVersion the form was opened at; a newer one is a 409 (ADM-04A §10). */
+  expectedControlVersion: z.number().int().min(0).optional(),
   reason,
 });
+
+/* ADM-04A §10: audience and lifecycle decisions. Each carries the version it was made against, a reason, and an optional request id for safe retries. */
+const controlVersion = z.number().int().min(0);
+const decisionReason = z.string().trim().min(3, "Give a reason for this change.").max(500);
+const requestId = z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9_-]+$/).nullish();
+
+export const project3DVisibilitySchema = z.object({
+  visibility: z.enum(["OFFLINE", "PUBLIC", "COMPANY_ONLY"]),
+  expectedControlVersion: controlVersion,
+  releaseId: z.string().trim().min(1).max(128).nullish(),
+  publicManifestHash: z.string().trim().regex(/^[a-f0-9]{64}$/).nullish(),
+  reason: decisionReason,
+  requestId,
+});
+
+export const project3DDeleteSchema = z.object({
+  expectedControlVersion: controlVersion,
+  confirmationName: z.string().trim().min(1).max(200),
+  reason: decisionReason,
+  requestId,
+});
+
+export const project3DRestoreSchema = z.object({ expectedControlVersion: controlVersion, reason: decisionReason, requestId });
 
 export const project3DExperienceListQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
   group: z.string().trim().max(128).optional(),
   company: z.string().trim().max(128).optional(),
   state: z.enum(["READY", "PROCESSING", "NEEDS_MODEL", "FAILED"]).optional(),
+  trash: z.enum(["1"]).optional(),
   publication: z.enum(["PUBLISHED", "DRAFT"]).optional(),
   entitlement: z.enum(["ACTIVE", "SUSPENDED", "INACTIVE", "EXPIRED"]).optional(),
 });

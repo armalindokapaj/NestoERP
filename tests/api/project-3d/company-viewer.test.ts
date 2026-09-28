@@ -63,6 +63,8 @@ describe("Company Project 3D viewer", () => {
         projectId,
         authoringDocument: { schemaVersion: 1, revision: 1, config: DEFAULT_PROJECT_3D_CONFIG } as unknown as Prisma.InputJsonValue,
         updatedByUserId: admin.userId,
+        // Signed-in company viewing is an audience decision (ADM-04A §3).
+        visibility: "COMPANY_ONLY",
       },
     });
     const slot = await prisma.project3DModelSlot.create({
@@ -138,6 +140,18 @@ describe("Company Project 3D viewer", () => {
     await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(false);
 
     await publishProject3DRelease(admin, projectId, { versionIds: [versionId], reason: "Publish the Company viewer fixture" });
+    await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(true);
+
+    // ADM-04A §3: the audience is its own gate. Offline or deleted closes the
+    // Company viewer whatever the entitlement and release say.
+    await prisma.project3DConfig.update({ where: { projectId }, data: { visibility: "OFFLINE" } });
+    await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(false);
+    await expect(getProject3DViewerBootstrap(owner, projectId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await prisma.project3DConfig.update({ where: { projectId }, data: { visibility: "PUBLIC" } });
+    await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(true);
+    await prisma.project3DConfig.update({ where: { projectId }, data: { visibility: "COMPANY_ONLY", deletedAt: new Date() } });
+    await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(false);
+    await prisma.project3DConfig.update({ where: { projectId }, data: { deletedAt: null } });
     await expect(hasActiveProject3DViewer(owner, projectId)).resolves.toBe(true);
 
     await prisma.project3DEntitlement.update({ where: { projectId }, data: { status: "SUSPENDED" } });
