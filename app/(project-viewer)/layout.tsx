@@ -1,3 +1,5 @@
+import { UnsavedHost } from "@/components/unsaved/unsaved-host";
+import { identityKeys } from "@/lib/context/identity-key";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
@@ -25,7 +27,7 @@ import { nunitoSans, roboto } from "@/lib/fonts";
 export default async function ProjectViewerLayout({ children }: { children: ReactNode }) {
   const maintenanceCandidate = getPageMaintenanceState();
   maintenanceCandidate.catch(() => undefined);
-  await requireUserContext();
+  const context = await requireUserContext();
   const maintenance = await admitPage(maintenanceCandidate);
   if (maintenance.enabled) redirect("/maintenance");
 
@@ -35,6 +37,7 @@ export default async function ProjectViewerLayout({ children }: { children: Reac
       className={`${nunitoSans.variable} ${roboto.variable} fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}
     >
       <ResponseBeats />
+      <UnsavedHost identity={identityKeys(context)} workspace={null} />
       <ModuleMessages namespaces={["threeD"]}>{children}</ModuleMessages>
     </div>
   );

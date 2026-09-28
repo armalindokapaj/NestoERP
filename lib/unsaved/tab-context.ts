@@ -29,6 +29,11 @@ export function setTabContext(next: { workspace: TabWorkspace | null; identity: 
   identity = next.identity;
 }
 
+export function clearTabContext(): void {
+  workspace = null;
+  identity = null;
+}
+
 export function tabWorkspace(): TabWorkspace | null {
   return workspace;
 }

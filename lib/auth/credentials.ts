@@ -172,6 +172,10 @@ export async function authenticateCredentials(
     ...(parsed.data.via && isDevMode ? { metadata: { via: parsed.data.via } } : {}),
   });
 
+  if (isDevMode && parsed.data.via === "DEMO_USER_SWITCH") {
+    await recordAuthEvent({ type: "IMPERSONATION_STARTED", userId: user.id, companyId: membership?.companyId ?? null, sessionId: session.id, userAgent, ipAddress });
+  }
+
   return {
     id: user.id,
     username: user.username,

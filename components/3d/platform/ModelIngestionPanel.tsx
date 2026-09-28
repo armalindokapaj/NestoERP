@@ -1,5 +1,7 @@
 "use client";
 
+import { unsaved } from "@/lib/unsaved/coordinator";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Upload } from "lucide-react";
@@ -92,6 +94,7 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
   React.useEffect(() => {
     if (!pending) return;
     const guard = (event: BeforeUnloadEvent) => {
+      if (unsaved.isLeaving()) return;
       event.preventDefault();
       event.returnValue = "";
     };

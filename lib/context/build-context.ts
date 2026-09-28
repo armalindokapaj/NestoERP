@@ -5,7 +5,7 @@ import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { isMutatingPermission, type Permission } from "@/config/permissions";
 import { defaultAccessFor, grantPermissions } from "@/config/role-defaults";
 import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey } from "@/config/roles";
-import { relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
+import { expireSession, relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
 import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import {
@@ -59,6 +59,7 @@ export async function resolveContextForSession(
 
   if (!record) return { ok: false, reason: "SESSION_EXPIRED" };
   if (record.expiresAt.getTime() <= Date.now()) {
+    await expireSession(record.id);
     return { ok: false, reason: "SESSION_EXPIRED" };
   }
 

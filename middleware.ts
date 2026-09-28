@@ -31,7 +31,7 @@ const { auth } = NextAuth(authConfig);
 export default auth(async (req) => {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
-  const isAuthenticated = Boolean(req.auth?.user?.id);
+  const isAuthenticated = Boolean(req.auth?.user?.id) && !req.cookies.has("nesto.signed-out");
 
   const nonce = newCspNonce();
   const csp = buildContentSecurityPolicy({
@@ -64,6 +64,7 @@ export default auth(async (req) => {
   const proceed = () => {
     const response = NextResponse.next({ request: { headers: forwarded } });
     response.headers.set("Content-Security-Policy", csp);
+    if (!isPublicRoute(pathname)) response.headers.set("Cache-Control", "private, no-store");
     return response;
   };
 
@@ -85,6 +86,7 @@ export default auth(async (req) => {
   }
 
   if (!isAuthenticated) {
+    if (pathname.startsWith("/api/")) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Please sign in again." } }, { status: 401, headers: { "Cache-Control": "no-store" } });
     const loginUrl = new URL("/login", nextUrl);
     // Remember where they were headed so login can return them there
     // (PRD #6 §10).

@@ -11,6 +11,8 @@ export const ROUTE_CLASSES: Record<string, "PUBLIC" | "TOKEN" | "SIGNED" | "AUTH
   ...Object.fromEntries(TOKEN_AUTHENTICATED_ROUTES.map((route) => [route, "TOKEN" as const])),
   "/api/storage/objects/[...key]": "SIGNED",
   "/api/auth/[...nextauth]": "AUTH_PROVIDER",
+  // Reads/revokes the signed credential directly; workspace authorization must never block logout.
+  "/api/auth/lifecycle": "AUTH_PROVIDER",
   // The anonymous 3D viewer (ADM-04A §7): read-only, keyed by an opaque share id,
   // answering only for a live PUBLIC experience with an approved projection.
   "/api/public/3d/[publicId]": "PUBLIC",

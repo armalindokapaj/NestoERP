@@ -1,3 +1,5 @@
+import { UnsavedHost } from "@/components/unsaved/unsaved-host";
+import { identityKeys } from "@/lib/context/identity-key";
 import type { ReactNode } from "react";
 
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
@@ -22,13 +24,14 @@ import { requirePlatformContext } from "@/lib/context/platform-context";
  * which render outside the frame, match it. The rule leaves with the layout.
  */
 export default async function ExperienceEditorLayout({ children }: { children: ReactNode }) {
-  await requirePlatformContext();
+  const context = await requirePlatformContext();
 
   return (
     <div data-experience-editor className="fixed inset-0 h-dvh w-screen overflow-hidden bg-neutral-950 text-neutral-100 [color-scheme:dark]">
       <style>{":root:root{color-scheme:dark}body{background:#0a0a0a}"}</style>
       {/* A refresh (a model finished preparing) is shown once its data lands (vercel/next.js#86151). */}
       <ResponseBeats />
+      <UnsavedHost identity={identityKeys(context)} workspace={null} />
       <ToastProvider>
         <TooltipProvider>{children}</TooltipProvider>
       </ToastProvider>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import { AccessError } from "@/lib/access/guards";
-import { signOut } from "@/lib/auth";
+import { endSessionAction } from "@/lib/actions/auth";
 import { requireUserContext } from "@/lib/context/current-user";
 import { clientAddress, userAgentOf } from "@/lib/core/security/throttle";
 import { changePasswordSchema, updateProfileSchema } from "@/lib/modules/account/account.schema";
@@ -84,7 +84,7 @@ export async function revokeSessionAction(sessionId: string): Promise<AccountAct
   } catch (error) {
     return failure(error);
   }
-  if (current) await signOut({ redirectTo: "/login" });
+  if (current) await endSessionAction();
   revalidatePath("/settings/profile");
   return { ok: true, revokedSessions: 1 };
 }
@@ -100,5 +100,5 @@ export async function revokeOtherSessionsAction(): Promise<AccountActionResult> 
 export async function signOutEverywhereAction(): Promise<void> {
   const context = await requireUserContext();
   await account.revokeAllSessions(context);
-  await signOut({ redirectTo: "/login" });
+  await endSessionAction();
 }

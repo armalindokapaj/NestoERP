@@ -1,5 +1,8 @@
 "use client";
 
+import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { unsaved } from "@/lib/unsaved/coordinator";
+
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -419,10 +422,15 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
 
   // Unsaved work is protected against closing, reloading and leaving the tab (§46-§48).
   const guarded = dirty || bindingsDirty || uploading;
+  const { setDirty: setSessionDirty, setPendingUploads: setSessionUploads } = useUnsavedEditor({ module: "project_3d", saveKind: "none", label: "3D Experience" });
+  React.useEffect(() => {
+    setSessionDirty(guarded);
+    setSessionUploads(uploading);
+  }, [guarded, uploading, setSessionDirty, setSessionUploads]);
   React.useEffect(() => {
     if (!guarded) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (leavingRef.current) return;
+      if (leavingRef.current || unsaved.isLeaving()) return;
       event.preventDefault();
       event.returnValue = "";
     };

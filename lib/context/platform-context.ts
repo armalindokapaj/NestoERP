@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { isPlatformRoleKey, platformRolePermissions, type PlatformPermission, type PlatformRoleKey } from "@/config/platform";
+import { expireSession } from "@/lib/auth/session-store";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/database/prisma";
 
@@ -60,7 +61,11 @@ export async function resolvePlatformContextForSession(
     },
   });
 
-  if (!record || record.expiresAt.getTime() <= Date.now()) return { ok: false, reason: "SESSION_EXPIRED" };
+  if (!record) return { ok: false, reason: "SESSION_EXPIRED" };
+  if (record.expiresAt.getTime() <= Date.now()) {
+    await expireSession(sessionId);
+    return { ok: false, reason: "SESSION_EXPIRED" };
+  }
   if (options.expectedUserId && record.userId !== options.expectedUserId) {
     return { ok: false, reason: "SESSION_EXPIRED" };
   }

@@ -66,3 +66,75 @@ Concurrent-session limits, device inventory beyond what the sessions list
 shows, and session binding to an IP or user agent. A changing address is
 normal — mobile networks, VPNs, office WiFi — and refusing on it would sign
 honest people out all day for no attacker cost.
+
+## Deterministic authentication lifecycle
+
+`lib/auth/client-lifecycle.ts` owns browser logout. Account menus, standalone
+sign-out buttons, current-session settings actions and 3D controls use it.
+`POST /api/auth/lifecycle` validates the request origin and invokes
+`endSessionAction`, which revokes the signed cookie's own session without
+resolving any membership, company, project or role. Cookie removal runs even
+when revocation fails. Auth.js's built-in sign-out event also revokes the row.
+
+The browser immediately clears its context, application caches and NESTO
+storage, cancels tracked same-origin requests, covers the old document, and
+announces logout through BroadcastChannel and a storage event. A full
+`location.replace` drops React state and the router cache. The request has a
+five-second timeout; failure never leaves the user in the application.
+A non-credential `nesto.signed-out` denial cookie prevents the old browser
+cookie from reopening protected routes after an offline logout. Only a
+successful sign-in removes this marker. JavaScript cannot erase HttpOnly
+cookies or revoke an unreachable server's session: if the request never
+reaches the server, a previously copied credential remains subject to the
+original server-enforced eight-hour deadline.
+
+`SessionLifecycle`, mounted above all layouts, checks an uncached server
+endpoint on entry, focus, reconnect and at most once per minute. Its expiry
+schedule uses the server's remaining duration, not the device's clock.
+Protected fetch responses with status 401 trigger the same expiry handling.
+The server checks the fixed `expiresAt` independently on every protected
+request; checking a session never extends it. Protected HTML is `no-store`,
+and history restores are covered until a fresh server load validates access.
+
+Expiration preserves registered unsaved editors only in the existing masked,
+write-blocked in-memory reauthentication flow. The same person may sign in
+again in another tab and resume after context revalidation. Manual logout
+and changing users discard the old state. The standalone Experience Editor
+now participates in this guard. No draft or authenticated response is saved
+to persistent storage for reauthentication.
+
+The additive migration `20260928090000_authentication_lifecycle` adds
+`SESSION_EXPIRED`, `SESSION_REVOKED`, `IMPERSONATION_STARTED`,
+`IMPERSONATION_ENDED` and `USER_SWITCHED` audit types. Expired rows are
+conditionally removed so concurrent requests record expiration once. Revocations
+and per-session audit events commit in the same transaction, including bulk
+and administrator revocations; rolling back an account change also rolls back
+its revocation audit. Demo
+switching uses fresh authentication rather than layered role overrides.
+
+Regression coverage lives in `tests/unit/auth/*lifecycle*`,
+`tests/unit/auth/logout.test.ts`, `tests/unit/auth/session-timing.test.ts`,
+`tests/integration/auth/work-session.test.ts` and
+`tests/e2e/auth/work-session.spec.ts`. The browser suite can use the ARMAAR
+seed with `E2E_AUTH_TENANT=armaar`; its default uses the standard demo seed.
+The independent integration suite creates and removes its own platform user.
+
+
+### PRD regression map
+
+| Required scenarios | Coverage |
+|---|---|
+| 1–8: role, group, platform and demo logout | Browser role matrix, mobile check and demo switch/logout |
+| 9–11, 27–28: switching, switch-back, new sessions and isolation | Browser impersonation/cache tests and demo-switch integration suite |
+| 12–15: nested routes, 3D, Finance and in-flight requests | Browser route, disposable 3D fixture and pending-fetch tests |
+| 16–17: duplicate logout and network failure | Client unit tests and failed-request browser test |
+| 18–22: history, refresh, replay and multiple tabs | Browser role matrix and BroadcastChannel/storage-event checks |
+| 23–26: absolute eight-hour expiry and API/client enforcement | Timing units, real-database session integration and cross-tab browser expiry |
+| Unsaved work and audit consistency | Browser reauthentication test; transaction rollback, bulk and concurrent-revocation integration tests |
+
+Targeted commands:
+
+```sh
+pnpm exec vitest run tests/unit/auth tests/unit/permissions/route-access.test.ts tests/integration/auth/work-session.test.ts tests/integration/auth/demo-user-switch.test.ts
+E2E_AUTH_TENANT=armaar pnpm exec playwright test tests/e2e/auth/work-session.spec.ts --project=chromium
+```

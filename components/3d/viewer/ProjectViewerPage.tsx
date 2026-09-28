@@ -1,5 +1,7 @@
 "use client";
 
+import { SignOutButton } from "@/components/auth/sign-out-button";
+
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { ChevronLeft, RefreshCw } from "lucide-react";
@@ -110,6 +112,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
         <div className="viewer-glass w-full max-w-sm rounded-panel p-5 text-center" role="alert">
           <p className="text-sm font-semibold text-white">{error ?? t("page.noExperience")}</p>
           <p className="mt-1 text-xs text-white/55">{projectName}</p>
+          <SignOutButton className="mt-4" />
           <div className="mt-4 flex gap-2">
             <Link
               href={backHref}
