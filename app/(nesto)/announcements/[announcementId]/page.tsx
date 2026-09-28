@@ -5,6 +5,7 @@ import { AnnouncementDetail } from "@/components/announcements/announcement-deta
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { getAnnouncement } from "@/lib/modules/announcements/announcement.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.service";
 
 type Params = { params: Promise<{ announcementId: string }> };
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     const { announcement } = await load(announcementId);
     return { title: announcement.title };
   } catch {
-    return { title: "Announcement" };
+    return { title: (await getTranslations("announcements"))("meta.announcement") };
   }
 }
 

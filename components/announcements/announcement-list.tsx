@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { AnnouncementCardDTO, AnnouncementFeedDTO, FeedTab } from "@/lib/modules/announcements/announcement.types";
 import { cn } from "@/lib/utils/cn";
 import { announcementApi, failureMessage } from "./announcement-api";
+import { useAnnouncementsTranslations } from "./announcements-text";
 import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, PriorityMark } from "./announcement-ui";
 
 /**
@@ -21,6 +22,7 @@ import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, Priority
  */
 
 function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string; manage: boolean }) {
+  const t = useAnnouncementsTranslations();
   const unread = !manage && item.status === "PUBLISHED" && !item.read;
   const awaiting = !manage && item.requiresAcknowledgment && !item.acknowledgedAt && item.status === "PUBLISHED";
   return (
@@ -35,7 +37,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
       >
         <div className="flex flex-wrap items-center gap-2 text-meta text-fg-muted">
           {/* aria-label on a bare span is not announced; the state is real text (AUD-11 §5, AV-06). */}
-          {unread ? <><span aria-hidden="true" className="size-2 rounded-full bg-accent" /><span className="sr-only">Unread</span></> : null}
+          {unread ? <><span aria-hidden="true" className="size-2 rounded-full bg-accent" /><span className="sr-only">{t("list.unread")}</span></> : null}
           <span className="font-medium uppercase tracking-[0.08em] text-fg-subtle" data-testid="announcement-scope">
             {item.audience.label}
           </span>
@@ -44,7 +46,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
           {manage ? <AnnouncementStatusBadge status={item.status} /> : null}
           <span className="flex-1" />
           <span className="tabular-nums">
-            {manage && item.status === "SCHEDULED" ? `Publishes ${formatDayTime(item.publishAt, zone)}` : manage && item.status === "DRAFT" ? `Edited ${formatDay(item.updatedAt, zone)}` : formatDay(item.publishedAt, zone)}
+            {manage && item.status === "SCHEDULED" ? t("list.publishes", { date: formatDayTime(item.publishAt, zone) }) : manage && item.status === "DRAFT" ? t("list.edited", { date: formatDay(item.updatedAt, zone) }) : formatDay(item.publishedAt, zone)}
           </span>
         </div>
         <h2 className={cn("mt-2 text-card tracking-tight text-fg group-hover:text-accent-strong", unread ? "font-semibold" : "font-medium")}>{item.title}</h2>
@@ -60,15 +62,15 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
           {item.attachmentCount ? (
             <span className="inline-flex items-center gap-1">
               <Paperclip aria-hidden="true" className="size-3.5" />
-              {item.attachmentCount} {item.attachmentCount === 1 ? "attachment" : "attachments"}
+              {t(item.attachmentCount === 1 ? "list.attachment" : "list.attachments", { count: item.attachmentCount })}
             </span>
           ) : null}
-          {item.edited ? <span>Updated</span> : null}
-          {awaiting ? <span className="font-medium text-warning-strong">Acknowledgment required</span> : null}
+          {item.edited ? <span>{t("list.updated")}</span> : null}
+          {awaiting ? <span className="font-medium text-warning-strong">{t("list.ackRequired")}</span> : null}
           {item.acknowledgedAt && !manage ? (
             <span className="inline-flex items-center gap-1 text-success-strong">
               <CheckCircle2 aria-hidden="true" className="size-3.5" />
-              Acknowledged
+              {t("list.acknowledged")}
             </span>
           ) : null}
         </div>
@@ -78,6 +80,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
 }
 
 export function AnnouncementList({ initial, tab, query, zone }: { initial: AnnouncementFeedDTO; tab: FeedTab; query: string; zone: string }) {
+  const t = useAnnouncementsTranslations();
   const [items, setItems] = React.useState(initial.items);
   const [cursor, setCursor] = React.useState(initial.nextCursor);
   const [total, setTotal] = React.useState(initial.total);
@@ -122,14 +125,14 @@ export function AnnouncementList({ initial, tab, query, zone }: { initial: Annou
 
   if (!items.length) {
     const empty: Record<FeedTab, string> = {
-      for_me: "No current announcements.",
-      pinned: "Nothing is pinned.",
-      unread: "You are all caught up.",
-      acknowledge: "Nothing is waiting for your acknowledgment.",
-      history: "No announcements yet.",
-      manage: "No announcements to manage.",
+      for_me: t("list.emptyForMe"),
+      pinned: t("list.emptyPinned"),
+      unread: t("list.emptyUnread"),
+      acknowledge: t("list.emptyAcknowledge"),
+      history: t("list.emptyHistory"),
+      manage: t("list.emptyManage"),
     };
-    return <EmptyState icon={<Megaphone />} title={empty[tab]} description={tab === "manage" ? "Drafts, scheduled and published announcements you can manage appear here." : "Company, department and project notices addressed to you appear here."} />;
+    return <EmptyState icon={<Megaphone />} title={empty[tab]} description={tab === "manage" ? t("list.emptyManageBody") : t("list.emptyBody")} />;
   }
 
   return (
@@ -140,13 +143,13 @@ export function AnnouncementList({ initial, tab, query, zone }: { initial: Annou
         ))}
       </ul>
       <p className="text-table text-fg-muted" aria-live="polite" data-testid="announcement-count">
-        Showing <span className="tabular-nums">{items.length}</span> of <span className="tabular-nums">{Math.max(total, items.length)}</span>
+        {t("list.showing")} <span className="tabular-nums">{items.length}</span> {t("list.of")} <span className="tabular-nums">{Math.max(total, items.length)}</span>
       </p>
       {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
       {cursor ? (
         <div className="flex justify-center">
           <Button type="button" variant="secondary" size="sm" onClick={() => void more()} disabled={pending}>
-            {pending ? "Loading…" : "Load more"}
+            {pending ? t("list.loading") : t("list.loadMore")}
           </Button>
         </div>
       ) : null}

@@ -8,7 +8,9 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMiscTranslations } from "@/components/activity/misc-text";
 import { acceptInviteAction } from "@/lib/actions/team";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * Set up an account from an invitation (PRD #14 §74, §77).
@@ -17,21 +19,24 @@ import { acceptInviteAction } from "@/lib/actions/team";
  * bound to that address, and letting somebody retype it would be inviting a
  * mismatch the server then has to refuse (PRD #14 §76).
  */
-const formSchema = z
-  .object({
-    firstName: z.string().trim().min(1, "First name is required").max(120),
-    lastName: z.string().trim().min(1, "Last name is required").max(120),
-    password: z.string().min(12, "Use at least 12 characters"),
-    confirmPassword: z.string().min(1, "Confirm your password"),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: "Both passwords must match",
-    path: ["confirmPassword"],
-  });
+const formSchema = (m: Translate<"misc">) =>
+  z
+    .object({
+      firstName: z.string().trim().min(1, m("invite.firstNameRequired")).max(120),
+      lastName: z.string().trim().min(1, m("invite.lastNameRequired")).max(120),
+      password: z.string().min(12, m("invite.passwordLength")),
+      confirmPassword: z.string().min(1, m("invite.confirmRequired")),
+    })
+    .refine((values) => values.password === values.confirmPassword, {
+      message: m("invite.passwordsMatch"),
+      path: ["confirmPassword"],
+    });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof formSchema>>;
 
 export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
+  const m = useMiscTranslations();
+  const schema = React.useMemo(() => formSchema(m), [m]);
   const [error, setError] = React.useState<string | null>(null);
 
   const {
@@ -39,7 +44,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(schema),
     defaultValues: { firstName: "", lastName: "", password: "", confirmPassword: "" },
   });
 
@@ -69,13 +74,13 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
       ) : null}
 
       <div className="space-y-1.5">
-        <Label htmlFor="invite-email">Email</Label>
+        <Label htmlFor="invite-email">{m("invite.email")}</Label>
         <Input id="invite-email" value={email} readOnly disabled />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="firstName">First name</Label>
+          <Label htmlFor="firstName">{m("invite.firstName")}</Label>
           <Input id="firstName" autoComplete="given-name" {...register("firstName")} />
           {errors.firstName ? (
             <p className="text-meta text-danger-strong">{errors.firstName.message}</p>
@@ -83,7 +88,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="lastName">Last name</Label>
+          <Label htmlFor="lastName">{m("invite.lastName")}</Label>
           <Input id="lastName" autoComplete="family-name" {...register("lastName")} />
           {errors.lastName ? (
             <p className="text-meta text-danger-strong">{errors.lastName.message}</p>
@@ -92,7 +97,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{m("invite.password")}</Label>
         <Input
           id="password"
           type="password"
@@ -102,12 +107,12 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
         {errors.password ? (
           <p className="text-meta text-danger-strong">{errors.password.message}</p>
         ) : (
-          <p className="text-meta text-fg-subtle">At least 12 characters.</p>
+          <p className="text-meta text-fg-subtle">{m("invite.passwordHint")}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Label htmlFor="confirmPassword">{m("invite.confirmPassword")}</Label>
         <Input
           id="confirmPassword"
           type="password"
@@ -120,7 +125,7 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Creating your account…" : "Accept invitation"}
+        {isSubmitting ? m("invite.creating") : m("invite.accept")}
       </Button>
     </form>
   );

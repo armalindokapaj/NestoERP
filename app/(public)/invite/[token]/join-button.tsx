@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { useMiscTranslations } from "@/components/activity/misc-text";
 import { acceptInviteAsCurrentUserAction } from "@/lib/actions/team";
 
 /**
@@ -15,6 +16,7 @@ import { acceptInviteAsCurrentUserAction } from "@/lib/actions/team";
  */
 export function JoinButton({ token, companyName }: { token: string; companyName: string }) {
   const router = useRouter();
+  const m = useMiscTranslations();
   const [error, setError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
@@ -39,7 +41,7 @@ export function JoinButton({ token, companyName }: { token: string; companyName:
       ) : null}
 
       <Button className="w-full" onClick={join} disabled={pending}>
-        {pending ? "Joining…" : `Join ${companyName}`}
+        {pending ? m("invite.joining") : m("invite.join", { company: companyName })}
       </Button>
     </div>
   );

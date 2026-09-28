@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils/cn";
 import { announcementApi, failureMessage } from "./announcement-api";
 import { AnnouncementBody } from "./announcement-body";
 import { toLocalInput } from "./announcement-editor";
+import { useAnnouncementsTranslations } from "./announcements-text";
 import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, PriorityMark } from "./announcement-ui";
 
 /**
@@ -30,6 +31,7 @@ import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, Priority
  */
 
 export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDetailDTO; zone: string }) {
+  const t = useAnnouncementsTranslations();
   const router = useRouter();
   const toast = useToast();
   const [item, setItem] = React.useState(initial);
@@ -73,7 +75,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
   // AUD-03 §3: a chosen publish time is input whose only way forward is the
   // Schedule step (never run from the prompt), and an attachment on its way is
   // lost by leaving. Finished uploads are stored; discarding never deletes them.
-  const editor = useUnsavedEditor({ module: "announcements", saveKind: "none", workflow: "Schedule", label: "Schedule for" });
+  const editor = useUnsavedEditor({ module: "announcements", saveKind: "none", workflow: t("detail.schedule"), label: t("detail.scheduleFor") });
   const { setDirty, setSaving, setPendingUploads } = editor;
   React.useEffect(() => setDirty(caps.canSchedule && publishAt !== ""), [caps.canSchedule, publishAt, setDirty]);
   React.useEffect(() => setSaving(pending === "schedule"), [pending, setSaving]);
@@ -96,7 +98,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
     try {
       await refresh();
     } catch {
-      toast({ title: "This page could not be refreshed just now; it is being reloaded.", tone: "warning" });
+      toast({ title: t("detail.refreshFailed"), tone: "warning" });
     } finally {
       router.refresh();
       setPending(null);
@@ -112,7 +114,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         {/* Activity Center / Announcements / this one (Activity Center §167). */}
         <Link href="/activity?type=announcements" className="inline-flex items-center gap-1.5 text-table text-fg-muted hover:text-fg">
           <ArrowLeft aria-hidden="true" className="size-4" />
-          Activity Center · Announcements
+          {t("detail.back")}
         </Link>
         <div className="mt-6 flex flex-wrap items-center gap-2 text-meta text-fg-muted">
           <span className="font-medium uppercase tracking-[0.1em] text-fg-subtle" data-testid="announcement-scope">
@@ -127,16 +129,16 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         </h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
           {item.author ? <PersonLink memberId={item.author.memberId} name={item.author.name} /> : null}
-          <span>{item.publishedAt ? formatDay(item.publishedAt, zone) : item.status === "SCHEDULED" ? `Publishes ${formatDayTime(item.publishAt, zone)}` : "Not published"}</span>
-          {item.edited ? <span title="Corrected after publishing">Updated</span> : null}
-          {item.expiresAt ? <span>{item.status === "EXPIRED" ? "Expired" : "Until"} {formatDay(item.expiresAt, zone)}</span> : null}
+          <span>{item.publishedAt ? formatDay(item.publishedAt, zone) : item.status === "SCHEDULED" ? t("detail.publishes", { date: formatDayTime(item.publishAt, zone) }) : t("detail.notPublished")}</span>
+          {item.edited ? <span title={t("detail.correctedAfter")}>{t("detail.updated")}</span> : null}
+          {item.expiresAt ? <span>{item.status === "EXPIRED" ? t("detail.expired") : t("detail.until")} {formatDay(item.expiresAt, zone)}</span> : null}
         </p>
 
         {item.eventStartsAt ? (
           <div className="mt-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
             <CalendarDays aria-hidden="true" className="size-5 text-fg-subtle" />
             <div>
-              <p className="text-meta text-fg-subtle">Event</p>
+              <p className="text-meta text-fg-subtle">{t("detail.event")}</p>
               <p className="text-table font-medium text-fg">
                 {formatDayTime(item.eventStartsAt, zone)}
                 {item.eventEndsAt ? ` – ${formatDayTime(item.eventEndsAt, zone)}` : ""}
@@ -152,13 +154,13 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
           <section className="mt-10" aria-labelledby="attachments-title">
             <div className="flex items-center justify-between">
               <h2 id="attachments-title" className="text-meta font-medium uppercase tracking-[0.1em] text-fg-subtle">
-                Attachments
+                {t("detail.attachments")}
               </h2>
               {caps.canUploadDocuments ? (
                 <>
-                  <input ref={fileRef} type="file" multiple className="sr-only" aria-label="Attach files" data-testid="announcement-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
+                  <input ref={fileRef} type="file" multiple className="sr-only" aria-label={t("detail.attachFiles")} data-testid="announcement-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
                   <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                    <Upload /> {uploading ? "Uploading…" : "Attach"}
+                    <Upload /> {uploading ? t("detail.uploading") : t("detail.attach")}
                   </Button>
                 </>
               ) : null}
@@ -174,27 +176,27 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                   </a>
                 </li>
               ))}
-              {!item.documents.length ? <li className="px-4 py-3 text-table text-fg-subtle">No attachments.</li> : null}
+              {!item.documents.length ? <li className="px-4 py-3 text-table text-fg-subtle">{t("detail.noAttachments")}</li> : null}
             </ul>
           </section>
         ) : null}
 
         {item.requiresAcknowledgment && item.status !== "DRAFT" && item.status !== "SCHEDULED" ? (
-          <section className={cn("mt-10 rounded-xl border px-5 py-4", item.acknowledgedAt ? "border-success/30 bg-success-soft/40" : "border-line bg-surface")} aria-label="Acknowledgment" data-testid="announcement-acknowledgment">
+          <section className={cn("mt-10 rounded-xl border px-5 py-4", item.acknowledgedAt ? "border-success/30 bg-success-soft/40" : "border-line bg-surface")} aria-label={t("detail.acknowledgment")} data-testid="announcement-acknowledgment">
             {item.acknowledgedAt ? (
               <p className="flex items-center gap-2 text-table font-medium text-success-strong">
                 <CheckCircle2 aria-hidden="true" className="size-4" />
-                Acknowledged • {formatDayTime(item.acknowledgedAt, zone)}
+                {t("detail.acknowledgedAt", { date: formatDayTime(item.acknowledgedAt, zone) })}
               </p>
             ) : caps.canAcknowledge ? (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-table text-fg-muted">Please confirm you have read this announcement.</p>
-                <Button type="button" className="hidden md:inline-flex" disabled={pending === "ack"} onClick={() => void act("ack", () => announcementApi(`${base}/acknowledge`, { body: {} }), "Acknowledged")}>
-                  I have read this
+                <p className="text-table text-fg-muted">{t("detail.confirmRead")}</p>
+                <Button type="button" className="hidden md:inline-flex" disabled={pending === "ack"} onClick={() => void act("ack", () => announcementApi(`${base}/acknowledge`, { body: {} }), t("detail.acknowledged"))}>
+                  {t("detail.iHaveRead")}
                 </Button>
               </div>
             ) : (
-              <p className="text-table text-fg-muted">{item.status === "EXPIRED" ? "This announcement has expired." : "Readers are asked to acknowledge this announcement."}</p>
+              <p className="text-table text-fg-muted">{item.status === "EXPIRED" ? t("detail.hasExpired") : t("detail.readersAsked")}</p>
             )}
           </section>
         ) : null}
@@ -204,69 +206,69 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         {awaitingAck && caps.canAcknowledge ? (
           // Clear of the home indicator; marked so focus and toasts keep clear of it (AUD-04 §6, D-08-22, MW-19).
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden" data-testid="announcement-sticky-ack" data-sticky-action-bar>
-            <Button type="button" className="w-full" disabled={pending === "ack"} onClick={() => void act("ack", () => announcementApi(`${base}/acknowledge`, { body: {} }), "Acknowledged")}>
-              I have read this
+            <Button type="button" className="w-full" disabled={pending === "ack"} onClick={() => void act("ack", () => announcementApi(`${base}/acknowledge`, { body: {} }), t("detail.acknowledged"))}>
+              {t("detail.iHaveRead")}
             </Button>
           </div>
         ) : null}
       </article>
 
       {managerPanel ? (
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start" aria-label="Manage announcement" data-testid="announcement-manage">
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start" aria-label={t("detail.manageLabel")} data-testid="announcement-manage">
           <section className="nesto-card space-y-3 px-4 py-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-card font-semibold text-fg">Manage</h2>
+              <h2 className="text-card font-semibold text-fg">{t("detail.manage")}</h2>
               <AnnouncementStatusBadge status={item.status} />
             </div>
             <div className="flex flex-wrap gap-2">
               {caps.canPublish ? (
-                <Button type="button" size="sm" disabled={Boolean(pending)} onClick={() => void act("publish", () => announcementApi(`${base}/publish`, { body: { expectedVersion: item.version } }), "Announcement published")}>
-                  <Send /> Publish now
+                <Button type="button" size="sm" disabled={Boolean(pending)} onClick={() => void act("publish", () => announcementApi(`${base}/publish`, { body: { expectedVersion: item.version } }), t("detail.published"))}>
+                  <Send /> {t("detail.publishNow")}
                 </Button>
               ) : null}
               {caps.canEdit ? (
                 <Button asChild size="sm" variant="secondary">
                   <Link href={`/announcements/${item.id}/edit`}>
-                    <Pencil /> Edit
+                    <Pencil /> {t("detail.edit")}
                   </Link>
                 </Button>
               ) : null}
               {caps.canPin ? (
-                <Button type="button" size="sm" variant="secondary" disabled={Boolean(pending)} onClick={() => void act("pin", () => announcementApi(`${base}/${item.pinned ? "unpin" : "pin"}`, { body: { expectedVersion: item.version } }), item.pinned ? "Unpinned" : "Pinned")}>
-                  {item.pinned ? <PinOff /> : <Pin />} {item.pinned ? "Unpin" : "Pin"}
+                <Button type="button" size="sm" variant="secondary" disabled={Boolean(pending)} onClick={() => void act("pin", () => announcementApi(`${base}/${item.pinned ? "unpin" : "pin"}`, { body: { expectedVersion: item.version } }), item.pinned ? t("detail.unpinned") : t("detail.pinned"))}>
+                  {item.pinned ? <PinOff /> : <Pin />} {item.pinned ? t("detail.unpin") : t("detail.pin")}
                 </Button>
               ) : null}
               {caps.canDuplicate ? (
-                <Button type="button" size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => void act("duplicate", async () => { const copy = await announcementApi<{ id: string }>(`${base}/duplicate`, { body: {} }); router.push(`/announcements/${copy.id}/edit`); }, "Copied into a new draft")}>
-                  <Copy /> Duplicate
+                <Button type="button" size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => void act("duplicate", async () => { const copy = await announcementApi<{ id: string }>(`${base}/duplicate`, { body: {} }); router.push(`/announcements/${copy.id}/edit`); }, t("detail.copied"))}>
+                  <Copy /> {t("detail.duplicate")}
                 </Button>
               ) : null}
             </div>
             {caps.canSchedule ? (
               <div className="space-y-1.5 border-t border-line pt-3">
                 <label htmlFor="announcement-publish-at" className="text-meta font-medium text-fg-muted">
-                  Schedule for
+                  {t("detail.scheduleFor")}
                 </label>
                 <div className="flex gap-2">
                   <Input id="announcement-publish-at" type="datetime-local" value={publishAt} min={toLocalInput(new Date().toISOString())} onChange={(event) => setPublishAt(event.target.value)} className="h-9" />
-                  <Button type="button" size="sm" variant="secondary" className="h-9" disabled={!publishAt || Boolean(pending)} onClick={() => void act("schedule", () => announcementApi(`${base}/schedule`, { body: { expectedVersion: item.version, publishAt: new Date(publishAt).toISOString() } }), "Announcement scheduled", () => setPublishAt(""))}>
-                    Schedule
+                  <Button type="button" size="sm" variant="secondary" className="h-9" disabled={!publishAt || Boolean(pending)} onClick={() => void act("schedule", () => announcementApi(`${base}/schedule`, { body: { expectedVersion: item.version, publishAt: new Date(publishAt).toISOString() } }), t("detail.scheduled"), () => setPublishAt(""))}>
+                    {t("detail.schedule")}
                   </Button>
                 </div>
               </div>
             ) : null}
             {caps.canUnschedule ? (
               <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-table text-fg-muted">
-                <span>Publishes {formatDayTime(item.publishAt, zone)}</span>
-                <Button type="button" size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => void act("unschedule", () => announcementApi(`${base}/unschedule`, { body: { expectedVersion: item.version } }), "Back to draft")}>
-                  Cancel schedule
+                <span>{t("detail.publishes", { date: formatDayTime(item.publishAt, zone) })}</span>
+                <Button type="button" size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => void act("unschedule", () => announcementApi(`${base}/unschedule`, { body: { expectedVersion: item.version } }), t("detail.backToDraft"))}>
+                  {t("detail.cancelSchedule")}
                 </Button>
               </div>
             ) : null}
             {caps.canArchive ? (
               <div className="border-t border-line pt-3">
                 <Button type="button" size="sm" variant="ghost" className="text-danger-strong" disabled={Boolean(pending)} onClick={() => setConfirmArchive(true)}>
-                  Archive
+                  {t("detail.archive")}
                 </Button>
               </div>
             ) : null}
@@ -275,17 +277,17 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
           {caps.canViewMetrics && metrics ? (
             <section className="nesto-card px-4 py-4" aria-labelledby="metrics-title" data-testid="announcement-metrics">
               <h2 id="metrics-title" className="text-card font-semibold text-fg">
-                Reach
+                {t("detail.reach")}
               </h2>
               <dl className="mt-3 grid grid-cols-2 gap-3">
                 {[
-                  ["Audience", metrics.audience],
-                  ["Read", metrics.read],
-                  ...(metrics.requiresAcknowledgment ? [["Acknowledged", metrics.acknowledged], ["Pending", metrics.pending]] : []),
-                ].map(([label, value]) => (
-                  <div key={label as string}>
+                  ["audience", t("detail.audience"), metrics.audience],
+                  ["read", t("detail.read"), metrics.read],
+                  ...(metrics.requiresAcknowledgment ? [["acknowledged", t("detail.acknowledged"), metrics.acknowledged], ["pending", t("detail.pending"), metrics.pending]] : []),
+                ].map(([id, label, value]) => (
+                  <div key={id as string}>
                     <dt className="text-meta text-fg-subtle">{label}</dt>
-                    <dd className="text-section font-semibold tabular-nums text-fg" data-testid={`metric-${String(label).toLowerCase()}`}>
+                    <dd className="text-section font-semibold tabular-nums text-fg" data-testid={`metric-${String(id)}`}>
                       {value}
                     </dd>
                   </div>
@@ -293,10 +295,10 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
               </dl>
               {metrics.requiresAcknowledgment && people ? (
                 <div className="mt-4">
-                  <div className="flex gap-1" role="group" aria-label="Acknowledgments">
+                  <div className="flex gap-1" role="group" aria-label={t("detail.acknowledgments")}>
                     {[true, false].map((pendingView) => (
                       <button key={String(pendingView)} type="button" aria-pressed={showPending === pendingView} onClick={() => setShowPending(pendingView)} className={cn("rounded-full border px-2.5 py-0.5 text-meta", showPending === pendingView ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted")}>
-                        {pendingView ? `Pending ${people.filter((row) => !row.acknowledgedAt).length}` : `Acknowledged ${people.filter((row) => row.acknowledgedAt).length}`}
+                        {pendingView ? t("detail.pendingCount", { count: people.filter((row) => !row.acknowledgedAt).length }) : t("detail.acknowledgedCount", { count: people.filter((row) => row.acknowledgedAt).length })}
                       </button>
                     ))}
                   </div>
@@ -304,13 +306,13 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                     {people.filter((row) => Boolean(row.acknowledgedAt) !== showPending).map((row) => (
                       <li key={row.memberId} className="flex items-center justify-between gap-2 py-1.5 text-table">
                         <PersonLink memberId={row.memberId} name={row.name} className="truncate" />
-                        <span className="shrink-0 text-meta text-fg-muted">{row.acknowledgedAt ? formatDay(row.acknowledgedAt, zone) : row.readAt ? "Read" : "Not read"}</span>
+                        <span className="shrink-0 text-meta text-fg-muted">{row.acknowledgedAt ? formatDay(row.acknowledgedAt, zone) : row.readAt ? t("detail.read") : t("detail.notRead")}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
-              <p className="mt-3 text-meta text-fg-subtle">For confirming the message reached people — not for rating anyone.</p>
+              <p className="mt-3 text-meta text-fg-subtle">{t("detail.reachNote")}</p>
             </section>
           ) : null}
         </aside>
@@ -319,11 +321,11 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
       <ConfirmDialog
         open={confirmArchive}
         onOpenChange={setConfirmArchive}
-        title="Archive this announcement?"
-        description="It leaves every feed and stays on record. This cannot be undone."
-        confirmLabel="Archive"
+        title={t("detail.archiveTitle")}
+        description={t("detail.archiveBody")}
+        confirmLabel={t("detail.archive")}
         pending={pending === "archive"}
-        onConfirm={() => void act("archive", () => announcementApi(`${base}/archive`, { body: { expectedVersion: item.version } }), "Announcement archived", () => setConfirmArchive(false))}
+        onConfirm={() => void act("archive", () => announcementApi(`${base}/archive`, { body: { expectedVersion: item.version } }), t("detail.archived"), () => setConfirmArchive(false))}
       />
     </div>
   );

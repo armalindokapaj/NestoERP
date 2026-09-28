@@ -8,6 +8,7 @@ import { Check, Loader2, Megaphone } from "lucide-react";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
+import { useMiscTranslations } from "@/components/activity/misc-text";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { CompanyTag } from "@/components/workspace/company-tag";
@@ -38,6 +39,7 @@ async function send(url: string, body = "{}"): Promise<unknown> {
 export function ActivityView({ type, query, initial, modules }: { type: ActivityType; query: ActivityQueryState; initial: ActivityPage; modules: string[] }) {
   const t = useTranslations("activity");
   const tModules = useTranslations("modules");
+  const m = useMiscTranslations();
   const locale = useLocale();
   const router = useRouter();
   const nav = useFeedbackRouter();
@@ -194,17 +196,17 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
         </Button>
       </div>
 
-      <form action="/activity" method="get" className="flex flex-wrap items-end gap-2" aria-label="Filter activity" data-testid="activity-filters">
+      <form action="/activity" method="get" className="flex flex-wrap items-end gap-2" aria-label={m("activity.filter")} data-testid="activity-filters">
         {type !== "ALL" ? <input type="hidden" name="type" value={type === "NOTIFICATION" ? "notifications" : "announcements"} /> : null}
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 sm:max-w-xs">
-          <span className="text-meta text-fg-muted">Search</span>
+          <span className="text-meta text-fg-muted">{m("activity.search")}</span>
           <input name="q" defaultValue={query.q ?? ""} maxLength={200} className={cn(fieldClass, "w-full")} />
         </label>
         {initial.companies.length > 1 ? (
           <label className="flex flex-col gap-1">
-            <span className="text-meta text-fg-muted">Company</span>
+            <span className="text-meta text-fg-muted">{m("activity.company")}</span>
             <select name="companyId" defaultValue={query.companyId ?? ""} className={fieldClass} data-testid="activity-company-filter">
-              <option value="">All accessible companies</option>
+              <option value="">{m("activity.allCompanies")}</option>
               {initial.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -214,9 +216,9 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
           </label>
         ) : null}
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">Module</span>
+          <span className="text-meta text-fg-muted">{m("activity.module")}</span>
           <select name="moduleKey" defaultValue={query.moduleKey ?? ""} className={fieldClass}>
-            <option value="">All modules</option>
+            <option value="">{m("activity.allModules")}</option>
             {modules.map((key) => (
               <option key={key} value={key}>
                 {moduleLabel(key)}
@@ -225,36 +227,36 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">Priority</span>
+          <span className="text-meta text-fg-muted">{m("activity.priority")}</span>
           <select name="priority" defaultValue={query.priority ?? ""} className={fieldClass}>
-            <option value="">All</option>
+            <option value="">{m("activity.all")}</option>
             <option value="CRITICAL">{t("critical")}</option>
             <option value="IMPORTANT">{t("important")}</option>
-            <option value="NORMAL">Normal</option>
+            <option value="NORMAL">{m("activity.normal")}</option>
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">Status</span>
+          <span className="text-meta text-fg-muted">{m("activity.status")}</span>
           <select name="readState" defaultValue={query.readState ?? ""} className={fieldClass}>
-            <option value="">All</option>
+            <option value="">{m("activity.all")}</option>
             <option value="UNREAD">{t("unread")}</option>
             <option value="READ">{t("read")}</option>
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">From</span>
+          <span className="text-meta text-fg-muted">{m("activity.from")}</span>
           <input type="date" name="from" defaultValue={query.from ?? ""} className={fieldClass} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-meta text-fg-muted">To</span>
+          <span className="text-meta text-fg-muted">{m("activity.to")}</span>
           <input type="date" name="to" defaultValue={query.to ?? ""} className={fieldClass} />
         </label>
         <Button type="submit" variant="secondary" size="sm">
-          Apply
+          {m("activity.apply")}
         </Button>
         {filtered ? (
           <Link href={href({ companyId: undefined, moduleKey: undefined, priority: undefined, readState: undefined, q: undefined, from: undefined, to: undefined })} className="pb-2 text-meta font-medium text-accent-strong hover:underline">
-            Reset
+            {m("activity.reset")}
           </Link>
         ) : null}
       </form>

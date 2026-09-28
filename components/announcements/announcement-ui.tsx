@@ -4,6 +4,7 @@ import { Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, type AnnouncementPriority, type AnnouncementStatus, STATUS_LABELS } from "@/lib/modules/announcements/announcement.types";
 import { cn } from "@/lib/utils/cn";
+import { AnnouncementsLabel, AnnouncementsText } from "./announcements-text";
 
 /**
  * Announcement presentation pieces (PRD #45 §26, §60, §207, §210, §211, §219).
@@ -30,16 +31,16 @@ export function PriorityMark({ priority, className }: { priority: AnnouncementPr
   if (priority === "NORMAL") return null;
   return (
     <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className={cn("uppercase tracking-wide", className)} data-testid="announcement-priority">
-      {PRIORITY_LABELS[priority]}
+      <AnnouncementsLabel group="priority" value={priority} fallback={PRIORITY_LABELS[priority]} />
     </Badge>
   );
 }
 
 export function PinnedMark() {
   return (
-    <span className="inline-flex items-center gap-1 text-meta font-medium text-fg-muted" title="Pinned">
+    <span className="inline-flex items-center gap-1 text-meta font-medium text-fg-muted">
       <Pin aria-hidden="true" className="size-3.5 rotate-45" />
-      Pinned
+      <AnnouncementsText k="ui.pinned" />
     </span>
   );
 }
@@ -49,7 +50,7 @@ const STATUS_TONE: Record<AnnouncementStatus, "default" | "neutral" | "info" | "
 export function AnnouncementStatusBadge({ status }: { status: AnnouncementStatus }) {
   return (
     <Badge tone={STATUS_TONE[status]} data-testid="announcement-status">
-      {STATUS_LABELS[status]}
+      <AnnouncementsLabel group="status" value={status} fallback={STATUS_LABELS[status]} />
     </Badge>
   );
 }

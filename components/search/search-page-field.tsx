@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 
+import { useMiscTranslations } from "@/components/activity/misc-text";
 import { SearchField } from "@/components/ui/search-field";
 
 /**
@@ -15,6 +16,7 @@ import { SearchField } from "@/components/ui/search-field";
  */
 export function SearchPageField({ defaultValue, company }: { defaultValue: string; company?: string }) {
   const router = useFeedbackRouter();
+  const m = useMiscTranslations();
   const [value, setValue] = React.useState(defaultValue);
 
   // A new query from elsewhere (a link, the back button) has to win over what
@@ -35,8 +37,8 @@ export function SearchPageField({ defaultValue, company }: { defaultValue: strin
         name="q"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="Search projects, contracts, orders, stock, people…"
-        aria-label="Search"
+        placeholder={m("search.placeholder")}
+        aria-label={m("search.label")}
         autoFocus
       />
     </form>

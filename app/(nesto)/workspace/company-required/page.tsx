@@ -9,7 +9,9 @@ import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { getTranslations } from "@/lib/i18n/server";
 import { isModuleEnabled, canAccessModule } from "@/lib/access/can";
 
-export const metadata: Metadata = { title: "Choose a company" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("workspace.chooseCompany") };
+}
 
 type Props = { searchParams: Promise<{ module?: string | string[]; next?: string | string[] }> };
 

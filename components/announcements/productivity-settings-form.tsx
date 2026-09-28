@@ -13,10 +13,12 @@ import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import type { ProductivitySettingsDTO } from "@/lib/modules/productivity/productivity.settings";
 import { cn } from "@/lib/utils/cn";
+import { useAnnouncementsTranslations } from "./announcements-text";
 import { announcementApi, announcementFailureOutcome, failureMessage } from "./announcement-api";
 
 /** The company's switches for announcements, favorites and recent work (PRD #45 §247). */
 export function ProductivitySettingsForm({ initial }: { initial: ProductivitySettingsDTO }) {
+  const t = useAnnouncementsTranslations();
   const toast = useToast();
   const router = useRouter();
   const [state, setState] = React.useState(initial);
@@ -25,7 +27,7 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
 
   // AUD-03 §3: the settings as saved are the baseline; Save and continue runs this same PUT.
   const run = React.useRef<() => Promise<SaveOutcome>>(async () => ({ kind: "unknown" }));
-  const editor = useUnsavedEditor({ module: "announcements", saveKind: "save", label: "Announcement settings", save: () => run.current() });
+  const editor = useUnsavedEditor({ module: "announcements", saveKind: "save", label: t("settings.label"), save: () => run.current() });
   const { setDirty, setSaving, setUnresolved } = editor;
   const dirty = JSON.stringify(state) !== JSON.stringify(baseline);
   React.useEffect(() => setDirty(dirty), [dirty, setDirty]);
@@ -40,7 +42,7 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
       setBaseline(state);
       setDirty(false);
       setUnresolved(false);
-      toast({ title: "Settings saved", tone: "success" });
+      toast({ title: t("settings.saved"), tone: "success" });
       router.refresh();
       return { kind: "committed" };
     } catch (error) {
@@ -70,28 +72,28 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
   );
 
   return (
-    <form onSubmit={save} className="nesto-card divide-y divide-line px-5" aria-label="Announcement settings">
-      {toggle("announcementsEnabled", "Announcements", "Company, department and project notices in NESTO.")}
-      {toggle("notifyNormalAnnouncements", "Notify for ordinary announcements", "Important and critical ones always notify; ordinary ones otherwise stay in the feed.")}
+    <form onSubmit={save} className="nesto-card divide-y divide-line px-5" aria-label={t("settings.label")}>
+      {toggle("announcementsEnabled", t("settings.announcements"), t("settings.announcementsHint"))}
+      {toggle("notifyNormalAnnouncements", t("settings.notifyNormal"), t("settings.notifyNormalHint"))}
       <label className="flex flex-col py-3">
-        <span className="text-table font-medium text-fg">Acknowledgment reminders</span>
-        <span className="text-meta text-fg-muted">How often people who have not acknowledged are reminded.</span>
+        <span className="text-table font-medium text-fg">{t("settings.reminders")}</span>
+        <span className="text-meta text-fg-muted">{t("settings.remindersHint")}</span>
         <select className={cn(selectClass, "mt-1.5 w-56")} value={state.announcementAckReminderDays} onChange={(event) => setState({ ...state, announcementAckReminderDays: Number(event.target.value) })}>
           {[1, 2, 3, 5, 7, 14].map((days) => (
             <option key={days} value={days}>
-              Every {days === 1 ? "day" : `${days} days`}
+              {days === 1 ? t("settings.everyDay") : t("settings.everyDays", { count: days })}
             </option>
           ))}
         </select>
       </label>
-      {toggle("favoritesEnabled", "Favorites", "People can star records they use often. Private to each person.")}
-      {toggle("recentWorkEnabled", "Recent work", "People see the records they opened lately. Private to each person, never an activity record.")}
+      {toggle("favoritesEnabled", t("settings.favorites"), t("settings.favoritesHint"))}
+      {toggle("recentWorkEnabled", t("settings.recent"), t("settings.recentHint"))}
       <label className="flex flex-col py-3">
-        <span className="text-table font-medium text-fg">Keep recent work for</span>
+        <span className="text-table font-medium text-fg">{t("settings.keepRecent")}</span>
         <select className={cn(selectClass, "mt-1.5 w-56")} value={state.recentWorkRetentionDays} onChange={(event) => setState({ ...state, recentWorkRetentionDays: Number(event.target.value) })}>
           {[30, 60, 90, 180, 365].map((days) => (
             <option key={days} value={days}>
-              {days} days
+              {t("settings.days", { count: days })}
             </option>
           ))}
         </select>
@@ -99,7 +101,7 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
       <div className="flex items-center justify-end gap-3 py-3">
         <UnsavedIndicator save={{ editor, pending, saved: null }} />
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : "Save settings"}
+          {pending ? t("settings.saving") : t("settings.save")}
         </Button>
       </div>
     </form>

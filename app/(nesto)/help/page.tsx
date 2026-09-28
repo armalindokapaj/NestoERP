@@ -3,8 +3,11 @@ import type { Metadata } from "next";
 import { HelpIndex } from "@/components/help/help-page";
 import { requireUserContext } from "@/lib/context/current-user";
 import { helpAccess } from "@/lib/help/help-access";
+import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Help" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("help.title") };
+}
 
 /**
  * Help for every module this person can open (AUD-05 §7, UX-16). Checked-in

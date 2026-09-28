@@ -30,17 +30,18 @@ export async function ModuleHelpPage({
   actions: HelpAction[];
 }) {
   const t = await getTranslations("modules");
+  const m = await getTranslations("misc");
   const label = t(`${moduleKey}.label`);
 
   return (
     <article className="mx-auto max-w-3xl space-y-8" data-testid="module-help" data-help-version={HELP_VERSION}>
       <PageHeader
-        title={`${label} help`}
+        title={m("help.moduleTitle", { module: label })}
         description={help.purpose}
         actions={
           <Button asChild variant="secondary" size="sm">
             <Link href={modules[moduleKey].route}>
-              Open {label}
+              {m("help.open", { module: label })}
               <ArrowRight aria-hidden="true" />
             </Link>
           </Button>
@@ -48,13 +49,13 @@ export async function ModuleHelpPage({
       />
 
       {sections.length > 1 ? (
-        <HelpSection title="Where things are">
-          <p className="text-body text-fg-muted">{label} has these sections for you: {sections.join(", ")}.</p>
+        <HelpSection title={m("help.whereThings")}>
+          <p className="text-body text-fg-muted">{m("help.sectionsList", { module: label, sections: sections.join(", ") })}</p>
         </HelpSection>
       ) : null}
 
       {help.terms.length > 0 ? (
-        <HelpSection title="Key terms">
+        <HelpSection title={m("help.keyTerms")}>
           <dl className="divide-y divide-line">
             {help.terms.map((term) => (
               <div key={term.term} className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4">
@@ -66,7 +67,7 @@ export async function ModuleHelpPage({
         </HelpSection>
       ) : null}
 
-      <HelpSection title="What you can do">
+      <HelpSection title={m("help.whatYouCanDo")}>
         {actions.length > 0 ? (
           <ul className="divide-y divide-line">
             {actions.map((action) => (
@@ -87,18 +88,18 @@ export async function ModuleHelpPage({
         ) : (
           // Read-only here: say how records arrive, never tell a viewer to create one (UX-15).
           <p className="text-body text-fg-muted">
-            Your role can read {label} here. Records reach you when colleagues create them or add you to a project; ask your administrator if you need to do more.
+            {m("help.readOnly", { module: label })}
           </p>
         )}
       </HelpSection>
 
-      <HelpSection title="Who can do what">
+      <HelpSection title={m("help.whoCanDo")}>
         <p className="text-body text-fg-muted">{help.permissions}</p>
       </HelpSection>
 
       <p className="text-meta text-fg-subtle">
         <Link href="/help" className="underline-offset-4 hover:underline">
-          Help for other modules
+          {m("help.otherModules")}
         </Link>
       </p>
     </article>
@@ -108,12 +109,13 @@ export async function ModuleHelpPage({
 /** `embedded`: inside Support's Help tab, under Support's own heading, so the page keeps one h1. */
 export async function HelpIndex({ modules: keys, embedded = false }: { modules: ModuleKey[]; embedded?: boolean }) {
   const t = await getTranslations("modules");
+  const m = await getTranslations("misc");
   return (
     <div className={embedded ? "max-w-3xl space-y-4" : "mx-auto max-w-3xl space-y-6"} data-testid="help-index" data-help-version={HELP_VERSION}>
       {embedded ? (
-        <p className="text-body text-fg-muted">What each module you can open is for, the words it uses and what you can do in it.</p>
+        <p className="text-body text-fg-muted">{m("help.description")}</p>
       ) : (
-        <PageHeader title="Help" description="What each module you can open is for, the words it uses and what you can do in it." />
+        <PageHeader title={m("help.title")} description={m("help.description")} />
       )}
       <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
         {keys.map((key) => (

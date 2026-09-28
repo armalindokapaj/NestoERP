@@ -258,7 +258,7 @@ describe("AUD-11 module visual system (§6, AV-13)", () => {
 describe("AUD-11 module status and focus (§4, §5; AV-04, AV-06)", () => {
   it("says unread and billable state in text, not only a coloured dot", () => {
     expect(SOURCES.get("components/activity/activity-view.tsx")).toMatch(/sr-only">, \{t\("unread"\)\}/);
-    expect(SOURCES.get("components/announcements/announcement-list.tsx")).toMatch(/<span className="sr-only">Unread<\/span>/);
+    expect(SOURCES.get("components/announcements/announcement-list.tsx")).toMatch(/<span className="sr-only">\{t\("list\.unread"\)\}<\/span>/);
     expect(SOURCES.get("components/timesheets/timesheet-grid.tsx")).toMatch(/sr-only">\{row\.billableMinutes > 0 \? t\("common\.billable"\) : t\("common\.notBillable"\)\}/);
   });
 

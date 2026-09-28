@@ -5,6 +5,8 @@ import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { TriangleAlert, X } from "lucide-react";
 
+import { useCommonTranslations } from "@/components/i18n/common-text";
+
 import { announcementApi } from "./announcement-api";
 
 /**
@@ -18,6 +20,7 @@ import { announcementApi } from "./announcement-api";
 
 export function CriticalAnnouncementBanner({ banner }: { banner: { id: string; title: string; requiresAcknowledgment: boolean; href: string } | null }) {
   const pathname = usePathname();
+  const t = useCommonTranslations();
   const [dismissed, setDismissed] = React.useState<string | null>(null);
   if (!banner || dismissed === banner.id || pathname === banner.href) return null;
 
@@ -26,15 +29,15 @@ export function CriticalAnnouncementBanner({ banner }: { banner: { id: string; t
       <div className="mx-auto flex max-w-[1600px] items-center gap-3">
         <TriangleAlert aria-hidden="true" className="size-4 shrink-0 text-danger-strong" />
         <p className="min-w-0 flex-1 truncate text-table text-danger-strong">
-          <span className="font-semibold">Critical announcement:</span> {banner.title}
+          <span className="font-semibold">{t("announcementBanner.critical")}</span> {banner.title}
         </p>
         <Link href={banner.href} className="shrink-0 text-table font-semibold text-danger-strong underline underline-offset-2">
-          {banner.requiresAcknowledgment ? "Read and acknowledge" : "Read"}
+          {banner.requiresAcknowledgment ? t("announcementBanner.readAndAcknowledge") : t("announcementBanner.read")}
         </Link>
         {banner.requiresAcknowledgment ? null : (
           <button
             type="button"
-            aria-label="Dismiss"
+            aria-label={t("announcementBanner.dismiss")}
             className="grid shrink-0 place-items-center rounded p-1 text-danger-strong hover:bg-danger/10 touch:-my-2 touch:size-11 touch:p-0"
             onClick={() => {
               setDismissed(banner.id);

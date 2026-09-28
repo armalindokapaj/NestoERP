@@ -13,9 +13,12 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { requireUserContext } from "@/lib/context/current-user";
 import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { globalSearchForWorkspace } from "@/lib/core/search/search.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "Search" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("misc"))("search.title") };
+}
 
 /**
  * The dedicated search page (PRD #26 §12, §166).
@@ -39,9 +42,6 @@ const RESULT_LIMIT = 50;
 
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-function moduleLabel(key: string): string {
-  return modules[key as ModuleKey]?.label ?? key;
-}
 
 /** Turns purchase_order into "Purchase order". */
 function entityLabel(entityType: string): string {
@@ -52,6 +52,8 @@ function entityLabel(entityType: string): string {
 export default async function SearchPage({ searchParams }: Params) {
   const context = await requireUserContext();
   const params = await searchParams;
+  const [m, tModules] = await Promise.all([getTranslations("misc"), getTranslations("modules")]);
+  const moduleLabel = (key: string): string => (modules[key as ModuleKey] ? tModules(`${key as ModuleKey}.label`) : key);
 
   const term = typeof params.q === "string" ? params.q : "";
   const moduleFilter = typeof params.module === "string" ? [params.module] : undefined;
@@ -81,19 +83,19 @@ export default async function SearchPage({ searchParams }: Params) {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Search"
+        title={m("search.title")}
         description={
           inGroup
-            ? "Everything you can reach, across every company and module you have access to."
-            : "Everything you can reach, across every module you have access to."
+            ? m("search.descriptionGroup")
+            : m("search.description")
         }
       />
 
       <SearchPageField defaultValue={term} company={companyFilter} />
 
       {inGroup && companies.length > 1 ? (
-        <nav aria-label="Filter by company" className="flex flex-wrap items-center gap-1.5" data-testid="search-company-filter">
-          {[{ id: undefined, name: "All companies" }, ...companies].map((company) => {
+        <nav aria-label={m("search.filterByCompany")} className="flex flex-wrap items-center gap-1.5" data-testid="search-company-filter">
+          {[{ id: undefined, name: m("search.allCompanies") }, ...companies].map((company) => {
             const current = company.id === companyFilter;
             return (
               <Link
@@ -119,30 +121,27 @@ export default async function SearchPage({ searchParams }: Params) {
        */}
       {partial ? (
         <p className="text-body text-warning">
-          Some modules could not be searched just now
-          {failedModules.length > 0 ? ` (${failedModules.map(moduleLabel).join(", ")})` : ""}. These
-          results are incomplete.
+          {m("search.partial", { modules: failedModules.length > 0 ? ` (${failedModules.map(moduleLabel).join(", ")})` : "" })}
         </p>
       ) : null}
 
       {!searched ? (
         <EmptyState
           icon={<SearchX />}
-          title="Search across NESTO"
-          description="Find a project, a contract number, a purchase order, a stock item or a person. Only records you already have access to are searched."
+          title={m("search.emptyTitle")}
+          description={m("search.emptyBody")}
         />
       ) : results.length === 0 ? (
         <EmptyState
           icon={<SearchX />}
-          title={`Nothing matches “${term}”.`}
-          description="Check the spelling, or try a record number. Records you do not have access to never appear here."
+          title={m("search.noMatch", { term })}
+          description={m("search.noMatchBody")}
         />
       ) : (
         <div className="space-y-6">
           <p className="text-body text-fg-muted">
-            {results.length === RESULT_LIMIT ? `First ${RESULT_LIMIT}` : results.length} result
-            {results.length === 1 ? "" : "s"} for “{term}”
-            {groups.length > 1 ? ` across ${groups.length} modules` : ""}.
+            {results.length === RESULT_LIMIT ? m("search.resultFirst", { count: RESULT_LIMIT, term }) : results.length === 1 ? m("search.resultOne", { term }) : m("search.resultMany", { count: results.length, term })}
+            {groups.length > 1 ? m("search.acrossModules", { count: groups.length }) : ""}.
           </p>
 
           {groups.map((group) => {

@@ -2,6 +2,7 @@ import Link from "@/components/navigation/nav-link";
 
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils/cn";
+import { PersonLinkText } from "./person-link-text";
 
 /**
  * A person, wherever NESTO shows one (E-08 §2.2, §5-§8, §71; ADR 0008).
@@ -65,17 +66,19 @@ export type PersonLinkProps = PersonRef & {
 };
 
 export function PersonLink({ name, photoUrl, variant = "name", detail, restricted, tab, className, ...ref }: PersonLinkProps) {
-  if (restricted === "hidden") return <span className={cn("text-fg-muted", className)}>Restricted user</span>;
-  const label = name?.trim() || "Unknown";
+  if (restricted === "hidden") return <span className={cn("text-fg-muted", className)}><PersonLinkText k="restricted" /></span>;
+  const named = name?.trim() || null;
+  const label = named ?? "Unknown";
+  const shown = named ?? <PersonLinkText k="unknown" />;
   const parts = label.split(/\s+/);
   const href = restricted ? null : personHref(ref, tab);
-  const title = detail ? `${label} — ${detail}` : label;
+  const title = named ? (detail ? `${named} — ${detail}` : named) : undefined;
 
   const avatar = variant === "name" ? null : <Avatar firstName={parts[0]} lastName={parts.length > 1 ? parts[parts.length - 1] : null} src={photoUrl ?? null} size={variant === "avatar" ? "md" : "sm"} />;
   const body = (
     <>
       {avatar}
-      {variant === "avatar" ? <span className="sr-only">{label}</span> : <span className="truncate">{label}</span>}
+      {variant === "avatar" ? <span className="sr-only">{shown}</span> : <span className="truncate">{shown}</span>}
     </>
   );
   const layout = cn(variant === "name" ? "inline" : "inline-flex min-w-0 items-center gap-2", variant === "compact" && "text-meta", className);
