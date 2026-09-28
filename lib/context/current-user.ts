@@ -41,7 +41,7 @@ function destinationFor(reason: ContextFailure): string {
       return "/workspace-unavailable?reason=configuration";
     case "PLATFORM_SESSION":
       // The Platform Admin's own area; business pages are not theirs (E-06 §116, §128).
-      return "/platform-admin";
+      return "/admin";
   }
 }
 

@@ -110,10 +110,10 @@ Departure keys: nav = links/router, history = Back/Forward, dialog-close = X/Esc
 | /sales/pipeline → PipelineBoard stage select | sales | excluded | changeStageAction on change | — | low | excluded: immediate one-field write, nothing held locally |
 | sales lead/opportunity/proposal detail → LeadActions, OpportunityActions, ProposalActions | sales | workflow-only / excluded | RejectDialog (shared, registered); AssignMemberControl (components/modules, migrated by the lead); ConfirmDialogs | dialog-close, cancel | low | migrated via shared RejectDialog; AssignMemberControl not in P1; confirms excluded |
 | /sales, /sales/{leads,opportunities,proposals,reports,tasks} lists; group-company-filter; sales-inventory; deal-units; deal-unit-remove; tables/kpis/export/activity/record-documents | sales | excluded | — | — | none | excluded: read-only / filter / confirm |
-| /platform-admin/pricing → PricingAdministration › CreateDraft/CreateDraftForm | pricing | dialog-form | useEditorSave (create) → POST /api/platform/pricing/versions (refusal → result; network → thrown/unknown) | dialog-close, cancel (DialogClose), nav, history, identity | medium | migrated |
-| /platform-admin/pricing → PricingVersionEditor (price-book config, effective date) | pricing | controlled | useUnsavedEditor (save) → PATCH /api/platform/pricing/versions/{id}, same `save()` as Save draft; rebaselined only on success | nav, history, identity | high (money) | migrated |
-| /platform-admin/pricing → PricingVersionEditor › Publish dialog (reason) | pricing | workflow-only | DialogEditor (none, workflow "Publish") | dialog-close, cancel (DialogClose) | medium | migrated |
-| /platform-admin/pricing → PromotionEditor | pricing | controlled | useUnsavedEditor (save) → PATCH /api/platform/pricing/promotions/{id} | nav, history, identity | medium | migrated |
+| /admin/modules/pricing → PricingAdministration › CreateDraft/CreateDraftForm | pricing | dialog-form | useEditorSave (create) → POST /api/platform/pricing/versions (refusal → result; network → thrown/unknown) | dialog-close, cancel (DialogClose), nav, history, identity | medium | migrated |
+| /admin/modules/pricing → PricingVersionEditor (price-book config, effective date) | pricing | controlled | useUnsavedEditor (save) → PATCH /api/platform/pricing/versions/{id}, same `save()` as Save draft; rebaselined only on success | nav, history, identity | high (money) | migrated |
+| /admin/modules/pricing → PricingVersionEditor › Publish dialog (reason) | pricing | workflow-only | DialogEditor (none, workflow "Publish") | dialog-close, cancel (DialogClose) | medium | migrated |
+| /admin/modules/pricing → PromotionEditor | pricing | controlled | useUnsavedEditor (save) → PATCH /api/platform/pricing/promotions/{id} | nav, history, identity | medium | migrated |
 | /pricing (public site) → PricingWizard, ProposalDialog (lead form) | pricing | excluded | — | — | medium | excluded: public page outside AppShell (no host); configurator state is mirrored to the URL |
 
 ## P2 — Finance, procurement, inventory
@@ -286,24 +286,24 @@ FD = `FormDialog` / `ReasonDialog` from `components/engineering/form-kit.tsx` (m
 | /settings/profile → settings/session-list "Sign out everywhere" | settings | departure | requestDeparture({identity, sign-out}) before signOutEverywhereAction | identity | low | migrated |
 | /settings/modules, /settings (preferences) → module-toggle-list, language/navigation/theme/notification preferences | settings | excluded | — | — | — | excluded: immediate toggles, no draft |
 | /settings/company, /settings/profile page fields | settings | excluded | — | — | — | excluded: read-only/disabled display |
-| /organization/departments[/id], /organization/companies/[id], /platform-admin/groups/[id]/departments → organization/department-actions | other | dialog-form / workflow-only | FD: New (create), Edit (save), Add member (create); Activate selected, Appoint/Replace, Move → none | dialog-close | medium | migrated |
+| /organization/departments[/id], /organization/companies/[id], /admin/organizations/[id]/departments → organization/department-actions | other | dialog-form / workflow-only | FD: New (create), Edit (save), Add member (create); Activate selected, Appoint/Replace, Move → none | dialog-close | medium | migrated |
 | same → status / branch / end-assignment ConfirmDialogs | other | excluded | — | — | — | excluded: confirmations |
 | /organization/departments/[id] → organization/department-member-actions | other | dialog-form | FD saveKind create (Assign) | dialog-close | low | migrated |
 | /organization/access → organization/access-grants Grant | other | workflow-only | FD (Delegate → none, reason required) | dialog-close | low | migrated |
 | /organization/access → Revoke (ConfirmDialog), ?view=check GET filter | other | excluded | — | — | — | excluded: confirmation / filter |
 | /organization/provisioning/[id] → organization/provisioning-actions | other | workflow-only | FD provision saveKind none (credentials shown once); ReasonDialog return/reject; ConfirmDialogs | dialog-close | low | migrated |
 | /organization/departments/[id]?tab=team GET filter | other | excluded | — | — | — | excluded: filter |
-| /platform-admin (overview, organizations/groups, groups/[id]) → platform/platform-actions CreateGroup | other | dialog-form | FD (Create group); push to the new group moved to the clean close | dialog-close (window.confirm fallback: no host) | medium | migrated |
+| /admin (overview, organizations/groups, groups/[id]) → platform/platform-actions CreateGroup | other | dialog-form | FD (Create group); push to the new group moved to the clean close | dialog-close (window.confirm fallback: no host) | medium | migrated |
 | same → GroupImplementationActions identity (Save), new company (Create company), project (Assign → none) | other | dialog-form | FD | dialog-close | medium | migrated |
 | same → initial roster "Create account" | other | workflow-only | FD saveKind none (credentials shown once) | dialog-close | medium | migrated |
 | same → Send for validation / Activate | other | excluded | — | ConfirmDialog | — | excluded: confirmations |
 | many platform-admin pages → platform/platform-command | other | workflow-only / dialog-form | FD / ReasonDialog (kind inferred from label) | dialog-close | low | migrated |
-| /platform-admin/people → platform/platform-people-actions Create/Edit person | other | dialog-form | FD (Create person → create, Save → save) | dialog-close | medium | migrated |
+| /admin/users/people → platform/platform-people-actions Create/Edit person | other | dialog-form | FD (Create person → create, Save → save) | dialog-close | medium | migrated |
 | same → CreateUserButton | other | workflow-only | FD saveKind none (credentials shown once) | dialog-close | medium | migrated |
-| platform-admin shell + pages links (platform-shell, platform-search, 17 app/platform-admin pages) | other | navigation | next/link → NavLink (guarded; no host → window.confirm) | nav | medium | migrated |
+| platform-admin shell + pages links (platform-shell, platform-search, 17 app/admin pages) | other | navigation | next/link → NavLink (guarded; no host → window.confirm) | nav | medium | migrated |
 | platform/access-inspector, platform-search, audit-table | other | excluded | — | — | — | excluded: read-only query/search |
-| /platform-admin/3d GET filter + NewExperienceDialog; 3d project pages; /platform-admin/pricing | platform 3D / pricing | — | owned by the 3D and pricing partitions (components/3d, components/pricing) | — | — | excluded from P4: other partition (only their page links were swapped to NavLink here) |
-| app/platform-admin/layout SignOutButton (components/auth) | other | departure | — | identity | low | excluded from P4: components/auth is outside the partition |
+| /admin/3d GET filter + NewExperienceDialog; 3d project pages; /admin/modules/pricing | platform 3D / pricing | — | owned by the 3D and pricing partitions (components/3d, components/pricing) | — | — | excluded from P4: other partition (only their page links were swapped to NavLink here) |
+| app/admin/layout SignOutButton (components/auth) | other | departure | — | identity | low | excluded from P4: components/auth is outside the partition |
 | components/access/permission-gate | — | excluded | — | — | — | excluded: no input |
 
 ## P5 — Projects, project structure and units, planning, documents

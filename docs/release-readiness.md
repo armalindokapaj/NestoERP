@@ -1412,7 +1412,7 @@ this record's commit (the sibling-company sweep and the documents).
 | One company per session, changed only by opening another company's project | Top-bar company switcher; `contextInCompany` for a group user acting on a sibling company's record; `GET /api/me/access-portfolio` |
 | Project teams were changed by whoever runs the project | A second door for department managers and heads, for their own people, audited with the door used; `DELETE` on the member route |
 | — | Organization → Departments (heads, branches, managers, teams and their projects), appointments by the Owner or the function's head; Organization → User provisioning; HR → Recruitment |
-| — | `/platform-admin`: create a group, add companies (the bootstrap now creates department branches and no longer requires an Owner invitation), the initial roster and first project assignments, the implementation checklist, activation; `withPlatformContext` routes, classified PLATFORM |
+| — | `/admin`: create a group, add companies (the bootstrap now creates department branches and no longer requires an Owner invitation), the initial roster and first project assignments, the implementation checklist, activation; `withPlatformContext` routes, classified PLATFORM |
 | Audit events always belonged to a company | Group-level events (`parentGroupId`, no company) for the platform; 23 new audit actions |
 | One demo company with sections of a second | NESTO Demo Group: Aurelia, Meridian, Terra, Forma, Nova; group heads stacked on company manager positions; local managers; a two-company architect; recruitment in three states; fixtures in `group_fixture` |
 | — | Owner dashboard lists the group's companies; Group Finance and Group Sales see their numbers company by company |

@@ -121,7 +121,7 @@ test("a company's Finance manager staffs their own branch and cannot open anothe
 });
 
 test("the Platform Admin sets up a company with only the departments it needs, and staffs one (§124, §127)", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: "/platform-admin" });
+  await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
   await page.getByRole("button", { name: "Create parent group" }).click();
   const create = page.getByTestId("create-group-dialog");
   await create.getByRole("textbox", { name: /^Name/ }).fill("E2E North Group");

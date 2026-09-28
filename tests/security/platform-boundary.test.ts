@@ -21,7 +21,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: (
  * The earlier boundary test covered /api/platform/3d. This one covers every
  * route file under app/api/platform and app/api/platform-admin — found on
  * disk, every exported method called — and every page under
- * app/platform-admin, including the Experience Editor's route group, through
+ * app/admin, including the Experience Editor's route group, through
  * the guard those pages run (requirePlatformContext) and through the page
  * itself. The tenant attackers are the strongest a company has: its Owner, who
  * holds every tenant permission, and Group IT, who administers accounts and
@@ -154,7 +154,7 @@ describe("every platform API route refuses a tenant session (RP-13)", () => {
 /* Pages                                                                       */
 /* -------------------------------------------------------------------------- */
 
-const PAGE_ROOTS = ["app/platform-admin", "app/(experience-editor)/platform-admin"];
+const PAGE_ROOTS = ["app/admin", "app/(experience-editor)/admin"];
 
 function platformFiles(name: "page.tsx" | "layout.tsx"): string[] {
   return PAGE_ROOTS.flatMap((root) => (readdirSync(root, { recursive: true }) as string[]).filter((entry) => entry.split("/").pop() === name).map((entry) => join(root, entry))).sort();
@@ -199,8 +199,8 @@ describe("every platform page refuses a tenant session (RP-13)", () => {
     expect(pages.length).toBeGreaterThan(35);
     const unguarded = pages.filter((page) => !guards(page) && !layoutsOf(page).some(guards));
     expect(unguarded).toEqual([]);
-    // The platform tree's own root layout guards everything under app/platform-admin.
-    expect(guards("app/platform-admin/layout.tsx")).toBe(true);
+    // The platform tree's own root layout guards everything under app/admin.
+    expect(guards("app/admin/layout.tsx")).toBe(true);
   });
 
   it("sends a tenant back to their dashboard from the guard itself, and admits the Platform Admin", async () => {
@@ -240,7 +240,7 @@ describe("every platform page refuses a tenant session (RP-13)", () => {
       // platform, and a project with no 3D configuration fails at its own
       // lookup (the demo seeds none) — neither is a refusal. Only being sent
       // out of the platform area is.
-      if (outcome.redirectedTo !== undefined && !outcome.redirectedTo.startsWith("/platform-admin")) refused.push(`${file} → ${JSON.stringify(outcome)}`);
+      if (outcome.redirectedTo !== undefined && !outcome.redirectedTo.startsWith("/admin")) refused.push(`${file} → ${JSON.stringify(outcome)}`);
     }
     expect(refused).toEqual([]);
     expect(rendered).toBeGreaterThan(30);

@@ -28,7 +28,7 @@ describe("workspace route policy registry", () => {
       parentRoute: "/finance/invoices",
     });
     expect(workspaceRoutePolicy("/settings/profile").routeType).toBe("GLOBAL");
-    expect(workspaceRoutePolicy("/platform-admin/access").routeType).toBe("PLATFORM_ONLY");
+    expect(workspaceRoutePolicy("/admin/access").routeType).toBe("PLATFORM_ONLY");
   });
 
   it("does not mistake registered static module sections for record ids", () => {

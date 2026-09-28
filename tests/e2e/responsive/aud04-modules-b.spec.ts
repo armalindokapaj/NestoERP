@@ -216,7 +216,7 @@ test.describe("read-only identity", () => {
 test.describe("MW-02 Platform Admin on a phone", () => {
   test("the navigation is a modal drawer: focus inside, Escape closes, 44px controls", async ({ page }, testInfo) => {
     test.skip(outsideProjects(testInfo, PHONES), "Phone layout.");
-    await signIn(page, "PLATFORM_ADMIN", { to: "/platform-admin" });
+    await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
     await expectNoPageOverflow(page, "platform dashboard");
     const open = page.getByRole("button", { name: "Open navigation" });
     expect((await open.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -231,7 +231,7 @@ test.describe("MW-02 Platform Admin on a phone", () => {
     // A route change closes it too.
     await open.click();
     await drawer.getByRole("link", { name: "Access Inspector" }).click();
-    await expect(page).toHaveURL(/\/platform-admin\/access\/inspector/);
+    await expect(page).toHaveURL(/\/admin\/access\/inspector/);
     await expect(drawer).toBeHidden();
     await expectNoPageOverflow(page, "access inspector");
   });

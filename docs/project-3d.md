@@ -216,12 +216,12 @@ binding, version, publish, rollback, entitlement, or debug action.
 ## Experience Editor tab
 
 Authoring happens in a dedicated browser tab, not inside Platform Admin.
-Experience detail (`/platform-admin/3d/projects/{projectId}`) keeps the
+Experience detail (`/admin/3d/projects/{projectId}`) keeps the
 management tabs — Overview, Project Structure, Models, Unit Binding, Releases —
 and offers **Open Experience Editor ↗**, a plain `target="_blank"` link, only to
 a session holding `platform.3d.view` and `platform.3d.configure`.
 
-The editor lives at `/platform-admin/3d/projects/{projectId}/editor`, the same
+The editor lives at `/admin/3d/projects/{projectId}/editor`, the same
 address the embedded tab used, so old links now open it. The route sits in the
 `app/(experience-editor)` route group: its layouts never pass through the
 Platform Admin layout, so no admin sidebar, top bar, search or account controls
@@ -229,7 +229,7 @@ render and none of their data loads. Because the admin layout's guard is not
 inherited there, the group runs it itself:
 
 ```text
-(experience-editor)/platform-admin/3d/projects/[projectId]/
+(experience-editor)/admin/3d/projects/[projectId]/
 ├── layout.tsx       requirePlatformContext(); full-window dark frame, no scroll
 ├── not-found.tsx    404 inside the frame
 └── editor/
@@ -243,7 +243,7 @@ inherited there, the group runs it itself:
 `components/3d/platform/ExperienceEditor.tsx` is the only editor; architecture
 tests keep it that way, keep it imported only by the editor page, and keep the
 renderer (`three`, `lib/3d/runtime/render-engine`) unreachable from every page
-under `app/platform-admin`. Inside the editor the renderer itself loads through
+under `app/admin`. Inside the editor the renderer itself loads through
 `next/dynamic`, after the editor chrome is interactive.
 
 **Save is not Publish.** Save writes the authoring document through
@@ -283,7 +283,7 @@ capability and the viewer disables map-backed modes while retaining 3D models.
 
 ## Operations
 
-Platform diagnostics at `/platform-admin/3d/diagnostics` show workspaces with
+Platform diagnostics at `/admin/3d/diagnostics` show workspaces with
 missing models, failed or blocked versions, and active entitlements without an
 active release. Worker status and failures remain in the existing Platform
 operations surfaces.

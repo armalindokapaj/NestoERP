@@ -21,7 +21,7 @@ const items = [
 
 export function ExperienceWorkspaceNav({ projectId }: { projectId: string }) {
   const pathname = usePathname();
-  const base = `/platform-admin/3d/projects/${projectId}`;
+  const base = `/admin/3d/projects/${projectId}`;
   return <nav aria-label="3D Experience workspace" className="overflow-x-auto border-b border-line">
     <div className="flex min-w-max gap-1 px-2">
       {items.map((item) => {

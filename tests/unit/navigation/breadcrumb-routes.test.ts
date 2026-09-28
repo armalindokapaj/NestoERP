@@ -22,7 +22,7 @@ describe("breadcrumb route metadata", () => {
   });
 
   it("does not invent hierarchy for routes outside tenant modules", () => {
-    expect(breadcrumbRouteMetadata("/platform-admin/companies")).toBeNull();
+    expect(breadcrumbRouteMetadata("/admin/companies")).toBeNull();
     expect(breadcrumbRouteMetadata("/sign-in")).toBeNull();
   });
 });

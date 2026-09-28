@@ -184,7 +184,7 @@ test.afterAll(async () => {
 });
 
 test("Platform Admin provisions the native Project 3D workspace", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d?q=${encodeURIComponent(PROJECT_CODE)}` });
+  await signIn(page, "PLATFORM_ADMIN", { to: `/admin/3d?q=${encodeURIComponent(PROJECT_CODE)}` });
   await expect(page.getByRole("heading", { name: "3D Experiences", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "New Experience" }).click();
   await expect(page.getByRole("heading", { name: "New 3D Experience" })).toBeVisible();
@@ -197,7 +197,7 @@ test("Platform Admin provisions the native Project 3D workspace", async ({ page 
   await page.getByLabel(/Create structure now/).check();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Create Experience" }).click();
-  await expect(page).toHaveURL(new RegExp(`/platform-admin/3d/projects/${PROJECT_ID}/structure$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/3d/projects/${PROJECT_ID}/structure$`));
   await expect(page.getByRole("heading", { level: 1, name: `${PROJECT_NAME} 3D Experience` })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "3D Experience workspace" })).toBeVisible();
 });
@@ -288,7 +288,7 @@ test("Company sees only the active read-only release", async ({ page }) => {
 
 /* ---- The Experience Editor in its own tab (3D Editor PRD §218-§243) ---- */
 
-const EDITOR_URL = `/platform-admin/3d/projects/${PROJECT_ID}/editor`;
+const EDITOR_URL = `/admin/3d/projects/${PROJECT_ID}/editor`;
 const TOOLS = ["Scene", "Materials", "Environment", "Lighting", "Rendering", "Camera", "Shots", "Sections", "Performance", "Unit binding"];
 
 async function authoring() {
@@ -320,7 +320,7 @@ function tool(editor: Page, name: string) {
 }
 
 test("Experience detail opens the editor in its own tab, with no Platform Admin shell around it", async ({ page }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d/projects/${PROJECT_ID}` });
+  await signIn(page, "PLATFORM_ADMIN", { to: `/admin/3d/projects/${PROJECT_ID}` });
   await expect(page.getByRole("navigation", { name: "3D Experience workspace" }).getByRole("link")).toHaveText(["Overview", "Project Structure", "Models", "Unit Binding", "Releases"]);
   const open = page.getByRole("link", { name: "Open Experience Editor" });
   await expect(open).toHaveAttribute("href", EDITOR_URL);
@@ -374,11 +374,11 @@ test("Experience detail opens the editor in its own tab, with no Platform Admin 
   await expect(splitter).toHaveAttribute("aria-valuenow", "336");
 
   // The management tab is still where it was.
-  await expect(page).toHaveURL(new RegExp(`/platform-admin/3d/projects/${PROJECT_ID}$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/3d/projects/${PROJECT_ID}$`));
 });
 
 test("Save keeps a draft: unsaved work is guarded, no reason is asked, and the live release does not change", async ({ page, browser }) => {
-  await signIn(page, "PLATFORM_ADMIN", { to: `/platform-admin/3d/projects/${PROJECT_ID}` });
+  await signIn(page, "PLATFORM_ADMIN", { to: `/admin/3d/projects/${PROJECT_ID}` });
   await expect(draftState(page)).toContainText("Draft revision 1");
   const editorOpened = page.waitForEvent("popup");
   await page.getByRole("link", { name: "Open Experience Editor" }).click();
@@ -513,7 +513,7 @@ test("The editor address checks access for itself", async ({ page, browser }) =>
 
   // A missing Experience is a real 404, answered inside the editor frame.
   await signIn(page, "PLATFORM_ADMIN");
-  const missing = await page.goto(`/platform-admin/3d/projects/missing-${Date.now()}/editor`);
+  const missing = await page.goto(`/admin/3d/projects/missing-${Date.now()}/editor`);
   expect(missing?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "This 3D Experience does not exist." })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Platform administration" })).toHaveCount(0);

@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";
+import { useCreateParam } from "@/components/platform/platform-command";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -26,8 +27,8 @@ const identityFields: FormField[] = [
   { name: "currency", label: "Currency", type: "text", placeholder: "EUR" },
 ];
 
-export function CreateGroupButton() {
-  const [open, setOpen] = React.useState(false);
+export function CreateGroupButton({ openOnCreate }: { openOnCreate?: string } = {}) {
+  const [open, setOpen] = useCreateParam(openOnCreate);
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -44,7 +45,7 @@ export function CreateGroupButton() {
         onSubmit={async (payload) => {
           const group = await engineeringApi<{ id: string }>("/api/platform/parent-groups", { body: payload });
           // Opened by the dialog after an ordinary save (AUD-03 §6).
-          return { redirectTo: `/platform-admin/groups/${group.id}` };
+          return { redirectTo: `/admin/organizations/${group.id}` };
         }}
       />
     </>

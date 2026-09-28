@@ -163,8 +163,8 @@ function isRegisteredCollection(moduleKey: ModuleKey, pathname: string): boolean
  */
 export function workspaceRoutePolicy(pathnameInput: string): WorkspaceRoutePolicy {
   const pathname = normalizePathname(pathnameInput);
-  if (pathname === "/platform-admin" || pathname.startsWith("/platform-admin/")) {
-    return { pattern: "/platform-admin/*", routeType: "PLATFORM_ONLY" };
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return { pattern: "/admin/*", routeType: "PLATFORM_ONLY" };
   }
   if (GLOBAL_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
     return { pattern: pathname, routeType: "GLOBAL" };

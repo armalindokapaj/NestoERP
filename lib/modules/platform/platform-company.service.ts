@@ -387,7 +387,7 @@ export async function getPlatformCompanyOverview(context: PlatformContext, compa
     prisma.auditEvent.findFirst({ where: { entityType: "Company", entityId: row.id, actionKey: { in: [AuditAction.PLATFORM_COMPANY_CREATED, AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP] } }, orderBy: { occurredAt: "asc" }, select: { actorDisplayNameSnapshot: true } }),
     row.parentGroup.kind === "GROUP" ? previewDetach(context, row.id) : Promise.resolve(null),
   ]);
-  const base = "/platform-admin";
+  const base = "/admin";
   const setup: SetupItemDTO[] = [
     { key: "legal", label: "Legal name", done: Boolean(row.legalName) },
     { key: "registration", label: "Registration / NUIS / VAT", done: Boolean(row.registrationNumber || row.taxNumber) },
@@ -395,9 +395,9 @@ export async function getPlatformCompanyOverview(context: PlatformContext, compa
     { key: "contact", label: "Contact information", done: Boolean(row.email || row.phone) },
     { key: "logo", label: "Logo", done: Boolean(row.logoUrl) },
     { key: "group", label: "Parent Group (optional)", done: row.parentGroup.kind === "GROUP" },
-    { key: "users", label: "Users and administrators", done: row._count.memberships > 0, href: `${base}/access/memberships` },
-    { key: "projects", label: "Projects", done: row._count.projects > 0, href: `${base}/organizations/projects` },
-    { key: "modules", label: "Modules", done: row._count.modules > 0, href: `${base}/product/modules` },
+    { key: "users", label: "Users and administrators", done: row._count.memberships > 0, href: `${base}/users/memberships` },
+    { key: "projects", label: "Projects", done: row._count.projects > 0, href: `${base}/projects` },
+    { key: "modules", label: "Modules", done: row._count.modules > 0, href: `${base}/modules` },
   ];
   const { parentGroup, _count, createdAt, ...company } = row;
   return {

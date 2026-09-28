@@ -15,7 +15,7 @@ async function signIn(page: import("@playwright/test").Page, role: DemoRole) {
   await page.getByRole("button", { name: /open user menu|^sign out$/i }).waitFor();
 }
 async function signOut(page: import("@playwright/test").Page) {
-  if (new URL(page.url()).pathname.startsWith("/platform-admin")) {
+  if (new URL(page.url()).pathname.startsWith("/admin")) {
     await page.getByRole("button", { name: /^sign out$/i }).click();
     await page.waitForURL(/\/login/);
   } else await fixtureSignOut(page);
@@ -186,7 +186,7 @@ test("logout from the standalone 3D viewer and platform Experience Editor", asyn
     await page.getByRole("button", { name: /^sign out$/i }).click();
     await expect(page).toHaveURL(/\/login/);
     await signIn(page, "PLATFORM_ADMIN");
-    await page.goto(`/platform-admin/3d/projects/${viewer.id}/editor`);
+    await page.goto(`/admin/3d/projects/${viewer.id}/editor`);
     await page.getByRole("button", { name: /^sign out$/i }).click();
     await expect(page).toHaveURL(/\/login/);
   } finally { await viewer.remove(); }
