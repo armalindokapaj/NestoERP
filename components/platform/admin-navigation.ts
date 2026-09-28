@@ -33,7 +33,9 @@ export const adminDestinations: AdminDestination[] = [
   {
     key: "modules", label: "Modules", href: "/admin/modules", icon: Boxes, permission: "platform.module.view",
     tabs: [
-      { label: "Modules", href: "/admin/modules" },
+      { label: "Entitlements", href: "/admin/modules" },
+      { label: "Plans", href: "/admin/modules/plans" },
+      { label: "Catalog", href: "/admin/modules/catalog" },
       { label: "Feature flags", href: "/admin/modules/feature-flags", permission: "platform.feature_flag.view" },
       { label: "Templates", href: "/admin/modules/templates" },
       { label: "Pricing", href: "/admin/modules/pricing", permission: "platform.pricing.view" },

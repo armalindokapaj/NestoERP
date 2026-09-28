@@ -12,6 +12,7 @@ import { canPlatform, type PlatformContext } from "@/lib/context/platform-contex
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
+import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { invalidateMaintenanceSnapshot } from "@/lib/core/maintenance/platform-maintenance";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -211,6 +212,7 @@ export async function createMembership(context: PlatformContext, input: { userId
   const existing = await prisma.companyMember.findFirst({ where: { companyId: company.id, userId: user.id }, select: { id: true } });
   if (existing) throw new AccessError("CONFLICT", "This user already has a membership in the company.");
   return prisma.$transaction(async (tx) => {
+    if (input.status === "ACTIVE") await assertWithinLimit(tx, company.id, "users");
     const member = await tx.companyMember.create({ data: { companyId: company.id, userId: user.id, roleId: role.id, status: input.status, jobTitle: input.jobTitle || null, joinedAt: input.status === "ACTIVE" ? new Date() : null } });
     await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_MEMBERSHIP_CHANGED, entity: { type: "CompanyMember", id: member.id, label: `${user.firstName} ${user.lastName} · ${company.name}` }, after: { companyId: company.id, userId: user.id, roleKey: input.roleKey, status: input.status }, reason: input.reason }, { tx });
     return { id: member.id };
@@ -309,6 +311,7 @@ export async function createPlatformProject(context: PlatformContext, input: { c
   const company = assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true } }));
   if (await prisma.project.count({ where: { companyId: company.id, code: input.code } })) throw new AccessError("CONFLICT", "That company already uses this project code.");
   return prisma.$transaction(async (tx) => {
+    await assertWithinLimit(tx, company.id, "projects");
     const project = await tx.project.create({ data: { companyId: company.id, code: input.code, name: input.name, description: input.description || null, status: input.status, createdBy: context.userId } });
     await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_PROJECT_CREATED, entity: { type: "Project", id: project.id, label: project.name }, projectId: project.id, after: { companyId: company.id, code: project.code, name: project.name, status: project.status }, reason: input.reason }, { tx });
     return { id: project.id };

@@ -8,6 +8,7 @@ import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey
 import { expireSession, relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
 import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
 import {
   assignmentsInCompany,
   grantsInCompany,
@@ -344,12 +345,17 @@ async function enabledModulesFor(companyIds: readonly string[]): Promise<Map<str
 
   const result = new Map<string, ModuleKey[]>();
   if (unresolved.length > 0) {
-    const switches = await prisma.companyModule.findMany({
-      where: { companyId: { in: unresolved }, enabled: true },
-      select: { companyId: true, module: { select: { key: true } } },
-    });
+    // Switched on by the company AND granted by the platform (Admin Modules PRD #4 §29-§33).
+    const [switches, entitled] = await Promise.all([
+      prisma.companyModule.findMany({
+        where: { companyId: { in: unresolved }, enabled: true },
+        select: { companyId: true, module: { select: { key: true } } },
+      }),
+      entitledModulesFor(unresolved),
+    ]);
     const enabledByCompany = new Map<string, Set<string>>();
     for (const row of switches) {
+      if (!entitled.get(row.companyId)?.has(row.module.key as ModuleKey)) continue;
       const keys = enabledByCompany.get(row.companyId) ?? new Set<string>();
       keys.add(row.module.key);
       enabledByCompany.set(row.companyId, keys);
@@ -424,11 +430,16 @@ export function mayEnterGroupWorkspace(contexts: readonly UserContext[]): boolea
 export function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
   // Once per company per request (NAV-02 QUERY-02); the next request reads again.
   return scoped(moduleKeyFor(companyId), async () => {
-    const rows = await prisma.companyModule.findMany({
-      where: { companyId, enabled: true },
-      include: { module: true },
-    });
-    return enabledModuleList(new Set(rows.map((row) => row.module.key)));
+    const [rows, entitled] = await Promise.all([
+      prisma.companyModule.findMany({
+        where: { companyId, enabled: true },
+        include: { module: true },
+      }),
+      entitledModulesFor([companyId]),
+    ]);
+    // Switched on by the company AND granted by the platform (Admin Modules PRD #4 §29-§33).
+    const granted = entitled.get(companyId);
+    return enabledModuleList(new Set(rows.map((row) => row.module.key).filter((key) => granted?.has(key as ModuleKey))));
   });
 }
 

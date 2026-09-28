@@ -14,7 +14,7 @@ type Option = { value: string; label: string };
  * refresh, a shared link and Back/Forward keep it; typing is debounced and
  * replaces the entry rather than stacking history.
  */
-export function OrganizationFilters({ statuses, groups, showGroup }: { statuses: Option[]; groups: Option[]; showGroup: boolean }) {
+export function OrganizationFilters({ statuses, groups, showGroup, placeholder = "Search organizations..." }: { statuses: Option[]; groups: Option[]; showGroup: boolean; placeholder?: string }) {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -42,7 +42,7 @@ export function OrganizationFilters({ statuses, groups, showGroup }: { statuses:
     <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Filter organizations">
       <div className="relative w-full sm:w-72">
         <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-        <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search organizations..." aria-label="Search organizations" className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-8 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+        <input value={q} onChange={(event) => setQ(event.target.value)} placeholder={placeholder} aria-label={placeholder.replace(/\.+$/, "")} className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-8 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
         {q ? <button type="button" onClick={() => { setQ(""); update({ q: "" }); }} aria-label="Clear search" className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded text-fg-subtle hover:bg-hover"><X className="size-3.5" /></button> : null}
       </div>
       <select aria-label="Status" value={params.get("status") ?? ""} onChange={(event) => update({ status: event.target.value })} className={select}>

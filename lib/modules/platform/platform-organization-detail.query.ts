@@ -1,4 +1,6 @@
+import { modules as registry } from "@/config/modules";
 import { AccessError } from "@/lib/access/guards";
+import { ENTITLABLE_MODULES, entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
 import { threeDState } from "@/lib/modules/platform/platform-dashboard.query";
@@ -78,13 +80,13 @@ export async function organizationUsers(context: PlatformContext, scope: Organiz
  */
 export async function organizationModules(context: PlatformContext, scope: OrganizationScope) {
   if (!canPlatform(context, "platform.module.view")) throw new AccessError("FORBIDDEN");
-  const [modules, companies, enabled] = await Promise.all([
-    prisma.module.findMany({ orderBy: [{ name: "asc" }], select: { id: true, key: true, name: true, description: true } }),
-    prisma.company.count({ where: companyWhere(scope) }),
-    prisma.companyModule.groupBy({ by: ["moduleId"], where: { enabled: true, company: companyWhere(scope) }, _count: { _all: true } }),
-  ]);
-  const byModule = new Map(enabled.map((row) => [row.moduleId, row._count._all]));
-  return { companies, modules: modules.map((row) => ({ key: row.key, name: row.name, description: row.description, enabledIn: byModule.get(row.id) ?? 0 })) };
+  const companies = await prisma.company.findMany({ where: companyWhere(scope), select: { id: true } });
+  // From the canonical entitlements (Admin Modules PRD #4 §56), not a second calculation.
+  const entitled = await entitledModulesFor(companies.map((row) => row.id));
+  return {
+    companies: companies.length,
+    modules: ENTITLABLE_MODULES.map((key) => ({ key, name: registry[key].label, description: registry[key].description, enabledIn: [...entitled.values()].filter((keys) => keys.has(key)).length })),
+  };
 }
 
 /** Only what NESTO measures (§41). */

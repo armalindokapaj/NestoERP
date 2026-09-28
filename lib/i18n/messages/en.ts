@@ -470,6 +470,7 @@ export const en = {
       disabledToast: "{name} disabled.",
       enable: "Enable {name}",
       disable: "Disable {name}",
+      notEntitled: "Not included in your company's plan. Contact NESTO to add it.",
       enabled: "Enabled",
       disabled: "Disabled",
     },

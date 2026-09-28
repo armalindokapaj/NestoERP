@@ -12,6 +12,7 @@ import {
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { buildClientScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
+import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -228,6 +229,8 @@ export async function createProjectRecord(
   // Pending is where a new project starts. Starting it anywhere else is the
   // status decision, and needs the status permission (E-05A §31, §71).
   if (input.status !== "PENDING") assertPermission(context, "project.status.manage");
+  // The company's contracted project limit (Admin Modules PRD #4 §49).
+  await assertWithinLimit(tx, context.companyId, "projects");
 
   const created = await tx.project.create({
     data: {

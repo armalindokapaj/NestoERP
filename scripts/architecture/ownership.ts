@@ -262,6 +262,8 @@ const OWNED: Record<string, string[]> = {
     "engineeringSettings",
   ],
   company: ["supportRequest"],
+  // What each company may use: plans, company entitlements, per-module exceptions (Admin Modules PRD #4).
+  entitlements: ["entitlementPlan", "companyEntitlement", "companyModuleEntitlement"],
 };
 
 export const MODEL_OWNER: Record<string, string> = Object.fromEntries(
@@ -285,6 +287,20 @@ export type OwnershipException = {
 } & ({ domain: string; file?: never } | { file: string; domain?: never });
 
 export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
+  {
+    model: "company",
+    file: "lib/modules/entitlements/entitlement.service.ts",
+    fields: ["configVersion"],
+    reason:
+      "Admin Modules PRD #4 §82: an entitlement change makes every cached reading of the company's modules stale. The file only increments configVersion — the same cache key module toggles bump through settings — inside the entitlement transaction; it never writes any other company column.",
+  },
+  {
+    model: "companyStorageQuota",
+    file: "lib/modules/entitlements/entitlement.service.ts",
+    fields: ["maxStorageBytes"],
+    reason:
+      "Admin Modules PRD #4 §47, §48: the storage limit a plan or the Platform Admin sets is the quota Documents already enforces, so there is one number rather than two that can disagree. The file writes only maxStorageBytes of an existing row, audited as PLATFORM_ENTITLEMENT_LIMITS_CHANGED; the per-file limit and usage stay Documents'.",
+  },
   {
     model: "projectBuilding",
     file: "lib/modules/project-3d/project-3d.structure.ts",

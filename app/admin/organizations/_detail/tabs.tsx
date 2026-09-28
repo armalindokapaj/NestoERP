@@ -120,7 +120,7 @@ export async function ModulesTab({ context, scope }: { context: PlatformContext;
   const { companies, modules } = await organizationModules(context, scope);
   const enabled = modules.filter((row) => row.enabledIn > 0).length;
   return (
-    <Card title="Modules" action={<Link href="/admin/modules" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">Manage entitlements<ArrowRight aria-hidden="true" className="size-3.5" /></Link>}>
+    <Card title="Modules" action={<Link href={scope.kind === "company" ? `/admin/modules/${scope.companyId}` : "/admin/modules"} className="inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">Manage entitlements<ArrowRight aria-hidden="true" className="size-3.5" /></Link>}>
       <p className="border-b border-line px-5 py-3 text-table text-fg-muted">
         {scope.kind === "group" ? `Modules are granted company by company. ${enabled} of ${modules.length} are on in at least one of the ${companies} companies.` : `${enabled} enabled · ${modules.length - enabled} disabled`}
       </p>

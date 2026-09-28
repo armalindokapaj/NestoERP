@@ -10,6 +10,7 @@ import { recordSystemAction } from "@/lib/core/audit/audit.service";
 import { NUMBERING_DEFAULTS } from "@/lib/core/numbering/numbering.service";
 import { DEFAULT_MAX_FILE_BYTES } from "@/lib/core/storage";
 import { prisma } from "@/lib/database/prisma";
+import { ensureCompanyEntitlement } from "@/lib/modules/entitlements/entitlement.service";
 import { sendMail, type MailOutcome } from "@/lib/mail";
 import { CORE_MODULES, DEPENDENCIES } from "@/lib/modules/settings/module-toggle.service";
 import {
@@ -237,6 +238,8 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       update: {},
       create: { companyId, maxStorageBytes: null, maxSingleFileBytes: BigInt(DEFAULT_MAX_FILE_BYTES) },
     });
+    // What the company may use: the default plan until the platform changes it (Admin Modules PRD #4 §86).
+    await ensureCompanyEntitlement(tx, companyId);
     // The project types a company starts with; its administrators keep the list
     // from then on, so a rerun adds none it renamed or removed (E-05A §62).
     const hasProjectTypes = await tx.projectType.findFirst({ where: { companyId }, select: { id: true } });
