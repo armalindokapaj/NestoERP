@@ -18,30 +18,6 @@ function assertPlatform(context: PlatformContext, permission: Parameters<typeof 
 
 const iso = (value: Date | null | undefined) => value?.toISOString() ?? null;
 
-export async function platformDashboard(context: PlatformContext) {
-  assertPlatform(context, "platform.dashboard.view");
-  const groupFilter = { isTestFixture: false } as const;
-  // Standalone companies' own roots are not groups (Simplified Company Creation §8).
-  const realGroups = { ...groupFilter, kind: "GROUP" } as const;
-  const [groups, companies, activeUsers, activeProjects, implementations, disabledAccounts, failedJobs, alerts, recentGroups, recentAudit] = await Promise.all([
-    prisma.parentGroup.count({ where: realGroups }),
-    prisma.company.count({ where: { parentGroup: groupFilter } }),
-    prisma.user.count({ where: { status: "ACTIVE" } }),
-    prisma.project.count({ where: { status: "ACTIVE", archivedAt: null, company: { parentGroup: groupFilter } } }),
-    prisma.parentGroup.count({ where: { ...realGroups, status: { in: ["IMPLEMENTING", "READY_FOR_VALIDATION"] } } }),
-    prisma.user.count({ where: { status: { not: "ACTIVE" } } }),
-    prisma.jobFailure.count({ where: { retriedAt: null } }),
-    prisma.authEvent.count({ where: { type: { in: ["LOGIN_FAILED", "LOGIN_RATE_LIMITED", "ACCOUNT_BLOCKED"] }, createdAt: { gte: new Date(Date.now() - 86_400_000) } } }),
-    prisma.parentGroup.findMany({ where: realGroups, take: 5, orderBy: { createdAt: "desc" }, select: { id: true, name: true, slug: true, status: true, createdAt: true } }),
-    prisma.auditEvent.findMany({ where: { moduleKey: "platform" }, take: 8, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], select: { id: true, actionKey: true, entityType: true, entityLabelSnapshot: true, actorDisplayNameSnapshot: true, occurredAt: true, severity: true } }),
-  ]);
-  return {
-    kpis: { groups, companies, activeUsers, activeProjects, implementations, disabledAccounts, failedJobs, alerts },
-    recentGroups: recentGroups.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
-    recentAudit: recentAudit.map((row) => ({ ...row, occurredAt: row.occurredAt.toISOString() })),
-  };
-}
-
 export async function listPlatformCompanies(context: PlatformContext) {
   assertPlatform(context, "platform.company.view");
   const rows = await prisma.company.findMany({
