@@ -2,7 +2,7 @@
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import * as React from "react";
-import { ExternalLink, MoreHorizontal, RotateCcw, Save } from "lucide-react";
+import { ExternalLink, Eye, MoreHorizontal, RotateCcw, Save } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,8 @@ const STATUS_TONE = { saved: "success", unsaved: "warning", saving: "info", fail
  * shows, so Save is never mistaken for Publish. The overflow links open the
  * management pages in a new tab: leaving this tab would drop unsaved work.
  * Save asks for nothing: who saved what, and when, is audited by the server
- * (Experience Editor no-reason PRD §2, §32).
+ * (Experience Editor no-reason PRD §2, §32). Company viewer opens the
+ * published viewer in one named tab, so repeated previews reuse it.
  */
 export function EditorTopbar({
   experienceName,
@@ -56,6 +57,11 @@ export function EditorTopbar({
       </span>
       <Button type="button" variant="ghost" size="sm" className="shrink-0 text-neutral-300 hover:text-white" onClick={onReset} disabled={saving || !canEdit}>
         <RotateCcw aria-hidden="true" /> Reset defaults
+      </Button>
+      <Button asChild variant="secondary" size="sm" className="shrink-0">
+        <a href={`${managementHref}/viewer`} target={`nesto-company-viewer-${managementHref.split("/").pop()}`} title="Preview what company users see. Save first to include your changes." data-testid="editor-company-viewer">
+          <Eye aria-hidden="true" />Company viewer
+        </a>
       </Button>
       <Button type="button" size="sm" className="shrink-0" onClick={onSave} disabled={saving || !dirty || !canEdit} aria-keyshortcuts="Control+S Meta+S">
         <Save aria-hidden="true" />{saving ? "Saving…" : "Save"}

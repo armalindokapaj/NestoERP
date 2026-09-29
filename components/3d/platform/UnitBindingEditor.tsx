@@ -36,6 +36,21 @@ type Workspace = {
   bindings: Binding[];
 };
 
+/** The unit camera's compass direction, as in the Rozaris unit editor. */
+const POI_YAW_PRESETS = [
+  { label: "N", name: "north", deg: 0 },
+  { label: "E", name: "east", deg: 90 },
+  { label: "S", name: "south", deg: 180 },
+  { label: "W", name: "west", deg: 270 },
+];
+
+/** An empty field clears the override: the Experience's unit camera setting applies. */
+function overrideValue(value: string): number | null {
+  if (value.trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function emptyBinding(meshName: string, projectUnitId = ""): Binding {
   return {
     meshName,
@@ -168,6 +183,8 @@ export function UnitBindingEditor({
                 <TableHeaderCell>Scene node</TableHeaderCell>
                 <TableHeaderCell>Project unit</TableHeaderCell>
                 <TableHeaderCell>POI</TableHeaderCell>
+                <TableHeaderCell>Camera from</TableHeaderCell>
+                <TableHeaderCell>Distance / height</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -206,6 +223,29 @@ export function UnitBindingEditor({
                         />
                         Show
                       </label>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1" role="group" aria-label={`Camera direction for ${meshName}`}>
+                        {POI_YAW_PRESETS.map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            aria-pressed={binding.poiYawDeg === preset.deg}
+                            title={`Camera from the ${preset.name}`}
+                            className={`size-6 rounded border text-[11px] font-semibold disabled:opacity-40 ${binding.poiYawDeg === preset.deg ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-line text-fg-muted"}`}
+                            onClick={() => setBinding(meshName, { poiYawDeg: preset.deg })}
+                            disabled={pending || !binding.projectUnitId || !binding.poiEnabled}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <input type="number" step="0.1" min="0.1" aria-label={`Camera distance for ${meshName}`} placeholder="Dist." className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiDistanceOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiDistanceOverride: overrideValue(event.target.value) })} />
+                        <input type="number" step="0.1" aria-label={`Camera height for ${meshName}`} placeholder="Height" className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiHeightOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiHeightOverride: overrideValue(event.target.value) })} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
