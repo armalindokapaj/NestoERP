@@ -7,7 +7,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
-  Camera, CircleGauge, Cuboid, ExternalLink, Layers3, Lightbulb, LoaderCircle, Mountain, Palette, PanelLeftClose,
+  Blocks, BookMarked, Camera, CircleGauge, Cuboid, ExternalLink, Layers3, Lightbulb, LoaderCircle, Map as MapIcon, MousePointerClick, Mountain, Palette, PanelLeftClose,
   PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, ScanLine, Sun, Trash2, Video, X,
 } from "lucide-react";
 
@@ -29,6 +29,10 @@ import type { Project3DNodeOverride, Project3DSceneNode } from "@/lib/3d/shared/
 import { cn } from "@/lib/utils/cn";
 import { Choice, Color, Panel, PanelBoundary, Range, Toggle } from "./editor/controls";
 import { EditorTopbar } from "./editor/EditorTopbar";
+import {
+  CameraExtraPanels, EnvironmentExtraPanels, InteractionPanels, LightingExtraPanels, MapPanels, MaterialExtraPanels, MaterialNodeList,
+  PerformanceExtraPanels, PresetsPanel, RenderingExtraPanels, UnitListPanel, UnitStylePanels,
+} from "./editor/extended-panels";
 import { ResizeHandle } from "./editor/ResizeHandle";
 import { classifySaveFailure, editorSaveStatus, noticeForStateCheck, PANEL_LIMITS, type EditorNotice } from "./editor/save-state";
 import { useEditorLayout } from "./editor/use-editor-layout";
@@ -116,7 +120,7 @@ export type Project3DEditorWorkspace = {
   units: EditorUnit[];
 };
 
-type Tool = "scene" | "materials" | "environment" | "lighting" | "rendering" | "camera" | "shots" | "sections" | "performance" | "units";
+type Tool = "scene" | "materials" | "environment" | "lighting" | "rendering" | "camera" | "shots" | "sections" | "performance" | "units" | "unitStyle" | "interaction" | "map" | "presets";
 const TOOLS: Array<{ id: Tool; label: string; icon: typeof Cuboid }> = [
   { id: "scene", label: "Scene", icon: Cuboid },
   { id: "materials", label: "Materials", icon: Palette },
@@ -128,7 +132,13 @@ const TOOLS: Array<{ id: Tool; label: string; icon: typeof Cuboid }> = [
   { id: "sections", label: "Sections", icon: ScanLine },
   { id: "performance", label: "Performance", icon: CircleGauge },
   { id: "units", label: "Unit binding", icon: Lightbulb },
+  { id: "unitStyle", label: "Units", icon: Blocks },
+  { id: "interaction", label: "Interaction", icon: MousePointerClick },
+  { id: "map", label: "Map", icon: MapIcon },
+  { id: "presets", label: "Presets", icon: BookMarked },
 ];
+/** Tools added from the Rozaris editor: their whole panel comes from extended-panels. */
+const EXTENDED_TOOLS: Tool[] = ["unitStyle", "interaction", "map", "presets"];
 const TOOL_IDS = TOOLS.map((tool) => tool.id);
 
 /** A model version's authored settings: what Save sends for it, and the `updatedAt` it was read at. */
@@ -255,6 +265,9 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   const [confirmReset, setConfirmReset] = React.useState(false);
   const [pendingVersionId, setPendingVersionId] = React.useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  /** Editor-only: shows the unit blocks in the viewport on the unit tools (Rozaris "Status Preview"). */
+  const [statusPreview, setStatusPreview] = React.useState(true);
+  const [selectedUnitId, setSelectedUnitId] = React.useState<string | null>(null);
   const [modelStatus, setModelStatus] = React.useState<ModelLoadStatus>({ state: "loading" });
   const [perf, setPerf] = React.useState<{ fps: number; frameTimeMs: number; drawCalls: number; triangles: number; textures: number; dpr: number } | null>(null);
   const [smallScreen, setSmallScreen] = React.useState(false);
@@ -547,6 +560,20 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
     changeConfig({ sections: [...draft.sections, section] });
   }
 
+  const unitBlocksShown = statusPreview && (tool === "unitStyle" || tool === "units" || tool === "interaction");
+  const applyUnitsMode = React.useCallback(() => viewerRef.current?.setUnitsMode(unitBlocksShown), [unitBlocksShown]);
+  React.useEffect(() => { applyUnitsMode(); }, [applyUnitsMode, models]);
+
+  function selectUnit(unitId: string | null) {
+    setSelectedUnitId(unitId);
+    viewerRef.current?.setSelectedUnit(unitId);
+  }
+
+  function restoreOriginal() {
+    if (!model || !selectedNodeId) return;
+    changeModel({ nodeOverrides: model.nodeOverrides.filter((item) => item.nodeId !== selectedNodeId) });
+  }
+
   const modelLocked = !model || !permissions.manageModels || !isReady(model);
   const modelState = model && (!isReady(model) || model.assetMissing) ? <Panel title="Model state">
     <p className="text-xs text-neutral-200">{versionStateLabel(model)}</p>
@@ -563,6 +590,27 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
     <Panel title="Scene node"><Choice label="Node" value={selectedNodeId ?? ""} options={[{ value: "", label: "Choose a mesh" }, ...sceneManifest.filter((node) => node.isMesh && node.autoClassification !== "unit_block").map((node) => ({ value: node.nodeId, label: node.name }))]} onChange={(value) => setSelectedNodeId(value || null)} /></Panel>
     {selectedNodeId ? <Panel title="Material override"><Toggle label="Override material" value={selectedOverride?.materialOverrideEnabled ?? true} disabled={modelLocked} onChange={(materialOverrideEnabled) => changeOverride({ materialOverrideEnabled })} /><Choice label="Preset" value={selectedOverride?.materialPreset ?? "concrete"} disabled={modelLocked} options={["concrete", "plaster", "stone", "wood", "aluminium", "steel", "chrome", "ceramic"].map((value) => ({ value, label: value }))} onChange={(materialPreset) => changeOverride({ materialPreset: materialPreset as Project3DNodeOverride["materialPreset"] })} /><Color label="Base color" value={selectedOverride?.colorHex ?? "#cccccc"} disabled={modelLocked} onChange={(colorHex) => changeOverride({ colorHex })} /><Range label="Roughness" value={selectedOverride?.roughness ?? 0.5} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(roughness) => changeOverride({ roughness })} /><Range label="Metalness" value={selectedOverride?.metalness ?? 0} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(metalness) => changeOverride({ metalness })} /><Range label="Opacity" value={selectedOverride?.opacity ?? 1} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(opacity) => changeOverride({ opacity })} /><Range label="Clearcoat" value={selectedOverride?.clearcoat ?? 0} min={0} max={1} step={0.01} disabled={modelLocked} onChange={(clearcoat) => changeOverride({ clearcoat })} /><Toggle label="Transmission" value={selectedOverride?.transmissionEnabled ?? false} disabled={modelLocked} onChange={(transmissionEnabled) => changeOverride({ transmissionEnabled })} /></Panel> : null}
   </> : tool === "environment" ? <><Panel title="Sun and sky"><Toggle label="Sky" value={draft.skyEnabled} onChange={(skyEnabled) => changeConfig({ skyEnabled })} /><Range label="Sun azimuth" value={draft.sunAzimuthDeg} min={0} max={360} step={1} suffix="°" onChange={(sunAzimuthDeg) => changeConfig({ sunAzimuthDeg })} /><Range label="Sun elevation" value={draft.sunElevationDeg} min={-10} max={90} step={1} suffix="°" onChange={(sunElevationDeg) => changeConfig({ sunElevationDeg })} /><Range label="Environment intensity" value={draft.environmentIntensity} min={0} max={0.5} step={0.005} onChange={(environmentIntensity) => changeConfig({ environmentIntensity })} /><Range label="Turbidity" value={draft.skyTurbidity} min={0} max={20} step={0.1} onChange={(skyTurbidity) => changeConfig({ skyTurbidity })} /></Panel><Panel title="Atmosphere"><Toggle label="Clouds" value={draft.cloudsEnabled} onChange={(cloudsEnabled) => changeConfig({ cloudsEnabled })} /><Toggle label="Fog" value={draft.fogEnabled} onChange={(fogEnabled) => changeConfig({ fogEnabled })} /><Range label="Fog density" value={draft.fogDensity} min={0} max={0.2} step={0.001} onChange={(fogDensity) => changeConfig({ fogDensity })} /><Toggle label="Water" value={draft.waterEnabled} onChange={(waterEnabled) => changeConfig({ waterEnabled })} /><Toggle label="Ground" value={draft.groundEnabled} onChange={(groundEnabled) => changeConfig({ groundEnabled })} /><Color label="Ground color" value={draft.groundColor} onChange={(groundColor) => changeConfig({ groundColor })} /></Panel></> : tool === "lighting" ? <><Panel title="Sun light"><Toggle label="Sun light" value={draft.sunLightEnabled} onChange={(sunLightEnabled) => changeConfig({ sunLightEnabled })} /><Range label="Temperature" value={draft.sunTemperatureK} min={1000} max={12000} step={50} suffix="K" onChange={(sunTemperatureK) => changeConfig({ sunTemperatureK })} /><Toggle label="Automatic intensity" value={draft.autoSunIntensityEnabled} onChange={(autoSunIntensityEnabled) => changeConfig({ autoSunIntensityEnabled })} /><Range label="Manual intensity" value={draft.manualSunIntensity} min={0} max={10} step={0.05} onChange={(manualSunIntensity) => changeConfig({ manualSunIntensity })} /></Panel><Panel title="Shadows and GI"><Toggle label="Shadows" value={draft.shadowsEnabled} onChange={(shadowsEnabled) => changeConfig({ shadowsEnabled })} /><Toggle label="Soft shadows" value={draft.softShadowsEnabled} onChange={(softShadowsEnabled) => changeConfig({ softShadowsEnabled })} /><Toggle label="Cascaded shadows" value={draft.csmEnabled} onChange={(csmEnabled) => changeConfig({ csmEnabled })} /><Toggle label="Contact shadows" value={draft.contactShadowsEnabled} onChange={(contactShadowsEnabled) => changeConfig({ contactShadowsEnabled })} /><Toggle label="Global illumination" value={draft.giEnabled} onChange={(giEnabled) => changeConfig({ giEnabled })} /><Toggle label="Volumetric lighting" value={draft.volumetricLightingEnabled} onChange={(volumetricLightingEnabled) => changeConfig({ volumetricLightingEnabled })} /></Panel></> : tool === "rendering" ? <><Panel title="Post processing"><Toggle label="Screen-space reflections" value={draft.ssrEnabled} onChange={(ssrEnabled) => changeConfig({ ssrEnabled })} /><Toggle label="Anti-aliasing" value={draft.antialiasEnabled} onChange={(antialiasEnabled) => changeConfig({ antialiasEnabled })} /><Toggle label="Bloom" value={draft.bloomEnabled} onChange={(bloomEnabled) => changeConfig({ bloomEnabled })} /><Range label="Bloom strength" value={draft.bloomStrength} min={0} max={5} step={0.05} onChange={(bloomStrength) => changeConfig({ bloomStrength })} /><Toggle label="Depth of field" value={draft.depthOfFieldEnabled} onChange={(depthOfFieldEnabled) => changeConfig({ depthOfFieldEnabled })} /><Toggle label="Motion blur" value={draft.motionBlurEnabled} onChange={(motionBlurEnabled) => changeConfig({ motionBlurEnabled })} /></Panel><Panel title="Color"><Range label="Exposure" value={draft.exposure} min={0.1} max={5} step={0.05} onChange={(exposure) => changeConfig({ exposure })} /><Choice label="Tone mapping" value={draft.toneMapping} options={["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"].map((value) => ({ value, label: value }))} onChange={(toneMapping) => changeConfig({ toneMapping: toneMapping as Project3DConfig["toneMapping"] })} /><Toggle label="Color LUT" value={draft.lutEnabled} onChange={(lutEnabled) => changeConfig({ lutEnabled })} /><Range label="LUT intensity" value={draft.lutIntensity} min={0} max={1} step={0.01} onChange={(lutIntensity) => changeConfig({ lutIntensity })} /></Panel></> : tool === "camera" ? <><Panel title="Controls"><Toggle label="Orbit" value={draft.cameraOrbitEnabled} onChange={(cameraOrbitEnabled) => changeConfig({ cameraOrbitEnabled })} /><Toggle label="Pan" value={draft.cameraPanEnabled} onChange={(cameraPanEnabled) => changeConfig({ cameraPanEnabled })} /><Toggle label="Zoom" value={draft.cameraZoomEnabled} onChange={(cameraZoomEnabled) => changeConfig({ cameraZoomEnabled })} /><Toggle label="Damping" value={draft.cameraDampingEnabled} onChange={(cameraDampingEnabled) => changeConfig({ cameraDampingEnabled })} /><Toggle label="Auto rotate" value={draft.autoRotate} onChange={(autoRotate) => changeConfig({ autoRotate })} /></Panel><Panel title="Lens and limits"><Range label="Desktop FOV" value={draft.cameraFovDesktop} min={10} max={120} step={1} suffix="°" onChange={(cameraFovDesktop) => changeConfig({ cameraFovDesktop })} /><Range label="Mobile FOV" value={draft.cameraFovMobile} min={10} max={120} step={1} suffix="°" onChange={(cameraFovMobile) => changeConfig({ cameraFovMobile })} /><Range label="Near clip" value={draft.cameraNearClip} min={0.01} max={10} step={0.01} suffix="m" onChange={(cameraNearClip) => changeConfig({ cameraNearClip })} /><Range label="Far clip" value={draft.cameraFarClip} min={100} max={20000} step={50} suffix="m" onChange={(cameraFarClip) => changeConfig({ cameraFarClip })} /></Panel><Panel title="Idle camera"><Toggle label="Idle drone" value={draft.idleDroneEnabled} onChange={(idleDroneEnabled) => changeConfig({ idleDroneEnabled })} /><Range label="Start after" value={draft.idleDroneDelaySec} min={5} max={600} step={1} suffix="s" onChange={(idleDroneDelaySec) => changeConfig({ idleDroneDelaySec })} /><Range label="Orbit duration" value={draft.idleDroneOrbitDurationSec} min={20} max={300} step={1} suffix="s" onChange={(idleDroneOrbitDurationSec) => changeConfig({ idleDroneOrbitDurationSec })} /><Button type="button" variant="secondary" size="sm" onClick={() => viewerRef.current?.previewIdleDrone()}>Preview flight</Button></Panel></> : tool === "shots" ? <Panel title="Camera shots"><Button type="button" variant="secondary" size="sm" onClick={addShot}>Capture current view</Button>{draft.cameraPresets.map((shot, index) => <div key={shot.id} className="flex items-center justify-between gap-2 rounded border border-neutral-800 p-2 text-xs"><button type="button" className="min-w-0 flex-1 truncate text-left text-neutral-200" onClick={() => viewerRef.current?.flyToPreset(shot)}>{index === 0 ? "Opening · " : ""}{shot.label}</button><button type="button" className="text-red-300" onClick={() => changeConfig({ cameraPresets: draft.cameraPresets.filter((item) => item.id !== shot.id) })}>Remove</button></div>)}</Panel> : tool === "sections" ? <Panel title="Sections"><Button type="button" variant="secondary" size="sm" onClick={addSection}>Add section from model</Button>{draft.sections.map((section) => <div key={section.id} className="rounded border border-neutral-800 p-2 text-xs text-neutral-300"><button type="button" className="font-medium" onClick={() => viewerRef.current?.activateSection(section, { showIndicator: true })}>{section.name}</button><div className="mt-2 flex gap-2"><button type="button" onClick={() => viewerRef.current?.activateSection(null)}>Clear</button><button type="button" className="text-red-300" onClick={() => changeConfig({ sections: draft.sections.filter((item) => item.id !== section.id) })}>Remove</button></div></div>)}</Panel> : tool === "performance" ? <><Panel title="Quality"><Choice label="Profile" value={draft.qualityPreset} options={["ultra_desktop", "high_desktop", "balanced", "mobile_high", "mobile_low", "custom"].map((value) => ({ value, label: value.replaceAll("_", " ") }))} onChange={(qualityPreset) => changeConfig({ qualityPreset: qualityPreset as Project3DConfig["qualityPreset"] })} /><Choice label="Renderer" value={draft.renderingMode} options={[{ value: "auto", label: "Auto" }, { value: "webgpu", label: "WebGPU" }, { value: "webgl2", label: "WebGL 2" }]} onChange={(renderingMode) => changeConfig({ renderingMode: renderingMode as Project3DConfig["renderingMode"] })} /><Toggle label="Adaptive quality" value={draft.adaptiveQualityEnabled} onChange={(adaptiveQualityEnabled) => changeConfig({ adaptiveQualityEnabled })} /><Toggle label="Reduce quality during interaction" value={draft.interactionQualityReductionEnabled} onChange={(interactionQualityReductionEnabled) => changeConfig({ interactionQualityReductionEnabled })} /></Panel>{perf ? <Panel title="Live renderer"><p className="font-mono text-xs text-neutral-300">{Math.round(perf.fps)} fps · {perf.frameTimeMs.toFixed(1)} ms</p><p className="font-mono text-xs text-neutral-400">{perf.drawCalls} draws · {perf.triangles.toLocaleString()} triangles · DPR {perf.dpr.toFixed(2)}</p></Panel> : null}</> : <Panel title="Unit binding"><p className="text-xs leading-5 text-neutral-400">Link named scene nodes of the selected model to canonical NESTO units. Unit links save on their own and reach the published viewer only through a release.</p><p className="text-xs text-neutral-500">{initial.units.length} active units in this project.</p></Panel>;
+
+  const materialNodes = sceneManifest.filter((node) => node.isMesh && node.autoClassification !== "unit_block");
+  const linkedUnitIds = new Set(models.flatMap((entry) => entry.model.unitLinks?.map((link) => link.unitId) ?? []));
+  const configProps = { draft, change: changeConfig };
+  const extended = tool === "unitStyle" ? <>
+    <UnitStylePanels {...configProps} statusPreview={statusPreview} onStatusPreview={setStatusPreview} />
+    <UnitListPanel units={units.map((unit) => ({ ...unit, linked: linkedUnitIds.has(unit.id) }))} selectedUnitId={selectedUnitId} onSelect={selectUnit} onTestCamera={(unitId) => { selectUnit(unitId); viewerRef.current?.focusUnit(unitId); }} />
+  </> : tool === "interaction" ? <InteractionPanels {...configProps} />
+    : tool === "map" ? <MapPanels {...configProps} />
+    : tool === "presets" ? <PresetsPanel {...configProps} canEdit={permissions.configure} />
+    : tool === "materials" ? <>
+      {materialNodes.length > 0 ? <MaterialNodeList nodes={materialNodes} selectedNodeId={selectedNodeId} overriddenIds={new Set(model?.nodeOverrides.map((item) => item.nodeId) ?? [])} onSelect={setSelectedNodeId} /> : null}
+      {selectedNodeId ? <MaterialExtraPanels override={selectedOverride} change={changeOverride} onRestore={restoreOriginal} disabled={modelLocked} /> : null}
+    </>
+    : tool === "environment" ? <EnvironmentExtraPanels {...configProps} />
+    : tool === "lighting" ? <LightingExtraPanels {...configProps} />
+    : tool === "rendering" ? <RenderingExtraPanels {...configProps} />
+    : tool === "camera" ? <CameraExtraPanels {...configProps} />
+    : tool === "performance" ? <PerformanceExtraPanels {...configProps} />
+    : tool === "units" ? <Panel title="Unit blocks preview"><Toggle label="Show unit blocks in the viewport" value={statusPreview} onChange={setStatusPreview} /></Panel>
+    : null;
 
   const toolLabel = TOOLS.find((item) => item.id === tool)?.label ?? "";
   const bindingVersion = model && ["READY", "PUBLISHED"].includes(model.status) ? model : null;
@@ -631,7 +679,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
         </>}
 
         <main aria-label="3D viewport" className="relative min-w-0 flex-1 overflow-hidden bg-neutral-900">
-          <ThreeProjectViewer ref={viewerRef} detailModels={models} cameraConfig={draft} qualityConfig={draft} environmentConfig={draft} lightingConfig={draft} renderingConfig={draft} unitsConfig={draft} siteConfig={siteConfig} className="absolute inset-0 h-full w-full" showPerfStats={tool === "performance"} onPerfStats={setPerf} onModelLoadStatus={setModelStatus} />
+          <ThreeProjectViewer ref={viewerRef} detailModels={models} cameraConfig={draft} qualityConfig={draft} environmentConfig={draft} lightingConfig={draft} renderingConfig={draft} unitsConfig={draft} siteConfig={siteConfig} className="absolute inset-0 h-full w-full" showPerfStats={tool === "performance"} onPerfStats={setPerf} onModelLoadStatus={setModelStatus} onReady={applyUnitsMode} onUnitClick={unitBlocksShown ? selectUnit : undefined} />
           <div className="absolute left-3 top-3 flex gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => viewerRef.current?.resetView()}>Reset view</Button></div>
           {models.length === 0 ? <EmptyViewport versions={versions} canUpload={permissions.manageModels} /> : null}
           {loadingShown && modelStatus.state === "loading" ? (
@@ -663,7 +711,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
           <aside aria-label="Properties" style={{ width: layout.rightWidth }} className="flex shrink-0 flex-col bg-neutral-950">
             <PanelHeader title={`Properties · ${toolLabel}`} action={<Button type="button" size="icon-sm" variant="ghost" className="text-neutral-500 hover:text-white" aria-label="Hide properties panel" onClick={() => updateLayout({ rightCollapsed: true })}><PanelRightClose aria-hidden="true" /></Button>} />
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-              <PanelBoundary key={tool} label={`${toolLabel} properties`}>{inspector}</PanelBoundary>
+              <PanelBoundary key={tool} label={`${toolLabel} properties`}>{EXTENDED_TOOLS.includes(tool) ? null : inspector}{extended}</PanelBoundary>
             </div>
           </aside>
         </>}
