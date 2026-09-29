@@ -11,6 +11,7 @@ import { siteUrl } from "@/lib/marketing/site-url";
  */
 const routes = [
   { path: "/", priority: 1 },
+  { path: "/full-view", priority: 0.9 },
   { path: "/platform", priority: 0.9 },
   { path: "/pricing", priority: 0.9 },
   { path: "/security", priority: 0.8 },

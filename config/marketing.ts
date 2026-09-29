@@ -10,8 +10,8 @@
  * Names and labels are read from config/modules.ts and config/roles.ts rather
  * than restated here, so the site cannot drift from the application it sells.
  */
-import type { ModuleKey } from "./modules";
-import type { RoleKey } from "./roles";
+import { moduleList, type ModuleKey } from "./modules";
+import { MEMBERSHIP_ROLE_KEYS, type RoleKey } from "./roles";
 
 /** Replace with your real addresses before launch. */
 export const siteContact = {
@@ -21,7 +21,7 @@ export const siteContact = {
 } as const;
 
 export const siteNav = [
-  { key: "platform", href: "/platform" },
+  { key: "fullView", href: "/full-view" },
   { key: "pricing", href: "/pricing" },
   { key: "security", href: "/security" },
   { key: "about", href: "/about" },
@@ -32,10 +32,11 @@ export const footerNav = [
   {
     key: "platform",
     links: [
+      { key: "fullView", href: "/full-view" },
       { key: "overview", href: "/platform" },
-      { key: "modules", href: "/platform#modules" },
-      { key: "roles", href: "/platform#roles" },
-      { key: "lifecycle", href: "/platform#lifecycle" },
+      { key: "modules", href: "/full-view#modules" },
+      { key: "roles", href: "/full-view#roles" },
+      { key: "lifecycle", href: "/full-view#lifecycle" },
       { key: "pricing", href: "/pricing" },
     ],
   },
@@ -62,10 +63,14 @@ export const footerNav = [
 export type FooterColumnKey = (typeof footerNav)[number]["key"];
 export type FooterLinkKey = (typeof footerNav)[number]["links"][number]["key"];
 
-/** Figures that describe the product itself — nothing here needs a footnote. */
+/**
+ * Figures that describe the product itself — nothing here needs a footnote.
+ * Module and role counts are read from the registries, so they cannot go stale
+ * (Landing + Full View PRD §89).
+ */
 export const stats = [
-  { key: "modules", figure: "17" },
-  { key: "roles", figure: "16" },
+  { key: "modules", figure: String(moduleList.length) },
+  { key: "roles", figure: String(MEMBERSHIP_ROLE_KEYS.length) },
   { key: "sourceOfTruth", figure: "1" },
   { key: "spreadsheets", figure: "0" },
 ] as const;

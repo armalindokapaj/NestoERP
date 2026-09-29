@@ -31,12 +31,12 @@ export const siteSq: SiteCopy = {
     platform: {
       title: "Platforma",
       description:
-        "Shtatëmbëdhjetë module, gjashtëmbëdhjetë hapësira pune sipas rolit dhe një regjistër i vetëm projekti — i gjithë cikli i ndërtimit në një sistem.",
+        "Çdo departament i ndërtimit, një hapësirë pune për çdo rol dhe një regjistër i vetëm projekti — i gjithë cikli i ndërtimit në një sistem.",
     },
     pricing: {
       title: "Çmimet",
       description:
-        "Një çmim për kompani, me të shtatëmbëdhjetë modulet të përfshira në çdo plan. Pa pagesa shtesë për modul dhe pa surpriza për përdorues.",
+        "Ndërtoni NESTO-n tuaj: zgjidhni një bazë, modulet që ju duhen, kompanitë, projektet dhe përdoruesit, dhe shikoni çmimin ndërsa ecni.",
     },
     security: {
       title: "Siguria",
@@ -57,6 +57,7 @@ export const siteSq: SiteCopy = {
   },
 
   nav: {
+    fullView: "Pamja e plotë",
     platform: "Platforma",
     pricing: "Çmimet",
     security: "Siguria",
@@ -72,6 +73,7 @@ export const siteSq: SiteCopy = {
       access: "Aksesi",
     },
     links: {
+      fullView: "Pamja e plotë",
       overview: "Përmbledhje",
       modules: "Modulet",
       roles: "Rolet",
@@ -107,7 +109,7 @@ export const siteSq: SiteCopy = {
     },
     platform: {
       eyebrow: "Platforma",
-      title: "Shtatëmbëdhjetë module. Një hapësirë pune.",
+      title: "Çdo departament. Një hapësirë pune.",
       lead: "Çdo departament në të njëjtin sistem, mbi të njëjtin regjistër projekti — me prokurimin, cilësinë dhe sigurinë si punë parësore, jo si shtesa.",
       cta: "Eksploroni platformën",
     },
@@ -131,7 +133,7 @@ export const siteSq: SiteCopy = {
   },
 
   stats: {
-    modules: { label: "Module", note: "Të gjitha të përfshira, në çdo plan." },
+    modules: { label: "Module", note: "Aktivizoni ato që i duhen kompanisë suaj." },
     roles: { label: "Role", note: "Secili me hapësirën e vet të punës dhe panelin e vet." },
     sourceOfTruth: { label: "Burim i së vërtetës", note: "Një bazë të dhënash pas çdo departamenti." },
     spreadsheets: {
@@ -357,7 +359,7 @@ export const siteSq: SiteCopy = {
     },
     {
       title: "Një sistem, që duket",
-      copy: "Shtatëmbëdhjetë module, një sistem dizajni. Një skedar i vetëm mban çdo ngjyrë, rreze, hije dhe kohëzgjatje, kështu që asnjë ekran nuk shpik të vetat. Mësoni një modul dhe i keni mësuar të gjitha.",
+      copy: "Çdo modul, një sistem dizajni. Një skedar i vetëm mban çdo ngjyrë, rreze, hije dhe kohëzgjatje, kështu që asnjë ekran nuk shpik të vetat. Mësoni një modul dhe i keni mësuar të gjitha.",
       points: ["Një grup vlerash dizajni", "Një librari komponentësh", "Një standard strukture"],
     },
     {
@@ -424,7 +426,7 @@ export const siteSq: SiteCopy = {
     seePricing: "Shihni çmimet",
     modules: {
       eyebrow: "Modulet",
-      title: "Shtatëmbëdhjetë module dhe seksionet brenda tyre.",
+      title: "Çdo modul dhe seksionet brenda tij.",
       lead: "Çdo modul vjen me faqen, titullin, navigimin dhe panelin e vet. Skedat më poshtë janë ato ku ekipi juaj do të mbërrijë në të vërtetë.",
     },
     rolesNote:
@@ -489,7 +491,7 @@ export const siteSq: SiteCopy = {
   pricing: {
     eyebrow: "Çmimet",
     title: "Çmim për kompani. Kurrë për modul.",
-    lead: "Çdo plan përfshin të shtatëmbëdhjetë modulet. Nuk ka version që e mban QA/QC-në mënjanë derisa të kaloni në një plan më të lartë, dhe nuk ka tarifë për përdorues që t'ju bëjë të mendoheni dy herë para se t'i jepni një llogari një kryepunëtori.",
+    lead: "NESTO është modular. Kompanitë aktivizojnë funksionet që u duhen, ndërsa regjistrat dhe lejet e përbashkëta i mbajnë modulet e zgjedhura të lidhura.",
     mostChosen: "Më i zgjedhuri",
     bespoke: "Me marrëveshje",
     plans: {
@@ -575,7 +577,7 @@ export const siteSq: SiteCopy = {
       {
         title: "Ku është NESTO sot",
         body: [
-          "V0.1 është versioni themelor: një aplikacion, një sistem dizajni, një kornizë aplikacioni, një sistem modulesh dhe një konfigurim rolesh. Të gjashtëmbëdhjetë rolet hyjnë dhe punojnë nga këndvështrimi i tyre, dhe të shtatëmbëdhjetë modulet kanë faqen, titullin, navigimin dhe panelin e tyre të vërtetë.",
+          "V0.1 është versioni themelor: një aplikacion, një sistem dizajni, një kornizë aplikacioni, një sistem modulesh dhe një konfigurim rolesh. Çdo rol hyn dhe punon nga këndvështrimi i vet, dhe çdo modul ka faqen, titullin, navigimin dhe panelin e tij të vërtetë.",
           "Funksionaliteti i moduleve po ndërtohet mbi këtë themel, modul pas moduli. Preferojmë t'jua themi qartë sesa t'ju shesim një pamje ekrani të diçkaje që ende nuk ekziston.",
           "Nëse doni të ndikoni në atë që ndërtohet më pas, kjo është pikërisht biseda që duhet të bëni me ne tani.",
         ],
@@ -617,9 +619,9 @@ export const siteSq: SiteCopy = {
               "Është ndërtuar për të. Grupi i moduleve është ai i një kompanie ndërtimi: prokurim me kërkesa për ofertë dhe tendera, inventar me lëvizje në kantier, QA/QC me mospërputhje dhe lista defektesh, HSE me leje pune dhe incidente. Një kompani jashtë ndërtimit do të paguante për një formë që nuk i duhet.",
           },
           {
-            question: "Cilat module përfshihen?",
+            question: "Cilat module janë në dispozicion?",
             answer:
-              "Të shtatëmbëdhjetë, në çdo plan. Nuk ka version që e mban mënjanë një modul derisa të kaloni në një plan më të lartë, sepse kompania që nuk e përballon dot modulin e cilësisë është pikërisht kompania që ka nevojë për të.",
+              "NESTO është modular. Kompanitë aktivizojnë funksionet që u duhen — nga Projektet, Detyrat dhe Dokumentet te Financa, Shitjet, Ligjore, Prokurimi, Inventari, QA/QC dhe HSE — ndërsa regjistrat dhe lejet e përbashkëta i mbajnë modulet e zgjedhura të lidhura. Ndërtoni kombinimin tuaj në faqen e çmimeve.",
           },
           {
             question: "A mund ta çaktivizojmë një modul?",
@@ -698,7 +700,7 @@ export const siteSq: SiteCopy = {
           {
             question: "Si përcaktohet çmimi i NESTO?",
             answer:
-              "Për kompani, në muaj, me çdo modul të përfshirë dhe një kufi përdoruesish për çdo plan. Çmimet janë në faqen e çmimeve — nuk ju duhet ofertë për të parë një shifër.",
+              "Modular: zgjidhni një bazë, modulet që ju duhen, kompanitë, projektet, përdoruesit dhe kohëzgjatjen e kontratës. Faqja e çmimeve e llogarit çmimin ndërsa ndërtoni — nuk ju duhet ofertë për të parë një shifër.",
           },
           {
             question: "A mund ta shohim para se të angazhohemi?",

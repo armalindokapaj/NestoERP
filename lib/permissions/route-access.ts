@@ -20,6 +20,7 @@ export const PUBLIC_ROUTES = [
   "/reset-password",
   "/verify-recovery-email",
   /* Public site (app/(public)/(site)) */
+  "/full-view",
   "/platform",
   "/pricing",
   "/security",
