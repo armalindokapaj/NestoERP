@@ -20,6 +20,8 @@ import { seedDocumentVersions, seedStorageQuotas } from "../storage";
 import { seedArmaarPeople } from "./access";
 import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarEngineering } from "./engineering";
+import { seedArmaarEnrichDelivery } from "./enrich-delivery";
+import { seedArmaarEnrichSales } from "./enrich-sales";
 import { seedArmaarFinance } from "./finance";
 import { seedArmaarInventory } from "./inventory";
 import { seedArmaarLifecycle, seedArmaarLifecycleWorkforce } from "./lifecycle";
@@ -30,6 +32,7 @@ import { seedArmaarOrganization } from "./organization";
 import { seedArmaarQuality } from "./quality";
 import { seedArmaarProjects } from "./projects";
 import { ARMAAR_GROUP_ID } from "./records";
+import { repairArmaarCommercialProfiles } from "./repair-commercial";
 import { seedArmaarSafety } from "./safety";
 import { seedArmaarSales } from "./sales";
 import { seedArmaarDocumentReviews, seedArmaarSchedule } from "./schedule";
@@ -82,6 +85,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   // The Owner, the heads and Eyes of Tirana's manager D-03 names: their provenance, and what was done (§21, §30).
   const named = await recordNamedPeople(prisma, survey, [...people.conflicts, ...projects.conflicts]);
   const units = await seedArmaarUnits(prisma);
+  // A profile deleted since the first seed is rebuilt from its history, so the sales step does not write the sale twice (D-04).
+  await repairArmaarCommercialProfiles(prisma);
   const sales = await seedArmaarSales(prisma, units);
   const operations = await seedArmaarOperations(prisma);
   // Where the workers work, with whom, and their days on site (E-04).
@@ -105,6 +110,10 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   const inventory = await seedArmaarInventory(prisma);
   const site = await seedArmaarSite(prisma);
   const timesheets = await seedArmaarTimesheets(prisma);
+
+  // D-04: months of ordinary work around the headline records — delivery, then sales — on the same people and projects.
+  const delivery = await seedArmaarEnrichDelivery(prisma);
+  const selling = await seedArmaarEnrichSales(prisma);
 
   // Every document has its first version, every company its storage quota and usage (PRD #29).
   if (shared) {
@@ -148,6 +157,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     inventory,
     site,
     timesheets,
+    delivery,
+    selling,
     records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
   };
 }
@@ -167,6 +178,8 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR diary: ${counts.schedule.meetings} meetings, ${counts.schedule.events} calendar events, ${counts.reviews} document reviews`,
     `✓ ARMAAR site: ${counts.site.logs} daily logs on Tirana Lake; HSE ${counts.safety.inspections} inspections, ${counts.safety.hazards} hazards, ${counts.safety.actions} actions, ${counts.safety.talks} toolbox talks, ${counts.safety.incidents} incidents, ${counts.safety.permits} permits; QA/QC ${counts.quality.inspections} inspections, ${counts.quality.ncrs} NCRs, ${counts.quality.actions} corrective actions, ${counts.quality.defects} defects`,
     `✓ ARMAAR stock and time: ${counts.inventory.items} items in ${counts.inventory.warehouses} stores, ${counts.inventory.movements} stock movements; ${counts.timesheets.weeks} timesheets, ${counts.timesheets.hours} hours logged`,
+    `✓ ARMAAR delivery (D-04): ${counts.delivery.tasks} tasks, ${counts.delivery.comments} comments, ${counts.delivery.meetings} meetings with ${counts.delivery.actionItems} actions, ${counts.delivery.events} calendar events, ${counts.delivery.rfis} RFIs, ${counts.delivery.logs} daily logs, ${counts.delivery.timesheets} timesheets`,
+    `✓ ARMAAR sales (D-04): ${counts.selling.clients} clients, ${counts.selling.opportunities} opportunities, ${counts.selling.saleContracts} sale contracts, ${counts.selling.installments} installments, ${counts.selling.payments} payments`,
     ...describeNamedPeople(counts.named),
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
