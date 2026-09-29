@@ -21,6 +21,8 @@ import { seedArmaarPeople } from "./access";
 import { seedArmaarCredentials } from "./credentials";
 import { seedArmaarEngineering } from "./engineering";
 import { seedArmaarEnrichDelivery } from "./enrich-delivery";
+import { seedArmaarEnrichFinance } from "./enrich-finance";
+import { seedArmaarEnrichPeople } from "./enrich-people";
 import { seedArmaarEnrichSales } from "./enrich-sales";
 import { seedArmaarFinance } from "./finance";
 import { seedArmaarInventory } from "./inventory";
@@ -114,6 +116,9 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
   // D-04: months of ordinary work around the headline records — delivery, then sales — on the same people and projects.
   const delivery = await seedArmaarEnrichDelivery(prisma);
   const selling = await seedArmaarEnrichSales(prisma);
+  // Finance and supply first: the people step reuses its helpers. Both come before the document versions below.
+  const money = await seedArmaarEnrichFinance(prisma);
+  const staffing = await seedArmaarEnrichPeople(prisma);
 
   // Every document has its first version, every company its storage quota and usage (PRD #29).
   if (shared) {
@@ -159,6 +164,8 @@ export async function seedArmaar(prisma: PrismaClient, passwordHash: string, opt
     timesheets,
     delivery,
     selling,
+    money,
+    staffing,
     records: await prisma.demoRecord.count({ where: { parentGroupId: ARMAAR_GROUP_ID } }),
   };
 }
@@ -180,6 +187,8 @@ export function describeArmaar(counts: Awaited<ReturnType<typeof seedArmaar>>): 
     `✓ ARMAAR stock and time: ${counts.inventory.items} items in ${counts.inventory.warehouses} stores, ${counts.inventory.movements} stock movements; ${counts.timesheets.weeks} timesheets, ${counts.timesheets.hours} hours logged`,
     `✓ ARMAAR delivery (D-04): ${counts.delivery.tasks} tasks, ${counts.delivery.comments} comments, ${counts.delivery.meetings} meetings with ${counts.delivery.actionItems} actions, ${counts.delivery.events} calendar events, ${counts.delivery.rfis} RFIs, ${counts.delivery.logs} daily logs, ${counts.delivery.timesheets} timesheets`,
     `✓ ARMAAR sales (D-04): ${counts.selling.clients} clients, ${counts.selling.opportunities} opportunities, ${counts.selling.saleContracts} sale contracts, ${counts.selling.installments} installments, ${counts.selling.payments} payments`,
+    `✓ ARMAAR finance and supply (D-04): ${counts.money.invoices} invoices, ${counts.money.expenses} expenses, ${counts.money.payments} payments, ${counts.money.commitments} commitments, ${counts.money.requests} purchase requests, ${counts.money.orders} orders, ${counts.money.items} items in ${counts.money.warehouses} stores`,
+    `✓ ARMAAR people and site (D-04): ${counts.staffing.leave} leave requests, ${counts.staffing.hseInspections} HSE inspections, ${counts.staffing.incidents} incidents, ${counts.staffing.qaInspections} QA inspections, ${counts.staffing.ncrs} NCRs, ${counts.staffing.contracts} contracts, ${counts.staffing.obligations} obligations, ${counts.staffing.announcements} announcements`,
     ...describeNamedPeople(counts.named),
     `✓ ARMAAR provenance: ${counts.records} demo records; public facts match the source`,
   ];
