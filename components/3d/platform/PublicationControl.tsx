@@ -14,14 +14,13 @@ type Audience = "OFFLINE" | "PRIVATE" | "COMPANY_ONLY" | "PUBLIC";
 
 const OPTIONS: Array<{ value: Audience; label: string; detail: string }> = [
   { value: "OFFLINE", label: "Offline", detail: "Nobody outside Platform Admin can open it. Editing and preview still work." },
-  { value: "PRIVATE", label: "Private", detail: "Only people assigned to this project, signed in to NESTO." },
-  { value: "COMPANY_ONLY", label: "Company Users", detail: "Signed-in users of the company who can see this project." },
-  { value: "PUBLIC", label: "Public", detail: "Anyone with the public address, without signing in. Uses the approved public projection only." },
+  { value: "COMPANY_ONLY", label: "Company Users", detail: "Signed-in users of the company, and of its group when it belongs to one, who can see this project." },
+  { value: "PUBLIC", label: "Public", detail: "Anyone with the public address, without signing in." },
 ];
 
 /**
  * Who may open the published experience (Admin Projects & 3D PRD #5 §48-§56):
- * Offline, Private, Company Users or Public. Every change needs a reason and
+ * Offline, Company Users or Public (Private is retired). Every change needs a reason and
  * is audited; Public asks for confirmation and sends the exact release and
  * public projection being published, so a newer one cannot slip out
  * unreviewed. Take Offline is always one step away and deletes nothing.
@@ -67,7 +66,7 @@ export function PublicationControl({ projectId, visibility, controlVersion, acti
     }
   }
 
-  const publicBlocked = !activeRelease ? "Publish a release first." : !activeRelease.publicManifestHash ? "Approve the release's public projection first." : null;
+  const publicBlocked = !activeRelease ? "Publish a release first." : null;
 
   return (
     <section className="nesto-card p-5" aria-labelledby="publishing-heading" data-testid="publication-control">
@@ -82,7 +81,8 @@ export function PublicationControl({ projectId, visibility, controlVersion, acti
       </div>
       <fieldset className="mt-4 grid gap-2 sm:grid-cols-2" disabled={!canManage || deleted || pending}>
         <legend className="sr-only">Audience</legend>
-        {OPTIONS.map((option) => {
+        {/* Private is no longer offered; an experience still on it shows it until changed. */}
+        {[...OPTIONS, ...(visibility === "PRIVATE" ? [{ value: "PRIVATE" as const, label: "Private", detail: "Only people assigned to this project. No longer offered; choose another audience." }] : [])].map((option) => {
           const blocked = option.value === "PUBLIC" && publicBlocked;
           return (
             <label key={option.value} className={cn("flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors", choice === option.value ? "border-accent bg-accent-soft/50" : "border-line hover:bg-hover/50", blocked && "cursor-not-allowed opacity-60")}>
@@ -105,7 +105,7 @@ export function PublicationControl({ projectId, visibility, controlVersion, acti
           <DialogTitle>{confirm === "PUBLIC" ? "Publish this experience publicly?" : confirm === "OFFLINE" ? "Take this experience offline?" : `Change the audience to ${OPTIONS.find((option) => option.value === confirm)?.label}?`}</DialogTitle>
           <DialogDescription>
             {confirm === "PUBLIC"
-              ? "Anyone with access to the public experience may be able to open it."
+              ? "Anyone with the public address can open it, without signing in. The public version of the live release is prepared now, which can take a few seconds."
               : confirm === "OFFLINE"
                 ? "Viewers lose access at once. The model, configuration, bindings, screenshots and project are kept."
                 : OPTIONS.find((option) => option.value === confirm)?.detail}

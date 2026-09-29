@@ -273,6 +273,29 @@ export async function approveProject3DPublicProjection(context: PlatformContext,
   });
 }
 
+/** What a release's public version shows when Platform Admin never chose otherwise. */
+const DEFAULT_PUBLIC_FIELDS: Project3DPublicPrepare["fields"] = ["description", "cover", "city", "unitCode", "unitFloor", "unitType", "unitArea", "availability"];
+
+/**
+ * Platform Admin decides alone: going Public, or publishing while Public,
+ * prepares and approves the release's public version in the same step, with
+ * no separate review. An already approved release is left as it is. Returns
+ * the approved public version's hash.
+ */
+export async function ensureProject3DPublicRelease(context: PlatformContext, projectId: string, releaseId: string): Promise<string> {
+  const { config, release } = await loadRelease(projectId, releaseId);
+  if (release.publicApprovedAt && release.publicManifestHash) return release.publicManifestHash;
+  const previous = release.publicManifest ? public3DManifestSchema.safeParse(release.publicManifest) : null;
+  const prepared = await prepareProject3DPublicProjection(context, projectId, {
+    releaseId,
+    title: (previous?.success ? previous.data.title : null) ?? (config.experienceName || `${config.project.name} 3D Experience`),
+    description: previous?.success ? previous.data.description : null,
+    fields: previous?.success ? previous.data.fields : DEFAULT_PUBLIC_FIELDS,
+  });
+  await approveProject3DPublicProjection(context, projectId, { releaseId, publicManifestHash: prepared.publicManifestHash, confirmPublicDistribution: true, reason: "Published by Platform Admin" });
+  return prepared.publicManifestHash;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Bootstraps                                                                  */
 /* -------------------------------------------------------------------------- */
