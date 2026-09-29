@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Project" };
 
-type Props = { params: Promise<{ projectId: string }>; searchParams: Promise<{ tab?: string }> };
+type Props = { params: Promise<{ projectId: string }>; searchParams: Promise<{ tab?: string; from?: string }> };
 const TABS = [["overview", "Overview"], ["companies", "Companies"], ["users", "Users"], ["modules", "Modules"], ["3d", "3D"], ["settings", "Settings"]] as const;
 
 /**
@@ -25,7 +25,7 @@ const TABS = [["overview", "Overview"], ["companies", "Companies"], ["users", "U
  * administration; its business records stay in the tenant workspace.
  */
 export default async function PlatformProjectPage({ params, searchParams }: Props) {
-  const [{ projectId }, { tab: rawTab }] = await Promise.all([params, searchParams]);
+  const [{ projectId }, { tab: rawTab, from }] = await Promise.all([params, searchParams]);
   const context = await requirePlatformContext();
   const project = await getPlatformProjectDetail(context, projectId).catch((error: unknown) => {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
@@ -37,6 +37,7 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
 
   return (
     <div className="space-y-5">
+      {from && (from === project.company.id || from === project.group?.id) ? <Link href={`/admin/organizations/${from}?tab=projects`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {from === project.company.id ? project.company.name : project.group!.name}</Link> : null}
       <Breadcrumbs items={[{ label: "Projects", href: "/admin/projects" }, tab === "overview" ? { label: project.name } : { label: project.name, href: `/admin/projects/${project.id}` }, ...(tab === "overview" ? [] : [{ label }])]} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>

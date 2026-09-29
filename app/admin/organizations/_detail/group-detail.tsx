@@ -2,7 +2,7 @@ import Link from "@/components/navigation/nav-link";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import { GroupImplementationActions } from "@/components/platform/platform-actions";
-import { PlatformCommandButton } from "@/components/platform/platform-command";
+import { PlatformCommandMenu } from "@/components/platform/platform-command";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import type { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
 
@@ -19,11 +19,17 @@ export function GroupHeaderActions({ implementation }: Props) {
   // A group suspended before its handover resumes into setup; only the checklist activates it (ADM audit §2).
   const resumeTo = group.activatedAt ? "ACTIVE" : "IMPLEMENTING";
   return (
-    <div className="flex flex-wrap items-center gap-2"><GroupImplementationActions implementation={implementation} />
-          {/* The tenant's mark in its sidebar (OW §12, §44); the group's name is its display name. */}
-          {group.status !== "ARCHIVED" ? <PlatformCommandButton label="Branding" title={`${group.name} branding`} description="The logo leads the tenant's sidebar, beside the group's name. Without one, the group's initials stand in." action="group.branding" fixed={{ groupId: group.id }} fields={[{ name: "logoUrl", label: "Logo", type: "textarea", hint: "A path on this deployment (/branding/logo.svg) or an inline image (data:image/png;base64,…), shown square at the top of the sidebar. Leave empty for initials." }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ logoUrl: group.logoUrl ?? "" }} success="Group branding saved." /> : null}
-          <PlatformCommandButton label="Lifecycle" title={`Change ${group.name} lifecycle`} description="Suspension immediately ends tenant sessions. Archiving preserves the tenant as read-only history." action="group.status" fixed={{ groupId: group.id }} fields={[{ name: "status", label: "Status", type: "select", required: true, options: (group.status === "SUSPENDED" ? [resumeTo, "ARCHIVED"] : ["SUSPENDED", "ARCHIVED"]).map((value) => ({ value, label: value === "IMPLEMENTING" ? "IMPLEMENTING (resume setup)" : value })) }, { name: "reason", label: "Reason", type: "textarea", required: true }]} initial={{ status: group.status === "SUSPENDED" ? resumeTo : "SUSPENDED" }} destructive success="Group lifecycle changed." />
-        </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <GroupImplementationActions implementation={implementation} />
+      <PlatformCommandMenu
+        label={`${group.name} actions`}
+        items={[
+          // The tenant's mark in its sidebar (OW §12, §44); the group's name is its display name.
+          ...(group.status !== "ARCHIVED" ? [{ label: "Branding", title: `${group.name} branding`, description: "The logo leads the tenant's sidebar, beside the group's name. Without one, the group's initials stand in.", action: "group.branding", fixed: { groupId: group.id }, fields: [{ name: "logoUrl", label: "Logo", type: "textarea" as const, hint: "A path on this deployment (/branding/logo.svg) or an inline image (data:image/png;base64,…), shown square at the top of the sidebar. Leave empty for initials." }, { name: "reason", label: "Reason", type: "textarea" as const, required: true }], initial: { logoUrl: group.logoUrl ?? "" }, submitLabel: "Save", success: "Group branding saved." }] : []),
+          ...(group.status !== "ARCHIVED" ? [{ label: group.status === "SUSPENDED" ? "Resume or archive" : "Suspend or archive", title: `Change ${group.name} lifecycle`, description: "Suspension immediately ends tenant sessions. Archiving preserves the tenant as read-only history.", action: "group.status", fixed: { groupId: group.id }, fields: [{ name: "status", label: "Status", type: "select" as const, required: true, options: (group.status === "SUSPENDED" ? [resumeTo, "ARCHIVED"] : ["SUSPENDED", "ARCHIVED"]).map((value) => ({ value, label: value === "IMPLEMENTING" ? "IMPLEMENTING (resume setup)" : value })) }, { name: "reason", label: "Reason", type: "textarea" as const, required: true }], initial: { status: group.status === "SUSPENDED" ? resumeTo : "SUSPENDED" }, destructive: true, submitLabel: "Change Lifecycle", success: "Group lifecycle changed." }] : []),
+        ]}
+      />
+    </div>
   );
 }
 

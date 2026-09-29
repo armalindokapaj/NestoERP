@@ -57,7 +57,7 @@ async function groupOrNotFound(groupId: string) {
 }
 
 /** A member's place in the branch they are placed in (E-13 §24-§29, ADR 0003). */
-async function memberPlace(
+export async function memberPlace(
   tx: Prisma.TransactionClient,
   input: { parentGroupId: string; userId: string; companyId: string; branch: { id: string; groupDepartmentId: string | null }; roleKey: string; actorUserId: string },
 ): Promise<void> {
@@ -68,7 +68,7 @@ async function memberPlace(
 }
 
 /** The department a role works in (§47): Owner and CEO in Executive, Finance in Finance. */
-function departmentKeyFor(role: string): string {
+export function departmentKeyFor(role: string): string {
   return GROUP_DEPARTMENTS.find((department) => (department.roles as readonly string[]).includes(role))?.key ?? "executive";
 }
 

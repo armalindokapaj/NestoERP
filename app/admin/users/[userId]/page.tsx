@@ -16,7 +16,7 @@ import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/utils/form
 
 export const metadata: Metadata = { title: "User" };
 
-type Props = { params: Promise<{ userId: string }>; searchParams: Promise<{ tab?: string }> };
+type Props = { params: Promise<{ userId: string }>; searchParams: Promise<{ tab?: string; from?: string }> };
 type Context = Awaited<ReturnType<typeof requirePlatformContext>>;
 const TABS = [["overview", "Overview"], ["access", "Access"], ["sessions", "Sessions"], ["security", "Security"], ["activity", "Activity"]] as const;
 
@@ -26,7 +26,7 @@ const TABS = [["overview", "Overview"], ["access", "Access"], ["sessions", "Sess
  * history. Never a password, hash or token; never HR or salary data.
  */
 export default async function PlatformUserPage({ params, searchParams }: Props) {
-  const [{ userId }, { tab: rawTab }] = await Promise.all([params, searchParams]);
+  const [{ userId }, { tab: rawTab, from }] = await Promise.all([params, searchParams]);
   const context = await requirePlatformContext();
   const user = await getPlatformUser(context, userId).catch((error: unknown) => {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
@@ -36,6 +36,11 @@ export default async function PlatformUserPage({ params, searchParams }: Props) 
 
   return (
     <div className="space-y-5">
+      {/* Opened from an organization: the way back to it stays one click (Organization-Scoped PRD #7 §53). */}
+      {(() => {
+        const origin = from ? user.memberships.map((row) => row.company).concat(user.memberships.flatMap((row) => (row.group ? [row.group] : [])), user.groups).find((row) => row.id === from) : undefined;
+        return origin ? <Link href={`/admin/organizations/${origin.id}?tab=users`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {origin.name}</Link> : null;
+      })()}
       <Breadcrumbs items={[{ label: "Users", href: "/admin/users" }, { label: user.name }]} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>

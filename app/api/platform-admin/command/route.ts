@@ -7,6 +7,7 @@ import { sendTestEmail } from "@/lib/modules/platform/platform-system.service";
 import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
+import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
   accessInspectorSchema,
   companyStatusSchema,
@@ -162,6 +163,17 @@ export async function POST(request: Request) {
         const input = platformUserCreateSchema.parse(body);
         return apiOk({ data: await createPlatformUser(context, input) }, { status: 201 });
       }
+      case "organization.user.add":
+        return apiOk({ data: await addOrganizationUser(context, body) }, { status: 201 });
+      case "organization.member.role":
+        await changeOrganizationMemberRole(context, body);
+        return apiOk({ data: { ok: true } });
+      case "organization.member.projects":
+        await setOrganizationMemberProjects(context, body);
+        return apiOk({ data: { ok: true } });
+      case "organization.member.remove":
+        await removeOrganizationMember(context, body);
+        return apiOk({ data: { ok: true } });
       case "membership.create": {
         const input = membershipSchema.parse(body);
         return apiOk({ data: await createMembership(context, input) }, { status: 201 });
