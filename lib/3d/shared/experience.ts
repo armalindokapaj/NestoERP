@@ -19,7 +19,7 @@ export const DEFAULT_PROJECT_3D_CONFIG: Project3DConfig = {
   idleDroneTargetAmplitude: 0.06, idleDroneVerticalCycles: 2, idleDronePhaseOffsetDeg: 0, idleDroneSmoothness: 0.88,
   status: "draft", renderingMode: "auto", qualityPreset: "high_desktop", customRenderScale: null, customDprCap: null,
   adaptiveQualityEnabled: true, runtimeQualityReductionEnabled: true, interactionQualityReductionEnabled: true,
-  deviceDetectionEnabled: true, glassPreset: "standard", environmentIntensity: 1,
+  deviceDetectionEnabled: true, glassPreset: "standard", environmentIntensity: 0.25,
   cameraFovDesktop: 38, cameraFovMobile: 48, cameraNearClip: 0.1, cameraFarClip: 2000,
   cameraMinAzimuthDeg: null, cameraMaxAzimuthDeg: null, cameraOrbitEnabled: true, cameraPanEnabled: true,
   cameraZoomEnabled: true, cameraDampingEnabled: true, cameraAutoFocusEnabled: true, cameraHelperEnabled: false,

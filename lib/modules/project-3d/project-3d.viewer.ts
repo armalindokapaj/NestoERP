@@ -1,4 +1,4 @@
-import type { ProjectPhaseStatus, UnitCommercialStatus } from "@prisma/client";
+import type { Prisma, ProjectPhaseStatus, UnitCommercialStatus } from "@prisma/client";
 
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -6,6 +6,7 @@ import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
 import { parseProject3DExperience } from "@/lib/3d/shared/experience";
 import { project3DReleaseManifestSchema } from "@/lib/3d/shared/release.schema";
+import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
@@ -152,9 +153,50 @@ export async function getProject3DViewerBootstrap(
 ): Promise<Project3DBootstrap> {
   assertModule(context, "projects");
   assertPermission(context, "project.view");
+  const filesVisible = canAccessModule(context, "documents") && can(context, "document.view");
+  return buildViewerBootstrap({ AND: [buildProjectScopeWhere(context), { id: projectId }] }, {
+    audience: "company",
+    unitDetails: can(context, "project.structure.view"),
+    commercialVisible: can(context, "project.unit.sales.view"),
+    readableDocuments: filesVisible ? () => buildDocumentAccessWhere(context) : null,
+    planVisible: planningOpen(context),
+    assetUrl: (id, handle) => `/api/projects/${encodeURIComponent(id)}/3d/assets/${handle}`,
+  });
+}
 
+/**
+ * Platform Admin's look at the Company viewer: the same published release a
+ * company reader gets, with every unit fact shown and no company login.
+ * Document links are left out — they open company pages a platform session
+ * cannot reach. Test fixtures stay hidden, as in every Platform 3D view.
+ */
+export async function getProject3DPlatformViewerBootstrap(
+  context: PlatformContext,
+  projectId: string,
+): Promise<Project3DBootstrap> {
+  if (!canPlatform(context, "platform.3d.view")) throw new AccessError("FORBIDDEN");
+  return buildViewerBootstrap({ id: projectId, company: { parentGroup: { isTestFixture: false } } }, {
+    audience: "platform",
+    unitDetails: true,
+    commercialVisible: true,
+    readableDocuments: null,
+    planVisible: true,
+    assetUrl: (id, handle) => `/api/platform/3d/projects/${encodeURIComponent(id)}/viewer/assets/${handle}`,
+  });
+}
+
+type ViewerReader = {
+  audience: "company" | "platform";
+  unitDetails: boolean;
+  commercialVisible: boolean;
+  readableDocuments: (() => Promise<Prisma.DocumentWhereInput>) | null;
+  planVisible: boolean;
+  assetUrl: (projectId: string, handle: string) => string;
+};
+
+async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: ViewerReader): Promise<Project3DBootstrap> {
   const project = assertFound(await prisma.project.findFirst({
-    where: { AND: [buildProjectScopeWhere(context), { id: projectId }] },
+    where,
     select: {
       id: true,
       name: true,
@@ -211,9 +253,8 @@ export async function getProject3DViewerBootstrap(
   }
 
   const unitIds = [...new Set(manifest.models.flatMap((model) => model.unitBindings.map((binding) => binding.unitId)))];
-  const unitDetails = can(context, "project.structure.view");
-  const commercialVisible = can(context, "project.unit.sales.view");
-  const filesVisible = canAccessModule(context, "documents") && can(context, "document.view");
+  const { unitDetails, commercialVisible, planVisible } = reader;
+  const filesVisible = reader.readableDocuments !== null;
   const unitRows = unitIds.length === 0 ? [] : await prisma.projectUnit.findMany({
     where: { id: { in: unitIds }, projectId: project.id, companyId: project.companyId },
     select: {
@@ -227,9 +268,8 @@ export async function getProject3DViewerBootstrap(
     throw new AccessError("CONFLICT", "The published 3D release is unavailable.", { code: "UNIT_REFERENCE_MISMATCH" });
   }
 
-  const readableDocuments = filesVisible ? await buildDocumentAccessWhere(context) : null;
+  const readableDocuments = reader.readableDocuments ? await reader.readableDocuments() : null;
   const salesPlanIds = unitRows.map((unit) => unit.salesPlanDocumentId).filter((id): id is string => Boolean(id));
-  const planVisible = planningOpen(context);
   const [commercialRows, salesPlanRows, mediaRows, phaseRows] = await Promise.all([
     commercialVisible && unitIds.length ? prisma.unitCommercialProfile.findMany({ where: { unitId: { in: unitIds }, projectId: project.id, companyId: project.companyId }, select: { unitId: true, askingPrice: true, currency: true } }) : [],
     readableDocuments && salesPlanIds.length ? prisma.document.findMany({ where: { AND: [readableDocuments, { id: { in: salesPlanIds }, companyId: project.companyId, status: "ACTIVE", storageStatus: "AVAILABLE" }] }, select: { id: true, name: true } }) : [],
@@ -255,7 +295,7 @@ export async function getProject3DViewerBootstrap(
   const handleValidUntil = new Date(Date.now() + VIEWER_HANDLE_NOMINAL_SECONDS * 1000).toISOString();
   const models = manifest.models.map((model) => {
     assertProject3DStorageKey(model.runtimeStorageKey, project.companyId, project.id, "runtime");
-    const handle = signProject3DAssetHandle({ c: config.id, r: release.id, a: model.versionId, au: "company", e: config.accessEpoch });
+    const handle = signProject3DAssetHandle({ c: config.id, r: release.id, a: model.versionId, au: reader.audience, e: config.accessEpoch });
     return {
       slotId: model.slotId,
       slotName: model.slotName,
@@ -264,7 +304,7 @@ export async function getProject3DViewerBootstrap(
       versionId: model.versionId,
       versionNumber: model.versionNumber,
       asset: {
-        url: `/api/projects/${encodeURIComponent(project.id)}/3d/assets/${handle}`,
+        url: reader.assetUrl(project.id, handle),
         expiresAt: handleValidUntil,
         fileName: model.runtimeFileName,
         contentType: "model/gltf-binary" as const,
@@ -329,5 +369,16 @@ export async function getProject3DViewerStatus(context: UserContext, projectId: 
   if (!await hasActiveProject3DViewer(context, projectId)) return { available: false, token: null };
   const config = await prisma.project3DConfig.findFirst({ where: { projectId, deletedAt: null }, select: { activeReleaseId: true, accessEpoch: true } });
   if (!config) return { available: false, token: null };
+  return { available: true, token: project3DViewerToken(config.activeReleaseId, config.accessEpoch) };
+}
+
+/** The Platform viewer's poll: the same token a company reader gets, without the company checks. */
+export async function getProject3DPlatformViewerStatus(context: PlatformContext, projectId: string): Promise<{ available: boolean; token: string | null }> {
+  if (!canPlatform(context, "platform.3d.view")) return { available: false, token: null };
+  const config = await prisma.project3DConfig.findFirst({
+    where: { projectId, deletedAt: null, project: { company: { parentGroup: { isTestFixture: false } } } },
+    select: { activeReleaseId: true, accessEpoch: true, activeRelease: { select: { status: true } } },
+  });
+  if (!config || config.activeRelease?.status !== "PUBLISHED") return { available: false, token: null };
   return { available: true, token: project3DViewerToken(config.activeReleaseId, config.accessEpoch) };
 }

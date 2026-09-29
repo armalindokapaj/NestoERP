@@ -47,21 +47,26 @@ function ViewerSplash() {
  * expired signature, a network drop) the reader gets a retry that fetches a
  * fresh bootstrap, rather than a half-loaded scene.
  */
-export function ProjectViewerPage({ projectId, projectName }: { projectId: string; projectName: string }) {
+export function ProjectViewerPage({ projectId, projectName, apiBase = `/api/projects/${encodeURIComponent(projectId)}/3d`, backHref = `/projects/${projectId}` }: {
+  projectId: string;
+  projectName: string;
+  /** Where bootstrap and status are read; Platform Admin reads its own copy. */
+  apiBase?: string;
+  backHref?: string;
+}) {
   const [bootstrap, setBootstrap] = React.useState<Project3DBootstrap | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [modelStatus, setModelStatus] = React.useState<ModelLoadStatus>({ state: "loading" });
   const [token, setToken] = React.useState<string | null>(null);
   const t = useThreeDTranslations();
-  const backHref = `/projects/${projectId}`;
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     setModelStatus({ state: "loading" });
     try {
-      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/3d/bootstrap`, {
+      const response = await fetch(`${apiBase}/bootstrap`, {
         method: "GET",
         cache: "no-store",
         signal,
@@ -71,7 +76,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
       const parsed = project3DBootstrapSchema.safeParse(json.data);
       if (!parsed.success) throw new Error(t("page.releaseUnreadable"));
       // The grant this bootstrap was issued under, so a later change is noticed.
-      const status = await fetch(`/api/projects/${encodeURIComponent(projectId)}/3d/status`, { cache: "no-store", signal });
+      const status = await fetch(`${apiBase}/status`, { cache: "no-store", signal });
       const statusBody = status.ok ? readCompanyStatus((await status.json() as ApiEnvelope).data) : { available: false, token: null };
       setBootstrap(parsed.data);
       setToken(statusBody.token);
@@ -82,7 +87,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [projectId, t]);
+  }, [apiBase, t]);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -90,7 +95,7 @@ export function ProjectViewerPage({ projectId, projectName }: { projectId: strin
     return () => controller.abort();
   }, [load]);
 
-  const { availability, check } = useViewerAvailability({ statusUrl: `/api/projects/${encodeURIComponent(projectId)}/3d/status`, token, read: readCompanyStatus });
+  const { availability, check } = useViewerAvailability({ statusUrl: `${apiBase}/status`, token, read: readCompanyStatus });
   // Revoked (audience, entitlement, membership, deletion): the scene goes, not just a banner (ADM-04A §8).
   React.useEffect(() => {
     if (availability !== "revoked") return;

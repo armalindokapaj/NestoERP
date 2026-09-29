@@ -25,7 +25,7 @@ import { hasActiveProject3DViewer } from "./project-3d.viewer";
  * and screenshots cannot be recalled; this is revocation, not DRM.
  */
 
-export type DeliveryAudience = "company" | "public" | "preview";
+export type DeliveryAudience = "company" | "public" | "preview" | "platform";
 
 type HandleClaims = { v: 1; c: string; r: string; a: string; au: DeliveryAudience; e: number };
 
@@ -55,7 +55,7 @@ export function readProject3DAssetHandle(handle: string): HandleClaims | null {
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   try {
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as HandleClaims;
-    if (claims.v !== 1 || typeof claims.c !== "string" || typeof claims.r !== "string" || typeof claims.a !== "string" || !["company", "public", "preview"].includes(claims.au) || !Number.isInteger(claims.e)) return null;
+    if (claims.v !== 1 || typeof claims.c !== "string" || typeof claims.r !== "string" || typeof claims.a !== "string" || !["company", "public", "preview", "platform"].includes(claims.au) || !Number.isInteger(claims.e)) return null;
     return claims;
   } catch {
     return null;
@@ -70,7 +70,8 @@ export function project3DViewerToken(releaseId: string | null, accessEpoch: numb
 type Requester =
   | { audience: "company"; context: UserContext; projectId: string }
   | { audience: "public"; publicId: string }
-  | { audience: "preview"; context: PlatformContext; projectId: string };
+  | { audience: "preview"; context: PlatformContext; projectId: string }
+  | { audience: "platform"; context: PlatformContext; projectId: string };
 
 type Resolved = { storageKey: string; contentType: string };
 
@@ -104,8 +105,9 @@ export async function authorizeProject3DAsset(handle: string, requester: Request
   });
   if (!row || row.deletedAt || row.accessEpoch !== claims.e) return null;
 
-  if (requester.audience === "preview") {
+  if (requester.audience === "preview" || requester.audience === "platform") {
     if (row.projectId !== requester.projectId || !canPlatform(requester.context, "platform.3d.view") || row.project.company.parentGroup.isTestFixture) return null;
+    if (requester.audience === "platform" && row.activeReleaseId !== claims.r) return null;
   } else {
     if (row.activeReleaseId !== claims.r) return null;
     if (requester.audience === "public") {
@@ -124,7 +126,7 @@ export async function authorizeProject3DAsset(handle: string, requester: Request
   if (!release) return null;
 
   let resolved: Resolved | undefined;
-  if (requester.audience === "company") {
+  if (requester.audience === "company" || requester.audience === "platform") {
     const manifest = project3DReleaseManifestSchema.safeParse(release.manifest);
     const key = manifest.success ? manifest.data.models.find((model) => model.versionId === claims.a)?.runtimeStorageKey : undefined;
     if (key) resolved = { storageKey: key, contentType: "model/gltf-binary" };
@@ -135,7 +137,7 @@ export async function authorizeProject3DAsset(handle: string, requester: Request
   }
   if (!resolved) return null;
   try {
-    assertProject3DStorageKey(resolved.storageKey, row.companyId, row.projectId, requester.audience === "company" ? "runtime" : "derived");
+    assertProject3DStorageKey(resolved.storageKey, row.companyId, row.projectId, requester.audience === "company" || requester.audience === "platform" ? "runtime" : "derived");
   } catch {
     return null;
   }
