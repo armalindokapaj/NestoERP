@@ -9,7 +9,7 @@ import { roleModuleAccess } from "@/config/role-defaults";
  * publication and its Sales, Legal and Finance work.
  */
 describe("the CEO's project and unit authority", () => {
-  const held = new Set(Object.values(roleModuleAccess.CEO).flatMap((access) => access.permissions));
+  const held = new Set<string>(Object.values(roleModuleAccess.CEO).flatMap((access) => access.permissions));
 
   it("holds every project and unit permission", () => {
     const missing = (PERMISSIONS as readonly string[]).filter((permission) => permission.startsWith("project.") && !held.has(permission));
