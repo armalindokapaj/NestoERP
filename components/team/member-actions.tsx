@@ -140,7 +140,7 @@ const MESSAGES = {
 
 function describe(t: Translate<"team">, action: StatusAction | null, guards: TeamMemberDetailDTO["guards"]): string {
   if (guards.lastActiveOwner) {
-    return t("actions.lastOwner");
+    return t(guards.lastActiveRole === "CEO" ? "actions.lastCeo" : "actions.lastOwner");
   }
 
   const warnings: string[] = [];

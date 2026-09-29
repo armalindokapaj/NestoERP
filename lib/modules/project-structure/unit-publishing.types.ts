@@ -148,6 +148,8 @@ export type UnitFileDTO = {
   archived: boolean;
   versionNumber: number | null;
   uploadedAt: string;
+  uploadedByMemberId: string | null;
+  uploadedBy: string | null;
   href: string;
 };
 

@@ -19,12 +19,14 @@ const has = (role: RoleKey, permission: string) => (permissionsForRole(role) as 
 const milestone = (overrides: Partial<DatedMilestone>): DatedMilestone => ({ status: "IN_PROGRESS", baselineDate: null, plannedDate: null, forecastDate: null, actualDate: null, ...overrides });
 
 describe("planning permissions by role (§80-§95)", () => {
-  it("makes the project manager the plan's keeper and everybody else on the project a reader", () => {
+  it("makes the project manager, the CEO and the Owner the plan's keepers and everybody else on the project a reader", () => {
     for (const permission of ["project_planning.phase.create", "project_planning.milestone.create", "project_planning.milestone.complete", "project_planning.milestone.reopen", "project_planning.baseline.manage", "project_planning.dependencies.manage", "project_planning.blockers.manage"]) {
       expect(has("PROJECT_MANAGER", permission), permission).toBe(true);
       expect(has("OWNER", permission), permission).toBe(true);
+      // The CEO runs the company's projects (user, 2026-09-29).
+      expect(has("CEO", permission), permission).toBe(true);
     }
-    for (const role of ["CEO", "ARCHITECT", "ENGINEER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "INVENTORY", "QAQC", "HSE", "VIEWER"] as const) {
+    for (const role of ["ARCHITECT", "ENGINEER", "FINANCE", "LEGAL", "SALES", "PROCUREMENT", "INVENTORY", "QAQC", "HSE", "VIEWER"] as const) {
       expect(has(role, "project_planning.view"), role).toBe(true);
       expect(permissionsForRole(role).filter((permission) => permission.startsWith("project_planning.")), role).toEqual(["project_planning.view"]);
     }

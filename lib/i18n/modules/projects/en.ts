@@ -40,6 +40,7 @@ export const projectsEn = {
     CRITICAL: "Critical",
   },
   overview: {
+    lastEditedBy: "Last edited by",
     archivedNotice: "This project is archived and read-only.",
     relationshipsTitle: "How this project's records connect",
     relationshipsBody1:
@@ -772,6 +773,7 @@ export const projectsEn = {
     waitingReview: "Waiting for review",
     inactive: "Inactive",
     location: "Location",
+    lastEditedBy: "Last edited by",
     name: "Name",
     sectionsLabel: "{code} sections",
     primaryImage: "Primary image",
@@ -1188,6 +1190,7 @@ export const projectsEn = {
   unitFiles: {
     archived: "Archived",
     beingChecked: "Being checked",
+    uploadedBy: "by",
     planAdded: "Sales Plan added to {code}.",
     planAddFailed: "The Sales Plan could not be added.",
     attachFailed: "The document could not be attached.",

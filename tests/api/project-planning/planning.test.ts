@@ -243,7 +243,7 @@ describe("milestones (§12-§31, §141-§146, §188-§190, §204-§206, §284)",
 
     const version = (await detail(id)).version;
     await expect(reopenMilestone(without(pm, "project_planning.milestone.reopen"), id, { expectedVersion: version, reason: "Leak found" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(reopenMilestone(ceo, id, { expectedVersion: version, reason: "Leak found" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(reopenMilestone(qaqc, id, { expectedVersion: version, reason: "Leak found" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await reopenMilestone(pm, id, { expectedVersion: version, reason: "Leak found at the east parapet" });
     const reopened = await detail(id);
     expect(reopened).toMatchObject({ status: "IN_PROGRESS", actualDate: null });
@@ -286,7 +286,7 @@ describe("baseline (§16, §21-§23, §76, §196, §202, §209, §297)", () => {
 
     await expect(changeBaseline(pm, id, { expectedVersion: row.version, newBaselineDate: addLocalDays(today(), 25), reason: null })).rejects.toMatchObject(code("MILESTONE_BASELINE_REASON_REQUIRED"));
     await expect(changeBaseline(engineer, id, { expectedVersion: row.version, newBaselineDate: addLocalDays(today(), 25), reason: "x" })).rejects.toBeTruthy();
-    await expect(changeBaseline(ceo, id, { expectedVersion: row.version, newBaselineDate: addLocalDays(today(), 25), reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(changeBaseline(qaqc, id, { expectedVersion: row.version, newBaselineDate: addLocalDays(today(), 25), reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await changeBaseline(pm, id, { expectedVersion: row.version, newBaselineDate: addLocalDays(today(), 25), reason: "Client approved the revised design programme" });
     const audit = await prisma.auditEvent.findFirstOrThrow({ where: { entityId: id, actionKey: "PROJECT_MILESTONE_BASELINE_CHANGED", reason: { not: null } } });
     expect(audit.reason).toBe("Client approved the revised design programme");
@@ -423,7 +423,7 @@ describe("access by role, project and company (§77-§95, §225-§233, §295)", 
     const id = await milestone("Core Complete");
     expect((await getPlanningOverview(qaqc, SITE)).capabilities.canCreateMilestone).toBe(false);
     expect((await getPlanningOverview(ceo, SITE)).milestones).toHaveLength(1);
-    await expect(createMilestone(ceo, SITE, createMilestoneSchema.parse({ name: "Nope" }))).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(createMilestone(qaqc, SITE, createMilestoneSchema.parse({ name: "Nope" }))).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(getPlanningOverview(engineer, SITE)).rejects.toMatchObject(code("PLANNING_PROJECT_NOT_FOUND"));
     await expect(getPlanningOverview(architect, SITE)).rejects.toMatchObject(code("PLANNING_PROJECT_NOT_FOUND"));
     await expect(getMilestone(engineer, id)).rejects.toMatchObject(code("MILESTONE_NOT_FOUND"));

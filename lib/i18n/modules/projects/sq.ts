@@ -42,6 +42,7 @@ export const projectsSq: typeof projectsEn = {
     CRITICAL: "Kritike",
   },
   overview: {
+    lastEditedBy: "Ndryshuar së fundi nga",
     archivedNotice: "Ky projekt është i arkivuar dhe vetëm për lexim.",
     relationshipsTitle: "Si lidhen të dhënat e këtij projekti",
     relationshipsBody1:
@@ -761,6 +762,7 @@ export const projectsSq: typeof projectsEn = {
     waitingReview: "Në pritje të rishikimit",
     inactive: "Joaktive",
     location: "Vendndodhja",
+    lastEditedBy: "Ndryshuar së fundi nga",
     name: "Emri",
     sectionsLabel: "Seksionet e {code}",
     primaryImage: "Imazhi kryesor",
@@ -1170,6 +1172,7 @@ export const projectsSq: typeof projectsEn = {
   unitFiles: {
     archived: "Arkivuar",
     beingChecked: "Në kontroll",
+    uploadedBy: "nga",
     planAdded: "Plani i shitjes u shtua në {code}.",
     planAddFailed: "Plani i shitjes nuk u shtua dot.",
     attachFailed: "Dokumenti nuk u bashkëngjit dot.",

@@ -272,6 +272,25 @@ export type UnitActivityDTO = { id: string; action: string; message: string | nu
  * files, its publishing. Read only after the unit's own door, and with the
  * project's activity grant — the same people who read the project's history.
  */
+/**
+ * Who last changed the unit, and when, for its header (user, 2026-09-29).
+ *
+ * The unit row keeps no editor of its own: every change it takes is written to
+ * its activity with the member who made it, so the latest entry is the answer.
+ * Read with the same grants as the Activity tab.
+ */
+export async function lastUnitChange(context: UserContext, unitId: string): Promise<{ actor: string; actorMemberId: string; at: string } | null> {
+  if (!can(context, "project.activity.view")) return null;
+  const modules = can(context, "project.unit.sales.view") ? ["projects", "sales"] : ["projects"];
+  const row = await prisma.activity.findFirst({
+    where: { companyId: context.companyId, module: { in: modules }, entityType: "ProjectUnit", entityId: unitId, actorMemberId: { not: null } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { createdAt: true, actorMemberId: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
+  });
+  if (!row?.actorMember || !row.actorMemberId) return null;
+  return { actor: `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`, actorMemberId: row.actorMemberId, at: row.createdAt.toISOString() };
+}
+
 export async function listUnitActivity(context: UserContext, unitId: string, options: { page?: number; limit?: number } = {}): Promise<{ items: UnitActivityDTO[]; page: number; pageSize: number; total: number }> {
   const unit = await findReadableUnit(context, unitId);
   assertPermission(context, "project.activity.view");

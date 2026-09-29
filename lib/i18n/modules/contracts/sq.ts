@@ -614,6 +614,8 @@ export const contractsSq: typeof contractsEn = {
     notYet: "Ende jo",
     effective: "Në fuqi",
     owner: "Pronari",
+    createdBy: "Krijuar nga",
+    updatedBy: "Ndryshuar së fundi nga",
     completed: "Përfunduar",
     unitsOnContract: "Njësitë në këtë kontratë",
     thisUnit: "Kjo njësi",

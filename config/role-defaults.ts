@@ -1095,10 +1095,13 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C", organization: "V/C",
   },
   CEO: {
-    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", workforce: "V/C", contractors: "V/C", engineering: "V/C", projects: "V/C", tasks: "V/C", clients: "V/C", documents: "V/C",
+    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", workforce: "V/C", contractors: "V/C", engineering: "V/C", projects: "M/C", tasks: "V/C", clients: "V/C", documents: "V/C",
     finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
     procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
-    team: "V/C", company: "V/C", support: "V/C", organization: "V/C",
+    // The CEO administers the company's own users (CEO Users & Roles §4):
+    // Team manage at company scope, and Settings read so Company Settings
+    // opens its Users and Roles sections. Owner and Group IT stay out of reach.
+    team: "M/C", company: "V/C", settings: "V/C", support: "V/C", organization: "V/C",
   },
   PROJECT_MANAGER: {
     calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", workforce: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
@@ -1220,7 +1223,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
-    team: { extra: ["team.owner.assign"] },
+    team: { extra: ["team.owner.assign", "team.group_role.assign"] },
     // The Owner is the one role that may approve their own submission: in a
     // company where they are the only approver, the alternative is a record
     // nobody can ever decide (PRD #15 §19, PRD #17 §20).
@@ -1308,6 +1311,49 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.update",
         "project.unit.delete",
         "project.unit.move",
+        /*
+         * The CEO runs the company's projects and units end to end (user,
+         * 2026-09-29): the project's team, media and lifecycle, and on each unit
+         * its documents, media and publication, and its Sales, Legal and Finance
+         * work. Deciding a sale stays separate: nobody approves their own request.
+         */
+        "project.manage",
+        "project.archive",
+        "project.restore",
+        "project.manager.assign",
+        "project.member.add",
+        "project.member.update",
+        "project.member.remove",
+        "project.media.manage",
+        "project.unit.documents.manage",
+        "project.unit.media.manage",
+        "project.unit.submit_for_publish",
+        "project.unit.publish",
+        "project.unit.revision_request",
+        "project.unit.unpublish",
+        "project.unit.archive",
+        "project.unit.sales_status.manage",
+        "project.unit.price.manage",
+        "project.unit.reserve",
+        "project.unit.reservation.extend",
+        "project.unit.reservation.release",
+        "project.unit.mark_sold",
+        "project.unit.reopen_sale",
+        "project.unit.sales_correct",
+        "project.unit.contract.request",
+        "project.unit.contract.create",
+        "project.unit.contract.update",
+        "project.unit.contract.review",
+        "project.unit.contract.sign_status",
+        "project.unit.contract.cancel",
+        "project.unit.contract.documents.manage",
+        "project.unit.contract.amend",
+        "project.unit.finance.manage_schedule",
+        "project.unit.finance.issue_invoice",
+        "project.unit.finance.record_payment",
+        "project.unit.finance.allocate_payment",
+        "project.unit.finance.documents.manage",
+        "project.unit.finance.correct",
       ],
     },
     /**
@@ -1595,6 +1641,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     inventory: { deny: ["inventory.movement.view"] },
   },
   GROUP_IT: {
+    // Group IT provisions Group IT (CEO Users & Roles §23).
+    team: { extra: ["team.group_role.assign"] },
     // Technical and system notices to the company (PRD #45 §228, §231).
     announcements: { extra: ["announcement.manage_company"] },
     /**

@@ -231,13 +231,8 @@ export async function updateMember(
   if (departmentChanged) assertPermission(context, "team.member.department.assign");
 
   await prisma.$transaction(async (tx) => {
-    if (roleChanged && nextRole.key !== "OWNER") {
-      await assertAnotherActiveOwner(
-        tx,
-        context.companyId,
-        memberId,
-        "Assign another active Owner before changing this member's role.",
-      );
+    if (roleChanged) {
+      await assertAnotherActiveOwner(tx, context.companyId, memberId, "role", nextRole.key);
     }
 
     await tx.companyMember.update({
@@ -429,6 +424,8 @@ async function changeMembershipStatus(
   // fires, and an Admin could otherwise suspend one Owner or restore a removed
   // one (PRD #14 §95, §96, PRD #47 §57).
   if (existing.role.key === "OWNER") assertPermission(context, "team.owner.assign");
+  // Group IT is group authority: only those who may give it may take it away.
+  if (existing.role.key === "GROUP_IT") assertPermission(context, "team.group_role.assign");
 
   // A person removing their own access could lock themselves out of the
   // company by accident (PRD #14 §167).
@@ -471,12 +468,7 @@ async function changeMembershipStatus(
 
   await prisma.$transaction(async (tx) => {
     if (next !== "ACTIVE") {
-      await assertAnotherActiveOwner(
-        tx,
-        context.companyId,
-        memberId,
-        "Assign another active Owner before changing this member's access.",
-      );
+      await assertAnotherActiveOwner(tx, context.companyId, memberId, "access");
     }
 
     await tx.companyMember.update({
@@ -598,6 +590,9 @@ async function assertRoleChangeAllowed(
   if (nextRoleKey === "OWNER" || existing.role.key === "OWNER") {
     assertPermission(context, "team.owner.assign");
   }
+  if (nextRoleKey === "GROUP_IT" || existing.role.key === "GROUP_IT") {
+    assertPermission(context, "team.group_role.assign");
+  }
 
   if (existing.role.key === "OWNER" && nextRoleKey !== "OWNER") {
     const owners = await repository.activeOwnerCount(context.companyId);
@@ -616,19 +611,28 @@ async function assertRoleChangeAllowed(
 }
 
 /**
- * The last-Owner rule, evaluated where it cannot race (PRD #14 §93, PRD #47 §57).
+ * The last-Owner and last-CEO rule, evaluated where it cannot race (PRD #14
+ * §93, PRD #47 §57, CEO Users & Roles §20).
  *
  * A count taken before the transaction lets two administrators each see two
  * Owners and each demote one, leaving none. The company row is locked first,
- * so changes that could remove an Owner run one at a time per company, and the
- * member is re-read under that lock — the second writer counts what the first
- * one committed.
+ * so changes that could remove an Owner or a CEO run one at a time per
+ * company, and the member is re-read under that lock — the second writer
+ * counts what the first one committed.
+ *
+ * The CEO administers the company's users, so a company that loses its last
+ * active CEO has nobody left inside it to recover; the Platform console
+ * remains the recovery path. `nextRoleKey` is the role the member keeps after
+ * the change (absent when their access is ending).
  */
+const PROTECTED_ROLE_LABELS: Record<string, string> = { OWNER: "Owner", CEO: "CEO" };
+
 async function assertAnotherActiveOwner(
   tx: Prisma.TransactionClient,
   companyId: string,
   memberId: string,
-  message: string,
+  change: "role" | "access",
+  nextRoleKey?: string,
 ): Promise<void> {
   await tx.$queryRaw`SELECT id FROM "companies" WHERE id = ${companyId} FOR UPDATE`;
 
@@ -636,12 +640,20 @@ async function assertAnotherActiveOwner(
     where: { id: memberId, companyId },
     select: { status: true, role: { select: { key: true } } },
   });
-  if (member?.status !== "ACTIVE" || member.role.key !== "OWNER") return;
+  const label = member ? PROTECTED_ROLE_LABELS[member.role.key] : undefined;
+  if (member?.status !== "ACTIVE" || !label || member.role.key === nextRoleKey) return;
 
   const others = await tx.companyMember.count({
-    where: { companyId, id: { not: memberId }, status: "ACTIVE", role: { key: "OWNER" } },
+    where: { companyId, id: { not: memberId }, status: "ACTIVE", role: { key: member.role.key } },
   });
-  if (others === 0) throw new AccessError("CONFLICT", message);
+  if (others === 0) {
+    throw new AccessError(
+      "CONFLICT",
+      change === "role"
+        ? `Assign another active ${label} before changing this member's role.`
+        : `Assign another active ${label} before changing this member's access.`,
+    );
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -698,14 +710,16 @@ function toDetailDTO(
   context: UserContext,
   row: repository.TeamMemberDetailRow,
   visibleProjects: number,
-  guards: { managedActiveProjects: number; openAssignedTasks: number; lastActiveOwner: boolean },
+  guards: { managedActiveProjects: number; openAssignedTasks: number; lastActiveOwner: boolean; lastActiveRole: "OWNER" | "CEO" | null },
 ): TeamMemberDetailDTO {
   const self = row.id === context.membershipId;
   const showSecurity = can(context, "team.member.security_metadata.view");
   const invited = invitedIdentity(row);
   // An Owner's role and access are only offered to somebody who may change
   // them; the service enforces the same grant (PRD #47 §57).
-  const ownerLocked = row.role.key === "OWNER" && !can(context, "team.owner.assign");
+  const ownerLocked =
+    (row.role.key === "OWNER" && !can(context, "team.owner.assign")) ||
+    (row.role.key === "GROUP_IT" && !can(context, "team.group_role.assign"));
 
   return {
     id: row.id,

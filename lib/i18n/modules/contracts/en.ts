@@ -613,6 +613,8 @@ export const contractsEn = {
     notYet: "Not yet",
     effective: "Effective",
     owner: "Owner",
+    createdBy: "Created by",
+    updatedBy: "Last edited by",
     completed: "Completed",
     unitsOnContract: "Units on this contract",
     thisUnit: "This unit",

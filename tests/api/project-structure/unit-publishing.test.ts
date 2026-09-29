@@ -502,12 +502,13 @@ describe("media (§40-§44, §76, §113)", () => {
 /* Access ----------------------------------------------------------------------- */
 
 describe("access (§18-§20, §85-§89, §114, §120, §122)", () => {
-  it("lets the Architect prepare and submit but not publish; the Architecture Manager and the Owner publish, the CEO does not", async () => {
+  it("lets the Architect prepare and submit but not publish; the Architecture Manager, the Owner and the CEO publish", async () => {
     const { unitId } = await readyUnit("601");
     expect((await getUnitPublishing(architect, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: false, canManageDocuments: true, canManageMedia: true, canUnpublish: false });
     expect((await getUnitPublishing(manager, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: true, canRequestRevision: true, canUnpublish: true, canArchive: true });
     expect((await getUnitPublishing(owner, unitId)).capabilities.canPublish).toBe(true);
-    expect((await getUnitPublishing(ceo, unitId)).capabilities.canPublish).toBe(false);
+    // The CEO runs the company's units end to end (user, 2026-09-29).
+    expect((await getUnitPublishing(ceo, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: true, canManageDocuments: true, canManageMedia: true });
     // The Project Manager prepares and submits on their own projects; this is not one of them.
     await refused(getUnitPublishing(pm, unitId), "NOT_FOUND");
     expect(publishingCapabilities(pm)).toMatchObject({ canSubmit: true, canManageDocuments: true, canPublish: false, canRequestRevision: false });

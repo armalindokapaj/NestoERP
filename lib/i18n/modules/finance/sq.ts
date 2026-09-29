@@ -481,6 +481,7 @@ export const financeSq: typeof financeEn = {
     reversedReason: "kthyer mbrapsht: {reason}",
     reverseTo: "Kthe mbrapsht shpërndarjen te {label}",
     reverse: "Kthe mbrapsht",
+    by: "nga",
     voidedReason: "Anuluar: {reason}",
     invoices: "Faturat",
     invoiceDue: "{label} · afati {date}",

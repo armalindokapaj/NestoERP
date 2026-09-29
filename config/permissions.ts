@@ -1162,6 +1162,9 @@ export const PERMISSIONS = [
   "team.member.password.reset",
   // Assigning OWNER is its own grant: Admin is not Owner (PRD #14 §95, §96).
   "team.owner.assign",
+  // Group IT is group-level technical authority: a company's own
+  // administrators (CEO, HR) cannot hand it out (CEO Users & Roles §23).
+  "team.group_role.assign",
   // Last-login is security metadata, not directory data (PRD #14 §49).
   "team.member.security_metadata.view",
   "team.invitation.view",

@@ -397,7 +397,7 @@
         "calendar": "CONTRIBUTE/COMPANY",
         "approvals": "APPROVE/COMPANY",
         "announcements": "MANAGE/COMPANY",
-        "projects": "VIEW/COMPANY",
+        "projects": "MANAGE/COMPANY",
         "tasks": "VIEW/COMPANY",
         "meetings": "MANAGE/COMPANY",
         "timesheets": "CONTRIBUTE/COMPANY",
@@ -416,10 +416,10 @@
         "qaqc": "VIEW/COMPANY",
         "hse": "VIEW/COMPANY",
         "people": "CONTRIBUTE/GROUP",
-        "team": "VIEW/COMPANY",
+        "team": "MANAGE/COMPANY",
         "organization": "VIEW/COMPANY",
         "company": "VIEW/COMPANY",
-        "settings": "NONE/SELF",
+        "settings": "VIEW/COMPANY",
         "support": "VIEW/COMPANY"
       },
       "COMPANY_MANAGER": {
@@ -427,7 +427,7 @@
         "calendar": "CONTRIBUTE/COMPANY",
         "approvals": "APPROVE/COMPANY",
         "announcements": "MANAGE/COMPANY",
-        "projects": "VIEW/COMPANY",
+        "projects": "MANAGE/COMPANY",
         "tasks": "VIEW/COMPANY",
         "meetings": "MANAGE/COMPANY",
         "timesheets": "CONTRIBUTE/COMPANY",
@@ -446,10 +446,10 @@
         "qaqc": "VIEW/COMPANY",
         "hse": "VIEW/COMPANY",
         "people": "CONTRIBUTE/GROUP",
-        "team": "VIEW/COMPANY",
+        "team": "MANAGE/COMPANY",
         "organization": "APPROVE/COMPANY",
         "company": "VIEW/COMPANY",
-        "settings": "NONE/SELF",
+        "settings": "VIEW/COMPANY",
         "support": "VIEW/COMPANY"
       },
       "GROUP_HEAD": {
@@ -457,7 +457,7 @@
         "calendar": "CONTRIBUTE/COMPANY",
         "approvals": "APPROVE/COMPANY",
         "announcements": "MANAGE/COMPANY",
-        "projects": "VIEW/COMPANY",
+        "projects": "MANAGE/COMPANY",
         "tasks": "VIEW/COMPANY",
         "meetings": "MANAGE/COMPANY",
         "timesheets": "CONTRIBUTE/COMPANY",
@@ -476,10 +476,10 @@
         "qaqc": "VIEW/COMPANY",
         "hse": "VIEW/COMPANY",
         "people": "CONTRIBUTE/GROUP",
-        "team": "VIEW/COMPANY",
+        "team": "MANAGE/COMPANY",
         "organization": "APPROVE/GROUP",
         "company": "VIEW/COMPANY",
-        "settings": "NONE/SELF",
+        "settings": "VIEW/COMPANY",
         "support": "VIEW/COMPANY"
       }
     },
@@ -9036,10 +9036,10 @@
         "permissions": ["announcement.acknowledge","announcement.archive","announcement.create","announcement.edit","announcement.manage_company","announcement.manage_department","announcement.manage_selected_members","announcement.pin","announcement.publish","announcement.view"]
       },
       "projects": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["project.activity.view","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.media.view","project.member.view","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.create","project.unit.delete","project.unit.finance.view","project.unit.legal.view","project.unit.move","project.unit.publication_history.view","project.unit.sale.approve","project.unit.sales.view","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.view"]
+        "permissions": ["project.activity.view","project.archive","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.manage","project.manager.assign","project.media.manage","project.media.view","project.member.add","project.member.remove","project.member.update","project.member.view","project.restore","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.archive","project.unit.contract.amend","project.unit.contract.cancel","project.unit.contract.create","project.unit.contract.documents.manage","project.unit.contract.request","project.unit.contract.review","project.unit.contract.sign_status","project.unit.contract.update","project.unit.create","project.unit.delete","project.unit.documents.manage","project.unit.finance.allocate_payment","project.unit.finance.correct","project.unit.finance.documents.manage","project.unit.finance.issue_invoice","project.unit.finance.manage_schedule","project.unit.finance.record_payment","project.unit.finance.view","project.unit.legal.view","project.unit.mark_sold","project.unit.media.manage","project.unit.move","project.unit.price.manage","project.unit.publication_history.view","project.unit.publish","project.unit.reopen_sale","project.unit.reservation.extend","project.unit.reservation.release","project.unit.reserve","project.unit.revision_request","project.unit.sale.approve","project.unit.sales.view","project.unit.sales_correct","project.unit.sales_status.manage","project.unit.submit_for_publish","project.unit.unpublish","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.baseline.manage","project_planning.blockers.manage","project_planning.dependencies.manage","project_planning.manage","project_planning.milestone.complete","project_planning.milestone.create","project_planning.milestone.edit","project_planning.milestone.reopen","project_planning.phase.archive","project_planning.phase.create","project_planning.phase.edit","project_planning.view"]
       },
       "tasks": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["task.activity.view","task.view"] },
       "meetings": {
@@ -9124,7 +9124,12 @@
         "enabled": true,
         "permissions": ["people.directory.view","people.profile.edit_self","people.profile.view","people.qualification.add_self"]
       },
-      "team": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["team.activity.view","team.department.view","team.member.view","team.view"] },
+      "team": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
+      },
       "organization": {
         "accessLevel": "APPROVE",
         "scope": "COMPANY",
@@ -9137,7 +9142,7 @@
         "enabled": true,
         "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.numbering.view","company.settings.view","company.view"]
       },
-      "settings": { "accessLevel": "NONE", "scope": "SELF", "enabled": true, "permissions": [] },
+      "settings": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
     },
     "CEO@MEMBER": {
@@ -9161,10 +9166,10 @@
         "permissions": ["announcement.acknowledge","announcement.archive","announcement.create","announcement.edit","announcement.manage_company","announcement.manage_department","announcement.manage_selected_members","announcement.pin","announcement.publish","announcement.view"]
       },
       "projects": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["project.activity.view","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.media.view","project.member.view","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.create","project.unit.delete","project.unit.finance.view","project.unit.legal.view","project.unit.move","project.unit.publication_history.view","project.unit.sale.approve","project.unit.sales.view","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.view"]
+        "permissions": ["project.activity.view","project.archive","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.manage","project.manager.assign","project.media.manage","project.media.view","project.member.add","project.member.remove","project.member.update","project.member.view","project.restore","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.archive","project.unit.contract.amend","project.unit.contract.cancel","project.unit.contract.create","project.unit.contract.documents.manage","project.unit.contract.request","project.unit.contract.review","project.unit.contract.sign_status","project.unit.contract.update","project.unit.create","project.unit.delete","project.unit.documents.manage","project.unit.finance.allocate_payment","project.unit.finance.correct","project.unit.finance.documents.manage","project.unit.finance.issue_invoice","project.unit.finance.manage_schedule","project.unit.finance.record_payment","project.unit.finance.view","project.unit.legal.view","project.unit.mark_sold","project.unit.media.manage","project.unit.move","project.unit.price.manage","project.unit.publication_history.view","project.unit.publish","project.unit.reopen_sale","project.unit.reservation.extend","project.unit.reservation.release","project.unit.reserve","project.unit.revision_request","project.unit.sale.approve","project.unit.sales.view","project.unit.sales_correct","project.unit.sales_status.manage","project.unit.submit_for_publish","project.unit.unpublish","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.baseline.manage","project_planning.blockers.manage","project_planning.dependencies.manage","project_planning.manage","project_planning.milestone.complete","project_planning.milestone.create","project_planning.milestone.edit","project_planning.milestone.reopen","project_planning.phase.archive","project_planning.phase.create","project_planning.phase.edit","project_planning.view"]
       },
       "tasks": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["task.activity.view","task.view"] },
       "meetings": {
@@ -9249,7 +9254,12 @@
         "enabled": true,
         "permissions": ["people.directory.view","people.profile.edit_self","people.profile.view","people.qualification.add_self"]
       },
-      "team": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["team.activity.view","team.department.view","team.member.view","team.view"] },
+      "team": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
+      },
       "organization": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["organization.company.view","organization.department.view","organization.view"] },
       "company": {
         "accessLevel": "VIEW",
@@ -9257,7 +9267,7 @@
         "enabled": true,
         "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.numbering.view","company.settings.view","company.view"]
       },
-      "settings": { "accessLevel": "NONE", "scope": "SELF", "enabled": true, "permissions": [] },
+      "settings": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
     },
     "ENGINEER@COMPANY_MANAGER": {
@@ -10033,7 +10043,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
+        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
       },
       "organization": {
         "accessLevel": "APPROVE",
@@ -11163,7 +11173,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",
@@ -11318,7 +11328,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",
@@ -11438,7 +11448,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",

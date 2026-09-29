@@ -54,12 +54,14 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "users",
     icon: "Users",
-    permission: "settings.manage",
+    // Company user administration lives in Team; this section is its door
+    // from Company Settings (CEO Users & Roles §5).
+    permission: "team.member.invite",
   },
   {
     slug: "roles",
     icon: "ShieldCheck",
-    permission: "settings.manage",
+    permission: "team.member.role.assign",
   },
   {
     slug: "modules",

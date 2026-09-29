@@ -119,16 +119,17 @@ describe("validation (§47)", () => {
 describe("default role policy (§38, §39)", () => {
   const holders = (permission: string, position: PositionLevel = "MEMBER") => ROLE_KEYS.filter((role) => (permissionsForRole(role, position) as readonly string[]).includes(permission)).sort();
 
-  it("lets Sales price, hold, reserve, extend, release and sell", () => {
+  // The CEO runs the company's units end to end (user, 2026-09-29).
+  it("lets Sales and the CEO price, hold, reserve, extend, release and sell", () => {
     for (const permission of ["project.unit.sales_status.manage", "project.unit.price.manage", "project.unit.reserve", "project.unit.reservation.extend", "project.unit.reservation.release", "project.unit.mark_sold"]) {
-      expect(holders(permission), permission).toEqual(["OWNER", "SALES"]);
+      expect(holders(permission), permission).toEqual(["CEO", "OWNER", "SALES"]);
     }
   });
 
-  it("keeps reopening a sale and correcting a reservation with Sales' managers and the Owner (E-06 §6.4)", () => {
+  it("keeps reopening a sale and correcting a reservation with Sales' managers, the CEO and the Owner (E-06 §6.4)", () => {
     for (const permission of ["project.unit.reopen_sale", "project.unit.sales_correct"]) {
-      expect(holders(permission), permission).toEqual(["OWNER"]);
-      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["OWNER", "SALES"]);
+      expect(holders(permission), permission).toEqual(["CEO", "OWNER"]);
+      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["CEO", "OWNER", "SALES"]);
     }
   });
 
