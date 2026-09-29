@@ -1,3 +1,4 @@
+import { PublicReleasePanel } from "@/components/3d/platform/PublicReleasePanel";
 import { ReleaseManager } from "@/components/3d/platform/ReleaseManager";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { getProject3DEditorWorkspace } from "@/lib/modules/project-3d/project-3d.editor";
@@ -8,5 +9,10 @@ export default async function ExperienceReleasesPage({ params }: { params: Promi
   const { projectId } = await params;
   const context = await requirePlatformContext();
   const workspace = await getProject3DEditorWorkspace(context, projectId);
-  return <ReleaseManager projectId={projectId} slots={workspace.slots} />;
+  return (
+    <div className="space-y-5">
+      <ReleaseManager projectId={projectId} slots={workspace.slots} />
+      <PublicReleasePanel projectId={projectId} defaultTitle={workspace.config.experienceName} />
+    </div>
+  );
 }
