@@ -15,7 +15,7 @@ import { fail } from "@/lib/modules/project-structure/structure.service";
 import { unitSaleReadiness } from "@/lib/modules/finance/units/unit-finance.core";
 import { resolveUnitSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { fullName } from "@/lib/utils/format";
+import { memberNames } from "@/lib/modules/shared/member-names";
 import { findOpportunityInScope } from "../opportunities/opportunity.repository";
 import { createOpportunitySchema } from "../opportunities/opportunity.schema";
 import { createOpportunityInTransaction } from "../opportunities/opportunity.service";
@@ -60,13 +60,6 @@ type Tx = Prisma.TransactionClient;
 type Unit = SellableUnit;
 
 const DAY = 86_400_000;
-
-async function memberNames(companyId: string, ids: Array<string | null | undefined>): Promise<Map<string, string>> {
-  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-  if (!wanted.length) return new Map();
-  const rows = await prisma.companyMember.findMany({ where: { companyId, id: { in: wanted } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } });
-  return new Map(rows.map((row) => [row.id, fullName(row.user.firstName, row.user.lastName)]));
-}
 
 function unitRef(unit: Unit) {
   return { id: unit.id, unitCode: unit.unitCode, projectId: unit.projectId, projectName: unit.project.name };

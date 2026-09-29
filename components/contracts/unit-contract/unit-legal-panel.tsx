@@ -260,6 +260,8 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
           { label: t("unitLegal.signed"), value: contract.signedDate ? formatDate(contract.signedDate) : t("unitLegal.notYet") },
           { label: t("unitLegal.effective"), value: contract.effectiveDate ? formatDate(contract.effectiveDate) : "—" },
           { label: t("unitLegal.owner"), value: contract.owner ? <PersonLink memberId={contract.ownerMemberId} name={contract.owner} /> : "—" },
+          ...(contract.createdBy ? [{ label: t("unitLegal.createdBy"), value: <span><PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.name} /> · {formatDate(contract.createdAt)}</span> }] : []),
+          ...(contract.updatedBy ? [{ label: t("unitLegal.updatedBy"), value: <span><PersonLink memberId={contract.updatedBy.memberId} name={contract.updatedBy.name} /> · {formatDate(contract.updatedAt)}</span> }] : []),
           ...(contract.completedAt ? [{ label: t("unitLegal.completed"), value: formatDate(contract.completedAt) }] : []),
         ]}
       />

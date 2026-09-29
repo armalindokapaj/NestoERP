@@ -129,6 +129,25 @@ export async function listMembers(
  * Finance activity on a shared project must not reach an Architect simply
  * because they can open the project (PRD #10 §90).
  */
+/**
+ * Who last changed the project itself, and when, for its overview (user,
+ * 2026-09-29). The project row keeps no editor: its own activity entries do.
+ */
+export async function lastProjectChange(
+  context: UserContext,
+  projectId: string,
+): Promise<{ actor: string; actorMemberId: string; at: string } | null> {
+  if (!can(context, "project.activity.view")) return null;
+  await assertProjectInScope(context, projectId);
+  const row = await prisma.activity.findFirst({
+    where: { companyId: context.companyId, module: "projects", entityType: "Project", entityId: projectId, actorMemberId: { not: null } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { createdAt: true, actorMemberId: true, actorMember: { select: { user: { select: { firstName: true, lastName: true } } } } },
+  });
+  if (!row?.actorMember || !row.actorMemberId) return null;
+  return { actor: `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}`, actorMemberId: row.actorMemberId, at: row.createdAt.toISOString() };
+}
+
 export async function listActivity(
   context: UserContext,
   projectId: string,

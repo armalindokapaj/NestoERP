@@ -445,13 +445,6 @@ export const en = {
       ownershipEmpty: "No owners recorded.",
     },
 
-    users: {
-      user: "User",
-      email: "Email",
-      role: "Role",
-      account: "Account",
-      manageLater: "Inviting, editing and deactivating users arrives with the settings module.",
-    },
 
     roles: {
       description:

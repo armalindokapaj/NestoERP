@@ -53,6 +53,9 @@ const FILE_SELECT = {
   entityType: true,
   entityId: true,
   projectId: true,
+  // Who uploaded it, shown on every file (user, 2026-09-29).
+  uploadedByMemberId: true,
+  uploadedBy: { select: { user: { select: { firstName: true, lastName: true } } } },
 } satisfies Prisma.DocumentSelect;
 
 type FileRow = Prisma.DocumentGetPayload<{ select: typeof FILE_SELECT }>;
@@ -69,6 +72,8 @@ function toFile(row: FileRow, versionNumbers: Map<string, number>): UnitFileDTO 
     archived: row.status === "ARCHIVED",
     versionNumber: row.currentVersionId ? (versionNumbers.get(row.currentVersionId) ?? null) : null,
     uploadedAt: row.createdAt.toISOString(),
+    uploadedByMemberId: row.uploadedByMemberId,
+    uploadedBy: row.uploadedBy ? `${row.uploadedBy.user.firstName} ${row.uploadedBy.user.lastName}` : null,
     href: `/documents/${row.id}`,
   };
 }

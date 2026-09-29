@@ -484,6 +484,7 @@ export const financeEn = {
     reversedReason: "reversed: {reason}",
     reverseTo: "Reverse allocation to {label}",
     reverse: "Reverse",
+    by: "by",
     voidedReason: "Voided: {reason}",
     invoices: "Invoices",
     invoiceDue: "{label} · due {date}",

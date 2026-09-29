@@ -437,13 +437,6 @@ export const sq: Messages = {
       ownershipEmpty: "Nuk ka pronarë të regjistruar.",
     },
 
-    users: {
-      user: "Përdoruesi",
-      email: "Email",
-      role: "Roli",
-      account: "Llogaria",
-      manageLater: "Ftesa, redaktimi dhe çaktivizimi i përdoruesve vijnë me modulin e cilësimeve.",
-    },
 
     roles: {
       description:

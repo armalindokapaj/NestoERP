@@ -133,6 +133,7 @@ export const teamEn = {
     reactivated: "Member reactivated.",
     suspended: "Access suspended. Their sessions have ended.",
     unsuspended: "Suspension lifted.",
+    lastCeo: "This is the company's last active CEO. Assign another active CEO before changing their access.",
     lastOwner: "This is the company's last active Owner. Assign another active Owner before changing their access.",
     managedProjects_one: "They manage {count} active project, which must be reassigned first.",
     managedProjects_other: "They manage {count} active projects, which must be reassigned first.",

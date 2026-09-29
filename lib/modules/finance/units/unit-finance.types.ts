@@ -56,6 +56,9 @@ export const FINANCE_REASON_MAX = 1_000;
 
 export type Money = { amount: string; currency: string };
 
+/** Who did it (user, 2026-09-29). */
+export type FinanceActor = { memberId: string; name: string } | null;
+
 export type UnitFinanceCapabilities = {
   canView: boolean;
   canManageSchedule: boolean;
@@ -118,6 +121,8 @@ export type ScheduleDTO = {
   cancelledAt: string | null;
   cancelReason: string | null;
   version: number;
+  createdBy: FinanceActor;
+  activatedBy: FinanceActor;
   installments: InstallmentDTO[];
 };
 
@@ -134,6 +139,8 @@ export type ContractPaymentDTO = {
   allocatedAmount: string;
   unallocatedAmount: string;
   replacesPaymentId: string | null;
+  recordedBy: FinanceActor;
+  voidedBy: FinanceActor;
   allocations: Array<{ id: string; installmentId: string | null; label: string; amount: string; reversed: boolean; reversalReason: string | null }>;
 };
 
@@ -147,9 +154,9 @@ export type UnitFinanceDTO = {
   contractStatusAllowsActivation: boolean;
   schedules: ScheduleDTO[];
   payments: ContractPaymentDTO[];
-  invoices: Array<{ id: string; invoiceNumber: string; status: string; totalAmount: string; paidAmount: string; outstandingAmount: string; dueDate: string; installmentLabel: string | null }>;
+  invoices: Array<{ id: string; invoiceNumber: string; status: string; totalAmount: string; paidAmount: string; outstandingAmount: string; dueDate: string; installmentLabel: string | null; createdBy: FinanceActor }>;
   /** Canonical documents filed against the contract's payments — never copies (§51, §53). */
-  documents: Array<{ id: string; name: string; paymentId: string; createdAt: string }>;
+  documents: Array<{ id: string; name: string; paymentId: string; createdAt: string; uploadedBy: FinanceActor }>;
   capabilities: UnitFinanceCapabilities;
 };
 

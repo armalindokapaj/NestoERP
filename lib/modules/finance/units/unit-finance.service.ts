@@ -1,4 +1,5 @@
 import { Prisma, type PaymentScheduleStatus } from "@prisma/client";
+import { actorOf, memberNames } from "@/lib/modules/shared/member-names";
 
 import { AccessError, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -121,6 +122,8 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
         cancelledAt: true,
         cancelReason: true,
         version: true,
+        createdByMemberId: true,
+        activatedByMemberId: true,
         installments: {
           orderBy: { sequence: "asc" },
           select: { id: true, sequence: true, label: true, type: true, amount: true, currency: true, dueDate: true, notes: true, invoices: { where: { status: { notIn: ["CANCELLED", "ARCHIVED"] } }, take: 1, select: { id: true, invoiceNumber: true, status: true } } },
@@ -131,6 +134,7 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
   ]);
   const facts = factsMap.get(contract.id) ?? null;
   const installmentPaid = await paidByInstallment(schedules.flatMap((schedule) => schedule.installments.map((row) => row.id)));
+  const scheduleNames = await memberNames(context.companyId, schedules.flatMap((schedule) => [schedule.createdByMemberId, schedule.activatedByMemberId]));
 
   const scheduleDTOs: ScheduleDTO[] = schedules.map((schedule) => ({
     id: schedule.id,
@@ -145,6 +149,8 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
     cancelledAt: schedule.cancelledAt?.toISOString() ?? null,
     cancelReason: schedule.cancelReason,
     version: schedule.version,
+    createdBy: actorOf(scheduleNames, schedule.createdByMemberId),
+    activatedBy: actorOf(scheduleNames, schedule.activatedByMemberId),
     installments: schedule.installments.map((row) => {
       const paid = installmentPaid.get(row.id) ?? ZERO;
       return {
@@ -170,9 +176,10 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
     const rows = await prisma.payment.findMany({
       where: { companyId: context.companyId, contractId: contract.id },
       orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
-      select: { id: true, paymentDate: true, amount: true, currency: true, method: true, reference: true, notes: true, status: true, voidReason: true, replacesPaymentId: true, allocations: { orderBy: { createdAt: "asc" }, select: { id: true, installmentId: true, amount: true, reversedAt: true, reversalReason: true, installment: { select: { label: true, schedule: { select: { versionNumber: true } } } } } } },
+      select: { id: true, paymentDate: true, amount: true, currency: true, method: true, reference: true, notes: true, status: true, voidReason: true, replacesPaymentId: true, createdByMemberId: true, voidedByMemberId: true, allocations: { orderBy: { createdAt: "asc" }, select: { id: true, installmentId: true, amount: true, reversedAt: true, reversalReason: true, installment: { select: { label: true, schedule: { select: { versionNumber: true } } } } } } },
     });
     const allocated = await allocatedByPayment(rows.map((row) => row.id));
+    const names = await memberNames(context.companyId, rows.flatMap((row) => [row.createdByMemberId, row.voidedByMemberId]));
     payments = rows.map((row) => ({
       id: row.id,
       paymentDate: businessDateString(row.paymentDate),
@@ -186,6 +193,8 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
       allocatedAmount: toAmountString(allocated.get(row.id) ?? ZERO),
       unallocatedAmount: toAmountString(outstanding(row.amount, allocated.get(row.id) ?? ZERO)),
       replacesPaymentId: row.replacesPaymentId,
+      recordedBy: actorOf(names, row.createdByMemberId),
+      voidedBy: actorOf(names, row.voidedByMemberId),
       allocations: row.allocations.map((allocation) => ({ id: allocation.id, installmentId: allocation.installmentId, label: allocation.installment ? `${allocation.installment.label} (v${allocation.installment.schedule.versionNumber})` : "Allocation", amount: toAmountString(allocation.amount), reversed: allocation.reversedAt !== null, reversalReason: allocation.reversalReason })),
     }));
   }
@@ -196,16 +205,18 @@ export async function getUnitFinance(context: UserContext, unitId: string): Prom
       where: { companyId: context.companyId, entityType: "payment", entityId: { in: payments.map((row) => row.id) }, status: "ACTIVE", archivedAt: null },
       orderBy: { createdAt: "desc" },
       take: 100,
-      select: { id: true, name: true, entityId: true, createdAt: true },
+      select: { id: true, name: true, entityId: true, createdAt: true, uploadedByMemberId: true },
     });
-    documents = rows.map((row) => ({ id: row.id, name: row.name, paymentId: row.entityId!, createdAt: row.createdAt.toISOString() }));
+    const names = await memberNames(context.companyId, rows.map((row) => row.uploadedByMemberId));
+    documents = rows.map((row) => ({ id: row.id, name: row.name, paymentId: row.entityId!, createdAt: row.createdAt.toISOString(), uploadedBy: actorOf(names, row.uploadedByMemberId) }));
   }
 
   let invoices: UnitFinanceDTO["invoices"] = [];
   if (caps.canSeeInvoices) {
-    const rows = await prisma.invoice.findMany({ where: { companyId: context.companyId, contractId: contract.id }, orderBy: { issueDate: "desc" }, select: { id: true, invoiceNumber: true, status: true, totalAmount: true, dueDate: true, installment: { select: { label: true } } } });
+    const rows = await prisma.invoice.findMany({ where: { companyId: context.companyId, contractId: contract.id }, orderBy: { issueDate: "desc" }, select: { id: true, invoiceNumber: true, status: true, totalAmount: true, dueDate: true, createdByMemberId: true, installment: { select: { label: true } } } });
     const paid = await paidByInvoice(rows.map((row) => row.id));
-    invoices = rows.map((row) => ({ id: row.id, invoiceNumber: row.invoiceNumber, status: row.status, totalAmount: toAmountString(row.totalAmount), paidAmount: toAmountString(paid.get(row.id) ?? ZERO), outstandingAmount: toAmountString(outstanding(row.totalAmount, paid.get(row.id) ?? ZERO)), dueDate: businessDateString(row.dueDate), installmentLabel: row.installment?.label ?? null }));
+    const names = await memberNames(context.companyId, rows.map((row) => row.createdByMemberId));
+    invoices = rows.map((row) => ({ id: row.id, invoiceNumber: row.invoiceNumber, status: row.status, totalAmount: toAmountString(row.totalAmount), paidAmount: toAmountString(paid.get(row.id) ?? ZERO), outstandingAmount: toAmountString(outstanding(row.totalAmount, paid.get(row.id) ?? ZERO)), dueDate: businessDateString(row.dueDate), installmentLabel: row.installment?.label ?? null, createdBy: actorOf(names, row.createdByMemberId) }));
   }
 
   return {

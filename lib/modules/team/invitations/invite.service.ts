@@ -152,6 +152,9 @@ async function resolveInviteGrants(
   }
   // Only an Owner may create another Owner (PRD #14 §96).
   if (role.key === "OWNER") assertPermission(context, "team.owner.assign");
+  // Group IT is group authority a company administrator cannot hand out
+  // (CEO Users & Roles §23).
+  if (role.key === "GROUP_IT") assertPermission(context, "team.group_role.assign");
 
   const department = departmentId
     ? await prisma.department.findFirst({

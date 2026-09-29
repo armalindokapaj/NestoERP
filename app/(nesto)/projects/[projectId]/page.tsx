@@ -83,6 +83,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const myWork = projectMyWork(context, project.id);
   const upcoming = projectUpcoming(context, project);
   const activity = actions.canViewActivity ? projects.listActivity(context, project.id, { page: 1, limit: 5 }) : null;
+  const lastChange = actions.canViewActivity ? await projects.lastProjectChange(context, project.id) : null;
   /*
    * The deal this project came from (PRD #17 §267, §385) — only for somebody who
    * may see Sales records, resolved through the Sales scope, so a project manager
@@ -169,6 +170,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             <Summary label={t("overview.projectType")} value={project.projectType?.name ?? t("overview.notSet")} />
             <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${project.builtArea.toLocaleString("en-US")} m²`} />
             <Summary label={t("overview.progress")} value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
+            {lastChange ? <Summary label={t("overview.lastEditedBy")} value={<span data-testid="project-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at)}</span>} /> : null}
             {sourceOpportunity ? (
               <Suspense fallback={null}>
                 <SourceOpportunity opportunity={sourceOpportunity} />

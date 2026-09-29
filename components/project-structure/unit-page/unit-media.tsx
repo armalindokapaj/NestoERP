@@ -23,6 +23,7 @@ import { CAPTION_MAX, MAX_UNIT_MEDIA, UNIT_MEDIA_CATEGORIES, type UnitFilesDTO, 
 import { Field, FormError, failureMessage, isFailure, structureApi } from "../structure-ui";
 import { AttachDialog } from "./unit-documents";
 import { UnitImage } from "./unit-image";
+import { PersonLink } from "@/components/people/person-link";
 
 /**
  * A unit's images and renders (E-05D §40-§44, §94).
@@ -185,6 +186,11 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
                     <Badge>{t(`mediaCategory.${item.category}`)}</Badge>
                   </div>
                   <p className="mt-1 truncate text-table text-fg">{item.caption ?? item.document.name}</p>
+                  {item.document.uploadedBy ? (
+                    <p className="truncate text-meta text-fg-subtle">
+                      {t("unitFiles.uploadedBy")} <PersonLink memberId={item.document.uploadedByMemberId} name={item.document.uploadedBy} />
+                    </p>
+                  ) : null}
                 </div>
                 {can.canManageMedia ? (
                   <DropdownMenu>

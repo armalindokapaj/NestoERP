@@ -28,6 +28,7 @@ import {
   type UnitFilesDTO,
 } from "@/lib/modules/project-structure/unit-publishing.types";
 import { formatRelativeTime } from "@/lib/utils/format";
+import { PersonLink } from "@/components/people/person-link";
 import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
 import { fileSize, uploadNewVersion } from "./unit-upload";
 
@@ -53,6 +54,12 @@ function FileLine({ file, children }: { file: UnitFileDTO; children?: React.Reac
       {file.archived ? <Badge tone="warning">{t("unitFiles.archived")}</Badge> : file.storageStatus !== "AVAILABLE" ? <Badge tone="info">{t("unitFiles.beingChecked")}</Badge> : null}
       <span className="text-meta text-fg-subtle">
         {fileSize(file.sizeBytes)} · {formatRelativeTime(file.uploadedAt)}
+        {file.uploadedBy ? (
+          <>
+            {" · "}
+            {t("unitFiles.uploadedBy")} <PersonLink memberId={file.uploadedByMemberId} name={file.uploadedBy} />
+          </>
+        ) : null}
       </span>
       {children}
     </div>

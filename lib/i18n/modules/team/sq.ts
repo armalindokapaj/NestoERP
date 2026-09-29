@@ -135,6 +135,7 @@ export const teamSq: typeof teamEn = {
     reactivated: "Anëtari u riaktivizua.",
     suspended: "Qasja u pezullua. Seancat e tij përfunduan.",
     unsuspended: "Pezullimi u hoq.",
+    lastCeo: "Ky është CEO-ja e fundit aktive e kompanisë. Caktoni një CEO tjetër aktiv para se t'i ndryshoni qasjen.",
     lastOwner: "Ky është Pronari i fundit aktiv i kompanisë. Caktoni një Pronar tjetër aktiv para se t'i ndryshoni qasjen.",
     managedProjects_one: "Menaxhon {count} projekt aktiv, i cili duhet ricaktuar më parë.",
     managedProjects_other: "Menaxhon {count} projekte aktive, të cilat duhen ricaktuar më parë.",

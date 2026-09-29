@@ -88,7 +88,11 @@ export type UnitContractDTO = {
   completedAt: string | null;
   owner: string | null;
   ownerMemberId: string | null;
+  /** Who drafted it and who last changed it (user, 2026-09-29). */
+  createdBy: { memberId: string; name: string } | null;
+  updatedBy: { memberId: string; name: string } | null;
   createdAt: string;
+  updatedAt: string;
   units: Array<{ unitId: string; unitCode: string; value: string | null; valueNote: string | null; released: boolean; releaseReason: string | null }>;
   pendingApproval: boolean;
   documentCount: number;

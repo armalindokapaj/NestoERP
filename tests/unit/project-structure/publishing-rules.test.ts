@@ -158,17 +158,18 @@ describe("validation (§67, §110)", () => {
 describe("default role policy (§19, §120)", () => {
   const holders = (permission: string, position: PositionLevel = "MEMBER") => ROLE_KEYS.filter((role) => (permissionsForRole(role, position) as readonly string[]).includes(permission)).sort();
 
-  it("lets the Architect, the Project Manager and the Owner prepare and submit units", () => {
+  // The CEO runs the company's units end to end (user, 2026-09-29).
+  it("lets the Architect, the Project Manager, the CEO and the Owner prepare and submit units", () => {
     for (const permission of ["project.unit.documents.manage", "project.unit.media.manage", "project.unit.submit_for_publish"]) {
-      expect(holders(permission), permission).toEqual(["ARCHITECT", "OWNER", "PROJECT_MANAGER"]);
+      expect(holders(permission), permission).toEqual(["ARCHITECT", "CEO", "OWNER", "PROJECT_MANAGER"]);
     }
   });
 
-  it("keeps publishing, revision, unpublishing and archiving with Architecture's managers and the Owner (E-06 §6.3)", () => {
+  it("keeps publishing, revision, unpublishing and archiving with Architecture's managers, the CEO and the Owner (E-06 §6.3)", () => {
     for (const permission of ["project.unit.publish", "project.unit.revision_request", "project.unit.unpublish", "project.unit.archive"]) {
-      expect(holders(permission), permission).toEqual(["OWNER"]);
-      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["ARCHITECT", "OWNER"]);
-      expect(holders(permission, "GROUP_HEAD"), permission).toEqual(["ARCHITECT", "OWNER"]);
+      expect(holders(permission), permission).toEqual(["CEO", "OWNER"]);
+      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["ARCHITECT", "CEO", "OWNER"]);
+      expect(holders(permission, "GROUP_HEAD"), permission).toEqual(["ARCHITECT", "CEO", "OWNER"]);
     }
   });
 

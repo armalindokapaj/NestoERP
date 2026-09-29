@@ -1,4 +1,5 @@
 import { Prisma, type ContractStatus, type UnitContractRequestStatus } from "@prisma/client";
+import { memberNames } from "@/lib/modules/shared/member-names";
 
 import { AccessError, assertModule, assertPermission, invalidRecordLink } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -14,7 +15,6 @@ import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-q
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { fail, findReadableUnit } from "@/lib/modules/project-structure/structure.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
-import { fullName } from "@/lib/utils/format";
 import { contractMachine } from "../contracts/contract.machine";
 import { contractEditMode } from "../contracts/contract.status";
 import { findLegalUnit, legalCapabilities, SALE_AGREEMENT } from "./sale-contract";
@@ -59,12 +59,6 @@ function moneyText(value: Prisma.Decimal | null | undefined): string | null {
   return value === null || value === undefined ? null : value.toFixed(2);
 }
 
-async function memberNames(companyId: string, ids: Array<string | null | undefined>): Promise<Map<string, string>> {
-  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-  if (!wanted.length) return new Map();
-  const rows = await prisma.companyMember.findMany({ where: { companyId, id: { in: wanted } }, select: { id: true, user: { select: { firstName: true, lastName: true } } } });
-  return new Map(rows.map((row) => [row.id, fullName(row.user.firstName, row.user.lastName)]));
-}
 
 /* The unit's standing with Sales (§13) ------------------------------------------------------ */
 
@@ -131,7 +125,10 @@ const CONTRACT_SELECT = {
   effectiveDate: true,
   completedAt: true,
   ownerMemberId: true,
+  createdByMemberId: true,
+  updatedByMemberId: true,
   createdAt: true,
+  updatedAt: true,
   client: { select: { name: true } },
   opportunity: { select: { name: true } },
   units: { orderBy: { createdAt: "asc" }, select: { unitId: true, value: true, valueNote: true, releasedAt: true, releaseReason: true, unit: { select: { unitCode: true } } } },
@@ -175,7 +172,10 @@ function contractDTO(row: ContractRow, unitId: string, caps: UnitLegalCapabiliti
     completedAt: row.completedAt?.toISOString() ?? null,
     owner: names.get(row.ownerMemberId) ?? null,
     ownerMemberId: row.ownerMemberId,
+    createdBy: row.createdByMemberId && names.has(row.createdByMemberId) ? { memberId: row.createdByMemberId, name: names.get(row.createdByMemberId)! } : null,
+    updatedBy: row.updatedByMemberId && names.has(row.updatedByMemberId) ? { memberId: row.updatedByMemberId, name: names.get(row.updatedByMemberId)! } : null,
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
     units: row.units.map((unit) => ({ unitId: unit.unitId, unitCode: unit.unit.unitCode, value: caps.canSeeValue ? moneyText(unit.value) : null, valueNote: caps.canSeeValue ? unit.valueNote : null, released: unit.releasedAt !== null, releaseReason: unit.releaseReason })),
     pendingApproval: pending.has(row.id),
     documentCount: documents.get(row.id) ?? 0,
@@ -244,7 +244,7 @@ export async function getUnitLegal(context: UserContext, unitId: string): Promis
     prisma.contractApproval.findMany({ where: { companyId: context.companyId, recordType: "CONTRACT", recordId: { in: contractIds }, status: "PENDING" }, select: { recordId: true } }),
     prisma.document.groupBy({ by: ["entityId"], where: { companyId: context.companyId, entityType: "contract", entityId: { in: contractIds }, archivedAt: null }, _count: { _all: true } }),
   ]);
-  const names = await memberNames(context.companyId, [...contracts.map((row) => row.ownerMemberId), ...requests.map((row) => row.requestedByMemberId)]);
+  const names = await memberNames(context.companyId, [...contracts.flatMap((row) => [row.ownerMemberId, row.createdByMemberId, row.updatedByMemberId]), ...requests.map((row) => row.requestedByMemberId)]);
   const dtos = contracts.map((row) => contractDTO(row, unit.id, caps, names, new Set(pending.map((item) => item.recordId)), new Map(documents.map((item) => [item.entityId!, item._count._all]))));
   const live = dtos.find((row) => row.live) ?? null;
   const requestDTOs = requests.map((row) => requestDTO(row, caps, names));

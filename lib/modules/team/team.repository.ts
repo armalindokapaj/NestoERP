@@ -248,22 +248,28 @@ export async function membershipGuards(context: UserContext, memberId: string) {
         status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] },
       },
     }),
-    prisma.companyMember.count({
-      where: { companyId: context.companyId, status: "ACTIVE", role: { key: "OWNER" } },
+    prisma.companyMember.groupBy({
+      by: ["roleId"],
+      where: { companyId: context.companyId, status: "ACTIVE", role: { key: { in: ["OWNER", "CEO"] } } },
+      _count: { _all: true },
     }),
     prisma.companyMember.findFirst({
       where: { id: memberId, companyId: context.companyId },
-      select: { status: true, role: { select: { key: true } } },
+      select: { status: true, roleId: true, role: { select: { key: true } } },
     }),
   ]);
 
-  const isActiveOwner = member?.role.key === "OWNER" && member.status === "ACTIVE";
+  const isActiveProtected =
+    (member?.role.key === "OWNER" || member?.role.key === "CEO") && member.status === "ACTIVE";
+  const activeHolders = activeOwners.find((row) => row.roleId === member?.roleId)?._count._all ?? 0;
 
   return {
     managedActiveProjects,
     openAssignedTasks,
-    // The company must never lose its last active Owner (PRD #14 §93).
-    lastActiveOwner: isActiveOwner && activeOwners <= 1,
+    // The company must never lose its last active Owner or CEO (PRD #14 §93,
+    // CEO Users & Roles §20).
+    lastActiveOwner: isActiveProtected && activeHolders <= 1,
+    lastActiveRole: isActiveProtected && activeHolders <= 1 ? (member.role.key as "OWNER" | "CEO") : null,
   };
 }
 

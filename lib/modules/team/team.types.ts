@@ -77,7 +77,7 @@ export type TeamMemberDetailDTO = {
    * missing permission — the last active Owner, or an active project
    * managership (PRD #14 §93, §101, §102).
    */
-  guards: { lastActiveOwner: boolean; managedActiveProjects: number; openAssignedTasks: number };
+  guards: { lastActiveOwner: boolean; lastActiveRole: "OWNER" | "CEO" | null; managedActiveProjects: number; openAssignedTasks: number };
 };
 
 export type TeamMemberProjectDTO = {

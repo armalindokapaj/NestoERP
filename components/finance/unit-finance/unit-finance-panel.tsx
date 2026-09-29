@@ -20,6 +20,8 @@ import { ScrollRegion } from "@/components/ui/scroll-region";
 import { PAYMENT_METHODS } from "@/lib/modules/finance/payments/payment.schema";
 import { INSTALLMENT_TYPES, type ContractPaymentDTO, type InstallmentDTO, type ScheduleDTO, type UnitFinanceDTO } from "@/lib/modules/finance/units/unit-finance.types";
 import { formatDate } from "@/lib/utils/format";
+import { PersonLink } from "@/components/people/person-link";
+import type { FinanceActor } from "@/lib/modules/finance/units/unit-finance.types";
 import { FieldsDialog, today, type Submit } from "./fields-dialog";
 import { amountLabel, FinancialStatusBadge, InstallmentStatusBadge, ScheduleStatusBadge, UnitContractStatusBadge } from "./finance-status";
 
@@ -151,6 +153,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
             </h2>
             {current ? <ScheduleStatusBadge status={current.status} /> : null}
             {current ? <span className="text-meta text-fg-subtle">v{current.versionNumber}</span> : null}
+            {current ? <ByLine actor={current.activatedBy ?? current.createdBy} /> : null}
             <div className="ml-auto flex flex-wrap gap-2">
               {caps.canManageSchedule && live && !draft ? (
                 <Button size="sm" variant={current ? "secondary" : "primary"} onClick={() => setOpen({ kind: "schedule", schedule: null, copy: Boolean(current) })}>
@@ -171,6 +174,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium text-fg">{t("panel.draftVersion", { version: draft.versionNumber })}</p>
                 <ScheduleStatusBadge status="DRAFT" />
+                <ByLine actor={draft.createdBy} />
                 <span className="text-meta text-fg-subtle">
                   {t("panel.total", { amount: amountLabel(draft.total, currency) })}
                   {finance.scheduleTarget ? t("panel.contractNeeds", { amount: amountLabel(finance.scheduleTarget, currency) }) : ""}
@@ -232,6 +236,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                       {formatDate(payment.paymentDate)} · {methodLabel(t, payment.method)}
                       {payment.reference ? ` · ${payment.reference}` : ""}
                     </span>
+                    <ByLine actor={payment.recordedBy} />
                     {payment.status === "VOIDED" ? <Badge>{t("paymentStatus.VOIDED")}</Badge> : Number(payment.unallocatedAmount) > 0 ? <Badge tone="warning">{t("panel.unallocatedBadge", { amount: amountLabel(payment.unallocatedAmount, payment.currency) })}</Badge> : null}
                     <PaymentMenu payment={payment} caps={caps} onOpen={setOpen} />
                   </div>
@@ -252,7 +257,11 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                       ))}
                     </ul>
                   ) : null}
-                  {payment.voidReason ? <p className="mt-1 text-meta text-fg-muted">{t("panel.voidedReason", { reason: payment.voidReason })}</p> : null}
+                  {payment.voidReason ? (
+                    <p className="mt-1 flex flex-wrap items-center gap-1 text-meta text-fg-muted">
+                      {t("panel.voidedReason", { reason: payment.voidReason })} <ByLine actor={payment.voidedBy} />
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -273,6 +282,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                 </Link>
                 <Badge>{invoice.status.charAt(0) + invoice.status.slice(1).toLowerCase().replace(/_/g, " ")}</Badge>
                 <span className="text-fg-muted">{t("panel.invoiceDue", { label: invoice.installmentLabel ?? "", date: formatDate(invoice.dueDate) })}</span>
+                <ByLine actor={invoice.createdBy} />
                 <span className="ml-auto tabular-nums text-fg-muted">
                   {t("panel.paidOfTotal", { paid: amountLabel(invoice.paidAmount, currency), total: amountLabel(invoice.totalAmount, currency) })}
                 </span>
@@ -300,6 +310,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                       {document.name}
                     </Link>
                     <span className="text-meta text-fg-subtle">{payment ? `${amountLabel(payment.amount, payment.currency)} · ${formatDate(payment.paymentDate)}` : ""}</span>
+                    <ByLine actor={document.uploadedBy} />
                   </li>
                 );
               })}
@@ -722,5 +733,16 @@ function AllocateDialog({ onClose, payment, installments, submit }: { onClose: (
     >
       <AllocationRows installments={installments} values={values} currency={payment.currency} onChange={(id, value) => setValues((current) => ({ ...current, [id]: value }))} />
     </FormDialog>
+  );
+}
+
+/** Who did it, beside the record (user, 2026-09-29). */
+function ByLine({ actor }: { actor: FinanceActor }) {
+  const t = useFinanceTranslations();
+  if (!actor) return null;
+  return (
+    <span className="text-meta text-fg-subtle">
+      {t("panel.by")} <PersonLink memberId={actor.memberId} name={actor.name} />
+    </span>
   );
 }
