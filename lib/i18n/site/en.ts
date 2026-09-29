@@ -73,12 +73,12 @@ export const siteEn = {
     platform: {
       title: "Platform",
       description:
-        "Seventeen modules, sixteen role workspaces and one project record — the whole construction lifecycle in a single system.",
+        "Every construction department, a workspace for each role and one project record — the whole construction lifecycle in a single system.",
     },
     pricing: {
       title: "Pricing",
       description:
-        "One price per company, with all seventeen modules included on every plan. No per-module upsell and no per-seat surprises.",
+        "Build your NESTO: choose a foundation, the modules you need, your companies, projects and users, and see the price as you go.",
     },
     security: {
       title: "Security",
@@ -99,6 +99,7 @@ export const siteEn = {
   },
 
   nav: {
+    fullView: "Full View",
     platform: "Platform",
     pricing: "Pricing",
     security: "Security",
@@ -114,6 +115,7 @@ export const siteEn = {
       access: "Access",
     } satisfies Record<FooterColumnKey, string>,
     links: {
+      fullView: "Full View",
       overview: "Overview",
       modules: "Modules",
       roles: "Roles",
@@ -150,7 +152,7 @@ export const siteEn = {
     },
     platform: {
       eyebrow: "The platform",
-      title: "Seventeen modules. One workspace.",
+      title: "Every department. One workspace.",
       lead: "Every department in the same system, on the same project record — with procurement, quality and safety treated as first-class work rather than add-ons.",
       cta: "Explore the platform",
     },
@@ -174,7 +176,7 @@ export const siteEn = {
   },
 
   stats: {
-    modules: { label: "Modules", note: "Every one included, on every plan." },
+    modules: { label: "Modules", note: "Activate the ones your company needs." },
     roles: { label: "Roles", note: "Each with its own workspace and dashboard." },
     sourceOfTruth: { label: "Source of truth", note: "One database behind every department." },
     spreadsheets: {
@@ -293,7 +295,7 @@ export const siteEn = {
     },
     {
       title: "One system, visibly",
-      copy: "Seventeen modules, one design system. A single file holds every colour, radius, shadow and duration, so no screen invents its own. Learn one module and you have learned all of them.",
+      copy: "Every module, one design system. A single file holds every colour, radius, shadow and duration, so no screen invents its own. Learn one module and you have learned all of them.",
       points: ["One token set", "One component library", "One layout standard"],
     },
     {
@@ -362,7 +364,7 @@ export const siteEn = {
     seePricing: "See pricing",
     modules: {
       eyebrow: "Modules",
-      title: "Seventeen modules, and the sections inside them.",
+      title: "Every module, and the sections inside them.",
       lead: "Every module ships with its own route, header, navigation and dashboard. The tabs below are the ones your team will actually land on.",
     },
     rolesNote:
@@ -428,7 +430,7 @@ export const siteEn = {
   pricing: {
     eyebrow: "Pricing",
     title: "Priced per company. Never per module.",
-    lead: "Every plan includes all seventeen modules. There is no edition that withholds QA/QC until you upgrade, and no per-seat charge that makes you think twice about giving a foreman an account.",
+    lead: "NESTO is modular. Companies activate the functions they need, while shared records and permissions keep the selected modules connected.",
     mostChosen: "Most chosen",
     /** In place of a figure, for a plan config/marketing.ts prices by agreement. */
     bespoke: "Bespoke",
@@ -525,7 +527,7 @@ export const siteEn = {
       {
         title: "Where NESTO is today",
         body: [
-          "V0.1 is the foundation release: one application, one design system, one app shell, one module system and one role configuration. All sixteen roles sign in and work from their own perspective, and all seventeen modules have a real route, header, navigation and dashboard.",
+          "V0.1 is the foundation release: one application, one design system, one app shell, one module system and one role configuration. Every role signs in and works from its own perspective, and every module has a real route, header, navigation and dashboard.",
           "Module functionality is being built out on that foundation, module by module. We would rather tell you that plainly than sell you a screenshot of something that does not exist yet.",
           "If you want to shape what gets built next, that is exactly the conversation to have with us now.",
         ],
@@ -569,9 +571,9 @@ export const siteEn = {
               "It is built for it. The module set is a construction company's: procurement with RFQs and tenders, inventory with site movements, QA/QC with NCRs and punch lists, HSE with permits and incidents. A company outside construction would be paying for a shape it does not need.",
           },
           {
-            question: "Which modules are included?",
+            question: "Which modules are available?",
             answer:
-              "All seventeen, on every plan. There is no edition that withholds a module until you upgrade, because a company that cannot afford the quality module is exactly the company that needs it.",
+              "NESTO is modular. Companies activate the functions they need — from Projects, Tasks and Documents to Finance, Sales, Legal, Procurement, Inventory, QA/QC and HSE — while shared records and permissions keep the selected modules connected. Build your combination on the pricing page.",
           },
           {
             question: "Can we switch a module off?",
@@ -650,7 +652,7 @@ export const siteEn = {
           {
             question: "How is NESTO priced?",
             answer:
-              "Per company, per month, with every module included and a user ceiling per plan. Pricing is on the pricing page — no quote required to see a number.",
+              "Modular: choose a foundation, the modules you need, your companies, projects, users and contract term. The pricing page calculates the price as you build — no quote required to see a number.",
           },
           {
             question: "Can we see it before committing?",
