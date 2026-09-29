@@ -8,7 +8,7 @@ test("the Platform Admin can review the active public price book", async ({ page
   await expect(page.getByRole("heading", { name: "Active price book" })).toBeVisible();
   await expect(page.getByText("2026.09").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Current promotion" })).toBeVisible();
-  await expect(page.getByRole("main").getByLabel("Eligible product")).toHaveValue("NESTO_ERP");
+  await expect(page.getByRole("main").getByLabel("Eligible foundation")).toHaveValue("NESTO_PLATFORM");
 });
 
 test("a tenant user cannot enter the platform pricing control plane", async ({ page }) => {

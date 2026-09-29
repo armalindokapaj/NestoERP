@@ -5,8 +5,10 @@ import { canPlatform, type PlatformContext } from "@/lib/context/platform-contex
 import { prisma } from "@/lib/database/prisma";
 
 import { calculatePricing, hasRozarisProjects } from "./pricing.engine";
+import { upgradeLegacyConfig } from "./pricing.config";
 import {
   createPricingVersionSchema,
+  legacyPricingConfigSchema,
   pricingConfigSchema,
   pricingPromotionConfigSchema,
   type PricingLeadInput,
@@ -33,6 +35,16 @@ function activeAt(now: Date) {
   };
 }
 
+/**
+ * A stored price book as the modular shape: a first-shape book is upgraded on
+ * read, charging exactly what it charged; nothing stored is rewritten.
+ */
+export function parsePriceBook(json: unknown, versionCode: string): PricingConfig {
+  const modular = pricingConfigSchema.safeParse(json);
+  const config = modular.success ? modular.data : upgradeLegacyConfig(legacyPricingConfigSchema.parse(json));
+  return { ...config, version: versionCode, currency: "EUR" } as PricingConfig;
+}
+
 export async function resolvePublicPricing(now = new Date()): Promise<{
   versionId: string;
   config: PricingConfig;
@@ -48,8 +60,7 @@ export async function resolvePublicPricing(now = new Date()): Promise<{
   });
   if (!version) throw new AccessError("INTERNAL_ERROR", "Pricing is temporarily unavailable.");
 
-  const parsed = pricingConfigSchema.parse(version.configJson);
-  const config: PricingConfig = { ...parsed, version: version.versionCode, currency: "EUR" };
+  const config = parsePriceBook(version.configJson, version.versionCode);
   const promotionRows = await prisma.pricingPromotion.findMany({ where: activeAt(now), orderBy: { code: "asc" } });
   const promotions = promotionRows.flatMap((row) => {
     const result = pricingPromotionConfigSchema.safeParse(row.configJson);
@@ -60,11 +71,21 @@ export async function resolvePublicPricing(now = new Date()): Promise<{
 
 export async function getPublicPricingConfig(now = new Date()): Promise<PublicPricingConfig> {
   const bundle = await resolvePublicPricing(now);
+  const { config } = bundle;
+  // Only what a visitor may buy; technical and unsold modules stay server-side (§42).
   return {
-    pricingVersion: bundle.config.version,
-    currency: bundle.config.currency,
-    publicRules: bundle.config,
+    pricingVersion: config.version,
+    currency: config.currency,
+    foundations: config.foundations.filter((row) => row.enabled),
+    modules: config.modules.filter((row) => row.enabled && row.public),
+    companies: config.companies,
+    nestoProjects: config.nestoProjects,
+    nestoIncludedUsers: config.nestoIncludedUsers,
+    rozaris: config.rozaris,
+    users: config.users,
+    contractOptions: [24, 12],
     promotions: bundle.promotions,
+    indexation: config.indexation,
   };
 }
 
@@ -87,7 +108,7 @@ export async function calculateAuthoritativePricing(
 
   if (!options.persistQuote) return calculatePricing(input, bundle.config, promotion);
 
-  if (input.productMode === "ROZARIS_ONLY" && !hasRozarisProjects(input)) {
+  if (input.foundation === "ROZARIS" && !hasRozarisProjects(input)) {
     throw new AccessError("VALIDATION_ERROR", "Add at least one ROZARIS project before saving a quote.", {
       rozaris: ["At least one ROZARIS project is required."],
     });
@@ -106,13 +127,13 @@ export async function calculateAuthoritativePricing(
         reference: identity.reference,
         pricingVersionId: bundle.versionId,
         pricingVersionCode: quote.pricingVersion,
-        productMode: input.productMode,
-        configurationJson: toJson(input),
+        productMode: quote.normalizedConfiguration.foundation,
+        configurationJson: toJson(quote.normalizedConfiguration),
         calculatedResultJson: toJson(quote),
         currency: quote.currency,
-        standardMonthlyCents: BigInt(Math.round(quote.standardMonthly * 100)),
-        contractMonths: quote.contract.months,
-        preIndexationValueCents: BigInt(Math.round(quote.contract.preIndexationValue * 100)),
+        standardMonthlyCents: BigInt(quote.standardMonthlyCents),
+        contractMonths: quote.contractMonths,
+        preIndexationValueCents: BigInt(quote.preIndexationContractValueCents),
         promotionCode: quote.promotion.appliedCode,
         expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1_000),
       },
@@ -125,10 +146,10 @@ export async function calculateAuthoritativePricing(
         pricingVersion: quote.pricingVersion,
         afterJson: toJson({
           reference: identity.reference,
-          productMode: input.productMode,
-          standardMonthly: quote.standardMonthly,
-          contractMonths: quote.contract.months,
-          preIndexationValue: quote.contract.preIndexationValue,
+          foundation: quote.normalizedConfiguration.foundation,
+          standardMonthlyCents: quote.standardMonthlyCents,
+          contractMonths: quote.contractMonths,
+          preIndexationValueCents: quote.preIndexationContractValueCents,
         }),
       },
     });
@@ -145,8 +166,11 @@ export async function submitPricingLead(input: PricingLeadInput, now = new Date(
 
   const quoteConfiguration = quote.configurationJson as Record<string, unknown>;
   if (input.requestType === "THREE_D_PRODUCTION") {
+    // Modular quotes list their projects; first-shape quotes counted them per class.
     const rozaris = quoteConfiguration.rozaris as Record<string, unknown> | undefined;
-    const projectCount = Number(rozaris?.basicProjects ?? 0) + Number(rozaris?.largeProjects ?? 0) + Number(rozaris?.villageProjects ?? 0);
+    const projectCount = Array.isArray(quoteConfiguration.rozarisProjects)
+      ? quoteConfiguration.rozarisProjects.length
+      : Number(rozaris?.basicProjects ?? 0) + Number(rozaris?.largeProjects ?? 0) + Number(rozaris?.villageProjects ?? 0);
     if (projectCount < 1) throw new AccessError("VALIDATION_ERROR", "A 3D production request requires a ROZARIS project.");
   }
 
@@ -193,7 +217,7 @@ export async function getPricingAdministration(context: PlatformContext) {
     }),
   ]);
   return {
-    versions: versions.map((version) => ({ ...version, configJson: pricingConfigSchema.parse(version.configJson), effectiveFrom: version.effectiveFrom.toISOString(), effectiveUntil: version.effectiveUntil?.toISOString() ?? null, createdAt: version.createdAt.toISOString(), updatedAt: version.updatedAt.toISOString(), publishedAt: version.publishedAt?.toISOString() ?? null })),
+    versions: versions.map((version) => ({ ...version, configJson: parsePriceBook(version.configJson, version.versionCode), effectiveFrom: version.effectiveFrom.toISOString(), effectiveUntil: version.effectiveUntil?.toISOString() ?? null, createdAt: version.createdAt.toISOString(), updatedAt: version.updatedAt.toISOString(), publishedAt: version.publishedAt?.toISOString() ?? null })),
     promotions: promotions.map((promotion) => ({ ...promotion, configJson: pricingPromotionConfigSchema.parse(promotion.configJson), startsAt: promotion.startsAt?.toISOString() ?? null, endsAt: promotion.endsAt?.toISOString() ?? null, createdAt: promotion.createdAt.toISOString(), updatedAt: promotion.updatedAt.toISOString() })),
     recentQuotes: recentQuotes.map((quote) => ({ ...quote, standardMonthly: Number(quote.standardMonthlyCents) / 100, createdAt: quote.createdAt.toISOString(), leads: quote._count.leads, standardMonthlyCents: undefined, _count: undefined })),
   };
@@ -204,7 +228,7 @@ export async function createPricingDraft(context: PlatformContext, raw: { versio
   const input = createPricingVersionSchema.parse(raw);
   const current = await prisma.pricingVersion.findFirst({ where: { status: "ACTIVE" }, orderBy: { effectiveFrom: "desc" } });
   if (!current) throw new AccessError("CONFLICT", "Publish an initial pricing version first.");
-  const source = pricingConfigSchema.parse(current.configJson);
+  const source = parsePriceBook(current.configJson, current.versionCode);
   const nextConfig = { ...source, version: input.versionCode };
   return prisma.$transaction(async (tx) => {
     const created = await tx.pricingVersion.create({
@@ -234,7 +258,7 @@ export async function publishPricingVersion(context: PlatformContext, id: string
     const currentTarget = await tx.pricingVersion.findUnique({ where: { id } });
     if (!currentTarget) throw new AccessError("NOT_FOUND");
     if (currentTarget.status !== "DRAFT") throw new AccessError("CONFLICT", "Only a draft pricing version can be published.");
-    pricingConfigSchema.parse(currentTarget.configJson);
+    parsePriceBook(currentTarget.configJson, currentTarget.versionCode);
     const retired = await tx.pricingVersion.findMany({ where: { status: "ACTIVE" }, select: { id: true, versionCode: true } });
     await tx.pricingVersion.updateMany({ where: { status: "ACTIVE" }, data: { status: "RETIRED", effectiveUntil: now } });
     for (const version of retired) {
