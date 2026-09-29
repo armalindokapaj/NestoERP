@@ -6,6 +6,14 @@ import { Card } from "@/components/ui/card";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { getTranslations } from "@/lib/i18n/server";
 
+/*
+ * Always rendered per request. The page reads the maintenance flags before it
+ * reads the locale cookie, so without this `next build` would query the
+ * production database while prerendering — and a stalled query there stalls
+ * the whole build. Nothing about maintenance may be baked in at build time.
+ */
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata() {
   return { title: (await getTranslations("misc"))("maintenance.metaTitle") };
 }
