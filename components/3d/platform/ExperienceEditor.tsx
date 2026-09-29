@@ -361,7 +361,7 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
     const chosen = slot.versions.find((version) => version.id === activeVersionId && version.asset) ?? slot.versions.find((version) => version.asset);
     if (!chosen) return [];
     const runtime = runtimeModel(chosen, modelEdits[chosen.id] ?? savedSettings[chosen.id] ?? settingsOf(chosen), assetUrls.current);
-    return runtime ? [{ slotId: slot.id, slotName: slot.displayName, slotRole: slot.role.toLowerCase() as "building" | "units" | "surroundings" | "context" | "custom", transformParentSlotId: slot.transformParentSlotId, model: runtime, units }] : [];
+    return runtime ? [{ slotId: slot.id, slotName: slot.displayName, slotRole: slot.role.toLowerCase() as "building" | "units" | "surroundings" | "context" | "custom", transformParentSlotId: slot.transformParentSlotId, versionId: chosen.id, model: runtime, units }] : [];
   }), [activeVersionId, initial.slots, units, modelEdits, savedSettings]);
 
   async function save() {
@@ -404,7 +404,14 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
       }
       setFailed(false);
       setNotice((current) => (current?.kind === "conflict" ? current : null));
-      toast({ title: "Draft saved.", description: "The published viewer changes only when a release is published.", tone: "success" });
+      // Saving publishes too: the viewers show a release, so a save makes a new one
+      // from the saved settings and the model versions this editor is showing.
+      try {
+        await engineeringApi(`${API}/projects/${projectId}/releases`, { body: { versionIds: models.map((model) => model.versionId) } });
+        toast({ title: "Saved and published.", description: "The Company and public viewers now show these changes.", tone: "success" });
+      } catch (failure) {
+        toast({ title: "Saved, but not published.", description: failureMessage(failure, "The viewers still show the previous release."), tone: "danger" });
+      }
     } catch (failure) {
       setFailed(true);
       const kind = classifySaveFailure(failure);
