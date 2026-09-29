@@ -58,6 +58,17 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: process.env.VERCEL === "1" },
 
   /**
+   * No source maps in the Vercel build. The build machine has 2 cores and
+   * 8 GB; Turbopack's 4,800 server source maps (~220 MB, 45% of the output)
+   * made "writing to disk" alone take 7.7 minutes and pushed the build past
+   * Vercel's 45-minute limit (BUILD_EXCEEDED_MAXIMUM_TIME, 2026-09-29).
+   * Browser maps were already off; local builds keep theirs for debugging.
+   */
+  experimental: {
+    turbopackSourceMaps: process.env.VERCEL !== "1",
+  },
+
+  /**
    * `/legal` is the same module as `/contracts` (PRD #18 §8).
    *
    * Older shell configuration used `/legal` as the route for this module. It
