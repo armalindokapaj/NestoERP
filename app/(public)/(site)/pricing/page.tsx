@@ -1,80 +1,75 @@
 import type { Metadata } from "next";
+import { Check } from "lucide-react";
 
 import { PricingWizard } from "@/components/pricing/pricing-wizard";
-import { PageIntro, Section, SectionHeader } from "@/components/marketing/section";
+import { Section, SectionHeader } from "@/components/marketing/section";
+import { getLocale } from "@/lib/i18n/server";
+import { pricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { getPublicPricingConfig } from "@/lib/modules/pricing/pricing.service";
 
 export const metadata: Metadata = {
-  title: "NESTO Pricing — Build Your ERP & ROZARIS Plan",
-  description: "Configure your NESTO subscription based on companies, projects, users and ROZARIS projects. See your price instantly.",
+  title: "NESTO Pricing — Build your NESTO",
+  description: "Configure only what your company needs: foundation, modules, companies, projects, users and contract. See your price instantly.",
 };
 
-const commercialQuestions = [
-  ["What counts as an active user?", "A person with an enabled NESTO login. Employee and workforce records do not become paid users unless login access is enabled."],
-  ["What is an active project?", "A project currently used for live operational work. Completed and archived projects are not priced by this public calculator."],
-  ["What is a full company?", "A legal or operating company with its own company context and full access to the NESTO modules permitted by your agreement."],
-  ["What is documents-only access?", "A restricted company connection for controlled shared-document access. It does not create a full workspace or add included active users."],
-  ["Is 3D model production included?", "No. ROZARIS recurring pricing covers the project platform and published viewer. Model creation, conversion and preparation receive a separate quotation."],
-] as const;
-
+/**
+ * /pricing is the configurator (Modular Pricing PRD §3-§5): one header, then
+ * the seven steps with the live estimate — no hero to scroll past, no button
+ * to enter it. What's included, the FAQ and the proposal prompt follow.
+ */
 export default async function PricingPage() {
-  let pricing;
-  try {
-    pricing = await getPublicPricingConfig();
-  } catch {
-    pricing = null;
-  }
-  const indexation = pricing?.publicRules.indexation;
-  const indexName = indexation?.source === "EUROSTAT_HICP_EURO_AREA_ALL_ITEMS"
-    ? "Euro Area HICP — All Items"
-    : indexation?.source.replaceAll("_", " ");
-  const questions = [
-    ...commercialQuestions,
-    [
-      "How does HICP indexation work?",
-      indexation?.enabled
-        ? `Recurring prices are fixed until month ${indexation.firstAdjustmentMonth}. ${indexName} may then apply with a ${indexation.floorPercent}% floor and ${indexation.capPercent}% cap.`
-        : "The active price book does not apply a future HICP adjustment.",
-    ],
-  ] as const;
+  const locale = await getLocale();
+  const t = pricingCopy[locale];
+  // Never a stale or hardcoded price when the price book cannot be read (§53).
+  const pricing = await getPublicPricingConfig().catch(() => null);
 
   return (
     <>
-      <PageIntro
-        eyebrow="Transparent, configurable pricing"
-        title="Build the NESTO structure you actually need."
-        lead="Choose your companies, active projects, users and ROZARIS experiences. Every selection is explained and priced as you build."
-      >
-        <a href="#configurator" className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-body font-medium text-primary-fg hover:bg-primary-hover">
-          Build your configuration
-        </a>
-      </PageIntro>
-
-      <Section id="configurator" tone="canvas" containerClassName="max-w-[1400px] scroll-mt-20 py-10 sm:py-14 lg:py-16">
+      <Section id="configurator" tone="canvas" containerClassName="max-w-[1400px] scroll-mt-20 pb-10 pt-8 sm:pt-10">
+        <header className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="nesto-eyebrow text-fg-subtle">{t.eyebrow}</p>
+            <h1 className="mt-2 font-serif text-page text-fg sm:text-display">{t.title}</h1>
+            <p className="mt-2 max-w-2xl text-body text-fg-muted">{t.subtitle}</p>
+          </div>
+          <p className="text-meta text-fg-subtle">{t.notes}</p>
+        </header>
         {pricing ? (
-          <PricingWizard initialConfig={pricing} />
+          <PricingWizard initialConfig={pricing} copy={t} locale={locale} />
         ) : (
           <div className="nesto-card mx-auto max-w-2xl p-8 text-center" role="alert">
-            <h2 className="text-section font-semibold text-fg">Pricing is temporarily unavailable.</h2>
-            <p className="mt-2 text-body text-fg-muted">Please try again. We will never show unverified fallback prices.</p>
+            <h2 className="text-section font-semibold text-fg">{t.unavailableTitle}</h2>
+            <p className="mt-2 text-body text-fg-muted">{t.unavailableBody}</p>
           </div>
         )}
       </Section>
 
       <Section tone="surface">
-        <SectionHeader
-          step="01"
-          eyebrow="Commercial rules"
-          title="Clear definitions before you commit."
-          lead="The calculator separates operational records from paid access and keeps one-time services outside recurring fees."
-        />
-        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2">
-          {questions.map(([question, answer]) => (
+        <SectionHeader step="01" eyebrow={t.sections.includedEyebrow} title={t.sections.includedTitle} />
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {t.sections.includedItems.map((item) => <li key={item} className="flex items-start gap-2 rounded-xl border border-line bg-canvas p-4 text-body text-fg"><Check className="mt-0.5 size-4 shrink-0 text-success-strong" aria-hidden="true" />{item}</li>)}
+        </ul>
+      </Section>
+
+      <Section tone="canvas">
+        <SectionHeader step="02" eyebrow={t.sections.faqEyebrow} title={t.sections.faqTitle} />
+        <div className="mt-8 grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2">
+          {t.faq.map(([question, answer]) => (
             <article key={question} className="bg-surface p-6">
               <h3 className="text-card font-semibold text-fg">{question}</h3>
               <p className="mt-2 text-body leading-relaxed text-fg-muted">{answer}</p>
             </article>
           ))}
+        </div>
+      </Section>
+
+      <Section tone="surface">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-section font-semibold text-fg">{t.sections.ctaTitle}</h2>
+            <p className="mt-1 max-w-2xl text-body text-fg-muted">{t.sections.ctaBody}</p>
+          </div>
+          <a href="#configurator" className="inline-flex h-11 items-center rounded-md border border-line px-5 text-body font-medium text-fg hover:bg-hover">{t.sections.ctaButton}</a>
         </div>
       </Section>
     </>

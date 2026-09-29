@@ -17,7 +17,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import type { getPricingAdministration } from "@/lib/modules/pricing/pricing.service";
-import type { PricingConfig, PricingPromotionConfig } from "@/lib/modules/pricing/pricing.types";
+import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { outcomeOf } from "@/lib/unsaved/outcome";
 
@@ -105,14 +105,16 @@ export function PricingAdministration({ data }: { data: PricingAdminData }) {
 
 function PriceBookSummary({ config }: { config: PricingConfig }) {
   const eur = (cents: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cents / 100);
+  const platform = config.foundations.find((row) => row.id === "NESTO_PLATFORM");
+  const priced = config.modules.filter((row) => row.enabled && row.public && row.monthlyPriceCents > 0).length;
   return (
     <dl className="mt-5 grid gap-4 border-t border-line pt-5 sm:grid-cols-3">
-      <Summary label="ERP base" value={`${eur(config.nestoERP.baseMonthlyCents)} / mo`} />
-      <Summary label="Company add-on" value={`${eur(config.nestoERP.additionalGroupCompanyMonthlyCents)} / mo`} />
-      <Summary label="Project add-on" value={`${eur(config.nestoERP.additionalProjectMonthlyCents)} / mo`} />
-      <Summary label="Included users" value={String(config.nestoERP.includedUsersPerFullCompany)} />
-      <Summary label="User pack" value={`${config.nestoERP.userPackSize} / ${eur(config.nestoERP.userPackMonthlyCents)}`} />
-      <Summary label="ROZARIS Basic 24" value={`${eur(config.rozaris.projectTypes.basic.monthly24Cents)} / mo`} />
+      <Summary label="NESTO Platform base" value={platform ? `${eur(platform.baseMonthlyCents)} / mo` : "—"} />
+      <Summary label="Priced add-on modules" value={`${priced} of ${config.modules.filter((row) => row.public).length}`} />
+      <Summary label="Project add-on" value={`${eur(config.nestoProjects.additionalMonthlyCents)} / mo`} />
+      <Summary label="ROZARIS Basic · Large · Village (24)" value={(["BASIC", "LARGE", "VILLAGE"] as const).map((key) => eur(config.rozaris.classes[key].monthly24Cents)).join(" · ")} />
+      <Summary label="ROZARIS users" value={`${(["BASIC", "LARGE", "VILLAGE"] as const).map((key) => config.rozaris.classes[key].includedUsers).join(" / ")} · ${config.rozaris.userAllowanceMode.replaceAll("_", " ").toLowerCase()}`} />
+      <Summary label="User packs" value={config.users.map((rule) => `${rule.foundation === "ROZARIS" ? "ROZARIS" : "Platform"} ${rule.packSize} / ${eur(rule.pricePerPackCents)}`).join(" · ")} />
     </dl>
   );
 }
@@ -191,15 +193,13 @@ function PricingVersionEditor({ version }: { version: Version }) {
   const router = useRouter();
   const toast = useToast();
 
-  const setERP = <K extends keyof PricingConfig["nestoERP"]>(key: K, value: PricingConfig["nestoERP"][K]) => {
-    setConfig((current) => ({ ...current, nestoERP: { ...current.nestoERP, [key]: value } }));
-  };
-  const setRozaris = (type: "basic" | "large" | "village", term: "monthly12Cents" | "monthly24Cents", value: number) => {
-    setConfig((current) => ({
-      ...current,
-      rozaris: { projectTypes: { ...current.rozaris.projectTypes, [type]: { ...current.rozaris.projectTypes[type], [term]: value } } },
-    }));
-  };
+  const update = (patch: (current: PricingConfig) => PricingConfig) => setConfig(patch);
+  const setFoundation = (id: Foundation, patch: Partial<PricingConfig["foundations"][number]>) => update((current) => ({ ...current, foundations: current.foundations.map((row) => row.id === id ? { ...row, ...patch } : row) }));
+  const setModule = (id: string, patch: Partial<PricingModule>) => update((current) => ({ ...current, modules: current.modules.map((row) => row.id === id ? { ...row, ...patch } : row) }));
+  const setCompanies = (id: Foundation, patch: Partial<PricingConfig["companies"][Foundation]>) => update((current) => ({ ...current, companies: { ...current.companies, [id]: { ...current.companies[id], ...patch } } }));
+  const setUsers = (id: Foundation, patch: Partial<PricingConfig["users"][number]>) => update((current) => ({ ...current, users: current.users.map((row) => row.foundation === id ? { ...row, ...patch } : row) }));
+  const setClass = (id: RozarisClass, patch: Partial<PricingConfig["rozaris"]["classes"][RozarisClass]>) => update((current) => ({ ...current, rozaris: { ...current.rozaris, classes: { ...current.rozaris.classes, [id]: { ...current.rozaris.classes[id], ...patch } } } }));
+  const ids = (value: string) => value.split(",").map((item) => item.trim().toUpperCase()).filter(Boolean);
 
   const draft = usePricingEditor(`Draft ${version.versionCode}`, [config, effectiveFrom], () => save());
 
@@ -261,37 +261,87 @@ function PricingVersionEditor({ version }: { version: Version }) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-6 border-t border-line pt-5 xl:grid-cols-3">
-        <EditorGroup title="NESTO ERP">
-          <MoneyField label="Base monthly" cents={config.nestoERP.baseMonthlyCents} set={(value) => setERP("baseMonthlyCents", value)} />
-          <NumberField label="Included companies" value={config.nestoERP.includedCompanies} set={(value) => setERP("includedCompanies", value)} />
-          <NumberField label="Included projects" value={config.nestoERP.includedProjects} set={(value) => setERP("includedProjects", value)} />
-          <NumberField label="Users per full company" value={config.nestoERP.includedUsersPerFullCompany} set={(value) => setERP("includedUsersPerFullCompany", value)} />
-          <MoneyField label="Group company / month" cents={config.nestoERP.additionalGroupCompanyMonthlyCents} set={(value) => setERP("additionalGroupCompanyMonthlyCents", value)} />
-          <MoneyField label="JV company / month" cents={config.nestoERP.additionalJVCompanyMonthlyCents} set={(value) => setERP("additionalJVCompanyMonthlyCents", value)} />
-          <MoneyField label="Documents-only / month" cents={config.nestoERP.documentsOnlyCompanyMonthlyCents} set={(value) => setERP("documentsOnlyCompanyMonthlyCents", value)} />
-          <MoneyField label="Active project / month" cents={config.nestoERP.additionalProjectMonthlyCents} set={(value) => setERP("additionalProjectMonthlyCents", value)} />
-          <NumberField label="User pack size" value={config.nestoERP.userPackSize} set={(value) => setERP("userPackSize", value)} />
-          <MoneyField label="User pack / month" cents={config.nestoERP.userPackMonthlyCents} set={(value) => setERP("userPackMonthlyCents", value)} />
-        </EditorGroup>
+      <div className="mt-5 space-y-6 border-t border-line pt-5">
+        <div className="grid gap-6 xl:grid-cols-2">
+          {config.foundations.map((foundation) => (
+            <EditorGroup key={foundation.id} title={`Foundation · ${foundation.id === "ROZARIS" ? "ROZARIS" : "NESTO Platform"}`}>
+              <label className="flex items-center gap-3 text-table text-fg"><input type="checkbox" checked={foundation.enabled} onChange={(event) => setFoundation(foundation.id, { enabled: event.target.checked })} /> Offered publicly</label>
+              <Field label="Public name"><Input value={foundation.name} onChange={(event) => setFoundation(foundation.id, { name: event.target.value })} /></Field>
+              <MoneyField label="Base / month" cents={foundation.baseMonthlyCents} set={(value) => setFoundation(foundation.id, { baseMonthlyCents: value })} />
+              <Field label="Public description"><Textarea value={foundation.description} onChange={(event) => setFoundation(foundation.id, { description: event.target.value })} /></Field>
+              <Field label="Included (one per line)"><Textarea value={foundation.included.join("\n")} onChange={(event) => setFoundation(foundation.id, { included: event.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })} /></Field>
+              <NumberField label="Included companies" value={config.companies[foundation.id].included} set={(value) => setCompanies(foundation.id, { included: Math.max(1, value) })} />
+              <label className="flex items-center gap-3 text-table text-fg"><input type="checkbox" checked={config.companies[foundation.id].additionalAvailable} onChange={(event) => setCompanies(foundation.id, { additionalAvailable: event.target.checked })} /> Additional companies priced publicly</label>
+              <MoneyField label="Group company / month" cents={config.companies[foundation.id].fullGroupMonthlyCents} set={(value) => setCompanies(foundation.id, { fullGroupMonthlyCents: value })} />
+              <MoneyField label="JV company / month" cents={config.companies[foundation.id].jointVentureMonthlyCents} set={(value) => setCompanies(foundation.id, { jointVentureMonthlyCents: value })} />
+              <MoneyField label="Documents-only / month" cents={config.companies[foundation.id].documentsOnlyMonthlyCents} set={(value) => setCompanies(foundation.id, { documentsOnlyMonthlyCents: value })} />
+              <NumberField label="Users per full company" value={config.companies[foundation.id].includedUsersPerFullCompany} set={(value) => setCompanies(foundation.id, { includedUsersPerFullCompany: value })} />
+              <NumberField label="User pack size" value={config.users.find((row) => row.foundation === foundation.id)?.packSize ?? 1} set={(value) => setUsers(foundation.id, { packSize: Math.max(1, value) })} />
+              <MoneyField label="User pack / month" cents={config.users.find((row) => row.foundation === foundation.id)?.pricePerPackCents ?? 0} set={(value) => setUsers(foundation.id, { pricePerPackCents: value })} />
+              {foundation.id === "NESTO_PLATFORM" ? (
+                <>
+                  <NumberField label="Included users" value={config.nestoIncludedUsers} set={(value) => update((current) => ({ ...current, nestoIncludedUsers: value }))} />
+                  <NumberField label="Included projects" value={config.nestoProjects.included} set={(value) => update((current) => ({ ...current, nestoProjects: { ...current.nestoProjects, included: Math.max(1, value) } }))} />
+                  <MoneyField label="Active project / month" cents={config.nestoProjects.additionalMonthlyCents} set={(value) => update((current) => ({ ...current, nestoProjects: { ...current.nestoProjects, additionalMonthlyCents: value } }))} />
+                </>
+              ) : null}
+            </EditorGroup>
+          ))}
+        </div>
 
-        <EditorGroup title="ROZARIS">
-          <MoneyField label="Basic · 24 months" cents={config.rozaris.projectTypes.basic.monthly24Cents} set={(value) => setRozaris("basic", "monthly24Cents", value)} />
-          <MoneyField label="Basic · 12 months" cents={config.rozaris.projectTypes.basic.monthly12Cents} set={(value) => setRozaris("basic", "monthly12Cents", value)} />
-          <MoneyField label="Large · 24 months" cents={config.rozaris.projectTypes.large.monthly24Cents} set={(value) => setRozaris("large", "monthly24Cents", value)} />
-          <MoneyField label="Large · 12 months" cents={config.rozaris.projectTypes.large.monthly12Cents} set={(value) => setRozaris("large", "monthly12Cents", value)} />
-          <MoneyField label="Village · 24 months" cents={config.rozaris.projectTypes.village.monthly24Cents} set={(value) => setRozaris("village", "monthly24Cents", value)} />
-          <MoneyField label="Village · 12 months" cents={config.rozaris.projectTypes.village.monthly12Cents} set={(value) => setRozaris("village", "monthly12Cents", value)} />
-        </EditorGroup>
+        <section aria-label="Modules">
+          <h3 className="mb-1 text-table font-semibold uppercase tracking-wide text-fg-subtle">Modules</h3>
+          <p className="mb-3 text-table text-fg-muted">A module is sold as an add-on to a foundation only once it has a monthly price; included modules cost nothing there. Ids in dependencies and absorbs are comma-separated.</p>
+          <div className="overflow-x-auto">
+            <Table flush aria-label="Pricing modules">
+              <TableHead><TableRow><TableHeaderCell>Module</TableHeaderCell><TableHeaderCell>Public</TableHeaderCell><TableHeaderCell>Tier</TableHeaderCell><TableHeaderCell>Add-on € / month</TableHeaderCell><TableHeaderCell>In Platform</TableHeaderCell><TableHeaderCell>In ROZARIS</TableHeaderCell><TableHeaderCell>Locked</TableHeaderCell><TableHeaderCell>Needs</TableHeaderCell><TableHeaderCell>Absorbs</TableHeaderCell><TableHeaderCell>Order</TableHeaderCell></TableRow></TableHead>
+              <TableBody>
+                {config.modules.map((row) => {
+                  const inFoundation = (id: Foundation, on: boolean) => setModule(row.id, { includedInFoundations: on ? [...new Set([...row.includedInFoundations, id])] : row.includedInFoundations.filter((item) => item !== id) });
+                  return (
+                    <TableRow key={row.id} data-testid="pricing-module-row">
+                      <TableCell><Input aria-label={`${row.id} name`} value={row.name} onChange={(event) => setModule(row.id, { name: event.target.value })} className="min-w-40" /><p className="mt-1 font-mono text-micro text-fg-subtle">{row.id} · {row.group}</p></TableCell>
+                      <TableCell><input type="checkbox" aria-label={`${row.id} public`} checked={row.enabled && row.public} onChange={(event) => setModule(row.id, { public: event.target.checked, enabled: event.target.checked || row.enabled })} /></TableCell>
+                      <TableCell><select aria-label={`${row.id} tier`} className="h-9 rounded-md border border-line-strong bg-surface px-2 text-table" value={row.tier} onChange={(event) => setModule(row.id, { tier: event.target.value as PricingModule["tier"] })}>{["S", "A", "B", "C", "ACCESS"].map((tier) => <option key={tier}>{tier}</option>)}</select></TableCell>
+                      <TableCell><Input aria-label={`${row.id} price`} type="number" min={0} step="0.01" className="w-28" value={row.monthlyPriceCents / 100} onChange={(event) => setModule(row.id, { monthlyPriceCents: Math.max(0, Math.round(event.target.valueAsNumber * 100) || 0) })} /></TableCell>
+                      <TableCell><input type="checkbox" aria-label={`${row.id} included in NESTO Platform`} checked={row.includedInFoundations.includes("NESTO_PLATFORM")} onChange={(event) => inFoundation("NESTO_PLATFORM", event.target.checked)} /></TableCell>
+                      <TableCell><input type="checkbox" aria-label={`${row.id} included in ROZARIS`} checked={row.includedInFoundations.includes("ROZARIS")} onChange={(event) => inFoundation("ROZARIS", event.target.checked)} /></TableCell>
+                      <TableCell><input type="checkbox" aria-label={`${row.id} locked when included`} checked={row.lockedWhenIncluded} onChange={(event) => setModule(row.id, { lockedWhenIncluded: event.target.checked })} /></TableCell>
+                      <TableCell><Input aria-label={`${row.id} dependencies`} className="w-36" value={row.dependencies.join(", ")} onChange={(event) => setModule(row.id, { dependencies: ids(event.target.value) })} /></TableCell>
+                      <TableCell><Input aria-label={`${row.id} absorbs`} className="w-36" value={row.absorbs.join(", ")} onChange={(event) => setModule(row.id, { absorbs: ids(event.target.value) })} /></TableCell>
+                      <TableCell><Input aria-label={`${row.id} order`} type="number" className="w-20" value={row.sortOrder} onChange={(event) => setModule(row.id, { sortOrder: Math.max(0, Math.round(event.target.valueAsNumber) || 0) })} /></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
 
-        <EditorGroup title="Indexation & activation">
-          <label className="flex items-center gap-3 text-table text-fg"><input type="checkbox" checked={config.indexation.enabled} onChange={(event) => setConfig((current) => ({ ...current, indexation: { ...current.indexation, enabled: event.target.checked } }))} /> HICP enabled</label>
-          <Field label="Reference index"><Input value={config.indexation.source} onChange={(event) => setConfig((current) => ({ ...current, indexation: { ...current.indexation, source: event.target.value.toUpperCase().replaceAll(" ", "_") } }))} /></Field>
-          <NumberField label="Floor percent" value={config.indexation.floorPercent} set={(value) => setConfig((current) => ({ ...current, indexation: { ...current.indexation, floorPercent: value } }))} />
-          <NumberField label="Cap percent" value={config.indexation.capPercent} set={(value) => setConfig((current) => ({ ...current, indexation: { ...current.indexation, capPercent: value } }))} />
-          <NumberField label="First adjustment month" value={config.indexation.firstAdjustmentMonth} set={(value) => setConfig((current) => ({ ...current, indexation: { ...current.indexation, firstAdjustmentMonth: value } }))} />
-          <Field label="Effective date"><Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} /></Field>
-        </EditorGroup>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <EditorGroup title="ROZARIS project classes">
+            {(["BASIC", "LARGE", "VILLAGE"] as const).map((key) => (
+              <React.Fragment key={key}>
+                <MoneyField label={`${config.rozaris.classes[key].name} · 24 months`} cents={config.rozaris.classes[key].monthly24Cents} set={(value) => setClass(key, { monthly24Cents: value })} />
+                <MoneyField label={`${config.rozaris.classes[key].name} · 12 months`} cents={config.rozaris.classes[key].monthly12Cents} set={(value) => setClass(key, { monthly12Cents: value })} />
+                <NumberField label={`${config.rozaris.classes[key].name} · included users`} value={config.rozaris.classes[key].includedUsers} set={(value) => setClass(key, { includedUsers: value })} />
+              </React.Fragment>
+            ))}
+            <Field label="Included users across several projects">
+              <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.rozaris.userAllowanceMode} onChange={(event) => update((current) => ({ ...current, rozaris: { ...current.rozaris, userAllowanceMode: event.target.value as PricingConfig["rozaris"]["userAllowanceMode"] } }))}>
+                <option value="MAX_PROJECT">Largest project&apos;s allowance</option><option value="SUM_PROJECTS">Sum of all projects</option><option value="FIRST_PROJECT_ONLY">First project only</option>
+              </select>
+            </Field>
+          </EditorGroup>
+          <EditorGroup title="Indexation & activation">
+            <label className="flex items-center gap-3 text-table text-fg"><input type="checkbox" checked={config.indexation.enabled} onChange={(event) => update((current) => ({ ...current, indexation: { ...current.indexation, enabled: event.target.checked } }))} /> HICP enabled</label>
+            <Field label="Reference index"><Input value={config.indexation.source} onChange={(event) => update((current) => ({ ...current, indexation: { ...current.indexation, source: event.target.value.toUpperCase().replaceAll(" ", "_") } }))} /></Field>
+            <NumberField label="Floor percent" value={config.indexation.floorPercent} set={(value) => update((current) => ({ ...current, indexation: { ...current.indexation, floorPercent: value } }))} />
+            <NumberField label="Cap percent" value={config.indexation.capPercent} set={(value) => update((current) => ({ ...current, indexation: { ...current.indexation, capPercent: value } }))} />
+            <NumberField label="First adjustment month" value={config.indexation.firstAdjustmentMonth} set={(value) => update((current) => ({ ...current, indexation: { ...current.indexation, firstAdjustmentMonth: value } }))} />
+            <Field label="Effective date"><Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} /></Field>
+          </EditorGroup>
+        </div>
       </div>
 
       {error ? <p role="alert" className="mt-4 rounded-md bg-danger-soft p-3 text-table text-danger-strong">{error}</p> : null}
@@ -389,9 +439,9 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Eligible product">
+        <Field label="Eligible foundation">
           <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.product} onChange={(event) => setConfig((current) => ({ ...current, product: event.target.value as PricingPromotionConfig["product"] }))}>
-            <option value="NESTO_ERP">NESTO ERP</option><option value="ROZARIS_ONLY">ROZARIS only</option>
+            <option value="NESTO_PLATFORM">NESTO Platform</option><option value="ROZARIS">ROZARIS</option>
           </select>
         </Field>
         <Field label="Eligible term">
