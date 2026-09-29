@@ -12,9 +12,9 @@ Every permission-sensitive entry point NESTO exposes — route handlers, server 
 - **Tests**, continued — `via fn: file` names a test that imports and exercises a domain service the entry point calls directly (the permission, scope and record checks live there; the route or action is a door onto it, PRD #48 §108). It proves the service's authorization, not the door's own guard.
 - **Status** — `covered`: at least one specific test exercises it, directly or through the service it calls. `uncovered`: none does (a sweep alone is not counted). `not-applicable`: a public page or provider endpoint with no tenant data.
 
-**891 route handlers, 266 server actions, 521 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 37 · COMPANY_SCOPED 1572 · NOTIFICATION 114 · PLATFORM 109 · PUBLIC 31 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 1.
+**901 route handlers, 266 server actions, 530 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 37 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1572 · NOTIFICATION 114 · PLATFORM 125 · PUBLIC 32 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 1.
 
-Status: covered 1517 · not-applicable 16 · uncovered 365 (641 by a test of the entry point itself, 876 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **1**.
+Status: covered 1532 · not-applicable 14 · uncovered 371 (648 by a test of the entry point itself, 884 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **1**.
 
 ## Unclassified entry points
 
@@ -22,7 +22,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Kind | Entry point | Guards found | Owner | Tests |
 |---|---|---|---|---|
-| PAGE | `/projects/[projectId]/3d` | `requireModule`, `requireUserContext` | projects | via `hasActiveProject3DViewer`: `api/project-3d/company-viewer.test.ts` |
+| PAGE | `/projects/[projectId]/3d` | `requireModule`, `requireUserContext` | projects | `e2e/auth/work-session.spec.ts`; via `hasActiveProject3DViewer`: `api/project-3d/company-viewer.test.ts` |
 
 ## Sensitive surfaces
 
@@ -30,7 +30,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 |---|---|---|---|---|
 | AGGREGATE | 25 | 25 | 0 | 0 |
 | BULK | 5 | 3 | 2 | 0 |
-| EXPORT | 11 | 10 | 1 | 0 |
+| EXPORT | 12 | 11 | 1 | 0 |
 | FILE | 18 | 17 | 1 | 0 |
 | NOTIFICATION | 172 | 122 | 50 | 0 |
 | SAVED-LINK | 11 | 9 | 2 | 0 |
@@ -90,6 +90,13 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/api/audit/export` | COMPANY_SCOPED | EXPORT | core/export | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company | — | — | via `exportAuditLog`: `api/audit/audit-trail.test.ts` +1; sweep | covered |
 | GET | `/api/audit` | COMPANY_SCOPED | — | core/audit | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | — | — | via `listAuditEvents`: `api/audit/audit-trail.test.ts` +1; sweep | covered |
+
+## /api/auth
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| GET | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `unit/auth/lifecycle-route.test.ts` | covered |
+| POST | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `unit/auth/lifecycle-route.test.ts` | covered |
 
 ## /api/calendar
 
@@ -540,7 +547,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | POST | `/api/me/password` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `changePassword`: `api/account/account-service.test.ts`; sweep | covered |
 | GET | `/api/me/profile` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | sweep | uncovered |
 | PATCH | `/api/me/profile` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `updateProfile`: `api/account/account-service.test.ts`; sweep | covered |
-| GET | `/api/me` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `api/workspace/organization-header.test.ts`, `e2e/modules/unsaved-work.spec.ts` +4; sweep | covered |
+| GET | `/api/me` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `api/workspace/organization-header.test.ts`, `e2e/auth/work-session.spec.ts` +5; sweep | covered |
 | DELETE | `/api/me/sessions/[sessionId]` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `revokeOwnSession`: `api/account/account-service.test.ts`; sweep | covered |
 | POST | `/api/me/sessions/revoke-others` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `revokeOtherSessions`: `api/account/account-service.test.ts`; sweep | covered |
 | GET | `/api/me/sessions` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `listSessions`: `api/account/account-service.test.ts`; sweep | covered |
@@ -689,9 +696,9 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | POST | `/api/platform/3d/experiences/[projectId]/restore` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `restoreProject3DExperience`: `api/project-3d/experience-lifecycle.test.ts` | covered |
 | PATCH | `/api/platform/3d/experiences/[projectId]` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `updateProject3DExperienceMetadata`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
 | DELETE | `/api/platform/3d/experiences/[projectId]` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `deleteProject3DExperience`: `api/project-3d/experience-lifecycle.test.ts` | covered |
-| PATCH | `/api/platform/3d/experiences/[projectId]/visibility` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | `stateDenied` | via `setProject3DVisibility`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
+| PATCH | `/api/platform/3d/experiences/[projectId]/visibility` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | `stateDenied` | via `setProject3DVisibility`: `api/platform/projects-3d-admin.test.ts` +2 | covered |
 | GET | `/api/platform/3d/experiences` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
-| POST | `/api/platform/3d/experiences` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `createProject3DExperience`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
+| POST | `/api/platform/3d/experiences` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `createProject3DExperience`: `api/platform/projects-3d-admin.test.ts` +2 | covered |
 | DELETE | `/api/platform/3d/models/[versionId]` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` | — | via `deleteProject3DModelVersion`: `api/project-3d/model-lifecycle.test.ts` | covered |
 | GET | `/api/platform/3d/models/[versionId]/usage` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `getProject3DModelVersionUsage`: `api/project-3d/model-lifecycle.test.ts` | covered |
 | GET | `/api/platform/3d/projects/[projectId]/config` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | `e2e/modules/project-3d.spec.ts`; via `getProject3DExperienceState`: `api/project-3d/platform-authorization.test.ts` | covered |
@@ -719,9 +726,15 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | POST | `/api/platform/3d/projects/[projectId]/versions/[versionId]/complete` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` | `assertProject3DExperienceLive` | via `completeProject3DModelUpload`: `api/jobs/project-3d.process-models.test.ts` +1 | covered |
 | POST | `/api/platform/3d/projects/[projectId]/versions/[versionId]/process` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` | `assertProject3DExperienceLive` | via `retryProject3DModelProcessing`: `api/project-3d/model-lifecycle.test.ts` | covered |
 | PATCH | `/api/platform/3d/projects/[projectId]/versions/[versionId]` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | `assertProject3DExperienceLive` | via `updateProject3DModelSettings`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| GET | `/api/platform/3d/projects/[projectId]/viewer/assets/[handle]` | PLATFORM | — | — | — | — | platform session; tenant refused | — | — | — | uncovered |
+| GET | `/api/platform/3d/projects/[projectId]/viewer/bootstrap` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | — | uncovered |
+| GET | `/api/platform/3d/projects/[projectId]/viewer/status` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | — | uncovered |
 | GET | `/api/platform/3d/projects` | PLATFORM | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | `e2e/modules/project-3d.spec.ts` | covered |
+| PUT | `/api/platform/companies/[companyId]/group` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `attachCompanyToGroup`: `api/platform/organizations.test.ts` +1 | covered |
+| DELETE | `/api/platform/companies/[companyId]/group` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `detachCompanyFromGroup`: `api/platform/organizations.test.ts` +1 | covered |
+| POST | `/api/platform/companies` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | via `createCompany`: `api/platform/entitlements.test.ts` +5 | covered |
 | POST | `/api/platform/parent-groups/[groupId]/activate` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `activateParentGroup`: `api/platform/platform-departments.test.ts` +1 | covered |
-| POST | `/api/platform/parent-groups/[groupId]/companies` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `createGroupCompany`: `api/platform/platform-departments.test.ts` +1 | covered |
+| POST | `/api/platform/parent-groups/[groupId]/companies` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `createGroupCompany`: `api/platform/organization-scoped-admin.test.ts` +4 | covered |
 | POST | `/api/platform/parent-groups/[groupId]/company-departments/[companyDepartmentId]/manager` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | platform session; tenant refused | `assertFound` | `assertOpen` | via `appointCompanyManager`: `api/organization/departments.test.ts` +1 | covered |
 | POST | `/api/platform/parent-groups/[groupId]/company-departments/[companyDepartmentId]/members` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | platform session; tenant refused | `assertFound` | `assertOpen` | via `addDepartmentMember`: `api/organization/departments.test.ts` +1 | covered |
 | GET | `/api/platform/parent-groups/[groupId]/departments/[departmentId]/candidates` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `listDepartmentCandidates`: `api/organization/departments.test.ts` +1 | covered |
@@ -737,8 +750,8 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | POST | `/api/platform/parent-groups/[groupId]/ready` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
 | GET | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
 | PATCH | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
-| GET | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| POST | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `createParentGroup`: `api/platform/platform-departments.test.ts` +1 | covered |
+| GET | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |
+| POST | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `createParentGroup`: `api/platform/organization-scoped-admin.test.ts` +4 | covered |
 | PATCH | `/api/platform/pricing/promotions/[promotionId]` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | — | uncovered |
 | POST | `/api/platform/pricing/versions/[versionId]/publish` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | — | uncovered |
 | PATCH | `/api/platform/pricing/versions/[versionId]` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | — | uncovered |
@@ -749,7 +762,9 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| POST | `/api/platform-admin/command` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +728 | platform session; tenant refused | `assertFound` | — | via `createFeatureFlag`: `api/platform/platform-control-plane.test.ts` +5 | covered |
+| GET | `/api/platform-admin/audit/export` | PLATFORM | EXPORT | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | via `exportAuditLog`: `api/platform/users-system-audit.test.ts` | covered |
+| POST | `/api/platform-admin/command` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +728 | platform session; tenant refused | `assertFound` | — | via `addOrganizationUser`: `api/platform/organization-scoped-admin.test.ts` +12 | covered |
+| GET | `/api/platform-admin/organizations/[companyId]/eligible-users` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | `assertFound` | — | via `eligibleOrganizationUsers`: `api/platform/organization-scoped-admin.test.ts` | covered |
 | GET | `/api/platform-admin/search` | PLATFORM | SEARCH | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | platform session; tenant refused | — | — | — | uncovered |
 
 ## /api/procurement
@@ -978,7 +993,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/api/public/3d/[publicId]/assets/[handle]` | SIGNED | — | — | — | — | signed claims (key, method, expiry: download 180s, preview 180s, upload 900s) | — | — | — | uncovered |
 | GET | `/api/public/3d/[publicId]` | PUBLIC | — | project-3d | — | — | none | — | — | via `getPublic3DBootstrap`: `api/project-3d/public-viewer.test.ts` | covered |
-| GET | `/api/public/3d/[publicId]/status` | PUBLIC | — | project-3d | — | — | none | — | — | via `getPublic3DStatus`: `api/project-3d/public-viewer.test.ts` | covered |
+| GET | `/api/public/3d/[publicId]/status` | PUBLIC | — | project-3d | — | — | none | — | — | via `getPublic3DStatus`: `api/platform/projects-3d-admin.test.ts` +1 | covered |
 | POST | `/api/public/pricing/calculate` | PUBLIC | — | pricing | — | — | none | — | — | `api/pricing/public-pricing.test.ts`; via `assertPublicMutationOrigin`: `api/pricing/public-pricing.test.ts` | covered |
 | GET | `/api/public/pricing/config` | PUBLIC | — | pricing | — | — | none | — | — | `api/pricing/public-pricing.test.ts` | covered |
 | POST | `/api/public/pricing/lead` | PUBLIC | — | pricing | — | — | none | — | — | `api/pricing/public-pricing.test.ts`; via `assertPublicMutationOrigin`: `api/pricing/public-pricing.test.ts` | covered |
@@ -1269,7 +1284,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/api/workspace/context` | COMPANY_SCOPED | — | workspace | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company | — | — | sweep | uncovered |
-| POST | `/api/workspace` | COMPANY_SCOPED | — | workspace | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildBudgetScopeWhere`, `buildClientScopeWhere` +14 | — | — | `e2e/modules/projects-workspace-grid.spec.ts`, `e2e/modules/unsaved-work.spec.ts` +6; sweep | covered |
+| POST | `/api/workspace` | COMPANY_SCOPED | — | workspace | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildBudgetScopeWhere`, `buildClientScopeWhere` +14 | — | — | `e2e/auth/work-session.spec.ts`, `e2e/modules/projects-workspace-grid.spec.ts` +7; sweep | covered |
 
 ## /api/workspaces
 
@@ -1292,11 +1307,11 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | ACTION | `confirmRecoveryEmailAction` | TOKEN | — | core/audit | — | — | request token | — | — | — | uncovered |
-| ACTION | `endSessionAction` | PUBLIC | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | none | — | — | — | not-applicable |
+| ACTION | `endSessionAction` | PUBLIC | — | — | — | — | none | — | — | `unit/auth/lifecycle-route.test.ts`, `unit/auth/logout.test.ts` | covered |
 | ACTION | `requestPasswordResetAction` | PUBLIC | — | mail | — | — | none | — | — | — | not-applicable |
 | ACTION | `resetPasswordAction` | TOKEN | — | core/audit | — | — | request token | — | — | — | uncovered |
 | ACTION | `signInAction` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
-| ACTION | `signOutAction` | PUBLIC | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | none | — | — | — | not-applicable |
+| ACTION | `signOutAction` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
 
 ## Server actions — clients
 
@@ -1647,7 +1662,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
+| PAGE | `/` | PUBLIC | — | marketing | — | — | none | — | — | `e2e/public/landing.spec.ts` | covered |
 
 ## Pages — /about
 
@@ -1666,6 +1681,62 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/activity` | COMPANY_SCOPED | NOTIFICATION | activity | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` | `loadRecord` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/collaboration/workflows.spec.ts` +2; via `activityFilters`: `api/activity/aud08-activity-dates.test.ts` +2 | covered |
+
+## Pages — /admin
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PAGE | `/admin` | PLATFORM | — | platform | `projects` | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `dashboardSummary`: `api/platform/organizations.test.ts` +1 | covered |
+| PAGE | `/admin/3d` | PLATFORM | — | project-3d | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`, `unit/a11y/aud11-modules.test.ts`; via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +2 | covered |
+| PAGE | `/admin/3d/diagnostics` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/3d/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listProject3DModels`: `api/project-3d/model-lifecycle.test.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`; via `getProject3DWorkspace`: `api/project-3d/platform-authorization.test.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]/bindings` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/editor` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | `e2e/auth/work-session.spec.ts`, `e2e/modules/project-3d.spec.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/releases` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
+| PAGE | `/admin/3d/projects/[projectId]/structure` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` +1 | — | via `getPlatformProjectStructure`: `api/project-3d/platform-structure.test.ts` | covered |
+| PAGE | `/admin/3d/projects/[projectId]/viewer` | PLATFORM | — | company | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/3d/publishing` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/account` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`; via `listAuditLog`: `api/platform/users-system-audit.test.ts` | covered |
+| PAGE | `/admin/audit/[eventId]` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getAuditLogEvent`: `api/platform/users-system-audit.test.ts` | covered |
+| PAGE | `/admin/audit/access-changes` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit/failed-logins` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/audit/security` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules` | PLATFORM | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules/[companyId]` | PLATFORM | — | entitlements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts`; via `getCompanyEntitlements`: `api/platform/entitlements.test.ts` | covered |
+| PAGE | `/admin/modules/catalog` | PLATFORM | — | entitlements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules/plans` | PLATFORM | — | entitlements | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules/pricing` | PLATFORM | — | pricing | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts` | covered |
+| PAGE | `/admin/modules/templates` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/organizations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/modules/organization-departments.spec.ts` +1; via `listOrganizations`: `api/platform/organizations.test.ts` | covered |
+| PAGE | `/admin/organizations/[organizationId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +2 | covered |
+| PAGE | `/admin/organizations/[organizationId]/departments` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getDepartmentDetail`: `api/organization/departments.test.ts` +3 | covered |
+| PAGE | `/admin/projects` | PLATFORM | — | platform | `projects` | `project.create` | platform session; tenant refused | `requirePlatformContext` | — | via `listProjectsDirectory`: `api/platform/projects-3d-admin.test.ts` | covered |
+| PAGE | `/admin/projects/[projectId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +146 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getPlatformProjectDetail`: `api/platform/projects-3d-admin.test.ts` | covered |
+| PAGE | `/admin/system` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/authentication` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/demo` | PLATFORM | — | — | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/diagnostics` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/email` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/feature-flags` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |
+| PAGE | `/admin/system/health` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/integrations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/jobs` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/maintenance` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `maintenanceState`: `api/platform/maintenance-propagation.test.ts` | covered |
+| PAGE | `/admin/system/security` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/storage` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/system/support` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listUsersDirectory`: `api/platform/users-system-audit.test.ts` | covered |
+| PAGE | `/admin/users/[userId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getPlatformUser`: `api/platform/users-system-audit.test.ts` | covered |
+| PAGE | `/admin/users/grants` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |
+| PAGE | `/admin/users/inspector` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/memberships` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/people` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |
+| PAGE | `/admin/users/permissions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/roles` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/users/sessions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 
 ## Pages — /announcements
 
@@ -1778,7 +1849,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/dashboard` | COMPANY_SCOPED | AGGREGATE | dashboard | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildBalanceScopeWhere`, `buildBudgetScopeWhere` +20 | `loadRecord` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +36; via `groupIdentity`: `api/dashboard/group-dashboard.test.ts` +1 | covered |
+| PAGE | `/dashboard` | COMPANY_SCOPED | AGGREGATE | dashboard | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildBalanceScopeWhere`, `buildBudgetScopeWhere` +20 | `loadRecord` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +37; via `groupIdentity`: `api/dashboard/group-dashboard.test.ts` +1 | covered |
 
 ## Pages — /documents
 
@@ -1821,7 +1892,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/finance` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +728 | session company; `buildBudgetScopeWhere`, `buildCommitmentScopeWhere` +5 | — | — | `e2e/modules/finance.spec.ts`, `e2e/perf/nav03-benchmark.spec.ts` +8; via `budgetVsActual`: `api/finance/finance-service.test.ts` +1 | covered |
+| PAGE | `/finance` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +728 | session company; `buildBudgetScopeWhere`, `buildCommitmentScopeWhere` +5 | — | — | `e2e/auth/work-session.spec.ts`, `e2e/modules/finance.spec.ts` +9; via `budgetVsActual`: `api/finance/finance-service.test.ts` +1 | covered |
 | PAGE | `/finance/approvals` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildBudgetScopeWhere`, `buildCommitmentScopeWhere` +4 | `assertFound`, `findExpenseInScope` +6 | `applyTransition`, `assertNoOpenVersion` | `e2e/modules/finance.spec.ts`, `e2e/responsive/aud04-modules-a.spec.ts`; via `listApprovals`: `api/finance/finance-service.test.ts` +1 | covered |
 | PAGE | `/finance/budgets` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +728 | session company; `buildBudgetScopeWhere`, `buildProjectScopeWhere` | — | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/modules/finance.spec.ts` +1; via `financeExperience`: `api/finance/group-workspace.test.ts` | covered |
 | PAGE | `/finance/budgets/[budgetId]` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company; `buildBudgetScopeWhere`, `buildProjectScopeWhere` | `assertFound`, `requireBudget` +3 | `applyTransition`, `assertNoOpenVersion` | — | uncovered |
@@ -1858,6 +1929,12 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/forgot-password` | PUBLIC | — | — | — | — | none | — | — | `e2e/auth/authentication.spec.ts` | covered |
+
+## Pages — /full-view
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PAGE | `/full-view` | PUBLIC | — | — | — | — | none | — | — | `e2e/public/landing.spec.ts` | covered |
 
 ## Pages — /help
 
@@ -2019,7 +2096,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/login` | PUBLIC | — | — | — | — | none | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/auth/authentication.spec.ts` +7 | covered |
+| PAGE | `/login` | PUBLIC | — | — | — | — | none | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/auth/authentication.spec.ts` +8 | covered |
 
 ## Pages — /maintenance
 
@@ -2090,54 +2167,6 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/platform` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
 
-## Pages — /admin
-
-| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/admin` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/3d` | PLATFORM | — | project-3d | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`, `unit/a11y/aud11-modules.test.ts`; via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +1 | covered |
-| PAGE | `/admin/3d/diagnostics` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/3d/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listProject3DModels`: `api/project-3d/model-lifecycle.test.ts` | covered |
-| PAGE | `/admin/3d/projects/[projectId]` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`; via `getProject3DWorkspace`: `api/project-3d/platform-authorization.test.ts` | covered |
-| PAGE | `/admin/3d/projects/[projectId]/bindings` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/admin/3d/projects/[projectId]/editor` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | `e2e/modules/project-3d.spec.ts` | covered |
-| PAGE | `/admin/3d/projects/[projectId]/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/admin/3d/projects/[projectId]/releases` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` +1 | — | via `getProject3DEditorWorkspace`: `api/project-3d/model-lifecycle.test.ts` +1 | covered |
-| PAGE | `/admin/3d/projects/[projectId]/structure` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` +1 | — | via `getPlatformProjectStructure`: `api/project-3d/platform-structure.test.ts` | covered |
-| PAGE | `/admin/3d/publishing` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/grants` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/users/inspector` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/memberships` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/permissions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/roles` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/sessions` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/account` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/audit` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts` | covered |
-| PAGE | `/admin/system/diagnostics` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/system/storage` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/system/demo` | PLATFORM | — | — | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/organizations/[groupId]` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
-| PAGE | `/admin/organizations/[groupId]/departments` | PLATFORM | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getDepartmentDetail`: `api/organization/departments.test.ts` +3 | covered |
-| PAGE | `/admin/system/health` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/system/jobs` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/organizations/companies` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/organizations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/organizations/implementations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/projects` | PLATFORM | — | platform | `projects` | `project.create` | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/people` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/modules/pricing` | PLATFORM | — | pricing | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts` | covered |
-| PAGE | `/admin/modules/feature-flags` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` | covered |
-| PAGE | `/admin/modules` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/modules/templates` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/audit/access-changes` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/audit/security` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/audit/failed-logins` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/users/sessions` | PLATFORM | — | — | — | — | platform session; tenant refused | — | — | — | uncovered |
-| PAGE | `/admin/system` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/system/maintenance` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `maintenanceState`: `api/platform/maintenance-propagation.test.ts` | covered |
-| PAGE | `/admin/system/support` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-
 ## Pages — /pricing
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
@@ -2182,9 +2211,9 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/projects` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `requirePortfolio`, `requireProjectPortfolio` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +22; via `canonicalPortfolioHref`: `unit/projects/portfolio-url.test.ts` +1 | covered |
+| PAGE | `/projects` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `requirePortfolio`, `requireProjectPortfolio` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +23; via `canonicalPortfolioHref`: `unit/projects/portfolio-url.test.ts` +1 | covered |
 | PAGE | `/projects/[projectId]` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +5 | `assertFound`, `findProjectInScope` +1 | `applyTransition` | `e2e/a11y/aud11-modules.spec.ts`, `e2e/auth/aud06-roles.spec.ts` +25; via `buildOpportunityScopeWhere`: `api/search/search-authorization.test.ts` +2 | covered |
-| PAGE | `/projects/[projectId]/3d` | UNCLASSIFIED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | unknown — review; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | via `hasActiveProject3DViewer`: `api/project-3d/company-viewer.test.ts` | covered |
+| PAGE | `/projects/[projectId]/3d` | UNCLASSIFIED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | unknown — review; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | `e2e/auth/work-session.spec.ts`; via `hasActiveProject3DViewer`: `api/project-3d/company-viewer.test.ts` | covered |
 | PAGE | `/projects/[projectId]/activity` | COMPANY_SCOPED | NOTIFICATION | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | via `listActivity`: `api/projects/projects-service.test.ts` +1 | covered |
 | PAGE | `/projects/[projectId]/calendar` | COMPANY_SCOPED | — | core/time | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | `e2e/modules/calendar.spec.ts`; via `getCalendar`: `api/calendar/aud08-calendar-bounds.test.ts` +3 | covered |
 | PAGE | `/projects/[projectId]/contractors` | COMPANY_SCOPED | — | contractors | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +9 | `assertFound`, `findProjectInScope` +1 | — | `e2e/modules/contractors-engineering.spec.ts`; via `listContractorCompliance`: `api/engineering/contractors.test.ts` +1 | covered |
@@ -2193,7 +2222,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | PAGE | `/projects/[projectId]/daily-logs/[dailyLogId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +8 | `findReadableLog` | — | `e2e/modules/daily-logs.spec.ts`, `e2e/modules/workforce-site.spec.ts` +1; via `resolveDailyLogSettings`: `api/daily-logs/daily-logs-authorization.test.ts` +1 | covered |
 | PAGE | `/projects/[projectId]/daily-logs/[dailyLogId]/print` | COMPANY_SCOPED | EXPORT | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +8 | `findReadableLog` | — | via `dateLabel`: `unit/daily-logs/daily-logs-config.test.ts` +3 | covered |
 | PAGE | `/projects/[projectId]/daily-logs/new` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | via `resolveDailyLogSettings`: `api/daily-logs/daily-logs-authorization.test.ts` +1 | covered |
-| PAGE | `/projects/[projectId]/documents` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | `e2e/modules/documents.spec.ts`, `e2e/workflows/aud10-journeys.spec.ts`; via `listDocuments`: `api/documents/aud08-document-list.test.ts` +6 | covered |
+| PAGE | `/projects/[projectId]/documents` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | `e2e/auth/work-session.spec.ts`, `e2e/modules/documents.spec.ts` +1; via `listDocuments`: `api/documents/aud08-document-list.test.ts` +6 | covered |
 | PAGE | `/projects/[projectId]/edit` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +2 | `assertFound`, `findProjectInScope` +3 | `applyTransition`, `assertTransitionAllowed` | via `allowedTransitions`: `unit/validation/project-schema.test.ts` +4 | covered |
 | PAGE | `/projects/[projectId]/engineering` | COMPANY_SCOPED | — | engineering | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `engineeringProjectDoor` +4 | — | — | `e2e/responsive/engineering-mobile.spec.ts`; via `dateLabel`: `e2e/modules/planning.spec.ts` +3 | covered |
 | PAGE | `/projects/[projectId]/engineering/documents` | COMPANY_SCOPED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | — | uncovered |
@@ -2344,7 +2373,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | PAGE | `/settings/modules` | COMPANY_SCOPED | — | settings | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company | `requireCompanyContext`, `requireSettingsSection` | — | via `listCompanyModules`: `api/settings/module-toggle.test.ts` | covered |
 | PAGE | `/settings/notifications` | COMPANY_SCOPED | NOTIFICATION | core/notifications | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company | `requireSettingsSection` | — | `e2e/collaboration/workflows.spec.ts`, `e2e/responsive/aud04-modules-b.spec.ts` +1; via `listPreferences`: `api/notifications/attention-reconcile.test.ts` | covered |
 | PAGE | `/settings/numbering` | COMPANY_SCOPED | — | settings | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireCompanyContext`, `requireSettingsSection` | — | `e2e/forms/aud09-people.spec.ts`; via `listNumberingSchemes`: `api/settings/numbering.test.ts` | covered |
-| PAGE | `/settings/profile` | COMPANY_SCOPED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireSettingsSection` | — | `e2e/auth/demo-user-switch.spec.ts`, `e2e/forms/aud09-a11y.spec.ts` +1; via `listSessions`: `api/account/account-service.test.ts` | covered |
+| PAGE | `/settings/profile` | COMPANY_SCOPED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireSettingsSection` | — | `e2e/auth/demo-user-switch.spec.ts`, `e2e/auth/work-session.spec.ts` +2; via `listSessions`: `api/account/account-service.test.ts` | covered |
 | PAGE | `/settings/roles` | COMPANY_SCOPED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireSettingsSection` | — | — | uncovered |
 | PAGE | `/settings/sales` | COMPANY_SCOPED | — | settings | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireSettingsSection` | — | via `getSalesSettings`: `api/sales/unit-sales.test.ts` | covered |
 | PAGE | `/settings/storage` | COMPANY_SCOPED | — | documents | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | session company | `requireSettingsSection` | — | via `formatFileSize`: `unit/documents/document-files.test.ts` | covered |
@@ -2415,7 +2444,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/view/3d/[publicId]` | PUBLIC | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | none; `buildProjectScopeWhere` | — | — | via `getPublic3DStatus`: `api/project-3d/public-viewer.test.ts` | covered |
+| PAGE | `/view/3d/[publicId]` | PUBLIC | — | project-3d | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | none; `buildProjectScopeWhere` | — | — | via `getPublic3DStatus`: `api/platform/projects-3d-admin.test.ts` +1 | covered |
 
 ## Pages — /workforce
 
@@ -2437,7 +2466,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/workspace-unavailable` | PUBLIC | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | none | — | — | — | not-applicable |
+| PAGE | `/workspace-unavailable` | PUBLIC | — | — | — | — | none | — | — | — | not-applicable |
 
 ## Inline server actions (pages)
 
