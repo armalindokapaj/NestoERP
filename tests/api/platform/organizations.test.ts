@@ -124,7 +124,7 @@ describe("Organizations management", () => {
 
   it("reads tabs from canonical records, and the dashboard agrees on the company count (§33-§41, §96)", async () => {
     expect(await organizationProjects(admin, { kind: "group", groupId: ids.groupB })).toEqual([]);
-    expect(await organizationUsers(admin, { kind: "company", companyId: ids.standalone })).toEqual([]);
+    expect((await organizationUsers(admin, { kind: "company", companyId: ids.standalone })).rows).toEqual([]);
     const usage = await organizationUsage(admin, { kind: "group", groupId: ids.groupB });
     expect(usage).toMatchObject({ companies: 1, projects: 0, users: 0 });
     const summary = await dashboardSummary(admin);

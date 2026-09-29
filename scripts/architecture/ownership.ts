@@ -334,6 +334,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-organization-admin.service.ts",
+    reason:
+      "Adding a user from inside an organization writes the person, the login, the company membership, its department place and its project places in one transaction, so a failure leaves nothing half-made; changing a role, the projects or removing access writes that one company's membership and project places only, named by company and checked against it (Organization-Scoped PRD #7 §16, §20, §63, §92, §93).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-company.service.ts",
     reason:
       "Attaching a company to a Parent Group or detaching it moves the company and its business root's rows — people, departments, placements, grants, candidates, qualifications, requests and audit history — between roots in one transaction, because the composite (id, parentGroupId) keys between them only hold once all have moved. Group-wide reach is ended in the same transaction so nobody gains access through the move (Simplified Company Creation §6, §7, §11).",

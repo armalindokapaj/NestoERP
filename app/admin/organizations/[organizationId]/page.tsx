@@ -12,15 +12,15 @@ import { cn } from "@/lib/utils/cn";
 import { CompanyHeaderActions, CompanyOverview, CompanySettings } from "../_detail/company-detail";
 import { GroupHeaderActions, GroupOverview } from "../_detail/group-detail";
 import { GroupSettings } from "../_detail/group-settings";
-import { GroupCompaniesTab, ModulesTab, ProjectsTab, UsageTab, UsersTab } from "../_detail/tabs";
+import { GroupCompaniesTab, ModulesTab, ProjectsTab, RolesTab, UsageTab, UsersTab } from "../_detail/tabs";
 
 export const metadata: Metadata = { title: "Organization" };
 
-type Props = { params: Promise<{ organizationId: string }>; searchParams: Promise<{ tab?: string }> };
+type Props = { params: Promise<{ organizationId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const GROUP_TABS = ["overview", "companies", "projects", "users", "modules", "usage", "settings"] as const;
-const COMPANY_TABS = ["overview", "projects", "users", "modules", "usage", "settings"] as const;
-const LABEL: Record<string, string> = { overview: "Overview", companies: "Companies", projects: "Projects", users: "Users", modules: "Modules", usage: "Usage", settings: "Settings" };
+const GROUP_TABS = ["overview", "companies", "projects", "users", "roles", "modules", "usage", "settings"] as const;
+const COMPANY_TABS = ["overview", "projects", "users", "roles", "modules", "usage", "settings"] as const;
+const LABEL: Record<string, string> = { overview: "Overview", companies: "Companies", projects: "Projects", users: "Users", roles: "Roles", modules: "Modules", usage: "Usage", settings: "Settings" };
 
 const orNull = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
   if (error instanceof AccessError && error.code === "NOT_FOUND") return null;
@@ -49,7 +49,9 @@ function Tabs({ id, tabs, current }: { id: string; tabs: readonly string[]; curr
  * record itself. Tabs live in `?tab=`, so refresh and Back keep them.
  */
 export default async function OrganizationPage({ params, searchParams }: Props) {
-  const [{ organizationId }, { tab: rawTab }] = await Promise.all([params, searchParams]);
+  const [{ organizationId }, rawParams] = await Promise.all([params, searchParams]);
+  const query = Object.fromEntries(Object.entries(rawParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
+  const rawTab = query.tab;
   const context = await requirePlatformContext();
   const group = await orNull(getGroupImplementation(context, organizationId));
   const company = group ? null : await orNull(getPlatformCompanyOverview(context, organizationId));
@@ -59,7 +61,11 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const tab = (tabs as readonly string[]).includes(rawTab ?? "") ? rawTab! : "overview";
   const name = group ? group.group.name : company!.company.name;
   const scope = group ? { kind: "group" as const, groupId: group.group.id } : { kind: "company" as const, companyId: company!.company.id };
-  const crumbs = [{ label: "Organizations", href: "/admin/organizations" }, tab === "overview" ? { label: name } : { label: name, href: `/admin/organizations/${organizationId}` }, ...(tab === "overview" ? [] : [{ label: LABEL[tab] }])];
+  const status = group ? group.group.status : company!.company.status;
+  const org = { id: organizationId, name, open: status === "ACTIVE" || status === "IMPLEMENTING" || status === "READY_FOR_VALIDATION" };
+  // A group company sits under its group, so the way back to the group is one click (§52, §101).
+  const parent = company?.structure.group ? [{ label: company.structure.group.name, href: `/admin/organizations/${company.structure.group.id}?tab=companies` }] : [];
+  const crumbs = [{ label: "Organizations", href: "/admin/organizations" }, ...parent, tab === "overview" ? { label: name } : { label: name, href: `/admin/organizations/${organizationId}` }, ...(tab === "overview" ? [] : [{ label: LABEL[tab] }])];
 
   return (
     <div className="space-y-5">
@@ -83,10 +89,12 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
       </header>
       <Tabs id={organizationId} tabs={tabs} current={tab} />
       {tab === "overview" ? (group ? <GroupOverview implementation={group} /> : <CompanyOverview overview={company!} />) : null}
-      {tab === "companies" && group ? <GroupCompaniesTab context={context} group={{ id: group.group.id, name: group.group.name, open: group.group.status !== "SUSPENDED" && group.group.status !== "ARCHIVED" }} /> : null}
-      {tab === "projects" ? <ProjectsTab context={context} scope={scope} /> : null}
-      {tab === "users" ? <UsersTab context={context} scope={scope} /> : null}
-      {tab === "modules" ? <ModulesTab context={context} scope={scope} /> : null}
+      {!org.open ? <p className="nesto-card border-warning/40 p-3 text-table text-fg" role="status" data-testid="organization-closed">{name} is {status.toLowerCase()}. Its records are kept; users, roles and projects cannot be changed until it is reactivated.</p> : null}
+      {tab === "companies" && group ? <GroupCompaniesTab context={context} group={org} /> : null}
+      {tab === "projects" ? <ProjectsTab context={context} scope={scope} org={org} /> : null}
+      {tab === "users" ? <UsersTab context={context} scope={scope} org={org} params={query} /> : null}
+      {tab === "roles" ? <RolesTab context={context} scope={scope} org={org} params={query} /> : null}
+      {tab === "modules" ? <ModulesTab context={context} scope={scope} org={org} /> : null}
       {tab === "usage" ? <UsageTab context={context} scope={scope} /> : null}
       {tab === "settings" ? (group ? <GroupSettings implementation={group} /> : <CompanySettings overview={company!} />) : null}
     </div>

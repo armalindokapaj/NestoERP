@@ -1,7 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 import { CheckCircle2, Circle } from "lucide-react";
 
-import { PlatformCommandButton } from "@/components/platform/platform-command";
+import { PlatformCommandButton, PlatformCommandMenu } from "@/components/platform/platform-command";
 import { formatDate } from "@/lib/utils/format";
 import type { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 
@@ -33,44 +33,31 @@ export function CompanyHeaderActions({ overview }: Props) {
   const { company, structure, detach } = overview;
   const suspended = company.status !== "ACTIVE";
   const others = overview.groupOptions.filter((option) => option.value !== structure.group?.id);
+  const menu: React.ComponentProps<typeof PlatformCommandMenu>["items"] = [
+    { label: "Edit", title: `Edit ${company.name}`, action: "company.update", fixed: { companyId: company.id }, fields: COMPANY_FIELDS.map((field) => ({ ...field })), initial: { ...company, logoUrl: company.logoUrl ?? "" }, submitLabel: "Save", success: "Company updated." },
+    ...(structure.group && others.length ? [{
+      label: "Move to group", title: `Move ${company.name}?`,
+      description: `From ${structure.group.name} to the group you choose. Company data and projects stay unchanged; group-wide access from ${structure.group.name} ends here.`,
+      action: "company.move", fixed: { companyId: company.id },
+      fields: [{ name: "groupId", label: "To", type: "select" as const, required: true, options: others }, { name: "reason", label: "Reason", type: "textarea" as const, required: true }],
+      submitLabel: "Move Company", success: "Company moved.",
+    }] : []),
+    ...(structure.group && detach?.allowed ? [{
+      label: "Remove from group", title: `Remove ${company.name} from ${structure.group.name}?`,
+      description: [
+        "The company will become a standalone company. Its projects, users and data will not be deleted.",
+        detach.movingPeople ? `${detach.movingPeople} ${detach.movingPeople === 1 ? "person moves" : "people move"} with it.` : "",
+        detach.groupLevelPeople.length ? `Group-level access ends here for: ${detach.groupLevelPeople.join(", ")}.` : "",
+      ].filter(Boolean).join(" "),
+      action: "company.detach", fixed: { companyId: company.id }, reasonOnly: true, destructive: true, submitLabel: "Remove From Group", success: "Company is now standalone.",
+    }] : []),
+    suspended
+      ? { label: "Reactivate", title: `Reactivate ${company.name}?`, description: "Its users regain access according to their memberships. Nothing was deleted while it was inactive.", action: "company.status", fixed: { companyId: company.id, status: "ACTIVE" }, reasonOnly: true, submitLabel: "Reactivate", success: "Company reactivated." }
+      : { label: "Suspend", title: `Suspend ${company.name}?`, description: "Users will lose normal access to this company until it is reactivated. No company data will be deleted.", action: "company.status", fixed: { companyId: company.id, status: "SUSPENDED" }, reasonOnly: true, destructive: true, submitLabel: "Suspend Company", success: "Company suspended." },
+  ];
   return (
     <>
-      {structure.group ? (
-        <>
-          {others.length ? (
-            <PlatformCommandButton
-              label="Move to group"
-              title={`Move ${company.name}?`}
-              description={`From ${structure.group.name} to the group you choose. Company data and projects stay unchanged; group-wide access from ${structure.group.name} ends here.`}
-              action="company.move"
-              fixed={{ companyId: company.id }}
-              fields={[
-                { name: "groupId", label: "To", type: "select", required: true, options: others },
-                { name: "reason", label: "Reason", type: "textarea", required: true },
-              ]}
-              submitLabel="Move Company"
-              success="Company moved."
-            />
-          ) : null}
-          {detach?.allowed ? (
-            <PlatformCommandButton
-              label="Remove from group"
-              title={`Remove ${company.name} from ${structure.group.name}?`}
-              description={[
-                "The company will become a standalone company. Its projects, users and data will not be deleted.",
-                detach.movingPeople ? `${detach.movingPeople} ${detach.movingPeople === 1 ? "person moves" : "people move"} with it.` : "",
-                detach.groupLevelPeople.length ? `Group-level access ends here for: ${detach.groupLevelPeople.join(", ")}.` : "",
-              ].filter(Boolean).join(" ")}
-              action="company.detach"
-              fixed={{ companyId: company.id }}
-              reasonOnly
-              destructive
-              submitLabel="Remove From Group"
-              success="Company is now standalone."
-            />
-          ) : null}
-        </>
-      ) : (
+      {structure.group ? null : (
         <PlatformCommandButton
           label="Assign to group"
           title={`Assign ${company.name} to a Parent Group`}
@@ -85,11 +72,7 @@ export function CompanyHeaderActions({ overview }: Props) {
           success="Company assigned to the group."
         />
       )}
-      {suspended ? (
-        <PlatformCommandButton label="Reactivate" title={`Reactivate ${company.name}?`} description="Its users regain access according to their memberships. Nothing was deleted while it was inactive." action="company.status" fixed={{ companyId: company.id, status: "ACTIVE" }} reasonOnly submitLabel="Reactivate" success="Company reactivated." />
-      ) : (
-        <PlatformCommandButton label="Suspend" title={`Suspend ${company.name}?`} description="Users will lose normal access to this company until it is reactivated. No company data will be deleted." action="company.status" fixed={{ companyId: company.id, status: "SUSPENDED" }} reasonOnly destructive variant="danger" submitLabel="Suspend Company" success="Company suspended." />
-      )}
+      <PlatformCommandMenu items={menu} label={`${company.name} actions`} />
     </>
   );
 }
@@ -145,7 +128,7 @@ export function CompanyOverview({ overview }: Props) {
       <section className="nesto-card p-5" aria-labelledby="company-history">
         <div className="flex items-center justify-between gap-3">
           <h2 id="company-history" className="text-card font-semibold text-fg">Recent history</h2>
-          <Link href="/admin/audit" className="text-table font-medium text-accent-strong hover:underline">Audit Log</Link>
+          <Link href={`/admin/audit?org=${company.id}`} className="text-table font-medium text-accent-strong hover:underline">Open in Audit Log →</Link>
         </div>
         {overview.history.length === 0 ? (
           <p className="mt-3 text-table text-fg-muted">Nothing recorded yet.</p>

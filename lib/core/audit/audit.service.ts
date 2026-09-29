@@ -181,11 +181,11 @@ export async function recordPlatformAction(
   context: { userId: string; fullName: string; roleKey: string },
   parentGroupId: string,
   input: RecordAuditInput,
-  options: { tx?: Prisma.TransactionClient } = {},
+  options: { tx?: Prisma.TransactionClient; companyId?: string } = {},
 ): Promise<void> {
   return recordAuditEvent(
     {
-      companyId: null,
+      companyId: options.companyId ?? null,
       parentGroupId,
       actor: { type: "USER", userId: context.userId, memberId: null, displayNameSnapshot: context.fullName, roleSnapshot: context.roleKey },
     },

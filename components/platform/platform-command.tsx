@@ -4,7 +4,10 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, type FormField } from "@/components/engineering/form-kit";
+import { MoreHorizontal } from "lucide-react";
+
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
@@ -55,8 +58,9 @@ function clean(payload: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== null && value !== ""));
 }
 
-export function PlatformCommandButton({ label, title, description, action, fixed = {}, fields = [], initial, submitLabel = label, variant = "secondary", size = "sm", success = "Platform updated.", reasonOnly = false, destructive = false, redirectTo, openOnCreate }: Props) {
-  const [open, setOpen] = useCreateParam(openOnCreate);
+type DialogProps = Omit<Props, "label" | "variant" | "size" | "openOnCreate">;
+
+function CommandDialog({ open, setOpen, title, description, action, fixed = {}, fields = [], initial, submitLabel, success = "Platform updated.", reasonOnly = false, destructive = false, redirectTo }: DialogProps & { open: boolean; setOpen: (open: boolean) => void; submitLabel: string }) {
   const router = useRouter();
   const toast = useToast();
 
@@ -71,14 +75,45 @@ export function PlatformCommandButton({ label, title, description, action, fixed
     router.refresh();
   }
 
+  return reasonOnly ? (
+    <ReasonDialog open={open} onOpenChange={setOpen} title={title} description={description} confirmLabel={submitLabel} destructive={destructive} onConfirm={submit} />
+  ) : (
+    <FormDialog open={open} onOpenChange={setOpen} title={title} description={description} fields={fields} initial={initial} submitLabel={submitLabel} onSubmit={submit} wide={fields.length > 5} />
+  );
+}
+
+export function PlatformCommandButton({ label, variant = "secondary", size = "sm", openOnCreate, submitLabel = label, ...rest }: Props) {
+  const [open, setOpen] = useCreateParam(openOnCreate);
   return (
     <>
       <Button type="button" variant={variant} size={size} onClick={() => setOpen(true)}>{label}</Button>
-      {reasonOnly ? (
-        <ReasonDialog open={open} onOpenChange={setOpen} title={title} description={description} confirmLabel={submitLabel} destructive={destructive} onConfirm={submit} />
-      ) : (
-        <FormDialog open={open} onOpenChange={setOpen} title={title} description={description} fields={fields} initial={initial} submitLabel={submitLabel} onSubmit={submit} wide={fields.length > 5} />
-      )}
+      <CommandDialog {...rest} submitLabel={submitLabel} open={open} setOpen={setOpen} />
+    </>
+  );
+}
+
+/**
+ * Several commands behind one "•••" menu (Organization-Scoped PRD #7 §57-§59):
+ * rarely used and destructive actions stay reachable without a large
+ * permanent button. Each item opens the same dialog its button would.
+ */
+export function PlatformCommandMenu({ items, label = "More actions" }: { items: Array<Omit<Props, "variant" | "size" | "openOnCreate">>; label?: string }) {
+  const [active, setActive] = React.useState<number | null>(null);
+  if (items.length === 0) return null;
+  const current = active === null ? null : items[active];
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="secondary" size="sm" aria-label={label} data-testid="organization-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {items.map((item, index) => (
+            <DropdownMenuItem key={`${item.action}-${item.label}`} onSelect={() => setActive(index)} className={item.destructive ? "text-danger" : undefined}>{item.label}</DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {current ? <CommandDialog {...current} submitLabel={current.submitLabel ?? current.label} open setOpen={(open) => { if (!open) setActive(null); }} /> : null}
     </>
   );
 }
