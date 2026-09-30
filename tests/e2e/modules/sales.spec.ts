@@ -115,7 +115,9 @@ test.describe("Sales role (PRD #17 §349)", () => {
     await page.goto("/sales/opportunities/new");
     await page.locator("#name").fill(`${PREFIX} Won deal`);
     await page.locator("#ownerMemberId").selectOption({ index: 1 });
-    await page.locator("#clientId").selectOption("client_acme");
+    // The client is a searchable relation sheet, not a native dropdown (MOB-04 §31).
+    await page.locator("#clientId").click();
+    await page.getByRole("dialog").getByRole("option", { name: /Acme/i }).locator("button").click();
     await page.locator("#estimatedValue").fill("500000");
     await page.getByRole("button", { name: "Create opportunity" }).click();
 

@@ -3,12 +3,12 @@
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArchiveRestore, CircleX, EyeOff, MoreHorizontal, RotateCcw, Send, Upload } from "lucide-react";
+import { Archive, ArchiveRestore, CircleX, EyeOff, RotateCcw, Send, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { EntityActionSheet } from "@/components/detail/entity-action-sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
@@ -110,30 +110,15 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
         </Button>
       ) : null}
       {menu ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={t("publishing.more")}>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {offerUnpublish ? (
-              <DropdownMenuItem onSelect={() => setOpen("unpublish")}>
-                <EyeOff aria-hidden="true" /> {t("publishing.unpublish")}
-              </DropdownMenuItem>
-            ) : null}
-            {offerArchive ? (
-              <DropdownMenuItem onSelect={() => setOpen("archive")}>
-                <Archive aria-hidden="true" /> {t("publishing.archive")}
-              </DropdownMenuItem>
-            ) : null}
-            {offerRestore ? (
-              <DropdownMenuItem onSelect={() => setOpen("restore")}>
-                <ArchiveRestore aria-hidden="true" /> {t("publishing.restore")}
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        // One action list on every width: a sheet on a phone, the dropdown from md (MOB-04 §79).
+        <EntityActionSheet
+          name={unitCode}
+          actions={[
+            ...(offerUnpublish ? [{ key: "unpublish", label: t("publishing.unpublish"), icon: <EyeOff aria-hidden="true" />, onSelect: () => setOpen("unpublish") }] : []),
+            ...(offerRestore ? [{ key: "restore", label: t("publishing.restore"), icon: <ArchiveRestore aria-hidden="true" />, onSelect: () => setOpen("restore") }] : []),
+            ...(offerArchive ? [{ key: "archive", label: t("publishing.archive"), icon: <Archive aria-hidden="true" />, destructive: true, onSelect: () => setOpen("archive") }] : []),
+          ]}
+        />
       ) : null}
 
       <Dialog open={open === "missing"} onOpenChange={(value) => !value && setOpen(null)}>

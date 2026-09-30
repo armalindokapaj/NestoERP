@@ -85,3 +85,8 @@ export function useDialogClose(): () => void {
   const close = React.useContext(DismissContext);
   return close ?? (() => undefined);
 }
+
+/** Whether the caller renders inside a guarded dialog or drawer (so a form can skip page-level sticky chrome). */
+export function useInDialog(): boolean {
+  return React.useContext(DismissContext) !== null;
+}

@@ -3,7 +3,9 @@ import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 
 import { ApprovalActions } from "@/components/modules/approval-actions";
-import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
+import { DetailFieldList } from "@/components/detail/detail-field";
+import { DetailSection } from "@/components/detail/detail-section";
+import { EntityDetailPage } from "@/components/detail/entity-detail-page";
 import { modules, sectionRoute, type ModuleKey } from "@/config/modules";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience, resolveSection } from "@/lib/access/module-access";
@@ -57,40 +59,30 @@ export async function ModuleRecordPage({
   const closing = moduleKey === "qaqc" || moduleKey === "hse";
 
   return (
-    <div className="space-y-5">
-      <RecordHeader
-        breadcrumbs={[
-          { label: modules[moduleKey].label, href: modules[moduleKey].route },
-          { label: section.label, href: sectionRoute(moduleKey, section.key) },
-          { label: record.title },
-        ]}
-        title={record.title}
-        subtitle={record.subtitle}
-        status={record.status}
-        actions={
-          canDecide && record.approval?.pending ? (
-            <ApprovalActions
-              moduleKey={moduleKey}
-              section={section.key}
-              recordId={record.id}
-              closing={closing}
-            />
-          ) : null
-        }
-      />
+    <EntityDetailPage
+      breadcrumbs={[
+        { label: modules[moduleKey].label, href: modules[moduleKey].route },
+        { label: section.label, href: sectionRoute(moduleKey, section.key) },
+        { label: record.title },
+      ]}
+      title={record.title}
+      subtitle={record.subtitle}
+      status={record.status}
+      actions={
+        canDecide && record.approval?.pending ? (
+          <ApprovalActions moduleKey={moduleKey} section={section.key} recordId={record.id} closing={closing} />
+        ) : null
+      }
+    >
+      <DetailSection title={t("details")}>
+        {record.description ? <p className="mb-4 text-body text-fg-muted">{record.description}</p> : null}
+        <DetailFieldList fields={record.fields.map((field) => ({ label: field.label, value: field.value }))} />
+      </DetailSection>
 
-      <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("details")}</h2>
-        {record.description ? (
-          <p className="mt-3 text-body text-fg-muted">{record.description}</p>
-        ) : null}
-        <DetailGrid className="mt-5" items={record.fields} />
-      </section>
-
-      <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("record")}</h2>
-        <DetailGrid className="mt-4" columns={3} items={record.meta} />
-      </section>
-    </div>
+      {/* System and audit information is secondary: collapsed, never hidden (MOB-04 §10). */}
+      <DetailSection title={t("record")} collapsible defaultOpen={false}>
+        <DetailFieldList columns={3} fields={record.meta.map((field) => ({ label: field.label, value: field.value }))} />
+      </DetailSection>
+    </EntityDetailPage>
   );
 }

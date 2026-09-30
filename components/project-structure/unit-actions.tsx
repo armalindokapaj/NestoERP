@@ -6,7 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { MoveRight, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmAction } from "@/components/forms/confirm-action";
 import { useToast } from "@/components/ui/toast";
 import type { UnitDetailDTO, UnitTypeOption } from "@/lib/modules/project-structure/structure.types";
 import { MoveUnitDialog } from "./structure-dialogs";
@@ -22,20 +22,17 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
   const toast = useToast();
   const t = useTranslations("projects");
   const [open, setOpen] = React.useState<"edit" | "move" | "delete" | null>(null);
-  const [pending, setPending] = React.useState(false);
   const { capabilities } = unit;
 
-  async function remove() {
-    setPending(true);
+  // The confirmation owns the pending state and the double-tap guard; a refusal stays in the dialog (MOB-04 §50, §62).
+  async function remove(): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
       await structureApi(`/api/project-units/${unit.id}`, { method: "DELETE" });
       toast({ title: t("unitTable.deleted", { code: unit.unitCode }) });
       router.push(`/projects/${unit.projectId}/units?floor=${unit.floor.id}`);
+      return { ok: true };
     } catch (error) {
-      setOpen(null);
-      toast({ title: failureMessage(error, t("unitTable.deleteFailed")), tone: "danger" });
-    } finally {
-      setPending(false);
+      return { ok: false, error: failureMessage(error, t("unitTable.deleteFailed")) };
     }
   }
 
@@ -74,13 +71,12 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
           }}
         />
       ) : null}
-      <ConfirmDialog
+      <ConfirmAction
         open={open === "delete"}
         onOpenChange={(value) => !value && setOpen(null)}
         title={t("unitTable.deleteTitle", { code: unit.unitCode })}
         description={t("workspace.deleteUnitBody")}
-        pending={pending}
-        onConfirm={() => void remove()}
+        run={remove}
       />
     </>
   );

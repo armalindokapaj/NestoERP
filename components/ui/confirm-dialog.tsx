@@ -48,7 +48,7 @@ export function ConfirmDialog({
   const cancelLabel = cancelLabelProp ?? t("cancel");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" presentation="sheet-phone">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
         {children}
