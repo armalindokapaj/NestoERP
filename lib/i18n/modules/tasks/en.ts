@@ -75,6 +75,7 @@ export const tasksEn = {
     overdueInView: "Overdue in your view",
   },
   list: {
+    views: { label: "Task views", today: "Today", upcoming: "Upcoming", all: "All" },
     dueOptions: {
       overdue: "Overdue",
       today: "Today",
@@ -167,6 +168,9 @@ export const tasksEn = {
     lostAccess: "{message} You no longer have access to this task.",
     archivedDone: "Task archived.",
     restoredDone: "Task restored.",
+    claim: "Claim",
+    claiming: "Claiming…",
+    claimed: "Task claimed. It is yours now.",
     start: "Start",
     starting: "Starting…",
     started: "Task started.",

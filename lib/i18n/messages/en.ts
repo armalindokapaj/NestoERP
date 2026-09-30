@@ -130,6 +130,8 @@ export const en = {
     title: "Notifications",
     description: "Everything NESTO has told you, and what still needs your attention.",
     tabs: { all: "All", unread: "Unread", attention: "Needs attention" },
+    sectionNew: "New",
+    sectionEarlier: "Earlier",
     markAllRead: "Mark all read",
     markRead: "Mark as read",
     markUnread: "Mark as unread",

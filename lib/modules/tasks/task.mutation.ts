@@ -80,6 +80,8 @@ export type TaskEditFields = {
 export type TaskCommand =
   | { kind: "edit"; fields: TaskEditFields }
   | { kind: "start" }
+  /** Take an unassigned task: the actor becomes its assignee (MOB-06 §21-§23). */
+  | { kind: "claim" }
   | { kind: "block"; reason: string }
   | { kind: "complete" }
   | { kind: "reopen"; target: TaskStatus }
@@ -150,6 +152,9 @@ export function readExpectedVersion(raw: unknown): { ok: true; version: number }
 /** The permission a command needs before anything is read (the edit form's own status checks come later). */
 function commandPermission(command: TaskCommand): Permission {
   if (command.kind === "edit") return "task.update";
+  // Claiming is taking unassigned work, not editing it: the status permission
+  // is the one an assignee needs to work the task anyway.
+  if (command.kind === "claim") return "task.status.update";
   const transition = transitionFor(taskMachine, command.kind);
   if (!transition) throw new Error(`task machine has no "${command.kind}"`);
   return permissionsOf(transition)[0];
@@ -208,7 +213,9 @@ export async function mutateTask(
     const candidates =
       command.kind === "edit" && command.fields.assigneeMemberId
         ? await buildMemberContexts(context.companyId, [command.fields.assigneeMemberId])
-        : new Map<string, UserContext>();
+        : command.kind === "claim"
+          ? await buildMemberContexts(context.companyId, [context.membershipId])
+          : new Map<string, UserContext>();
 
     const result = await runInTransaction(
       `tasks.${command.kind}`,
@@ -329,6 +336,12 @@ async function apply(
   });
   if (!locked) throw new AccessError("NOT_FOUND");
 
+  // 2b. A claim loses to an earlier claim whatever version it names: the
+  //     person is told who won, not that the task "changed" (MOB-06 §23).
+  if (command.kind === "claim" && locked.assigneeMemberId && locked.assigneeMemberId !== context.membershipId) {
+    throw stateConflict(CLAIMED_BY_ANOTHER, { reason: "CLAIMED" });
+  }
+
   // 3. The version the person reviewed. Nothing of the current task is
   //    disclosed here: the client asks for a fresh snapshot, through scope.
   if (locked.version !== expectedVersion) {
@@ -343,7 +356,9 @@ async function apply(
   const plan =
     command.kind === "edit"
       ? await planEdit(tx, context, locked, command.fields, now)
-      : planCommand(context, locked, command, now);
+      : command.kind === "claim"
+        ? planClaim(context, locked)
+        : planCommand(context, locked, command, now);
 
   if (!plan) {
     // Genuinely unchanged, at the current version: no write, no history, no
@@ -425,7 +440,35 @@ type Plan = {
 /* Dedicated commands                                                          */
 /* -------------------------------------------------------------------------- */
 
-const COMMAND_ACTIVITY: Record<Exclude<TaskCommandKind, "edit">, { action: string; message: string }> = {
+export const CLAIMED_BY_ANOTHER = "This task was claimed by another user.";
+
+/**
+ * `claim`: an unassigned, active task becomes the actor's. Under the row lock a
+ * second claimant finds it assigned and is refused (MOB-06 §22-§23). A task
+ * the actor already holds is unchanged, not a second success.
+ */
+function planClaim(context: UserContext, locked: LockedTask): Plan | null {
+  if (isTaskArchived(locked)) throw stateConflict("Restore this task before changing it.", { status: "ARCHIVED" });
+  if (locked.status === "COMPLETED") throw stateConflict("This task is completed, so it cannot be claimed.", { status: locked.status });
+  if (locked.assigneeMemberId === context.membershipId) return null;
+  return {
+    data: { assigneeMemberId: context.membershipId },
+    after: { assigneeMemberId: context.membershipId },
+    syncMeeting: true,
+    record: async (tx, change) => {
+      await recordActivity(tx, context, {
+        module: MODULE,
+        entityType: ENTITY,
+        entityId: change.before.id,
+        action: "TASK_CLAIMED",
+        message: "claimed the task",
+        metadata: { taskId: change.before.id, version: change.version } as Prisma.InputJsonValue,
+      });
+    },
+  };
+}
+
+const COMMAND_ACTIVITY: Record<Exclude<TaskCommandKind, "edit" | "claim">, { action: string; message: string }> = {
   start: { action: "TASK_STARTED", message: "started the task" },
   block: { action: "TASK_BLOCKED", message: "marked the task blocked" },
   complete: { action: "TASK_COMPLETED", message: "completed the task" },
@@ -441,7 +484,7 @@ function stateConflict(message: string, details: Record<string, unknown> = {}): 
   return new AccessError("CONFLICT", message, { code: TASK_ERROR.STATE_CONFLICT, ...details });
 }
 
-function planCommand(context: UserContext, locked: LockedTask, command: Exclude<TaskCommand, { kind: "edit" }>, now: () => Date): Plan {
+function planCommand(context: UserContext, locked: LockedTask, command: Exclude<TaskCommand, { kind: "edit" | "claim" }>, now: () => Date): Plan {
   const archived = isTaskArchived(locked);
   const transition = transitionFor(taskMachine, command.kind as TaskAction)!;
 
@@ -499,7 +542,7 @@ function planCommand(context: UserContext, locked: LockedTask, command: Exclude<
   };
 }
 
-const PAST: Record<Exclude<TaskCommandKind, "edit">, string> = {
+const PAST: Record<Exclude<TaskCommandKind, "edit" | "claim">, string> = {
   start: "started",
   block: "marked blocked",
   complete: "completed",
@@ -515,7 +558,7 @@ function humanStatus(status: TaskStatus): string {
 async function recordCommand(
   tx: Tx,
   context: UserContext,
-  command: Exclude<TaskCommand, { kind: "edit" }>,
+  command: Exclude<TaskCommand, { kind: "edit" | "claim" }>,
   change: { before: LockedTask; after: LockedTask; version: { from: number; to: number } },
   extra: Record<string, unknown> = {},
 ): Promise<void> {

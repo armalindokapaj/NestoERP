@@ -8,6 +8,7 @@ import {
   ArchiveRestore,
   Ban,
   Check,
+  HandHelping,
   MoreHorizontal,
   PenLine,
   Play,
@@ -134,7 +135,9 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
           return;
         }
         const moved = result.code === "TASK_VERSION_CONFLICT" || result.code === "TASK_STATE_CONFLICT";
-        (onRefused ?? ((message: string) => toast({ title: message, tone: "danger" })))(moved ? CHANGED : result.error);
+        // A lost claim says who won rather than "changed" (MOB-06 §23).
+        const claimLost = command === "claim" && result.code === "TASK_STATE_CONFLICT";
+        (onRefused ?? ((message: string) => toast({ title: message, tone: "danger" })))(moved && !claimLost ? CHANGED : result.error);
         if (moved) router.refresh();
         settle(false);
       });
@@ -182,6 +185,14 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         <Button size="sm" onClick={restore} disabled={pending}>
           <ArchiveRestore aria-hidden="true" />
           {pending ? t("actions.restoring") : t("actions.restore")}
+        </Button>
+      ) : null}
+
+      {/* Claim sits beside the verbs, not among them: it never displaces Start or Complete in the phone header (MOB-06 §22). */}
+      {!archived && may.canClaim ? (
+        <Button variant="primary" size="sm" onClick={() => void send("claim", t("actions.claimed"), { expectedVersion: task.version })} disabled={pending} aria-busy={running === "claim" || undefined}>
+          <HandHelping aria-hidden="true" />
+          {running === "claim" ? t("actions.claiming") : t("actions.claim")}
         </Button>
       ) : null}
 

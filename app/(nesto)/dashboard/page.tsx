@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { ChevronRight } from "lucide-react";
+import Link from "@/components/navigation/nav-link";
 
 import {
   DashboardGrid,
@@ -50,6 +52,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DashboardPage() {
   const context = await requireUserContext();
   const t = await getTranslations("dashboard");
+  const misc = await getTranslations("misc");
   const plan = await planDashboard(context);
   // The group's banner is the Group workspace's (D-01 §26, §66; Workspace Context §18).
   const group = groupIdentity(context).catch(() => null);
@@ -63,6 +66,18 @@ export default async function DashboardPage() {
     <ModuleMessages namespaces={["dashboard"]}>
       <div className="space-y-6">
         <WelcomeHeader context={context} focus={plan.focus} />
+
+        <Link
+          href="/my-day"
+          data-testid="open-my-day"
+          className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 hover:bg-row-hover"
+        >
+          <span className="min-w-0">
+            <span className="block text-body font-semibold text-fg">{misc("myDay.title")}</span>
+            <span className="block truncate text-meta text-fg-muted">{misc("myDay.openMyDayHint")}</span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
+        </Link>
 
         <Suspense fallback={null}>
           <GroupBanner group={group} />

@@ -77,6 +77,7 @@ export const tasksSq: typeof tasksEn = {
     overdueInView: "Të vonuara në pamjen tuaj",
   },
   list: {
+    views: { label: "Pamjet e detyrave", today: "Sot", upcoming: "Së shpejti", all: "Të gjitha" },
     dueOptions: {
       overdue: "Të vonuara",
       today: "Sot",
@@ -169,6 +170,9 @@ export const tasksSq: typeof tasksEn = {
     lostAccess: "{message} Nuk keni më akses në këtë detyrë.",
     archivedDone: "Detyra u arkivua.",
     restoredDone: "Detyra u rikthye.",
+    claim: "Merre",
+    claiming: "Po merret…",
+    claimed: "Detyra u mor. Tani është e jotja.",
     start: "Fillo",
     starting: "Po fillon…",
     started: "Detyra filloi.",

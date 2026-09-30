@@ -105,7 +105,7 @@ export async function updateTaskAction(taskId: string, formData: FormData): Prom
   return { ok: true, meta: result.meta, redirectTo: `/tasks/${taskId}` };
 }
 
-export type TaskCommandName = "start" | "block" | "complete" | "reopen" | "archive" | "restore";
+export type TaskCommandName = "start" | "claim" | "block" | "complete" | "reopen" | "archive" | "restore";
 
 /**
  * The dedicated commands (PRD #11 §159), each against the version the page
@@ -122,6 +122,7 @@ export async function taskCommandAction(
   try {
     const version = { expectedVersion: input.expectedVersion };
     if (command === "start") result = await tasks.startTask(context, taskId, version);
+    else if (command === "claim") result = await tasks.claimTask(context, taskId, version);
     else if (command === "block") result = await tasks.blockTask(context, taskId, { ...version, reason: input.reason });
     else if (command === "complete") result = await tasks.completeTask(context, taskId, version);
     else if (command === "reopen") result = await tasks.reopenTask(context, taskId, { ...version, status: input.reopenTo });

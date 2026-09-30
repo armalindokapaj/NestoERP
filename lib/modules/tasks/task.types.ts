@@ -74,6 +74,8 @@ export type TaskDetailDTO = {
     canEdit: boolean;
     canAssign: boolean;
     canChangeStatus: boolean;
+    /** The task has no assignee and this reader may take it (MOB-06 §22). */
+    canClaim: boolean;
     canComplete: boolean;
     canReopen: boolean;
     canArchive: boolean;

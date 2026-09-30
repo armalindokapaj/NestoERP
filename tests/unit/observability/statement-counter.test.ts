@@ -133,8 +133,8 @@ describe("task command latency keeps the outcome's class (AUD-07 §5, PS-21)", (
     expect(counterValue(Metric.TASK_MUTATION_OUTCOME, { command: "edit", outcome: "exploded" })).toBe(0);
   });
 
-  it("is 28 label sets, and every family fits the 4,000-series budget", () => {
-    expect(histogramSeriesBudget("task_mutation_ms")).toBe(7 * 4 * 17);
+  it("is 32 label sets, and every family fits the 4,000-series budget", () => {
+    expect(histogramSeriesBudget("task_mutation_ms")).toBe(8 * 4 * 17);
     const total = (Object.keys(HISTOGRAMS) as HistogramName[]).reduce((sum, name) => sum + histogramSeriesBudget(name), 0);
     expect(total).toBeLessThanOrEqual(4_000);
   });
