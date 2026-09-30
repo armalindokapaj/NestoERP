@@ -1,5 +1,6 @@
 import { can, canAccessModule } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { buildTaskScopeWhere } from "@/lib/access/scope";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { readableMeetingWhere } from "@/lib/modules/meetings/meeting.permissions";
@@ -102,4 +103,30 @@ export async function projectUpcoming(
     items.push({ id: `deadline:${project.id}`, kind: "deadline", title: "Expected project completion", at: project.schedule.endDate, href: `/projects/${project.id}/planning` });
   }
   return items.sort((a, b) => a.at.localeCompare(b.at)).slice(0, 5);
+}
+
+export type ProjectMobileSummary = {
+  /** Null where the reader has no door to the figure, so the phone shows no tile rather than a zero. */
+  openTasks: number | null;
+  overdueTasks: number | null;
+  units: number | null;
+};
+
+/**
+ * The phone Overview's counters (MOB-05 §29, §34, §85): three counts in one
+ * round, each behind the door of the module that owns it. Tasks are counted
+ * under the caller's task scope — the same set the Tasks tab lists — so the
+ * number on Overview and the list it links to cannot disagree. The project is
+ * already resolved in the caller's scope; the company filter here is the
+ * second lock, not the first.
+ */
+export async function projectMobileSummary(context: UserContext, projectId: string, access: { canViewTasks: boolean; canViewUnits: boolean }): Promise<ProjectMobileSummary> {
+  const now = new Date();
+  const live = { AND: [buildTaskScopeWhere(context), { projectId, archivedAt: null, status: { in: ["TODO", "IN_PROGRESS", "BLOCKED"] as Array<"TODO" | "IN_PROGRESS" | "BLOCKED"> } }] };
+  const [openTasks, overdueTasks, units] = await Promise.all([
+    access.canViewTasks ? prisma.task.count({ where: live }) : null,
+    access.canViewTasks ? prisma.task.count({ where: { AND: [live, { dueDate: { lt: now } }] } }) : null,
+    access.canViewUnits ? prisma.projectUnit.count({ where: { companyId: context.companyId, projectId } }) : null,
+  ]);
+  return { openTasks, overdueTasks, units };
 }

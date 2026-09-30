@@ -4,7 +4,7 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
-import { FolderKanban, SearchX } from "lucide-react";
+import { FolderKanban, LayoutGrid, List, SearchX } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import type { PortfolioListDTO, ProjectCardDTO } from "@/lib/modules/projects/pr
 import { cn } from "@/lib/utils/cn";
 import { GALLERY_GRID } from "./gallery";
 import { ProjectCard, ProjectCardSkeleton } from "./project-card";
+import { ProjectCompactRow } from "./project-compact-row";
+
+const VIEW_KEY = "nesto:projects-view";
 
 /** Server-side search, so a short pause before asking (Projects Workspace Grid §180). */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -50,6 +53,20 @@ export function ProjectsPortfolio({
   const toast = useToast();
   const t = useTranslations("projects");
   const [navigating, startNavigation] = React.useTransition();
+
+  // Cards or a compact list (MOB-05 §15): a per-viewer convenience, so it lives in the browser and the page renders correctly without it.
+  const [view, setView] = React.useState<"cards" | "list">("cards");
+  React.useEffect(() => {
+    try {
+      if (window.localStorage.getItem(VIEW_KEY) === "list") setView("list");
+    } catch {}
+  }, []);
+  const chooseView = (next: "cards" | "list") => {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_KEY, next);
+    } catch {}
+  };
 
   const [items, setItems] = React.useState(initial.items);
   const [cursor, setCursor] = React.useState(initial.pageInfo.nextCursor);
@@ -148,6 +165,24 @@ export function ProjectsPortfolio({
     <div className="space-y-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
         <ProjectsSearch value={q} onSearch={search} />
+        <div role="group" aria-label={t("portfolio.viewLabel")} className="flex shrink-0 gap-1 sm:ml-auto">
+          {(["cards", "list"] as const).map((mode) => {
+            const Icon = mode === "cards" ? LayoutGrid : List;
+            return (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={view === mode}
+                aria-label={t(mode === "cards" ? "portfolio.viewCards" : "portfolio.viewList")}
+                onClick={() => chooseView(mode)}
+                className={cn("grid size-10 place-items-center rounded-md border border-line touch:size-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", view === mode ? "bg-hover text-fg" : "text-fg-muted")}
+                data-testid={`projects-view-${mode}`}
+              >
+                <Icon aria-hidden="true" className="size-4" />
+              </button>
+            );
+          })}
+        </div>
         {/* The count of what the search found, only while there is one (§148). */}
         <p className="text-table text-fg-muted" aria-live="polite" data-testid="projects-result-count">
           {navigating ? <span className="sr-only">{t("portfolio.loading")}</span> : q && total > 0 ? t("portfolio.found", { projects: t("portfolio.count", { count: total }) }) : null}
@@ -165,8 +200,10 @@ export function ProjectsPortfolio({
             className="py-12"
           />
         ) : (
-          <div className={GALLERY_GRID} data-testid="project-gallery">
-            {items.map((project) => (
+          <div className={view === "list" ? "divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface" : GALLERY_GRID} data-testid="project-gallery" data-view={view}>
+            {items.map((project) => view === "list" ? (
+              <ProjectCompactRow key={project.id} project={project} />
+            ) : (
               <ProjectCard
                 key={project.id}
                 project={project}
