@@ -1,3 +1,4 @@
+import { NativeBootstrap } from "@/components/platform/native-bootstrap";
 import { SessionLifecycle } from "@/components/auth/session-lifecycle";
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
@@ -85,6 +86,7 @@ export default async function RootLayout({
       >
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />
+          <NativeBootstrap />
           {children}
         </I18nProvider>
       </body>

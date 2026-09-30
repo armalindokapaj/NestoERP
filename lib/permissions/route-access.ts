@@ -48,6 +48,12 @@ export const PUBLIC_ROUTES = [
 export const PUBLIC_OPERATIONAL_ROUTES = [
   "/api/health/live",
   "/api/health/ready",
+  // The native app asks this before it has a session (MOB-08 §66). It answers
+  // the caller's own version against the policy and discloses nothing else.
+  "/api/app/compatibility",
+  // Universal Links / App Links ownership files: fetched by the OS, never signed in (MOB-08 §28, §29).
+  "/.well-known/apple-app-site-association",
+  "/.well-known/assetlinks.json",
 ] as const;
 
 /** Public configurator endpoints validate, rate-limit, and sanitize their own payloads. */

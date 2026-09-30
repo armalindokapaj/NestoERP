@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NESTO</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#15171c; --muted:#5b6475; --accent:#15171c; --accent-fg:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#15171c; --fg:#f4f6fa; --muted:#a3adc2; --accent:#f4f6fa; --accent-fg:#15171c; } }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--fg);
+    font:16px/1.5 -apple-system, system-ui, sans-serif; padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  main { max-width:22rem; text-align:center; }
+  h1 { font-size:1.25rem; margin:0 0 .5rem; }
+  p { color:var(--muted); margin:0 0 1.5rem; }
+  button { min-height:44px; padding:0 1.5rem; border:0; border-radius:10px; background:var(--accent); color:var(--accent-fg); font:inherit; font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>No connection</h1>
+  <p>NESTO needs a connection to load. Check your network and try again.</p>
+  <button type="button" onclick="history.length > 1 ? history.back() : location.reload()">Try again</button>
+</main>
+</body>
+</html>

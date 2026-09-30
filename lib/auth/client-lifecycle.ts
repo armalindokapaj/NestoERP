@@ -6,6 +6,12 @@ import { unsaved } from "@/lib/unsaved/coordinator";
 
 export const LIFECYCLE_KEY = "nesto.auth.lifecycle";
 let pendingLogout: Promise<void> | undefined;
+const beforeLogoutHooks = new Set<() => Promise<void>>();
+/** Registers device-side cleanup that must run on every sign-out. Each hook bounds its own wait. Returns the unsubscribe. */
+export function onBeforeLogout(hook: () => Promise<void>): () => void {
+  beforeLogoutHooks.add(hook);
+  return () => void beforeLogoutHooks.delete(hook);
+}
 let ending = false;
 export const isSessionEnding = () => ending;
 
@@ -40,6 +46,8 @@ export function logout(): Promise<void> {
       channel.postMessage({ type: "logout" });
       channel.close();
     } } catch { /* Storage events and server checks also synchronize tabs. */ }
+    // Whatever the shell keeps on the device (push token, local secrets) goes now (MOB-08 §36).
+    await Promise.all([...beforeLogoutHooks].map((hook) => hook().catch(() => undefined)));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {

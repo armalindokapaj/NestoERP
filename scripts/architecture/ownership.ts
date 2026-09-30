@@ -33,7 +33,7 @@ export function domainOfFile(file: string): string {
  */
 const OWNED: Record<string, string[]> = {
   /* Identity and access ---------------------------------------------------- */
-  auth: ["user", "session", "passwordResetToken", "recoveryEmailChallenge", "authEvent"],
+  auth: ["user", "session", "deviceRegistration", "passwordResetToken", "recoveryEmailChallenge", "authEvent"],
   "core/access": ["role", "permission", "rolePermission", "module", "roleModuleAccess"],
   team: ["companyMember", "department", "companyInvite"],
   // A company and who owns it (D-01 §6): its settings, not a governance module.

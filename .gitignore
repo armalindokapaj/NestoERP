@@ -54,3 +54,12 @@ next-env.d.ts
 # Working notes and PRD attachments stay out of the repository.
 /prds/
 /.next-*/
+
+# Native signing material never enters Git (MOB-08 §73)
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
