@@ -11,8 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import * as contracts from "@/lib/modules/contracts/contracts/contract.service";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -48,7 +47,6 @@ export default async function ProjectContractsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "Contracts")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -61,31 +59,6 @@ export default async function ProjectContractsPage({ params }: Params) {
         }
       />
 
-      <ProjectTabs
-        projectId={project.id}
-        active="contracts"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: true,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
 
       {rows.length === 0 ? (
         <EmptyState

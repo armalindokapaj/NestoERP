@@ -29,8 +29,8 @@ const orNull = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
 
 function Tabs({ id, tabs, current }: { id: string; tabs: readonly string[]; current: string }) {
   return (
-    <nav aria-label="Organization sections" className="overflow-x-auto border-b border-line">
-      <ul className="flex min-w-max gap-1">
+    <nav aria-label="Organization sections" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
+      <ul className="border-b border-line flex min-w-max gap-1">
         {tabs.map((tab) => (
           <li key={tab}>
             <Link href={tab === "overview" ? `/admin/organizations/${id}` : `/admin/organizations/${id}?tab=${tab}`} scroll={false} aria-current={tab === current ? "page" : undefined} data-testid={`org-detail-tab-${tab}`} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", tab === current ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>

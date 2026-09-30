@@ -1,3 +1,5 @@
+import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
+import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import { cookies } from "next/headers";
 
@@ -116,22 +118,9 @@ export async function AppShell({
               >
               <Sidebar navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
-              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-                <Topbar context={context} navigation={navigation} core={core} />
-                {/* The banner's height is reserved and stands in for the top padding,
-                    so a late banner moves nothing under a pointer (SHELL-03). */}
-                <BannerSlot />
-                {/* Focusable by script only (tabIndex -1): the navigation drawer hands
-                    focus here after a navigation (AUD-04 §4, MW-02). The gutters
-                    include the safe-area insets, which viewport-fit=cover makes real. */}
-                <main
-                  id="nesto-main"
-                  tabIndex={-1}
-                  className="mx-auto w-full min-w-0 max-w-[1600px] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] outline-none md:pb-8 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
-                >
-                  {/* Keyed by the workspace: a switch made in place remounts the page, so
-                      no client state of the old workspace outlives it (OW §33). */}
-                  <RecordNavigationProvider
+              {/* Keyed by the workspace: a switch made in place remounts the page, so
+                  no client state of the old workspace outlives it (OW §33). */}
+              <RecordNavigationProvider
                     key={workspaceKey(context.workspace)}
                     workspace={{
                       key: workspaceKey(context.workspace),
@@ -143,11 +132,27 @@ export async function AppShell({
                         ? { id: context.workspace.companyId!, name: context.company.name }
                         : null,
                     }}
-                  >
-                    {children}
-                  </RecordNavigationProvider>
+              >
+              <BreadcrumbRegistryProvider>
+              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
+                <Topbar context={context} navigation={navigation} core={core} />
+                {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
+                <BreadcrumbBar />
+                {/* A critical banner, when there is one; it takes no room otherwise. */}
+                <BannerSlot />
+                {/* Focusable by script only (tabIndex -1): the navigation drawer hands
+                    focus here after a navigation (AUD-04 §4, MW-02). The gutters
+                    include the safe-area insets, which viewport-fit=cover makes real. */}
+                <main
+                  id="nesto-main"
+                  tabIndex={-1}
+                  className="mx-auto w-full min-w-0 max-w-[1600px] pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] outline-none md:pb-8 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
+                >
+                  {children}
                 </main>
               </div>
+              </BreadcrumbRegistryProvider>
+              </RecordNavigationProvider>
 
               </WorkspaceSwitchProvider>
 

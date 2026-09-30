@@ -10,8 +10,7 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
 import { listSalesInventory } from "@/lib/modules/sales/units/unit-sales.inventory";
 import { parseInventoryQuery } from "@/lib/modules/sales/units/unit-sales.schema";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -63,32 +62,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Sales")} title={project.name} subtitle={project.code} status={project.status} />
-      <ProjectTabs
-        projectId={project.id}
-        active="sales"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
+      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="sales-empty">
           {t("structurePages.salesNoUnits")}

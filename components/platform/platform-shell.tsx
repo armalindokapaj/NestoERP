@@ -1,5 +1,7 @@
 "use client";
 
+import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
+import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
@@ -109,7 +111,8 @@ function SectionTabs({ permissions }: { permissions: readonly string[] }) {
   const tabs = visibleTo(hit.destination.tabs ?? [], permissions);
   if (tabs.length < 2) return null;
   return (
-    <nav aria-label={`${hit.destination.label} sections`} className="mb-5 overflow-x-auto border-b border-line" data-testid="admin-section-tabs">
+    <nav aria-label={`${hit.destination.label} sections`} className="nesto-context-tabs mb-5 overflow-x-auto" data-context-tabs data-testid="admin-section-tabs">
+      <div className="border-b border-line">
       <ul className="flex min-w-max gap-1">
         {tabs.map((tab) => {
           const active = tab.href === hit.tab.href;
@@ -122,6 +125,7 @@ function SectionTabs({ permissions }: { permissions: readonly string[] }) {
           );
         })}
       </ul>
+      </div>
     </nav>
   );
 }
@@ -171,8 +175,10 @@ export function PlatformShell({ user, permissions, initialCollapsed, devActions,
           <Navigation permissions={permissions} onNavigate={() => setMobile(false)} />
         </DrawerContent>
       </Drawer>
-      <div className={cn("transition-[padding] duration-150", collapsed ? "lg:pl-16" : "lg:pl-60")}>
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
+      {/* The admin header is 64px at every width; the breadcrumb bar pins beneath it (Sticky Navigation §33). */}
+      <BreadcrumbRegistryProvider>
+      <div className={cn("transition-[padding] duration-150", collapsed ? "lg:pl-16" : "lg:pl-60")} style={{ "--nesto-shell-header-h": "4rem" } as React.CSSProperties} data-admin-shell>
+        <header className="sticky top-0 z-[var(--nesto-z-shell-header)] border-b border-line bg-surface/95 backdrop-blur">
           <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6">
             <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
             <ContextLabel className="shrink-0 max-sm:hidden lg:hidden" />
@@ -184,11 +190,13 @@ export function PlatformShell({ user, permissions, initialCollapsed, devActions,
             </div>
           </div>
         </header>
+        <BreadcrumbBar root={{ label: "NESTO Admin", href: "/admin" }} />
         <main id="nesto-main" tabIndex={-1} className="w-full px-4 py-6 outline-none sm:px-6 lg:px-8">
           <SectionTabs permissions={permissions} />
           {children}
         </main>
       </div>
+      </BreadcrumbRegistryProvider>
     </div>
   );
 }

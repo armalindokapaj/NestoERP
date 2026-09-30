@@ -13,8 +13,7 @@ import { meetingTimezone } from "@/lib/modules/meetings/meeting.repository";
 import { meetingListQuerySchema } from "@/lib/modules/meetings/meeting.schema";
 import { listMeetings } from "@/lib/modules/meetings/meeting.service";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -45,7 +44,6 @@ export default async function ProjectMeetingsPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "Meetings")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -59,31 +57,6 @@ export default async function ProjectMeetingsPage({ params }: Params) {
             </Button>
           ) : null
         }
-      />
-      <ProjectTabs
-        projectId={project.id}
-        active="meetings"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
       />
 
       <section aria-labelledby="project-meetings-upcoming" className="space-y-3">

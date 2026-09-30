@@ -2,12 +2,16 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { ArrowLeft, ArrowRight, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronLeft, ChevronRight, Layers, MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { useGroupEntry } from "@/components/layout/shell-slots";
+import { useGroupEntry, useWorkspaceOptions } from "@/components/layout/shell-slots";
+import { useOptionalWorkspaceSwitch } from "@/components/workspace/workspace-switch-provider";
 import { useRecordNavigation } from "@/components/navigation/record-navigation-provider";
+import { useRegisterBreadcrumbs, useRegisteredBreadcrumbs } from "@/components/navigation/breadcrumb-registry";
+import { getIcon } from "@/components/layout/nav-icon";
+import { modules as moduleRegistry } from "@/config/modules";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,10 +40,21 @@ function readReturnHistory(): ReturnHistoryEntry[] {
   }
 }
 
-export type Crumb = { label: string; href?: string; disabled?: boolean };
+/**
+ * A place switcher on a crumb (Sticky Navigation §8): the other projects, say,
+ * that this person may open. Only ever filled from authorised server data.
+ */
+export type CrumbSwitcher = { label: string; items: { label: string; href: string; current?: boolean }[] };
+
+export type Crumb = { label: string; href?: string; disabled?: boolean; switcher?: CrumbSwitcher };
+
+type CrumbIcon = "group" | "company" | { module: string };
 
 type ResolvedCrumb = Crumb & {
   key: string;
+  icon?: CrumbIcon;
+  /** The workspace's company crumb, which carries the company switcher. */
+  companyId?: string;
   workspaceTarget?: { scopeType: "GROUP" | "COMPANY"; companyId: string | null };
 };
 
@@ -58,26 +73,119 @@ function HistoryButton({ direction, disabled, onClick, fallbackLabel }: { direct
       onClick={onClick}
       className={cn(
         // 44px under touch: Back is the record's way home on a phone (AUD-04 §4, MW-04, MW-19).
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-fg-muted transition-colors touch:size-11",
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors touch:size-10",
         "hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         "disabled:cursor-not-allowed disabled:opacity-35",
       )}
     >
-      <Icon aria-hidden="true" className="size-4" />
+      <Icon aria-hidden="true" className="size-3.5" />
     </button>
+  );
+}
+
+function CrumbGlyph({ icon }: { icon?: CrumbIcon }) {
+  if (!icon) return null;
+  const Icon = icon === "group" ? Layers : icon === "company" ? Building2 : getIcon(moduleRegistry[icon.module as keyof typeof moduleRegistry]?.icon ?? "Folder");
+  return <Icon aria-hidden="true" className="size-3.5 shrink-0 opacity-70" />;
+}
+
+/** The current place, with its switcher when it has one (§8). */
+function CurrentCrumb({ item }: { item: ResolvedCrumb }) {
+  const t = useTranslations("ui");
+  const label = (
+    <>
+      <CrumbGlyph icon={item.icon} />
+      <span className="truncate">{item.label}</span>
+    </>
+  );
+  if (!item.switcher || item.switcher.items.length < 2) {
+    return (
+      <span aria-current="page" title={item.label} className="flex min-w-0 max-w-80 items-center gap-1.5 font-semibold text-fg">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-current="page"
+          aria-label={`${item.label} — ${item.switcher.label}`}
+          title={t("switchTo", { label: item.switcher.label })}
+          className="flex min-w-0 max-w-80 items-center gap-1.5 rounded-md px-1 font-semibold text-fg hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {label}
+          <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 min-w-56 overflow-y-auto">
+        {item.switcher.items.map((option) => (
+          <DropdownMenuItem key={option.href} asChild>
+            <Link href={option.href} aria-current={option.current ? "page" : undefined} className={cn(option.current && "font-semibold")}>
+              {option.label}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * The company crumb's switcher (§8): the other companies of this group the person
+ * may enter — the sidebar chooser's own list, entered through its own switch, so
+ * the breadcrumb can never offer a company the server did not (§27). Shown only
+ * with more than one company.
+ */
+function CompanySwitcher({ companyId }: { companyId: string }) {
+  const t = useTranslations("ui");
+  const switcher = useOptionalWorkspaceSwitch();
+  const { state } = useWorkspaceOptions();
+  if (!switcher || state.status !== "ready") return null;
+  const companies = state.workspaces.companies;
+  if (companies.length < 2) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={t("switchTo", { label: "company" })} className="inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:size-9">
+          <ChevronDown aria-hidden="true" className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 min-w-56 overflow-y-auto">
+        {companies.map((company) => (
+          <DropdownMenuItem
+            key={company.id}
+            aria-current={company.id === companyId ? "true" : undefined}
+            className={cn(company.id === companyId && "font-semibold")}
+            onSelect={() => {
+              if (company.id !== companyId) switcher.switchTo({ scopeType: "COMPANY", companyId: company.id, name: company.name });
+            }}
+          >
+            {company.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 function CrumbLink({ item, current = false }: { item: ResolvedCrumb; current?: boolean }) {
   const navigation = useRecordNavigation();
-  if (current || !item.href || item.disabled) {
+  if (current) return <CurrentCrumb item={item} />;
+  if (item.companyId) {
     return (
-      <span
-        aria-current={current ? "page" : undefined}
-        title={item.label}
-        className={cn("block max-w-64 truncate", current && "font-medium text-fg")}
-      >
-        {item.label}
+      <span className="flex min-w-0 items-center gap-0.5">
+        <CrumbLink item={{ ...item, companyId: undefined }} />
+        <CompanySwitcher companyId={item.companyId} />
+      </span>
+    );
+  }
+  if (!item.href || item.disabled) {
+    return (
+      <span title={item.label} className="flex min-w-0 max-w-56 items-center gap-1.5">
+        <CrumbGlyph icon={item.icon} />
+        <span className="truncate">{item.label}</span>
       </span>
     );
   }
@@ -92,23 +200,43 @@ function CrumbLink({ item, current = false }: { item: ResolvedCrumb; current?: b
         if (item.workspaceTarget) navigation.navigateWorkspace(item.workspaceTarget.scopeType, item.workspaceTarget.companyId, item.href!);
         else navigation.navigate(item.href!);
       }}
-      className="block max-w-56 truncate rounded-sm transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-sm transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      {item.label}
+      <CrumbGlyph icon={item.icon} />
+      <span className="truncate">{item.label}</span>
     </Link>
   );
 }
 
 /** The "…" that opens the collapsed levels: 44px under touch (AUD-04 §4, MW-19). */
 const collapsedTrigger =
-  "inline-flex h-7 items-center justify-center rounded-md px-1.5 hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:h-11 touch:min-w-11";
+  "inline-flex h-6 items-center justify-center rounded-md px-1.5 hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:h-11 touch:min-w-11";
 
 function Separator() {
   return <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />;
 }
 
-/** Unified record navigation, shared by every tenant record page. */
-export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb[]; className?: string; maxVisible?: number }) {
+/**
+ * A page names where it is (Sticky Navigation §23-§25). It draws nothing itself:
+ * the trail is handed to the shell's one sticky bar under the top bar, so every
+ * page has the same breadcrumb, in the same place, whatever its layout.
+ * `className` and `maxVisible` are kept for existing callers and ignored.
+ */
+export function Breadcrumbs({ items, level = "page" }: { items: Crumb[]; className?: string; maxVisible?: number; level?: "layout" | "page" }) {
+  useRegisterBreadcrumbs(items, level);
+  return null;
+}
+
+/**
+ * The sticky breadcrumb bar (Sticky Navigation §3-§8, §19-§22): directly under
+ * the top bar, smaller than it, on every signed-in page. Group and company come
+ * from the session's workspace, the module from the route; the rest is the trail
+ * the page registered. A page that names none still says where it is.
+ */
+export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
+  const registered = useRegisteredBreadcrumbs();
+  const items = React.useMemo(() => registered ?? [], [registered]);
+  const maxVisible = 6;
   const navigation = useRecordNavigation();
   const groupEntry = useGroupEntry();
   const pathname = usePathname();
@@ -118,11 +246,13 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
   React.useEffect(() => setHistory(readReturnHistory()), [pathname]);
   const workspaceKey = navigation?.workspace.key ?? null;
   const trail = React.useMemo<ResolvedCrumb[]>(() => {
-    const roots: ResolvedCrumb[] = [];
-    const workspace = navigation?.workspace;
+    // The Admin Console is its own context (§33): its root, never a company's operational trail.
+    const roots: ResolvedCrumb[] = root ? [{ ...root, key: "root" }] : [];
+    const workspace = root ? undefined : navigation?.workspace;
     if (workspace) {
       roots.push({
         key: `group-${workspace.key}`,
+        icon: "group",
         label: workspace.group.name,
         // A link only once the Group view is known to be open to them: pending
         // and failed are not denials, just not yet a way in (NAV-02 COMPAT-01).
@@ -130,20 +260,20 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
         workspaceTarget: workspace.scopeType === "GROUP" ? undefined : { scopeType: "GROUP", companyId: null },
       });
       if (workspace.scopeType === "COMPANY" && workspace.company) {
-        roots.push({ key: `company-${workspace.company.id}`, label: workspace.company.name, href: "/dashboard" });
+        roots.push({ key: `company-${workspace.company.id}`, icon: "company", companyId: workspace.company.id, label: workspace.company.name, href: "/dashboard" });
       }
     }
     const rootLabels = new Set(roots.map((root) => root.label));
-    const authorizedItems = items.filter((item) => !rootLabels.has(item.label));
-    const metadata = breadcrumbRouteMetadata(pathname);
+    const authorizedItems: (Crumb & { icon?: CrumbIcon })[] = items.filter((item) => !rootLabels.has(item.label));
+    const metadata = root ? null : breadcrumbRouteMetadata(pathname);
     if (metadata) {
       // The module is named as the sidebar names it, in the reader's language (AUD-05 §3, UX-07).
       const moduleLabel = moduleNames(`${metadata.moduleKey}.label`);
       const first = authorizedItems[0];
       if (first && (first.label === metadata.moduleLabel || first.label === moduleLabel)) {
-        authorizedItems[0] = { ...first, label: moduleLabel };
+        authorizedItems[0] = { ...first, label: moduleLabel, icon: { module: metadata.moduleKey } } as ResolvedCrumb;
       } else {
-        authorizedItems.unshift({ label: moduleLabel, href: metadata.moduleHref });
+        authorizedItems.unshift({ label: moduleLabel, href: metadata.moduleHref, icon: { module: metadata.moduleKey } } as ResolvedCrumb);
       }
     }
     const supplied = authorizedItems.map((item, index) => ({
@@ -156,7 +286,7 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
       const previous = all[index - 1];
       return !previous || previous.label !== item.label || previous.href !== item.href;
     });
-  }, [items, navigation?.workspace, pathname, groupEntry, moduleNames, history, workspaceKey]);
+  }, [items, root, navigation?.workspace, pathname, groupEntry, moduleNames, history, workspaceKey]);
   // No history in this tab (a deep link): Back goes to the nearest parent instead of doing nothing (UX-04).
   const fallback = navigation?.canGoBack ? null : fallbackParent(trail);
 
@@ -164,11 +294,17 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
   const collapsed = trail.length > collapseAt;
   const hidden = collapsed ? trail.slice(1, trail.length - 3) : [];
   const visible = collapsed ? [trail[0], ...trail.slice(-3)] : trail;
-  const mobileHidden = trail.slice(0, -1);
+
+  const parent = trail.length > 1 ? trail[trail.length - 2] : null;
+  const current = trail.at(-1);
 
   return (
-    <div className={cn("flex min-w-0 items-center gap-2", className)} data-testid="record-navigation-header">
-      <div role="group" className="flex shrink-0 items-center gap-1" aria-label="History navigation">
+    <div
+      data-testid="record-navigation-header"
+      data-shell-breadcrumb
+      className="sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
+    >
+      <div role="group" className="flex shrink-0 items-center" aria-label="History navigation">
         <HistoryButton
           direction="back"
           disabled={!navigation?.canGoBack && !fallback}
@@ -184,34 +320,25 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
         />
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
-        <ol className="flex min-w-0 items-center gap-1 text-table text-fg-muted">
-          {mobileHidden.length ? (
-            <li className="order-1 flex shrink-0 items-center gap-1 sm:hidden">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" aria-label="Show hidden breadcrumb levels" className={collapsedTrigger}>
-                    <MoreHorizontal aria-hidden="true" className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-48">
-                  {mobileHidden.map((hiddenItem) => (
-                    <DropdownMenuItem key={`mobile-${hiddenItem.key}`} asChild disabled={hiddenItem.disabled || !hiddenItem.href}>
-                      {hiddenItem.href ? <CrumbLink item={hiddenItem} /> : <span>{hiddenItem.label}</span>}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Separator />
-            </li>
-          ) : null}
+      {/* Phones: the parent to go back to, and where you are (§19, §20). */}
+      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center justify-between gap-3 text-meta text-fg-muted sm:hidden">
+        {parent?.href && !parent.disabled ? (
+          <Link href={parent.href} className="flex min-w-0 shrink items-center gap-0.5 rounded-sm hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <ChevronLeft aria-hidden="true" className="size-4 shrink-0" />
+            <span className="truncate">{parent.label}</span>
+          </Link>
+        ) : <span />}
+        {current ? <span className="flex min-w-0 justify-end"><CurrentCrumb item={current} /></span> : null}
+      </nav>
+      <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 overflow-hidden sm:block">
+        <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
           {visible.map((item, index) => {
             const originalIndex = collapsed && index > 0 ? trail.length - (visible.length - index) : index;
-            const current = originalIndex === trail.length - 1;
+            const isCurrent = originalIndex === trail.length - 1;
             return (
               <React.Fragment key={item.key}>
                 {index === 1 && collapsed ? (
-                  <li className="hidden shrink-0 items-center gap-1 sm:flex">
+                  <li className="flex shrink-0 items-center gap-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button type="button" aria-label="Show hidden breadcrumb levels" className={collapsedTrigger}>
@@ -229,9 +356,10 @@ export function Breadcrumbs({ items, className, maxVisible = 6 }: { items: Crumb
                     <Separator />
                   </li>
                 ) : null}
-                <li className={cn("flex min-w-0 items-center gap-1", current ? "order-2 flex-1 sm:order-none" : "shrink-0", !current && mobileHidden.length && "hidden sm:flex")}>
-                  <CrumbLink item={item} current={current} />
-                  {current ? null : <Separator />}
+                {/* Earlier levels give way first on a tablet; the current place keeps its room (§19, §21). */}
+                <li className={cn("flex items-center gap-1", isCurrent ? "min-w-0 shrink-0" : "min-w-0 shrink")}>
+                  <CrumbLink item={item} current={isCurrent} />
+                  {isCurrent ? null : <Separator />}
                 </li>
               </React.Fragment>
             );

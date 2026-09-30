@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 import { notFound } from "next/navigation";
 
 import { WarehouseActions } from "@/components/inventory/warehouse-actions";
@@ -12,7 +13,6 @@ import { warehouseTypeLabels } from "@/lib/modules/inventory/inventory.status";
 import { getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import type { WarehouseDetailDTO } from "@/lib/modules/inventory/inventory.types";
-import { cn } from "@/lib/utils/cn";
 
 /**
  * Warehouse record tabs and the furniture around them (PRD #20 §307, §308).
@@ -100,29 +100,21 @@ export async function WarehousePageShell({
         actions={<WarehouseActions warehouse={warehouse} />}
       />
 
-      <nav aria-label={t("tabs.warehouseSections")} className="border-b border-line">
-        <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ContextTabsFrame label={t("tabs.warehouseSections")}>
           {TABS.filter((entry) => show[entry.key]).map((entry) => {
             const isActive = entry.key === tab;
             return (
-              <li key={entry.key}>
-                <Link
+              <Link
+                  key={entry.key}
                   href={`/inventory/warehouses/${warehouse.id}${entry.suffix}`}
                   aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                    isActive
-                      ? "border-accent text-fg"
-                      : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                  )}
+                  className={contextTabClass(isActive)}
                 >
                   {t(entry.label)}
                 </Link>
-              </li>
             );
           })}
-        </ul>
-      </nav>
+        </ContextTabsFrame>
 
       {warehouse.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
@@ -26,7 +27,6 @@ import { getAccessSummary, getDocumentsTab, getEmploymentView, getPrivateProfile
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
 import { assignableProjects, removableProjectIds } from "@/lib/modules/people/person.projects";
 import { personInWorkforce } from "@/lib/modules/workforce/workforce.directory";
-import { cn } from "@/lib/utils/cn";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { statusLabel } from "@/lib/utils/status";
 import { hrLabel } from "@/components/hr/hr-labels";
@@ -142,24 +142,18 @@ export default async function PersonPage({ params, searchParams }: Props) {
         </div>
       </header>
 
-      <nav aria-label={t("tabs.sections")} className="border-b border-line">
-        <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ContextTabsFrame label={t("tabs.sections")}>
           {visible.map((key) => (
-            <li key={key}>
-              <Link
+            <Link
+                key={key}
                 href={key === "overview" ? `/people/${profile.personId}` : `/people/${profile.personId}?tab=${key}`}
                 aria-current={key === tab ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                  key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                )}
+                className={contextTabClass(key === tab)}
               >
                 {key === "projects" ? t("tabs.projects", { count: profile.projects.filter((project) => project.status === "ACTIVE").length }) : t(`tabs.${key}` as MessageKey<"people">)}
               </Link>
-            </li>
           ))}
-        </ul>
-      </nav>
+      </ContextTabsFrame>
 
       {tab === "overview" ? profile.former ? <Former profile={profile} t={t} /> : <Overview profile={profile} t={t} /> : null}
       {tab === "projects" ? <Projects context={context} profile={profile} t={t} /> : null}

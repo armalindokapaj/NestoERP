@@ -67,8 +67,8 @@ export default async function CompanyEntitlementsPage({ params, searchParams }: 
         </div>
         <Link href={`/admin/organizations/${data.company.id}`} className="text-table font-medium text-accent-strong hover:underline">Open organization</Link>
       </header>
-      <nav aria-label="Entitlement sections" className="border-b border-line">
-        <ul className="flex gap-1">
+      <nav aria-label="Entitlement sections" className="nesto-context-tabs" data-context-tabs>
+        <ul className="border-b border-line flex gap-1">
           {TABS.map(([key, label]) => (
             <li key={key}><Link href={key === "modules" ? `/admin/modules/${companyId}` : `/admin/modules/${companyId}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{label}</Link></li>
           ))}

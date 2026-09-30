@@ -782,6 +782,8 @@ export const en = {
   ui: {
     backTo: "Back to {label}",
     goBack: "Go back",
+    switchTo: "Switch {label}",
+    moreSections: "More",
     goForward: "Go forward",
     back: "Back",
     forward: "Forward",

@@ -7,8 +7,7 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { can } from "@/lib/access/can";
 import { engineeringHeadline } from "@/lib/modules/engineering/engineering.overview";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Props = { children: React.ReactNode; params: Promise<{ projectId: string }> };
 
@@ -39,32 +38,7 @@ export default async function ProjectEngineeringLayout({ children, params }: Pro
   return (
     <ModuleMessages namespaces={["engineering"]}>
       <div className="space-y-5">
-        <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Engineering")} title={project.name} subtitle={project.code} status={project.status} />
-        <ProjectTabs
-          projectId={project.id}
-          active="engineering"
-          show={{
-            planning: actions.canViewPlanning,
-            units: actions.canViewUnits,
-            sales: actions.canViewUnitSales,
-            contractors: actions.canViewContractors,
-            engineering: actions.canViewEngineering,
-            tasks: actions.canViewTasks,
-            calendar: actions.canViewCalendar,
-            meetings: actions.canViewMeetings,
-            dailyLogs: actions.canViewDailyLogs,
-            workforce: actions.canViewWorkforce,
-            team: actions.canViewMembers,
-            finance: actions.canViewFinance,
-            unitFinance: actions.canViewUnitFinance,
-            contracts: actions.canViewContracts,
-            inventory: actions.canViewInventory,
-            qaqc: actions.canViewQaqc,
-            hse: actions.canViewHse,
-            documents: actions.canViewDocuments,
-            activity: actions.canViewActivity,
-          }}
-        />
+        <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
         <p className="text-table text-fg-muted" data-testid="engineering-headline">
           <span className="tabular-nums text-fg">{headline.openRfis}</span> {t("engineering.openRfis")} <span aria-hidden="true">•</span> <span className="tabular-nums text-fg">{headline.inReview}</span> {t("engineering.underReview")} <span aria-hidden="true">•</span> <span className={headline.revisionRequired ? "tabular-nums font-medium text-warning-strong" : "tabular-nums text-fg"}>{headline.revisionRequired}</span> {t("engineering.revisionRequiredInline")}
         </p>

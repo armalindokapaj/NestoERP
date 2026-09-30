@@ -1,5 +1,4 @@
 /* eslint-disable @next/next/no-img-element */
-import { ProjectTabs } from "./project-tabs";
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
@@ -9,7 +8,6 @@ import { PersonLink } from "@/components/people/person-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { ListSectionSkeleton } from "@/components/modules/section-skeletons";
@@ -26,7 +24,7 @@ import { prisma } from "@/lib/database/prisma";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { formatDate, orDash } from "@/lib/utils/format";
 import { getTranslations } from "@/lib/i18n/server";
-import { loadProject, projectBreadcrumbs } from "./project-context";
+import { loadProject, } from "./project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -94,34 +92,14 @@ export default async function ProjectOverviewPage({ params }: Params) {
     : null;
   for (const promise of [threeD, media, planning, myWork, upcoming, activity, sourceOpportunity]) promise?.catch(() => undefined);
   const progress = planning.then(projectProgress, () => null);
-  const tabs = {
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-  };
 
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Breadcrumbs items={await projectBreadcrumbs(project)} className="min-w-0 flex-1" />
+        <div className="flex-1" />
         <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} companyName={project.company.name} statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
       </div>
+
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
 
@@ -153,12 +131,6 @@ export default async function ProjectOverviewPage({ params }: Params) {
           <Experiences projectId={project.id} threeD={threeD} media={media} />
         </Suspense>
       </section>
-
-      {/* The way into every section of the project — the overview is where people land, so it carries the same tabs as its sections. */}
-      {/* Tabs from known permissions at once; the 3D tab joins when its availability is known (STREAM-06). */}
-      <Suspense fallback={<ProjectTabs projectId={project.id} active="overview" show={{ ...tabs, threeD: false }} />}>
-        <ProjectTabsWith3D projectId={project.id} threeD={threeD} show={tabs} />
-      </Suspense>
 
       <section className="nesto-card p-5 sm:p-6" aria-labelledby="summary-title">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,2fr)]">
@@ -211,10 +183,6 @@ export default async function ProjectOverviewPage({ params }: Params) {
   );
 }
 
-async function ProjectTabsWith3D({ projectId, threeD, show }: { projectId: string; threeD: Promise<unknown>; show: Omit<React.ComponentProps<typeof ProjectTabs>["show"], "threeD"> }) {
-  const viewer = await threeD.catch(() => null);
-  return <ProjectTabs projectId={projectId} active="overview" show={{ ...show, threeD: Boolean(viewer) }} />;
-}
 
 type Project = Awaited<ReturnType<typeof loadProject>>["project"];
 type Media = ReturnType<typeof listProjectMedia>;

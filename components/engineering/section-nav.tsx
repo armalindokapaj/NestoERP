@@ -3,6 +3,7 @@
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -19,19 +20,17 @@ export function SectionNav({ items, label, testId, layout = "column" }: { items:
 
   if (layout === "tabs") {
     return (
-      <div className="-mx-1 overflow-x-auto">
-        <nav aria-label={label} data-testid={testId} className="flex min-w-max items-center gap-1 border-b border-line px-1">
-          {items.map((item) => {
-            const current = item.href === active;
-            return (
-              <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined} className={cn("-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 touch:min-h-11 text-table font-medium transition-colors", current ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")}>
-                {item.label}
-                {item.count ? <span className="rounded-full bg-surface-muted px-1.5 text-meta tabular-nums text-fg-muted">{item.count}</span> : null}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+      <ContextTabsFrame label={label} testId={testId}>
+        {items.map((item) => {
+          const current = item.href === active;
+          return (
+            <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined} className={cn(contextTabClass(current), "gap-2")}>
+              {item.label}
+              {item.count ? <span className="rounded-full bg-surface-muted px-1.5 text-meta tabular-nums text-fg-muted">{item.count}</span> : null}
+            </Link>
+          );
+        })}
+      </ContextTabsFrame>
     );
   }
 

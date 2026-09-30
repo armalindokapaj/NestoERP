@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
-import { cn } from "@/lib/utils/cn";
 
 /**
  * Tabs for a finance record (PRD #15 §176).
@@ -33,28 +33,19 @@ export function FinanceRecordTabs({
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (
-    <nav aria-label={t("tabs.sections")} className="border-b border-line">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
+    <ContextTabsFrame label={t("tabs.sections")}>
         {visible.map((tab) => {
           const isActive = tab.key === active;
           return (
-            <li key={tab.key}>
-              <Link navSource="tab"
+            <Link key={tab.key} navSource="tab"
                 href={`${basePath}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors",
-                  isActive
-                    ? "border-accent text-fg"
-                    : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                )}
+                className={contextTabClass(isActive)}
               >
                 {t(tab.label)}
               </Link>
-            </li>
           );
         })}
-      </ul>
-    </nav>
+      </ContextTabsFrame>
   );
 }

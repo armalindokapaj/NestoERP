@@ -69,8 +69,8 @@ export default async function OrganizationsPage({ searchParams }: Props) {
         description="Manage Groups and Companies across NESTO."
         actions={<OrganizationCreateMenu groups={openGroups} canCompany={canPlatform(context, "platform.company.create")} canGroup={canPlatform(context, "platform.group.create")} />}
       />
-      <nav aria-label="Organization types" className="overflow-x-auto border-b border-line">
-        <ul className="flex min-w-max gap-1">
+      <nav aria-label="Organization types" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
+        <ul className="border-b border-line flex min-w-max gap-1">
           {TABS.map((tab) => {
             const active = query.type === tab.type;
             return (

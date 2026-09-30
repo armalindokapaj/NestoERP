@@ -17,8 +17,7 @@ import { addLocalDays, localDate } from "@/lib/modules/daily-logs/daily-log.time
 import { DAILY_LOG_STATUSES, DAILY_LOG_STATUS_LABELS } from "@/lib/modules/daily-logs/daily-log.types";
 import * as projects from "@/lib/modules/projects/project.service";
 import { cn } from "@/lib/utils/cn";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -53,7 +52,6 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "Daily Logs")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -66,31 +64,6 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
             <StartLogForm projectId={project.id} today={today} earliest={addLocalDays(today, -settings.backdateDays)} compact label={t("dailyLogs.startToday")} />
           ) : null
         }
-      />
-      <ProjectTabs
-        projectId={project.id}
-        active="dailyLogs"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
       />
 
       <div className="flex flex-wrap items-center gap-2">

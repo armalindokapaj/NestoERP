@@ -50,8 +50,8 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
         </div>
         {project.threeD.configured ? <Button asChild size="sm" variant="secondary"><Link href={`/admin/3d/projects/${project.id}`}>3D administration</Link></Button> : null}
       </header>
-      <nav aria-label="Project sections" className="overflow-x-auto border-b border-line">
-        <ul className="flex min-w-max gap-1">
+      <nav aria-label="Project sections" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
+        <ul className="border-b border-line flex min-w-max gap-1">
           {TABS.map(([key, text]) => (
             <li key={key}><Link href={key === "overview" ? `/admin/projects/${project.id}` : `/admin/projects/${project.id}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{text}</Link></li>
           ))}

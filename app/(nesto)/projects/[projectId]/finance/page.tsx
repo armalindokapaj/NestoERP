@@ -20,8 +20,7 @@ import * as commitments from "@/lib/modules/finance/commitments/commitment.servi
 import * as expenses from "@/lib/modules/finance/expenses/expense.service";
 import * as invoices from "@/lib/modules/finance/invoices/invoice.service";
 import { parseBudgetQuery, parseCommitmentQuery, parseExpenseQuery, parseInvoiceQuery } from "@/lib/modules/finance/finance.query";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -73,7 +72,6 @@ export default async function ProjectFinancePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "Finance")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -86,31 +84,6 @@ export default async function ProjectFinancePage({ params }: Params) {
         }
       />
 
-      <ProjectTabs
-        projectId={project.id}
-        active="finance"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: true,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
 
       <FinanceViews projectId={project.id} active="overview" both={actions.canViewUnitFinance} />
 

@@ -10,8 +10,7 @@ import { listFinanceInventory } from "@/lib/modules/finance/units/unit-finance.i
 import { parseFinanceInventoryQuery } from "@/lib/modules/finance/units/unit-finance.schema";
 import { getProjectStructure } from "@/lib/modules/project-structure/structure.service";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../../project-context";
-import { ProjectTabs } from "../../project-tabs";
+import { loadProject, } from "../../project-context";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -58,32 +57,7 @@ export default async function ProjectUnitFinancePage({ params, searchParams }: P
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Finance")} title={project.name} subtitle={project.code} status={project.status} />
-      <ProjectTabs
-        projectId={project.id}
-        active="finance"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
+      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
       <FinanceViews projectId={project.id} active="units" both={actions.canViewFinance} />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="finance-units-empty">
