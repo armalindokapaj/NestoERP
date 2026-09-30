@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-const db = vi.hoisted(() => ({ create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() }));
+const db = vi.hoisted(() => ({ create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) }));
 vi.mock("@/lib/database/prisma", () => ({ prisma: { session: db } }));
 vi.mock("@/lib/auth/events", () => ({ recordAuthEvent: vi.fn() }));
 import { createSession, SESSION_TTL_MS } from "@/lib/auth/session-store";
 import { resolveContextForSession } from "@/lib/context/build-context";
 
-afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); db.updateMany.mockResolvedValue({ count: 1 }); });
 describe("absolute work shift", () => {
   it("creates authoritative timestamps exactly eight hours apart", async () => {
     vi.useFakeTimers();

@@ -5,7 +5,7 @@ import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { isMutatingPermission, type Permission } from "@/config/permissions";
 import { defaultAccessFor, grantPermissions } from "@/config/role-defaults";
 import { isMembershipRoleKey, roleLabel, roles, type PositionLevel, type RoleKey } from "@/config/roles";
-import { expireSession, relocateSessionToUsableMembership, setSessionWorkspaceScope, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
+import { expireSession, relocateSessionToUsableMembership, revokeSession, setSessionWorkspaceScope, touchSession, USABLE_GROUP_STATUSES } from "@/lib/auth/session-store";
 import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
 import { entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
@@ -39,7 +39,12 @@ export const PARENT_GROUP_FOR_CONTEXT = { include: { _count: { select: { compani
 export async function resolveContextForSession(
   sessionId: string,
   /** `relocated` is set by the one retry below, so a fallback is never chased twice. */
-  options: { expectedUserId?: string; relocated?: boolean } = {},
+  options: {
+    expectedUserId?: string;
+    relocated?: boolean;
+    /** The device-state endpoints must still answer a revoked or out-of-date app (MOB-11 §139). */
+    ignoreDevice?: boolean;
+  } = {},
 ): Promise<ContextResult> {
   // The signed cookie carries only a session id. Validity, membership and
   // company are re-read from the database on every request, so revoking a
@@ -47,6 +52,7 @@ export async function resolveContextForSession(
   const record = await prisma.session.findUnique({
     where: { id: sessionId },
     include: {
+      device: { select: { status: true, complianceAction: true } },
       user: { include: { platformAccess: { select: { status: true } } } },
       membership: {
         include: {
@@ -69,6 +75,20 @@ export async function resolveContextForSession(
   if (options.expectedUserId && record.userId !== options.expectedUserId) {
     return { ok: false, reason: "SESSION_EXPIRED" };
   }
+
+  // The installed app this session came from (MOB-11 §18, §62-§64, §101). Read
+  // from the row already loaded — no extra query — so revocation and a policy
+  // that raised the minimum version bite on the very next request.
+  if (record.device && !options.ignoreDevice) {
+    if (record.device.status !== "ACTIVE") {
+      await revokeSession(record.id);
+      return { ok: false, reason: "DEVICE_REVOKED" };
+    }
+    if (record.device.complianceAction === "BLOCK") return { ok: false, reason: "DEVICE_BLOCKED" };
+    if (record.device.complianceAction === "REQUIRE_UPDATE") return { ok: false, reason: "UPDATE_REQUIRED" };
+  }
+  // At most every few minutes, never extending the session (MOB-11 §14).
+  await touchSession(record.id, record.lastSeenAt);
   // A platform session points at no membership at all. It is a real session,
   // but there is no company in it to build a context for (E-06 §116).
   if (!record.membership || !record.currentCompanyId) {

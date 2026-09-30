@@ -1,3 +1,4 @@
+import type { NotificationPreviewPolicy } from "@/lib/core/security/mobile-policy.schema";
 import type { NotificationCategory } from "./notification.events";
 
 /**
@@ -13,6 +14,11 @@ import type { NotificationCategory } from "./notification.events";
  *
  * The in-app Notification Center is behind authentication and always shows the
  * full title; this only governs the push transport.
+ *
+ * The organization's mobile policy (MOB-11 §99) can only add to that: HIDDEN shows
+ * nothing about any event, FULL lets the event's own title through for the
+ * limited class too. It never relaxes SENSITIVE (people, contracts, money) and
+ * never puts a comment's words outside the app.
  */
 export type PushPrivacyClass = "PUBLIC_PREVIEW" | "LIMITED_PREVIEW" | "SENSITIVE";
 
@@ -59,8 +65,12 @@ const LIMITED_TITLE: Partial<Record<string, string>> = {
 export type PushText = { title: string; body: string | null };
 
 /** The OS-visible text for one notification. Never reads the body for anything but PUBLIC_PREVIEW. */
-export function renderPushText(input: { eventType: string; category: string | null; title: string; body: string | null }): PushText {
-  switch (pushPrivacyClass(input.eventType, input.category)) {
+export function renderPushText(input: { eventType: string; category: string | null; title: string; body: string | null }, preview: NotificationPreviewPolicy = "LIMITED"): PushText {
+  const cls = pushPrivacyClass(input.eventType, input.category);
+  if (preview === "HIDDEN") return { title: "You have a new notification", body: "Open NESTO to see it." };
+  // FULL: the limited class shows its own title too. Sensitive stays sensitive.
+  if (preview === "FULL" && cls === "LIMITED_PREVIEW") return { title: input.title.slice(0, 120), body: null };
+  switch (cls) {
     case "PUBLIC_PREVIEW":
       // A comment's own words stay in the app: who and where is enough outside it (§60).
       if (input.category === "mentions" || input.category === "comments") return { title: input.title.slice(0, 120), body: null };

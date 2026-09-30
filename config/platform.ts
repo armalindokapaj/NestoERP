@@ -30,6 +30,10 @@ export const PLATFORM_PERMISSIONS = [
   "platform.access.inspect",
   "platform.session.view",
   "platform.session.revoke",
+  // MOB-11: devices across tenants and the platform level of the mobile policy.
+  "platform.device.view",
+  "platform.device.revoke",
+  "platform.mobile_policy.manage",
   "platform.module.view",
   "platform.module.manage",
   "platform.feature_flag.view",

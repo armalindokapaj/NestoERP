@@ -35,3 +35,19 @@ export const resolveUserContext = cache(
       return result;
     }),
 );
+
+/**
+ * The same resolver for the few endpoints that must still answer an app whose
+ * device was revoked or is out of date: they tell it so (MOB-11 §20, §139).
+ * Everything else about the session — expiry, user, membership, company — is
+ * checked exactly as above.
+ */
+export const resolveUserContextIgnoringDevice = cache(
+  (): Promise<ContextResult> =>
+    scoped("user-context-ignoring-device", async () => {
+      const session = await auth();
+      const sessionId = session?.user?.sessionId;
+      if (!session?.user?.id || !sessionId) return { ok: false, reason: "UNAUTHENTICATED" } as const;
+      return resolveContextForSession(sessionId, { expectedUserId: session.user.id, ignoreDevice: true });
+    }),
+);

@@ -121,7 +121,13 @@ export type ContextFailure =
   | "COMPANY_UNAVAILABLE"
   | "CONFIGURATION_ERROR"
   /** A Platform Admin's session: valid, but it has no company to act in (E-06 §116). */
-  | "PLATFORM_SESSION";
+  | "PLATFORM_SESSION"
+  /** The installed app this session came from was revoked or blocked (MOB-11 §18, §139). */
+  | "DEVICE_REVOKED"
+  /** The app breaks the security policy (risk, OS): blocked under the Company's policy (MOB-11 §139). */
+  | "DEVICE_BLOCKED"
+  /** The app is too old or on a blocked build (MOB-11 §69, §71, §137). */
+  | "UPDATE_REQUIRED";
 
 export type ContextResult =
   | { ok: true; context: UserContext }

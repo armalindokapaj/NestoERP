@@ -1279,6 +1279,23 @@ export const PERMISSIONS = [
    */
   "company.storage.view",
 
+  /* Mobile security (MOB-11 §182, §183) ----------------------------------- */
+  /**
+   * Devices, sessions and the mobile security policy as an administrator sees
+   * them. Deliberately granular: reading the device list opens nothing about
+   * policy, revoking a device is not editing policy, and none of them opens a
+   * business record. Held through the Company MANAGE rung by the roles that
+   * administer the workspace (Owner, Group IT); a person's OWN devices and
+   * sessions need no permission — they are the person's own affairs.
+   */
+  "security.devices.read",
+  "security.devices.revoke",
+  "security.sessions.read",
+  "security.sessions.revoke",
+  "security.policy.read",
+  "security.policy.manage",
+  "security.audit.read",
+
   /* Settings ------------------------------------------------------------- */
   "settings.view",
   "settings.manage",

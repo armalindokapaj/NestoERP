@@ -988,6 +988,15 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "company.finance_settings.manage",
       "company.security_settings.view",
       "company.security_settings.manage",
+      // Mobile security administration (MOB-11 §182): granular, all at MANAGE so
+      // only those who already administer the workspace hold them.
+      "security.devices.read",
+      "security.devices.revoke",
+      "security.sessions.read",
+      "security.sessions.revoke",
+      "security.policy.read",
+      "security.policy.manage",
+      "security.audit.read",
       /*
        * Storage usage sits with company administration, not with company
        * VIEW. PRD #29 §244 calls it "Admin Storage Visibility", and it lives

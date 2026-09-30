@@ -25,7 +25,7 @@ export async function requireSettingsSection(slug: string): Promise<UserContext>
   // numbering, its people. The Group workspace has no company to settle them
   // for, so it asks which (Workspace Context §25, §29). Personal settings are
   // above this: they belong to the person and open in either workspace.
-  if (context.workspace.scopeType === "GROUP") {
+  if (context.workspace.scopeType === "GROUP" && !section.groupCapable) {
     redirect(companyRequiredHref("settings", `/settings/${slug}`));
   }
 

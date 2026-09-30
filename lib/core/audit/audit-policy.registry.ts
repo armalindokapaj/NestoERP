@@ -20,6 +20,15 @@ export const AuditAction = {
   AUTH_RECOVERY_EMAIL_CHANGED: "AUTH_RECOVERY_EMAIL_CHANGED",
   AUTH_SESSIONS_REVOKED: "AUTH_SESSIONS_REVOKED",
   AUTH_COMPANY_CONTEXT_SWITCHED: "AUTH_COMPANY_CONTEXT_SWITCHED",
+  // Mobile security (MOB-11 §185)
+  MOBILE_DEVICE_REVOKED: "MOBILE_DEVICE_REVOKED",
+  MOBILE_DEVICE_LOST: "MOBILE_DEVICE_LOST",
+  MOBILE_DEVICE_BLOCKED: "MOBILE_DEVICE_BLOCKED",
+  MOBILE_DEVICE_RESTORED: "MOBILE_DEVICE_RESTORED",
+  MOBILE_DEVICE_SESSIONS_ENDED: "MOBILE_DEVICE_SESSIONS_ENDED",
+  MOBILE_POLICY_CHANGED: "MOBILE_POLICY_CHANGED",
+  PLATFORM_MOBILE_POLICY_CHANGED: "PLATFORM_MOBILE_POLICY_CHANGED",
+  PLATFORM_DEVICE_REVOKED: "PLATFORM_DEVICE_REVOKED",
   USER_PROFILE_UPDATED: "USER_PROFILE_UPDATED",
 
   // Access control (PRD #28 §95)
@@ -550,6 +559,13 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.AUTH_SESSIONS_REVOKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["scope", "revoked"], required: false },
   // Recorded in the company the session moved into; the auth event keeps both ends (E-05A §26).
   { actionKey: AuditAction.AUTH_COMPANY_CONTEXT_SWITCHED, moduleKey: "settings", category: "AUTHENTICATION", severity: "INFO", snapshotMode: "NONE", allowFields: [], required: false },
+  // Mobile security (MOB-11 §185). Who, which device, what it cost; never a token or a credential.
+  { actionKey: AuditAction.MOBILE_DEVICE_REVOKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["deviceId", "userId", "status", "sessionsEnded", "dataRemoval"], required: true },
+  { actionKey: AuditAction.MOBILE_DEVICE_LOST, moduleKey: "settings", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["deviceId", "userId", "status", "sessionsEnded", "dataRemoval"], required: true },
+  { actionKey: AuditAction.MOBILE_DEVICE_BLOCKED, moduleKey: "settings", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["deviceId", "userId", "status", "sessionsEnded", "dataRemoval"], required: true },
+  { actionKey: AuditAction.MOBILE_DEVICE_RESTORED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["deviceId", "userId", "status"], required: true },
+  { actionKey: AuditAction.MOBILE_DEVICE_SESSIONS_ENDED, moduleKey: "settings", category: "AUTHENTICATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["deviceId", "userId", "sessionsEnded"], required: true },
+  { actionKey: AuditAction.MOBILE_POLICY_CHANGED, moduleKey: "settings", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["scope", "scopeId", "version", "settings"], required: true },
   { actionKey: AuditAction.USER_PROFILE_UPDATED, moduleKey: "settings", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["firstName", "lastName", "phone", "jobTitle"], required: false },
 
   /* Access control ------------------------------------------------------- */
@@ -684,6 +700,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PLATFORM_ORGANIZATION_USER_PROJECTS_CHANGED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "userId", "projectIds"], required: true },
   { actionKey: AuditAction.PLATFORM_PROJECT_CREATED, moduleKey: "platform", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "code", "name", "status"], required: true },
   { actionKey: AuditAction.PLATFORM_ACCESS_GRANT_CHANGED, moduleKey: "platform", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["userId", "parentGroupId", "moduleKey", "scopeType", "scopeId", "accessLevel", "revoked"], required: true },
+  { actionKey: AuditAction.PLATFORM_MOBILE_POLICY_CHANGED, moduleKey: "platform", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["scope", "version", "settings"], required: true },
+  { actionKey: AuditAction.PLATFORM_DEVICE_REVOKED, moduleKey: "platform", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["deviceId", "userId", "status", "sessionsEnded", "dataRemoval"], required: true },
   { actionKey: AuditAction.PLATFORM_SESSION_REVOKED, moduleKey: "platform", category: "AUTHENTICATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["sessionId", "userId", "revoked"], required: true },
   { actionKey: AuditAction.PLATFORM_MODULE_CHANGED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "moduleKey", "enabled"], required: true },
   { actionKey: AuditAction.PLATFORM_FEATURE_FLAG_CHANGED, moduleKey: "platform", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["key", "scopeType", "scopeId", "state", "archived"], required: true },

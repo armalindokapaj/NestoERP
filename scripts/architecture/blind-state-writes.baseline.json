@@ -1,4 +1,5 @@
 {
+  "lib/auth/device.service.ts": 4,
   "lib/core/access/access-sync.service.ts": 1,
   "lib/core/integrations/integration.service.ts": 4,
   "lib/core/notifications/attention.service.ts": 2,

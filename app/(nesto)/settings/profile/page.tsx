@@ -100,7 +100,8 @@ export default async function ProfileSettingsPage() {
               current: session.current,
               device: session.device,
               companyName: session.companyName,
-              ipAddress: session.ipAddress,
+              client: session.client,
+              lastActiveLabel: formatDateTime(session.lastActiveAt),
               startedLabel: formatDateTime(session.createdAt),
               expiresLabel: formatDateTime(session.expiresAt),
             }))}

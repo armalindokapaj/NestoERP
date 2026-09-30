@@ -1,5 +1,7 @@
 import { pushableDevice, pushableDevices, disableDevice } from "@/lib/auth/device.service";
 import { DB_NOW } from "@/lib/database/clock";
+import { effectivePolicyForUser } from "@/lib/core/security/mobile-policy.service";
+import type { NotificationPreviewPolicy } from "@/lib/core/security/mobile-policy.schema";
 import { prisma } from "@/lib/database/prisma";
 import { logger } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
@@ -150,6 +152,7 @@ export async function sendDuePushDeliveries(limit: number, workerId: string, now
   const batch = await claimDue(limit, workerId);
   result.claimed = batch.length;
   const badges = new Map<string, number>();
+  const previews = new Map<string, NotificationPreviewPolicy>();
 
   for (const delivery of batch) {
     try {
@@ -176,7 +179,9 @@ export async function sendDuePushDeliveries(limit: number, workerId: string, now
       }
 
       if (!badges.has(delivery.userId)) badges.set(delivery.userId, await badgeCountForUser(delivery.userId));
-      const text = renderPushText({ eventType: notification.eventType, category: notification.category, title: notification.title, body: notification.body });
+      // What the recipient's organization allows on a lock screen, read once per person per pass (MOB-11 §99).
+      if (!previews.has(delivery.userId)) previews.set(delivery.userId, await effectivePolicyForUser(delivery.userId).then((policy) => policy.notificationPreviewPolicy).catch(() => "LIMITED" as const));
+      const text = renderPushText({ eventType: notification.eventType, category: notification.category, title: notification.title, body: notification.body }, previews.get(delivery.userId));
       const message: PushMessage = {
         notificationId: notification.id,
         eventType: notification.eventType,

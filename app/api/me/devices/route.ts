@@ -1,5 +1,10 @@
 import { apiError, apiOk, readJson, withContext } from "@/lib/api/respond";
-import { registerDevice, registerDeviceSchema, unregisterDevice, unregisterDeviceSchema } from "@/lib/auth/device.service";
+import { listOwnDevices, registerDevice, registerDeviceSchema, unregisterDevice, unregisterDeviceSchema } from "@/lib/auth/device.service";
+
+/** The signed-in person's own devices (MOB-11 §15). */
+export async function GET() {
+  return withContext(async (context) => apiOk({ data: await listOwnDevices(context) }), { group: "any" });
+}
 
 /** Registers the calling app install for push (MOB-08 §34). The person's own device, in any workspace. */
 export async function POST(request: Request) {

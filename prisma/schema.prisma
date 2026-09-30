@@ -575,6 +575,19 @@ enum AuthEventType {
   /// The session moved into another of the person's company memberships, by
   /// opening a project that company owns (E-05A §26).
   COMPANY_CONTEXT_SWITCHED
+  /// MOB-11 §111: device, policy and sensitive-action events. Never a secret.
+  DEVICE_REGISTERED
+  DEVICE_REVOKED
+  DEVICE_BLOCKED
+  DEVICE_RESTORED
+  DEVICE_LOST_REPORTED
+  DEVICE_DATA_REMOVAL_CONFIRMED
+  DEVICE_REAUTH_REQUIRED
+  BIOMETRIC_ENABLED
+  BIOMETRIC_DISABLED
+  POLICY_CHANGED
+  SECURITY_UPDATE_REQUIRED
+  SENSITIVE_REAUTH
 }
 
 /// Where one transactional email got to (PRD #38 §13).
@@ -1606,6 +1619,7 @@ model Company {
   departmentAssignments DepartmentAssignment[]
   provisioningRequests  UserProvisioningRequest[]
   candidateTargets      CandidateProfile[]
+  mobileSecurityPolicy  MobileSecurityPolicy[]
 
   @@unique([id, parentGroupId])
   @@index([status])
@@ -1956,8 +1970,9 @@ model ParentGroup {
   demoRecords           DemoRecord[]
   qualifications        PersonQualification[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  mobileSecurityPolicy MobileSecurityPolicy[]
 
   @@index([status])
   @@index([kind])
@@ -4184,27 +4199,150 @@ enum DevicePlatform {
 /// ending or revoking that session ends delivery to this device, and a new
 /// sign-in on the same device re-registers. No fingerprinting beyond platform
 /// and app version.
+///
+/// MOB-11: this is also the canonical **Device** — one installed NESTO app for
+/// one person. It outlives the sessions that used it (`sessionId` is only the
+/// session that last refreshed it, and is cleared, not cascaded, when that
+/// session ends), so revocation, "lost" and NESTO Data Removal are facts about
+/// the device that a later sign-in and a later offline reconnect can read.
+/// The only identifier is `installId`, a random value the app generated for
+/// itself; no hardware identifier is collected (MOB-11 §6, §84).
 model DeviceRegistration {
-  id         String         @id @default(cuid())
-  userId     String
-  sessionId  String?
-  platform   DevicePlatform
-  /// APNs device token (iOS) or FCM registration token (Android).
-  pushToken  String         @unique
-  appVersion String
-  appBuild   String?
-  enabled    Boolean        @default(true)
-  lastSeenAt DateTime       @default(now())
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  userId      String
+  /// The session that last registered or refreshed this device. Null once it ends.
+  sessionId   String?
+  platform    DevicePlatform
+  /// Random per install, created by the app. Not a hardware id; not a secret.
+  installId   String?
+  /// What the person or the OS calls it ("iPhone", "Samsung Galaxy"). Never identity.
+  deviceName  String?
+  /// PHONE or TABLET, from the OS idiom; null when unknown.
+  deviceClass String?
+  osVersion   String?
+  /// APNs device token (iOS) or FCM registration token (Android). Null until push is turned on, and after it is turned off.
+  pushToken   String?        @unique
+  appVersion  String
+  appBuild    String?
+  enabled     Boolean        @default(true)
+  lastSeenAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  status              DeviceStatus           @default(ACTIVE)
+  trustState          DeviceTrustState       @default(UNKNOWN)
+  managedState        DeviceManagedState     @default(UNKNOWN)
+  complianceState     DeviceComplianceState  @default(UNKNOWN)
+  complianceAction    DeviceComplianceAction @default(ALLOW)
+  /// Codes from the compliance engine (APP_VERSION, BLOCKED_BUILD, OS_VERSION, DEVICE_RISK, ...). Never free text.
+  complianceReasons   String[]               @default([])
+  /// What the app says about itself (for example ROOTED). A hint for policy, never proof.
+  reportedRisk        String[]               @default([])
+  /// Client-reported: is the local app lock on. Informational; the server does not rely on it.
+  appLockEnabled      Boolean?
+  policyVersion       String?
+  lastSecurityCheckAt DateTime?
+
+  revokedAt              DateTime?
+  revokedById            String?
+  revokeReason           String?
+  lostReportedAt         DateTime?
+  /// NESTO Data Removal: asked for at revoke/lost/block, done when the device next calls in.
+  dataRemovalMode        DeviceDataRemovalMode @default(NONE)
+  dataRemovalRequestedAt DateTime?
+  dataRemovalConfirmedAt DateTime?
 
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session        Session?       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session        Session?       @relation("DeviceCurrentSession", fields: [sessionId], references: [id], onDelete: SetNull)
+  sessions       Session[]      @relation("SessionDevice")
   pushDeliveries PushDelivery[]
 
+  @@unique([userId, installId])
   @@index([userId, enabled])
   @@index([sessionId])
+  @@index([userId, status])
+  @@index([lastSeenAt])
   @@map("device_registrations")
+}
+
+/// What the server knows about an installed app's standing (MOB-11 §8).
+/// STALE is not stored: it is "ACTIVE and not seen for a long time", derived on read.
+enum DeviceStatus {
+  ACTIVE
+  REVOKED
+  BLOCKED
+}
+
+/// TRUSTED is reserved for a verified management signal (MDM attestation) and is never set by the client (MOB-11 §9, §10).
+enum DeviceTrustState {
+  UNKNOWN
+  TRUSTED
+  AT_RISK
+  NON_COMPLIANT
+}
+
+enum DeviceManagedState {
+  PERSONAL
+  COMPANY_MANAGED
+  MDM_MANAGED
+  UNKNOWN
+}
+
+enum DeviceComplianceState {
+  COMPLIANT
+  WARNING
+  NON_COMPLIANT
+  BLOCKED
+  UNKNOWN
+}
+
+/// What the app must do about the device's compliance (MOB-11 §64).
+enum DeviceComplianceAction {
+  ALLOW
+  WARN
+  REQUIRE_UPDATE
+  REQUIRE_REAUTH
+  BLOCK
+}
+
+/// CACHE_ONLY removes what came from the server and locks any unsynced work;
+/// FULL also destroys the local database and its key (lost device, blocked).
+enum DeviceDataRemovalMode {
+  NONE
+  CACHE_ONLY
+  FULL
+}
+
+enum MobilePolicyScope {
+  PLATFORM
+  PARENT_GROUP
+  COMPANY
+}
+
+/// One level of the mobile security policy (MOB-11 §73-§82). `settings` holds
+/// only the values this level sets — absent means "inherit" — validated by
+/// `mobilePolicySettingsSchema`. `version` rises on every change, so a device
+/// can tell that it is holding an old policy. Resolution is deterministic and
+/// server-side: `lib/core/security/mobile-policy.resolver.ts`.
+model MobileSecurityPolicy {
+  id            String            @id @default(cuid())
+  /// "PLATFORM", "GROUP:<id>" or "COMPANY:<id>": one row per level, enforced by the database.
+  scopeKey      String            @unique
+  scope         MobilePolicyScope
+  parentGroupId String?
+  companyId     String?
+  settings      Json
+  version       Int               @default(1)
+  updatedById   String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  parentGroup ParentGroup? @relation(fields: [parentGroupId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([parentGroupId])
+  @@index([companyId])
+  @@map("mobile_security_policies")
 }
 
 /// What the server already did for one device-generated operation (MOB-09 §31, §82).
@@ -4259,20 +4397,31 @@ model Session {
   expiresAt             DateTime
   userAgent             String?
   ipAddress             String?
+  /// The installed app this session signed in from, when it is one (MOB-11 §7).
+  /// A browser session has none. The device outlives the session.
+  deviceId              String?
+  /// Last time the server saw this session in use, written at most every few
+  /// minutes (MOB-11 §14, §32). Not the expiry and never extended by it.
+  lastSeenAt            DateTime?
+  /// When the person last proved who they are to the server: sign-in, or a
+  /// password check for a sensitive action. Server state only (MOB-11 §47, §48).
+  recentAuthAt          DateTime        @default(now())
 
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  membership CompanyMember? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  company    Company?       @relation(fields: [currentCompanyId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device     DeviceRegistration? @relation("SessionDevice", fields: [deviceId], references: [id], onDelete: SetNull)
+  membership CompanyMember?      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  company    Company?            @relation(fields: [currentCompanyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  deviceRegistrations DeviceRegistration[]
+  deviceRegistrations DeviceRegistration[] @relation("DeviceCurrentSession")
 
   @@index([userId])
   @@index([membershipId])
   @@index([currentCompanyId])
   @@index([expiresAt])
+  @@index([deviceId])
   @@map("sessions")
 }
 

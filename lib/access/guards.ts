@@ -28,6 +28,12 @@ export type ApiErrorCode =
   | "PRECONDITION_REQUIRED"
   /** A transient failure that left nothing behind; the same request may be tried again (AUD-02 §4, §6). */
   | "TEMPORARILY_UNAVAILABLE"
+  /** The installed app was revoked or blocked for this person (MOB-11 §18, §139). */
+  | "DEVICE_REVOKED"
+  /** The app is too old or on a blocked build; update and try again (MOB-11 §69, §137). */
+  | "UPDATE_REQUIRED"
+  /** A sensitive action needs a sign-in more recent than this session has (MOB-11 §47-§49). */
+  | "REAUTH_REQUIRED"
   | "INTERNAL_ERROR";
 
 const STATUS: Record<ApiErrorCode, number> = {
@@ -42,6 +48,9 @@ const STATUS: Record<ApiErrorCode, number> = {
   CONFLICT: 409,
   PRECONDITION_REQUIRED: 428,
   TEMPORARILY_UNAVAILABLE: 503,
+  DEVICE_REVOKED: 403,
+  UPDATE_REQUIRED: 426,
+  REAUTH_REQUIRED: 403,
   INTERNAL_ERROR: 500,
 };
 
@@ -57,6 +66,9 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   CONFLICT: "That change conflicts with an existing record.",
   PRECONDITION_REQUIRED: "Reload the record and try again.",
   TEMPORARILY_UNAVAILABLE: "The change could not be completed just now. Nothing was saved; try again.",
+  DEVICE_REVOKED: "This device no longer has access to NESTO. Contact your administrator.",
+  UPDATE_REQUIRED: "NESTO must be updated before continuing.",
+  REAUTH_REQUIRED: "Confirm your password to continue.",
   INTERNAL_ERROR: "Something went wrong. Please try again.",
 };
 

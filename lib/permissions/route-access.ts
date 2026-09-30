@@ -51,6 +51,8 @@ export const PUBLIC_OPERATIONAL_ROUTES = [
   // The native app asks this before it has a session (MOB-08 §66). It answers
   // the caller's own version against the policy and discloses nothing else.
   "/api/app/compatibility",
+  // A signed-out app asks whether its device was revoked and must remove NESTO's local data (MOB-11 §20, §126). It answers only for an install id + user id the caller already holds, with a status and nothing else.
+  "/api/app/device-state",
   // Universal Links / App Links ownership files: fetched by the OS, never signed in (MOB-08 §28, §29).
   "/.well-known/apple-app-site-association",
   "/.well-known/assetlinks.json",

@@ -50,7 +50,7 @@ test("a device registers, refreshes without duplicating, and is removed on sign-
 
   expect((await page.request.post("/api/me/devices", { data: { platform: "windows", pushToken: "x" } })).status()).toBe(422);
 
-  // Ending the session takes the device with it.
+  // Ending the session releases the push token (the device row itself stays, MOB-11).
   const origin = new URL(page.url()).origin;
   const out = await page.request.post("/api/auth/lifecycle", { headers: { origin } });
   expect(out.ok(), await out.text()).toBe(true);

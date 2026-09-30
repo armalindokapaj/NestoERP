@@ -42,6 +42,12 @@ function destinationFor(reason: ContextFailure): string {
     case "PLATFORM_SESSION":
       // The Platform Admin's own area; business pages are not theirs (E-06 §116, §128).
       return "/admin";
+    case "DEVICE_REVOKED":
+      return "/device-unavailable?reason=revoked";
+    case "DEVICE_BLOCKED":
+      return "/device-unavailable?reason=blocked";
+    case "UPDATE_REQUIRED":
+      return "/device-unavailable?reason=update";
   }
 }
 

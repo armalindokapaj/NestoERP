@@ -11,7 +11,7 @@ const noop = () => undefined;
 
 export function createWebServices(): PlatformServices {
   return {
-    platform: { platform: "web", isNative: false, appVersion: async () => null },
+    platform: { platform: "web", isNative: false, appVersion: async () => null, deviceFacts: async () => null },
     capture: webCaptureService,
     files: {
       async saveOrOpen({ file }) {
@@ -64,7 +64,9 @@ export function createWebServices(): PlatformServices {
       onOpen: () => noop,
       onReceive: () => noop,
     },
-    biometrics: { available: false, isEnrolled: async () => false, authenticate: async () => false },
+    biometrics: { available: false, isEnrolled: async () => false, biometryKind: async () => null, authenticate: async () => false },
+    // A browser cannot hide its own tab from the OS switcher or stop a screenshot.
+    privacy: { available: false, setSwitcherCover: async () => undefined, setSensitiveSurface: async () => "unsupported", onScreenshot: () => noop },
     lifecycle: {
       onResume(listener) {
         const handler = () => {

@@ -14,6 +14,8 @@ import { verifyPassword } from "./password";
 import { credentialsSchema } from "./schema";
 import { normaliseUsername } from "./username";
 import { createSession, USABLE_GROUP_STATUSES } from "./session-store";
+import { findDeviceForSignIn } from "./device.service";
+import { installIdFromCookieHeader } from "@/lib/core/security/install-id";
 import { recordSignIn } from "./identity";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
 import { isDevMode } from "./dev-mode";
@@ -145,6 +147,11 @@ export async function authenticateCredentials(
   }
   const membership = workspace.membership;
 
+  // The native shell names its install in a cookie before sign-in. It can only ever
+  // narrow access: a known revoked install is refused by the resolver on its very
+  // first request, and a browser that omits it is simply a browser (MOB-11 §11, §12).
+  const device = await findDeviceForSignIn(user.id, installIdFromCookieHeader(requestHeaders?.get("cookie") ?? null));
+
   const session = await createSession({
     userId: user.id,
     membershipId: membership?.id ?? null,
@@ -153,6 +160,7 @@ export async function authenticateCredentials(
     workspaceScope: "DEFAULT",
     userAgent,
     ipAddress,
+    deviceId: device?.id ?? null,
   });
 
   // The right password clears the account's failures; the address keeps

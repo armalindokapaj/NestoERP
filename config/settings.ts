@@ -22,6 +22,10 @@ export const SETTINGS_SLUGS = [
   "audit",
   "appearance",
   "notifications",
+  "security",
+  "mobile-devices",
+  "mobile-policy",
+  "security-events",
 ] as const;
 
 export type SettingsSlug = (typeof SETTINGS_SLUGS)[number];
@@ -37,6 +41,11 @@ export type SettingsSection = {
   permission: Permission;
   /** Personal sections need no Settings module access at all. */
   personal?: boolean;
+  /**
+   * The page answers for the Group workspace itself — the union of the companies the
+   * person holds the permission in — instead of asking which company (MOB-11 §141).
+   */
+  groupCapable?: boolean;
 };
 
 export const settingsSections: SettingsSection[] = [
@@ -116,6 +125,32 @@ export const settingsSections: SettingsSection[] = [
     icon: "BellRing",
     permission: "settings.view",
     personal: true,
+  },
+  {
+    // The person's own devices and sessions, and how this device is protected (MOB-11 §15, §31).
+    slug: "security",
+    icon: "ShieldCheck",
+    permission: "settings.view",
+    personal: true,
+  },
+  {
+    // Administrators: the mobile devices of their people (MOB-11 §23-§30).
+    slug: "mobile-devices",
+    icon: "Smartphone",
+    permission: "security.devices.read",
+    groupCapable: true,
+  },
+  {
+    slug: "mobile-policy",
+    icon: "SlidersHorizontal",
+    permission: "security.policy.read",
+    groupCapable: true,
+  },
+  {
+    slug: "security-events",
+    icon: "ScrollText",
+    permission: "security.audit.read",
+    groupCapable: true,
   },
 ];
 

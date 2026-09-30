@@ -81,7 +81,7 @@ const OWNED: Record<string, string[]> = {
   "core/collaboration": ["collaborationThread", "comment", "mention", "subscription"],
   "core/approvals": ["approvalStep"],
   approvals: ["approvalDelegation", "approvalDecisionReceipt"],
-  "core/security": ["rateLimitBucket"],
+  "core/security": ["rateLimitBucket", "mobileSecurityPolicy"],
   "core/jobs": ["workerHeartbeat", "workerProcess", "jobFailure", "jobIdempotencyKey"],
   // What the server already did for a device-generated operation id (MOB-09 §82).
   "core/sync": ["syncOperation"],
@@ -445,6 +445,11 @@ export const AGGREGATION_POINTS: Array<{ file: string; reason: string }> = [
  *     longer exists is noise; a record of something that happened is not.
  */
 export const CASCADE_EXCEPTIONS: Array<{ from: string; to: string; reason: string }> = [
+  {
+    from: "MobileSecurityPolicy.parentGroup",
+    to: "ParentGroup",
+    reason: "A policy level for a group that is gone. Configuration: the audit row that recorded each change is the history, and it stays.",
+  },
   {
     from: "CompanyModule.module",
     to: "Module",

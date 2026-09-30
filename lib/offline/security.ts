@@ -21,16 +21,21 @@ export type AuthorizationState = {
   expired: boolean;
   /** Protected cached data must not be shown. */
   locked: boolean;
+  /** NESTO Data Removal ran (revoked device, removed access): the lock is the security policy's, not an expired window (MOB-11 §20, §58). */
+  securityLock: boolean;
   user: { userId: string; fullName: string } | null;
   permissions: string[];
   companyId: string | null;
 };
 
 const CLOCK_KEY = "clockHighWater";
+/** Written by NESTO Data Removal; cleared when the server confirms the person again (MOB-11 §20). */
+export const SECURITY_LOCK_KEY = "securityLock";
 
 export async function authorizationState(db: OfflineDatabase, now: number = Date.now()): Promise<AuthorizationState> {
   const snapshot = await db.getMeta<AuthorizationSnapshot>("authorization");
-  if (!snapshot) return { known: false, validatedAt: null, expiresAt: null, expired: false, locked: false, user: null, permissions: [], companyId: null };
+  const securityLock = Boolean(await db.getMeta<{ at: number }>(SECURITY_LOCK_KEY));
+  if (!snapshot) return { known: false, validatedAt: null, expiresAt: null, expired: false, locked: securityLock, securityLock, user: null, permissions: [], companyId: null };
   const highWater = (await db.getMeta<number>(CLOCK_KEY)) ?? 0;
   const effectiveNow = Math.max(now, highWater);
   if (effectiveNow > highWater) await db.setMeta(CLOCK_KEY, effectiveNow);
@@ -41,7 +46,8 @@ export async function authorizationState(db: OfflineDatabase, now: number = Date
     validatedAt: new Date(snapshot.validatedAt).getTime(),
     expiresAt,
     expired,
-    locked: expired,
+    locked: expired || securityLock,
+    securityLock,
     user: { userId: snapshot.user.userId, fullName: snapshot.user.fullName },
     permissions: snapshot.permissions,
     companyId: snapshot.workspace.companyId,
@@ -54,6 +60,7 @@ export async function authorizationState(db: OfflineDatabase, now: number = Date
 
 const ACCOUNTS_KEY = "nesto.offline.accounts";
 const LAST_USER_KEY = "nesto.offline.lastUser";
+const USERS_KEY = "nesto.offline.users";
 
 type Accounts = Record<string, { pending: number; at: number }>;
 
@@ -84,8 +91,33 @@ export function otherAccountsWithPending(currentUserId: string): number {
   return Object.entries(readAccounts()).filter(([id]) => id !== currentUserId).reduce((sum, [, value]) => sum + value.pending, 0);
 }
 
+/** Everyone who has offline data on this device, so a revocation can reach each of them (MOB-11 §20, §167). Ids only. */
+export function knownOfflineUsers(): string[] {
+  try {
+    const listed = JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]") as unknown;
+    const ids = Array.isArray(listed) ? listed.filter((id): id is string => typeof id === "string") : [];
+    const last = lastKnownUser();
+    return [...new Set([...(last ? [last] : []), ...ids, ...Object.keys(readAccounts())])];
+  } catch {
+    return [];
+  }
+}
+
+export function forgetOfflineUser(userId: string): void {
+  try {
+    const accounts = readAccounts();
+    delete accounts[userId];
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    localStorage.setItem(USERS_KEY, JSON.stringify(knownOfflineUsers().filter((id) => id !== userId)));
+    if (localStorage.getItem(LAST_USER_KEY) === userId) localStorage.removeItem(LAST_USER_KEY);
+  } catch {
+    // Storage unavailable: the database itself is what matters and is handled by the caller.
+  }
+}
+
 export function rememberUser(userId: string): void {
   try {
+    localStorage.setItem(USERS_KEY, JSON.stringify([...new Set([...knownOfflineUsers(), userId])]));
     localStorage.setItem(LAST_USER_KEY, userId);
   } catch {
     // Without it the offline page cannot know whose database to open after a cold start.
