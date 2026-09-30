@@ -495,6 +495,8 @@ function pageClass(file: string, route: string, own: Evidence, layouts: Evidence
   const guards = new Set([...own.guards, ...layouts.guards]);
   if (guards.has("requirePlatformContext") || guards.has("resolvePlatformContext")) return { cls: "PLATFORM" };
   if (isPublicPage(file)) return { cls: "PUBLIC" };
+  // The offline workspace renders nothing from the server: it reads this device's own database, and every sync call it makes is a guarded API route (MOB-09).
+  if (file.startsWith("app/(offline)/")) return { cls: "AUTHENTICATED", note: "device-local shell; renders no server data; signed in via middleware" };
   if (inShell(file) && (guards.has("requireUserContext") || guards.has("requireCompanyContext") || guards.has("requireModule"))) {
     if (own.modules.size > 0 || own.permissions.size > 0 || own.record.size > 0) return { cls: "COMPANY_SCOPED" };
     if (redirectOnly) return { cls: "AUTHENTICATED", note: "redirect only; renders no data" };

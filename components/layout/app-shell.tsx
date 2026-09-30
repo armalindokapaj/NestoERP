@@ -28,6 +28,8 @@ import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSwitchProvider } from "@/components/workspace/workspace-switch-provider";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
 import { UnsavedHost } from "@/components/unsaved/unsaved-host";
+import { OfflineProvider } from "@/components/offline/offline-provider";
+import { OfflineStatus } from "@/components/offline/offline-status";
 import { identityKeys } from "@/lib/context/identity-key";
 import { RecordNavigationProvider } from "@/components/navigation/record-navigation-provider";
 import { NavigationFeedbackIndicator, NavigationFeedbackProvider } from "@/components/navigation/navigation-feedback";
@@ -105,6 +107,8 @@ export async function AppShell({
             name: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
           }}
         />
+        {/* Offline work (MOB-09): opens this person's local database, sends what they queued, and asks before a sign-out that would leave work behind. */}
+        <OfflineProvider userId={context.userId} />
         {/* Immediate navigation feedback (NAV-01 §7). Keyed by the opaque context
             key, so nothing pending outlives the identity or workspace it began in. */}
         <NavigationFeedbackProvider identityKey={core.contextKey}>
@@ -142,6 +146,8 @@ export async function AppShell({
                 <Topbar context={context} navigation={navigation} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
                 <BreadcrumbBar />
+                {/* Connectivity and sync, compact; nothing at all while online with nothing to send (MOB-09 §24, §116). */}
+                <OfflineStatus />
                 {/* A critical banner, when there is one; it takes no room otherwise. */}
                 <BannerSlot />
                 {/* Focusable by script only (tabIndex -1): the navigation drawer hands

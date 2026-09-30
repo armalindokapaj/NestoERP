@@ -12,9 +12,9 @@ Every permission-sensitive entry point NESTO exposes — route handlers, server 
 - **Tests**, continued — `via fn: file` names a test that imports and exercises a domain service the entry point calls directly (the permission, scope and record checks live there; the route or action is a door onto it, PRD #48 §108). It proves the service's authorization, not the door's own guard.
 - **Status** — `covered`: at least one specific test exercises it, directly or through the service it calls. `uncovered`: none does (a sweep alone is not counted). `not-applicable`: a public page or provider endpoint with no tenant data.
 
-**915 route handlers, 266 server actions, 531 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 39 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1576 · NOTIFICATION 114 · PLATFORM 133 · PUBLIC 33 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 1.
+**919 route handlers, 266 server actions, 532 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 40 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1580 · NOTIFICATION 114 · PLATFORM 133 · PUBLIC 33 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 1.
 
-Status: covered 1536 · not-applicable 15 · uncovered 381 (651 by a test of the entry point itself, 885 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **1**.
+Status: covered 1545 · not-applicable 14 · uncovered 378 (660 by a test of the entry point itself, 885 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **1**.
 
 ## Unclassified entry points
 
@@ -72,7 +72,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| GET | `/api/app/compatibility` | PUBLIC | — | device | — | — | none | — | — | — | not-applicable |
+| GET | `/api/app/compatibility` | PUBLIC | — | device | — | — | none | — | — | `e2e/responsive/aud04-mob08-native.spec.ts` | covered |
 
 ## /api/approvals
 
@@ -101,8 +101,8 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| GET | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `unit/auth/lifecycle-route.test.ts` | covered |
-| POST | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `unit/auth/lifecycle-route.test.ts` | covered |
+| GET | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `e2e/responsive/aud04-mob08-native.spec.ts` +1 | covered |
+| POST | `/api/auth/lifecycle` | AUTH_PROVIDER | — | — | — | — | credentials | — | — | `e2e/auth/work-session.spec.ts`, `e2e/responsive/aud04-mob08-native.spec.ts` +1 | covered |
 
 ## /api/calendar
 
@@ -260,11 +260,11 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PATCH | `/api/daily-logs/[dailyLogId]/[section]/[entryId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildGoodsReceiptScopeWhere`, `buildInventoryReceiptScopeWhere` +6 | `findReadableLog` | `touchLog` | via `updateEntry`: `api/daily-logs/daily-logs-authorization.test.ts` +1; sweep | covered |
-| DELETE | `/api/daily-logs/[dailyLogId]/[section]/[entryId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | `touchLog` | via `removeEntry`: `api/daily-logs/daily-logs.test.ts`; sweep | covered |
+| PATCH | `/api/daily-logs/[dailyLogId]/[section]/[entryId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildGoodsReceiptScopeWhere`, `buildInventoryReceiptScopeWhere` +6 | `findReadableLog` | `touchLog` | `unit/offline/uploader.test.ts`; via `updateEntry`: `api/daily-logs/daily-logs-authorization.test.ts` +1; sweep | covered |
+| DELETE | `/api/daily-logs/[dailyLogId]/[section]/[entryId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | `touchLog` | `unit/offline/uploader.test.ts`; via `removeEntry`: `api/daily-logs/daily-logs.test.ts`; sweep | covered |
 | POST | `/api/daily-logs/[dailyLogId]/[section]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildGoodsReceiptScopeWhere`, `buildInventoryReceiptScopeWhere` +6 | `findReadableLog` | `touchLog` | `api/daily-logs/aud09-daily-log-forms.test.ts`, `e2e/responsive/daily-logs-mobile.spec.ts`; via `addEntry`: `api/daily-logs/aud10-daily-log-task.test.ts` +4; sweep | covered |
 | POST | `/api/daily-logs/[dailyLogId]/corrections` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | — | via `addCorrection`: `api/daily-logs/daily-logs.test.ts`; sweep | covered |
-| PUT | `/api/daily-logs/[dailyLogId]/evidence/[documentId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | `assertEditable`, `touchLog` | sweep | uncovered |
+| PUT | `/api/daily-logs/[dailyLogId]/evidence/[documentId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | `assertEditable`, `touchLog` | `unit/offline/uploader.test.ts`; sweep | covered |
 | POST | `/api/daily-logs/[dailyLogId]/lock` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | — | via `lockDailyLog`: `api/daily-logs/daily-logs.test.ts`; sweep | covered |
 | GET | `/api/daily-logs/[dailyLogId]/options` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildGoodsReceiptScopeWhere`, `buildInventoryReceiptScopeWhere` +6 | `findReadableLog` | — | sweep | uncovered |
 | DELETE | `/api/daily-logs/[dailyLogId]/record-links/[linkId]` | COMPANY_SCOPED | — | daily-logs | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `projectDoor` +1 | `findReadableLog` | `touchLog` | via `unlinkRecord`: `api/daily-logs/daily-logs.test.ts`; sweep | covered |
@@ -550,12 +550,12 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/api/me/access-portfolio` | AUTHENTICATED | — | organization | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `getAccessPortfolio`: `api/organization/group-views.test.ts`; sweep | covered |
-| POST | `/api/me/devices` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | sweep | uncovered |
-| DELETE | `/api/me/devices` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | sweep | uncovered |
+| POST | `/api/me/devices` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `e2e/responsive/aud04-mob08-native.spec.ts`; sweep | covered |
+| DELETE | `/api/me/devices` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `e2e/responsive/aud04-mob08-native.spec.ts`; sweep | covered |
 | POST | `/api/me/password` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `changePassword`: `api/account/account-service.test.ts`; sweep | covered |
 | GET | `/api/me/profile` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | sweep | uncovered |
 | PATCH | `/api/me/profile` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `updateProfile`: `api/account/account-service.test.ts`; sweep | covered |
-| GET | `/api/me` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `api/workspace/organization-header.test.ts`, `e2e/auth/work-session.spec.ts` +6; sweep | covered |
+| GET | `/api/me` | AUTHENTICATED | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | `api/workspace/organization-header.test.ts`, `e2e/auth/work-session.spec.ts` +7; sweep | covered |
 | DELETE | `/api/me/sessions/[sessionId]` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `revokeOwnSession`: `api/account/account-service.test.ts`; sweep | covered |
 | POST | `/api/me/sessions/revoke-others` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `revokeOtherSessions`: `api/account/account-service.test.ts`; sweep | covered |
 | GET | `/api/me/sessions` | AUTHENTICATED | — | account | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | caller's own rows | — | — | via `listSessions`: `api/account/account-service.test.ts`; sweep | covered |
@@ -1176,6 +1176,15 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | POST | `/api/submittals/[submittalId]/tasks` | COMPANY_SCOPED | — | engineering | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `buildTaskScopeWhere` +8 | `assertFound`, `findReadableWorkPackage` +2 | — | via `createTaskFromRecord`: `api/engineering/engineering.test.ts` +1; sweep | covered |
 | POST | `/api/submittals/[submittalId]/void` | COMPANY_SCOPED | — | engineering | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | `findReadableSubmittal`, `findWritableSubmittal` | `applyTransition`, `assertProjectWritable` | sweep | uncovered |
 | GET | `/api/submittals` | COMPANY_SCOPED | — | engineering | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company; `buildProjectScopeWhere`, `engineeringProjectDoor` +1 | — | — | via `listSubmittals`: `perf/engineering.perf.test.ts`; sweep | covered |
+
+## /api/sync
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| GET | `/api/sync/authorization` | COMPANY_SCOPED | — | core/sync | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company | — | — | via `buildAuthorizationSnapshot`: `api/sync/sync.test.ts`; sweep | covered |
+| POST | `/api/sync/documents` | COMPANY_SCOPED | — | documents | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | session company | `assertFound`, `findDocumentInScope` +2 | — | `unit/offline/projects-documents.test.ts`; via `documentOfflineStatus`: `api/sync/sync.test.ts`; sweep | covered |
+| POST | `/api/sync/projects/[projectId]/package` | COMPANY_SCOPED | — | core/sync | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +723 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +10 | `assertFound`, `findDocumentInScope` +6 | — | via `buildProjectPackage`: `api/sync/sync.test.ts`; sweep | covered |
+| POST | `/api/sync` | COMPANY_SCOPED | — | core/sync | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company | — | — | `unit/offline/engine.test.ts`; via `processSyncBatch`: `api/sync/sync.test.ts`; sweep | covered |
 
 ## /api/tasks
 
@@ -1873,7 +1882,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/dashboard` | COMPANY_SCOPED | AGGREGATE | dashboard | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildBalanceScopeWhere`, `buildBudgetScopeWhere` +20 | `loadRecord` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +40; via `groupIdentity`: `api/dashboard/group-dashboard.test.ts` +1 | covered |
+| PAGE | `/dashboard` | COMPANY_SCOPED | AGGREGATE | dashboard | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildBalanceScopeWhere`, `buildBudgetScopeWhere` +20 | `loadRecord` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +42; via `groupIdentity`: `api/dashboard/group-dashboard.test.ts` +1 | covered |
 
 ## Pages — /documents
 
@@ -2167,6 +2176,12 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | PAGE | `/notifications` (redirect only; renders no data) | AUTHENTICATED | NOTIFICATION | — | — | — | caller's own rows | — | — | `e2e/responsive/aud04-mob06-daily-work.spec.ts`, `e2e/roles/role-acceptance.spec.ts` | covered |
 | PAGE | `/notifications/[notificationId]/open` | COMPANY_SCOPED | NOTIFICATION | core/notifications | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +721 | session company | `loadRecord` | — | `e2e/collaboration/workflows.spec.ts` | covered |
 
+## Pages — /offline
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PAGE | `/offline` (device-local shell; renders no server data; signed in via middleware) | AUTHENTICATED | — | dashboard | `dashboard`, `tasks` | `collaboration.comment.create`, `task.complete`, `task.status.update` | caller's own rows | — | — | `e2e/offline/mob09-offline.spec.ts` | covered |
+
 ## Pages — /organization
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
@@ -2242,7 +2257,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/projects` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `requirePortfolio`, `requireProjectPortfolio` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +26; via `canonicalPortfolioHref`: `unit/projects/portfolio-url.test.ts` +1 | covered |
-| PAGE | `/projects/[projectId]` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +6 | `assertFound`, `findProjectInScope` +1 | `applyTransition` | `e2e/a11y/aud11-modules.spec.ts`, `e2e/auth/aud06-roles.spec.ts` +29; via `buildOpportunityScopeWhere`: `api/search/search-authorization.test.ts` +2 | covered |
+| PAGE | `/projects/[projectId]` | COMPANY_SCOPED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +726 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +6 | `assertFound`, `findProjectInScope` +1 | `applyTransition` | `e2e/a11y/aud11-modules.spec.ts`, `e2e/auth/aud06-roles.spec.ts` +30; via `buildOpportunityScopeWhere`: `api/search/search-authorization.test.ts` +2 | covered |
 | PAGE | `/projects/[projectId]/3d` | UNCLASSIFIED | — | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +722 | unknown — review; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` +1 | — | `e2e/auth/work-session.spec.ts`; via `hasActiveProject3DViewer`: `api/project-3d/company-viewer.test.ts` | covered |
 | PAGE | `/projects/[projectId]/activity` | COMPANY_SCOPED | NOTIFICATION | projects | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | via `listActivity`: `api/projects/projects-service.test.ts` +1 | covered |
 | PAGE | `/projects/[projectId]/calendar` | COMPANY_SCOPED | — | core/time | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +724 | session company; `buildClientScopeWhere`, `buildDocumentAccessWhere` +1 | `assertFound`, `findProjectInScope` | — | `e2e/modules/calendar.spec.ts`; via `getCalendar`: `api/calendar/aud08-calendar-bounds.test.ts` +3 | covered |

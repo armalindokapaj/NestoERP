@@ -35,8 +35,9 @@ export default async function NestoLayout({ children }: { children: React.ReactN
   if (maintenance.value.enabled) redirect("/maintenance");
   if (guard.status === "rejected") throw guard.reason;
 
+  // The offline indicator, the sign-out guard and "Available Offline" are on every page (MOB-09).
   return (
-    <ModuleMessages namespaces={[]}>
+    <ModuleMessages namespaces={["offline"]}>
       <AppShell context={context} startedAt={startedAt}>
         {children}
       </AppShell>

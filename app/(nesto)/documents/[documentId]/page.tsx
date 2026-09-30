@@ -5,6 +5,7 @@ import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { DocumentActions } from "@/components/documents/document-actions";
+import { DocumentOfflineAction } from "@/components/offline/document-offline-action";
 import { DocumentFilePanel } from "@/components/documents/document-file-panel";
 import { DocumentVersions } from "@/components/documents/document-versions";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -83,6 +84,7 @@ export default async function DocumentDetailPage({ params }: Params) {
         actions={
           <>
             <RecordFavorite context={context} entityType="document" entityId={document.id} />
+            <DocumentOfflineAction documentId={document.id} projectId={document.context.project?.id ?? null} companyId={context.companyId} downloadable={document.capabilities.canDownload && document.file.available && !archived} />
             <DocumentActions document={document} />
           </>
         }

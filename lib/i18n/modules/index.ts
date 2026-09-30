@@ -33,6 +33,8 @@ import { meetingsEn } from "./meetings/en";
 import { meetingsSq } from "./meetings/sq";
 import { miscEn } from "./misc/en";
 import { miscSq } from "./misc/sq";
+import { offlineEn } from "./offline/en";
+import { offlineSq } from "./offline/sq";
 import { organizationEn } from "./organization/en";
 import { organizationSq } from "./organization/sq";
 import { peopleEn } from "./people/en";
@@ -95,6 +97,7 @@ export const moduleMessagesEn = {
   announcements: announcementsEn,
   misc: miscEn,
   threeD: threeDEn,
+  offline: offlineEn,
 };
 
 export type ModuleMessages = typeof moduleMessagesEn;
@@ -131,5 +134,6 @@ export const moduleMessages: Record<Locale, ModuleMessages> = {
     announcements: announcementsSq,
     misc: miscSq,
     threeD: threeDSq,
+    offline: offlineSq,
   },
 };

@@ -83,6 +83,8 @@ const OWNED: Record<string, string[]> = {
   approvals: ["approvalDelegation", "approvalDecisionReceipt"],
   "core/security": ["rateLimitBucket"],
   "core/jobs": ["workerHeartbeat", "workerProcess", "jobFailure", "jobIdempotencyKey"],
+  // What the server already did for a device-generated operation id (MOB-09 §82).
+  "core/sync": ["syncOperation"],
   mail: ["mailDelivery"],
 
   /* Business domains ------------------------------------------------------- */

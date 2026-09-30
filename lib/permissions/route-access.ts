@@ -54,6 +54,8 @@ export const PUBLIC_OPERATIONAL_ROUTES = [
   // Universal Links / App Links ownership files: fetched by the OS, never signed in (MOB-08 §28, §29).
   "/.well-known/apple-app-site-association",
   "/.well-known/assetlinks.json",
+  // The offline shell's service worker (MOB-09 §65): the browser fetches it to check for updates, and it must still answer when the session cookie has lapsed. It is static code with no data in it.
+  "/sw.js",
 ] as const;
 
 /** Public configurator endpoints validate, rate-limit, and sanitize their own payloads. */

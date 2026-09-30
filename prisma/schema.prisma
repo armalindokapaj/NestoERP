@@ -4206,6 +4206,33 @@ model DeviceRegistration {
   @@map("device_registrations")
 }
 
+/// What the server already did for one device-generated operation (MOB-09 §31, §82).
+///
+/// The offline client gives every queued change an operation id. The first time
+/// the server finishes one it keeps the answer here, so a retry — the response
+/// was lost, the app was killed mid-request — gets that answer back instead of
+/// doing the work twice. Only successes are kept: a refusal is re-evaluated on
+/// the next attempt, because permissions and state may have changed.
+model SyncOperation {
+  id            String   @id @default(cuid())
+  companyId     String
+  memberId      String
+  operationId   String
+  type          String
+  /// Hash of the payload, so the same id with different content is refused.
+  payloadHash   String
+  projectId     String?
+  entityType    String?
+  entityId      String?
+  serverVersion Int?
+  result        Json
+  createdAt     DateTime @default(now())
+
+  @@unique([memberId, operationId])
+  @@index([companyId, createdAt])
+  @@map("sync_operations")
+}
+
 model Session {
   id                    String          @id @default(cuid())
   sessionToken          String          @unique
@@ -9390,6 +9417,8 @@ model HseIncident {
 
   createdByMemberId String
   updatedByMemberId String?
+  /// The device-generated operation id of an incident reported through sync (MOB-09 §82).
+  clientOperationId String?
 
   company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -9407,6 +9436,7 @@ model HseIncident {
 
   @@unique([companyId, incidentNumber])
   @@unique([id, companyId])
+  @@unique([companyId, reportedByMemberId, clientOperationId])
   @@index([companyId])
   @@index([companyId, status])
   @@index([companyId, incidentType])
@@ -10075,6 +10105,9 @@ model Comment {
   /// Deletion is archival: the row stays, the body is withheld (PRD #38 §34).
   archivedAt         DateTime?
   archivedByMemberId String?
+  /// The device-generated operation id of a comment written through sync (MOB-09 §82):
+  /// a retry that reaches the server twice finds this row instead of posting again.
+  clientOperationId  String?
 
   thread   CollaborationThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
   author   CompanyMember       @relation("CommentAuthor", fields: [authorMemberId], references: [id], onDelete: Restrict)
@@ -10083,6 +10116,7 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([companyId, authorMemberId, clientOperationId])
   @@index([companyId, threadId, createdAt])
   @@index([companyId, authorMemberId, createdAt])
   @@map("comments")
