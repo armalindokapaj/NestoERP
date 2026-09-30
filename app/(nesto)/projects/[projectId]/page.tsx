@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
 import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
 
+import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";
 import { PersonLink } from "@/components/people/person-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { ProjectActions } from "@/components/projects/project-actions";
@@ -17,7 +18,7 @@ import { listProjectMedia } from "@/lib/modules/project-media/project-media.serv
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
 import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
 import * as projects from "@/lib/modules/projects/project.service";
-import { projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
+import { projectMobileSummary, projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
@@ -92,6 +93,15 @@ export default async function ProjectOverviewPage({ params }: Params) {
     : null;
   for (const promise of [threeD, media, planning, myWork, upcoming, activity, sourceOpportunity]) promise?.catch(() => undefined);
   const progress = planning.then(projectProgress, () => null);
+  const mobileSummary = projectMobileSummary(context, project.id, { canViewTasks: actions.canViewTasks, canViewUnits: actions.canViewUnits });
+  mobileSummary.catch(() => undefined);
+  // A new record is offered on a live project only, and only to someone who may create it (MOB-05 §30, §31).
+  const quickActions: ProjectQuickAction[] = archived ? [] : [
+    ...(actions.canViewTasks && can(context, "task.create") ? [{ key: "task" as const, href: `/tasks/new?projectId=${project.id}` }] : []),
+    ...(actions.canViewDocuments && can(context, "document.create") ? [{ key: "document" as const, href: `/documents/new?projectId=${project.id}` }] : []),
+    ...(actions.canViewDailyLogs && can(context, "daily_log.create") ? [{ key: "siteDiary" as const, href: `/projects/${project.id}/daily-logs/new` }] : []),
+    ...(actions.canViewMeetings && can(context, "meeting.create") ? [{ key: "meeting" as const, href: `/meetings/new?projectId=${project.id}` }] : []),
+  ];
 
   return (
     <div className="space-y-7">
@@ -109,7 +119,11 @@ export default async function ProjectOverviewPage({ params }: Params) {
         <p>{t("overview.relationshipsBody2")}</p>
       </WhatIsThis>
 
-      <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm lg:flex" aria-labelledby="project-title" data-section="primary">
+      <Suspense fallback={null}>
+        <MobileOverview projectId={project.id} progress={progress} summary={mobileSummary} myWork={myWork} quickActions={quickActions} threeD={threeD} />
+      </Suspense>
+
+      <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm max-sm:hidden lg:flex" aria-labelledby="project-title" data-section="primary">
         <div className="relative min-h-[430px] flex-1 overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-neutral-950 lg:min-h-[500px]">
           <Suspense fallback={null}>
             <HeroCover project={project} media={media} />
@@ -183,6 +197,11 @@ export default async function ProjectOverviewPage({ params }: Params) {
   );
 }
 
+
+async function MobileOverview({ projectId, progress, summary, myWork, quickActions, threeD }: { projectId: string; progress: Promise<number | null>; summary: Promise<Awaited<ReturnType<typeof projectMobileSummary>>>; myWork: Promise<ProjectWorkItem[]>; quickActions: ProjectQuickAction[]; threeD: Promise<Awaited<ReturnType<typeof getProject3DAvailability>> | null> }) {
+  const [progressValue, summaryValue, work, viewer] = await Promise.all([progress, summary.catch(() => ({ openTasks: null, overdueTasks: null, units: null })), myWork.catch(() => []), threeD.catch(() => null)]);
+  return <ProjectMobileOverview projectId={projectId} progress={progressValue} summary={summaryValue} myWork={work} quickActions={quickActions} threeDUrl={viewer?.viewerUrl ?? null} />;
+}
 
 type Project = Awaited<ReturnType<typeof loadProject>>["project"];
 type Media = ReturnType<typeof listProjectMedia>;

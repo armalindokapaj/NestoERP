@@ -63,7 +63,7 @@ export async function ProjectNav({ projectId }: { projectId: string }) {
     { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
     { label: project.name, href: base, switcher: { label: t("meta.projects"), items: siblings.map((sibling) => ({ label: sibling.name, href: `/projects/${sibling.id}`, current: sibling.id === projectId })) } },
   ];
-  return <ProjectNavBar projectId={projectId} crumbs={crumbs} tabs={tabs} sectionsLabel={t("tabs.sectionsLabel")} />;
+  return <ProjectNavBar projectId={projectId} crumbs={crumbs} tabs={tabs} sectionsLabel={t("tabs.sectionsLabel")} identity={{ name: project.name, companyName: project.company.name, status: project.status }} />;
 }
 
 export type { ProjectTabKey };
