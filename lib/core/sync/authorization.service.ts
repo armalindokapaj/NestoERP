@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { can } from "@/lib/access/can";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
+import { effectivePolicyForUser } from "@/lib/core/security/mobile-policy.service";
 
 import { minimumSyncProtocolVersion, SYNC_PROTOCOL_VERSION } from "./protocol";
 
@@ -47,13 +48,22 @@ export type AuthorizationSnapshot = {
   user: { userId: string; membershipId: string; fullName: string };
   workspace: { parentGroupId: string; companyId: string; companyName: string; scope: string };
   permissions: string[];
+  /** The policy turned offline access off: the window above is already over (MOB-11 §73). */
+  offlineAllowed: boolean;
   /** A fingerprint of the above, so a device can tell whether its snapshot changed without comparing it. */
   fingerprint: string;
 };
 
-export function buildAuthorizationSnapshot(context: UserContext, now: Date = new Date()): AuthorizationSnapshot {
+/**
+ * `policy` is the person's effective mobile policy (MOB-11 §59, §180): the window
+ * and whether offline access exists at all are the Group's and Company's to set.
+ * Without one, the environment default applies, as before.
+ */
+export function buildAuthorizationSnapshot(context: UserContext, now: Date = new Date(), policy?: { offlineAllowed: boolean; offlineAuthorizationHours: number }): AuthorizationSnapshot {
   const permissions = OFFLINE_PERMISSIONS.filter((permission) => can(context, permission)).map(String);
-  const expires = new Date(now.getTime() + offlineAuthorizationHours() * 3_600_000);
+  const offlineAllowed = policy?.offlineAllowed ?? true;
+  const hours = policy?.offlineAuthorizationHours ?? offlineAuthorizationHours();
+  const expires = new Date(offlineAllowed ? now.getTime() + hours * 3_600_000 : now.getTime());
   const base = {
     user: { userId: context.userId, membershipId: context.membershipId, fullName: context.fullName },
     workspace: { parentGroupId: context.parentGroupId, companyId: context.companyId, companyName: context.company.name, scope: context.workspace.scopeType },
@@ -64,7 +74,13 @@ export function buildAuthorizationSnapshot(context: UserContext, now: Date = new
     minimumProtocolVersion: minimumSyncProtocolVersion(),
     validatedAt: now.toISOString(),
     offlineAccessExpiresAt: expires.toISOString(),
+    offlineAllowed,
     ...base,
     fingerprint: createHash("sha256").update(JSON.stringify(base)).digest("hex").slice(0, 32),
   };
+}
+
+/** The snapshot for a request: the policy read once, server time throughout (MOB-11 §129). */
+export async function authorizationSnapshotFor(context: UserContext, now: Date = new Date()): Promise<AuthorizationSnapshot> {
+  return buildAuthorizationSnapshot(context, now, await effectivePolicyForUser(context.userId));
 }

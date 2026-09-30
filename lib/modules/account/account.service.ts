@@ -10,6 +10,7 @@ import { syncPersonFromAccount } from "@/lib/modules/hr/hr.person";
 import type { ChangePasswordInput, UpdateProfileInput } from "./account.schema";
 import { setPassword } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
+import { assertRecentAuthentication } from "@/lib/auth/recent-auth";
 
 /**
  * Account basics (PRD #38 §20).
@@ -27,8 +28,12 @@ export type AccountSessionDTO = {
   companyName: string | null;
   createdAt: string;
   expiresAt: string;
-  ipAddress: string | null;
+  /** Last time the server saw the session in use; never a precise location or address (MOB-11 §31, §32). */
+  lastActiveAt: string;
+  /** "iPhone" for an installed app, "Chrome on macOS" for a browser. */
   device: string;
+  /** NATIVE when the session came from the installed app (MOB-11 §7). */
+  client: "NATIVE" | "BROWSER";
 };
 
 export type ProfileDTO = {
@@ -179,9 +184,11 @@ export async function listSessions(context: UserContext): Promise<AccountSession
       id: true,
       createdAt: true,
       expiresAt: true,
-      ipAddress: true,
+      lastSeenAt: true,
+      updatedAt: true,
       userAgent: true,
       company: { select: { name: true } },
+      device: { select: { deviceName: true, platform: true, deviceClass: true } },
     },
   });
 
@@ -191,8 +198,9 @@ export async function listSessions(context: UserContext): Promise<AccountSession
     companyName: session.company?.name ?? null,
     createdAt: session.createdAt.toISOString(),
     expiresAt: session.expiresAt.toISOString(),
-    ipAddress: session.ipAddress,
-    device: describeDevice(session.userAgent),
+    lastActiveAt: (session.lastSeenAt ?? session.createdAt).toISOString(),
+    device: session.device ? (session.device.deviceName ?? (session.device.deviceClass === "TABLET" ? "Tablet" : session.device.platform === "IOS" ? "iPhone" : "Android phone")) : describeDevice(session.userAgent),
+    client: session.device ? ("NATIVE" as const) : ("BROWSER" as const),
   }));
 }
 
@@ -216,6 +224,8 @@ async function recordRevocation(context: UserContext, scope: string, revoked: nu
  * NOT_FOUND, exactly like an id that does not exist.
  */
 export async function revokeOwnSession(context: UserContext, sessionId: string): Promise<{ current: boolean }> {
+  // Ending another device's session is a sensitive action; signing out of this one never is (MOB-11 §47).
+  if (sessionId !== context.sessionId) await assertRecentAuthentication(context);
   const revoked = await revokeSessions(prisma, { sessionId, userId: context.userId });
   if (revoked === 0) throw new AccessError("NOT_FOUND", "That session does not exist.");
   await recordRevocation(context, sessionId === context.sessionId ? "current" : "one", 1);
@@ -223,6 +233,7 @@ export async function revokeOwnSession(context: UserContext, sessionId: string):
 }
 
 export async function revokeOtherSessions(context: UserContext): Promise<number> {
+  await assertRecentAuthentication(context);
   const revoked = await revokeSessions(prisma, { userId: context.userId, exceptSessionId: context.sessionId });
   await recordRevocation(context, "others", revoked);
   return revoked;
@@ -230,6 +241,7 @@ export async function revokeOtherSessions(context: UserContext): Promise<number>
 
 /** Signs the person out everywhere, including here (PRD #38 §20). */
 export async function revokeAllSessions(context: UserContext): Promise<number> {
+  await assertRecentAuthentication(context);
   const revoked = await revokeSessions(prisma, { userId: context.userId });
   await recordRevocation(context, "all", revoked);
   return revoked;

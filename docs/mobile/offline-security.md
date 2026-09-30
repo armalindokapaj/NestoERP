@@ -49,4 +49,8 @@ Counters by type and outcome only (`sync_operation_count`, `sync_batch_count`); 
 
 ## Not covered here
 
-Screenshot blocking (PRD §124: by module policy, not global), Finance and HR offline (need their own security design), and hardware-backed keys in the browser.
+Screenshot blocking (MOB-11: sensitive surfaces only, see `docs/security/biometric-security.md`), Finance and HR offline (need their own security design), and hardware-backed keys in the browser.
+
+## MOB-11 additions
+
+The offline window and whether offline access exists at all come from the effective mobile policy (`offlineAuthorizationHours`, `offlineAllowed`), judged by server time. A revoked, lost or blocked device receives a data-removal instruction (`docs/security/data-removal.md`); until removal completes, `status.securityLock` keeps the sealed database closed and unsynced work cannot be sent.

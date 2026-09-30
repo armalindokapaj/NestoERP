@@ -10,7 +10,8 @@ import { getProject } from "@/lib/modules/projects/project.service";
 import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
 import { listTasks } from "@/lib/modules/tasks/task.service";
 
-import { buildAuthorizationSnapshot, type AuthorizationSnapshot } from "./authorization.service";
+import { AccessError } from "@/lib/access/guards";
+import { authorizationSnapshotFor, type AuthorizationSnapshot } from "./authorization.service";
 import { SYNC_PROTOCOL_VERSION } from "./protocol";
 
 /**
@@ -69,6 +70,9 @@ function dayOffset(days: number): string {
 export async function buildProjectPackage(context: UserContext, projectId: string, known: KnownTokens = {}): Promise<ProjectPackage> {
   // The project first: outside this person's scope it answers "not found", and the device treats that as access revoked (§58).
   const project = await getProject(context, projectId);
+  // A policy that switched offline access off also stops new packages leaving the server (MOB-11 §73, §151).
+  const authorization = await authorizationSnapshotFor(context);
+  if (!authorization.offlineAllowed) throw new AccessError("FORBIDDEN", "Offline access is turned off by your organisation's security policy.");
 
   const tasksQuery = taskListQuerySchema.parse({ projectId, openOnly: true, limit: TASK_LIMIT, page: 1, sort: "due-asc" });
   const [tasks, units, logs, drafts, documents] = await Promise.all([
@@ -97,7 +101,7 @@ export async function buildProjectPackage(context: UserContext, projectId: strin
     protocolVersion: SYNC_PROTOCOL_VERSION,
     serverTime: new Date().toISOString(),
     project,
-    authorization: buildAuthorizationSnapshot(context),
+    authorization,
     diary: { today: logs?.today?.date ?? null, canCreate: logs?.today?.canCreate ?? false },
     entities: {
       tasks: delta(known.tasks, tasks.map((task) => ({ id: task.id, data: task }))),

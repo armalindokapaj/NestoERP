@@ -51,6 +51,7 @@ export const adminDestinations: AdminDestination[] = [
       { label: "Access grants", href: "/admin/users/grants", permission: "platform.membership.view" },
       { label: "Access inspector", href: "/admin/users/inspector", permission: "platform.access.inspect" },
       { label: "Sessions", href: "/admin/users/sessions", permission: "platform.session.view" },
+      { label: "Mobile devices", href: "/admin/users/devices", permission: "platform.device.view" },
     ],
   },
   {
@@ -80,6 +81,7 @@ export const adminDestinations: AdminDestination[] = [
       { label: "Notifications", href: "/admin/system/notifications", permission: "platform.operations.view" },
       { label: "Integrations", href: "/admin/system/integrations" },
       { label: "Security", href: "/admin/system/security", permission: "platform.security.view" },
+      { label: "Mobile policy", href: "/admin/system/mobile-policy", permission: "platform.security.view" },
       { label: "Feature flags", href: "/admin/system/feature-flags", permission: "platform.feature_flag.view" },
       { label: "Maintenance", href: "/admin/system/maintenance", permission: "platform.maintenance.manage" },
       { label: "Health", href: "/admin/system/health", permission: "platform.operations.view" },

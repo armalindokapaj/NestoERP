@@ -8,11 +8,22 @@ import type { PlatformName } from "./platform";
 
 export type { CaptureService };
 
+export type DeviceFacts = {
+  /** What the OS calls the device, as far as it says ("iPhone", "Samsung SM-S918B"). Never an identifier. */
+  name: string | null;
+  deviceClass: "PHONE" | "TABLET" | null;
+  osVersion: string | null;
+  /** An emulator or simulator. A hint for policy, never proof of anything. */
+  isVirtual: boolean;
+};
+
 export interface PlatformService {
   readonly platform: PlatformName;
   readonly isNative: boolean;
   /** Installed binary version, e.g. "1.0.0"; null on the web. */
   appVersion(): Promise<{ version: string; build: string } | null>;
+  /** Plain facts about the device for the security report (MOB-11 §6, §84); null on the web. */
+  deviceFacts(): Promise<DeviceFacts | null>;
 }
 
 export interface ShareService {
@@ -56,8 +67,30 @@ export interface NotificationService {
 export interface BiometricService {
   readonly available: boolean;
   isEnrolled(): Promise<boolean>;
-  /** True only when the OS confirmed the person. Never throws for "failed" or "unavailable". */
-  authenticate(reason: string): Promise<boolean>;
+  /**
+   * Which kind of biometry the OS reports ("face", "touch", "fingerprint", …) or null. Used to notice that
+   * enrolment changed under an enabled lock (MOB-11 §43); it says nothing about the person.
+   */
+  biometryKind(): Promise<string | null>;
+  /**
+   * True only when the OS confirmed the person. Never throws for "failed" or "unavailable".
+   * `allowDeviceCredential: false` asks for a biometric specifically (MOB-11 §73).
+   */
+  authenticate(reason: string, options?: { allowDeviceCredential?: boolean }): Promise<boolean>;
+}
+
+/**
+ * The OS app-switcher preview and screen capture (MOB-11 §46, §88-§90, §100). What each platform can do
+ * differs and `docs/security/biometric-security.md` says exactly how.
+ */
+export interface PrivacyService {
+  readonly available: boolean;
+  /** Hide this app's content in the app switcher while the app is in the background. */
+  setSwitcherCover(enabled: boolean): Promise<void>;
+  /** A sensitive surface is on screen: restrict capture where the OS lets an app do so. Returns what it did. */
+  setSensitiveSurface(active: boolean): Promise<"restricted" | "detect-only" | "unsupported">;
+  /** The OS says the person took a screenshot (iOS; Android offers no reliable signal). */
+  onScreenshot(listener: () => void): () => void;
 }
 
 export type NetworkState = { online: boolean };
@@ -88,6 +121,7 @@ export interface PlatformServices {
   secureStorage: SecureStorageService;
   notifications: NotificationService;
   biometrics: BiometricService;
+  privacy: PrivacyService;
   lifecycle: AppLifecycleService;
   externalLinks: ExternalLinkService;
 }

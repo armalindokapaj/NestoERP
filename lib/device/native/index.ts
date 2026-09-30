@@ -5,10 +5,11 @@
  * with its purpose, in docs/mobile/native-capability-matrix.md.
  */
 import { BiometricAuth } from "@aparajita/capacitor-biometric-auth";
-import { SecureStorage } from "@aparajita/capacitor-secure-storage";
+import { KeychainAccess, SecureStorage } from "@aparajita/capacitor-secure-storage";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Camera } from "@capacitor/camera";
+import { PrivacyScreen } from "@capacitor-community/privacy-screen";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { Device } from "@capacitor/device";
 import { Directory, Filesystem } from "@capacitor/filesystem";
@@ -22,6 +23,7 @@ import { FilePicker } from "@capawesome/capacitor-file-picker";
 import { CaptureError, type CapturedFile, type CaptureService } from "@/lib/field/capture-service";
 import { classifyLink, safePushPath } from "../links";
 import { getPlatform } from "../platform";
+import { getSecurityState } from "../security-store";
 import type { PlatformServices } from "../types";
 
 const STORAGE_PREFIX = "nesto.";
@@ -122,6 +124,12 @@ export function createNativeServices(appOrigin: string): PlatformServices {
   const platform = getPlatform();
   if (platform === "web") throw new Error("createNativeServices called outside the native shell");
 
+  // iOS (MOB-11 §37, §154): never synced through iCloud Keychain, and readable only on this device, so a backup
+  // restored onto another phone arrives without the offline key or anything else secret. Android's Keystore
+  // wrapping is per device already; these two calls are no-ops there.
+  void SecureStorage.setSynchronize(false).catch(() => undefined);
+  void SecureStorage.setDefaultKeychainAccess(KeychainAccess.whenUnlockedThisDeviceOnly).catch(() => undefined);
+
   return {
     platform: {
       platform,
@@ -130,12 +138,32 @@ export function createNativeServices(appOrigin: string): PlatformServices {
         const info = await App.getInfo();
         return { version: info.version, build: info.build };
       },
+      async deviceFacts() {
+        try {
+          const info = await Device.getInfo();
+          const tablet = /ipad|tablet/i.test(info.model) || (platform === "android" && Math.min(window.screen.width, window.screen.height) >= 600);
+          // Android reports a model code ("SM-S918B"); the manufacturer makes it readable. iOS already says iPhone / iPad.
+          const name = platform === "android" && info.manufacturer ? `${info.manufacturer.charAt(0).toUpperCase()}${info.manufacturer.slice(1)} ${info.model}` : info.model;
+          return { name: name.slice(0, 80) || null, deviceClass: tablet ? ("TABLET" as const) : ("PHONE" as const), osVersion: info.osVersion || null, isVirtual: info.isVirtual };
+        } catch {
+          return null;
+        }
+      },
     },
     capture: nativeCapture,
-    files: { saveOrOpen: async ({ file }) => void (await shareFileNatively(file, file.name)) },
+    files: {
+      async saveOrOpen({ file }) {
+        // Exporting a file out of NESTO's storage is the organization's to allow (MOB-11 §93, §95).
+        if (getSecurityState()?.policy.documentExportAllowed === false) throw new Error("EXPORT_NOT_ALLOWED");
+        await shareFileNatively(file, file.name);
+      },
+    },
     share: {
-      available: true,
+      get available() {
+        return getSecurityState()?.policy.nativeShareAllowed !== false;
+      },
       async shareLink({ title, url }) {
+        if (getSecurityState()?.policy.nativeShareAllowed === false) return false;
         try {
           await Share.share({ title, url });
           return true;
@@ -143,7 +171,7 @@ export function createNativeServices(appOrigin: string): PlatformServices {
           return false;
         }
       },
-      shareFile: ({ title, file }) => shareFileNatively(file, title),
+      shareFile: async ({ title, file }) => (getSecurityState()?.policy.nativeShareAllowed === false || getSecurityState()?.policy.documentExportAllowed === false ? false : shareFileNatively(file, title)),
     },
     secureStorage: {
       available: true,
@@ -155,9 +183,10 @@ export function createNativeServices(appOrigin: string): PlatformServices {
       remove: async (key) => void (await SecureStorage.remove(STORAGE_PREFIX + key)),
       async clear() {
         // The offline encryption keys stay: signing out must not make unsynced work unreadable (MOB-09 §10, §97).
-        // They are removed only when the person discards an account's offline data (`destroyKey`).
+        // They are removed only when the person discards an account's offline data (`destroyKey`). So does this
+        // install's own random id (MOB-11 §7): it names the installation, not the person, and outlives sign-out.
         for (const key of await SecureStorage.keys()) {
-          if (key.startsWith(STORAGE_PREFIX) && !key.startsWith(`${STORAGE_PREFIX}offline.key.`)) await SecureStorage.remove(key);
+          if (key.startsWith(STORAGE_PREFIX) && !key.startsWith(`${STORAGE_PREFIX}offline.key.`) && key !== `${STORAGE_PREFIX}install.id`) await SecureStorage.remove(key);
         }
       },
     },
@@ -217,14 +246,38 @@ export function createNativeServices(appOrigin: string): PlatformServices {
           return false;
         }
       },
-      async authenticate(reason) {
+      async biometryKind() {
         try {
-          await BiometricAuth.authenticate({ reason, allowDeviceCredential: true });
+          const result = await BiometricAuth.checkBiometry();
+          return result.isAvailable ? String(result.biometryType) : null;
+        } catch {
+          return null;
+        }
+      },
+      async authenticate(reason, options) {
+        try {
+          await BiometricAuth.authenticate({ reason, allowDeviceCredential: options?.allowDeviceCredential ?? true });
           return true;
         } catch {
           return false;
         }
       },
+    },
+    privacy: {
+      available: true,
+      async setSwitcherCover(enabled) {
+        // iOS: the plugin draws an opaque cover as the app resigns active; it is also what hides the switcher snapshot.
+        // Android 13+: the shell opts out of the recents screenshot natively (MainActivity), so there is nothing to toggle here.
+        if (platform !== "ios") return;
+        await (enabled ? PrivacyScreen.enable() : PrivacyScreen.disable()).catch(() => undefined);
+      },
+      async setSensitiveSurface(active) {
+        if (platform === "ios") return "detect-only";
+        // Android: FLAG_SECURE for as long as the surface is shown. Blocks screenshots, recording and the recents preview.
+        await (active ? PrivacyScreen.enable() : PrivacyScreen.disable()).catch(() => undefined);
+        return "restricted";
+      },
+      onScreenshot: (listener) => listen(PrivacyScreen.addListener("screenshotTaken", () => listener())),
     },
     lifecycle: {
       onResume: (listener) => listen(App.addListener("resume", listener)),

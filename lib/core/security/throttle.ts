@@ -50,6 +50,10 @@ export const THROTTLES = {
     token: { limit: 10, windowMs: 15 * MINUTE },
     ip: { limit: 20, windowMs: 15 * MINUTE },
   },
+  /** A signed-out app asking whether its device was revoked (MOB-11 §20). Counts every call; generous because resume and reconnect both ask. */
+  DEVICE_STATE: {
+    ip: { limit: 120, windowMs: 15 * MINUTE },
+  },
   /** A signed-in session guessing its own current password. */
   PASSWORD_CHANGE: {
     account: { limit: 5, windowMs: 15 * MINUTE },

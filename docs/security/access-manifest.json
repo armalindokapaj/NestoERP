@@ -10055,7 +10055,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view"]
+        "permissions": ["company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "SYSTEM", "enabled": true, "permissions": ["settings.manage","settings.view"] },
       "support": {
@@ -11185,7 +11185,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -11340,7 +11340,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -11460,7 +11460,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }

@@ -33,6 +33,8 @@ export async function createSession(input: {
   workspaceScope?: WorkspaceScopeType | "DEFAULT";
   userAgent?: string | null;
   ipAddress?: string | null;
+  /** The installed app this sign-in came from, when the shell said so (MOB-11 §7, §11). */
+  deviceId?: string | null;
 }): Promise<{ id: string; expiresAt: Date }> {
   const createdAt = new Date();
   const session = await prisma.session.create({
@@ -46,6 +48,10 @@ export async function createSession(input: {
       expiresAt: new Date(createdAt.getTime() + SESSION_TTL_MS),
       userAgent: input.userAgent ?? null,
       ipAddress: input.ipAddress ?? null,
+      ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+      // Signing in is the freshest proof there is (MOB-11 §48).
+      recentAuthAt: createdAt,
+      lastSeenAt: createdAt,
     },
     select: { id: true, expiresAt: true },
   });
@@ -207,7 +213,7 @@ export async function revokeSessionsForUser(
  * commits with the change that caused it.
  */
 export async function revokeSessions(
-  client: Pick<typeof prisma, "session" | "companyMember" | "authEvent">,
+  client: Pick<typeof prisma, "session" | "companyMember" | "authEvent" | "deviceRegistration">,
   target: {
     userId?: string;
     membershipId?: string;
@@ -215,6 +221,8 @@ export async function revokeSessions(
     parentGroupId?: string;
     exceptSessionId?: string;
     sessionId?: string;
+    /** Every session that signed in from this installed app (MOB-11 §18, §33). */
+    deviceId?: string;
     /**
      * §82 — this revocation is one workspace being taken away, not the person
      * losing their account. Anyone who still works elsewhere in the group is
@@ -229,11 +237,12 @@ export async function revokeSessions(
   // Revocation and its audit commit together. Password/account workflows that
   // already supply a transaction keep both operations inside that transaction.
   if (client === prisma) return prisma.$transaction((tx) => revokeSessions(tx, target));
-  if (!target.userId && !target.membershipId && !target.companyId && !target.parentGroupId && !target.sessionId) {
-    throw new Error("revokeSessions needs a user, membership, company, parent group or session");
+  if (!target.userId && !target.membershipId && !target.companyId && !target.parentGroupId && !target.sessionId && !target.deviceId) {
+    throw new Error("revokeSessions needs a user, membership, company, parent group, device or session");
   }
   const where = {
     ...(target.sessionId ? { id: target.sessionId } : {}),
+    ...(target.deviceId ? { deviceId: target.deviceId } : {}),
     ...(target.userId ? { userId: target.userId } : {}),
     ...(target.membershipId ? { membershipId: target.membershipId } : {}),
     ...(target.companyId ? { currentCompanyId: target.companyId } : {}),
@@ -285,12 +294,20 @@ export async function revokeSessions(
     select: { sessionId: true },
   })).map((event) => event.sessionId));
   const removed: typeof candidates = [];
+  // The push registrations these sessions made, read before the delete clears the link (MOB-11 §18).
+  const pushed = await client.deviceRegistration.findMany({
+    where: { sessionId: { in: candidates.map((row) => row.id) } },
+    select: { id: true, sessionId: true },
+  });
   for (const row of candidates) {
     // Recheck the predicate: another request may have moved or revoked this
     // row while we waited. Only the request actually deleting it records it.
     const { count } = await client.session.deleteMany({ where: { AND: [where, { id: row.id }] } });
     if (!count) continue;
     removed.push(row);
+    // Signing out or being revoked ends push to that install; the device itself stays on record.
+    const mine = pushed.filter((device) => device.sessionId === row.id).map((device) => device.id);
+    if (mine.length) await client.deviceRegistration.updateMany({ where: { id: { in: mine } }, data: { pushToken: null, enabled: false } });
   }
   if (removed.length) await client.authEvent.createMany({ data: removed.flatMap((row) => {
     const event = { userId: row.userId, sessionId: row.id, companyId: row.currentCompanyId, userAgent: row.userAgent, ipAddress: row.ipAddress };
@@ -300,6 +317,21 @@ export async function revokeSessions(
     ];
   }) });
   return removed.length;
+}
+
+/** How often a session's last-seen time is written, so a busy session is not a write per request (MOB-11 §14). */
+export const SESSION_TOUCH_INTERVAL_MS = 5 * 60_000;
+
+/** Records that the session is in use, at most once per interval. Never extends it. */
+export async function touchSession(sessionId: string, lastSeenAt: Date | null, now: number = Date.now()): Promise<void> {
+  if (lastSeenAt && now - lastSeenAt.getTime() < SESSION_TOUCH_INTERVAL_MS) return;
+  await prisma.session.updateMany({ where: { id: sessionId }, data: { lastSeenAt: new Date(now) } }).catch(() => undefined);
+}
+
+/** The person has just proved who they are again (MOB-11 §48). Server time, never the client's. */
+export async function markRecentAuthentication(sessionId: string, userId: string): Promise<boolean> {
+  const { count } = await prisma.session.updateMany({ where: { id: sessionId, userId, expiresAt: { gt: new Date() } }, data: { recentAuthAt: new Date() } });
+  return count === 1;
 }
 
 /** Conditional deletion records expiration once, even with concurrent tabs. */

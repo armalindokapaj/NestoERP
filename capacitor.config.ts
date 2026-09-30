@@ -39,6 +39,9 @@ const config: CapacitorConfig = {
     SplashScreen: { launchAutoHide: true, launchFadeOutDuration: 150, backgroundColor: "#15171c" },
     Keyboard: { resize: "native", resizeOnFullScreen: true },
     StatusBar: { overlaysWebView: true },
+    // MOB-11 §46, §88, §90: off at startup, and never a global screenshot block. The app turns it on for the iOS
+    // app-switcher cover and, on Android, only while a sensitive surface is on screen.
+    PrivacyScreen: { enable: false, preventScreenshots: false },
   },
 };
 

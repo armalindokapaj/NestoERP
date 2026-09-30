@@ -1,4 +1,5 @@
 import { apiError, apiOk, withContext } from "@/lib/api/respond";
+import { assertMobileExportAllowed } from "@/lib/core/security/mobile-policy.guard";
 import { checkRateLimit } from "@/lib/core/security/rate-limit";
 import * as documents from "@/lib/modules/documents/document.service";
 import { createDownloadGrant } from "@/lib/modules/documents/storage/download.service";
@@ -26,6 +27,8 @@ export async function GET(request: Request, { params }: Params) {
 
   return withContext(async (context) => {
     const inline = new URL(request.url).searchParams.get("inline") === "1";
+    // Viewing in NESTO is not an export; saving a copy is (MOB-11 §93).
+    if (!inline) await assertMobileExportAllowed(context.userId, request.headers);
     const file = await documents.readDocumentFile(context, documentId, { inline });
 
     return new Response(new Uint8Array(file.bytes), {
@@ -54,10 +57,11 @@ export async function GET(request: Request, { params }: Params) {
  * POST rather than GET because handing out a capability is not something a
  * proxy, a prefetch or a history entry should be able to repeat (§101).
  */
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   const { documentId } = await params;
 
   return withContext(async (context) => {
+    await assertMobileExportAllowed(context.userId, request.headers);
     const limit = checkRateLimit("DOWNLOAD_GRANT", context.membershipId);
     if (!limit.allowed) {
       return apiError("VALIDATION_ERROR", "Too many download requests. Try again shortly.");

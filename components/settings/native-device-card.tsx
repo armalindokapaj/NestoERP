@@ -8,6 +8,8 @@ import { useToast } from "@/components/ui/toast";
 import { disablePushNotifications, enablePushNotifications, isAppLockEnabled, setAppLockEnabled } from "@/lib/device/device-client";
 import { getPlatform } from "@/lib/device/platform";
 import { getPlatformServices } from "@/lib/device/registry";
+import { recordLockChoice, rememberBiometry } from "@/lib/device/security-client";
+import { useDeviceSecurity } from "@/lib/device/security-store";
 
 /**
  * Per-device switches, shown only inside the native app (MOB-08 §25, §32, §82).
@@ -20,6 +22,8 @@ export function NativeDeviceCard() {
   const [native, setNative] = React.useState(false);
   const [push, setPush] = React.useState(false);
   const [lock, setLock] = React.useState(false);
+  // Required by the organization's policy: on, and not the person's to turn off (MOB-11 §44, §73).
+  const lockRequired = Boolean(useDeviceSecurity()?.policy.appLockRequired);
   const [busy, setBusy] = React.useState<"push" | "lock" | null>(null);
 
   React.useEffect(() => {
@@ -55,8 +59,12 @@ export function NativeDeviceCard() {
     setBusy("lock");
     try {
       const ok = await setAppLockEnabled(next);
-      if (ok) setLock(next);
-      else toast({ title: t("lockUnavailable"), tone: "danger" });
+      if (ok) {
+        setLock(next);
+        // The OS kind of biometry the lock was proven with: a later change forces the password (§43).
+        if (next) await rememberBiometry();
+        void recordLockChoice(next);
+      } else toast({ title: t("lockUnavailable"), tone: "danger" });
     } finally {
       setBusy(null);
     }
@@ -67,7 +75,7 @@ export function NativeDeviceCard() {
       <h2 id="native-device-title" className="text-table font-semibold">{t("deviceTitle")}</h2>
       <ul className="mt-3 divide-y divide-line">
         <Row label={t("pushLabel")} hint={t("pushHint")} checked={push} disabled={busy !== null} onChange={togglePush} />
-        <Row label={t("lockLabel")} hint={t("lockHint")} checked={lock} disabled={busy !== null} onChange={toggleLock} />
+        <Row label={t("lockLabel")} hint={lockRequired ? t("lockRequired") : t("lockHint")} checked={lock || lockRequired} disabled={busy !== null || lockRequired} onChange={toggleLock} />
       </ul>
     </section>
   );

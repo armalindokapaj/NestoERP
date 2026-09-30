@@ -4,6 +4,7 @@ import { apiOk, readJson, withPlatformContext } from "@/lib/api/respond";
 import { AccessError } from "@/lib/access/guards";
 import { attachCompanySchema, createCompanySchema, createGroupCompanySchema, detachCompanySchema, moveCompanySchema } from "@/lib/modules/platform/platform.schema";
 import { sendTestEmail } from "@/lib/modules/platform/platform-system.service";
+import { platformDeviceAction, savePlatformMobilePolicy } from "@/lib/modules/platform/platform-mobile-security.service";
 import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
@@ -192,6 +193,14 @@ export async function POST(request: Request) {
         const input = sessionRevokeSchema.extend({ sessionId: id }).parse(body);
         await revokePlatformSession(context, input.sessionId, input.reason);
         return apiOk({ data: { ok: true } });
+      }
+      case "device.action": {
+        const input = z.object({ deviceId: id, kind: z.enum(["REVOKE", "LOST", "BLOCK", "RESTORE"]), reason: z.string().trim().min(3).max(500) }).parse(body);
+        return apiOk({ data: await platformDeviceAction(context, input.deviceId, { action: input.kind, reason: input.reason }) });
+      }
+      case "mobilePolicy.save": {
+        const input = z.object({ settings: z.record(z.string(), z.unknown()), reason: z.string().trim().min(3).max(500) }).parse(body);
+        return apiOk({ data: await savePlatformMobilePolicy(context, input.settings, input.reason) });
       }
       case "module.set": {
         const input = moduleToggleSchema.parse(body);

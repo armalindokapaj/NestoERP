@@ -152,13 +152,12 @@ describe("send-time re-check (MOB-10 §37, §38, §179, §180)", () => {
   it("keeps the delivery as history, unsent, when the user signs out", async () => {
     const { engineer } = await engineerWithDevice();
     const notificationId = await assign(engineer);
-    // Sign-out deletes the session, which deletes the device registration.
+    // Sign-out deletes the session; the device stays (MOB-11), but nothing is sent to an install with no session.
     await prisma.session.delete({ where: { id: engineer.sessionId! } });
 
     expect((await sendDuePushDeliveries(50, "test")).suppressed).toBe(1);
     expect(sent).toHaveLength(0);
     const row = await prisma.pushDelivery.findFirstOrThrow({ where: { notificationId } });
-    expect(row.deviceRegistrationId).toBeNull();
     expect(row.state).toBe("SUPPRESSED");
   });
 

@@ -5,7 +5,7 @@ import { recordAuthorizationDenial } from "@/lib/access/security-log";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
 import { runWithRequestScope } from "@/lib/core/observability/request-scope";
-import { resolveUserContext } from "@/lib/context/resolve-user-context";
+import { resolveUserContext, resolveUserContextIgnoringDevice } from "@/lib/context/resolve-user-context";
 import type { ContextResult, UserContext } from "@/lib/context/types";
 import { isStaleWorkspace, StaleWorkspaceError, TAB_WORKSPACE_HEADER } from "@/lib/context/tab-workspace";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
@@ -110,7 +110,15 @@ export async function withContext(
  * - `any`   — the person's own affairs (notifications, their account), which
  *             have no company to get wrong.
  */
-export type WithContextOptions = { group?: "read" | "any" };
+export type WithContextOptions = {
+  group?: "read" | "any";
+  /**
+   * `ignore` is for the endpoints an app with a revoked or out-of-date device
+   * must still reach to be told so (MOB-11 §20, §139). Everything else keeps the
+   * default, which refuses such a device.
+   */
+  device?: "enforce" | "ignore";
+};
 
 async function handleRequest(
   handler: (context: UserContext) => Promise<Response>,
@@ -126,7 +134,7 @@ async function handleRequest(
   // the handler's own failures (MAINT-03, V05).
   let result: ContextResult;
   try {
-    result = await resolveUserContext();
+    result = options.device === "ignore" ? await resolveUserContextIgnoringDevice() : await resolveUserContext();
   } catch (error) {
     return translateError(error);
   }
@@ -135,6 +143,15 @@ async function handleRequest(
     if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
       recordAuthorizationDenial({ code: "UNAUTHENTICATED" });
       return apiError("UNAUTHENTICATED");
+    }
+    // The installed app, not the person: revoked or blocked, or too old (MOB-11 §139, §164).
+    if (result.reason === "DEVICE_REVOKED" || result.reason === "DEVICE_BLOCKED") {
+      recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+      return apiError("DEVICE_REVOKED", undefined, { reason: result.reason === "DEVICE_REVOKED" ? "REVOKED" : "BLOCKED" });
+    }
+    if (result.reason === "UPDATE_REQUIRED") {
+      recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+      return apiError("UPDATE_REQUIRED");
     }
     // A Platform Admin is authenticated but is nobody inside any company: a
     // business endpoint is simply not theirs (E-06 §116).

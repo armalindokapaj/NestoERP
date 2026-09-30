@@ -72,7 +72,6 @@ export default async function PlatformAccountPage() {
               current: session.current,
               device: session.device,
               companyName: null,
-              ipAddress: session.ipAddress,
               startedLabel: formatDateTime(session.createdAt),
               expiresLabel: formatDateTime(session.expiresAt),
             }))}

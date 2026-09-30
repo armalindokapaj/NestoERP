@@ -30,7 +30,7 @@ function firstIssues(issues: Array<{ path: PropertyKey[]; message: string }>): R
 }
 
 function failure(error: unknown): AccountActionResult {
-  if (error instanceof AccessError) return { ok: false, code: error.message };
+  if (error instanceof AccessError) return { ok: false, code: error.code === "REAUTH_REQUIRED" ? "REAUTH_REQUIRED" : error.message };
   console.error("[account] action failed", error);
   return { ok: false, code: "SAVE_FAILED" };
 }
@@ -86,13 +86,20 @@ export async function revokeSessionAction(sessionId: string): Promise<AccountAct
   }
   if (current) await endSessionAction();
   revalidatePath("/settings/profile");
+  revalidatePath("/settings/security");
   return { ok: true, revokedSessions: 1 };
 }
 
 export async function revokeOtherSessionsAction(): Promise<AccountActionResult> {
   const context = await requireUserContext();
-  const revoked = await account.revokeOtherSessions(context);
+  let revoked = 0;
+  try {
+    revoked = await account.revokeOtherSessions(context);
+  } catch (error) {
+    return failure(error);
+  }
   revalidatePath("/settings/profile");
+  revalidatePath("/settings/security");
   return { ok: true, revokedSessions: revoked };
 }
 

@@ -47,7 +47,7 @@ describe("visibleSettingsSections", () => {
    * offered to everyone, so /settings must never be an empty page.
    */
   it("gives every role its personal sections, whatever its module access", () => {
-    expect(PERSONAL).toEqual(["profile", "appearance", "notifications"]);
+    expect(PERSONAL).toEqual(["profile", "appearance", "notifications", "security"]);
 
     for (const role of ROLE_KEYS) {
       const slugs = visibleSettingsSections(accessFor(role)).map((section) => section.slug);

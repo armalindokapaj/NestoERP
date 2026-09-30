@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Laptop } from "lucide-react";
+import { Laptop, Smartphone } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +16,16 @@ import {
 } from "@/lib/actions/account";
 import { unsaved } from "@/lib/unsaved/coordinator";
 import { logout } from "@/lib/auth/client-lifecycle";
+import { useReauth } from "@/components/security/use-reauth";
 
 export type SessionRow = {
   id: string;
   current: boolean;
   device: string;
   companyName: string | null;
-  ipAddress: string | null;
+  /** When the server last saw it in use — never an address or a location (MOB-11 §31). */
+  lastActiveLabel?: string;
+  client?: "NATIVE" | "BROWSER";
   /** Formatted on the server, so the browser's timezone cannot cause a hydration mismatch. */
   startedLabel: string;
   expiresLabel: string;
@@ -37,6 +40,8 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
   const t = useTranslations("settings");
   const router = useRouter();
   const toast = useToast();
+  // Ending another session is a sensitive action: a recent sign-in first (MOB-11 §47). The server checks again.
+  const { ensure, dialog } = useReauth();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [confirmEverywhere, setConfirmEverywhere] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -46,6 +51,7 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
     if (sessions.some((session) => session.id === sessionId && session.current)) { void logout(); return; }
     setPendingId(sessionId);
     startTransition(async () => {
+      if (!(await ensure())) return void setPendingId(null);
       const result = await actions.revokeOne(sessionId);
       setPendingId(null);
       if (!result.ok) toast({ title: t(`profile.errors.${result.code === "NOT_FOUND" ? "NOT_FOUND" : "SAVE_FAILED"}`), tone: "danger" });
@@ -55,6 +61,7 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
 
   function revokeOthers() {
     startTransition(async () => {
+      if (!(await ensure())) return;
       const result = await actions.revokeOthers();
       if (result.ok) {
         toast({ title: t("profile.sessions.othersDone", { count: result.revokedSessions ?? 0 }), tone: "success" });
@@ -69,6 +76,7 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
     const approval = await unsaved.requestDeparture({ kind: "identity", action: "sign-out" });
     if (!approval || !approval.run(() => undefined)) return;
     startTransition(async () => {
+      if (!(await ensure())) return;
       try {
         await actions.everywhere();
       } catch {
@@ -85,15 +93,15 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
         {sessions.map((session) => (
           <li key={session.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 items-start gap-3">
-              <Laptop aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
+              {session.client === "NATIVE" ? <Smartphone aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" /> : <Laptop aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" />}
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-table font-medium text-fg">{session.device}</span>
                   {session.current ? <Badge tone="success">{t("profile.sessions.current")}</Badge> : null}
                 </div>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {session.companyName ?? t("profile.sessions.platform")} ·{" "}
-                  {session.ipAddress ?? t("profile.sessions.unknownAddress")}
+                  {session.companyName ?? t("profile.sessions.platform")}
+                  {session.lastActiveLabel ? <> · {t("profile.sessions.lastActive", { date: session.lastActiveLabel })}</> : null}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
                   {t("profile.sessions.started", { date: session.startedLabel })} ·{" "}
@@ -138,6 +146,7 @@ export function SessionList({ sessions, actions = TENANT_ACTIONS }: { sessions: 
         pending={pending}
         onConfirm={() => void signOutEverywhere()}
       />
+      {dialog}
     </div>
   );
 }
