@@ -59,7 +59,7 @@ export function DevAccessPanel({ snapshot }: { snapshot: DevAccessSnapshot }) {
   const access = snapshot.modules[moduleKey];
 
   return (
-    <div className="fixed bottom-3 left-3 z-[80] max-w-[min(22rem,calc(100vw-1.5rem))] print:hidden">
+    <div className="fixed bottom-[calc(0.75rem+var(--nesto-bottom-nav-space,0px))] left-3 z-[80] max-w-[min(22rem,calc(100vw-1.5rem))] print:hidden">
       <div className="nesto-card overflow-hidden shadow-menu">
         <button
           type="button"

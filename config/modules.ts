@@ -109,10 +109,17 @@ export type ModuleDefinition = {
    * (Announcements, through the Activity Center bell: Activity Center §4, §81).
    */
   inNavigation?: false;
+  /**
+   * Where the phone shell places this module (MOB-02 §65). `primary` puts it in
+   * the bottom bar. It is presentation only: whether the person sees it at all
+   * is still decided by the navigation resolver (module switch and permission).
+   */
+  mobilePriority?: "primary";
 };
 
 export const modules: Record<ModuleKey, ModuleDefinition> = {
   dashboard: {
+    mobilePriority: "primary",
     key: "dashboard",
     label: "Dashboard",
     description: "Your role overview across the company.",
@@ -166,6 +173,7 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     inNavigation: false,
   },
   projects: {
+    mobilePriority: "primary",
     key: "projects",
     label: "Projects",
     description: "Manage company projects and project activity.",
@@ -190,6 +198,7 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     ],
   },
   tasks: {
+    mobilePriority: "primary",
     key: "tasks",
     label: "Tasks",
     description: "Work assigned across projects and departments.",

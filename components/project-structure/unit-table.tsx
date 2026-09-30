@@ -5,6 +5,8 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
 
+import { MobileRecordCard } from "@/components/data/mobile-record";
+import { RecordActionSheet, SheetActionButton, SheetActionLink } from "@/components/data/record-action-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -87,6 +89,26 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
   );
 }
 
+/** The phone's row actions: one bottom sheet with the same actions the desktop menu offers, and only those this person holds. */
+function UnitActionSheet({ unit, href, index, count, actions }: { unit: UnitDTO; href: string; index: number; count: number; actions: UnitRowActions }) {
+  const t = useTranslations("projects");
+  if (!actions.canUpdate && !actions.canMove && !actions.canDelete && !actions.canReorder) return null;
+  return (
+    <RecordActionSheet name={unit.unitCode}>
+      <SheetActionLink href={href} icon={<ExternalLink aria-hidden="true" />}>{t("unitTable.openUnit")}</SheetActionLink>
+      {actions.canUpdate ? <SheetActionButton onSelect={() => actions.onEdit(unit)} icon={<Pencil aria-hidden="true" />}>{t("unitTable.edit")}</SheetActionButton> : null}
+      {actions.canMove ? <SheetActionButton onSelect={() => actions.onMove(unit)} icon={<MoveRight aria-hidden="true" />}>{t("unitTable.moveToFloor")}</SheetActionButton> : null}
+      {actions.canReorder ? (
+        <>
+          <SheetActionButton disabled={index === 0} onSelect={() => actions.onReorder(unit, -1)} icon={<ArrowUp aria-hidden="true" />}>{t("workspace.moveUp")}</SheetActionButton>
+          <SheetActionButton disabled={index === count - 1} onSelect={() => actions.onReorder(unit, 1)} icon={<ArrowDown aria-hidden="true" />}>{t("workspace.moveDown")}</SheetActionButton>
+        </>
+      ) : null}
+      {actions.canDelete ? <SheetActionButton destructive onSelect={() => actions.onDelete(unit)} icon={<Trash2 aria-hidden="true" />}>{t("unitTable.delete")}</SheetActionButton> : null}
+    </RecordActionSheet>
+  );
+}
+
 export function UnitTable({ projectId, list, showLocation, actions, onPage, loading }: { projectId: string; list: UnitListDTO; showLocation: boolean; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
   const t = useTranslations("projects");
@@ -162,34 +184,42 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
         </Table>
       </div>
 
+      {/* Phone (MOB-03 §45): the shared record card. The unit opens from the whole card; the actions are one sheet. */}
       <ul className="space-y-2 md:hidden" data-testid="unit-cards">
-        {list.items.map((unit, index) => (
-          <li key={unit.id} className="nesto-card flex items-start gap-3 p-3" data-testid="unit-card" data-unit-code={unit.unitCode}>
-            <Link href={href(unit)} className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
-                <span className="text-table text-fg-muted">{unit.unitType.name}</span>
-                <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
-                {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
-                {unit.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
-              </span>
-              <span className="mt-0.5 block text-meta text-fg-subtle">
-                {showLocation ? `${unit.building.name} · ${unit.floor.name} · ` : ""}
-                {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea) })}
-                {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
-              </span>
-              {/* The table's remaining columns, which the list can still be filtered and sorted by (AUD-04 §5, MW-05). */}
-              {unit.orientation || unit.position || unit.areas.internalArea !== null || unit.rooms !== null ? (
-                <span className="block text-meta text-fg-subtle" data-testid="unit-card-more">
-                  {[unit.orientation ? t(`orientation.${unit.orientation}`) : null, unit.position ? t(`position.${unit.position}`) : null, unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea) }) : null, unit.rooms !== null ? t("unitTable.roomsSuffix", { count: countText(unit.rooms) }) : null]
-                    .filter(Boolean)
-                    .join(" · ")}
+        {list.items.map((unit, index) => {
+          const more = [
+            unit.orientation ? t(`orientation.${unit.orientation}`) : null,
+            unit.position ? t(`position.${unit.position}`) : null,
+            unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea) }) : null,
+            unit.rooms !== null ? t("unitTable.roomsSuffix", { count: countText(unit.rooms) }) : null,
+          ].filter(Boolean);
+          return (
+            <MobileRecordCard
+              key={unit.id}
+              data={{ "data-testid": "unit-card", "data-unit-code": unit.unitCode }}
+              href={href(unit)}
+              title={
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
+                  <span className="text-table font-normal text-fg-muted">{unit.unitType.name}</span>
+                  <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
+                  {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
+                  {unit.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
                 </span>
-              ) : null}
-            </Link>
-            <RowMenu unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />
-          </li>
-        ))}
+              }
+              subtitle={
+                <span className="text-meta text-fg-subtle">
+                  {showLocation ? `${unit.building.name} · ${unit.floor.name} · ` : ""}
+                  {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea) })}
+                  {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
+                </span>
+              }
+              extra={more.length > 0 ? <p className="mt-1 text-meta text-fg-subtle" data-testid="unit-card-more">{more.join(" · ")}</p> : null}
+              actions={<UnitActionSheet unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />}
+              className="p-3"
+            />
+          );
+        })}
       </ul>
 
       {pages > 1 ? (

@@ -1,3 +1,7 @@
+import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { getTranslations } from "@/lib/i18n/server";
+import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
 import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
@@ -76,7 +80,7 @@ export async function AppShell({
 
   // Resolved once, here, for the active workspace, and handed to the sidebar and
   // the drawer alike (Workspace Context §24). Never kept across a workspace change.
-  const [navigation, core] = await Promise.all([resolveWorkspaceNavigation(context), resolveShellCore(context)]);
+  const [navigation, core, roleLabels] = await Promise.all([resolveWorkspaceNavigation(context), resolveShellCore(context), getTranslations("roles")]);
   recordDuration(Metric.SHELL_CORE_READY_MS, Metric.SHELL_CORE_READY, startedAt, { scope: context.workspace.scopeType });
 
   return (
@@ -143,13 +147,29 @@ export async function AppShell({
                 {/* Focusable by script only (tabIndex -1): the navigation drawer hands
                     focus here after a navigation (AUD-04 §4, MW-02). The gutters
                     include the safe-area insets, which viewport-fit=cover makes real. */}
-                <main
-                  id="nesto-main"
-                  tabIndex={-1}
-                  className="mx-auto w-full min-w-0 max-w-[1600px] pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] outline-none md:pb-8 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
-                >
+                <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
                   {children}
-                </main>
+                </PageContainer>
+                {/* The phone and tablet-portrait bottom navigation (MOB-02): the same resolved
+                    navigation as the sidebar, placed by lib/navigation/mobile.ts. Hidden from lg. */}
+                <MobileBottomNav
+                  navigation={navigation}
+                  canCreate={core.quickCreate.canOpen}
+                  account={{
+                    firstName: context.firstName,
+                    lastName: context.lastName,
+                    avatarUrl: context.avatarUrl,
+                    roleLabel: roleLabels(`${context.role}.label`),
+                    workspaceName: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
+                  }}
+                  footer={
+                    isDevMode ? (
+                      <React.Suspense fallback={null}>
+                        <DevUserSwitcher variant="drawer" />
+                      </React.Suspense>
+                    ) : null
+                  }
+                />
               </div>
               </BreadcrumbRegistryProvider>
               </RecordNavigationProvider>

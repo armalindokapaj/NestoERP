@@ -8,7 +8,7 @@ import { mainRegion, signIn } from "../fixtures";
  * tapped item is gone; `+ Create` states fit the sheet.
  */
 
-test("a drawer tap closes the drawer, and the wait stays visible in the shell (N02)", async ({ page }) => {
+test("a bottom-bar tap keeps the shell, and the wait stays visible in it (N02)", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   let release!: () => void;
   const held = new Promise<void>((resolve) => (release = resolve));
@@ -20,12 +20,10 @@ test("a drawer tap closes the drawer, and the wait stays visible in the shell (N
       await route.continue();
     },
   );
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  const drawer = page.getByRole("dialog");
-  await drawer.locator('a[href="/tasks"]').click();
-  await expect(drawer).toHaveCount(0);
-  // The tapped item is gone with the drawer; the shell keeps the wait on screen (the bar until
-  // the commit, then the destination's skeleton).
+  // Tasks is a bottom-bar destination on a phone (MOB-02); the bar stays, and the shell keeps the wait on screen
+  // (the progress bar until the commit, then the destination's skeleton).
+  await page.getByRole("navigation", { name: "Primary" }).locator('a[href="/tasks"]').click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("nav-progress").or(mainRegion(page).getByTestId("page-skeleton")).first()).toBeVisible();
   release();
   await expect(page).toHaveURL(/\/tasks$/);
@@ -48,8 +46,8 @@ test("the loading surface fits a 320px screen without horizontal scroll (L06)", 
       await route.continue();
     },
   );
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.waitForTimeout(800); // the drawer's default prefetch brings the boundary
+  await page.getByTestId("mobile-more").click();
+  await page.waitForTimeout(800); // the sheet's default prefetch brings the boundary
   await page.getByRole("dialog").locator('a[href="/calendar"]').click();
   await expect(mainRegion(page).getByTestId("page-skeleton")).toBeVisible();
   const whileLoading = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -62,7 +60,7 @@ test("+ Create's loading and retry states are reachable in the sheet (Q24)", asy
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   let fail = true;
   await page.route("**/api/quick-create/actions**", (route) => (fail ? route.fulfill({ status: 503, body: "{}" }) : route.continue()));
-  await page.getByTestId("quick-create-button").click();
+  await page.getByTestId("mobile-create").click();
   const panel = page.getByTestId("quick-create-panel");
   await expect(panel.getByTestId("quick-create-error")).toBeVisible();
   fail = false;

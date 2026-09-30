@@ -20,7 +20,7 @@ import { useSyncExternalStore } from "react";
  * lg 1024 — lg is where the navigation drawer becomes the sidebar.
  */
 
-export const BREAKPOINTS = { sm: 640, md: 768, lg: 1024, xl: 1200, "2xl": 1440 } as const;
+export const BREAKPOINTS = { xs: 480, sm: 640, md: 768, lg: 1024, xl: 1200, "2xl": 1440 } as const;
 
 export type Breakpoint = keyof typeof BREAKPOINTS;
 
@@ -78,7 +78,7 @@ export function useMediaQuery(query: string): boolean | undefined {
 }
 
 /** True below the breakpoint (a phone below `md`, the drawer layout below `lg`). */
-export function useIsBelow(bp: "sm" | "md" | "lg"): boolean | undefined {
+export function useIsBelow(bp: "xs" | "sm" | "md" | "lg"): boolean | undefined {
   return useMediaQuery(belowQuery(bp));
 }
 
@@ -89,4 +89,42 @@ export function useIsTouch(): boolean | undefined {
 
 function noopSubscribe() {
   return () => undefined;
+}
+
+export type Orientation = "portrait" | "landscape";
+
+/** Every field is `undefined` until hydration, like the hooks it is built on. */
+export type Responsive = {
+  /** Below `md` (768): phone and large phone. */
+  isPhone: boolean | undefined;
+  /** `md` up to below `lg`: 768–1023. */
+  isTablet: boolean | undefined;
+  /** `lg` (1024) and up. */
+  isDesktop: boolean | undefined;
+  orientation: Orientation | undefined;
+  /** A mouse or trackpad is the primary pointer; width says nothing about it (MOB-01 §38). */
+  hasFinePointer: boolean | undefined;
+};
+
+/**
+ * The one JavaScript answer to "what kind of viewport is this" (MOB-01 §51).
+ *
+ * Reach for CSS first (`md:`, `touch:`, container queries). Use this only when
+ * behaviour, not looks, differs — and render one tree whose state survives the
+ * change. Never read `window.innerWidth` or the user agent (§48): the queries
+ * behind it are shared stores, so ten callers register one listener each per
+ * query, and a server render agrees with the hydrating one (§49).
+ */
+export function useResponsive(): Responsive {
+  const isPhone = useMediaQuery(belowQuery("md"));
+  const isDesktop = useMediaQuery(`(min-width: ${BREAKPOINTS.lg}px)`);
+  const portrait = useMediaQuery("(orientation: portrait)");
+  const hasFinePointer = useMediaQuery("(pointer: fine)");
+  return {
+    isPhone,
+    isTablet: isPhone === undefined || isDesktop === undefined ? undefined : !isPhone && !isDesktop,
+    isDesktop,
+    orientation: portrait === undefined ? undefined : portrait ? "portrait" : "landscape",
+    hasFinePointer,
+  };
 }

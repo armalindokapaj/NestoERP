@@ -30,7 +30,7 @@ export function PopoverContent({
         collisionPadding={collisionPadding}
         className={cn(
           // z-65: above dialogs and sheets (AUD-04 §6; ladder in globals.css).
-          "z-[65] rounded-xl border border-line bg-surface shadow-lg shadow-black/10 outline-none",
+          "z-[65] max-h-[var(--radix-popover-content-available-height)] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-lg shadow-black/10 outline-none",
           "data-[state=open]:animate-[nesto-fade-in_120ms_var(--nesto-ease)]",
           className,
         )}

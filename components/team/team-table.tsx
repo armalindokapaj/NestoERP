@@ -118,6 +118,14 @@ export async function TeamTable({
       records={members}
       rowKey={(member) => member.id}
       rowHref={(member) => `/team/${member.id}`}
+      // Phone (MOB-03 §12, §48): a compact person row. It carries only what the table already draws — safe membership fields, never HR data.
+      mobile={{
+        variant: "row",
+        status: (member) => <StatusBadge status={member.status} />,
+        facts: ["role", "department"],
+        omit: ["status"],
+        label: (member) => [member.name.fullName, member.role.name, member.department?.name].filter(Boolean).join(", "),
+      }}
     />
   );
 }

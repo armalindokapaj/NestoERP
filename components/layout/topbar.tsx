@@ -98,6 +98,8 @@ export async function Topbar({
         <QuickCreate userKey={context.userId} summary={core.quickCreate} />
         <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
+        {/* Phone: the account lives in More (MOB-02 §39). */}
+        <div className="contents max-md:hidden">
         <UserMenu
           user={{
             firstName: context.firstName,
@@ -107,6 +109,7 @@ export async function Topbar({
             companyName: workspaceName,
           }}
         />
+        </div>
       </div>
     </header>
   );

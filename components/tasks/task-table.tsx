@@ -1,5 +1,5 @@
 import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
-import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
+import { PriorityBadge, StatusBadge, statusLabel } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
@@ -158,6 +158,16 @@ export async function TaskTable({
       rowKey={(task) => task.id}
       // A group row links itself, through its company (above).
       rowHref={grouped ? undefined : (task) => `/tasks/${task.id}`}
+      // Phone (MOB-03 §46): title, status, then priority, due date and project; the assignee waits behind More details.
+      mobile={{
+        status: (task) => <StatusBadge status={task.status} />,
+        facts: ["priority", "dueDate", "project"],
+        omit: ["status"],
+        label: (task) =>
+          [task.title, statusLabel(task.status), task.priority ? statusLabel(task.priority) : null, task.dueDate ? formatDate(task.dueDate) : null, task.project?.name]
+            .filter(Boolean)
+            .join(", "),
+      }}
     />
   );
 }

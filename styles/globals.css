@@ -112,6 +112,7 @@
    * replaces the namespace rather than merging with Tailwind's defaults, so a
    * partial list would silently drop `sm:` from the build.
    */
+  --breakpoint-xs: 480px;
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
@@ -181,6 +182,8 @@
     --nesto-shell-breadcrumb-h: 2.5rem;
     --nesto-shell-tabs-h: 0px;
     --nesto-sticky-stack: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-tabs-h));
+    /* MOB-01 §8: the name pages use; where a page's own sticky regions start. */
+    --nesto-sticky-top-offset: var(--nesto-sticky-stack);
     --nesto-z-shell-header: 30;
     --nesto-z-shell-breadcrumb: 29;
     --nesto-z-shell-tabs: 28;
@@ -209,6 +212,48 @@
     html:has([data-sticky-action-bar]) {
       --nesto-bottom-reserve: 0px;
     }
+  }
+
+  /*
+   * The phone bottom navigation (MOB-02 §14, §15, §47, §48). While it is on the
+   * page, content, focus scrolling and toasts keep clear of it by one variable,
+   * so no module adds bottom padding of its own. It steps aside where it would
+   * cost room a person needs: a form's own action bar (one bottom bar at a
+   * time) and an open on-screen keyboard (a focused text field).
+   */
+  html:has([data-mobile-bottom-nav]) {
+    --nesto-bottom-nav-space: calc(3.5rem + var(--nesto-safe-bottom));
+    --nesto-bottom-reserve: var(--nesto-bottom-nav-space);
+  }
+
+  @media (min-width: 1024px) {
+    html:has([data-mobile-bottom-nav]) {
+      --nesto-bottom-nav-space: 0px;
+      --nesto-bottom-reserve: 0px;
+    }
+  }
+
+  /* A form's action bar takes the bottom edge: the bar reserves its own room (5.5rem on a phone). */
+  html:has([data-mobile-bottom-nav]):has([data-sticky-action-bar]) {
+    --nesto-bottom-nav-space: 0px;
+    --nesto-bottom-reserve: 5.5rem;
+  }
+
+  @media (min-width: 768px) {
+    html:has([data-mobile-bottom-nav]):has([data-sticky-action-bar]) {
+      --nesto-bottom-reserve: 0px;
+    }
+  }
+
+  /* An open keyboard: the field, not the bar, gets the height. */
+  html:has([data-mobile-bottom-nav]):has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) {
+    --nesto-bottom-nav-space: 0px;
+    --nesto-bottom-reserve: 0px;
+  }
+
+  html:has([data-sticky-action-bar]) [data-mobile-bottom-nav],
+  html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-bottom-nav] {
+    display: none;
   }
 
   body {
@@ -288,6 +333,45 @@
 }
 
 @layer utilities {
+  /*
+   * Page container (MOB-01 §10, components/ui/page-container.tsx). Width,
+   * gutters (safe-area aware) and vertical rhythm, all from tokens.
+   * `data-gutter="none"` is for a container nested inside one that already
+   * has gutters.
+   */
+  .nesto-page {
+    margin-inline: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: var(--nesto-content-max-width);
+    padding-top: var(--nesto-space-page-y);
+    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px));
+    padding-left: max(var(--nesto-space-page-x), var(--nesto-safe-left));
+    padding-right: max(var(--nesto-space-page-x), var(--nesto-safe-right));
+  }
+  .nesto-page[data-variant="wide"] {
+    max-width: none;
+  }
+  .nesto-page[data-variant="full"] {
+    max-width: none;
+    padding-left: var(--nesto-safe-left);
+    padding-right: var(--nesto-safe-right);
+  }
+  .nesto-page[data-variant="compact"] {
+    padding-top: calc(var(--nesto-space-page-y) * 0.6);
+    padding-left: max(calc(var(--nesto-space-page-x) * 0.75), var(--nesto-safe-left));
+    padding-right: max(calc(var(--nesto-space-page-x) * 0.75), var(--nesto-safe-right));
+  }
+  /* A `vh` height first for browsers without dynamic units, then `dvh` (MOB-01 §28, §46). */
+  .nesto-technical-viewport {
+    height: calc(100vh - var(--nesto-sticky-stack, 0px));
+    height: calc(100dvh - var(--nesto-sticky-stack, 0px));
+  }
+  .nesto-page[data-gutter="none"] {
+    padding: 0;
+    max-width: none;
+  }
+
   /* §20: white surface, 12px radius, 1px border, minimal shadow. */
   .nesto-card {
     background-color: var(--nesto-surface);

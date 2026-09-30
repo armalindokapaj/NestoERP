@@ -18,7 +18,7 @@ test("search opens full screen with recent work and the link to My Work", async 
 
 test("+ Create opens a bottom sheet of the actions the person may create", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-  await page.getByTestId("quick-create-button").click();
+  await page.getByTestId("mobile-create").click();
   const panel = page.getByTestId("quick-create-panel");
   await expect(panel).toBeVisible();
   await expect(panel.getByTestId("quick-create-tasks.task.create")).toBeVisible();

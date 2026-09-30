@@ -1,5 +1,4 @@
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
 import Link from "@/components/navigation/nav-link";
 
 import {
@@ -10,6 +9,9 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@/components/ui/table";
+import { MobileRecordCard, MobileRecordRow, type RecordFact } from "@/components/data/mobile-record";
+import { SelectionBar, SelectionProvider, SelectModeToggle, SelectRecordCheckbox } from "@/components/data/selection";
+import type { MobileRecordPresentation } from "@/lib/data/query-state";
 import { SortHeaderCell, type TableSortConfig } from "@/components/data/sort-header";
 import { TableColumnsScope } from "@/components/data/table-columns";
 import { TableSortSelect } from "@/components/data/table-sort-select";
@@ -76,6 +78,13 @@ export type TableColumn<T> = {
    * allowlisted value such as `recent`. Makes the header a sort control.
    */
   sortKey?: string;
+  /**
+   * How much a phone shows this column (MOB-03 §54): `primary` is the title,
+   * `secondary` (the default) a labelled line on the card, `detail` only
+   * behind "More details". Desktop is unaffected: this never hides a table
+   * column, and it never changes what the server sent.
+   */
+  priority?: "primary" | "secondary" | "detail";
 };
 
 /** The column's stable id (AUD-08 §5). */
@@ -119,6 +128,8 @@ export function DataTable<T>({
   actions,
   listId,
   sort,
+  mobile,
+  selectable,
 }: {
   columns: TableColumn<T>[];
   records: T[];
@@ -135,6 +146,21 @@ export function DataTable<T>({
   listId?: string;
   /** Where header sort controls read and write the sort (AUD-08 §4). Needed only with `sortKey` columns. */
   sort?: TableSortConfig;
+  /**
+   * The phone presentation (MOB-03 §11). Slots and a fact list; the table's
+   * data, query and permissions are the same as on desktop.
+   */
+  mobile?: MobileRecordPresentation<T> & {
+    /** Column keys shown as facts, in order (2-4 is the aim); other secondary columns go to "More details". */
+    facts?: string[];
+    /** Column keys already drawn by a slot (status, value): left out of "More details" too. */
+    omit?: string[];
+  };
+  /**
+   * Opt in to phone selection mode with bulk actions (MOB-03 §30-§33).
+   * `actions` are client components reading `useSelection()`, e.g. `BulkAction`.
+   */
+  selectable?: { actions?: React.ReactNode };
 }) {
   const primary = columns.find((column) => column.primary) ?? columns[0];
   const secondary = columns.filter((column) => column !== primary);
@@ -233,73 +259,57 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {/* Mobile: record cards (PRD #7 §86, AUD-04 §5). */}
-      <ul className="space-y-2 md:hidden">
-        {records.map((record) => (
-          <li
-            key={rowKey(record)}
-            data-record-card
-            className={cn(
-              "nesto-card relative p-4",
-              rowHref && "transition-colors hover:bg-row-hover has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-ring/40",
-            )}
-          >
-            <div className="flex items-start gap-3">
-              {/* Long values wrap on a card; a truncated one is shown whole. */}
-              <div className="min-w-0 flex-1 text-body font-medium text-fg [overflow-wrap:anywhere] [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal">
-                {rowHref ? (
-                  <Link
-                    href={rowHref(record)}
-                    data-card-link
-                    className="transition-colors after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] hover:text-accent focus-visible:outline-none"
-                  >
-                    {primary.render(record)}
-                  </Link>
-                ) : (
-                  primary.render(record)
-                )}
-              </div>
-              {rowHref ? <ChevronRight aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" /> : null}
-            </div>
-            <dl className="mt-2 space-y-1 [&_a]:relative [&_a]:z-10 [&_button]:relative [&_button]:z-10">
-              {secondary.map((column) => (
-                <div
-                  key={column.key}
-                  // Status stays on the card whatever the table shows (AUD-08 §5).
-                  data-col-id={column.valueType === "status" ? undefined : colId(column)}
-                  className="flex items-baseline gap-2 text-table"
-                >
-                  <dt className="shrink-0 text-fg-subtle">{column.label}</dt>
-                  <dd
-                    className={cn(
-                      "min-w-0 text-fg-muted",
-                      isFigureColumn(column)
-                        ? "tabular-nums"
-                        : "[overflow-wrap:anywhere] [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal",
-                    )}
-                  >
-                    {column.render(record)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {actions ? (
-              // Above the stretched title link: acting on a row never opens it. A row with
-              // no action (a voided payment) draws no empty strip.
-              <div data-card-actions className="relative z-10 mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3 empty:hidden">
-                {actions(record)}
-              </div>
-            ) : null}
-          </li>
-        ))}
+      {/* Mobile: record cards or compact rows (PRD #7 §86, AUD-04 §5, MOB-03). */}
+      {selectable ? <SelectModeToggle className="mb-2 flex justify-end md:hidden" /> : null}
+      <ul className={cn("md:hidden", mobile?.variant === "row" ? "nesto-card overflow-hidden" : "space-y-2")}>
+        {records.map((record) => {
+          const id = rowKey(record);
+          const asFact = (column: TableColumn<T>): RecordFact => ({
+            key: column.key,
+            label: column.label,
+            value: column.render(record),
+            figure: isFigureColumn(column),
+            // Status stays on the card whatever the table shows (AUD-08 §5).
+            colId: column.valueType === "status" ? undefined : colId(column),
+          });
+          let facts: RecordFact[];
+          let details: RecordFact[];
+          if (mobile?.facts) {
+            const listed = mobile.facts.map((key) => secondary.find((column) => column.key === key)).filter((column): column is TableColumn<T> => Boolean(column));
+            facts = listed.map(asFact);
+            details = secondary.filter((column) => !listed.includes(column) && !mobile.omit?.includes(column.key)).map(asFact);
+          } else {
+            facts = secondary.filter((column) => column.priority !== "detail").map(asFact);
+            details = secondary.filter((column) => column.priority === "detail").map(asFact);
+          }
+          const label = mobile?.label?.(record);
+          const props = {
+            href: rowHref?.(record),
+            title: primary.render(record),
+            subtitle: mobile?.subtitle?.(record),
+            status: mobile?.status?.(record),
+            value: mobile?.value?.(record),
+            leading: mobile?.leading?.(record),
+            facts,
+            details,
+            actions: actions?.(record),
+            selection: selectable ? <SelectRecordCheckbox id={id} name={label ?? id} /> : undefined,
+            label,
+          };
+          return mobile?.variant === "row" ? <MobileRecordRow key={id} {...props} /> : <MobileRecordCard key={id} {...props} />;
+        })}
       </ul>
+      {selectable ? <SelectionBar>{selectable.actions}</SelectionBar> : null}
     </>
   );
 
-  if (!listId) return table;
-  return (
+  const scoped = listId ? (
     <TableColumnsScope listId={listId} columns={columnMetaOf(columns)} label={caption} leading={sortControl}>
       {table}
     </TableColumnsScope>
+  ) : (
+    table
   );
+  if (!selectable) return scoped;
+  return <SelectionProvider visibleIds={records.map(rowKey)}>{scoped}</SelectionProvider>;
 }

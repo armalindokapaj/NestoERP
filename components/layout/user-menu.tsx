@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "@/components/navigation/nav-link";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { logout } from "@/lib/auth/client-lifecycle";
+import { useSignOut } from "@/components/layout/use-sign-out";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { unsaved } from "@/lib/unsaved/coordinator";
 import { fullName, roleAndCompany } from "@/lib/utils/format";
 
 /**
@@ -52,29 +51,14 @@ const keyboardFocus =
  */
 export function UserMenu({ user }: { user: UserMenuUser }) {
   const t = useTranslations("shell");
-  const [signingOut, setSigningOut] = useState(false);
   const [input, setInput] = useState<"keyboard" | "pointer">("pointer");
-  const leaving = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const name = fullName(user.firstName, user.lastName);
   const context = roleAndCompany(user.roleLabel, user.companyName);
 
-  async function handleLogout() {
-    if (leaving.current) return;
-    // Unsaved work is asked about before the session ends; a save offered here
-    // runs as this person, before anything changes (AUD-03 §7).
-    const approval = await unsaved.requestDeparture({ kind: "identity", action: "sign-out" });
-    if (!approval || !approval.run(() => undefined)) {
-      // Stayed: back to the page, not to a menu left open behind the question.
-      setMenuOpen(false);
-      return;
-    }
-    leaving.current = true;
-    setSigningOut(true);
-
-    await logout();
-  }
+  // Stayed: back to the page, not to a menu left open behind the question.
+  const { signOut: handleLogout, signingOut } = useSignOut(() => setMenuOpen(false));
 
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
