@@ -76,24 +76,26 @@ export type ReadinessInput = {
 export function evaluateReadiness(input: ReadinessInput): Readiness {
   const category = input.unitType?.category ?? "OTHER";
   const items: ReadinessItem[] = [];
-  const add = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string) => items.push({ key, label, ok, hint: ok ? null : hint });
+  const add = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, required = true) => items.push({ key, label, ok, required, hint: ok ? null : hint });
+  // Needed for a complete listing, but a unit may be published without them.
+  const recommend = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string) => add(key, label, ok, hint, false);
 
   add("unitCode", "Unit code", input.unitCode.trim().length > 0, "Give the unit a code.");
   add("unitType", "Unit type", input.unitType !== null, "Choose the unit type.");
   add("location", "Building and floor", input.building !== null && input.floor !== null, "Place the unit on a floor.");
-  add("primaryArea", primaryAreaLabel(category), PRIMARY_AREAS[category].some((field) => input.areas[field] !== null), `Enter the ${primaryAreaLabel(category).toLowerCase()}.`);
+  recommend("primaryArea", primaryAreaLabel(category), PRIMARY_AREAS[category].some((field) => input.areas[field] !== null), `Enter the ${primaryAreaLabel(category).toLowerCase()}.`);
   if (category === "RESIDENTIAL") {
     add("bedrooms", "Bedrooms", input.bedrooms !== null, "Enter the number of bedrooms (0 for a studio).");
     add("bathrooms", "Bathrooms", input.bathrooms !== null, "Enter the number of bathrooms.");
     add("orientation", "Orientation", input.orientation !== null, "Choose which way the unit faces.");
   }
-  add(
+  recommend(
     "salesPlan",
     "Sales Plan",
     input.salesPlan?.available === true,
     input.salesPlan ? "The Sales Plan is still being checked, or is not an available PDF." : "Upload the Sales Plan PDF.",
   );
-  add(
+  recommend(
     "primaryImage",
     "Primary image",
     input.primaryImage?.available === true,
@@ -107,8 +109,9 @@ export function evaluateReadiness(input: ReadinessInput): Readiness {
     input.unavailableReferences === 1 ? "One attached file is archived or unavailable. Remove it from the unit." : `${input.unavailableReferences} attached files are archived or unavailable. Remove them from the unit.`,
   );
 
-  const complete = items.filter((item) => item.ok).length;
-  return { ready: complete === items.length, items, complete, required: items.length, missing: items.filter((item) => !item.ok).map((item) => item.label) };
+  const requiredItems = items.filter((item) => item.required);
+  const complete = requiredItems.filter((item) => item.ok).length;
+  return { ready: complete === requiredItems.length, items, complete, required: requiredItems.length, missing: requiredItems.filter((item) => !item.ok).map((item) => item.label) };
 }
 
 /** The refusal a publish or a submission gives when something is missing (§46, §81). */

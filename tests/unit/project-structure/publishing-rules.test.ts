@@ -63,7 +63,7 @@ describe("readiness (§16, §17, §45, §80)", () => {
   it("names what is missing, in order, with a hint for each", () => {
     const readiness = evaluateReadiness(input({ areas: { ...areas, saleableArea: null }, orientation: null, salesPlan: null, primaryImage: { available: false }, unavailableReferences: 2 }));
     expect(readiness.ready).toBe(false);
-    expect(readiness.missing).toEqual(["Saleable area", "Orientation", "Sales Plan", "Primary image", "Attached files available"]);
+    expect(readiness.missing).toEqual(["Orientation", "Attached files available"]);
     expect(readiness.items.find((item) => item.key === "salesPlan")?.hint).toBe("Upload the Sales Plan PDF.");
     expect(readiness.items.find((item) => item.key === "primaryImage")?.hint).toContain("still being checked");
     expect(readiness.items.find((item) => item.key === "references")?.hint).toContain("2 attached files");
@@ -74,7 +74,15 @@ describe("readiness (§16, §17, §45, §80)", () => {
     expect(parking.ready).toBe(true);
     expect(parking.items.map((item) => item.key)).not.toContain("bedrooms");
     const land = evaluateReadiness(input({ unitType: { name: "Land", category: "LAND" }, areas: { ...areas, saleableArea: null, grossArea: null } }));
-    expect(land).toMatchObject({ ready: false, missing: ["Saleable or gross area"] });
+    expect(land.ready).toBe(true);
+    expect(land.items.find((item) => item.key === "primaryArea")).toMatchObject({ label: "Saleable or gross area", ok: false, required: false });
+  });
+
+  it("flags a missing area, Sales Plan or primary image as needed without blocking publishing", () => {
+    const readiness = evaluateReadiness(input({ areas: { ...areas, saleableArea: null }, salesPlan: null, primaryImage: null }));
+    expect(readiness).toMatchObject({ ready: true, missing: [] });
+    expect(readiness.items.filter((item) => !item.ok).map((item) => [item.key, item.required])).toEqual([["primaryArea", false], ["salesPlan", false], ["primaryImage", false]]);
+    expect(readiness.required).toBe(readiness.items.length - 3);
   });
 
   it("counts a studio's zero bedrooms as given", () => {
