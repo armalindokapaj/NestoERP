@@ -233,6 +233,8 @@ export async function createUploadSession(
  * grant is spent — even if its signature has minutes left — so a verified
  * object cannot be swapped for unverified bytes through the same URL.
  */
+const PROJECT_3D_ENVIRONMENT_KEY = /^companies\/[^/]+\/projects\/[^/]+\/3d\/environment\/[a-f0-9]{32}\.(png|ies)$/;
+
 export async function uploadSessionAcceptsBytes(storageKey: string, now = new Date()): Promise<boolean> {
   const session = await prisma.documentUploadSession.findUnique({
     where: { storageKey },
@@ -242,6 +244,11 @@ export async function uploadSessionAcceptsBytes(storageKey: string, now = new Da
   // Native Project 3D artifacts use the same signed, single-use object endpoint.
   // The pending version is the capability record; verification moves it out of
   // UPLOADED, after which this endpoint refuses any replay.
+  // A Project 3D environment file (backdrop photo, IES profile) has no row of its
+  // own: the signed grant — key, expiry and size bound in — is the capability,
+  // the object can be written only once, and the editor's completion step checks
+  // what arrived before any Experience refers to it.
+  if (PROJECT_3D_ENVIRONMENT_KEY.test(storageKey)) return true;
   const model = await prisma.project3DModelVersion.findFirst({ where: { sourceStorageKey: storageKey, status: "UPLOADED", deletedAt: null }, select: { createdAt: true } });
   return Boolean(model && now.getTime() - model.createdAt.getTime() <= 15 * 60 * 1000);
 }

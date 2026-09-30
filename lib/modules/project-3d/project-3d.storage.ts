@@ -1,6 +1,6 @@
 import { assertKeyBelongsToCompany, isWellFormedKey } from "@/lib/core/storage/storage-provider";
 
-export type Project3DStorageKind = "source" | "runtime" | "derived";
+export type Project3DStorageKind = "source" | "runtime" | "derived" | "environment";
 
 function opaqueId(): string {
   return crypto.randomUUID().replaceAll("-", "");

@@ -5,6 +5,7 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import { buildProjectScopeWhere } from "@/lib/access/scope";
 import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
 import { parseProject3DExperience } from "@/lib/3d/shared/experience";
+import { companyEnvironmentBase, platformEnvironmentBase, resolveEnvironmentRefs } from "@/lib/3d/shared/environment-refs";
 import { project3DReleaseManifestSchema } from "@/lib/3d/shared/release.schema";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import type { UserContext } from "@/lib/context/types";
@@ -248,6 +249,8 @@ async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: Vie
   let experience;
   try {
     experience = parseProject3DExperience({ schemaVersion: 1, revision: 1, config: manifest.experience }).config;
+    // Stored backdrop photos and IES profiles are read through this audience's own route.
+    experience = resolveEnvironmentRefs(experience, reader.audience === "platform" ? platformEnvironmentBase(project.id) : companyEnvironmentBase(project.id));
   } catch {
     throw new AccessError("CONFLICT", "The published 3D release is unavailable.", { code: "INVALID_EXPERIENCE" });
   }
