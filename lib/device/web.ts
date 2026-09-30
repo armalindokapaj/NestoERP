@@ -62,6 +62,7 @@ export function createWebServices(): PlatformServices {
       register: async () => null,
       unregister: async () => undefined,
       onOpen: () => noop,
+      onReceive: () => noop,
     },
     biometrics: { available: false, isEnrolled: async () => false, authenticate: async () => false },
     lifecycle: {

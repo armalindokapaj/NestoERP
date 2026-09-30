@@ -20,6 +20,7 @@ import { sendMail } from "@/lib/mail";
 import type { MailTemplateKey } from "@/lib/mail/mail.types";
 import { findNotificationEvent, readPayload, type OutboxEvent } from "./notification.events";
 import { deliveryPreferences } from "./notification.preferences";
+import { queuePush, type QueuedNotification } from "./push.service";
 
 /**
  * The outbox dispatcher (PRD #25 §25, §230-§245, PRD #38 §79-§82).
@@ -371,10 +372,11 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
   const body = definition.body?.(copy)?.slice(0, 1000) ?? null;
 
   const emailJobs: EmailJob[] = [];
+  const pushEntries: QueuedNotification[] = [];
   let created = 0;
 
   for (const memberId of entitled) {
-    const preference = preferences.get(memberId) ?? { inApp: true, email: false };
+    const preference = preferences.get(memberId) ?? { inApp: true, email: false, push: true };
     if (!preference.inApp) continue;
 
     const dedupeKey = definition.dedupe(event, memberId, payload);
@@ -395,6 +397,8 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
           projectId: event.projectId,
           actorMemberId: event.actorMemberId,
           dedupeKey,
+          // One record, one thread: related notifications collapse together (MOB-10 §96).
+          threadKey: `${event.entityType}:${event.entityId}`.slice(0, 120),
           // The workflow's one id, carried from the command through its outbox
           // event and this worker attempt onto the row the recipient reads
           // (AUD-10 §8, gap 9). An id, never content.
@@ -408,6 +412,23 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
       });
       notificationId = notification.id;
       created += 1;
+      // Only a notification written now is pushed now: a replayed event that hit the
+      // dedupe key below was already queued on its first attempt.
+      const userId = contexts.get(memberId)?.userId;
+      if (userId) {
+        pushEntries.push({
+          notificationId: notification.id,
+          companyId: event.companyId,
+          userId,
+          memberId,
+          eventType: event.eventType,
+          category: definition.category,
+          priority: definition.priority,
+          projectId: event.projectId,
+          mandatory: Boolean(definition.mandatory),
+          categoryPushEnabled: preference.push,
+        });
+      }
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
       // Already delivered on an earlier attempt: the dedupe key held. If that
@@ -429,6 +450,12 @@ async function dispatchOne(row: ClaimedRow): Promise<{ created: number; emailed:
       });
     }
   }
+
+  // Push is queued after the rows exist and can never fail the event: the
+  // in-app notification is the record, the phone is a courtesy (MOB-10 §110, §114).
+  await queuePush(pushEntries).catch((error) => {
+    logger.error("notification.push.queue_failed", { eventType: event.eventType, ...serialiseError(error) });
+  });
 
   const emailed = await sendNotificationEmails(event, definition.email?.templateKey, emailJobs);
   return { created, emailed };

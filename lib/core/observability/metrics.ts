@@ -19,6 +19,11 @@ export const Metric = {
   MAIL_SUPPRESSED: "mail_suppressed_count",
   NOTIFICATION_DISPATCH_SUCCESS: "notification_dispatch_success_count",
   NOTIFICATION_DISPATCH_FAILURE: "notification_dispatch_failure_count",
+  // Push delivery (MOB-10 §113): labels are platform and, for failures, whether the row is final. Never a person or a token.
+  PUSH_ATTEMPTED: "push_attempted_count",
+  PUSH_ACCEPTED: "push_accepted_count",
+  PUSH_FAILED: "push_failed_count",
+  PUSH_TOKEN_INVALID: "push_token_invalid_count",
   UPLOAD_FINALIZE_FAILURE: "upload_finalize_failure_count",
   SCAN_FAILURE: "scan_failure_count",
   PREVIEW_FAILURE: "preview_failure_count",

@@ -121,6 +121,26 @@ describe("idempotency (§31, §82, §129, §155)", () => {
     expect(await prisma.hseIncident.count({ where: { projectId: SITE } })).toBe(1);
   });
 
+  it("a critical incident raises its notification event only once the server has it, and only once (MOB-10 §73, §166, §176)", async () => {
+    const report = op({ type: "HSE_CREATE", payload: { incidentType: "INCIDENT", severity: "CRITICAL", title: "Fall from height", description: "Worker fell from scaffold.", immediateAction: "Area cordoned off, first aid given.", occurredAt: new Date().toISOString() } });
+    // Captured offline: nothing has reached the server, so nothing can have been raised.
+    expect(await prisma.notificationEventOutbox.count({ where: { eventType: "HSE_CRITICAL_RISK", projectId: SITE } })).toBe(0);
+
+    const [first] = await send(hse, report);
+    expect(first!.result, JSON.stringify(first)).toBe("APPLIED");
+    const incidentId = first!.canonicalEntityId!;
+    const events = () => prisma.notificationEventOutbox.findMany({ where: { eventType: "HSE_CRITICAL_RISK", entityId: incidentId } });
+    expect(await events()).toHaveLength(1);
+
+    // A retry, even after the ledger row was lost, raises nothing new.
+    await prisma.syncOperation.deleteMany({ where: { operationId: report.operationId } });
+    await send(hse, report);
+    expect(await events()).toHaveLength(1);
+
+    await prisma.notification.deleteMany({ where: { entityId: incidentId } });
+    await prisma.notificationEventOutbox.deleteMany({ where: { entityId: incidentId } });
+  });
+
   it("refuses one operation id reused for different work", async () => {
     const one = op({ type: "TASK_COMMENT_CREATE", target: { entityType: "Task", entityId: TASK }, payload: { body: "first" } });
     await send(engineer, one);

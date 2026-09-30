@@ -82,7 +82,24 @@ export async function operationalGauges(now: Date = new Date()): Promise<GaugeSa
   const ageSeconds = (date: Date | null | undefined) =>
     date ? Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000)) : 0;
 
+  // Push delivery (MOB-10 §113, §190, §191): counts and ages only, never a person, a token or a message.
+  const [pushDue, pushFailedHour, pushInvalidHour, pushAcceptedHour, pushAttemptedHour] = await Promise.all([
+    prisma.$queryRaw<Array<{ count: number; oldest: Date | null }>>`
+      SELECT COUNT(*)::int AS "count", MIN("sendAfter") AS "oldest" FROM "push_deliveries"
+      WHERE "state" = 'QUEUED' AND "sendAfter" <= ${DB_NOW}`,
+    prisma.pushDelivery.count({ where: { state: "FAILED", settledAt: { gte: hourAgo } } }),
+    prisma.pushDelivery.count({ where: { state: "TOKEN_INVALID", settledAt: { gte: hourAgo } } }),
+    prisma.pushDelivery.count({ where: { state: "PROVIDER_ACCEPTED", settledAt: { gte: hourAgo } } }),
+    prisma.pushDelivery.count({ where: { attemptCount: { gt: 0 }, updatedAt: { gte: hourAgo } } }),
+  ]);
+
   const gauges: GaugeSample[] = [
+    { name: "push_queue_due", value: pushDue[0]?.count ?? 0, help: "Push deliveries due to be sent now" },
+    { name: "push_queue_oldest_due_age_seconds", value: ageSeconds(pushDue[0]?.oldest), help: "Age of the oldest push delivery waiting past its send time" },
+    { name: "push_failed_last_hour", value: pushFailedHour, help: "Push deliveries that exhausted their retries in the last hour" },
+    { name: "push_token_invalid_last_hour", value: pushInvalidHour, help: "Push tokens the provider rejected as dead in the last hour" },
+    { name: "push_accepted_last_hour", value: pushAcceptedHour, help: "Push deliveries the provider accepted in the last hour (accepted, not read)" },
+    { name: "push_attempted_last_hour", value: pushAttemptedHour, help: "Push deliveries attempted in the last hour" },
     { name: "notification_outbox_pending", value: outboxPending, help: "Outbox events not yet processed" },
     { name: "notification_outbox_failed", value: outboxFailed, help: "Outbox events that exhausted their retries" },
     {

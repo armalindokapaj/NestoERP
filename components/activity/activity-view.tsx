@@ -141,6 +141,19 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
     }
   }
 
+  /** Out of the inbox, not deleted: the notification row and the business record are untouched (MOB-10 §126). */
+  async function archive(item: ActivityCenterItem) {
+    const previous = items;
+    setItems((current) => current.filter((candidate) => candidate.key !== item.key));
+    try {
+      await send(`/api/notifications/${item.id}/archive`);
+      changed();
+    } catch {
+      setItems(previous);
+      toast({ title: t("archiveFailed"), tone: "danger" });
+    }
+  }
+
   async function markAll() {
     setItems((current) => current.map((item) => ({ ...item, readState: "READ" })));
     try {
@@ -300,6 +313,11 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
                   {item.sourceType === "NOTIFICATION" || item.readState === "UNREAD" ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => void markRead(item, item.readState === "UNREAD")} disabled={item.sourceType === "ANNOUNCEMENT" && item.readState === "READ"}>
                       {item.readState === "UNREAD" ? t("markRead") : t("markUnread")}
+                    </Button>
+                  ) : null}
+                  {item.sourceType === "NOTIFICATION" && item.readState === "READ" ? (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void archive(item)}>
+                      {t("archive")}
                     </Button>
                   ) : null}
                 </span>

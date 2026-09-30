@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { onBeforeLogout } from "@/lib/auth/client-lifecycle";
 import { isAppLockEnabled, nativeSignOutCleanup, refreshPushRegistration } from "@/lib/device/device-client";
 import { resolveDeepLink } from "@/lib/device/links";
+import { publishActivityChange } from "@/lib/activity/client";
 import { getPlatform, hasCapability } from "@/lib/device/platform";
 import { getPlatformServices, installPlatformServices } from "@/lib/device/registry";
 import type { AppCompatibility } from "@/lib/device/compatibility";
@@ -91,6 +92,8 @@ function NativeRuntime() {
         if (path) router.push(path);
       }),
       services.notifications.onOpen((path) => router.push(path)),
+      // A push while the app is open: no OS banner, the bell and inbox re-ask the server (MOB-10 §44, §132).
+      services.notifications.onReceive(() => publishActivityChange()),
       services.lifecycle.onBackground(() => {
         backgroundedAt.current = Date.now();
       }),

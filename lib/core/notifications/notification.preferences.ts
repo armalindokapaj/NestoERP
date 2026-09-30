@@ -21,13 +21,15 @@ export type CategoryPreference = {
   category: NotificationCategory;
   inAppEnabled: boolean;
   emailEnabled: boolean;
+  /** Native push to this person's devices (MOB-10 §86). */
+  pushEnabled: boolean;
   /** In-app delivery cannot be turned off. */
   inAppLocked: boolean;
   /** No event in this category is ever emailed, so the switch is not offered. */
   emailAvailable: boolean;
 };
 
-export type DeliveryPreference = { inApp: boolean; email: boolean };
+export type DeliveryPreference = { inApp: boolean; email: boolean; push: boolean };
 
 function categoryFacts(category: NotificationCategory) {
   const events = notificationEventDefinitions().filter((definition) => definition.category === category);
@@ -41,7 +43,7 @@ function categoryFacts(category: NotificationCategory) {
 export async function listPreferences(context: UserContext): Promise<CategoryPreference[]> {
   const rows = await prisma.notificationPreference.findMany({
     where: { companyId: context.companyId, memberId: context.membershipId, category: { not: null } },
-    select: { category: true, inAppEnabled: true, emailEnabled: true },
+    select: { category: true, inAppEnabled: true, emailEnabled: true, pushEnabled: true },
   });
   const byCategory = new Map(rows.map((row) => [row.category, row]));
 
@@ -52,6 +54,7 @@ export async function listPreferences(context: UserContext): Promise<CategoryPre
       category,
       inAppEnabled: facts.inAppLocked ? true : (row?.inAppEnabled ?? true),
       emailEnabled: facts.emailAvailable ? (row?.emailEnabled ?? facts.emailDefault) : false,
+      pushEnabled: row?.pushEnabled ?? true,
       inAppLocked: facts.inAppLocked,
       emailAvailable: facts.emailAvailable,
     };
@@ -62,6 +65,7 @@ export const updatePreferenceSchema = z.object({
   category: z.enum(NOTIFICATION_CATEGORIES),
   inAppEnabled: z.boolean(),
   emailEnabled: z.boolean(),
+  pushEnabled: z.boolean().optional(),
 });
 
 export async function updatePreference(
@@ -72,16 +76,27 @@ export async function updatePreference(
   // The server enforces the lock; the switch being disabled in the page is a courtesy.
   const inAppEnabled = facts.inAppLocked ? true : input.inAppEnabled;
   const emailEnabled = facts.emailAvailable ? input.emailEnabled : false;
+  // A mandatory (critical safety) category keeps pushing: it is the same lock as in-app.
+  const pushEnabled = facts.inAppLocked ? true : (input.pushEnabled ?? (await existingPush(context, input.category)));
 
   await prisma.notificationPreference.upsert({
     where: {
       companyId_memberId_category: { companyId: context.companyId, memberId: context.membershipId, category: input.category },
     },
-    update: { inAppEnabled, emailEnabled },
-    create: { companyId: context.companyId, memberId: context.membershipId, category: input.category, inAppEnabled, emailEnabled },
+    update: { inAppEnabled, emailEnabled, pushEnabled },
+    create: { companyId: context.companyId, memberId: context.membershipId, category: input.category, inAppEnabled, emailEnabled, pushEnabled },
   });
 
-  return { category: input.category, inAppEnabled, emailEnabled, ...facts };
+  return { category: input.category, inAppEnabled, emailEnabled, pushEnabled, inAppLocked: facts.inAppLocked, emailAvailable: facts.emailAvailable };
+}
+
+/** A change that does not mention push leaves the stored push choice alone. */
+async function existingPush(context: UserContext, category: NotificationCategory): Promise<boolean> {
+  const row = await prisma.notificationPreference.findUnique({
+    where: { companyId_memberId_category: { companyId: context.companyId, memberId: context.membershipId, category } },
+    select: { pushEnabled: true },
+  });
+  return row?.pushEnabled ?? true;
 }
 
 /**
@@ -96,7 +111,7 @@ export async function deliveryPreferences(
   const facts = categoryFacts(category);
   const rows = await prisma.notificationPreference.findMany({
     where: { companyId, memberId: { in: [...memberIds] }, category },
-    select: { memberId: true, inAppEnabled: true, emailEnabled: true },
+    select: { memberId: true, inAppEnabled: true, emailEnabled: true, pushEnabled: true },
   });
   const byMember = new Map(rows.map((row) => [row.memberId, row]));
 
@@ -108,6 +123,7 @@ export async function deliveryPreferences(
         {
           inApp: facts.inAppLocked ? true : (row?.inAppEnabled ?? true),
           email: facts.emailAvailable ? (row?.emailEnabled ?? facts.emailDefault) : false,
+          push: facts.inAppLocked ? true : (row?.pushEnabled ?? true),
         },
       ];
     }),

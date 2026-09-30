@@ -46,6 +46,11 @@ export interface NotificationService {
   unregister(): Promise<void>;
   /** Called with the canonical path (`/tasks/:id`) when a notification is tapped. */
   onOpen(listener: (path: string) => void): () => void;
+  /**
+   * A push arrived while the app is open (MOB-10 §44, §132). The OS shows no banner for it; the app
+   * refreshes its own notification state instead. Carries nothing: the server is asked for the truth.
+   */
+  onReceive(listener: () => void): () => void;
 }
 
 export interface BiometricService {

@@ -118,6 +118,8 @@ export function readableRows(contexts: UserContext[]): Prisma.NotificationWhereI
   const readable = (context: UserContext): Prisma.NotificationWhereInput => ({
     companyId: context.companyId,
     recipientMemberId: context.membershipId,
+    // Archived rows left the inbox and stop counting (MOB-10 §126).
+    archivedAt: null,
     moduleKey: { in: openModuleKeys(context) },
   });
   return contexts.length === 1 ? readable(contexts[0]) : { OR: contexts.map(readable) };
@@ -302,6 +304,7 @@ export async function getUnreadCount(context: UserContext): Promise<UnreadCountD
     companyId: context.companyId,
     recipientMemberId: context.membershipId,
     readState: "UNREAD",
+    archivedAt: null,
     moduleKey: { in: openModuleKeys(context) },
   };
   const [unread, criticalUnread, attention] = await Promise.all([
@@ -417,4 +420,17 @@ export async function markRecordNotificationsRead(contexts: UserContext[], entit
   if (entityIds.length === 0 || contexts.length === 0) return 0;
   const result = await prisma.notification.updateMany({ where: { AND: [ownRows(contexts), { entityType, entityId: { in: entityIds }, readState: "UNREAD" }] }, data: { readState: "READ", readAt: new Date() } });
   return result.count;
+}
+
+/**
+ * Moves one of the person's own notifications out of the inbox (MOB-10 §126).
+ * The business record is untouched, and so is the notification row: archiving
+ * is reversible bookkeeping, not deletion. Somebody else's is simply not found.
+ */
+export async function archiveNotificationForWorkspace(session: UserContext, id: string): Promise<void> {
+  const result = await prisma.notification.updateMany({
+    where: { AND: [{ id }, ownRows(await resolvePersonalContexts(session))] },
+    data: { archivedAt: new Date() },
+  });
+  if (result.count === 0) throw new AccessError("NOT_FOUND");
 }
