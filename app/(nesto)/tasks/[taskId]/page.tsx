@@ -187,6 +187,7 @@ export default async function TaskDetailPage({ params }: Params) {
                 entityType="task"
                 entityId={task.id}
                 canAttach={!archived}
+                captureEvidence
                 emptyTitle={t("common.noEvidence")}
                 emptyDescription={t("common.evidenceDescription")}
               />

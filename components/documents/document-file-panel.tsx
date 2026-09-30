@@ -6,6 +6,7 @@ import { Download, ExternalLink, FileWarning, Loader2, ShieldAlert } from "lucid
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { ViewDocumentButton } from "./viewer/document-viewer";
 import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
 import { startDownload } from "@/lib/navigation/start-download";
 import { fileTypeLabel, storageMessageLabel, useDocumentsTranslations } from "./documents-text";
@@ -168,7 +169,10 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={grant.url} alt={t("file.previewOf", { name })} className="mx-auto max-h-[min(28rem,70dvh)] w-auto max-w-full object-contain" onError={() => setImageFailed(true)} data-testid="document-preview" />
         </div>
-        {open}
+        <div className="flex flex-wrap gap-2">
+          <ViewDocumentButton documentId={documentId} name={name} />
+          {open}
+        </div>
       </div>
     );
   }
@@ -199,7 +203,10 @@ function PreviewFrame({ documentId, name }: { documentId: string; name: string }
       <p className="text-table text-fg-muted">
         {kind === "image" ? t("file.imageFailed") : t("file.noPdf")} {t("file.openOrDownload")}
       </p>
-      {open}
+      <div className="flex flex-wrap gap-2">
+        {kind === "pdf" ? <ViewDocumentButton documentId={documentId} name={name} /> : null}
+        {open}
+      </div>
     </div>
   );
 }

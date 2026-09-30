@@ -43,6 +43,7 @@ This glossary covers wording only. Persisted enum values, permission keys, recor
 | Purchase order | Purchase order / Purchase orders | Procurement › Orders | |
 | Enquiry (RFQ) | Enquiry / Enquiries | Procurement › Enquiries | "RFQ" is kept as the abbreviation in favorites and search. |
 | HSE incident | HSE incident / HSE incidents | HSE › Incidents | Called "Incident" inside HSE. |
+| HSE hazard | HSE hazard / HSE hazards | HSE › Hazards | Called "Hazard" inside HSE. |
 | NCR | NCR / NCRs | QA/QC › NCRs | Non-conformance report. |
 | Member | Member / Members | Team | A person with a login in this company. |
 

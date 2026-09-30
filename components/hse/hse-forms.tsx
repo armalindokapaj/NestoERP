@@ -38,6 +38,7 @@ import {
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
 import { localDay, localMinute } from "@/components/hr/local-day";
+import { useHseEvidence } from "@/components/hse/use-hse-evidence";
 import { useHseTranslations, type HseKey } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 
@@ -294,6 +295,7 @@ export function HazardForm({
   projects,
   members,
   canAssign,
+  withEvidence = false,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
   values?: HazardFormValues;
@@ -304,14 +306,17 @@ export function HazardForm({
   projects: Option[];
   members: Option[];
   canAssign: boolean;
+  withEvidence?: boolean;
 }) {
   const t = useHseTranslations();
+  const evidence = useHseEvidence("hazard", withEvidence);
   const [likelihood, setLikelihood] = React.useState(values?.likelihood ?? "3");
   const [severity, setSeverity] = React.useState(values?.severity ?? "3");
 
   const critical = Number(likelihood) * Number(severity) >= 17;
 
   return (
+    <>
     <RecordForm
       module="hse"
       action={action}
@@ -319,6 +324,7 @@ export function HazardForm({
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
+      onSuccess={evidence.onSuccess}
     >
       <FormSection
         title={t("forms.whatDidYouSee")}
@@ -448,7 +454,10 @@ export function HazardForm({
           <Input id="dueDate" name="dueDate" type="date" defaultValue={values?.dueDate ?? ""} />
         </Field>
       </FormSection>
+      {evidence.section}
     </RecordForm>
+    {evidence.host}
+    </>
   );
 }
 
@@ -482,6 +491,7 @@ export function IncidentForm({
   submitLabel,
   pendingLabel,
   projects,
+  withEvidence = false,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
   values?: IncidentFormValues;
@@ -490,12 +500,15 @@ export function IncidentForm({
   submitLabel: string;
   pendingLabel: string;
   projects: Option[];
+  withEvidence?: boolean;
 }) {
   const t = useHseTranslations();
+  const evidence = useHseEvidence("incident", withEvidence);
   const [severity, setSeverity] = React.useState(values?.severity ?? "MEDIUM");
   const serious = severity === "HIGH" || severity === "CRITICAL";
 
   return (
+    <>
     <RecordForm
       module="hse"
       action={action}
@@ -503,6 +516,7 @@ export function IncidentForm({
       submitLabel={submitLabel}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
+      onSuccess={evidence.onSuccess}
     >
       <FormSection
         title={t("incident.detail.whatHappened")}
@@ -618,7 +632,10 @@ export function IncidentForm({
           />
         </Field>
       </FormSection>
+      {evidence.section}
     </RecordForm>
+    {evidence.host}
+    </>
   );
 }
 

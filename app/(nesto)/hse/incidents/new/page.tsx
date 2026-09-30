@@ -44,6 +44,7 @@ export default async function NewIncidentPage() {
         cancelHref="/hse/incidents"
         submitLabel={t("page.reportIncident")}
         pendingLabel={t("page.reporting")}
+        withEvidence={can(context, "hse.document.create")}
         projects={options.projects.map((project) => ({
           value: project.id,
           label: `${project.code} — ${project.name}`,

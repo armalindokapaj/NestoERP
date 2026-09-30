@@ -240,6 +240,10 @@ describe("AUD-11 module visual system (§6, AV-13)", () => {
       "app/(nesto)/projects/[projectId]/page.tsx",
       "components/projects/project-media-gallery.tsx",
       "components/daily-logs/evidence-gallery.tsx",
+      // MOB-07: the photo viewer's dark surface, the PDF page's paper white, and the remove badge on a photo thumbnail.
+      "components/documents/viewer/image-viewer.tsx",
+      "components/documents/viewer/pdf-viewer.tsx",
+      "components/field/evidence-capture.tsx",
       "components/projects/portfolio/project-card.tsx",
       "app/admin/3d/page.tsx",
     ];

@@ -65,6 +65,7 @@ export default async function NewHazardPage({
           label: `${member.user.firstName} ${member.user.lastName}`,
         }))}
         canAssign={can(context, "hse.hazard.assign")}
+        withEvidence={can(context, "hse.document.create")}
         values={
           typeof params.projectId === "string"
             ? {

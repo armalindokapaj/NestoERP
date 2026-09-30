@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can, canAccessModule } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { recordDefinition } from "@/lib/core/records/record.registry";
+import { RecordEvidence } from "@/components/field/record-evidence";
 import { canAttachToDocumentParent } from "@/lib/modules/documents/document.parent-access";
 import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
 import * as documents from "@/lib/modules/documents/document.service";
@@ -30,6 +31,7 @@ export async function RecordDocuments({
   entityType,
   entityId,
   canAttach = true,
+  captureEvidence = false,
   emptyTitle,
   emptyDescription,
   title,
@@ -38,6 +40,8 @@ export async function RecordDocuments({
   entityType: string;
   entityId: string;
   canAttach?: boolean;
+  /** Offers "Add evidence" (camera, photos, files, a note) above the list, for phone-first record pages. */
+  captureEvidence?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
   /** Renders the section with its own heading, and nothing at all when the reader cannot see files here. */
@@ -67,6 +71,7 @@ export async function RecordDocuments({
           entityType={entityType}
           entityId={entityId}
           canAttach={canAttach}
+          captureEvidence={captureEvidence}
           emptyTitle={emptyTitle}
           emptyDescription={emptyDescription}
         />
@@ -92,19 +97,25 @@ export async function RecordDocuments({
 
   const uploadHref = `/documents/new?entityType=${encodeURIComponent(definition.type)}&entityId=${encodeURIComponent(entityId)}`;
 
+  const evidence = attachable && captureEvidence ? <RecordEvidence entityType={definition.type} entityId={entityId} /> : null;
+
   if (result.data.length === 0) {
     return (
+      <div className="space-y-4">
+      {evidence}
       <EmptyState
         icon={<Files />}
         title={emptyTitle ?? t("record.emptyTitle")}
         description={emptyDescription ?? t("record.emptyDescription")}
         action={attachable ? { label: t("record.addDocument"), href: uploadHref } : undefined}
       />
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {evidence}
       {attachable ? (
         <div className="flex justify-end">
           <Button asChild size="sm">

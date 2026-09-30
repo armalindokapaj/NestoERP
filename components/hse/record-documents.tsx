@@ -34,6 +34,7 @@ export async function HseRecordDocuments({
       context={context}
       entityType={entityType}
       entityId={entityId}
+      captureEvidence
       emptyTitle={t("documents.emptyTitle")}
       emptyDescription={emptyDescription ?? t("documents.emptyDescription")}
     />

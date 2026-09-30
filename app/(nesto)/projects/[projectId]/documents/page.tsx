@@ -7,6 +7,7 @@ import { Files } from "lucide-react";
 import { Pagination } from "@/components/data/pagination";
 import { DocumentTable } from "@/components/documents/document-table";
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { ProjectCapture, type CaptureLink } from "@/components/field/project-capture";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
@@ -52,6 +53,15 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
   const canUpload = !archived && can(context, "document.create");
   const uploadHref = `/documents/new?projectId=${project.id}`;
+  const td = await getTranslations("documents");
+  // Each destination checks the same permission again; this only decides what is offered.
+  const captureLinks: CaptureLink[] = archived
+    ? []
+    : [
+        ...(can(context, "daily_log.create") ? [{ key: "site-diary", label: td("capture.captureSiteDiary"), href: `/projects/${project.id}/daily-logs/new` }] : []),
+        ...(can(context, "hse.hazard.create") ? [{ key: "hse-hazard", label: td("capture.captureHazard"), href: `/hse/hazards/new?projectId=${project.id}` }] : []),
+        ...(can(context, "hse.incident.create") ? [{ key: "hse-incident", label: td("capture.captureIncident"), href: `/hse/incidents/new` }] : []),
+      ];
 
   return (
     <div className="space-y-5">
@@ -60,11 +70,14 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
         subtitle={project.code}
         status={project.status}
         actions={
-          canUpload ? (
-            <Button asChild size="sm">
-              <Link href={uploadHref}>{t("tabPages.addDocument")}</Link>
-            </Button>
-          ) : null
+          <>
+            <ProjectCapture projectId={project.id} projectName={project.name} canUpload={canUpload} links={captureLinks} />
+            {canUpload ? (
+              <Button asChild size="sm" variant="secondary">
+                <Link href={uploadHref}>{t("tabPages.addDocument")}</Link>
+              </Button>
+            ) : null}
+          </>
         }
       />
 
