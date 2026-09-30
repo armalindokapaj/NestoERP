@@ -198,6 +198,14 @@ export async function DocumentTable({
       columns={columns}
       records={documents}
       rowKey={(document) => document.id}
+      // Phone (MOB-03 §47): a compact file row: name, type, where it belongs, when it changed.
+      mobile={{
+        variant: "row",
+        facts: ["type", "context", "updated"],
+        omit: showStatus ? ["status"] : [],
+        status: showStatus ? (document) => <StatusBadge status={document.status} /> : undefined,
+        label: (document) => [document.name, fileTypeLabel(t, document.typeLabel), formatDate(document.updatedAt)].join(", "),
+      }}
       rowHref={group ? undefined : (document) => `/documents/${document.id}`}
     />
   );

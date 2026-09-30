@@ -31,8 +31,21 @@ function prompt(page: Page) {
   return page.getByTestId("unsaved-prompt");
 }
 
+/** Below lg the shell is not the desktop's (a phone's bottom bar or a tablet's drawer). */
 function drawerLayout(page: Page) {
   return page.viewportSize()!.width < 1024;
+}
+
+/** The hamburger drawer is the tablet-portrait shell (MD up to lg); a phone has the bottom bar and More (MOB-02). */
+function tabletDrawer(page: Page) {
+  const width = page.viewportSize()!.width;
+  return width >= 768 && width < 1024;
+}
+
+/** The workspace header: in the drawer on a tablet, in the top bar's context on a phone (MOB-02 §8). */
+async function workspaceHeader(page: Page) {
+  if (tabletDrawer(page)) return (await openDrawer(page)).getByTestId("organization-header");
+  return page.getByTestId("mobile-context").getByTestId("organization-header");
 }
 
 async function openDrawer(page: Page) {
@@ -63,7 +76,7 @@ async function currentCompany(page: Page) {
 
 test.describe("AUD-04 navigation drawer (MW-02)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!drawerLayout(page), "the drawer exists below 1024px only");
+    test.skip(!tabletDrawer(page), "the hamburger drawer is the tablet-portrait shell (768-1023); phones use the bottom bar (MOB-02)");
   });
 
   test("opens and closes with 44px controls; the top bar fits without collisions", async ({ page }) => {
@@ -197,8 +210,7 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
     });
 
     const choose = async () => {
-      const nav = await openDrawer(page);
-      const header = nav.getByTestId("organization-header");
+      const header = await workspaceHeader(page);
       // Truncated on screen, whole in the accessible name and the title (§4).
       await expect(header).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
       await expect(header).toHaveAttribute("title", /Aurelia Construction/);
@@ -227,8 +239,8 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
     // The draft does not follow into the new workspace, and a page is shown (route kept or a safe fallback).
     await expect(page.getByText("AUD04A switch draft")).toHaveCount(0);
     await expect(page).not.toHaveURL(/\/login/);
-    const nav = await openDrawer(page);
-    await expect(nav.getByTestId("organization-header")).toHaveAccessibleName(/Current workspace: Forma Engineering/);
+    const after = await workspaceHeader(page);
+    await expect(after).toHaveAccessibleName(/Current workspace: Forma Engineering/);
     await expectNoPageOverflow(page, "after the switch");
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/mobile-bottom-nav";
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
@@ -265,6 +266,16 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     return () => window.removeEventListener("keydown", onKey);
   }, [summary.canOpen, open, openPanel]);
 
+  // The phone's bottom bar opens the same panel; its own trigger is hidden below md (MOB-02 §16).
+  React.useEffect(() => {
+    if (!summary.canOpen) return;
+    const onOpen = () => {
+      if (!open) openPanel();
+    };
+    window.addEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
+  }, [summary.canOpen, open, openPanel]);
+
   // Escape and a click outside close it (QC-06).
   React.useEffect(() => {
     if (!open) return;
@@ -504,7 +515,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11"
+        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11"
         data-testid="quick-create-button"
         {...warm}
       >

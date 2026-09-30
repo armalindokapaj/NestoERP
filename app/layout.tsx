@@ -25,6 +25,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  /* MOB-01 §27: on Android Chrome the on-screen keyboard shrinks the layout viewport, so a bottom action bar rides above it instead of being covered. iOS ignores this. */
+  interactiveWidget: "resizes-content",
 };
 
 /* In the reader's language, like the page. A crawler sends no language

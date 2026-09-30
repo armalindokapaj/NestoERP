@@ -146,6 +146,15 @@ export async function InvoiceTable({ invoices, listId = "finance.invoices", sort
       records={invoices}
       rowKey={(invoice) => invoice.id}
       rowHref={grouped ? undefined : (invoice) => `/finance/invoices/${invoice.id}`}
+      // Phone (MOB-03 §49): reference and client in the title, the exact total up front, then due date, outstanding and settlement.
+      // Nothing is rounded or shortened; project and issue date wait behind More details.
+      mobile={{
+        status: (invoice) => <StatusBadge status={invoice.status} />,
+        value: (invoice) => <Money amount={invoice.totalAmount} currency={invoice.currency} emphasis />,
+        facts: ["due", "outstanding", "settlement"],
+        omit: ["total", "status"],
+        label: (invoice) => `${invoice.invoiceNumber}, ${invoice.client.name}, ${invoice.totalAmount} ${invoice.currency}, ${formatDate(invoice.dueDate)}`,
+      }}
     />
   );
 }

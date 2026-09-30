@@ -89,11 +89,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 className={cn("mt-px size-4 shrink-0", toneClasses[toast.tone])}
               />
               <div className="min-w-0 flex-1">
-                <ToastPrimitive.Title className="text-table font-medium text-fg">
+                <ToastPrimitive.Title className="text-table font-medium text-fg [overflow-wrap:anywhere]">
                   {toast.title}
                 </ToastPrimitive.Title>
                 {toast.description ? (
-                  <ToastPrimitive.Description className="mt-0.5 text-meta text-fg-muted">
+                  <ToastPrimitive.Description className="mt-0.5 text-meta text-fg-muted [overflow-wrap:anywhere]">
                     {toast.description}
                   </ToastPrimitive.Description>
                 ) : null}

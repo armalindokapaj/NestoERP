@@ -163,6 +163,71 @@
 }
 
 /*
+ * Responsive tokens (MOB-01 §8). Semantic names that components spend, so a
+ * page never restates a padding or a control height. They answer to the
+ * viewport here, in CSS, so the right value is already in the server-rendered
+ * markup. Breakpoints: xs 480, sm 640, md 768 (tablet), lg 1024 (desktop),
+ * xl 1200, 2xl 1440 (styles/globals.css @theme).
+ */
+:root {
+  /* Page gutters: phone 16, tablet 24, wide desktop 32 (matches the shell's <main>). */
+  --nesto-space-page-x: 1rem;
+  --nesto-space-page-y: 1.25rem;
+  --nesto-space-page-y-end: 1.5rem;
+  --nesto-space-section: 1.5rem;
+  --nesto-space-card: 1rem;
+  --nesto-space-control: 0.5rem;
+
+  /* A control is 40px with a mouse and 44px under touch (globals.css `touch:`). */
+  --nesto-height-control: 2.5rem;
+  --nesto-height-control-compact: 2rem;
+  --nesto-touch-target-min: 2.75rem;
+
+  --nesto-radius-control: 8px;
+  --nesto-radius-card: 12px;
+  --nesto-radius-sheet: 16px;
+
+  --nesto-content-max-width: 1600px;
+
+  /* Safe areas: 0 wherever the browser reports no inset. */
+  --nesto-safe-top: env(safe-area-inset-top, 0px);
+  --nesto-safe-right: env(safe-area-inset-right, 0px);
+  --nesto-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nesto-safe-left: env(safe-area-inset-left, 0px);
+
+  /* Semantic layer names for the ladder above (values stay the single source). */
+  --nesto-z-content: 0;
+  --nesto-z-sticky: 10;
+  --nesto-z-critical: 90;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --nesto-space-card: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --nesto-space-page-x: 1.5rem;
+    --nesto-space-page-y-end: 2rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --nesto-space-page-x: 2rem;
+  }
+}
+
+@media (max-width: 1023.98px), (pointer: coarse) {
+  :root {
+    --nesto-height-control: 2.75rem;
+    --nesto-height-control-compact: 2.75rem;
+  }
+}
+
+/*
  * An explicit choice wins over the operating system in both directions, so a
  * reader on a dark OS can still pin NESTO to light. The attribute is rendered
  * on the server from a cookie, so the first paint is already correct and the

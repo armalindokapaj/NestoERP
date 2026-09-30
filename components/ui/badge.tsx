@@ -4,9 +4,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium whitespace-nowrap",
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full",
   {
     variants: {
+      /* nowrap keeps a short status on one line; `wrap` lets a long label break instead of overflowing (MOB-01 §35). */
+      wrap: {
+        false: "whitespace-nowrap",
+        true: "rounded-xl whitespace-normal [overflow-wrap:anywhere]",
+      },
       tone: {
         default: "border-line bg-surface-muted text-fg-muted",
         neutral: "border-line-strong bg-hover text-fg",
@@ -16,12 +21,12 @@ const badgeVariants = cva(
         info: "border-transparent bg-info-soft text-info-strong",
       },
     },
-    defaultVariants: { tone: "default" },
+    defaultVariants: { tone: "default", wrap: false },
   },
 );
 
 export type BadgeProps = React.ComponentProps<"span"> & VariantProps<typeof badgeVariants>;
 
-export function Badge({ className, tone, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ tone }), className)} {...props} />;
+export function Badge({ className, tone, wrap, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ tone, wrap }), className)} {...props} />;
 }

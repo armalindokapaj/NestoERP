@@ -337,13 +337,11 @@ test.describe("widths (§47-§49, §84, §85)", () => {
     await page.getByRole("button", { name: "Expand sidebar" }).click();
   });
 
-  test("a phone: the header leads the drawer and opens a sheet; no arrow (§48, §85)", async ({ page }) => {
+  test("a phone: the top bar's context opens the workspace sheet; no arrow (§48, §85; MOB-02 §23)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    // The top bar shows the organization's mark, not the NESTO wordmark (§5, §6).
-    await expect(page.getByTestId("organization-home")).toBeVisible();
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    const header = page.getByTestId("drawer-header").getByTestId("organization-header");
+    // The top bar leads with the organization's mark and names, not the NESTO wordmark (§5, §6).
+    const header = page.getByTestId("mobile-context").getByTestId("organization-header");
     await expect(header.getByTestId("organization-name")).toHaveText("NESTO Demo Group");
     await expectNoArrow(header);
     await header.click();
@@ -353,7 +351,6 @@ test.describe("widths (§47-§49, §84, §85)", () => {
     expect(Math.round(box.y + box.height)).toBeGreaterThanOrEqual(840);
     await sheet.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(page.getByTestId("drawer-header").getByTestId("workspace-label")).toHaveText("Forma Engineering");
+    await expect(page.getByTestId("mobile-context").getByTestId("workspace-label")).toHaveText("Forma Engineering");
   });
 });

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
+import { Loader2 } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { warnUnnamedIconControl } from "@/lib/a11y/accessible-name";
@@ -42,14 +43,32 @@ const buttonVariants = cva(
 export type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    /** Busy: disables the button, shows a spinner, keeps its width (MOB-01 §14). Ignored with `asChild`. */
+    loading?: boolean;
   };
 
-export function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
+export function Button({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
   // Icon-only sizes need a contextual name; development warns (AUD-11 §3, AV-06).
   if (process.env.NODE_ENV !== "production" && (size === "icon" || size === "icon-sm")) warnUnnamedIconControl("Button", props);
   // Marked so a dialog never lands initial focus on it (AUD-11 §4, AV-05; lib/a11y/overlay-focus.ts).
-  return <Comp data-variant={variant === "danger" ? "danger" : undefined} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+  const busy = loading && !asChild;
+  return (
+    <Comp
+      data-variant={variant === "danger" ? "danger" : undefined}
+      className={cn(buttonVariants({ variant, size }), className)}
+      disabled={asChild ? undefined : disabled || busy}
+      aria-busy={busy || undefined}
+      {...props}
+    >
+      {asChild ? children : (
+        <>
+          {busy ? <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : null}
+          {children}
+        </>
+      )}
+    </Comp>
+  );
 }
 
 export { buttonVariants };
