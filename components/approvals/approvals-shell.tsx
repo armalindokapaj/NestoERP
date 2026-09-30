@@ -533,7 +533,7 @@ export function ApprovalsShell({
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchField
-          className="min-w-0 flex-1 sm:max-w-sm"
+          className="min-w-0 basis-full sm:flex-1 sm:basis-0 sm:max-w-sm"
           placeholder={t("shell.searchPlaceholder")}
           aria-label={t("shell.searchLabel")}
           value={search}

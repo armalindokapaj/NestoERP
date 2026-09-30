@@ -390,6 +390,11 @@ export async function startTask(context: UserContext, taskId: string, input: Ver
   return command(context, taskId, input.expectedVersion, { kind: "start" });
 }
 
+/** An unassigned task becomes the actor's; a second claimant is refused (MOB-06 §22-§23). */
+export async function claimTask(context: UserContext, taskId: string, input: VersionInput): Promise<TaskMutationResponse> {
+  return command(context, taskId, input.expectedVersion, { kind: "claim" });
+}
+
 /**
  * `TODO / IN_PROGRESS → BLOCKED` with the reason it cannot move
  * (PRD #11 §67, PRD #38 §44). A blocked task without a reason is a status
@@ -625,6 +630,7 @@ function toDetailDTO(context: UserContext, row: repository.TaskDetailRow): TaskD
       canEdit: !archived && can(context, "task.update"),
       canAssign: !archived && can(context, "task.assign"),
       canChangeStatus: !archived && can(context, "task.status.update"),
+      canClaim: !archived && row.status !== "COMPLETED" && row.assigneeMemberId === null && can(context, "task.status.update"),
       canComplete: !archived && row.status !== "COMPLETED" && can(context, "task.complete"),
       canReopen: !archived && row.status === "COMPLETED" && can(context, "task.reopen"),
       canArchive: !archived && can(context, "task.archive"),

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { SquareCheckBig } from "lucide-react";
+import Link from "@/components/navigation/nav-link";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";
@@ -140,6 +141,30 @@ export async function TasksList({
 
   return (
     <div className="space-y-4">
+      {variant === "mine" ? (
+        // The day's views of My Tasks: the same list narrowed by the canonical due filter (MOB-06 §13).
+        <nav aria-label={t("list.views.label")} className="flex gap-1" data-testid="my-tasks-views">
+          {(
+            [
+              { key: "today", due: "today" },
+              { key: "upcoming", due: "next7" },
+              { key: "all", due: undefined },
+            ] as const
+          ).map((view) => {
+            const current = query.due === view.due;
+            return (
+              <Link
+                key={view.key}
+                href={view.due ? `${basePath}?due=${view.due}` : basePath}
+                aria-current={current ? "page" : undefined}
+                className={`inline-flex min-h-11 items-center rounded-full px-4 text-table font-medium ${current ? "bg-primary text-primary-fg" : "border border-line bg-surface text-fg-muted hover:bg-row-hover"}`}
+              >
+                {t(`list.views.${view.key}`)}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
       <ListToolbar
         searchPlaceholder={t("list.searchPlaceholder")}
         filters={filters}

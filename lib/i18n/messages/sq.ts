@@ -120,6 +120,8 @@ export const sq: Messages = {
     title: "Njoftimet",
     description: "Gjithçka që ju ka treguar NESTO dhe çfarë kërkon ende vëmendjen tuaj.",
     tabs: { all: "Të gjitha", unread: "Të palexuara", attention: "Kërkon vëmendje" },
+    sectionNew: "Të reja",
+    sectionEarlier: "Më herët",
     markAllRead: "Shëno të gjitha si të lexuara",
     markRead: "Shëno si të lexuar",
     markUnread: "Shëno si të palexuar",

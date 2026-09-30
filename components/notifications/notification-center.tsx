@@ -71,6 +71,13 @@ export function NotificationCenter({ initial, readState }: { initial: Notificati
   }
 
   const hasUnread = items.some((item) => item.readState === "UNREAD");
+  // New (unread) above Earlier (read), each newest first; one plain list when only one kind is present (MOB-06 §59).
+  const fresh = items.filter((item) => item.readState === "UNREAD");
+  const earlier = items.filter((item) => item.readState !== "UNREAD");
+  const sections = [
+    { key: "new", label: t("sectionNew"), items: fresh },
+    { key: "earlier", label: t("sectionEarlier"), items: earlier },
+  ].filter((section) => section.items.length > 0);
 
   return (
     <div>
@@ -86,8 +93,12 @@ export function NotificationCenter({ initial, readState }: { initial: Notificati
       {items.length === 0 ? (
         <p className="py-8 text-center text-body text-fg-muted">{readState ? t("emptyUnread") : t("empty")}</p>
       ) : (
-        <ul className="divide-y divide-line" data-testid="notification-center-list">
-          {items.map((item) => {
+        <div data-testid="notification-center-list">
+          {sections.map((section) => (
+            <section key={section.key} aria-label={sections.length > 1 ? section.label : undefined} data-testid={`notification-section-${section.key}`}>
+              {sections.length > 1 ? <h2 className="pb-1 pt-3 text-label font-semibold uppercase tracking-wider text-fg-subtle">{section.label}</h2> : null}
+        <ul className="divide-y divide-line">
+          {section.items.map((item) => {
             const unread = item.readState === "UNREAD";
             const content = (
               <>
@@ -134,6 +145,9 @@ export function NotificationCenter({ initial, readState }: { initial: Notificati
             );
           })}
         </ul>
+            </section>
+          ))}
+        </div>
       )}
 
       {failed ? <p role="alert" className="mt-3 text-table text-danger-strong">{t("error")}</p> : null}

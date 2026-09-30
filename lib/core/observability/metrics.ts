@@ -323,14 +323,14 @@ export const HISTOGRAMS = {
     help: "Server time for one task command, from its first check to its commit or refusal. Conflicts are an outcome, never content.",
     buckets: DURATION_BUCKETS_MS,
     labels: {
-      command: ["edit", "start", "block", "complete", "reopen", "archive", "restore"],
+      command: ["edit", "start", "claim", "block", "complete", "reopen", "archive", "restore"],
       outcome: ["committed", "unchanged", "rejected", "error"],
     },
     /*
      * The latency of a refusal is one check's, whichever refusal it is: the
      * histogram keeps the outcome's class, and the exact outcome is counted in
      * `task_mutation_outcome_total{command,outcome}` (AUD-07 §5, PS-21). Eight
-     * outcomes × seven commands × seventeen series was 952 of the 4,000.
+     * outcomes × eight commands × seventeen series was 952 of the 4,000.
      */
     fold: {
       outcome: {

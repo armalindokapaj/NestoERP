@@ -111,6 +111,7 @@ const GLOBAL_ROUTES = [
   "/notifications",
   "/favorites",
   "/my-work",
+  "/my-day",
   "/activity",
   // Module Help: open in either workspace; each page answers only for modules the reader can open (AUD-05 §7).
   "/help",
