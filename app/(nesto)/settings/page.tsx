@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ChevronRight, Languages } from "lucide-react";
+import { ChevronRight, HardDrive, Languages } from "lucide-react";
 
 import { getIcon } from "@/components/layout/nav-icon";
 import { LanguagePreference } from "@/components/settings/language-preference";
@@ -29,6 +29,7 @@ export default async function SettingsPage() {
   // Only a language whose translation is still partial says so; English is
   // the source and leaves the note empty.
   const partialNote = t("language.partial");
+  const offline = await getTranslations("offline");
 
   return (
     <div className="space-y-5">
@@ -52,6 +53,20 @@ export default async function SettingsPage() {
         </div>
         <LanguagePreference />
       </section>
+
+      {/* Every role: what this device keeps for offline work, and what is waiting to sync (MOB-09 §91). */}
+      <a href="/offline?view=storage" className="nesto-card group flex items-start gap-3 p-5 transition-colors hover:border-line-strong hover:bg-surface-muted" data-testid="settings-offline-storage">
+        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-hover text-fg-muted">
+          <HardDrive aria-hidden="true" className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-card font-semibold text-fg">{offline("storage.title")}</span>
+            <ChevronRight className="size-4 shrink-0 text-fg-subtle transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </span>
+          <span className="mt-1 block text-table text-fg-muted">{offline("app.subtitle")}</span>
+        </span>
+      </a>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => {

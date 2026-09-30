@@ -134,6 +134,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
+    "fake-indexeddb": "^6.2.5",
     "prisma": "^6",
     "react-test-renderer": "19.1.0",
     "tailwindcss": "^4",

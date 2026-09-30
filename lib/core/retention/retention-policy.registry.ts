@@ -115,6 +115,16 @@ const POLICIES: RetentionPolicy[] = [
       "What a job has already sent. Kept past the 365-day purge of read notifications, so a condition that stays true for a year — an RFI nobody answers — is not announced a second time while the first notice may still be on somebody's list (PRD #51 §15-§19).",
   },
   {
+    key: "sync-operations",
+    resourceType: "SyncOperation",
+    retentionDays: 90,
+    deleteMode: "HARD_DELETE",
+    legalHoldAware: false,
+    batchSize: 1000,
+    description:
+      "What the server did for an offline operation id (MOB-09 §82). Kept well past the offline authorisation window (at most 14 days) and the time a locked device may sit on unsynced work, so a late retry is still answered instead of repeated.",
+  },
+  {
     key: "worker-processes.stopped",
     resourceType: "WorkerProcess",
     retentionDays: 7,

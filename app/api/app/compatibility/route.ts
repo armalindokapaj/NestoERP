@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { minimumSyncProtocolVersion, SYNC_PROTOCOL_VERSION } from "@/lib/core/sync/protocol";
 import { compatibilityPolicy, evaluateCompatibility, parseAppUserAgent } from "@/lib/device/compatibility";
 
 const headers = { "Cache-Control": "no-store" };
+
+/** The offline sync protocol this server speaks, so a device knows before it replays anything (MOB-09 §109). */
+const sync = () => ({ protocolVersion: SYNC_PROTOCOL_VERSION, minimumProtocolVersion: minimumSyncProtocolVersion() });
 
 /**
  * GET /api/app/compatibility — does this installed binary still work here?
@@ -19,7 +23,7 @@ export async function GET(request: Request) {
   const policy = compatibilityPolicy(process.env);
   if (!version || !/^\d+\.\d+\.\d+$/.test(version) || !platform) {
     // Not a native app (a browser): nothing to gate.
-    return NextResponse.json({ status: "ok", minimumSupportedAppVersion: policy.minimum, recommendedAppVersion: policy.recommended }, { headers });
+    return NextResponse.json({ status: "ok", minimumSupportedAppVersion: policy.minimum, recommendedAppVersion: policy.recommended, sync: sync() }, { headers });
   }
-  return NextResponse.json(evaluateCompatibility(version, platform, policy), { headers });
+  return NextResponse.json({ ...evaluateCompatibility(version, platform, policy), sync: sync() }, { headers });
 }

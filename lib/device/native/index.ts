@@ -154,7 +154,11 @@ export function createNativeServices(appOrigin: string): PlatformServices {
       set: async (key, value) => void (await SecureStorage.set(STORAGE_PREFIX + key, value, false)),
       remove: async (key) => void (await SecureStorage.remove(STORAGE_PREFIX + key)),
       async clear() {
-        for (const key of await SecureStorage.keys()) if (key.startsWith(STORAGE_PREFIX)) await SecureStorage.remove(key);
+        // The offline encryption keys stay: signing out must not make unsynced work unreadable (MOB-09 §10, §97).
+        // They are removed only when the person discards an account's offline data (`destroyKey`).
+        for (const key of await SecureStorage.keys()) {
+          if (key.startsWith(STORAGE_PREFIX) && !key.startsWith(`${STORAGE_PREFIX}offline.key.`)) await SecureStorage.remove(key);
+        }
       },
     },
     notifications: {

@@ -140,6 +140,16 @@ export async function createDailyLog(context: UserContext, input: { projectId: s
   }
 }
 
+/**
+ * Where a log stands now, for a caller that has to say why its change did not
+ * apply (MOB-09 §76, §77). Readable logs only, like every other read here.
+ */
+export async function readDailyLogState(context: UserContext, dailyLogId: string): Promise<{ status: DailyLogStatus; version: number; submittedByMe: boolean }> {
+  assertModule(context, MODULE);
+  const log = await findReadableLog(context, dailyLogId);
+  return { status: log.status, version: log.version, submittedByMe: log.submittedByMemberId === context.membershipId };
+}
+
 /** The log for a project and day, if there is one the reader may open (§163). */
 export async function findLogByDate(context: UserContext, projectId: string, workDate: string): Promise<string | null> {
   assertModule(context, MODULE);

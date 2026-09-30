@@ -123,6 +123,12 @@ function purgeFor(policyKey: string, cutoff: Date): Purge | null {
         choose: (where, take) => prisma.jobIdempotencyKey.findMany({ where, select: { companyId: true, jobKey: true, key: true }, take }),
         remove: async (where, keys) => (await prisma.jobIdempotencyKey.deleteMany({ where: { AND: [where, { OR: keys }] } })).count,
       });
+    case "sync-operations":
+      return purge<Prisma.SyncOperationWhereInput, string>({ createdAt: { lt: cutoff } }, {
+        count: (where) => prisma.syncOperation.count({ where }),
+        choose: async (where, take) => (await prisma.syncOperation.findMany({ where, select: { id: true }, take })).map((row) => row.id),
+        remove: async (where, ids) => (await prisma.syncOperation.deleteMany({ where: { AND: [where, { id: { in: ids } }] } })).count,
+      });
     case "worker-processes.stopped":
       // A running worker beats every few seconds, so a week-old heartbeat is a process that stopped or died.
       return purge<Prisma.WorkerProcessWhereInput, string>({ lastHeartbeatAt: { lt: cutoff } }, {

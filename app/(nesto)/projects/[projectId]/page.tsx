@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
 import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
 
+import { AvailableOffline } from "@/components/offline/available-offline";
 import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";
 import { PersonLink } from "@/components/people/person-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
@@ -110,6 +111,9 @@ export default async function ProjectOverviewPage({ params }: Params) {
         <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} companyName={project.company.name} statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
       </div>
 
+
+      {/* Take the project to the site without a signal (MOB-09 §7). */}
+      {!archived ? <AvailableOffline projectId={project.id} projectName={project.name} /> : null}
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
 

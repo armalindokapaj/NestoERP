@@ -454,10 +454,21 @@ export async function createComment(
   parentType: string,
   parentId: string,
   input: CreateCommentInput,
+  /** Set by sync replay (MOB-09 §82): the device's operation id, so a retry finds this comment instead of posting again. */
+  options: { clientOperationId?: string } = {},
 ): Promise<CommentDTO> {
   const parent = await requireParent(context, parentType, parentId);
   if (!can(context, "collaboration.comment.create")) throw new AccessError("FORBIDDEN", "You cannot comment.");
   if (parent.record.archived) throw new AccessError("CONFLICT", "PARENT_ARCHIVED");
+
+  const { clientOperationId } = options;
+  if (clientOperationId) {
+    const existing = await prisma.comment.findUnique({
+      where: { companyId_authorMemberId_clientOperationId: { companyId: context.companyId, authorMemberId: context.membershipId, clientOperationId } },
+      select: COMMENT_SELECT,
+    });
+    if (existing) return toCommentDTO(context, existing, parent.record.archived);
+  }
 
   const mentionedIds = await validateMentions(context, parent, input.body);
   const { definition, record } = parent;
@@ -493,6 +504,7 @@ export async function createComment(
         authorMemberId: context.membershipId,
         body: input.body,
         replyToId: replyTarget?.id ?? null,
+        clientOperationId: clientOperationId ?? null,
       },
       select: { id: true },
     });

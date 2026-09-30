@@ -12,6 +12,17 @@ export function onBeforeLogout(hook: () => Promise<void>): () => void {
   beforeLogoutHooks.add(hook);
   return () => void beforeLogoutHooks.delete(hook);
 }
+/**
+ * A guard that may stop a voluntary sign-out (MOB-09 §97, §98): work the person
+ * has not delivered yet is worth a question first. Not used for an expired session.
+ */
+let logoutGuard: (() => Promise<boolean>) | null = null;
+export function setLogoutGuard(guard: (() => Promise<boolean>) | null): () => void {
+  logoutGuard = guard;
+  return () => {
+    if (logoutGuard === guard) logoutGuard = null;
+  };
+}
 let ending = false;
 export const isSessionEnding = () => ending;
 
@@ -37,8 +48,12 @@ export function leaveSession(reason: "signed-out" | "session-expired"): void {
 /** One idempotent operation, with a bounded wait even when the network hangs. */
 export function logout(): Promise<void> {
   if (pendingLogout) return pendingLogout;
-  ending = true;
   pendingLogout = (async () => {
+    if (logoutGuard && !(await logoutGuard().catch(() => true))) {
+      pendingLogout = undefined;
+      return;
+    }
+    ending = true;
     clearAuthenticationState();
     try { localStorage.setItem(LIFECYCLE_KEY, JSON.stringify({ type: "logout", nonce: crypto.randomUUID() })); } catch { /* Storage may be disabled. */ }
     try { if (typeof BroadcastChannel !== "undefined") {

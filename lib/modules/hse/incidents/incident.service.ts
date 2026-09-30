@@ -341,9 +341,20 @@ export async function incidentFormOptions(context: UserContext) {
 export async function createIncident(
   context: UserContext,
   input: IncidentInput,
+  /** Set by sync replay (MOB-09 §82): a retry of the same device operation answers with the incident it already made. */
+  options: { clientOperationId?: string } = {},
 ): Promise<IncidentDetailDTO> {
   assertModule(context, MODULE);
   assertPermission(context, "hse.incident.create");
+
+  const { clientOperationId } = options;
+  if (clientOperationId) {
+    const existing = await prisma.hseIncident.findUnique({
+      where: { companyId_reportedByMemberId_clientOperationId: { companyId: context.companyId, reportedByMemberId: context.membershipId, clientOperationId } },
+      select: { id: true },
+    });
+    if (existing) return getIncident(context, existing.id);
+  }
 
   if (input.projectId) await requireProject(context, input.projectId);
 
@@ -377,6 +388,7 @@ export async function createIncident(
         severity: input.severity,
         status: "OPEN",
         reportedByMemberId: context.membershipId,
+        clientOperationId: clientOperationId ?? null,
         injuryOccurred: input.injuryOccurred ?? false,
         firstAidRequired: input.firstAidRequired ?? false,
         medicalTreatmentRequired: input.medicalTreatmentRequired ?? false,
