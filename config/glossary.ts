@@ -41,6 +41,7 @@ export const GLOSSARY_NOUNS = {
   inspection: { singular: "Inspection", plural: "Inspections" },
   ncr: { singular: "NCR", plural: "NCRs" },
   hseIncident: { singular: "HSE incident", plural: "HSE incidents", listLabel: "Incidents" },
+  hseHazard: { singular: "HSE hazard", plural: "HSE hazards", listLabel: "Hazards" },
   hazard: { singular: "Hazard", plural: "Hazards" },
   member: { singular: "Member", plural: "Members" },
 } as const satisfies Record<string, GlossaryNoun>;

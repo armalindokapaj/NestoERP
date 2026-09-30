@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, Wallet, WifiOff, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type LucideIcon } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
@@ -19,7 +19,7 @@ import type { MenuState, ProjectsState, Step } from "@/components/layout/quick-c
  * menu read together with this chunk.
  */
 
-const ICONS: Record<string, LucideIcon> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat };
+const ICONS: Record<string, LucideIcon> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat, TriangleAlert };
 const SEARCH_FROM = 8;
 
 export type QuickCreateBodyProps = {
