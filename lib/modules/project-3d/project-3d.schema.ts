@@ -140,6 +140,14 @@ export const project3DSlotCreateSchema = z.object({
   reason,
 });
 
+/** Renaming a model, or choosing the model its transform follows (the Rozaris "Building Anchor"). */
+export const project3DSlotUpdateSchema = z.object({
+  displayName: z.string().trim().min(2).max(120).optional(),
+  transformParentSlotId: z.string().trim().min(1).max(128).nullable().optional(),
+}).refine((value) => value.displayName !== undefined || value.transformParentSlotId !== undefined, { message: "Nothing to change." });
+
+export type Project3DSlotUpdate = z.infer<typeof project3DSlotUpdateSchema>;
+
 /** Removing a model from the Experience (its versions and releases stay). */
 export const project3DSlotRemoveSchema = z.object({ reason });
 

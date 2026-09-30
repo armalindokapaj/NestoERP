@@ -1,16 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Compass, LoaderCircle, MapPin, Plus, RotateCcw, ScanSearch, Search, Trash2, TriangleAlert, Upload, UploadCloud } from "lucide-react";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { Button } from "@/components/ui/button";
 import { PROJECT_3D_PLATFORM_API_ROOT } from "@/lib/3d/platform";
-import { LUT_PRESETS } from "@/lib/3d/runtime/viewerPresets";
+import { LUT_PRESETS, pickDefaultQualityTier, QUALITY_TIERS } from "@/lib/3d/runtime/viewerPresets";
 import type { ArtificialLight, Project3DConfig, ViewerUIToggles } from "@/lib/3d/runtime/types";
-import { environmentPresetPatch, pickEnvironmentPresetConfig } from "@/lib/3d/shared/environment-presets";
+import { ENVIRONMENT_PRESET_KEYS, environmentPresetPatch, pickEnvironmentPresetConfig } from "@/lib/3d/shared/environment-presets";
 import type { Project3DNodeOverride, Project3DSceneNode } from "@/lib/3d/shared/contracts";
 import { cn } from "@/lib/utils/cn";
+import { platformEnvironmentBase, resolveEnvironmentRefs } from "@/lib/3d/shared/environment-refs";
+import { uploadEnvironmentAsset } from "./environment-upload";
 import { Choice, Color, Panel, Range, Toggle } from "./controls";
 
 /*
@@ -221,7 +223,50 @@ export function MaterialExtraPanels({ override, change, onRestore, disabled }: {
 
 /* ------------------------------------------------------------ Environment */
 
-export function EnvironmentExtraPanels(props: ConfigProps) {
+/** The Rozaris Sun & Sky "360° Backdrop Photo" group, uploading to the Project's private 3D storage. */
+function BackdropPanel({ draft, change, projectId }: ConfigProps & { projectId: string }) {
+  const input = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = React.useState<number | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const preview = resolveEnvironmentRefs({ backdropImageUrl: draft.backdropImageUrl }, platformEnvironmentBase(projectId)).backdropImageUrl;
+
+  async function handleFile(file: File) {
+    if (file.type !== "image/png") return setError("Must be a PNG (the transparent-sky technique needs a real alpha channel).");
+    setError(null);
+    setUploading(0);
+    try {
+      const ref = await uploadEnvironmentAsset(projectId, "backdrop", file, setUploading);
+      change({ backdropImageUrl: ref, backdropEnabled: true });
+    } catch (failure) {
+      setError(failureMessage(failure, "Upload failed."));
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  return <Panel title="360° backdrop photo">
+    <p className="text-[10px] leading-snug text-neutral-500">An equirectangular (2:1) 360° photo of the real site surroundings, exported as a PNG with the sky area made transparent — the physical Sky above keeps showing through the transparent pixels, so the real sun/time-of-day still drive the lighting.</p>
+    {error ? <p role="alert" className="rounded bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-400">{error}</p> : null}
+    {/* eslint-disable-next-line @next/next/no-img-element -- a private, authenticated editor asset */}
+    {preview ? <img src={preview} alt="" className="h-20 w-full rounded-md border border-neutral-800 object-cover" /> : null}
+    <input ref={input} type="file" accept="image/png" className="hidden" aria-label="360° backdrop photo" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleFile(file); event.target.value = ""; }} />
+    <button type="button" disabled={uploading !== null} onClick={() => input.current?.click()} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-neutral-700 py-1.5 text-[11px] font-semibold text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 disabled:opacity-50">
+      <Upload className="h-3.5 w-3.5" />
+      {uploading !== null ? `Uploading… ${uploading}%` : draft.backdropImageUrl ? "Replace Photo" : "Upload Photo"}
+    </button>
+    {draft.backdropImageUrl ? <>
+      <Toggle label="360° Backdrop" value={draft.backdropEnabled} onChange={(backdropEnabled) => change({ backdropEnabled })} />
+      <Range label="Move Left / Right" value={draft.backdropRotationDeg} min={-180} max={180} step={1} suffix="°" disabled={!draft.backdropEnabled} onChange={(backdropRotationDeg) => change({ backdropRotationDeg })} />
+      <Range label="Tilt Up / Down" value={draft.backdropPitchDeg} min={-90} max={90} step={1} suffix="°" disabled={!draft.backdropEnabled} onChange={(backdropPitchDeg) => change({ backdropPitchDeg })} />
+      <Range label="Elevation" value={draft.backdropElevation} min={-500} max={500} step={1} disabled={!draft.backdropEnabled} onChange={(backdropElevation) => change({ backdropElevation })} />
+      <p className="text-[10px] leading-snug text-neutral-600">Tilt rotates the photo (fixes a level-but-wrong-angle horizon). Elevation raises/lowers it instead — use when the horizon is already level but the photo was shot from a different height than the model&apos;s own ground.</p>
+      {draft.backdropRotationDeg !== 0 || draft.backdropPitchDeg !== 0 || draft.backdropElevation !== 0 ? <button type="button" onClick={() => change({ backdropRotationDeg: 0, backdropPitchDeg: 0, backdropElevation: 0 })} className="w-full py-1 text-center text-[10px] font-semibold text-neutral-500 hover:text-neutral-300">Reset position</button> : null}
+      <button type="button" onClick={() => change({ backdropImageUrl: null, backdropEnabled: false, backdropRotationDeg: 0, backdropPitchDeg: 0, backdropElevation: 0 })} className="flex w-full items-center justify-center gap-1.5 rounded-md py-1 text-[10px] font-semibold text-red-500 hover:bg-red-500/10"><Trash2 className="h-3 w-3" /> Remove Photo</button>
+    </> : null}
+  </Panel>;
+}
+
+export function EnvironmentExtraPanels(props: ConfigProps & { projectId: string }) {
   const { draft, change } = props;
   const { t, r, c } = binders(props);
   const fog = draft.fogEnabled;
@@ -253,13 +298,7 @@ export function EnvironmentExtraPanels(props: ConfigProps) {
       {r("Mie coefficient", "skyMieCoefficient", 0, 0.1, 0.001, undefined, !draft.skyEnabled)}
       {r("Mie directional G", "skyMieDirectionalG", 0, 1, 0.01, undefined, !draft.skyEnabled)}
     </Panel>
-    <Panel title="360° backdrop">
-      {t("360° backdrop", "backdropEnabled", !draft.backdropImageUrl)}
-      <label className="block text-xs text-neutral-400"><span className="mb-1 block">Image address</span><input className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-200" value={draft.backdropImageUrl ?? ""} placeholder="https://…" onChange={(event) => change({ backdropImageUrl: event.target.value.trim() || null })} /></label>
-      {r("Rotation", "backdropRotationDeg", -180, 180, 1, "°", !draft.backdropEnabled)}
-      {r("Tilt up / down", "backdropPitchDeg", -45, 45, 0.5, "°", !draft.backdropEnabled)}
-      {r("Elevation", "backdropElevation", -0.5, 0.5, 0.01, undefined, !draft.backdropEnabled)}
-    </Panel>
+    <BackdropPanel {...props} />
     <Panel title="Fog">
       {c("Color", "fogColor", !fog || draft.fogMatchesSky)}
       {t("Match sky", "fogMatchesSky", !fog)}
@@ -335,7 +374,7 @@ function SolarAnchorsPanel({ draft, change }: ConfigProps) {
 
 /* --------------------------------------------------------------- Lighting */
 
-export function LightingExtraPanels(props: ConfigProps) {
+export function LightingExtraPanels(props: ConfigProps & { projectId: string }) {
   const { draft, change } = props;
   const { t, r, c } = binders(props);
   const shadows = draft.shadowsEnabled;
@@ -390,19 +429,21 @@ export function LightingExtraPanels(props: ConfigProps) {
   </>;
 }
 
-function ArtificialLightsPanel({ draft, change }: ConfigProps) {
+function ArtificialLightsPanel({ draft, change, projectId }: ConfigProps & { projectId: string }) {
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
   const lights = draft.artificialLights;
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const selected = lights.find((light) => light.id === selectedId) ?? null;
   const set = (id: string, patch: Partial<ArtificialLight>) => change({ artificialLights: lights.map((light) => (light.id === id ? { ...light, ...patch } : light)) });
   function add(type: ArtificialLight["type"]) {
-    const light: ArtificialLight = { id: crypto.randomUUID(), name: `${type === "rect" ? "Area" : type.charAt(0).toUpperCase() + type.slice(1)} light ${lights.length + 1}`, type, enabled: true, shadowsEnabled: false, volumetricEnabled: false, helperEnabled: true, position: { x: 0, y: 10, z: 0 }, target: { x: 0, y: 0, z: 0 }, colorHex: "#ffffff", temperatureK: null, intensity: 50, distance: 0, decay: 2, angleDeg: 30, penumbra: 0.3, width: 2, height: 2, iesProfileUrl: null };
+    const light: ArtificialLight = { id: crypto.randomUUID(), name: `${type === "rect" ? "Area" : type === "ies" ? "IES" : type.charAt(0).toUpperCase() + type.slice(1)} light ${lights.length + 1}`, type, enabled: true, shadowsEnabled: false, volumetricEnabled: false, helperEnabled: true, position: { x: 0, y: 10, z: 0 }, target: { x: 0, y: 0, z: 0 }, colorHex: "#ffffff", temperatureK: null, intensity: 50, distance: 0, decay: 2, angleDeg: 30, penumbra: 0.3, width: 2, height: 2, iesProfileUrl: null };
     change({ artificialLights: [...lights, light] });
     setSelectedId(light.id);
   }
   const vec = (label: string, key: "position" | "target", light: ArtificialLight) => (["x", "y", "z"] as const).map((axis) => <Range key={`${key}${axis}`} label={`${label} ${axis.toUpperCase()}`} value={light[key][axis]} min={axis === "y" ? -50 : -200} max={200} step={0.5} onChange={(value) => set(light.id, { [key]: { ...light[key], [axis]: value } })} />);
   return <Panel title="Artificial lights">
-    <div className="flex flex-wrap gap-1">{(["point", "spot", "rect"] as const).map((type) => <Button key={type} type="button" size="sm" variant="secondary" onClick={() => add(type)}><Plus aria-hidden="true" />{type === "rect" ? "Area" : type}</Button>)}</div>
+    <div className="flex flex-wrap gap-1">{(["point", "spot", "ies", "rect"] as const).map((type) => <Button key={type} type="button" size="sm" variant="secondary" onClick={() => add(type)}><Plus aria-hidden="true" />{type === "rect" ? "Area" : type === "ies" ? "IES" : type}</Button>)}</div>
     {lights.map((light) => <div key={light.id} className={cn("flex items-center justify-between gap-2 rounded border px-2 py-1 text-[11px]", selectedId === light.id ? "border-indigo-500" : "border-neutral-800")}>
       <button type="button" className="min-w-0 flex-1 truncate text-left text-neutral-200" onClick={() => setSelectedId(light.id)}>{light.name}</button>
       <button type="button" aria-label={`Remove ${light.name}`} className="text-red-300" onClick={() => { change({ artificialLights: lights.filter((item) => item.id !== light.id) }); if (selectedId === light.id) setSelectedId(null); }}><Trash2 className="size-3.5" aria-hidden="true" /></button>
@@ -418,8 +459,25 @@ function ArtificialLightsPanel({ draft, change }: ConfigProps) {
       <Color label="Color" value={selected.colorHex} onChange={(colorHex) => set(selected.id, { colorHex, temperatureK: null })} />
       <Range label="Intensity" value={selected.intensity} min={0} max={1000} step={1} onChange={(intensity) => set(selected.id, { intensity })} />
       {selected.type !== "rect" ? <><Range label="Distance" value={selected.distance} min={0} max={2000} step={1} suffix="m" onChange={(distance) => set(selected.id, { distance })} /><Range label="Decay" value={selected.decay} min={0} max={4} step={0.1} onChange={(decay) => set(selected.id, { decay })} /></> : null}
-      {selected.type === "spot" ? <><Range label="Angle" value={selected.angleDeg} min={0.1} max={89} step={1} suffix="°" onChange={(angleDeg) => set(selected.id, { angleDeg })} /><Range label="Penumbra" value={selected.penumbra} min={0} max={1} step={0.01} onChange={(penumbra) => set(selected.id, { penumbra })} /></> : null}
+      {selected.type === "spot" || selected.type === "ies" ? <><Range label="Angle" value={selected.angleDeg} min={0.1} max={89} step={1} suffix="°" onChange={(angleDeg) => set(selected.id, { angleDeg })} /><Range label="Penumbra" value={selected.penumbra} min={0} max={1} step={0.01} onChange={(penumbra) => set(selected.id, { penumbra })} /></> : null}
       {selected.type === "rect" ? <><Range label="Width" value={selected.width} min={0.01} max={500} step={0.1} onChange={(width) => set(selected.id, { width })} /><Range label="Height" value={selected.height} min={0.01} max={500} step={0.1} onChange={(height) => set(selected.id, { height })} /></> : null}
+      {selected.type === "ies" ? <div className="space-y-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">IES Profile</p>
+        <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800">
+          <UploadCloud className="h-3.5 w-3.5" /> {uploading ? "Uploading…" : selected.iesProfileUrl ? "Replace .ies profile" : "Upload .ies profile"}
+          <input type="file" accept=".ies" className="hidden" disabled={uploading} aria-label="IES profile" onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            const lightId = selected.id;
+            setUploading(true);
+            setUploadError(null);
+            uploadEnvironmentAsset(projectId, "ies", file).then((iesProfileUrl) => set(lightId, { iesProfileUrl }), (failure) => setUploadError(failureMessage(failure, "The IES profile could not be uploaded."))).finally(() => setUploading(false));
+          }} />
+        </label>
+        {selected.iesProfileUrl ? <p className="truncate px-1 text-[10px] text-neutral-600">{selected.iesProfileUrl.startsWith("nesto-env:") ? "Profile uploaded" : selected.iesProfileUrl}</p> : null}
+        {uploadError ? <p role="alert" className="text-[10px] text-red-400">{uploadError}</p> : null}
+      </div> : null}
     </div> : null}
   </Panel>;
 }
@@ -516,18 +574,57 @@ export function PerformanceExtraPanels(props: ConfigProps) {
   const { draft, change } = props;
   const { t } = binders(props);
   const custom = draft.qualityPreset === "custom";
+  // Rozaris: the custom sliders start from the chosen tier's own values.
+  const tier = QUALITY_TIERS[draft.qualityPreset];
   return <Panel title="More quality">
     {t("Device detection", "deviceDetectionEnabled")}
+    {draft.deviceDetectionEnabled ? <button type="button" onClick={() => change({ qualityPreset: pickDefaultQualityTier() })} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800"><ScanSearch className="h-3.5 w-3.5" /> Detect This Device</button> : null}
     {t("Runtime quality reduction", "runtimeQualityReductionEnabled", !draft.adaptiveQualityEnabled)}
-    <Range label="Render scale (custom)" value={draft.customRenderScale ?? 1} min={0.1} max={2} step={0.05} suffix="×" disabled={!custom} onChange={(customRenderScale) => change({ customRenderScale })} />
-    <Range label="Pixel ratio limit (custom)" value={draft.customDprCap ?? 2} min={0.5} max={3} step={0.05} suffix="×" disabled={!custom} onChange={(customDprCap) => change({ customDprCap })} />
+    <Range label="Render scale (custom)" value={draft.customRenderScale ?? tier.renderScale} min={0.1} max={2} step={0.05} suffix="×" disabled={!custom} onChange={(customRenderScale) => change({ customRenderScale })} />
+    <Range label="Pixel ratio limit (custom)" value={draft.customDprCap ?? tier.dprCap} min={0.5} max={3} step={0.05} suffix="×" disabled={!custom} onChange={(customDprCap) => change({ customDprCap })} />
   </Panel>;
 }
 
 /* -------------------------------------------------------------------- Map */
 
-export function MapPanels(props: ConfigProps) {
-  const { draft, change } = props;
+/** What the viewer reports while it builds the real-world site (Rozaris MapPanel). */
+export type SiteStatus =
+  | null
+  | { state: "loading" }
+  | { state: "failed"; reason?: string }
+  | { state: "ready"; centreElevationM: number; reliefM: { min: number; max: number } };
+
+/** Rozaris "Reset site": turns the site off and clears every site field. */
+const SITE_DEFAULTS = {
+  siteEnabled: false,
+  siteRadiusM: 600,
+  siteTerrainEnabled: true,
+  siteImageryEnabled: true,
+  siteImageryBrightness: 0.85,
+  siteOffsetX: 0,
+  siteOffsetZ: 0,
+  siteElevationOffset: 0,
+  siteRotationDeg: 0,
+  siteScale: 1,
+} satisfies Partial<Config>;
+
+const normalizeDeg = (deg: number) => ((deg % 360) + 360) % 360;
+const hint = (text: React.ReactNode) => <p className="text-[11px] leading-relaxed text-neutral-600">{text}</p>;
+
+function SiteStatusRow({ status }: { status: SiteStatus }) {
+  if (!status) return null;
+  if (status.state === "loading") {
+    return <p className="flex items-center gap-1.5 text-[11px] text-neutral-400"><LoaderCircle className="h-3 w-3 animate-spin" /> Building site from Mapbox terrain and imagery…</p>;
+  }
+  if (status.state === "failed") {
+    return <p className="flex items-start gap-1.5 text-[11px] text-red-400"><TriangleAlert className="mt-px h-3 w-3 shrink-0" />Could not build the site. Check the Mapbox token and this project&apos;s coordinates.</p>;
+  }
+  const relief = status.reliefM.max - status.reliefM.min;
+  return <p className="text-[11px] text-emerald-400/90">Site ready — ground sits {Math.round(status.centreElevationM)} m above sea level, with {relief.toFixed(1)} m of relief across it. The building&apos;s own ground plane stays at zero.</p>;
+}
+
+export function MapPanels(props: ConfigProps & { siteStatus?: SiteStatus }) {
+  const { draft, change, siteStatus = null } = props;
   const { t, r } = binders(props);
   const site = draft.siteEnabled;
   const coordinate = (label: string, key: "mapViewLatitude" | "mapViewLongitude") => <label className="block text-xs text-neutral-400"><span className="mb-1 block">{label}</span><input type="number" step="0.000001" className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-200" value={draft[key] ?? ""} onChange={(event) => { const value = event.target.value === "" ? null : Number(event.target.value); change({ [key]: value === null || Number.isFinite(value) ? value : draft[key] }); }} /></label>;
@@ -539,17 +636,36 @@ export function MapPanels(props: ConfigProps) {
     </Panel>
     <Panel title="Real-world site">
       {t("Show real-world site", "siteEnabled", draft.mapViewLatitude === null || draft.mapViewLongitude === null)}
+      {draft.mapViewLatitude === null || draft.mapViewLongitude === null ? <p className="flex items-start gap-1.5 text-[11px] text-amber-400"><MapPin className="mt-px h-3 w-3 shrink-0" />This Experience has no location set. Enter the latitude and longitude above — the site is built from these coordinates.</p> : null}
+      {site ? <SiteStatusRow status={siteStatus} /> : null}
+      {site ? hint("The Ground platform (Environment → Ground) is hidden automatically while this is on — both sit at ground level and would otherwise flicker against each other.") : null}
+    </Panel>
+    <Panel title="Extent & layers">
       {r("Radius", "siteRadiusM", 100, 3000, 50, "m", !site)}
+      {hint("How far the real world extends around the project. Larger sites automatically fetch sharper imagery rather than stretching one texture thinner, so a 2 km site downloads more and costs more GPU memory — 600–800 m reads well for most projects.")}
       {t("Terrain", "siteTerrainEnabled", !site)}
       {t("Aerial imagery", "siteImageryEnabled", !site)}
       {r("Imagery brightness", "siteImageryBrightness", 0, 2, 0.05, undefined, !site || !draft.siteImageryEnabled)}
+      {hint("Aerial photos already have the sun of the day they were shot baked into them, which fights this project's own movable sun. Pulling this down is the honest fix — it will never match perfectly at every time of day.")}
+    </Panel>
+    <Panel title="Alignment">
+      {hint(<>The <span className="text-neutral-300">site</span> moves — the building never does. Line the real world up with your model; every uploaded GLB stays exactly where it was authored.</>)}
       {r("Rotate", "siteRotationDeg", -180, 180, 0.5, "°", !site)}
+      <p className="flex items-start gap-1.5 text-[11px] text-sky-400/90"><Compass className="mt-px h-3 w-3 shrink-0" />Rotating the site tells the engine where north really is, so the sun rotates with it. Shadows stay correct for the real location as you align.</p>
       {r("Move east / west", "siteOffsetX", -500, 500, 0.5, "m", !site)}
       {r("Move north / south", "siteOffsetZ", -500, 500, 0.5, "m", !site)}
       {r("Height", "siteElevationOffset", -100, 100, 0.1, "m", !site)}
       {r("Scale", "siteScale", 0.5, 2, 0.01, "×", !site)}
+      {hint("Scale should stay at 1× — both the site and your models are in real metres. It exists only for a model that was authored at the wrong scale and cannot be re-exported.")}
       <Button type="button" variant="secondary" size="sm" disabled={!site} onClick={() => change({ siteRotationDeg: 0, siteOffsetX: 0, siteOffsetZ: 0, siteElevationOffset: 0, siteScale: 1 })}>Reset site alignment</Button>
     </Panel>
+    <Panel title="Sun & North">
+      <p className="text-[11px] text-neutral-500">North offset is currently <span className="text-neutral-300">{normalizeDeg(draft.northOffsetDeg + draft.siteRotationDeg)}°</span> — your Sun &amp; Sky north ({draft.northOffsetDeg}°) plus this site&apos;s rotation ({draft.siteRotationDeg}°). They are the same quantity and simply add.</p>
+      <button type="button" onClick={() => change({ northOffsetDeg: normalizeDeg(draft.northOffsetDeg + 180) })} disabled={!site} className="w-full rounded-md border border-neutral-700 bg-neutral-800/60 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40">Flip sun 180°</button>
+      {hint("The site is laid out with true north away from the camera's default forward, which is half a turn from the engine's own sun-azimuth reference. If shadows fall on the wrong side of the building at midday, this is the fix. It is not applied automatically because it would move the sun on every existing project.")}
+    </Panel>
+    <button type="button" onClick={() => change(SITE_DEFAULTS)} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 hover:bg-red-950/40">Reset site</button>
+    {hint("Turns the site off and clears every field above. Your uploaded models and the Map view below are untouched.")}
     <Panel title="Map view">
       {t("Map view", "mapViewEnabled")}
       {r("Heading", "mapViewHeadingDeg", -180, 180, 1, "°", !draft.mapViewEnabled)}
@@ -564,6 +680,16 @@ export function MapPanels(props: ConfigProps) {
 /* ---------------------------------------------------------------- Presets */
 
 type Preset = { id: string; name: string; configuration: unknown; updatedAt: string };
+
+/** The Rozaris preset groups (environmentPresetFields.ts), over NESTO's preset keys. */
+const PRESET_GROUPS = [
+  { label: "Sun & Sky", match: /^(sun|solar|viewerTime|geo|simulationDate|northOffset|sky|environment|autoSun|manualSun|backdrop)/ },
+  { label: "Fog & Haze", match: /^fog/ },
+  { label: "Clouds", match: /^cloud/ },
+  { label: "Water", match: /^water/ },
+  { label: "Lens Flare & Bloom", match: /^(lensFlare|bloom)/ },
+  { label: "Tone Mapping & Color", match: /^(exposure|toneMapping|lut)/ },
+];
 const PRESETS_API = `${PROJECT_3D_PLATFORM_API_ROOT}/presets`;
 
 /**
@@ -600,6 +726,16 @@ export function PresetsPanel({ draft, change, canEdit }: ConfigProps & { canEdit
     }
   }
 
+  function apply(preset: Preset) {
+    if (!window.confirm(`Apply "${preset.name}"? This overwrites this project's Sun & Sky, Fog & Haze, Clouds, Water, Lens Flare/Bloom, and Tone Mapping/LUT settings with the preset's values — Save to keep it, Publish to go live.`)) return;
+    change(environmentPresetPatch(preset.configuration));
+  }
+
+  function overwrite(preset: Preset) {
+    if (!window.confirm(`Update "${preset.name}" to match this project's current settings? This overwrites the saved preset for every project that loads it.`)) return;
+    void run(() => engineeringApi(`${PRESETS_API}/${preset.id}`, { method: "PATCH", body: { configuration: pickEnvironmentPresetConfig(draft) } }), "The preset could not be updated.");
+  }
+
   const saveNew = () => run(async () => {
     await engineeringApi(PRESETS_API, { body: { name: name.trim(), configuration: pickEnvironmentPresetConfig(draft) } });
     setName("");
@@ -611,6 +747,13 @@ export function PresetsPanel({ draft, change, canEdit }: ConfigProps & { canEdit
       <input className="h-8 min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-200" placeholder="New preset name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
       <Button type="button" size="sm" variant="secondary" disabled={busy || !name.trim()} onClick={() => void saveNew()}>Save</Button>
     </div> : null}
+    <div>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">Included Settings</p>
+      <div className="flex flex-wrap gap-1">
+        {PRESET_GROUPS.map((group) => <span key={group.label} title={`${ENVIRONMENT_PRESET_KEYS.filter((key) => group.match.test(key)).length} fields`} className="rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-neutral-400">{group.label}</span>)}
+      </div>
+      <p className="mt-1.5 text-[10px] text-neutral-600">Camera, Quality/Performance, Ground, Unit Colors, Sections, and Shadows/GI stay per-project — not included.</p>
+    </div>
     {presets === null ? <p className="text-xs text-neutral-500">Loading presets…</p> : presets.length === 0 ? <p className="text-xs text-neutral-500">No presets yet.</p> : null}
     {presets?.map((preset) => <div key={preset.id} className="space-y-2 rounded border border-neutral-800 p-2 text-xs">
       {renaming?.id === preset.id ? <div className="flex gap-2">
@@ -618,9 +761,9 @@ export function PresetsPanel({ draft, change, canEdit }: ConfigProps & { canEdit
         <Button type="button" size="sm" variant="secondary" disabled={busy || !renaming.name.trim()} onClick={() => void run(async () => { await engineeringApi(`${PRESETS_API}/${preset.id}`, { method: "PATCH", body: { name: renaming.name.trim() } }); setRenaming(null); }, "The preset could not be renamed.")}>OK</Button>
       </div> : <p className="truncate font-medium text-neutral-200">{preset.name}</p>}
       <div className="flex flex-wrap gap-2 text-[11px]">
-        <button type="button" className="text-indigo-300" disabled={busy} onClick={() => change(environmentPresetPatch(preset.configuration))}>Apply</button>
+        <button type="button" className="text-indigo-300" disabled={busy} onClick={() => apply(preset)}>Apply</button>
         {canEdit ? <>
-          <button type="button" className="text-neutral-300" disabled={busy} onClick={() => void run(() => engineeringApi(`${PRESETS_API}/${preset.id}`, { method: "PATCH", body: { configuration: pickEnvironmentPresetConfig(draft) } }), "The preset could not be updated.")}>Overwrite with current</button>
+          <button type="button" className="text-neutral-300" disabled={busy} onClick={() => overwrite(preset)}>Overwrite with current</button>
           <button type="button" className="text-neutral-300" disabled={busy} onClick={() => setRenaming({ id: preset.id, name: preset.name })}>Rename</button>
           <button type="button" className="text-red-300" disabled={busy} onClick={() => void run(() => engineeringApi(`${PRESETS_API}/${preset.id}`, { method: "DELETE" }), "The preset could not be deleted.")}>Delete</button>
         </> : null}

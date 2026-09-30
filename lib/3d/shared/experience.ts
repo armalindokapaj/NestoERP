@@ -1,6 +1,7 @@
 import type { Project3DConfig } from "@/lib/3d/runtime/types";
 
 import { PROJECT_3D_SCHEMA_VERSION } from "./contracts";
+import { environmentRefFile } from "./environment-refs";
 
 export type Project3DExperienceDocument = {
   schemaVersion: typeof PROJECT_3D_SCHEMA_VERSION;
@@ -97,6 +98,10 @@ function validStructuredRows(config: Record<string, unknown>): boolean {
     && isRecord(config.viewerUI);
 }
 
+function isBackdropSource(value: unknown): boolean {
+  return typeof value === "string" && value.length <= 2_000 && (environmentRefFile(value) !== null || /^https:\/\/[^\s]+$/i.test(value));
+}
+
 export function parseProject3DExperience(value: unknown): Project3DExperienceDocument {
   const defaults = defaultProject3DExperience();
   if (!isRecord(value)) return defaults;
@@ -109,7 +114,10 @@ export function parseProject3DExperience(value: unknown): Project3DExperienceDoc
   for (const [key, fallback] of Object.entries(expected)) {
     const supplied = candidate[key];
     if (supplied === undefined) continue;
-    if (fallback === null) {
+    if (key === "backdropImageUrl") {
+      // The 360° backdrop photo: an uploaded file's reference, or an https address.
+      if (supplied !== null && !isBackdropSource(supplied)) throw new Error(`Invalid 3D Experience field: ${key}`);
+    } else if (fallback === null) {
       if (supplied !== null && (typeof supplied !== "number" || !Number.isFinite(supplied))) throw new Error(`Invalid 3D Experience field: ${key}`);
     } else if (Array.isArray(fallback)) {
       if (!Array.isArray(supplied)) throw new Error(`Invalid 3D Experience field: ${key}`);

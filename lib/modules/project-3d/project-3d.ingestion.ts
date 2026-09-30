@@ -14,7 +14,7 @@ import { optimizeGlbForDeliveryDetailed } from "./processing/glb.optimize";
 import { validateGlb } from "./processing/glb.validate";
 import { countProject3DOperation, project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
-import type { Project3DSlotCreate, Project3DUploadCreate } from "./project-3d.schema";
+import type { Project3DSlotCreate, Project3DSlotUpdate, Project3DUploadCreate } from "./project-3d.schema";
 import { isDeletedExperienceWrite } from "@/lib/api/failure";
 import { assertProject3DStorageKey, buildProject3DStorageKey } from "./project-3d.storage";
 import { assertProject3DExperienceLive } from "./project-3d.lifecycle";
@@ -162,6 +162,46 @@ export async function deactivateProject3DModelSlot(context: PlatformContext, pro
   }).then((result) => {
     countProject3DOperation("detach");
     return result;
+  });
+}
+
+/**
+ * Renames a model or sets the model its transform follows — the Rozaris editor's
+ * slot rename and "Building Anchor". The anchor must be another active model of
+ * this Project, and a chain of anchors can never loop back on itself.
+ */
+export async function updateProject3DModelSlot(context: PlatformContext, projectId: string, slotId: string, input: Project3DSlotUpdate) {
+  assertProject3DPlatformPermission(context, "platform.3d.model.manage");
+  await assertProject3DExperienceLive(prisma, projectId);
+  const slot = assertFound(await prisma.project3DModelSlot.findFirst({
+    where: { id: slotId, projectId, isActive: true, project: NOT_A_FIXTURE },
+    select: { id: true, companyId: true, displayName: true, transformParentSlotId: true, project: { select: { company: { select: { parentGroupId: true } } } } },
+  }));
+  if (input.transformParentSlotId) {
+    if (input.transformParentSlotId === slot.id) throw new AccessError("VALIDATION_ERROR", "A model cannot follow itself.", { field: "transformParentSlotId" });
+    const active = await prisma.project3DModelSlot.findMany({ where: { projectId, companyId: slot.companyId, isActive: true }, select: { id: true, transformParentSlotId: true } });
+    const parentOf = new Map(active.map((row) => [row.id, row.transformParentSlotId]));
+    if (!parentOf.has(input.transformParentSlotId)) throw new AccessError("VALIDATION_ERROR", "The transform parent is not an active slot in this Project.", { field: "transformParentSlotId" });
+    for (let cursor: string | null | undefined = input.transformParentSlotId, hops = 0; cursor && hops <= active.length; cursor = parentOf.get(cursor), hops += 1) {
+      if (cursor === slot.id) throw new AccessError("VALIDATION_ERROR", "That anchor would make the models follow each other in a loop.", { field: "transformParentSlotId" });
+    }
+  }
+  const data = {
+    ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
+    ...(input.transformParentSlotId !== undefined ? { transformParentSlotId: input.transformParentSlotId } : {}),
+  };
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.project3DModelSlot.update({ where: { id: slot.id }, data, select: { id: true, displayName: true, transformParentSlotId: true } });
+    const before = { projectId, slotId: slot.id, displayName: slot.displayName, transformParentSlotId: slot.transformParentSlotId };
+    await recordPlatformAction(context, slot.project.company.parentGroupId, {
+      actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
+      entity: { type: "Project3DModelSlot", id: slot.id, label: updated.displayName },
+      projectId,
+      before,
+      after: { ...before, displayName: updated.displayName, transformParentSlotId: updated.transformParentSlotId },
+      metadata: project3DAuditMetadata("MODEL_SETTINGS_UPDATED", input.displayName !== undefined && input.displayName !== slot.displayName ? `Model renamed to ${updated.displayName}` : "Model anchor changed"),
+    }, { tx });
+    return updated;
   });
 }
 
