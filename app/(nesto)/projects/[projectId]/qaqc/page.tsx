@@ -21,8 +21,7 @@ import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 import { projectQuality } from "@/lib/modules/qaqc/reports/reports.service";
 import { inspectionListQuerySchema } from "@/lib/modules/qaqc/qaqc.schema";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -78,7 +77,6 @@ export default async function ProjectQaqcPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "QA/QC")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -93,30 +91,6 @@ export default async function ProjectQaqcPage({ params }: Params) {
         }
       />
 
-      <ProjectTabs
-        projectId={project.id}
-        active="qaqc"
-        show={{
-          planning: projectActions.canViewPlanning,
-          units: projectActions.canViewUnits,
-          sales: projectActions.canViewUnitSales,
-          contractors: projectActions.canViewContractors,
-          engineering: projectActions.canViewEngineering,
-          tasks: projectActions.canViewTasks,
-          calendar: projectActions.canViewCalendar,
-          meetings: projectActions.canViewMeetings,
-          dailyLogs: projectActions.canViewDailyLogs,
-          workforce: projectActions.canViewWorkforce,
-          team: projectActions.canViewMembers,
-          finance: projectActions.canViewFinance,
-          unitFinance: projectActions.canViewUnitFinance,
-          contracts: projectActions.canViewContracts,
-          inventory: projectActions.canViewInventory,
-          qaqc: true,
-          documents: projectActions.canViewDocuments,
-          activity: projectActions.canViewActivity,
-        }}
-      />
 
       {nothing ? (
         <EmptyState

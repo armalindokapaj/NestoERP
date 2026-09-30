@@ -4,7 +4,7 @@ import Link from "@/components/navigation/nav-link";
 import { KeepActiveInView } from "@/components/ui/scroll-region";
 import { sectionRoute } from "@/config/modules";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
-import { cn } from "@/lib/utils/cn";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 
 /**
  * Module sub-navigation (PRD #7 §14).
@@ -29,11 +29,7 @@ export async function ModuleTabs({
   const t = await getTranslations("common");
 
   return (
-    <div className="-mx-1 overflow-x-auto overscroll-x-contain">
-      <nav
-        aria-label={t("sections", { label: experience.label })}
-        className="flex min-w-max items-center gap-1 border-b border-line px-1"
-      >
+    <ContextTabsFrame label={t("sections", { label: experience.label })}>
         {experience.sections.map((section) => {
           const active = section.key === activeSection;
           return (
@@ -42,13 +38,7 @@ export async function ModuleTabs({
               href={sectionRoute(experience.module, section.key)}
               navSource="tab"
               aria-current={active ? "page" : undefined}
-              className={cn(
-                "relative -mb-px inline-flex items-center whitespace-nowrap border-b-2 px-3 py-2.5 text-table font-medium transition-colors touch:min-h-11",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                active
-                  ? "border-accent text-fg"
-                  : "border-transparent text-fg-muted hover:text-fg",
-              )}
+              className={contextTabClass(active)}
             >
               {section.label}
               <TabPendingDot href={sectionRoute(experience.module, section.key)} />
@@ -56,7 +46,6 @@ export async function ModuleTabs({
           );
         })}
         <KeepActiveInView activeKey={activeSection} />
-      </nav>
-    </div>
+    </ContextTabsFrame>
   );
 }

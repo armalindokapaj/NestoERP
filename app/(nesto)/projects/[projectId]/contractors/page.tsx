@@ -18,8 +18,7 @@ import { COMPLIANCE_ALERT_STATUSES } from "@/lib/modules/contractors/contractor.
 import * as projects from "@/lib/modules/projects/project.service";
 import { workPackageListSchema } from "@/lib/modules/contractors/contractor.schema";
 import { listProjectWorkPackages } from "@/lib/modules/work-packages/work-package.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -53,32 +52,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
 
   return (
     <div className="space-y-6">
-      <RecordContextHeader breadcrumbs={await projectBreadcrumbs(project, "Contractors")} title={project.name} subtitle={project.code} status={project.status} />
-      <ProjectTabs
-        projectId={project.id}
-        active="contractors"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
+      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
       <MetricStrip className="xl:grid-cols-5">
         <Metric label={t("contractorsTab.activeContractors")} value={assignments.filter((row) => row.status === "ACTIVE").length} testId="metric-active-contractors" />
         <Metric label={t("contractorsTab.openWorkPackages")} value={packages.filter((row) => ["PLANNED", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(row.status)).length} href={`/projects/${project.id}/work-packages`} />

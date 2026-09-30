@@ -180,6 +180,11 @@ export function WorkspaceSwitchProvider({
   );
 }
 
+/** The switch where the workspace shell provides one; null elsewhere (the Admin Console). */
+export function useOptionalWorkspaceSwitch(): WorkspaceSwitchValue | null {
+  return React.useContext(WorkspaceSwitchContext);
+}
+
 export function useWorkspaceSwitch(): WorkspaceSwitchValue {
   const value = React.useContext(WorkspaceSwitchContext);
   if (!value) throw new Error("useWorkspaceSwitch is used outside WorkspaceSwitchProvider.");

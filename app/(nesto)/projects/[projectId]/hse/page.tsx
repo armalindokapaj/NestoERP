@@ -29,8 +29,7 @@ import * as permits from "@/lib/modules/hse/permits/permit.service";
 import * as stopWork from "@/lib/modules/hse/stop-work/stop-work.service";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -104,7 +103,6 @@ export default async function ProjectHsePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "HSE")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -117,31 +115,6 @@ export default async function ProjectHsePage({ params }: Params) {
         }
       />
 
-      <ProjectTabs
-        projectId={project.id}
-        active="hse"
-        show={{
-          planning: projectActions.canViewPlanning,
-          units: projectActions.canViewUnits,
-          sales: projectActions.canViewUnitSales,
-          contractors: projectActions.canViewContractors,
-          engineering: projectActions.canViewEngineering,
-          tasks: projectActions.canViewTasks,
-          calendar: projectActions.canViewCalendar,
-          meetings: projectActions.canViewMeetings,
-          dailyLogs: projectActions.canViewDailyLogs,
-          workforce: projectActions.canViewWorkforce,
-          team: projectActions.canViewMembers,
-          finance: projectActions.canViewFinance,
-          unitFinance: projectActions.canViewUnitFinance,
-          contracts: projectActions.canViewContracts,
-          inventory: projectActions.canViewInventory,
-          qaqc: projectActions.canViewQaqc,
-          hse: true,
-          documents: projectActions.canViewDocuments,
-          activity: projectActions.canViewActivity,
-        }}
-      />
 
       <StopWorkBanner
         records={active.map((record) => ({

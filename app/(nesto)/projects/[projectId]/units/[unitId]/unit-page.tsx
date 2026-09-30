@@ -2,6 +2,7 @@ import { cache } from "react";
 import { getTranslations } from "@/lib/i18n/server";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 import { notFound, redirect } from "next/navigation";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -20,9 +21,7 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { legalCapabilities } from "@/lib/modules/contracts/units/sale-contract";
 import { financeCapabilities } from "@/lib/modules/finance/units/unit-finance.core";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
-import { cn } from "@/lib/utils/cn";
 import { loadProject } from "../../project-context";
-import { ProjectTabs } from "../../project-tabs";
 
 /**
  * The one page of a unit (E-05B §29; E-05D §5-§9, §90-§93, §104).
@@ -125,49 +124,21 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           </>
         }
       />
-      <ProjectTabs
-        projectId={project.id}
-        active="units"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
-      <nav aria-label={t("unitPage.sectionsLabel", { code: unit.unitCode })} className="-mx-1 overflow-x-auto">
-        <ul className="flex min-w-max gap-1 px-1">
+      <ContextTabsFrame label={t("unitPage.sectionsLabel", { code: unit.unitCode })}>
           {visible.map((section) => {
             const current = section.key === active;
             return (
-              <li key={section.key}>
-                <Link
+              <Link
+                  key={section.key}
                   href={`${base}${section.suffix}`}
                   aria-current={current ? "page" : undefined}
-                  className={cn("inline-flex h-9 items-center rounded-md px-3 text-table font-medium transition-colors touch:h-11", current ? "bg-hover text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                  className={contextTabClass(current)}
                 >
                   {t(`unitPage.sections.${section.key}`)}
                 </Link>
-              </li>
             );
           })}
-        </ul>
-      </nav>
+        </ContextTabsFrame>
       {children}
     </div>
   );

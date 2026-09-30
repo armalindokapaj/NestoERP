@@ -772,6 +772,8 @@ export const sq: Messages = {
   ui: {
     backTo: "Kthehu te {label}",
     goBack: "Kthehu pas",
+    switchTo: "Ndrysho {label}",
+    moreSections: "Më shumë",
     goForward: "Shko përpara",
     back: "Pas",
     forward: "Përpara",

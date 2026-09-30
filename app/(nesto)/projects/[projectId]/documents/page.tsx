@@ -14,8 +14,7 @@ import { documentListQuerySchema } from "@/lib/modules/documents/document.schema
 import * as documents from "@/lib/modules/documents/document.service";
 import { firstValue, listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import * as projects from "@/lib/modules/projects/project.service";
-import { loadProject, projectBreadcrumbs } from "../project-context";
-import { ProjectTabs } from "../project-tabs";
+import { loadProject, } from "../project-context";
 
 type Params = {
   params: Promise<{ projectId: string }>;
@@ -57,7 +56,6 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
-        breadcrumbs={await projectBreadcrumbs(project, "Documents")}
         title={project.name}
         subtitle={project.code}
         status={project.status}
@@ -70,31 +68,6 @@ export default async function ProjectDocumentsPage({ params, searchParams }: Par
         }
       />
 
-      <ProjectTabs
-        projectId={project.id}
-        active="documents"
-        show={{
-          planning: actions.canViewPlanning,
-          units: actions.canViewUnits,
-          sales: actions.canViewUnitSales,
-          contractors: actions.canViewContractors,
-          engineering: actions.canViewEngineering,
-          tasks: actions.canViewTasks,
-          calendar: actions.canViewCalendar,
-          meetings: actions.canViewMeetings,
-          dailyLogs: actions.canViewDailyLogs,
-          workforce: actions.canViewWorkforce,
-          team: actions.canViewMembers,
-          finance: actions.canViewFinance,
-          unitFinance: actions.canViewUnitFinance,
-          contracts: actions.canViewContracts,
-          inventory: actions.canViewInventory,
-          qaqc: actions.canViewQaqc,
-          hse: actions.canViewHse,
-          documents: actions.canViewDocuments,
-          activity: actions.canViewActivity,
-        }}
-      />
 
       {result.data.length === 0 ? (
         <EmptyState

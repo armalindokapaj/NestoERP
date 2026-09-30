@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
@@ -63,16 +64,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
 
   return (
     <div className="space-y-5">
-      <nav aria-label="Breadcrumb" className="text-meta text-fg-subtle">
-        <Link href="/admin" className="hover:text-fg hover:underline">
-          Parent groups
-        </Link>{" "}
-        /{" "}
-        <Link href={`/admin/organizations/${groupId}`} className="hover:text-fg hover:underline">
-          {group.group.name}
-        </Link>{" "}
-        / Departments
-      </nav>
+      <Breadcrumbs items={[{ label: "Parent groups", href: "/admin" }, { label: group.group.name, href: `/admin/organizations/${groupId}` }, { label: "Departments" }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-page font-semibold text-fg">Departments</h1>

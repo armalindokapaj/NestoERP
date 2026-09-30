@@ -1,7 +1,7 @@
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 
 import type { ItemCapabilities } from "@/lib/modules/inventory/inventory.types";
-import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
 
 /**
@@ -42,28 +42,19 @@ export async function ItemTabs({
   const visible = TABS.filter((tab) => show[tab.key]);
 
   return (
-    <nav aria-label={t("tabs.itemSections")} className="border-b border-line">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
+    <ContextTabsFrame label={t("tabs.itemSections")}>
         {visible.map((tab) => {
           const isActive = tab.key === active;
           return (
-            <li key={tab.key}>
-              <Link navSource="tab"
+            <Link key={tab.key} navSource="tab"
                 href={`/inventory/items/${itemId}${tab.suffix}`}
                 aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                  isActive
-                    ? "border-accent text-fg"
-                    : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                )}
+                className={contextTabClass(isActive)}
               >
                 {t(tab.label)}
               </Link>
-            </li>
           );
         })}
-      </ul>
-    </nav>
+      </ContextTabsFrame>
   );
 }

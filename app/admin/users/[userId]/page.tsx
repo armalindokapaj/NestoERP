@@ -53,8 +53,8 @@ export default async function PlatformUserPage({ params, searchParams }: Props) 
           </div>
         </div>
       </header>
-      <nav aria-label="User sections" className="overflow-x-auto border-b border-line">
-        <ul className="flex min-w-max gap-1">
+      <nav aria-label="User sections" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
+        <ul className="border-b border-line flex min-w-max gap-1">
           {TABS.map(([key, label]) => <li key={key}><Link href={key === "overview" ? `/admin/users/${user.id}` : `/admin/users/${user.id}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{label}</Link></li>)}
         </ul>
       </nav>

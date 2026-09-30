@@ -9,7 +9,7 @@ test("record breadcrumbs expose workspace hierarchy and keep browser-style histo
   await card.click();
   await expect(page).toHaveURL(/\/projects\/[^/]+$/);
 
-  const header = mainRegion(page).getByTestId("record-navigation-header").first();
+  const header = page.getByTestId("record-navigation-header").first();
   const breadcrumbs = header.getByRole("navigation", { name: "Breadcrumb" });
   await expect(breadcrumbs.getByRole("link", { name: "NESTO Demo Group" })).toBeVisible();
   await expect(breadcrumbs.getByRole("link", { name: "Aurelia Construction" })).toBeVisible();
@@ -20,7 +20,7 @@ test("record breadcrumbs expose workspace hierarchy and keep browser-style histo
   const detailUrl = page.url();
   await page.goto(`${detailUrl}/units`);
   await expect(page).toHaveURL(/\/projects\/[^/]+\/units$/);
-  const nestedHeader = mainRegion(page).getByTestId("record-navigation-header").first();
+  const nestedHeader = page.getByTestId("record-navigation-header").first();
   await nestedHeader.getByRole("button", { name: "Go back" }).click();
   await expect(page).toHaveURL(detailUrl);
   await expect(header.getByRole("button", { name: "Go forward" })).toBeEnabled();
@@ -30,10 +30,10 @@ test("record breadcrumbs expose workspace hierarchy and keep browser-style histo
   // Native browser controls and shortcuts must keep the app history cursor in sync.
   await page.goBack();
   await expect(page).toHaveURL(detailUrl);
-  await expect(mainRegion(page).getByRole("button", { name: "Go forward" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Go forward" })).toBeEnabled();
   await page.goForward();
   await expect(page).toHaveURL(/\/projects\/[^/]+\/units$/);
 
-  await mainRegion(page).getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Projects" }).click();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Projects" }).click();
   await expect(page).toHaveURL(/\/projects$/);
 });

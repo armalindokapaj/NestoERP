@@ -6,7 +6,7 @@ test("mobile record navigation keeps Back and the current record visible without
   await signIn(page, "OWNER", { to: "/projects" });
   await mainRegion(page).getByTestId("project-card-link").first().click();
 
-  const header = mainRegion(page).getByTestId("record-navigation-header").first();
+  const header = page.getByTestId("record-navigation-header").first();
   await expect(header.getByRole("button", { name: "Go back" })).toBeVisible();
   await expect(header.locator('[aria-current="page"]')).toBeVisible();
   const collapsed = header.getByRole("button", { name: "Show hidden breadcrumb levels" });

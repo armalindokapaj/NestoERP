@@ -141,7 +141,9 @@
  * dialog or a sheet is never drawn underneath it:
  *
  *   10  sticky table headers inside their own scroll region
- *   30  top bar, sticky page action bars
+ *   30  top bar, sticky page action bars (--nesto-z-shell-header)
+ *   29  the sticky breadcrumb bar (--nesto-z-shell-breadcrumb)
+ *   28  sticky context tabs (--nesto-z-shell-tabs)
  *   50  drawers and bottom sheets, the top bar's own panels
  *   55  full-screen record sheets (approvals)
  *   60  dialogs
@@ -165,14 +167,34 @@
      * field or an error-summary link is never focused underneath them
      * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
      */
-    scroll-padding-top: calc(3.5rem + 1rem);
+    scroll-padding-top: calc(var(--nesto-sticky-stack) + 1rem);
     scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
   }
 
+  /*
+   * The sticky stack (Sticky Navigation §3, §5, §38): top bar, breadcrumb bar and,
+   * where a page has them, context tabs. One set of heights, so every sticky
+   * layer sits exactly under the one above and nothing opens underneath them.
+   */
+  :root {
+    --nesto-shell-header-h: 3.5rem;
+    --nesto-shell-breadcrumb-h: 2.5rem;
+    --nesto-shell-tabs-h: 0px;
+    --nesto-sticky-stack: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-tabs-h));
+    --nesto-z-shell-header: 30;
+    --nesto-z-shell-breadcrumb: 29;
+    --nesto-z-shell-tabs: 28;
+  }
+
   @media (min-width: 768px) {
-    html {
-      scroll-padding-top: calc(4rem + 1rem);
+    :root {
+      --nesto-shell-header-h: 4rem;
     }
+  }
+
+  /* Context tabs are 46px; they only count while a page has them. */
+  :root:has([data-context-tabs]) {
+    --nesto-shell-tabs-h: 2.875rem;
   }
 
   /*
@@ -621,5 +643,54 @@ html[data-unsaved-masked] [data-experience-editor] {
   [role="option"][data-highlighted] {
     outline: 2px solid Highlight;
     outline-offset: -2px;
+  }
+}
+
+/*
+ * A record's own tabs inside a context that already has tabs (a unit's sections
+ * under its project's) pin directly beneath the first row, never on top of it
+ * (Sticky Navigation §13, §14). Unlayered, so it wins over the frame's utility.
+ */
+[data-context-tabs] ~ * [data-context-tabs],
+[data-context-tabs] ~ [data-context-tabs] {
+  top: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + 2.875rem);
+  z-index: calc(var(--nesto-z-shell-tabs) - 1);
+}
+
+:root:has([data-context-tabs] ~ * [data-context-tabs], [data-context-tabs] ~ [data-context-tabs]) {
+  --nesto-shell-tabs-h: 5.75rem;
+}
+
+/*
+ * The content gutter each shell's <main> uses, so a sticky tab row can bleed to
+ * the column's edges: 16/24/32px in the workspace (md, xl), 16/24/32px in the
+ * Admin Console (sm, lg).
+ */
+:root {
+  --nesto-gutter: 1rem;
+}
+@media (min-width: 768px) {
+  :root { --nesto-gutter: 1.5rem; }
+}
+@media (min-width: 1280px) {
+  :root { --nesto-gutter: 2rem; }
+}
+[data-admin-shell] { --nesto-gutter: 1rem; }
+@media (min-width: 640px) {
+  [data-admin-shell] { --nesto-gutter: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  [data-admin-shell] { --nesto-gutter: 2rem; }
+}
+
+@layer components {
+  /* The sticky context-tab row (Sticky Navigation §3, §9): under the breadcrumb bar, opaque, full width of the column. */
+  .nesto-context-tabs {
+    position: sticky;
+    top: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h));
+    z-index: var(--nesto-z-shell-tabs);
+    margin-inline: calc(var(--nesto-gutter) * -1);
+    padding-inline: var(--nesto-gutter);
+    background: var(--nesto-canvas, var(--color-canvas));
   }
 }

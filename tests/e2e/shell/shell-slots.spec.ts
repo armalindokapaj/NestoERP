@@ -133,7 +133,9 @@ test.describe("the critical banner has its place kept (S02)", () => {
     await resetAnnouncements();
   });
 
-  test("a late banner moves nothing on the page", async ({ page }) => {
+  // No room is held for a banner any more (Sticky Navigation, 2026-09-30): a late
+  // one moves the page once, by exactly its own height, and nothing else.
+  test("a late banner moves the page once, by its own height", async ({ page }) => {
     test.skip(!HOOKED, "Start the server with NESTO_TEST_SHELL_DELAYS=1 to delay shell slots.");
     await signIn(page, "ENGINEER", { to: "/dashboard" });
     await delay(page, "banner=2500");
@@ -141,9 +143,11 @@ test.describe("the critical banner has its place kept (S02)", () => {
     const heading = mainRegion(page).locator("h1").first();
     await expect(heading).toBeVisible();
     const before = await heading.boundingBox();
-    await expect(page.getByTestId("critical-announcement-banner")).toBeVisible({ timeout: 10_000 });
+    const banner = page.getByTestId("critical-announcement-banner");
+    await expect(banner).toBeVisible({ timeout: 10_000 });
     const after = await heading.boundingBox();
-    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
+    const shown = await banner.boundingBox();
+    expect(Math.abs(after!.y - before!.y - shown!.height)).toBeLessThanOrEqual(1);
   });
 
   test("the reserved region fits the tallest banner at every width", async ({ page }) => {

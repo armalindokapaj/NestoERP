@@ -33,7 +33,7 @@ export default async function ModulesPage({ searchParams }: Props) {
   return (
     <div className="space-y-4">
       <PageHeader title="Modules" description="Manage NESTO functionality and customer entitlements." actions={<Link href="/admin/modules/catalog" className="inline-flex h-9 items-center rounded-lg border border-line px-3 text-table font-medium text-fg hover:bg-hover">Manage Catalog</Link>} />
-      <nav aria-label="Views" className="border-b border-line"><ul className="flex gap-1">{tab("organization", "By Organization")}{tab("module", "By Module")}</ul></nav>
+      <nav aria-label="Views" className="nesto-context-tabs" data-context-tabs><ul className="border-b border-line flex gap-1">{tab("organization", "By Organization")}{tab("module", "By Module")}</ul></nav>
       {view === "organization" ? <ByOrganization context={context} raw={raw} /> : <ByModule context={context} moduleKey={typeof raw.module === "string" ? raw.module : ""} />}
     </div>
   );

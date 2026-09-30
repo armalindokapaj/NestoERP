@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
+import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 import { notFound, redirect } from "next/navigation";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -37,7 +38,6 @@ import { memberActor } from "@/lib/modules/organization/departments/department.a
 import { getDepartmentActivity, getDepartmentDetail, getDepartmentTeam, listDepartmentCandidates } from "@/lib/modules/organization/departments/department.query";
 import { teamQuerySchema } from "@/lib/modules/organization/departments/department.schema";
 import type { DepartmentCompanyRowDTO, DepartmentDetailDTO, PositionDTO, TeamMemberDTO } from "@/lib/modules/organization/departments/department.types";
-import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("organization"))("department.metaTitle") };
@@ -102,24 +102,18 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
         ) : null}
       </header>
 
-      <nav aria-label={t("department.sections")} className="border-b border-line">
-        <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ContextTabsFrame label={t("department.sections")}>
           {visible.map((key) => (
-            <li key={key}>
-              <Link
+            <Link
+                key={key}
                 href={href(key)}
                 aria-current={key === tab ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                  key === tab ? "border-accent text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                )}
+                className={contextTabClass(key === tab)}
               >
                 {organizationLabel(t, "tab", key, key.charAt(0).toUpperCase() + key.slice(1))}
               </Link>
-            </li>
           ))}
-        </ul>
-      </nav>
+      </ContextTabsFrame>
 
       {tab === "overview" ? <Overview context={context} department={department} /> : null}
       {tab === "companies" ? <Companies context={context} department={department} /> : null}

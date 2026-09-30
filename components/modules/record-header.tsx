@@ -82,7 +82,8 @@ export function RecordContextHeader({
   status,
   actions,
 }: {
-  breadcrumbs: Crumb[];
+  /** Absent under the project layout, which draws them (and the tabs) above the page. */
+  breadcrumbs?: Crumb[];
   title: string;
   subtitle?: string;
   status?: string;
@@ -90,7 +91,7 @@ export function RecordContextHeader({
 }) {
   return (
     <div className="space-y-3">
-      <Breadcrumbs items={breadcrumbs} />
+      {breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="min-w-0 text-section font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>

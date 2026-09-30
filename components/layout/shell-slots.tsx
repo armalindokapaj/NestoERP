@@ -248,8 +248,11 @@ export function useWorkspaceOptions(): { state: WorkspaceOptionsState; retry: ()
 export function BannerSlot() {
   const { banner } = useShellSlots();
   const result = banner.result;
+  // No space is held for a banner that may never come: under the sticky breadcrumb
+  // bar the page's top margin does that job, and a late banner moves the page once
+  // (Sticky Navigation, accepted by the product owner 2026-09-30; was SHELL-03).
   return (
-    <div className="min-h-[var(--nesto-banner-height)]" data-testid="critical-banner-region">
+    <div data-testid="critical-banner-region">
       {result ? result.ok ? <CriticalAnnouncementBanner banner={result.data} /> : <BannerFailed /> : null}
     </div>
   );
