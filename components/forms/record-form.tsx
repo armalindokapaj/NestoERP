@@ -16,7 +16,9 @@ import { Label } from "@/components/ui/label";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { useInDialog } from "@/components/unsaved/guarded-root";
 import { useUnsavedFrozen } from "@/components/unsaved/use-unsaved";
+import { StickyActions } from "@/components/ui/sticky";
 import type { FormErrorCategory } from "@/lib/forms/errors";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
@@ -270,6 +272,7 @@ export function RecordForm({
   const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
   const frozen = useUnsavedFrozen();
+  const inDialog = useInDialog();
   const kind = saveKind ?? (/^(create|add|new|log|record|raise|report|start)\b/i.test(submitLabel) ? "create" : "save");
   const [outcome, setOutcome] = React.useState<FormOutcome | null>(null);
   const contractRef = React.useRef<ReturnType<typeof useFormContract> | null>(null);
@@ -340,15 +343,29 @@ export function RecordForm({
             {children}
           </fieldset>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" disabled={pending || frozen || Boolean(saved)}>
-              {pending ? pendingLabel : submitLabel}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
-              Cancel
-            </Button>
-            <UnsavedIndicator save={save} />
-          </div>
+          {/* On a phone the actions stay reachable at the bottom, clear of the safe area and the
+              keyboard, and the bottom navigation yields to them (MOB-04 §13, §14). A form inside a
+              dialog keeps them in its own flow; from `md` they sit in the page as they always did. */}
+          {(() => {
+            const actions = (
+              <>
+                <Button type="submit" disabled={pending || frozen || Boolean(saved)}>
+                  {pending ? pendingLabel : submitLabel}
+                </Button>
+                <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
+                  Cancel
+                </Button>
+                <UnsavedIndicator save={save} />
+              </>
+            );
+            return inDialog ? (
+              <div className="flex flex-wrap items-center gap-2">{actions}</div>
+            ) : (
+              <StickyActions className="justify-start max-md:mx-0 max-md:rounded-lg max-md:border max-md:px-3" data-form-actions>
+                {actions}
+              </StickyActions>
+            );
+          })()}
         </form>
       </FormContractProvider>
     </FieldErrorContext.Provider>

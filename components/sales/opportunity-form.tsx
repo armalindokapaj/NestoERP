@@ -1,5 +1,6 @@
 "use client";
 
+import { RelationSelector } from "@/components/forms/relation-selector";
 import * as React from "react";
 import { percentOfDecimal, previewDecimal } from "@/lib/modules/finance/finance.decimal";
 
@@ -138,20 +139,17 @@ export function OpportunityForm({
         description={t("forms.clientEarlyDescription")}
       >
         <Field label={t("forms.clientTitle")} name="clientId">
-          <select
-            id="clientId"
+          {/* A searchable sheet, not a long native dropdown (MOB-04 §30, §31); clearing it is "no client yet". */}
+          <RelationSelector
             name="clientId"
-            className={selectClass}
+            label={t("forms.clientTitle")}
+            id="clientId"
             value={clientId}
-            onChange={(event) => setClientId(event.target.value)}
-          >
-            <option value="">{t("forms.noClientYet")}</option>
-            {clients.map((client) => (
-              <option key={client.value} value={client.value}>
-                {client.label}
-              </option>
-            ))}
-          </select>
+            selected={clients.find((client) => client.value === clientId) ?? null}
+            options={clients.map((client) => ({ value: client.value, label: client.label }))}
+            placeholder={t("forms.noClientYet")}
+            onChange={(option) => setClientId(option?.value ?? "")}
+          />
         </Field>
 
         <Field
