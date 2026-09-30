@@ -58,7 +58,8 @@ export const MAX_UNIT_MEDIA = 60;
 
 export type ReadinessKey = "unitCode" | "unitType" | "location" | "primaryArea" | "bedrooms" | "bathrooms" | "orientation" | "salesPlan" | "primaryImage" | "active" | "references";
 
-export type ReadinessItem = { key: ReadinessKey; label: string; ok: boolean; hint: string | null };
+/** `required: false` items are needed but do not block submitting or publishing. */
+export type ReadinessItem = { key: ReadinessKey; label: string; ok: boolean; required: boolean; hint: string | null };
 
 export type Readiness = {
   ready: boolean;

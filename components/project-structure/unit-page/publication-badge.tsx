@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleX } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleX } from "lucide-react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { Badge } from "@/components/ui/badge";
@@ -54,9 +54,16 @@ export function ReadinessPanel({ readiness, className }: { readiness: Readiness;
       <ul className="mt-3 space-y-2">
         {readiness.items.map((item) => (
           <li key={item.key} className="flex items-start gap-2 text-table" data-ok={item.ok}>
-            {item.ok ? <CircleCheck className="mt-0.5 size-4 shrink-0 text-success-strong" aria-hidden="true" /> : <CircleX className="mt-0.5 size-4 shrink-0 text-danger-strong" aria-hidden="true" />}
+            {item.ok ? (
+              <CircleCheck className="mt-0.5 size-4 shrink-0 text-success-strong" aria-hidden="true" />
+            ) : item.required ? (
+              <CircleX className="mt-0.5 size-4 shrink-0 text-danger-strong" aria-hidden="true" />
+            ) : (
+              <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning-strong" aria-hidden="true" />
+            )}
             <span className="min-w-0">
               <span className={item.ok ? "text-fg" : "font-medium text-fg"}>{item.label}</span>
+              {!item.required ? <span className="ml-1.5 text-meta text-fg-muted">{t("publishing.neededNotBlocking")}</span> : null}
               <span className="sr-only">{item.ok ? t("publishing.complete") : t("publishing.missing")}</span>
               {item.hint ? <span className="block text-meta text-fg-muted">{item.hint}</span> : null}
             </span>
