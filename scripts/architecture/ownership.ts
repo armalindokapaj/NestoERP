@@ -76,7 +76,7 @@ const OWNED: Record<string, string[]> = {
   /* Shared foundation ------------------------------------------------------ */
   shared: ["activity"],
   "core/audit": ["auditEvent"],
-  "core/notifications": ["notification", "notificationPreference", "notificationEventOutbox", "attentionItem"],
+  "core/notifications": ["notification", "notificationPreference", "notificationEventOutbox", "attentionItem", "pushDelivery", "notificationQuietHours", "notificationProjectPreference"],
   "core/integrations": ["integrationLink", "integrationAttempt"],
   "core/collaboration": ["collaborationThread", "comment", "mention", "subscription"],
   "core/approvals": ["approvalStep"],

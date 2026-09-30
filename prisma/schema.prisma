@@ -4198,8 +4198,9 @@ model DeviceRegistration {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session        Session?       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pushDeliveries PushDelivery[]
 
   @@index([userId, enabled])
   @@index([sessionId])
@@ -8027,20 +8028,28 @@ model Notification {
   /// Set once the email copy of this notification was handed to the mail service.
   emailedAt DateTime?
 
-  readAt DateTime?
+  readAt     DateTime?
+  /// Moved out of the inbox by the person or by the retention policy. The
+  /// business record is untouched (MOB-10 §126).
+  archivedAt DateTime?
+  /// What related notifications collapse under on a lock screen and in the
+  /// inbox: one task, one approval (MOB-10 §95, §96). An id, never content.
+  threadKey  String?
 
   actorMemberId String?
   correlationId String?
 
   metadataJson Json?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  pushDeliveries PushDelivery[]
 
   createdAt DateTime @default(now())
 
   @@unique([companyId, recipientMemberId, dedupeKey])
   @@index([companyId])
   @@index([recipientMemberId, readState, createdAt])
+  @@index([recipientMemberId, archivedAt, createdAt])
   @@index([recipientMemberId, createdAt])
   @@index([moduleKey])
   @@index([entityType, entityId])
@@ -8049,6 +8058,105 @@ model Notification {
   @@index([dedupeKey])
   @@index([correlationId])
   @@map("notifications")
+}
+
+enum PushDeliveryState {
+  /// Waiting to be sent, or to be sent again after a transient failure.
+  QUEUED
+  /// Handed to the provider; no answer yet.
+  SENT
+  /// The provider took it. This is not "delivered" and never "read" (MOB-10 §111, §112).
+  PROVIDER_ACCEPTED
+  /// Gave up after the retry budget.
+  FAILED
+  /// The provider said the token is dead; the device is switched off.
+  TOKEN_INVALID
+  /// Deliberately not sent: permission, quiet hours, read already, device gone.
+  SUPPRESSED
+}
+
+/// One push attempt series for one notification to one device (MOB-10 §111,
+/// §115, §116). Written when the dispatcher writes the notification, sent by a
+/// separate job, so a provider outage never touches the business action or the
+/// in-app notification. Holds no message content: the text is rendered at send
+/// time from the notification and the privacy class of its event.
+model PushDelivery {
+  id                   String         @id @default(cuid())
+  notificationId       String
+  companyId            String
+  /// The person, not the membership: devices belong to users.
+  userId               String
+  /// Null once the device is deleted (sign-out): the delivery stays as history, unsendable.
+  deviceRegistrationId String?
+  platform             DevicePlatform
+
+  state             PushDeliveryState @default(QUEUED)
+  attemptCount      Int               @default(0)
+  /// Not before this instant: backoff, or the end of the person's quiet hours.
+  sendAfter         DateTime          @default(now())
+  lastErrorCode     String?
+  /// The provider's own id for the message, for support. Never content.
+  providerMessageId String?
+  settledAt         DateTime?
+
+  lockedBy       String?
+  leaseExpiresAt DateTime?
+
+  notification Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device       DeviceRegistration? @relation(fields: [deviceRegistrationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([notificationId, deviceRegistrationId])
+  @@index([state, sendAfter])
+  @@index([userId, state])
+  @@index([companyId, createdAt])
+  @@map("push_deliveries")
+}
+
+/// When a person does not want ordinary push (MOB-10 §91-§94). One row per
+/// user: a phone is carried between companies. Times are minutes from local
+/// midnight in `timezone`, an IANA name.
+model NotificationQuietHours {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  enabled       Boolean @default(false)
+  startMinute   Int     @default(1320)
+  endMinute     Int     @default(420)
+  timezone      String  @default("UTC")
+  /// Whether critical alerts may still come through. Default yes; it is shown
+  /// to the person so the override is never a secret (MOB-10 §94, §160).
+  allowCritical Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_quiet_hours")
+}
+
+enum NotificationProjectLevel {
+  ALL
+  IMPORTANT
+  MUTED
+}
+
+/// How much of one project's routine activity a member wants (MOB-10 §88-§90).
+/// No row means ALL. Direct mentions, direct assignments, mandatory alerts and
+/// critical HSE ignore it.
+model NotificationProjectPreference {
+  id        String                   @id @default(cuid())
+  companyId String
+  memberId  String
+  projectId String
+  level     NotificationProjectLevel @default(ALL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, memberId, projectId])
+  @@index([memberId])
+  @@map("notification_project_preferences")
 }
 
 /// An unresolved condition, not an event. It disappears when the condition
@@ -8115,6 +8223,9 @@ model NotificationPreference {
 
   inAppEnabled Boolean @default(true)
   emailEnabled Boolean @default(false)
+  /// Native push to the person's devices (MOB-10 §86). The in-app notification
+  /// exists either way.
+  pushEnabled  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

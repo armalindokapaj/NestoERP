@@ -171,6 +171,17 @@ export function createNativeServices(appOrigin: string): PlatformServices {
         // Only called from the "turn on notifications" action, never at startup (§82).
         const { receive } = await PushNotifications.requestPermissions();
         if (receive !== "granted") return null;
+        // Android notification channels (MOB-10 §32, §188): four, matching the ids the server sends.
+        // People can change each one in system settings; the server never assumes they have not.
+        if (platform === "android") {
+          const channels = [
+            { id: "general", name: "General", description: "Everyday NESTO updates", importance: 3 },
+            { id: "tasks_mentions", name: "Tasks & mentions", description: "Tasks assigned to you and people mentioning you", importance: 4 },
+            { id: "approvals", name: "Approvals", description: "Approvals waiting for your decision", importance: 4 },
+            { id: "critical_hse", name: "Critical safety alerts", description: "Critical HSE alerts", importance: 5 },
+          ] as const;
+          await Promise.all(channels.map((channel) => PushNotifications.createChannel({ ...channel, visibility: 0 }).catch(() => undefined)));
+        }
         const token = new Promise<string | null>((resolve) => {
           void PushNotifications.addListener("registration", (t) => resolve(t.value));
           void PushNotifications.addListener("registrationError", () => resolve(null));
@@ -184,6 +195,9 @@ export function createNativeServices(appOrigin: string): PlatformServices {
         await PushNotifications.unregister().catch(() => undefined);
         await PushNotifications.removeAllListeners().catch(() => undefined);
         await PushNotifications.removeAllDeliveredNotifications().catch(() => undefined);
+      },
+      onReceive(listener) {
+        return listen(PushNotifications.addListener("pushNotificationReceived", () => listener()));
       },
       onOpen(listener) {
         return listen(

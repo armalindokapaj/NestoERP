@@ -94,6 +94,24 @@ groups:
           summary: "An in-app notification has waited more than five minutes to be delivered"
           runbook: docs/worker-operations.md#the-outbox-is-backing-up
 
+      - alert: PushQueueBacklog
+        expr: push_queue_oldest_due_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A phone push has waited more than five minutes past its send time"
+          runbook: docs/notifications/notification-operations.md
+
+      - alert: PushFailureRate
+        expr: push_failed_last_hour > 0.2 * clamp_min(push_attempted_last_hour, 10)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than a fifth of push attempts in the last hour exhausted their retries"
+          runbook: docs/notifications/notification-operations.md
+
       - alert: NotificationOutboxFailedEvents
         expr: notification_outbox_failed > 0
         for: 15m

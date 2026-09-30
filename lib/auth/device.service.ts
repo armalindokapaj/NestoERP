@@ -54,3 +54,20 @@ export async function pushableDevices(userIds: string[]): Promise<Array<{ id: st
     select: { id: true, userId: true, platform: true, pushToken: true },
   });
 }
+
+/**
+ * Switches a device off after its push provider said the token is dead
+ * (MOB-10 §35, §116). The registration stays, disabled, so history holds; a
+ * fresh registration from the app re-enables it with the new token.
+ */
+export async function disableDevice(deviceId: string): Promise<void> {
+  await prisma.deviceRegistration.updateMany({ where: { id: deviceId }, data: { enabled: false } });
+}
+
+/** The device a queued push is about, as it stands right now, for the send-time re-check. */
+export async function pushableDevice(deviceId: string, userId: string): Promise<{ pushToken: string; platform: "IOS" | "ANDROID" } | null> {
+  return prisma.deviceRegistration.findFirst({
+    where: { id: deviceId, userId, enabled: true, session: { is: { expiresAt: { gt: new Date() } } } },
+    select: { pushToken: true, platform: true },
+  });
+}

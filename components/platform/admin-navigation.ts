@@ -77,6 +77,7 @@ export const adminDestinations: AdminDestination[] = [
       { label: "General", href: "/admin/system" },
       { label: "Authentication", href: "/admin/system/authentication" },
       { label: "Email", href: "/admin/system/email" },
+      { label: "Notifications", href: "/admin/system/notifications", permission: "platform.operations.view" },
       { label: "Integrations", href: "/admin/system/integrations" },
       { label: "Security", href: "/admin/system/security", permission: "platform.security.view" },
       { label: "Feature flags", href: "/admin/system/feature-flags", permission: "platform.feature_flag.view" },

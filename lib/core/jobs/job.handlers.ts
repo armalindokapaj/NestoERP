@@ -1,6 +1,8 @@
+import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { reconcileAttention } from "@/lib/core/notifications/attention.reconcile";
 import { enqueueDueNotifications } from "@/lib/core/notifications/due-events";
 import { dispatchNotifications } from "@/lib/core/notifications/notification.dispatch";
+import { sendDuePushDeliveries } from "@/lib/core/notifications/push.service";
 import { runAllRetentionPolicies } from "@/lib/core/retention/retention.service";
 import { purgeExpiredThrottles } from "@/lib/core/security/throttle";
 import { scannerEnabled } from "@/lib/core/storage";
@@ -32,7 +34,13 @@ export const JOB_HANDLERS: Record<string, JobHandler> = {
   },
   "notifications.dispatch": async ({ env, workerId, signal }) => {
     const result = await dispatchNotifications(batchSize(env, "NOTIFICATION_BATCH_SIZE", 100), workerId, { signal });
-    return { processed: result.processed, detail: { ...result } };
+    // Phone push drains in the same tick, after the in-app rows exist. Its own failures are
+    // its own: they are recorded on the delivery rows and never fail the dispatch job (MOB-10 §114).
+    const push = await sendDuePushDeliveries(batchSize(env, "PUSH_BATCH_SIZE", 100), workerId).catch((error: unknown) => {
+      logger.error("notification.push.drain_failed", serialiseError(error));
+      return null;
+    });
+    return { processed: result.processed, detail: { ...result, push } };
   },
   "calendar.reminders": async ({ now }) => {
     const result = await runCalendarReminders(now);
