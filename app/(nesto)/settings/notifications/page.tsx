@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
+import { NativeDeviceCard } from "@/components/settings/native-device-card";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { listPreferences } from "@/lib/core/notifications/notification.preferences";
 import { getTranslations } from "@/lib/i18n/server";
@@ -22,6 +23,7 @@ export default async function NotificationSettingsPage() {
         title={t("sections.notifications.label")}
         description={t("sections.notifications.description")}
       />
+      <NativeDeviceCard />
       <section className="nesto-card p-6">
         <p className="mb-4 text-table text-fg-muted">{t("notifications.intro")}</p>
         <NotificationPreferences initial={preferences} />

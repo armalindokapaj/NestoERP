@@ -10,6 +10,7 @@ import {
 } from "@/lib/core/security/csp";
 import { REQUEST_PATH_HEADER } from "@/lib/core/security/request-path";
 import { REQUEST_METHOD_HEADER, REQUEST_SIGNATURE_HEADER, signRequestMethod } from "@/lib/core/security/request-method";
+import { compatibilityPolicy, evaluateCompatibility, parseAppUserAgent } from "@/lib/device/compatibility";
 import { isPublicRoute, redirectsWhenAuthenticated } from "@/lib/permissions/route-access";
 
 /**
@@ -83,6 +84,15 @@ export default auth(async (req) => {
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
     return proceed();
+  }
+
+  // An obsolete native binary may still read, but it may not change data
+  // (MOB-08 §66): the server, not the app, decides when a version is unsafe.
+  if (isAuthenticated && req.method !== "GET" && req.method !== "HEAD") {
+    const app = parseAppUserAgent(req.headers.get("user-agent"));
+    if (app && evaluateCompatibility(app.version, app.platform, compatibilityPolicy(process.env)).status === "update-required") {
+      return NextResponse.json({ error: { code: "UPDATE_REQUIRED", message: "Update NESTO to continue." } }, { status: 426, headers: { "Cache-Control": "no-store" } });
+    }
   }
 
   if (!isAuthenticated) {

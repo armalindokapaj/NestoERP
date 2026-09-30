@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NESTO</string>
+    <string name="title_activity_main">NESTO</string>
+    <string name="package_name">com.nesto.erp</string>
+    <string name="custom_url_scheme">com.nesto.erp</string>
+</resources>

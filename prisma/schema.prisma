@@ -1398,8 +1398,9 @@ model User {
 
   createdActivities Activity[] @relation("ActivityActorUser")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deviceRegistrations DeviceRegistration[]
 
   @@index([status])
   @@index([lastName, firstName])
@@ -4172,6 +4173,39 @@ enum WorkspaceScope {
 /// A server-side session record. The signed cookie carries only this row's id,
 /// so revoking access is a delete rather than a wait for a token to expire
 /// (PRD #6 §51, §113).
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+/// One installed NESTO app that can receive push (MOB-08 §34, §35). A person
+/// has any number of these — phone, tablet — so the token lives here and never
+/// on `User`. `sessionId` ties the registration to the sign-in that created it:
+/// ending or revoking that session ends delivery to this device, and a new
+/// sign-in on the same device re-registers. No fingerprinting beyond platform
+/// and app version.
+model DeviceRegistration {
+  id         String         @id @default(cuid())
+  userId     String
+  sessionId  String?
+  platform   DevicePlatform
+  /// APNs device token (iOS) or FCM registration token (Android).
+  pushToken  String         @unique
+  appVersion String
+  appBuild   String?
+  enabled    Boolean        @default(true)
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+  @@index([sessionId])
+  @@map("device_registrations")
+}
+
 model Session {
   id                    String          @id @default(cuid())
   sessionToken          String          @unique
@@ -4204,6 +4238,8 @@ model Session {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  deviceRegistrations DeviceRegistration[]
 
   @@index([userId])
   @@index([membershipId])
