@@ -788,3 +788,15 @@ html[data-unsaved-masked] [data-experience-editor] {
     background: var(--nesto-canvas, var(--color-canvas));
   }
 }
+
+/*
+ * Changing the colour scheme cross-fades the whole page slowly (about 0.9s,
+ * eased at both ends) so the switch never flashes. Scoped to the moment of the
+ * change, so no other view transition inherits it; reduced motion skips it in
+ * the script.
+ */
+:root.theme-fading::view-transition-old(root),
+:root.theme-fading::view-transition-new(root) {
+  animation-duration: 900ms;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+}
