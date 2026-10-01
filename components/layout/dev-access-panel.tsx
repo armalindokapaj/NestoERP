@@ -60,7 +60,19 @@ export function DevAccessPanel({ snapshot }: { snapshot: DevAccessSnapshot }) {
 
   return (
     <div className="fixed bottom-[calc(0.75rem+var(--nesto-bottom-nav-space,0px))] left-3 z-[80] max-w-[min(22rem,calc(100vw-1.5rem))] print:hidden">
-      <div className="nesto-card overflow-hidden shadow-menu">
+      {!open ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={false}
+          aria-label="Dev access"
+          title={`Dev access${access ? `: ${access.accessLevel} / ${access.scope}` : ""}`}
+          className="nesto-card flex size-7 items-center justify-center text-fg-subtle shadow-menu transition-colors hover:bg-hover"
+        >
+          <Wrench aria-hidden="true" className="size-3.5" />
+        </button>
+      ) : null}
+      <div className={cn("nesto-card overflow-hidden shadow-menu", !open && "hidden")}>
         <button
           type="button"
           onClick={toggle}
