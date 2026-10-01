@@ -14,15 +14,29 @@ const OPTIONS = [
 ] as const;
 
 /**
- * Stores the choice in the cookie and applies it to the document at once. Shared
+ * Stores the choice in the cookie and applies it to the document, fading slowly. Shared
  * by this setting and the top bar's one-click toggle, so both write the same way.
  */
 export function applyThemeChoice(choice: ThemeChoice) {
   document.cookie = `${THEME_COOKIE}=${choice}; path=/; max-age=31536000; samesite=lax`;
 
   const root = document.documentElement;
-  if (choice === "system") delete root.dataset.theme;
-  else root.dataset.theme = choice;
+  const apply = () => {
+    if (choice === "system") delete root.dataset.theme;
+    else root.dataset.theme = choice;
+  };
+
+  // A slow cross-fade between the two schemes, never a flash (styles/globals.css
+  // `theme-fading`). Reduced motion gets the instant change.
+  const calm = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!calm || typeof document.startViewTransition !== "function") {
+    apply();
+    return;
+  }
+  root.classList.add("theme-fading");
+  const transition = document.startViewTransition(apply);
+  const done = () => root.classList.remove("theme-fading");
+  transition.finished.then(done, done);
 }
 
 /**
