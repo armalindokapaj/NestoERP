@@ -31,10 +31,11 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-adm04/types/**/*.ts",
     ".next-i18n/types/**/*.ts",
     ".next-ios/types/**/*.ts",
     "next-env.d.ts",
-    ".next-adm04/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
