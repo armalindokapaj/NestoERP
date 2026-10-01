@@ -56,6 +56,8 @@ const schema = z
     // Production-only requirements (PRD #34 §225, PRD #30 §408).
     if (!value.AUTH_SECRET && !value.NEXTAUTH_SECRET) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "AUTH_SECRET is required in production" });
+    } else if ((value.AUTH_SECRET ?? value.NEXTAUTH_SECRET ?? "").length < 32) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "AUTH_SECRET must be at least 32 characters (openssl rand -base64 32)" });
     }
     if (!value.NEXT_PUBLIC_APP_URL) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "NEXT_PUBLIC_APP_URL is required in production" });
