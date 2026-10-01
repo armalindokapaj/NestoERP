@@ -110,7 +110,7 @@
     "mapbox-gl": "^3.27.0",
     "next": "15.5.25",
     "next-auth": "5.0.0-beta.32",
-    "pdfjs-dist": "5",
+    "pdfjs-dist": "^6.2.108",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.87.0",
@@ -145,6 +145,12 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.23": ">=8.5.23",
+      "deepmerge-ts@<8.0.0": ">=8.0.0"
+    }
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {
