@@ -176,13 +176,9 @@ export async function authenticateCredentials(
     sessionId: session.id,
     ipAddress,
     userAgent,
-    // A demo switch or one-click sign-in says so (AUD-06 §4); only where those exist.
+    // A one-click demo sign-in says so (AUD-06 §4); only where those exist.
     ...(parsed.data.via && isDevMode ? { metadata: { via: parsed.data.via } } : {}),
   });
-
-  if (isDevMode && parsed.data.via === "DEMO_USER_SWITCH") {
-    await recordAuthEvent({ type: "IMPERSONATION_STARTED", userId: user.id, companyId: membership?.companyId ?? null, sessionId: session.id, userAgent, ipAddress });
-  }
 
   return {
     id: user.id,

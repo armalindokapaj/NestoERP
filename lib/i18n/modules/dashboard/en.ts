@@ -3,6 +3,10 @@ import { dashboardConfigEn } from "./config-en";
 export const dashboardEn = {
   ...dashboardConfigEn,
   title: "Dashboard",
+  heading: {
+    company: { lead: "Company", accent: "overview" },
+    group: { lead: "Group", accent: "overview" },
+  },
   across: "Across {name}",
   viewAll: "View all",
   loadFailed: "Unable to load this section. Refresh the page to try again.",

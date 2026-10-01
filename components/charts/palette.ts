@@ -6,10 +6,10 @@
  */
 export const CHART_COLORS = [
   "var(--nesto-accent)",
+  "var(--nesto-fg-subtle)",
   "var(--nesto-success)",
   "var(--nesto-warning)",
   "var(--nesto-danger)",
-  "var(--nesto-fg-subtle)",
 ] as const;
 
 export type ChartTone = "default" | "success" | "warning" | "danger" | "info";

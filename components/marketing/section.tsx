@@ -75,8 +75,8 @@ export function SectionMark({
         className,
       )}
     >
-      <span className={tone === "inverse" ? "text-graphite-fg/80" : "text-fg-muted"}>{step}</span>
-      <span aria-hidden="true" className="h-px w-6 bg-current opacity-40" />
+      <span className={tone === "inverse" ? "text-graphite-fg/80" : "text-accent-strong"}>{step}</span>
+      <span aria-hidden="true" className={cn("h-px w-6", tone === "inverse" ? "bg-current opacity-40" : "bg-accent")} />
       <span>{label}</span>
     </p>
   );
@@ -117,7 +117,7 @@ export function SectionHeader({
 
         <h2
           className={cn(
-            "mt-5 text-balance font-serif text-page leading-tight sm:text-display",
+            "mt-5 text-balance font-serif text-page font-normal leading-tight sm:text-display",
             inverse ? "text-graphite-fg" : "text-fg",
           )}
         >
@@ -157,11 +157,11 @@ export function PageIntro({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden border-b border-line bg-surface">
+    <section className="relative overflow-hidden border-b border-accent/25 bg-surface">
       <div aria-hidden="true" className="nesto-drafting-grid absolute inset-0" />
       <Container className="relative py-16 sm:py-20 lg:py-24">
-        <p className="nesto-eyebrow text-fg-subtle">{eyebrow}</p>
-        <h1 className="mt-5 max-w-3xl text-balance font-serif text-page leading-tight text-fg sm:text-display">
+        <p className="nesto-eyebrow text-accent-strong">{eyebrow}</p>
+        <h1 className="mt-5 max-w-3xl text-balance font-serif text-page font-normal leading-tight text-fg sm:text-display">
           {title}
         </h1>
         {lead ? (

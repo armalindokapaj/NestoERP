@@ -7,7 +7,7 @@
  * individual pages").
  *
  * The palette is narrow and near-neutral: white surfaces, a barely-warm
- * canvas, graphite text and a single indigo accent (§2.2, §5).
+ * canvas, graphite text and a single gold accent (§2.2, §5).
  *
  * Both colour schemes are declared together with light-dark(), one line per
  * token, so a value cannot drift between them and there is no second palette
@@ -25,11 +25,11 @@
    * point of warmth so white reads as white against it rather than as glare.
    */
   --nesto-white: #ffffff;
-  --nesto-canvas: light-dark(#f7f7f6, #101215);
-  --nesto-surface: light-dark(var(--nesto-white), #181a1e);
-  --nesto-surface-muted: light-dark(#f2f2f1, #1f2228);
-  --nesto-sidebar: light-dark(var(--nesto-white), #141619);
-  --nesto-row-hover: light-dark(#fafafa, #1d2025);
+  --nesto-canvas: light-dark(#f5f3ee, #0a0a0b);
+  --nesto-surface: light-dark(var(--nesto-white), #131315);
+  --nesto-surface-muted: light-dark(#f0ede6, #19191c);
+  --nesto-sidebar: light-dark(var(--nesto-white), #0f0f11);
+  --nesto-row-hover: light-dark(#faf8f3, #1a1a1d);
 
   /* ---- Text (§5) ----------------------------------------------------- */
   /*
@@ -37,35 +37,35 @@
    * tuned to clear WCAG AA on every ground above in both schemes, because §56
    * makes AA a requirement and 11px metadata is normal-size text.
    */
-  --nesto-fg: light-dark(#15171c, #f2f2f0);
-  --nesto-fg-muted: light-dark(#5b6068, #a8adb6);
+  --nesto-fg: light-dark(#16140f, #ede9e1);
+  --nesto-fg-muted: light-dark(#57514a, #aaa398);
   /* AUD-11 AV-10: nudged from #6a6f78 / #868b94 so metadata clears 4.5:1 on
      the accent-soft (active row) and hover grounds too. */
-  --nesto-fg-subtle: light-dark(#686d76, #8a8f98);
+  --nesto-fg-subtle: light-dark(#655e53, #8f897e);
 
   /* ---- Lines (§5) ---------------------------------------------------- */
-  --nesto-border: light-dark(#e8e8e6, #282b31);
-  --nesto-border-strong: light-dark(#d8d8d5, #3a3e45);
+  --nesto-border: light-dark(#e6e1d6, #26241f);
+  --nesto-border-strong: light-dark(#d6cfbf, #3a352b);
   /*
    * The boundary of a control whose outline is what identifies it: text
    * inputs, selects, checkboxes and a switch's off track (AUD-11 §6, AV-10).
    * At least 3:1 against every ground a control sits on; the two lines above
    * stay the quiet dividers they are.
    */
-  --nesto-control-border: light-dark(#858a93, #70757e);
+  --nesto-control-border: light-dark(#857c6c, #77705f);
 
   /* ---- Accent (§5) --------------------------------------------------- */
   /* Exactly one primary accent is in use at a time. */
-  --nesto-primary: light-dark(#465cff, #7c8cff);
-  --nesto-primary-fg: light-dark(var(--nesto-white), #0d0f14);
-  --nesto-primary-hover: light-dark(#3a4ce6, #94a1ff);
-  --nesto-accent: light-dark(#465cff, #7c8cff);
-  --nesto-accent-fg: light-dark(var(--nesto-white), #0d0f14);
+  --nesto-primary: light-dark(#16140f, #c9a961);
+  --nesto-primary-fg: light-dark(var(--nesto-white), #0a0a0b);
+  --nesto-primary-hover: light-dark(#2c2820, #d6b873);
+  --nesto-accent: light-dark(#8f6c2c, #c9a961);
+  --nesto-accent-fg: light-dark(var(--nesto-white), #0a0a0b);
   /* The accent as text on its own ground (§56). */
-  --nesto-accent-strong: light-dark(#3f53e8, #94a1ff);
-  --nesto-accent-soft: light-dark(#eef0ff, #1c2140);
-  --nesto-hover: light-dark(#f2f2f1, #23262d);
-  --nesto-ring: light-dark(#465cff, #7c8cff);
+  --nesto-accent-strong: light-dark(#7a5c22, #d9bc7c);
+  --nesto-accent-soft: light-dark(#f6efdf, #211c12);
+  --nesto-hover: light-dark(#f2efe8, #212024);
+  --nesto-ring: light-dark(#8f6c2c, #c9a961);
 
   /*
    * Graphite is the inverse of whatever the current ground is, reserved for
@@ -73,8 +73,8 @@
    * In dark mode that makes those surfaces the one sheet of paper in the
    * product, which is the same role they play in reverse in light mode.
    */
-  --nesto-graphite: light-dark(#15171c, #e9e9e5);
-  --nesto-graphite-fg: light-dark(var(--nesto-white), #15171c);
+  --nesto-graphite: light-dark(#16140f, #ede9e1);
+  --nesto-graphite-fg: light-dark(var(--nesto-white), #0a0a0b);
 
   /* ---- Status (§6) --------------------------------------------------- */
   /*
@@ -87,18 +87,18 @@
   --nesto-success-strong: light-dark(#187b51, #5ecb9c);
   --nesto-success-soft: light-dark(#e9f5ef, #14241d);
   /* AUD-11 AV-10: the light fill from #c58a25, which was 2.98:1 on white. */
-  --nesto-warning: light-dark(#b27a1f, #d9a552);
-  --nesto-warning-strong: light-dark(#8f641b, #e5b96f);
-  --nesto-warning-soft: light-dark(#f9f1e3, #2a2114);
+  --nesto-warning: light-dark(#b8631d, #e3934a);
+  --nesto-warning-strong: light-dark(#94480f, #eda66a);
+  --nesto-warning-soft: light-dark(#fbeee3, #2a1c10);
   /* AUD-11 AV-10: the light fill from #d9534f, which carried white text at 3.96:1. */
   --nesto-danger: light-dark(#cc4540, #e8756f);
   /* Text on a solid danger fill: white on light, near-black on the lighter dark-scheme red. */
-  --nesto-danger-fg: light-dark(var(--nesto-white), #0d0f14);
+  --nesto-danger-fg: light-dark(var(--nesto-white), #0a0a0b);
   --nesto-danger-strong: light-dark(#c4302b, #f28f89);
   --nesto-danger-soft: light-dark(#fbedec, #2c1817);
-  --nesto-info: light-dark(#465cff, #7c8cff);
-  --nesto-info-strong: light-dark(#3f53e8, #94a1ff);
-  --nesto-info-soft: light-dark(#eef0ff, #1c2140);
+  --nesto-info: light-dark(#3d6aa8, #7ea2de);
+  --nesto-info-strong: light-dark(#335a90, #9bb8e8);
+  --nesto-info-soft: light-dark(#ebf1f9, #141c2a);
 
   /* ---- Calendar categories (PRD #39 §18) ----------------------------- */
   /*

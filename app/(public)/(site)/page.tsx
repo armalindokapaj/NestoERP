@@ -43,7 +43,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* Proof strip (§97) */}
       <section className="border-b border-line bg-canvas" data-testid="landing-proof">
         <Container className="py-12 sm:py-16">
-          <p className="nesto-eyebrow text-fg-subtle">{copy.proof.eyebrow}</p>
+          <p className="nesto-eyebrow text-accent-strong">{copy.proof.eyebrow}</p>
           <ul className={cn(hairlineGrid, "mt-6 sm:grid-cols-3")}>
             {copy.proof.items.map((item) => (
               <li key={item.title} className={cn(hairlineCell, "p-6")}>
@@ -62,7 +62,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </section>
 
       {/* The way in (§50, §67) */}
-      <section className="bg-surface">
+      <section className="border-t border-accent/25 bg-surface">
         <Container className="flex flex-col items-start gap-5 py-12 sm:flex-row sm:items-center sm:justify-between sm:py-16">
           <div>
             <h2 className="text-balance font-serif text-section text-fg sm:text-page">{copy.closing.title}</h2>

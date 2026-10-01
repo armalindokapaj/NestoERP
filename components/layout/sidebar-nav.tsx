@@ -59,6 +59,7 @@ function NavItem({
       ) : null}
       <Icon
         aria-hidden="true"
+        strokeWidth={1.6}
         className={cn(
           "size-[18px] shrink-0",
           active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted",

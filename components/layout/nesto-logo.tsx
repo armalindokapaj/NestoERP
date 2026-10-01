@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils/cn";
 /**
  * NESTO wordmark (design spec §4).
  *
- * Uppercase, wide letter spacing, refined serif, graphite. No gradients.
+ * Uppercase, wide letter spacing, refined serif. The mark is a gold-outlined serif N. No gradients.
  *
  * Three assemblies cover every placement: mark plus wordmark (compact headers),
  * wordmark plus tagline (the navigation drawer), and the wordmark or the mark on
@@ -19,9 +19,9 @@ const wordmarkSizes = {
 } as const;
 
 const markSizes = {
-  sm: "size-6 text-meta",
-  md: "size-7 text-body",
-  lg: "size-8 text-body",
+  sm: "size-7 text-[16px]",
+  md: "size-8 text-[18px]",
+  lg: "size-[38px] text-[24px]",
 } as const;
 
 export function NestoLogo({
@@ -51,9 +51,8 @@ export function NestoLogo({
         <span
           aria-hidden="true"
           className={cn(
-            "grid shrink-0 place-items-center rounded-md font-serif leading-none",
+            "grid shrink-0 place-items-center rounded-[10px] border border-accent bg-transparent font-serif font-normal leading-none text-accent-strong",
             markSizes[size],
-            inverse ? "bg-graphite-fg text-graphite" : "bg-graphite text-graphite-fg",
           )}
         >
           N

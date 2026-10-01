@@ -7,13 +7,13 @@ import localFont from "next/font/local";
  * build never reaches out to Google Fonts: a build without internet access, or
  * on a day the font CDN is unreachable, produces the same artifact. Both
  * families are under the SIL Open Font License; the licences sit beside the
- * files. Geist 1.7.2 (Vercel), Instrument Serif 5.3.0 (Fontsource, Latin 400).
+ * files. Manrope 5.3.0 (Fontsource, Latin variable), Geist Mono 1.7.2 (Vercel), Instrument Serif 5.3.0 (Fontsource, Latin 400 upright and italic).
  */
 
-export const geistSans = localFont({
-  src: "./files/Geist-Variable.woff2",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+export const manrope = localFont({
+  src: "./files/manrope-latin-wght-normal.woff2",
+  variable: "--font-nesto-sans",
+  weight: "200 800",
   display: "swap",
 });
 
@@ -26,13 +26,14 @@ export const geistMono = localFont({
 
 /**
  * Display face for the wordmark and executive headings (design spec §7).
- * Used sparingly — the application interface itself stays on Geist.
+ * Used sparingly — the application interface itself stays on Manrope.
  */
 export const instrumentSerif = localFont({
-  src: "./files/instrument-serif-latin-400-normal.woff2",
+  src: [
+    { path: "./files/instrument-serif-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./files/instrument-serif-latin-400-italic.woff2", weight: "400", style: "italic" },
+  ],
   variable: "--font-nesto-serif",
-  weight: "400",
-  style: "normal",
   display: "swap",
 });
 

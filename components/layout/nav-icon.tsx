@@ -91,6 +91,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import {
+  NestoApprovals,
+  NestoAuditLog,
+  NestoFinance,
+  NestoInventory,
+  NestoOverview,
+  NestoPeople,
+  NestoProcurement,
+  NestoProjects,
+} from "./nesto-icons";
+
 /**
  * Explicit icon registry.
  *
@@ -99,6 +110,14 @@ import {
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
 const registry: Record<string, LucideIcon> = {
+  NestoApprovals,
+  NestoAuditLog,
+  NestoFinance,
+  NestoInventory,
+  NestoOverview,
+  NestoPeople,
+  NestoProcurement,
+  NestoProjects,
   Hammer,
   Network,
   Presentation,

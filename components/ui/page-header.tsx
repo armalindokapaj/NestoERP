@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <div className={cn("flex flex-wrap items-start justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
+        <h1 className="font-serif font-normal text-page text-fg md:text-display [overflow-wrap:anywhere]">{title}</h1>
         {description ? <p className="mt-1.5 text-body text-fg-muted">{description}</p> : null}
       </div>
       {actions ? <div className={headerActionsClass}>{actions}</div> : null}

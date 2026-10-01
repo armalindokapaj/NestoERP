@@ -1,14 +1,11 @@
-import { Suspense } from "react";
-
-import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import type { NavigationGroup } from "@/config/navigation";
-import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
@@ -56,17 +53,7 @@ export async function Topbar({
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
     <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-14 items-center gap-2 border-b border-line pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-surface/85 before:backdrop-blur-md md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MobileHeader
-          navigation={navigation}
-          isDemo={context.parentGroup.isDemo}
-          drawerFooter={
-            isDevMode ? (
-              <Suspense fallback={null}>
-                <DevUserSwitcher variant="drawer" />
-              </Suspense>
-            ) : null
-          }
-        />
+        <MobileHeader navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
         {/* The navigation collapse control sits out here rather than in the
             sidebar: the rail header has one slot and the organization's mark
@@ -82,20 +69,12 @@ export async function Topbar({
       </div>
 
       <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1 md:gap-2">
-        {/* Development only: signs in as another demo user (C-01 §15). Streamed,
-            so reading the roster never holds up the page. Below sm it lives in
-            the navigation drawer instead (AUD-04 §4). */}
-        {isDevMode ? (
-          <div className="contents max-sm:hidden">
-            <Suspense fallback={null}>
-              <DevUserSwitcher />
-            </Suspense>
-          </div>
-        ) : null}
         {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
         {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
             The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}
         <QuickCreate userKey={context.userId} summary={core.quickCreate} />
+        {/* Phone: the same switch is in More (Black & Gold reskin §4). */}
+        <ThemeToggle className="max-md:hidden" />
         <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         {/* Phone: the account lives in More (MOB-02 §39). */}
