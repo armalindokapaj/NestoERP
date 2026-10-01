@@ -3,6 +3,7 @@ import { SessionLifecycle } from "@/components/auth/session-lifecycle";
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 
+import { ScrollToTop } from "@/components/navigation/scroll-to-top";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
 import { geistMono, instrumentSerif, manrope } from "@/lib/fonts";
@@ -87,6 +88,7 @@ export default async function RootLayout({
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />
           <NativeBootstrap />
+          <ScrollToTop />
           {children}
         </I18nProvider>
       </body>
