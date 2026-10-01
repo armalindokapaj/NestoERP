@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { siteNav } from "@/config/marketing";
@@ -75,6 +76,7 @@ export function SiteHeader({
             <Link href="/contact">{copy.requestAccess}</Link>
           </Button>
 
+          <ThemeToggle />
           <LocaleSwitch label={copy.language} />
 
           <Drawer open={open} onOpenChange={setOpen}>
