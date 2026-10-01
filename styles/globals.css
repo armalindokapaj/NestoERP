@@ -53,7 +53,7 @@
   --color-info-soft: var(--nesto-info-soft);
 
   /* ---- Typography (§7) ----------------------------------------------- */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+  --font-sans: var(--font-nesto-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
   --font-serif: var(--font-nesto-serif), "Iowan Old Style", "Palatino Linotype",
     Palatino, Georgia, ui-serif, serif;
@@ -63,6 +63,9 @@
   --text-hero: 3.5rem; /* 56px — public hero only */
   --text-hero--line-height: 1.05;
   --text-hero--letter-spacing: -0.03em;
+  --text-headline: 3.25rem; /* 52px — the dashboard heading (40px below md, set in the component) */
+  --text-headline--line-height: 1.05;
+  --text-headline--letter-spacing: -0.01em;
   --text-display: 2.25rem; /* 36px */
   --text-display--line-height: 1.1;
   --text-display--letter-spacing: -0.03em;
@@ -192,6 +195,13 @@
   @media (min-width: 768px) {
     :root {
       --nesto-shell-header-h: 4rem;
+    }
+  }
+
+  /* Phones carry no breadcrumb bar: the stack starts straight under the top bar. */
+  @media (max-width: 639.98px) {
+    :root {
+      --nesto-shell-breadcrumb-h: 0px;
     }
   }
 

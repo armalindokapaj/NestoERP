@@ -4,6 +4,10 @@ import { dashboardConfigSq } from "./config-sq";
 export const dashboardSq: typeof dashboardEn = {
   ...dashboardConfigSq,
   title: "Paneli",
+  heading: {
+    company: { lead: "Pasqyra e", accent: "kompanisë" },
+    group: { lead: "Pasqyra e", accent: "grupit" },
+  },
   across: "Në të gjithë {name}",
   viewAll: "Shiko të gjitha",
   loadFailed: "Ky seksion nuk u ngarkua dot. Rifreskoni faqen për të provuar sërish.",

@@ -16,38 +16,8 @@ type Check = { name: string; run: () => string | null };
 
 const checks: Check[] = [
   {
-    // C-01 §12, §73: only ever rendered behind isDevMode.
-    name: "the demo user switcher is rendered in development only",
-    run: () => {
-      if (!/switchDemoUserAction/.test(readFileSync("components/layout/dev-user-switcher-dialog.tsx", "utf8"))) {
-        return "components/layout/dev-user-switcher-dialog.tsx does not go through the guarded server action";
-      }
-      const renderers: string[] = [];
-      const walk = (dir: string) => {
-        for (const name of readdirSync(dir)) {
-          const path = `${dir}/${name}`;
-          if (statSync(path).isDirectory()) walk(path);
-          else if (/\.tsx?$/.test(path) && /<DevUserSwitcher\b[^>]*\/>/.test(readFileSync(path, "utf8"))) renderers.push(path);
-        }
-      };
-      ["app", "components"].forEach(walk);
-      // Each rendering, with or without props, sits in the branch of an
-      // isDevMode test, with at most a layout wrapper and a Suspense boundary
-      // between them (AUD-04 moved one into the phone drawer). The branch is
-      // parenthesised or not, as the formatter left it.
-      const unguarded = renderers.filter((path) => {
-        const source = readFileSync(path, "utf8");
-        const renderings = source.match(/<DevUserSwitcher\b[^>]*\/>/g)?.length ?? 0;
-        const guarded = source.match(/isDevMode \? \(?\s*(?:<div[^>]*>\s*)?(?:<Suspense[^>]*>\s*)?<DevUserSwitcher\b[^>]*\/>/g)?.length ?? 0;
-        return guarded < renderings;
-      });
-      if (renderers.length === 0) return "nothing renders the demo user switcher";
-      return unguarded.length > 0 ? `rendered without isDevMode: ${unguarded.join(", ")}` : null;
-    },
-  },
-  {
     // C-01 §59: every demo action refuses before it does anything, outside development.
-    name: "the demo sign-in and user switch actions are guarded",
+    name: "the demo sign-in action is guarded",
     run: () => {
       const path = "lib/actions/demo.ts";
       const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);

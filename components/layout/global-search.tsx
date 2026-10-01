@@ -169,7 +169,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg md:hidden touch:size-11"
         data-testid="mobile-search-trigger"
       >
-        <Search aria-hidden="true" className="size-5" />
+        <Search aria-hidden="true" className="size-5" strokeWidth={1.6} />
       </button>
       <button
         type="button"
@@ -178,7 +178,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         data-testid="search-trigger"
         {...warm}
       >
-        <Search aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
+        <Search aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" strokeWidth={1.6} />
         <span className="min-w-0 flex-1 truncate text-table text-fg-subtle">{t("placeholder")}</span>
         <kbd aria-hidden="true" className="hidden shrink-0 rounded border border-line bg-surface px-1.5 py-0.5 font-sans text-micro font-medium text-fg-subtle lg:block">
           {shortcut}

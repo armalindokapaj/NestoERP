@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
-import { geistMono, geistSans, instrumentSerif } from "@/lib/fonts";
+import { geistMono, instrumentSerif, manrope } from "@/lib/fonts";
 import {
   readThemeChoice,
   themeAttribute,
@@ -82,7 +82,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} data-theme={theme}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${manrope.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
       >
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />

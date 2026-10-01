@@ -179,7 +179,7 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
 
         <div key={`${position.persona}-${slide.id}`} className="nesto-slide mt-8 grid gap-8 lg:mt-10 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] lg:gap-12">
           <div className="flex min-w-0 flex-col">
-            <p className="nesto-eyebrow hidden text-fg-subtle sm:block">
+            <p className="nesto-eyebrow hidden text-accent-strong sm:block">
               {number} · {words.label.toUpperCase()}
             </p>
             <h2 id="story-heading" ref={headingRef} tabIndex={-1} className="mt-3 text-balance font-serif text-page leading-tight text-fg outline-none sm:mt-4 sm:text-display">
@@ -274,12 +274,15 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
 function PersonaSelector({ copy, onSelect }: { copy: LandingCopy; onSelect: (persona: LandingPersona, event: React.MouseEvent) => void }) {
   const primary = LANDING_PERSONAS.filter((persona) => persona !== "GENERIC");
   return (
-    <section aria-labelledby="landing-heading" className="relative overflow-hidden border-b border-line bg-surface" data-testid="landing-personas">
+    <section aria-labelledby="landing-heading" className="relative overflow-hidden border-b border-accent/25 bg-surface" data-testid="landing-personas">
       <div aria-hidden="true" className="nesto-drafting-grid absolute inset-0" />
       <div className="relative mx-auto w-full max-w-6xl px-4 pb-14 pt-14 sm:px-8 sm:pb-20 sm:pt-20">
-        <p className="nesto-rise nesto-eyebrow text-fg-subtle">{copy.hero.eyebrow}</p>
-        <h1 id="landing-heading" className="nesto-rise nesto-rise-2 mt-5 max-w-3xl text-balance font-serif text-page leading-[1.05] text-fg sm:text-display lg:text-hero">
-          {copy.hero.headline.map((line) => <span key={line} className="block">{line}</span>)}
+        <p className="nesto-rise nesto-eyebrow text-accent-strong">{copy.hero.eyebrow}</p>
+        <h1 id="landing-heading" className="nesto-rise nesto-rise-2 mt-5 max-w-3xl text-balance font-serif text-page font-normal leading-[1.05] text-fg sm:text-display lg:text-hero">
+          {/* Black & Gold: the closing line is the gold italic one, as in the dashboard heading. */}
+          {copy.hero.headline.map((line, index, lines) => (index === lines.length - 1 && lines.length > 1
+            ? <em key={line} className="block italic text-accent-strong">{line}</em>
+            : <span key={line} className="block">{line}</span>))}
         </h1>
         <p className="nesto-rise nesto-rise-3 mt-6 max-w-2xl text-body leading-relaxed text-fg-muted sm:text-card">{copy.hero.lead}</p>
 
@@ -293,7 +296,7 @@ function PersonaSelector({ copy, onSelect }: { copy: LandingCopy; onSelect: (per
                 data-testid={`persona-${persona.toLowerCase()}`}
                 className="group flex h-full flex-col rounded-xl border border-line-strong bg-surface p-5 transition-colors hover:border-accent hover:bg-row-hover focus-visible:outline-2 focus-visible:outline-offset-2"
               >
-                <span className="text-card font-semibold text-fg">{copy.personas[persona].title}</span>
+                <span className="font-serif text-section font-normal text-fg">{copy.personas[persona].title}</span>
                 <span className="mt-2 text-table leading-relaxed text-fg-muted">{copy.personas[persona].copy}</span>
                 <span className="mt-4 inline-flex items-center gap-1.5 text-table font-medium text-fg">
                   {copy.controls.start}

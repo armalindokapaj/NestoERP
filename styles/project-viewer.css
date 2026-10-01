@@ -45,7 +45,7 @@
   --nesto-success: #23845e;
   --nesto-warning: #a66a12;
   --nesto-danger: #c84545;
-  --font-geist-sans: var(--font-nunito-sans);
+  --font-nesto-sans: var(--font-nunito-sans);
   --font-nesto-serif: var(--font-nunito-sans);
   --shadow-1: 0 2px 8px rgba(17, 17, 24, 0.06);
   --shadow-2: 0 8px 24px rgba(17, 17, 24, 0.1);

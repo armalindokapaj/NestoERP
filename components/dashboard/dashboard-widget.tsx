@@ -245,7 +245,7 @@ function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Tra
             <li key={item.id} className="flex gap-3">
               <span
                 aria-hidden="true"
-                className="mt-1.5 size-1.5 shrink-0 rounded-full bg-line-strong"
+                className="mt-1.5 size-1.5 shrink-0 rounded-full border border-accent bg-transparent"
               />
               <div className="min-w-0">
                 <p className="text-table text-fg">

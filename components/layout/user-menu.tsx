@@ -69,12 +69,12 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
         onKeyDown={() => setInput("keyboard")}
         onPointerDown={() => setInput("pointer")}
       >
-        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" />
+        <Avatar firstName={user.firstName} lastName={user.lastName} src={user.avatarUrl} size="md" className="border-transparent bg-accent font-serif font-normal text-accent-fg" />
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block truncate text-table font-medium leading-tight text-fg">{name}</span>
           <span className="block truncate text-micro leading-tight text-fg-muted">{user.roleLabel}</span>
         </span>
-        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle max-md:hidden" />
+        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle max-md:hidden" strokeWidth={1.6} />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

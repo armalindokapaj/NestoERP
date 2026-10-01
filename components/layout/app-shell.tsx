@@ -1,4 +1,3 @@
-import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
@@ -168,13 +167,6 @@ export async function AppShell({
                     roleLabel: roleLabels(`${context.role}.label`),
                     workspaceName: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
                   }}
-                  footer={
-                    isDevMode ? (
-                      <React.Suspense fallback={null}>
-                        <DevUserSwitcher variant="drawer" />
-                      </React.Suspense>
-                    ) : null
-                  }
                 />
               </div>
               </BreadcrumbRegistryProvider>

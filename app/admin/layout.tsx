@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { Suspense } from "react";
 
-import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
 import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { RouteFocus } from "@/components/layout/route-focus";
@@ -14,7 +12,6 @@ import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { isDevMode } from "@/lib/auth/dev-mode";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 
 export const metadata: Metadata = {
@@ -47,7 +44,6 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
       user={{ name: context.fullName, email: context.email, username: context.username }}
       permissions={context.permissions}
       initialCollapsed={collapsed}
-      devActions={isDevMode ? <Suspense fallback={null}><DevUserSwitcher /></Suspense> : null}
     >
       {children}
     </PlatformShell>

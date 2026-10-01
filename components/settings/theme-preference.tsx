@@ -14,6 +14,18 @@ const OPTIONS = [
 ] as const;
 
 /**
+ * Stores the choice in the cookie and applies it to the document at once. Shared
+ * by this setting and the top bar's one-click toggle, so both write the same way.
+ */
+export function applyThemeChoice(choice: ThemeChoice) {
+  document.cookie = `${THEME_COOKIE}=${choice}; path=/; max-age=31536000; samesite=lax`;
+
+  const root = document.documentElement;
+  if (choice === "system") delete root.dataset.theme;
+  else root.dataset.theme = choice;
+}
+
+/**
  * Colour scheme preference (design spec §85, §86).
  *
  * A real setting, like the navigation width beside it. The choice is written
@@ -45,11 +57,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
 
   function select(next: ThemeChoice) {
     setChoice(next);
-    document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-
-    const root = document.documentElement;
-    if (next === "system") delete root.dataset.theme;
-    else root.dataset.theme = next;
+    applyThemeChoice(next);
   }
 
   return (

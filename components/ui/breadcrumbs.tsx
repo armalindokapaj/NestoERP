@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronLeft, ChevronRight, Layers, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronRight, Layers, MoreHorizontal } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -295,14 +295,11 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
   const hidden = collapsed ? trail.slice(1, trail.length - 3) : [];
   const visible = collapsed ? [trail[0], ...trail.slice(-3)] : trail;
 
-  const parent = trail.length > 1 ? trail[trail.length - 2] : null;
-  const current = trail.at(-1);
-
   return (
     <div
       data-testid="record-navigation-header"
       data-shell-breadcrumb
-      className="sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
+      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
     >
       <div role="group" className="flex shrink-0 items-center" aria-label="History navigation">
         <HistoryButton
@@ -320,17 +317,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
         />
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
-      {/* Phones: the parent to go back to, and where you are (§19, §20). */}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center justify-between gap-3 text-meta text-fg-muted sm:hidden">
-        {parent?.href && !parent.disabled ? (
-          <Link href={parent.href} className="flex min-w-0 shrink items-center gap-0.5 rounded-sm hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-            <ChevronLeft aria-hidden="true" className="size-4 shrink-0" />
-            <span className="truncate">{parent.label}</span>
-          </Link>
-        ) : <span />}
-        {current ? <span className="flex min-w-0 justify-end"><CurrentCrumb item={current} /></span> : null}
-      </nav>
-      <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 overflow-hidden sm:block">
+      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
         <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
           {visible.map((item, index) => {
             const originalIndex = collapsed && index > 0 ? trail.length - (visible.length - index) : index;

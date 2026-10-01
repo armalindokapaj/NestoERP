@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
  * person, carried in a cookie. Nothing in the product may bring it back —
  * no override option on the resolver, no "actual role" beside the role, no
  * "Viewing as" on a page, no role chip in the top bar. The old cookie's name
- * survives in one place, the demo user switch, which deletes it (§28).
+ * is gone entirely; the demo user switch that deleted it was removed.
  */
 
 const ROOT = process.cwd();
@@ -38,13 +38,8 @@ describe("no development role override (C-01)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("names the old cookie only where the demo user switch deletes it (§28, §70)", () => {
-    const naming = product.filter(({ source }) => source.includes("nesto.dev-role"));
-    expect(naming.map(({ file }) => file)).toEqual(["lib/actions/demo.ts"]);
-    const source = naming[0].source;
-    // Defined once, and used for nothing but a delete.
-    expect(source.match(/LEGACY_DEV_ROLE_COOKIE/g)).toHaveLength(2);
-    expect(source).toMatch(/\.delete\(LEGACY_DEV_ROLE_COOKIE\)/);
+  it("names the old cookie nowhere: nothing deletes or reads it any more", () => {
+    expect(product.filter(({ source }) => source.includes("nesto.dev-role")).map(({ file }) => file)).toEqual([]);
   });
 
   it("has retired the override's files; development gating lives in its own module (§38, §39, §85)", () => {

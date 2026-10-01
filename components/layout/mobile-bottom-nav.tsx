@@ -6,6 +6,7 @@ import { LogOut, MoreHorizontal, Plus, Search, Settings } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useSignOut } from "@/components/layout/use-sign-out";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
@@ -300,6 +301,7 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
           <Settings aria-hidden="true" className="size-[18px] text-fg-subtle" />
           {t("settings")}
         </Link>
+        <ThemeToggle variant="row" />
         <button
           type="button"
           disabled={signingOut}
@@ -332,7 +334,7 @@ function MoreLink({ item, active, onDone }: { item: NavigationItem; active: bool
       data-pending={pending || undefined}
       className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover", active ? "bg-accent-soft text-accent-strong" : "text-fg")}
     >
-      <Icon aria-hidden="true" className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-fg-subtle")} />
+      <Icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-fg-subtle")} />
       <span className="min-w-0 flex-1 truncate">{modules(`${item.key}.label`)}</span>
       {pending ? <PendingDot className="text-accent" /> : null}
     </Link>

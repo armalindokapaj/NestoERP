@@ -29,7 +29,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
           aria-hidden="true"
           className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"
         >
-          <Icon className="size-4" />
+          <Icon className="size-4" strokeWidth={1.6} />
         </span>
         {/* Two lines, not an ellipsis: a 2-up phone grid leaves ~90px for "Open Quality Items" (AUD-04 §4, MW-01). */}
         <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">
@@ -37,7 +37,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
         </p>
       </div>
 
-      <p className="mt-3 text-page font-semibold tabular-nums text-fg md:mt-4">{kpi.value}</p>
+      <p className="mt-3 font-serif font-normal text-display tabular-nums text-fg md:mt-4">{kpi.value}</p>
       {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
       {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{kpi.hint}</p> : null}
     </>
@@ -48,7 +48,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
   if (breakdown) {
     return (
-      <div className="nesto-card p-4 md:p-5" data-testid="kpi-by-company">
+      <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5" data-testid="kpi-by-company">
         {href ? (
           <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
             {body}
@@ -80,14 +80,14 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   }
 
   if (!href) {
-    return <div className="nesto-card p-4 md:p-5">{body}</div>;
+    return <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5">{body}</div>;
   }
 
   return (
     <Link navSource="dashboard"
       href={href}
       className={cn(
-        "nesto-card block p-4 transition-colors hover:border-line-strong md:p-5",
+        "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 block p-4 transition-colors hover:border-line-strong md:p-5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
       )}
     >

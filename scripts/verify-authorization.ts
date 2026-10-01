@@ -102,7 +102,6 @@ const PUBLIC_ACTIONS: Record<string, string> = {
   "lib/actions/auth.ts#resetPasswordAction": "single-use reset token",
   "lib/actions/contact.ts#submitContactAction": "public site contact form, throttled",
   "lib/actions/demo.ts#signInAsDemoAccountAction": "isDevMode only (verify:production-guards)",
-  "lib/actions/demo.ts#switchDemoUserAction": "isDevMode only (verify:production-guards); ends the caller's own session and signs in a demo account through the credentials provider (C-01)",
 };
 
 /** Public actions discovered in the team module's invitation flow carry a token, not a session. */

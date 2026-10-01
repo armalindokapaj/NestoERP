@@ -81,6 +81,8 @@ export const theme = {
   typography: {
     /** Public hero only. */
     hero: 56,
+    /** The dashboard heading: 52px from md, 40px below. */
+    headline: 52,
     display: 36,
     pageTitle: 28,
     sectionTitle: 20,

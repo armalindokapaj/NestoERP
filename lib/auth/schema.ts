@@ -7,7 +7,7 @@ export const credentialsSchema = z.object({
    * How a demo sign-in arrived, for its audit record (AUD-06 §4). Recorded only
    * where the demo conveniences exist; anywhere else it is ignored.
    */
-  via: z.enum(["DEMO_USER_SWITCH", "DEMO_SIGN_IN"]).optional(),
+  via: z.enum(["DEMO_SIGN_IN"]).optional(),
 });
 
 export type CredentialsInput = z.infer<typeof credentialsSchema>;

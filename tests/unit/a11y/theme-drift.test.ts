@@ -42,6 +42,7 @@ describe("config/theme.ts agrees with the stylesheets", () => {
   it("typography equals the --text-* scale", () => {
     const map: Record<keyof typeof theme.typography, string> = {
       hero: "text-hero",
+      headline: "text-headline",
       display: "text-display",
       pageTitle: "text-page",
       sectionTitle: "text-section",
