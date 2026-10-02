@@ -1255,6 +1255,8 @@ export const PERMISSIONS = [
   /* Company -------------------------------------------------------------- */
   "company.view",
   "company.manage",
+  /** Changing the company's display name. */
+  "company.name.update",
 
   /* Company configuration (PRD #24 §13) ---------------------------------- */
   "company.settings.view",
