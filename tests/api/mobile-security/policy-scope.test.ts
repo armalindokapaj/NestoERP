@@ -5,7 +5,7 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
 
 /** Who may edit which level, and that a lower level cannot weaken a higher one (MOB-11 §74, §168, §183). */
 afterAll(async () => {
-  await prisma.mobileSecurityPolicy.deleteMany({ where: { scopeKey: { startsWith: "COMPANY:" }, updatedBy: { is: null } } }).catch(() => undefined);
+  await prisma.mobileSecurityPolicy.deleteMany({ where: { scopeKey: { startsWith: "COMPANY:" }, updatedById: null } }).catch(() => undefined);
   await cleanupSessions();
 });
 
