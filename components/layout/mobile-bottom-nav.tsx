@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, MoreHorizontal, Plus, Search, Settings, X } from "lucide-react";
+import { LogOut, MoreHorizontal, Plus, Settings, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -15,7 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
-import { filterMoreGroups, MORE_SEARCH_THRESHOLD, resolveMobileNavigation } from "@/lib/navigation/mobile";
+import { resolveMobileNavigation } from "@/lib/navigation/mobile";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 
@@ -286,18 +286,14 @@ function BarButton({
 
 function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup[]; account: MobileAccount; footer?: React.ReactNode; onDone: () => void }) {
   const t = useTranslations("shell");
-  const modules = useTranslations("modules");
   const pathname = usePathname();
-  const [query, setQuery] = React.useState("");
   const { signOut, signingOut } = useSignOut(onDone);
-  const total = groups.reduce((count, group) => count + group.items.length, 0);
-  const labelOf = React.useCallback((item: NavigationItem) => modules(`${item.key}.label`), [modules]);
-  const shown = React.useMemo(() => filterMoreGroups(groups, query, labelOf), [groups, query, labelOf]);
+  const shown = groups;
   const name = `${account.firstName} ${account.lastName}`.trim();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="mobile-more-body">
-      {/* Pinned: the profile and the search stay put while the modules scroll. */}
+      {/* Pinned: the profile stays put while the modules scroll. */}
       <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
       <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-lg border border-line px-3 py-2 hover:bg-hover">
         <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" />
@@ -307,23 +303,6 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
           <span className="sr-only">{t("myProfile")}</span>
         </span>
       </Link>
-
-      {total > MORE_SEARCH_THRESHOLD ? (
-        <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label={t("mobile.searchModules")}
-            placeholder={t("mobile.searchModulesPlaceholder")}
-            enterKeyHint="search"
-            autoCapitalize="none"
-            autoCorrect="off"
-            className="h-11 w-full rounded-md border border-control bg-surface pl-9 pr-3 text-body text-fg placeholder:text-fg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
-      ) : null}
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-2">
