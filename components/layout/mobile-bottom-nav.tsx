@@ -166,6 +166,7 @@ export function MobileBottomNav({
       <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
         <DrawerContent
           side="right"
+          className="bg-canvas"
           data-testid="mobile-more-drawer"
           onCloseAutoFocus={(event) => {
             if (navigated.current) {
@@ -179,8 +180,8 @@ export function MobileBottomNav({
             opener.current = null;
           }}
         >
-          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line pl-4 pr-2">
-            <DrawerTitle className="text-card font-semibold text-fg">{t("mobile.moreTitle")}</DrawerTitle>
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
+            <DrawerTitle className="font-serif text-[1.375rem] font-normal text-fg">{t("mobile.moreTitle")}</DrawerTitle>
             <DrawerClose
               aria-label={t("closeNavigation")}
               className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
@@ -295,8 +296,8 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
     <div className="flex min-h-0 flex-1 flex-col" data-testid="mobile-more-body">
       {/* Pinned: the profile stays put while the modules scroll. */}
       <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
-      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-lg border border-line px-3 py-2 hover:bg-hover">
-        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" />
+      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-[18px] border border-line bg-surface px-3 py-2 transition-colors active:border-accent active:bg-accent-soft">
+        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-serif font-normal text-accent-fg" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-body font-semibold text-fg">{name}</span>
           <span className="block truncate text-meta text-fg-muted">{[account.roleLabel, account.workspaceName].filter(Boolean).join(" · ")}</span>
@@ -311,10 +312,10 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
       ) : (
         shown.map((group) => (
           <section key={group.group} aria-labelledby={`more-${group.group}`}>
-            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-1 text-fg-subtle">
+            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-1 text-accent-strong">
               {group.group === "primary" ? t("mobile.general") : t(`groups.${group.group}`)}
             </h3>
-            <ul className="overflow-hidden rounded-lg border border-line">
+            <ul className="overflow-hidden rounded-[18px] border border-line bg-surface">
               {group.items.map((item) => (
                 <li key={item.key} className="border-b border-line last:border-b-0">
                   <MoreLink item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} onDone={onDone} />
@@ -328,10 +329,10 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
       </div>
 
       {/* Pinned: Settings, the theme and Logout stay at the foot. */}
-      <div className="shrink-0 space-y-3 border-t border-line px-4 pb-4 pt-3">
-      <section aria-label={t("mobile.account")} className="overflow-hidden rounded-lg border border-line">
+      <div className="shrink-0 space-y-3 border-t border-accent/25 px-4 pb-4 pt-3">
+      <section aria-label={t("mobile.account")} className="overflow-hidden rounded-[18px] border border-line bg-surface">
         <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 text-body font-medium text-fg hover:bg-hover">
-          <Settings aria-hidden="true" className="size-[18px] text-fg-subtle" />
+          <Settings aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong" />
           {t("settings")}
         </Link>
         <ThemeToggle variant="row" />
@@ -341,7 +342,7 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
           onClick={() => void signOut()}
           className="flex min-h-12 w-full items-center gap-3 px-3 text-left text-body font-medium text-danger-strong hover:bg-danger-soft disabled:opacity-60"
         >
-          <LogOut aria-hidden="true" className="size-[18px]" />
+          <LogOut aria-hidden="true" strokeWidth={1.6} className="size-[18px]" />
           {signingOut ? t("signingOut") : t("logout")}
         </button>
       </section>
@@ -366,9 +367,9 @@ function MoreLink({ item, active, onDone }: { item: NavigationItem; active: bool
       }}
       aria-current={active ? "page" : undefined}
       data-pending={pending || undefined}
-      className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover", active ? "bg-accent-soft text-accent-strong" : "text-fg")}
+      className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover", active ? "bg-accent-soft text-accent-strong" : "text-fg active:bg-accent-soft")}
     >
-      <Icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-fg-subtle")} />
+      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
       <span className="min-w-0 flex-1 truncate">{modules(`${item.key}.label`)}</span>
       {pending ? <PendingDot className="text-accent" /> : null}
     </Link>
