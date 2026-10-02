@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import * as React from "react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -111,15 +112,19 @@ export function OrganizationHomeMark({ label }: { label: string }) {
 const faceClass =
   "flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left";
 
-function Names({ identity, labels }: { identity: Identity; labels?: React.Ref<HTMLSpanElement> }) {
+/** `switchable` adds the phone's small chevron after the workspace line, so only a header that can switch looks like it can. */
+function Names({ identity, labels, switchable = false }: { identity: Identity; labels?: React.Ref<HTMLSpanElement>; switchable?: boolean }) {
   return (
     <span ref={labels} className="nesto-nav-label min-w-0 flex-1 leading-tight">
-      <span data-testid="organization-name" className="block truncate text-body font-semibold text-fg">
+      <span data-testid="organization-name" className="block truncate text-body font-semibold text-fg max-md:text-meta max-md:font-bold max-md:uppercase max-md:tracking-[0.08em]">
         {identity.primary}
       </span>
       {identity.secondary ? (
-        <span data-testid="workspace-label" className="mt-0.5 block truncate text-meta text-fg-muted">
-          {identity.secondary}
+        <span className="mt-0.5 flex min-w-0 items-center gap-1 text-meta text-fg-muted">
+          <span data-testid="workspace-label" className="block truncate">
+            {identity.secondary}
+          </span>
+          {switchable ? <ChevronDown aria-hidden="true" strokeWidth={2} className="size-3 shrink-0 md:hidden" /> : null}
         </span>
       ) : null}
     </span>
@@ -182,7 +187,7 @@ const HeaderButton = React.forwardRef<
       {...props}
     >
       <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} />
-      <Names identity={identity} labels={labels} />
+      <Names identity={identity} labels={labels} switchable />
     </button>
   );
 });

@@ -35,6 +35,9 @@
   --color-accent-soft: var(--nesto-accent-soft);
   --color-hover: var(--nesto-hover);
   --color-ring: var(--nesto-ring);
+  --color-hero: var(--nesto-hero);
+  --color-hero-fg: var(--nesto-hero-fg);
+  --color-hero-accent: var(--nesto-hero-accent);
   --color-graphite: var(--nesto-graphite);
   --color-graphite-fg: var(--nesto-graphite-fg);
 
@@ -232,7 +235,7 @@
    * time) and an open on-screen keyboard (a focused text field).
    */
   html:has([data-mobile-bottom-nav]) {
-    --nesto-bottom-nav-space: calc(3.5rem + var(--nesto-safe-bottom));
+    --nesto-bottom-nav-space: calc(6.5rem + var(--nesto-safe-bottom));
     --nesto-bottom-reserve: var(--nesto-bottom-nav-space);
   }
 

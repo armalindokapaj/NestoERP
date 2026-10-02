@@ -76,6 +76,14 @@
   --nesto-graphite: light-dark(#16140f, #ede9e1);
   --nesto-graphite-fg: light-dark(var(--nesto-white), #0a0a0b);
 
+  /*
+   * The phone's My Day card (Premium Mobile §5.2): dark in both schemes, which
+   * graphite is not (it flips to ivory in dark). The gold reads on both grounds.
+   */
+  --nesto-hero: light-dark(#16140f, #15130e);
+  --nesto-hero-fg: light-dark(#f5f3ee, #ede9e1);
+  --nesto-hero-accent: #c9a961;
+
   /* ---- Status (§6) --------------------------------------------------- */
   /*
    * Two variants per status. The base is the §6 brand value and is used where

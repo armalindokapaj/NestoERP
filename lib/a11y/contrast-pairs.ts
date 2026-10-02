@@ -52,6 +52,16 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
   { id: "accent-fg on accent", fg: t("accent-fg"), bg: t("accent"), kind: "text", where: "accent button, activity count" },
   { id: "danger-fg on danger", fg: t("danger-fg"), bg: t("danger"), kind: "text", where: "danger button, critical count" },
   { id: "graphite-fg on graphite", fg: t("graphite-fg"), bg: t("graphite"), kind: "text", where: "tooltip, brand panel" },
+  { id: "hero-fg on hero", fg: t("hero-fg"), bg: t("hero"), kind: "text", where: "phone My Day card text" },
+  { id: "hero-accent on hero", fg: t("hero-accent"), bg: t("hero"), kind: "text", where: "phone My Day card eyebrow and arrow ground" },
+  { id: "ring vs hero", fg: t("ring"), bg: t("hero"), kind: "ui", where: "focus ring on the phone My Day card" },
+  {
+    id: "fg-subtle on bar (surface/85 over canvas)",
+    fg: t("fg-subtle"),
+    bg: { token: "surface", alpha: 0.85, over: "canvas" },
+    kind: "text",
+    where: "floating bottom bar idle tabs",
+  },
   {
     id: "fg-muted on topbar (surface/85 over canvas)",
     fg: t("fg-muted"),
