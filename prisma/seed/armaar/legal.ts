@@ -40,7 +40,6 @@ const CONTRACTS: Array<{ key: string; company: CompanyCode; project: ProjectCode
   // Square 21 is ARLIS - NDERTIM's, and so is its lift contract: the first in ARLIS's service series.
   { key: "service_lifts_s21", company: "ARLIS_NDERTIM", project: "SQUARE_21", number: "ALN-SV-2025-0001", title: "Lift maintenance agreement — Square 21", type: "SERVICE_AGREEMENT", counterparty: "Liftech Balkans sh.p.k.", value: 24_000, status: "ACTIVE", signed: -300, term: 365, renewal: "AUTO_RENEW", summary: "Monthly maintenance and 24-hour call-out for the six lifts of Square 21." },
   { key: "nda_ut_operator", company: "UNICO_CONSTRUCTION", project: "UNITED_TOWERS", number: "UNICO-NDA-2026-0001", title: "Non-disclosure agreement — United Towers hotel operator", type: "NDA", counterparty: "Demo Hospitality Group", value: null, status: "SIGNED", signed: -35, term: 730, summary: "Mutual confidentiality for the hotel operator discussions on the upper floors." },
-  { key: "tsa_gm_operator", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", number: "SMI-SV-2026-002", title: "Technical services agreement — hotel operator, pre-opening", type: "SERVICE_AGREEMENT", counterparty: "Demo Hospitality Advisors", value: 180_000, status: "PENDING_APPROVAL", signed: null, summary: "Design review, FF&E standards and pre-opening support for the hotel block.", pending: true },
   { key: "ppa_rooftop_1", company: "ARSOL_ENERGY", project: null, number: "ARSOL-PPA-2025-001", title: "Power purchase agreement — rooftop programme, batch 1", type: "CLIENT_AGREEMENT", counterparty: "Demo Retail Park sh.p.k.", value: 1_260_000, status: "ACTIVE", signed: -410, term: 5_475, summary: "Fifteen years of power from 1.2 MWp on the retail park's roofs, at an indexed tariff." },
   { key: "framework_pv", company: "ARSOL_ENERGY", project: null, number: "ARSOL-FW-2026-002", title: "Supply framework — PV modules", type: "FRAMEWORK", counterparty: "SolarTech Balkans sh.p.k.", value: 900_000, status: "ACTIVE", signed: -60, term: 365, summary: "Call-off prices for PV modules and inverters for the rooftop programme." },
   { key: "framework_plant", company: "ARLIS_NDERTIM", project: null, number: "ALN-FW-2025-007", title: "Plant hire framework — cranes and hoists", type: "FRAMEWORK", counterparty: "Demo Plant Hire sh.p.k.", value: 650_000, status: "ACTIVE", signed: -190, term: 540, summary: "Rates for tower cranes, mobile cranes and hoists across ARLIS - NDERTIM's sites." },
@@ -73,7 +72,6 @@ const OBLIGATIONS: Array<{ contract: string; company?: CompanyCode; title: strin
   { contract: "armaar_contract_sub_hidroizol", title: "Fifteen-year system warranty", type: "DOCUMENT", responsible: "bci.engineering", due: 200 },
   { contract: "armaar_contract_sub_albabuild", title: "As-built drawings — Tower A frame", type: "DELIVERABLE", responsible: "bci.engineering", due: 60 },
   { contract: "armaar_contract_framework_steel", title: "Quarterly price review", type: "NOTICE", responsible: "bci.procurement", due: 12 },
-  { contract: "armaar_contract_sub_korca_timber", company: "ARLIS_NDERTIM", title: "Return of the formwork props", type: "DELIVERABLE", responsible: "arlis.pm-lead", due: 95 },
   { contract: "armaar_legal_ppa_rooftop_1", company: "ARSOL_ENERGY", title: "Annual generation report", type: "DELIVERABLE", responsible: "arsol.pm", due: 40 },
   { contract: "armaar_legal_service_lifts_s21", company: "ARLIS_NDERTIM", title: "Renewal notice — 60 days before the anniversary", type: "RENEWAL", responsible: "arlis.legal", due: 5 },
 ];
@@ -133,8 +131,6 @@ export async function seedArmaarLegal(prisma: PrismaClient) {
     await party(prisma, contract, BCI, "OUR_COMPANY", COMPANY_NAME[BCI]!, false);
     await party(prisma, contract, BCI, "SUBCONTRACTOR", name, true);
   }
-  await party(prisma, "armaar_contract_sub_korca_timber", "ARLIS_NDERTIM", "OUR_COMPANY", COMPANY_NAME.ARLIS_NDERTIM!, false);
-  await party(prisma, "armaar_contract_sub_korca_timber", "ARLIS_NDERTIM", "SUBCONTRACTOR", "Korça Timber sh.p.k.", true);
   await party(prisma, "armaar_contract_framework_steel", BCI, "OUR_COMPANY", COMPANY_NAME[BCI]!, false);
   await party(prisma, "armaar_contract_framework_steel", BCI, "COUNTERPARTY", "Adriatik Steel sh.p.k.", true);
   // The façade subcontractor's bank stands behind its performance.

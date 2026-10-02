@@ -36,10 +36,9 @@ const BCI = "BUILDING_CONSTRUCTION_INVEST" as const;
 const ALN = "ARLIS_NDERTIM" as const;
 const qty = (value: number) => new Prisma.Decimal(value.toFixed(4));
 
-const WAREHOUSES: Array<{ id: string; company: CompanyCode; code: string; name: string; type: "CENTRAL" | "PROJECT_SITE"; project?: "TIRANA_LAKE" | "THE_COURTYARD"; locations: string[] }> = [
+const WAREHOUSES: Array<{ id: string; company: CompanyCode; code: string; name: string; type: "CENTRAL" | "PROJECT_SITE"; project?: "TIRANA_LAKE"; locations: string[] }> = [
   { id: "armaar_wh_bci_central", company: BCI, code: "WH-01", name: "Central store — Tirana", type: "CENTRAL", locations: ["MAIN", "YARD"] },
   { id: "armaar_wh_bci_tl", company: BCI, code: "WH-TL", name: "Tirana Lake — site store", type: "PROJECT_SITE", project: "TIRANA_LAKE", locations: ["MAIN", "YARD", "CONT-2"] },
-  { id: "armaar_wh_aln_tc", company: ALN, code: "WH-TC", name: "The Courtyard — site store", type: "PROJECT_SITE", project: "THE_COURTYARD", locations: ["MAIN"] },
 ];
 const loc = (warehouse: string, code: string) => `${warehouse}_${code.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
 
@@ -55,8 +54,6 @@ const ITEMS: Array<{ key: string; company: CompanyCode; sku: string; name: strin
   { key: "fasteners", company: BCI, sku: "FAS-M12", name: "Anchor bolts M12 × 120, box of 50", category: "CONSUMABLE", unit: "box", minimum: 10, reorder: 20 },
   { key: "pipe", company: BCI, sku: "PIP-PPR32", name: "PPR pipe 32 mm", category: "MATERIAL", unit: "m", minimum: 200, reorder: 400 },
   { key: "membrane", company: BCI, sku: "WPM-SBS", name: "Waterproofing membrane, SBS, two-layer system", category: "MATERIAL", unit: "m²", minimum: 100, reorder: 150 },
-  { key: "cement", company: ALN, sku: "CEM-425", name: "Cement CEM II/A-M 42.5", category: "MATERIAL", unit: "t", minimum: 10, reorder: 25 },
-  { key: "ppe", company: ALN, sku: "PPE-KIT", name: "PPE kit — hard hat, harness, gloves, hi-vis", category: "CONSUMABLE", unit: "set", minimum: 20, reorder: 40 },
 ];
 const itemId = (company: CompanyCode, key: string) => `armaar_item_${company === BCI ? "bci" : "aln"}_${key}`;
 const unitOf = (company: CompanyCode, key: string) => ITEMS.find((item) => item.company === company && item.key === key)!.unit;
@@ -65,12 +62,11 @@ type Line = { item: string; location: string; quantity: number };
 type Doc =
   | { kind: "adjustment"; id: string; company: CompanyCode; number: string; warehouse: string; day: number; reason: StockAdjustmentReason; notes: string; lines: Line[] }
   | { kind: "receipt"; id: string; company: CompanyCode; number: string; warehouse: string; day: number; goodsReceipt: string; lines: Line[] }
-  | { kind: "issue"; id: string; company: CompanyCode; number: string; warehouse: string; day: number; project: "TIRANA_LAKE" | "THE_COURTYARD"; to: string; posted: boolean; notes: string; lines: Line[] }
+  | { kind: "issue"; id: string; company: CompanyCode; number: string; warehouse: string; day: number; project: "TIRANA_LAKE"; to: string; posted: boolean; notes: string; lines: Line[] }
   | { kind: "transfer"; id: string; company: CompanyCode; number: string; from: string; to: string; day: number; lines: Array<{ item: string; from: string; to: string; quantity: number }> };
 
 const C = "armaar_wh_bci_central";
 const T = "armaar_wh_bci_tl";
-const K = "armaar_wh_aln_tc";
 
 const DOCS: Doc[] = [
   { kind: "adjustment", id: "armaar_adj_bci_0001", company: BCI, number: "ADJ-2026-0001", warehouse: C, day: -150, reason: "OPENING_BALANCE", notes: "Opening stock when the central store went live in NESTO.", lines: [
@@ -97,11 +93,6 @@ const DOCS: Doc[] = [
   { kind: "issue", id: "armaar_iss_bci_0006", company: BCI, number: "ISS-2026-0006", warehouse: T, day: -3, project: "TIRANA_LAKE", to: "arlis.site-supervisor", posted: true, notes: "Tower B curtain wall, levels 4 to 6.", lines: [{ item: "profile", location: loc(T, "YARD"), quantity: 900 }, { item: "glass", location: loc(T, "MAIN"), quantity: 300 }] },
   { kind: "adjustment", id: "armaar_adj_bci_0002", company: BCI, number: "ADJ-2026-0002", warehouse: T, day: -2, reason: "PHYSICAL_COUNT", notes: "Monthly count: two tonnes of cement hardened in split bags.", lines: [{ item: "cement", location: loc(T, "YARD"), quantity: -2 }] },
   { kind: "issue", id: "armaar_iss_bci_0007", company: BCI, number: "ISS-2026-0007", warehouse: T, day: 0, project: "TIRANA_LAKE", to: "arlis.mep", posted: false, notes: "Tower B risers — waiting for the plumbers to collect.", lines: [{ item: "pipe", location: loc(T, "YARD"), quantity: 400 }] },
-  /* ARLIS - NDERTIM — The Courtyard */
-  { kind: "receipt", id: "armaar_ir_aln_0001", company: ALN, number: "GRN-2026-0001", warehouse: K, day: -52, goodsReceipt: "armaar_grn_tc_ppe_0009", lines: [{ item: "ppe", location: loc(K, "MAIN"), quantity: 120 }] },
-  { kind: "receipt", id: "armaar_ir_aln_0002", company: ALN, number: "GRN-2026-0002", warehouse: K, day: -30, goodsReceipt: "armaar_grn_tc_cement_0011", lines: [{ item: "cement", location: loc(K, "MAIN"), quantity: 180 }] },
-  { kind: "issue", id: "armaar_iss_aln_0001", company: ALN, number: "ISS-2026-0001", warehouse: K, day: -50, project: "THE_COURTYARD", to: "arlis.hse", posted: true, notes: "PPE for the block 3 crews.", lines: [{ item: "ppe", location: loc(K, "MAIN"), quantity: 90 }] },
-  { kind: "issue", id: "armaar_iss_aln_0002", company: ALN, number: "ISS-2026-0002", warehouse: K, day: -28, project: "THE_COURTYARD", to: "arlis.pm-lead", posted: true, notes: "Block 3 screeds and blockwork.", lines: [{ item: "cement", location: loc(K, "MAIN"), quantity: 150 }] },
 ];
 
 const SIGN: Record<StockMovementType, 1 | -1> = { RECEIPT: 1, RETURN_TO_STOCK: 1, TRANSFER_IN: 1, ADJUSTMENT_IN: 1, ISSUE: -1, TRANSFER_OUT: -1, ADJUSTMENT_OUT: -1, REVERSAL: 1 };
@@ -127,7 +118,7 @@ export async function seedArmaarInventory(prisma: PrismaClient) {
     }
   }
   for (const item of ITEMS) {
-    const home = item.company === BCI ? T : K;
+    const home = T;
     await prisma.inventoryItem.upsert({
       where: { id: itemId(item.company, item.key) },
       update: {},
@@ -194,7 +185,7 @@ export async function seedArmaarInventory(prisma: PrismaClient) {
   }
 
   // Balances are the ledger's sum, as the balance service computes them (PRD #20 §79-§83).
-  for (const code of [BCI, ALN] as CompanyCode[]) await rebuildBalances(prisma, companyId(code));
+  for (const code of [BCI] as CompanyCode[]) await rebuildBalances(prisma, companyId(code));
 
   const inGroup = { company: { parentGroupId: ARMAAR_GROUP_ID } };
   return {

@@ -94,22 +94,6 @@ const CONTRACTORS: NewContractor[] = [
     contract: { number: "BCI-SC-2026-009", status: "IN_REVIEW", signed: null },
     compliance: [{ type: "TAX_DOCUMENT", title: "Tax compliance certificate", status: "VALID", expires: 75, issuer: "General Directorate of Taxation" }, { type: "INSURANCE", title: "Contractor's all-risk insurance", status: "MISSING", note: "Requested with the tender return." }],
   },
-  {
-    key: "korca_timber", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", legalName: "Korça Timber sh.p.k.", taxId: "X90000008H", supplier: "korca_timber", status: "ACTIVE", trade: "Formwork",
-    scope: "Formwork and falsework for the slabs and columns of Blocks B and C.",
-    contacts: [{ name: "Ilir Prendi", title: "Site foreman", role: "SITE_ENGINEER" }],
-    pkg: { code: "WP-FR-01", name: "Formwork and falsework — Blocks B and C", discipline: "STRUCTURAL", status: "ACTIVE", value: 640_000, manager: "arlis.structural", start: -120, end: 90 },
-    contract: { number: "ALN-SC-2026-0001", status: "ACTIVE", signed: -130 },
-    compliance: [{ type: "INSURANCE", title: "Contractor's all-risk insurance", status: "VALID", expires: 150, issuer: "Demo Insurance Co." }],
-  },
-  {
-    key: "riviera", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", legalName: "Riviera Structures sh.p.k.", taxId: "X90000022X", supplier: null, status: "PROSPECTIVE", trade: "Structural frame",
-    scope: "Structural frame of the villas and the hotel block — tender stage.",
-    contacts: [{ name: "Gent Laska", title: "Estimator", role: "COMMERCIAL" }],
-    pkg: { code: "WP-GM-01", name: "Villas and hotel — structural frame", discipline: "STRUCTURAL", status: "PLANNED", value: 6_800_000, manager: "smi.pm", start: 45, end: 400 },
-    contract: null,
-    compliance: [{ type: "LICENSE", title: "Construction licence — Class A", status: "MISSING", note: "Asked for with the tender return." }],
-  },
 ];
 
 /** The people NESTO talks to at D-01's five contractors. */
@@ -264,7 +248,7 @@ export async function seedArmaarEngineering(prisma: PrismaClient) {
           id: contract,
           companyId: company,
           contractNumber: contractor.contract.number,
-          title: `${contractor.trade} subcontract — ${contractor.project === "TIRANA_LAKE" ? "Tirana Lake" : contractor.project === "FARKA_RESIDENCE" ? "Farka Residence" : "Gran Melia"}`,
+          title: `${contractor.trade} subcontract — ${contractor.project === "TIRANA_LAKE" ? "Tirana Lake" : "Gran Melia"}`,
           contractType: "SUBCONTRACT",
           projectId: project,
           ownerMemberId: m(legalOf(code), code),

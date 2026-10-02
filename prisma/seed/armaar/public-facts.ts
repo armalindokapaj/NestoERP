@@ -108,8 +108,6 @@ export type ProjectCode =
   | "EYES_OF_TIRANA"
   | "PHARMACY_10"
   | "SQUARE_21"
-  | "THE_COURTYARD"
-  | "FARKA_RESIDENCE"
   | "CLEARWATER_BEACH";
 
 /**
@@ -138,12 +136,10 @@ export const PROJECT_FACTS: ReadonlyArray<{
   },
   { code: "UNITED_TOWERS", name: "United Towers" },
   { code: "CORNER", name: "Corner" },
-  { code: "GRAN_MELIA", name: "Gran Melia" },
+  { code: "GRAN_MELIA", name: "Gran Melia Palase" },
   { code: "POGRADEC_MARINA", name: "Pogradec Marina" },
   { code: "EYES_OF_TIRANA", name: "Eyes of Tirana" },
   { code: "PHARMACY_10", name: "Pharmacy 10" },
   { code: "SQUARE_21", name: "Square 21" },
-  { code: "THE_COURTYARD", name: "The Courtyard" },
-  { code: "FARKA_RESIDENCE", name: "Farka Residence" },
   { code: "CLEARWATER_BEACH", name: "Clearwater Beach" },
 ];

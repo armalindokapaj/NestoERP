@@ -46,9 +46,6 @@ const EXPENSES: Array<{ key: string; company: CompanyCode; project: ProjectCode 
   { key: "tl_photography", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0129", description: "Show apartment photography and video", payee: "Demo Studio sh.p.k.", category: "OTHER", net: 1_600, status: "PENDING_APPROVAL", day: -2 },
   { key: "tl_generator", company: BCI, project: "TIRANA_LAKE", number: "EXP-2026-0122", description: "Temporary power — generator hire, August", payee: "AlbaBuild sh.p.k.", category: "EQUIPMENT", net: 6_300, status: "REJECTED", day: -15, rejected: "Charge it to the electrical contractor under WP-TL-03." },
   { key: "ut_permits", company: "UNICO_CONSTRUCTION", project: "UNITED_TOWERS", number: "EXP-2026-0131", description: "Planning permit fees — United Towers", payee: "Tirana Municipality", category: "ADMINISTRATION", net: 12_500, status: "DRAFT", day: -1 },
-  { key: "tc_skips", company: "ARLIS_NDERTIM", project: "THE_COURTYARD", number: "EXP-2026-0047", description: "Skip hire — block 3 strip-out", payee: "Demo Waste Services sh.p.k.", category: "SERVICES", net: 2_400, status: "APPROVED", day: -20, paid: -14 },
-  { key: "fr_lab", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", number: "EXP-2026-0033", description: "Concrete testing laboratory — September", payee: "Demo Materials Laboratory sh.p.k.", category: "SERVICES", net: 3_100, status: "APPROVED", day: -6 },
-  { key: "gm_design", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", number: "EXP-2026-0012", description: "Design fees — villas concept stage", payee: "UNICO CONSTRUCTION", category: "SERVICES", net: 48_000, status: "PENDING_APPROVAL", day: -4 },
   { key: "as_grid", company: "ARSOL_ENERGY", project: null, number: "EXP-2026-0021", description: "Grid connection study — rooftop programme, batch 2", payee: "Demo Grid Consultants sh.p.k.", category: "SERVICES", net: 7_500, status: "APPROVED", day: -25, paid: -18 },
 ];
 
@@ -160,7 +157,6 @@ export async function seedArmaarFinance(prisma: PrismaClient) {
   const manual = [
     // United Towers is UNICO's own: UNICO designs it in-house and engages the structural and MEP engineers.
     { id: "armaar_cmt_ut_design", company: "UNICO_CONSTRUCTION" as CompanyCode, project: "UNITED_TOWERS" as ProjectCode, reference: "UT-ENG-01", description: "Structural and MEP engineering design — United Towers", counterparty: "Demo Engineering Consultants sh.p.k.", category: "SERVICES" as const, amount: 420_000, status: "APPROVED" as const, expected: 120, day: -40 },
-    { id: "armaar_cmt_gm_operator", company: "SARANDA_MARINA_INVEST" as CompanyCode, project: "GRAN_MELIA" as ProjectCode, reference: "GM-TSA-01", description: "Hotel operator technical services — pre-opening", counterparty: "Demo Hospitality Advisors", category: "SERVICES" as const, amount: 180_000, status: "PENDING_APPROVAL" as const, expected: 200, day: -3 },
   ];
   for (const commitment of manual) {
     const keeper = memberId(FINANCE[commitment.company]!, commitment.company);
@@ -170,7 +166,7 @@ export async function seedArmaarFinance(prisma: PrismaClient) {
       create: { id: commitment.id, companyId: companyId(commitment.company), projectId: projectId(commitment.project), reference: commitment.reference, description: commitment.description, counterpartyName: commitment.counterparty, category: commitment.category, currency: EUR, amount: money(commitment.amount), expectedDate: day(commitment.expected), status: commitment.status, createdByMemberId: keeper, createdAt: at(commitment.day, 10) },
     });
     const approver = memberId(APPROVER[commitment.company]!, commitment.company);
-    const pending = commitment.status === "PENDING_APPROVAL";
+    const pending = (commitment.status as string) === "PENDING_APPROVAL";
     await prisma.financeApproval.upsert({
       where: { id: `${commitment.id}_approval` },
       update: {},

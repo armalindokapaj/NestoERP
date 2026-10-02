@@ -67,19 +67,8 @@ const MEETINGS: Array<{
       actions: [{ title: "Call the buyer in arrears and agree a date", owner: "bci.sales-agent2", due: -2, status: "DONE" }, { title: "Send the final account summary to the board", owner: "arlis.finance", due: 7, status: "OPEN" }],
     },
   },
-  {
-    id: "armaar_mtg_tc_hse_monthly", company: "ARLIS_NDERTIM", project: "THE_COURTYARD", organizer: "arlis.hse", title: "Monthly HSE meeting — The Courtyard", type: "HSE", day: -16, from: "08:00", to: "09:00",
-    seats: ["arlis.pm-lead", "arlis.qaqc", "arlis.engineering"], agenda: "hse", location: "The Courtyard — site office",
-    minutes: {
-      summary: "No lost-time injuries this month. Two near misses reported, both at the scaffold on block 3. Housekeeping on the upper floors needs attention.",
-      decisions: ["Scaffold tags checked daily by the supervisor, weekly by the HSE officer."],
-      actions: [{ title: "Re-brief the scaffolding crew on tagging", owner: "arlis.hse", due: -12, status: "DONE" }, { title: "Add a housekeeping line to the daily checklist", owner: "arlis.qaqc", due: 3, status: "OPEN" }],
-    },
-  },
   { id: "armaar_mtg_tl_qaqc_walk", company: BCI, project: "TIRANA_LAKE", organizer: "arlis.qaqc-engineer", title: "QA/QC walk-down — Tower A level 10", type: "QA_QC", day: -5, from: "10:00", to: "11:00", seats: ["arlis.site-engineer", "bci.engineering", "arlis.civil"], agenda: "qa-qc", location: "Tirana Lake — Tower A, level 10" },
   { id: "armaar_mtg_ut_design", company: "UNICO_CONSTRUCTION", project: "UNITED_TOWERS", organizer: "unico.coordinator", title: "Design coordination — United Towers concept", type: "DESIGN_REVIEW", day: 6, from: "10:00", to: "12:00", seats: ["unico.architecture", "unico.architect", "unico.engineering"], agenda: "design-review", location: "Head office, meeting room 2" },
-  { id: "armaar_mtg_fr_procurement", company: "ARLIS_NDERTIM", project: "FARKA_RESIDENCE", organizer: "arlis.procurement", title: "Procurement review — Block C packages", type: "PROCUREMENT", day: 3, from: "11:00", to: "12:00", seats: ["arlis.pm-lead", "arlis.finance", "arlis.structural"], agenda: "general", location: "Farka Residence — site office" },
-  { id: "armaar_mtg_gm_finance", company: "SARANDA_MARINA_INVEST", project: "GRAN_MELIA", organizer: "smi.finance", title: "Finance review — Gran Melia budget and commitments", type: "FINANCE", day: 8, from: "10:00", to: "11:30", seats: ["smi.director", "smi.pm"], agenda: "management", location: "Saranda — office" },
 ];
 
 const EVENTS: Array<{ id: string; company: CompanyCode; by: string; title: string; type: CalendarEventType; visibility: CalendarVisibility; project: ProjectCode | null; day: number; from?: string; to?: string; location?: string; description?: string }> = [
@@ -87,8 +76,6 @@ const EVENTS: Array<{ id: string; company: CompanyCode; by: string; title: strin
   { id: "armaar_cal_facade_review_due", company: BCI, by: "bci.pm", title: "Façade shop drawings — review closes", type: "INTERNAL_DEADLINE", visibility: "PROJECT", project: "TIRANA_LAKE", day: 3, description: "FAC-SD-210 Rev C back to Vlora Glass Systems with comments." },
   { id: "armaar_cal_group_board", company: "ARLIS_ADMINISTRIM", by: "armaar.owner", title: "Group board meeting — Q3 results", type: "COMPANY_EVENT", visibility: "COMPANY", project: null, day: 11, from: "10:00", to: "13:00", location: "Head office, board room" },
   { id: "armaar_cal_scaffold_course", company: "ARLIS_NDERTIM", by: "arlis.hse", title: "Scaffold inspector course", type: "TRAINING", visibility: "COMPANY", project: null, day: 12, from: "08:30", to: "16:30", location: "The Courtyard — site office" },
-  { id: "armaar_cal_gm_site_visit", company: "SARANDA_MARINA_INVEST", by: "smi.director", title: "Gran Melia — investor site visit", type: "COMPANY_EVENT", visibility: "COMPANY", project: "GRAN_MELIA", day: 15, from: "11:00", to: "14:00", location: "Gran Melia site" },
-  { id: "armaar_cal_fr_pour", company: "ARLIS_NDERTIM", by: "arlis.pm-lead", title: "Block C level 3 slab pour", type: "TEAM_EVENT", visibility: "PROJECT", project: "FARKA_RESIDENCE", day: 4, from: "06:00", to: "14:00", location: "Farka Residence — Block C" },
   { id: "armaar_cal_rooftop_commissioning", company: "ARSOL_ENERGY", by: "arsol.pm", title: "Rooftop programme batch 2 — commissioning window opens", type: "INTERNAL_DEADLINE", visibility: "COMPANY", project: null, day: 40 },
 ];
 

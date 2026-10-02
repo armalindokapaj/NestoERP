@@ -89,14 +89,6 @@ const ENGINEERING: Entry[] = [
   { day: 3, type: "PROJECT_WORK", project: "TIRANA_LAKE", minutes: 480, description: "Site walk with the contractors." },
   { day: 4, type: "PROJECT_WORK", project: "TIRANA_LAKE", task: task(102), minutes: 360 },
 ];
-const FARKA: Entry[] = [
-  { day: 0, type: "PROJECT_WORK", project: "FARKA_RESIDENCE", minutes: 480, description: "Block C level 3 formwork." },
-  { day: 1, type: "PROJECT_WORK", project: "FARKA_RESIDENCE", minutes: 480, description: "Rebar fixing and inspection." },
-  { day: 2, type: "PROJECT_WORK", project: "FARKA_RESIDENCE", minutes: 420, description: "Drainage trench, Block C." },
-  { day: 2, type: "ADMIN", minutes: 60 },
-  { day: 3, type: "PROJECT_WORK", project: "FARKA_RESIDENCE", minutes: 480 },
-  { day: 4, type: "PROJECT_WORK", project: "FARKA_RESIDENCE", minutes: 420, description: "Pour sequence for Block C level 3." },
-];
 
 const WEEKS: Array<{ key: string; member: string; company: CompanyCode; weeksBack: number; status: Extract<TimesheetStatus, "APPROVED" | "RETURNED" | "SUBMITTED">; note?: string; entries: Entry[] }> = [
   { key: "site_engineer_w3", member: "arlis.site-engineer", company: BCI, weeksBack: 3, status: "APPROVED", entries: SITE_ENGINEER },
@@ -108,7 +100,6 @@ const WEEKS: Array<{ key: string; member: string; company: CompanyCode; weeksBac
   { key: "architect_w1", member: "bci.architect", company: BCI, weeksBack: 1, status: "SUBMITTED", entries: ARCHITECT },
   { key: "qaqc_w1", member: "arlis.qaqc-engineer", company: BCI, weeksBack: 1, status: "APPROVED", entries: QAQC },
   { key: "engineering_w1", member: "bci.engineering", company: BCI, weeksBack: 1, status: "SUBMITTED", entries: ENGINEERING },
-  { key: "farka_w1", member: "arlis.structural", company: ALN, weeksBack: 1, status: "APPROVED", entries: FARKA },
 ];
 
 export async function seedArmaarTimesheets(prisma: PrismaClient) {

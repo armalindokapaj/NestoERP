@@ -118,35 +118,9 @@ const CHAINS: Chain[] = [
   },
 
   /* ARLIS - NDERTIM — The Courtyard ------------------------------------------ */
-  {
-    key: "tc_cement", company: ALN, project: "THE_COURTYARD", supplier: "fushe_cement",
-    request: { number: "PR-2026-0012", title: "Cement CEM II/A-M 42.5 — Courtyard block 3", status: "COMPLETED", submitted: -40, requester: "arlis.pm-lead" },
-    item: { description: "Cement CEM II/A-M 42.5, bagged", category: "MATERIALS", quantity: 180, unit: "t", estimate: 118 },
-    order: { number: "PO-2026-0009", status: "RECEIVED", placed: -37, leadDays: 7, price: 112 },
-    receipts: [{ number: "GRN-2026-0011", share: 1, day: -30 }],
-  },
-  {
-    key: "tc_ppe", company: ALN, project: "THE_COURTYARD", supplier: "safework",
-    request: { number: "PR-2026-0010", title: "PPE restock — hard hats, harnesses and gloves", status: "COMPLETED", submitted: -60, requester: "arlis.hse" },
-    item: { description: "PPE kit: hard hat, harness, lanyard, gloves, hi-vis", category: "EQUIPMENT", quantity: 120, unit: "set", estimate: 85 },
-    order: { number: "PO-2026-0008", status: "CLOSED", placed: -58, leadDays: 5, price: 79 },
-    receipts: [{ number: "GRN-2026-0009", share: 1, day: -52 }],
-  },
-  {
-    key: "tc_fittings", company: ALN, project: "THE_COURTYARD", supplier: "aquatek",
-    request: { number: "PR-2026-0016", title: "Plumbing fittings — Courtyard block 2", status: "PENDING_APPROVAL", submitted: -1, requester: "arlis.pm-lead" },
-    item: { description: "PPR pipes and fittings, 20–63 mm", category: "MATERIALS", quantity: 1, unit: "lot", estimate: 14_800 },
-  },
 
   /* ARLIS - NDERTIM — Farka Residence --------------------------------------- */
   // Came with the project from IDEAL: its numbers are free in ARLIS's series and follow on from The Courtyard's.
-  {
-    key: "fr_formwork", company: ALN, project: "FARKA_RESIDENCE", supplier: "korca_timber",
-    request: { number: "PR-2026-0021", title: "Formwork plywood and props — Block C", status: "ORDERED", submitted: -28, requester: "arlis.pm-lead" },
-    item: { description: "Film-faced plywood 18 mm and steel props", category: "MATERIALS", quantity: 1, unit: "lot", estimate: 27_500 },
-    order: { number: "PO-2026-0017", status: "PARTIALLY_RECEIVED", placed: -25, leadDays: 10, price: 26_400 },
-    receipts: [{ number: "GRN-2026-0019", share: 0.7, day: -14 }],
-  },
 
   /* UNICO CONSTRUCTION — United Towers --------------------------------------- */
   // UNICO's first request and order: the first numbers of its series.
@@ -158,12 +132,6 @@ const CHAINS: Chain[] = [
   },
 
   /* Saranda Marina Invest — Gran Melia --------------------------------------- */
-  {
-    key: "gm_lifts", company: SMI, project: "GRAN_MELIA", supplier: "liftech",
-    request: { number: "PR-2026-0004", title: "Lift package — hotel block", status: "ORDERED", submitted: -18, requester: "smi.pm" },
-    item: { description: "Passenger lifts 1,000 kg, six stops, machine-room-less", category: "EQUIPMENT", quantity: 4, unit: "each", estimate: 58_000 },
-    order: { number: "PO-2026-0003", status: "PENDING_APPROVAL", placed: -3, leadDays: 90, price: 56_500 },
-  },
 
   /* ARSOL ENERGY — the rooftop programme, no project ------------------------- */
   {

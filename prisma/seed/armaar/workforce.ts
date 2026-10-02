@@ -78,7 +78,6 @@ const SITES: Array<{ key: SiteKey; company: Employer; project: ProjectCode; name
   { key: "tower_b", company: BCI, project: "TIRANA_LAKE", name: "Tower B", code: "TB", address: "Rruga e Liqenit, plot B" },
   { key: "yard", company: BCI, project: "TIRANA_LAKE", name: "Batching yard", code: "BY", address: "Rruga e Liqenit, north gate" },
   { key: "sq21_plot", company: ALN, project: "SQUARE_21", name: "Main plot", code: "MP", address: "Sheshi 21", closedDaysAgo: 300 },
-  { key: "cty_blocks", company: ALN, project: "THE_COURTYARD", name: "Blocks 1–3", code: "B13", address: "The Courtyard, blocks 1 to 3" },
 ];
 const siteId = (key: SiteKey) => `armaar_site_${key}`;
 const siteOf = (key: SiteKey) => SITES.find((site) => site.key === key)!;
@@ -122,11 +121,6 @@ const WORKERS: Record<Employer, Worker[]> = {
     { key: "aln_03", first: "Klodian", last: "Hasa", title: "Plasterer", trade: "plaster", category: "CONSTRUCTION_WORKER", startedDaysAgo: 540 },
     { key: "aln_04", first: "Arben", last: "Qafa", title: "Tiler", trade: "finishing", category: "CONSTRUCTION_WORKER", startedDaysAgo: 480 },
     { key: "aln_05", first: "Shpëtim", last: "Rexha", title: "Plasterer", trade: "plaster", category: "CONSTRUCTION_WORKER", startedDaysAgo: 400 },
-    { key: "aln_06", first: "Elton", last: "Muçaj", title: "Finisher", trade: "finishing", category: "CONSTRUCTION_WORKER", startedDaysAgo: 220 },
-    { key: "aln_07", first: "Luan", last: "Bajrami", title: "Electrical foreman", trade: "electrical", category: "SUPERVISOR", startedDaysAgo: 1600 },
-    { key: "aln_08", first: "Redon", last: "Kaçani", title: "Electrician", trade: "electrical", category: "TECHNICIAN", startedDaysAgo: 700 },
-    { key: "aln_09", first: "Ervin", last: "Tahiri", title: "Plumber", trade: "plumbing", category: "TECHNICIAN", startedDaysAgo: 380 },
-    { key: "aln_10", first: "Kristi", last: "Gjika", title: "Electrician's mate", trade: "electrical", category: "CONSTRUCTION_WORKER", startedDaysAgo: 3 },
   ],
   // United Towers' excavation crew: UNICO's, as United Towers is.
   [UNC]: [
@@ -179,8 +173,6 @@ const CREWS: Crew[] = [
   { key: "tl_yard", company: BCI, name: "Yard and lifting", project: "TIRANA_LAKE", site: "yard", trade: "lifting", members: ["bci_20", "bci_21", "bci_22"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
   // United Towers is still in its foundations: one crew, the whole project.
   { key: "ut_excavation", company: UNC, name: "United Towers excavation crew", project: "UNITED_TOWERS", site: null, trade: "labour", members: ["unc_01", "unc_02"], manager: "unico.coordinator", recorder: "unico.coordinator" },
-  { key: "cty_finishing", company: ALN, name: "Courtyard finishing crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "finishing", members: ["aln_01", "aln_02", "aln_03", "aln_04", "aln_05", "aln_06"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
-  { key: "cty_mep", company: ALN, name: "Courtyard MEP crew", project: "THE_COURTYARD", site: "cty_blocks", trade: "electrical", members: ["aln_07", "aln_08", "aln_09", "aln_10"], manager: "arlis.site-supervisor", recorder: "arlis.site-supervisor" },
 ];
 export const crewId = (key: string) => `armaar_crew_${key}`;
 const crewOf = (key: string) => CREWS.find((crew) => crew.key === key)!;
@@ -214,7 +206,8 @@ const STINTS: Stint[] = (() => {
   return stints;
 })();
 const NOW = STINTS.filter((stint) => !stint.end);
-const currentCrew = (worker: string) => NOW.find((stint) => stint.worker === worker)!.crew;
+// A worker whose crew has ended (Square 21's) is shown against that last crew.
+const currentCrew = (worker: string) => (NOW.find((stint) => stint.worker === worker) ?? STINTS.filter((stint) => stint.worker === worker).at(-1)!).crew;
 
 /* -------------------------------------------------------------------------- */
 /* Step 1: the workers                                                        */
@@ -298,7 +291,6 @@ const MISDATED = "aln_05";
 const ABSENT: Record<string, { daysAgo: number; notes: string }> = {
   bci_05: { daysAgo: 2, notes: "Called in sick" },
   bci_11: { daysAgo: 4, notes: "Family matter; the foreman was told the evening before" },
-  aln_03: { daysAgo: 1, notes: "Called in sick" },
 };
 
 export async function seedArmaarWorkforce(prisma: PrismaClient) {

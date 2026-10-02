@@ -80,11 +80,12 @@ contracts, money, procurement, site, tasks, meetings — are its company's:
 | Company | Projects |
 | --- | --- |
 | BUILDING CONSTRUCTION INVEST | Tirana Lake |
-| ARLIS - NDERTIM | Square 21 (with all its sales), Farka Residence, Pharmacy 10, Corner, The Courtyard |
+| ARLIS - NDERTIM | Square 21 (with all its sales), Corner, Pogradec Marina |
 | UNICO CONSTRUCTION | United Towers |
 | IDEAL Construction | Eyes of Tirana |
-| Saranda Marina Invest | Gran Melia, Clearwater Beach |
-| K.F POGRADECI | Pogradec Marina |
+| Saranda Marina Invest | Clearwater Beach |
+| Klais | Gran Melia Palase |
+| K.F POGRADECI | none |
 
 People work across companies through a login in each: ARLIS - NDERTIM's site
 team in BCI on Tirana Lake, UNICO's designers in IDEAL on Eyes of Tirana, BCI's
@@ -106,7 +107,7 @@ sign in through the form.
 
 1. **Group dashboard** as `armaar.owner`: the group's banner (NIPT, nine active
    and four suspended companies, the demo notice), five figures derived from
-   the database, Tirana Lake, United Towers, Gran Melia and Square 21 as cards
+   the database, Tirana Lake, United Towers, Gran Melia Palase and Square 21 as cards
    with their progress, the portfolio by status and type, departments by their
    people, the next milestones and the group's recent activity.
 2. **Companies**: Organization → Companies; each company's departments.
@@ -121,7 +122,7 @@ sign in through the form.
    podium membrane delivered and in stock, the AHUs part-delivered, tiles
    ordered, sanitary ware waiting for approval, a balustrade request sent back
    for a re-quote; each approved order has its Finance commitment. ARLIS -
-   NDERTIM (The Courtyard, Farka Residence), UNICO (United Towers), Saranda
+   NDERTIM (Square 21, Corner), UNICO (United Towers), Saranda
    Marina Invest and ARSOL buy too (29 supplier records, 40 requests, orders
    and deliveries).
 8. **Contractors and engineering** as `bci.engineering` (§65): eleven
@@ -159,9 +160,8 @@ sign in through the form.
     and Artan Sinani, whose yard induction lapsed. The attendance sheet
     has the last working days, with somebody off sick. Olsi Dervishi moved
     from Tower B to Tower A a few weeks ago, kept in his history. ARLIS -
-    NDERTIM's ten are on The Courtyard (as `arlis.hr`): its Square 21 finishing
-    crew is archived, and its five people moved to The Courtyard after the
-    handover — kept in their history; one has an induction voided for the
+    NDERTIM's ten are on its projects (as `arlis.hr`): its Square 21 finishing
+    crew is archived, and its people moved on after the handover — kept in their history; one has an induction voided for the
     wrong date and given again. UNICO's two dig United Towers' foundations.
 14. **Employee files and qualifications** (E-02) as `arlis.hr`: HR →
     Documents → *To verify* has Taulant Ymeri's crane signaller card and

@@ -6475,10 +6475,9 @@
           "employing": true,
           "projects": [
             { "projectId": "armaar_prj_corner", "name": "Corner", "manager": true },
-            { "projectId": "armaar_prj_farka_residence", "name": "Farka Residence", "manager": true },
             { "projectId": "armaar_prj_pharmacy_10", "name": "Pharmacy 10", "manager": true },
-            { "projectId": "armaar_prj_square_21", "name": "Square 21", "manager": true },
-            { "projectId": "armaar_prj_the_courtyard", "name": "The Courtyard", "manager": true }
+            { "projectId": "armaar_prj_pogradec_marina", "name": "Pogradec Marina", "manager": true },
+            { "projectId": "armaar_prj_square_21", "name": "Square 21", "manager": true }
           ],
           "grants": [],
           "usable": true,
@@ -6541,10 +6540,7 @@
           "department": "hse",
           "jobTitle": "HSE Manager",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_farka_residence", "name": "Farka Residence", "manager": false },
-            { "projectId": "armaar_prj_the_courtyard", "name": "The Courtyard", "manager": false }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "HSE@COMPANY_MANAGER"
@@ -6593,10 +6589,7 @@
           "department": "qaqc",
           "jobTitle": "QA/QC Manager",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_farka_residence", "name": "Farka Residence", "manager": false },
-            { "projectId": "armaar_prj_the_courtyard", "name": "The Courtyard", "manager": false }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "QAQC@COMPANY_MANAGER"
@@ -6811,9 +6804,7 @@
           "jobTitle": "Structural Engineer",
           "employing": true,
           "projects": [
-            { "projectId": "armaar_prj_corner", "name": "Corner", "manager": false },
-            { "projectId": "armaar_prj_farka_residence", "name": "Farka Residence", "manager": false },
-            { "projectId": "armaar_prj_the_courtyard", "name": "The Courtyard", "manager": false }
+            { "projectId": "armaar_prj_corner", "name": "Corner", "manager": false }
           ],
           "grants": [],
           "usable": true,
@@ -7090,9 +7081,7 @@
           "department": "procurement",
           "jobTitle": "Procurement Specialist",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_farka_residence", "name": "Farka Residence", "manager": false }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "PROCUREMENT@MEMBER"
@@ -8035,8 +8024,7 @@
           "jobTitle": "Project Manager",
           "employing": true,
           "projects": [
-            { "projectId": "armaar_prj_clearwater_beach", "name": "Clearwater Beach", "manager": true },
-            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia", "manager": true }
+            { "projectId": "armaar_prj_clearwater_beach", "name": "Clearwater Beach", "manager": true }
           ],
           "grants": [],
           "usable": true,
@@ -8068,9 +8056,7 @@
           "department": "sales",
           "jobTitle": "Sales Manager",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia", "manager": false }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "SALES@COMPANY_MANAGER"
@@ -8134,9 +8120,7 @@
           "department": "finance",
           "jobTitle": "Finance Manager",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia", "manager": false }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "FINANCE@COMPANY_MANAGER"
@@ -8168,8 +8152,7 @@
           "jobTitle": "Architect",
           "employing": true,
           "projects": [
-            { "projectId": "armaar_prj_clearwater_beach", "name": "Clearwater Beach", "manager": false },
-            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia", "manager": false }
+            { "projectId": "armaar_prj_clearwater_beach", "name": "Clearwater Beach", "manager": false }
           ],
           "grants": [],
           "usable": true,
@@ -8232,7 +8215,9 @@
           "department": "executive",
           "jobTitle": "Company Director",
           "employing": true,
-          "projects": [],
+          "projects": [
+            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia Palase", "manager": true }
+          ],
           "grants": [],
           "usable": true,
           "profile": "CEO@COMPANY_MANAGER"
@@ -8263,7 +8248,9 @@
           "department": "finance",
           "jobTitle": "Accountant",
           "employing": true,
-          "projects": [],
+          "projects": [
+            { "projectId": "armaar_prj_gran_melia", "name": "Gran Melia Palase", "manager": false }
+          ],
           "grants": [],
           "usable": true,
           "profile": "FINANCE@MEMBER"
@@ -8325,9 +8312,7 @@
           "department": "projects",
           "jobTitle": "Project Manager · Pogradec Marina",
           "employing": true,
-          "projects": [
-            { "projectId": "armaar_prj_pogradec_marina", "name": "Pogradec Marina", "manager": true }
-          ],
+          "projects": [],
           "grants": [],
           "usable": true,
           "profile": "PROJECT_MANAGER@COMPANY_MANAGER"
@@ -9140,7 +9125,7 @@
         "accessLevel": "VIEW",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.numbering.view","company.settings.view","company.view"]
+        "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.name.update","company.numbering.view","company.settings.view","company.view"]
       },
       "settings": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -9265,7 +9250,7 @@
         "accessLevel": "VIEW",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.numbering.view","company.settings.view","company.view"]
+        "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.name.update","company.numbering.view","company.settings.view","company.view"]
       },
       "settings": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -10055,7 +10040,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
+        "permissions": ["company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.name.update","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "SYSTEM", "enabled": true, "permissions": ["settings.manage","settings.view"] },
       "support": {
@@ -11185,7 +11170,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.name.update","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -11340,7 +11325,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.name.update","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
@@ -11460,7 +11445,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.name.update","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
       "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["audit.export","audit.sensitive.view","audit.view","settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
