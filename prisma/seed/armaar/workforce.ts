@@ -72,12 +72,13 @@ const TRADES: Record<Employer, Array<{ key: string; name: string; code: string }
 };
 export const tradeId = (code: Employer, key: string) => `armaar_trade_${SLUG[code]}_${key}`;
 
-type SiteKey = "tower_a" | "tower_b" | "yard" | "sq21_plot" | "cty_blocks";
+type SiteKey = "tower_a" | "tower_b" | "yard" | "sq21_plot" | "pogradec_quay";
 const SITES: Array<{ key: SiteKey; company: Employer; project: ProjectCode; name: string; code: string; address: string; closedDaysAgo?: number }> = [
   { key: "tower_a", company: BCI, project: "TIRANA_LAKE", name: "Tower A", code: "TA", address: "Rruga e Liqenit, plot A" },
   { key: "tower_b", company: BCI, project: "TIRANA_LAKE", name: "Tower B", code: "TB", address: "Rruga e Liqenit, plot B" },
   { key: "yard", company: BCI, project: "TIRANA_LAKE", name: "Batching yard", code: "BY", address: "Rruga e Liqenit, north gate" },
   { key: "sq21_plot", company: ALN, project: "SQUARE_21", name: "Main plot", code: "MP", address: "Sheshi 21", closedDaysAgo: 300 },
+  { key: "pogradec_quay", company: ALN, project: "POGRADEC_MARINA", name: "Quay and promenade", code: "QP", address: "Pogradec Marina, lakeside quay" },
 ];
 const siteId = (key: SiteKey) => `armaar_site_${key}`;
 const siteOf = (key: SiteKey) => SITES.find((site) => site.key === key)!;
@@ -154,7 +155,7 @@ type Crew = {
 };
 
 const CREWS: Crew[] = [
-  // ARLIS - NDERTIM's finishing crew on Square 21, which moved to The Courtyard after the handover.
+  // ARLIS - NDERTIM's finishing crew on Square 21, which moved to Pogradec Marina after the handover.
   {
     key: "sq21_finishing",
     company: ALN,
@@ -167,6 +168,7 @@ const CREWS: Crew[] = [
     recorder: "arlis.pm-lead",
     ended: { daysAgo: 310, reason: "Square 21 handed over" },
   },
+  { key: "pm_finishing", company: ALN, name: "Pogradec Marina finishing crew", project: "POGRADEC_MARINA", site: "pogradec_quay", trade: "finishing", members: ["aln_01", "aln_02", "aln_03", "aln_04", "aln_05"], manager: "arlis.pm-lead", recorder: "arlis.pm-lead" },
   { key: "tl_concrete", company: BCI, name: "Tower A concrete crew", project: "TIRANA_LAKE", site: "tower_a", trade: "concrete", members: ["bci_01", "bci_02", "bci_03", "bci_04", "bci_05", "bci_06", "bci_07"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
   { key: "tl_formwork", company: BCI, name: "Tower B formwork crew", project: "TIRANA_LAKE", site: "tower_b", trade: "formwork", members: ["bci_08", "bci_09", "bci_10", "bci_11", "bci_12", "bci_13", "bci_14"], manager: "bci.pm", recorder: "arlis.site-supervisor" },
   { key: "tl_steel", company: BCI, name: "Steel fixers", project: "TIRANA_LAKE", site: "tower_a", trade: "steel", members: ["bci_15", "bci_16", "bci_17", "bci_18", "bci_19"], manager: "bci.pm", recorder: "arlis.site-supervisor" },

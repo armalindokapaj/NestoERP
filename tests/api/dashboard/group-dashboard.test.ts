@@ -61,7 +61,7 @@ describe("the Owner's view of the group (§26-§36)", () => {
   it("shows the key projects with their progress from the plan, flagship first (§17, §19, §31)", async () => {
     const owner = await loginAsEmail(OWNER, GROUP);
     const { keyProjects } = await getGroupDashboard(owner);
-    expect(keyProjects.map((project) => project.name)).toEqual(expect.arrayContaining(["Tirana Lake", "United Towers", "Gran Melia", "Square 21"]));
+    expect(keyProjects.map((project) => project.name)).toEqual(expect.arrayContaining(["Tirana Lake", "United Towers", "Gran Melia Palase", "Square 21"]));
     const lake = keyProjects[0]!;
     expect(lake).toMatchObject({ name: "Tirana Lake", company: "BUILDING CONSTRUCTION INVEST", location: "Tirana, Albania", status: "ACTIVE", progress: 62 });
     expect(lake.tags).toEqual(expect.arrayContaining(["Mixed use", "Residential", "Commercial"]));

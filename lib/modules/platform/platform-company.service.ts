@@ -37,7 +37,7 @@ function assertPlatform(context: PlatformContext, permission: PlatformPermission
 
 const SLUG_MAX = 60;
 
-/** A company code from its name: "Armaar Construction" → "armaar-construction". */
+/** A company code from its name: "Acme Construction" → "acme-construction". */
 export function slugFromName(name: string): string {
   const base = name
     .normalize("NFKD")
