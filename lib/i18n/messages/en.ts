@@ -163,6 +163,8 @@ export const en = {
     title: "Activity Center",
     all: "All",
     notifications: "Notifications",
+    /** The bell's short name in the phone's bottom bar. */
+    barLabel: "Alerts",
     announcements: "Announcements",
     markAll: "Mark all as read",
     viewAll: "View all activity",

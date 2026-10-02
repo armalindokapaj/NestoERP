@@ -1,4 +1,5 @@
 import { GlobalSearch } from "@/components/layout/global-search";
+import { MobileMenuButton } from "@/components/layout/mobile-menu-button";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
@@ -75,6 +76,7 @@ export async function Topbar({
         <QuickCreate userKey={context.userId} summary={core.quickCreate} />
         {/* Phone: the same switch is in More (Black & Gold reskin §4). */}
         <ThemeToggle className="max-md:hidden" />
+        {/* Phone: the bell is in the bottom bar. */}
         <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
         <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         {/* Phone: the account lives in More (MOB-02 §39). */}
@@ -89,6 +91,8 @@ export async function Topbar({
           }}
         />
         </div>
+        {/* Phone: the menu, fixed at the top right (More). */}
+        <MobileMenuButton />
       </div>
     </header>
   );
