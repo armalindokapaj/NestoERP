@@ -56,9 +56,12 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
   const menu = menuState.status === "ready" ? menuState.menu : null;
   const actions = React.useMemo(() => menu?.actions ?? [], [menu]);
   const text = query.trim().toLowerCase();
-  const matches = React.useCallback((action: QuickCreateActionDTO) => !text || [action.label, QUICK_CREATE_GROUP_LABELS[action.group], ...action.keywords].some((value) => value.toLowerCase().includes(text)), [text]);
+  // The registry's labels are English record nouns; the reader sees them in their language.
+  const actionLabel = React.useCallback((action: QuickCreateActionDTO) => t(`quickCreate.actions.${action.key.replace(/\./g, "_")}` as "quickCreate.actions.tasks_task_create"), [t]);
+  const groupLabel = React.useCallback((group: keyof typeof QUICK_CREATE_GROUP_LABELS) => t(`quickCreate.groups.${group}`), [t]);
+  const matches = React.useCallback((action: QuickCreateActionDTO) => !text || [actionLabel(action), action.label, groupLabel(action.group), QUICK_CREATE_GROUP_LABELS[action.group], ...action.keywords].some((value) => value.toLowerCase().includes(text)), [text, actionLabel, groupLabel]);
   const recentActions = text ? [] : recent.map((key) => actions.find((action) => action.key === key)).filter((action): action is QuickCreateActionDTO => Boolean(action));
-  const grouped = QUICK_CREATE_GROUPS.map((group) => ({ group, rows: actions.filter((action) => action.group === group && matches(action)).sort((a, b) => a.label.localeCompare(b.label)) })).filter((entry) => entry.rows.length);
+  const grouped = QUICK_CREATE_GROUPS.map((group) => ({ group, rows: actions.filter((action) => action.group === group && matches(action)).sort((a, b) => actionLabel(a).localeCompare(actionLabel(b))) })).filter((entry) => entry.rows.length);
   const ordered = [...recentActions, ...grouped.flatMap((entry) => entry.rows)];
 
   function onListKey(event: React.KeyboardEvent) {
@@ -95,7 +98,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
           data-testid={`quick-create-${action.key}`}
         >
           <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
-          <span className="flex-1">{action.label}</span>
+          <span className="flex-1">{actionLabel(action)}</span>
           {launching === action.key ? <Loader2 aria-hidden="true" className="size-4 animate-spin text-fg-subtle" /> : null}
         </button>
       </li>
@@ -104,12 +107,12 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
 
   const banner = menu?.context ? (
     <p className="border-b border-line bg-surface-muted px-3 py-2 text-meta text-fg-muted" data-testid="quick-create-context">
-      Creating in: <span className="font-medium text-fg">{[menu.context.company.name, menu.context.project?.name].filter(Boolean).join(" · ")}</span>
-      {menu.context.recordType !== "project" ? <span className="block truncate">From {menu.context.label}</span> : null}
+      {t("quickCreate.creatingIn")} <span className="font-medium text-fg">{[menu.context.company.name, menu.context.project?.name].filter(Boolean).join(" · ")}</span>
+      {menu.context.recordType !== "project" ? <span className="block truncate">{t("quickCreate.fromRecord", { name: menu.context.label })}</span> : null}
     </p>
   ) : menu?.workspace.company ? (
     <p className="border-b border-line bg-surface-muted px-3 py-2 text-meta text-fg-muted" data-testid="quick-create-context">
-      Creating in: <span className="font-medium text-fg">{menu.workspace.company.name}</span>
+      {t("quickCreate.creatingIn")} <span className="font-medium text-fg">{menu.workspace.company.name}</span>
     </p>
   ) : null;
 
@@ -169,7 +172,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
         {actions.length > SEARCH_FROM ? (
           <div className="border-b border-line p-2">
             <label className="relative block">
-              <span className="sr-only">Search actions</span>
+              <span className="sr-only">{t("quickCreate.searchActions")}</span>
               <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
               <input
                 ref={searchRef}
@@ -194,8 +197,8 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             </section>
           ) : null}
           {grouped.map((entry) => (
-            <section key={entry.group} aria-label={QUICK_CREATE_GROUP_LABELS[entry.group]}>
-              <p className="px-2 pb-0.5 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{QUICK_CREATE_GROUP_LABELS[entry.group]}</p>
+            <section key={entry.group} aria-label={groupLabel(entry.group)}>
+              <p className="px-2 pb-0.5 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{groupLabel(entry.group)}</p>
               <ul>{entry.rows.map((action) => row(action, entry.group))}</ul>
             </section>
           ))}
@@ -213,7 +216,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             ) : (
               <button type="button" id={headingId} onClick={backToMenu} className="inline-flex items-center gap-1.5 text-table font-medium text-fg">
                 <ArrowLeft aria-hidden="true" className="size-4" />
-                Create {step.action.label}
+                {t("quickCreate.createNamed", { name: actionLabel(step.action) })}
               </button>
             )}
             <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
@@ -242,10 +245,10 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                   ))}
                 </select>
               </label>
-              <p className="text-meta text-fg-muted">The {step.action.label.toLowerCase()} belongs to the company you choose. Opening it enters that company.</p>
+              <p className="text-meta text-fg-muted">{t("quickCreate.belongsTo", { name: actionLabel(step.action).toLowerCase() })}</p>
               <button type="submit" disabled={!company || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
                 {launching ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
-                Continue
+                {t("quickCreate.continue")}
               </button>
             </form>
           ) : (
@@ -290,7 +293,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
               </label>
               <button type="submit" disabled={!project || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
                 {launching ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
-                Continue
+                {t("quickCreate.continue")}
               </button>
             </form>
           )}
