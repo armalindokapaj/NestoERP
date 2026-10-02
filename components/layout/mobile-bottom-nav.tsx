@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, MoreHorizontal, Plus, Search, Settings } from "lucide-react";
+import { LogOut, MoreHorizontal, Plus, Search, Settings, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -12,7 +12,7 @@ import { useSignOut } from "@/components/layout/use-sign-out";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { Avatar } from "@/components/ui/avatar";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { filterMoreGroups, MORE_SEARCH_THRESHOLD, resolveMobileNavigation } from "@/lib/navigation/mobile";
@@ -162,33 +162,45 @@ export function MobileBottomNav({
         )}
       </ul>
 
-      <BottomSheet
-        open={moreOpen}
-        onOpenChange={setMoreOpen}
-        title={t("mobile.moreTitle")}
-        className="max-h-[min(90dvh,calc(100dvh-var(--nesto-safe-top)-1rem))]"
-        onCloseAutoFocus={(event) => {
-          if (navigated.current) {
-            navigated.current = false;
+      {/* The hamburger's menu slides in from the right and closes the same ways a dialog does. */}
+      <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
+        <DrawerContent
+          side="right"
+          data-testid="mobile-more-drawer"
+          onCloseAutoFocus={(event) => {
+            if (navigated.current) {
+              navigated.current = false;
+              event.preventDefault();
+              document.getElementById("nesto-main")?.focus({ preventScroll: true });
+              return;
+            }
             event.preventDefault();
-            document.getElementById("nesto-main")?.focus({ preventScroll: true });
-            return;
-          }
-          event.preventDefault();
-          (opener.current ?? moreButton.current)?.focus({ preventScroll: true });
-          opener.current = null;
-        }}
-      >
-        <MoreBody
-          groups={more}
-          account={account}
-          footer={footer}
-          onDone={() => {
-            navigated.current = true;
-            setMoreOpen(false);
+            (opener.current ?? moreButton.current)?.focus({ preventScroll: true });
+            opener.current = null;
           }}
-        />
-      </BottomSheet>
+        >
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line pl-4 pr-2">
+            <DrawerTitle className="text-card font-semibold text-fg">{t("mobile.moreTitle")}</DrawerTitle>
+            <DrawerClose
+              aria-label={t("closeNavigation")}
+              className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
+            >
+              <X aria-hidden="true" className="size-5" strokeWidth={1.6} />
+            </DrawerClose>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            <MoreBody
+              groups={more}
+              account={account}
+              footer={footer}
+              onDone={() => {
+                navigated.current = true;
+                setMoreOpen(false);
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </nav>
   );
 }
