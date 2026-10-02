@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Building2, MapPin, TriangleAlert } from "lucide-react";
+import { ArrowRight, Building2, ChevronRight, CircleAlert, Info, MapPin, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
@@ -25,11 +25,18 @@ export const SPAN: Record<string, 1 | 2 | 3> = {
   FULL: 3,
 };
 
-const ALERT_STYLES: Record<AlertPriority, string> = {
-  CRITICAL: "border-l-danger bg-danger-soft/40",
-  WARNING: "border-l-warning bg-warning-soft/40",
-  INFO: "border-l-info bg-info-soft/40",
+/** Tone by priority: a round icon, and the colour the figure takes (Premium Mobile §5.4). */
+const ALERT_TONE: Record<AlertPriority, { icon: typeof Info; circle: string; figure: string }> = {
+  CRITICAL: { icon: TriangleAlert, circle: "bg-danger-soft text-danger-strong", figure: "text-danger-strong" },
+  WARNING: { icon: CircleAlert, circle: "bg-warning-soft text-warning-strong", figure: "text-warning-strong" },
+  INFO: { icon: Info, circle: "bg-info-soft text-info-strong", figure: "text-info-strong" },
 };
+
+/** A title that opens with a figure ("€4,200 overdue") shows the figure large; the string is unchanged. */
+function splitFigure(title: string): { figure: string; rest: string } | null {
+  const match = /^([€$£]?[\d.,]+)\s+(.+)$/.exec(title);
+  return match ? { figure: match[1], rest: match[2] } : null;
+}
 
 /**
  * A link that, on a group widget, enters the company the row is about before it
@@ -73,9 +80,16 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`widget-${definition.key}`} className="text-card font-semibold text-fg">
-            {widgetText(t, definition.key, "title", definition.title)}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 id={`widget-${definition.key}`} className="text-card font-semibold text-fg">
+              {widgetText(t, definition.key, "title", definition.title)}
+            </h2>
+            {payload.kind === "alerts" && payload.items.length > 0 ? (
+              <span className="grid h-[26px] min-w-[26px] place-items-center rounded-full bg-accent-soft px-1.5 text-meta font-bold text-accent-strong" data-testid="alerts-count">
+                {payload.items.length}
+              </span>
+            ) : null}
+          </div>
           {definition.description ? (
             <p className="mt-0.5 text-meta text-fg-subtle">{widgetText(t, definition.key, "description", definition.description)}</p>
           ) : null}
@@ -188,29 +202,38 @@ function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Tra
 
     case "alerts":
       return (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line">
           {payload.items.map((item) => {
+            const tone = ALERT_TONE[item.priority];
+            const ToneIcon = tone.icon;
+            const split = splitFigure(item.title);
             const content = (
-              <div
-                className={cn(
-                  "flex min-w-0 items-start gap-3 rounded-md border-l-2 px-3 py-2.5",
-                  ALERT_STYLES[item.priority],
-                )}
-              >
-                <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
-                <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-3.5 py-3.5">
+                <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", tone.circle)}>
+                  <ToneIcon className="size-[18px]" strokeWidth={1.8} />
+                </span>
+                <div className="min-w-0 flex-1">
                   {/* On the group's list every alert names its company (Workspace Context §45, §71). */}
                   {item.company ? <p className="text-micro font-medium text-fg-subtle" data-testid="alert-company">{item.company}</p> : null}
-                  <p className="text-table font-medium text-fg">{item.title}</p>
+                  <p className="text-body font-semibold text-fg">
+                    {split ? (
+                      <>
+                        <span className={cn("font-serif text-[1.625rem] font-normal leading-none", tone.figure)}>{split.figure}</span> {split.rest}
+                      </>
+                    ) : (
+                      item.title
+                    )}
+                  </p>
                   <p className="text-meta text-fg-muted">{item.detail}</p>
                 </div>
+                {item.href ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" /> : null}
               </div>
             );
 
             return (
-              <li key={item.id}>
+              <li key={item.id} className="first:[&>*]:pt-0 last:[&>*]:pb-0">
                 {item.href ? (
-                  <RowLink href={item.href} companyId={item.companyId} className="block transition-opacity hover:opacity-85">
+                  <RowLink href={item.href} companyId={item.companyId} className="block transition-colors hover:bg-row-hover active:bg-accent-soft">
                     {content}
                   </RowLink>
                 ) : (

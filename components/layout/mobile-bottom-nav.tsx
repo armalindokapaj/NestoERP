@@ -76,27 +76,32 @@ export function MobileBottomNav({
 
   const moreActive = more.some((group) => group.items.some((item) => isNavigationItemActive(item, pathname)));
 
+  // Create sits in the middle of the destinations; the split is for rendering only (Premium Mobile §6.1).
+  const left = primary.slice(0, Math.ceil(primary.length / 2));
+  const right = primary.slice(left.length);
+  const renderLink = (item: NavigationItem) => (
+    <li key={item.key} className="min-w-0 flex-1">
+      <BarLink item={item} active={isNavigationItemActive(item, pathname)} />
+    </li>
+  );
+
   return (
     <nav
       aria-label={t("mobile.barLabel")}
       data-mobile-bottom-nav
-      className="nesto-bottom-nav fixed inset-x-0 bottom-0 z-[var(--nesto-z-shell-tabs)] border-t border-line bg-surface pb-[var(--nesto-safe-bottom)] pl-[var(--nesto-safe-left)] pr-[var(--nesto-safe-right)] lg:hidden"
+      className="nesto-bottom-nav fixed inset-x-[max(0.75rem,var(--nesto-safe-left))] bottom-[calc(0.875rem+var(--nesto-safe-bottom))] z-[var(--nesto-z-shell-tabs)] mx-auto h-[68px] max-w-xl rounded-[24px] border border-line bg-surface/85 px-1.5 shadow-menu backdrop-blur-xl lg:hidden"
     >
-      <ul className="mx-auto flex max-w-xl items-stretch">
-        {primary.map((item) => (
-          <li key={item.key} className="min-w-0 flex-1">
-            <BarLink item={item} active={isNavigationItemActive(item, pathname)} />
-          </li>
-        ))}
+      <ul className="flex h-full items-center">
+        {left.map(renderLink)}
         {canCreate ? (
           // Tablet portrait keeps Create in the top bar; the bar carries it on a phone (MOB-02 §16, §44).
-          <li className="min-w-0 flex-1 md:hidden">
-            <BarButton
-              icon={Plus}
-              label={t("mobile.create")}
-              expanded={createOpen}
-              haspopup="dialog"
-              testId="mobile-create"
+          <li className="flex min-w-0 flex-1 justify-center md:hidden">
+            <button
+              type="button"
+              aria-label={t("mobile.create")}
+              aria-haspopup="dialog"
+              aria-expanded={createOpen}
+              data-testid="mobile-create"
               onPointerDown={() => {
                 createWasOpen.current = createOpen;
               }}
@@ -108,9 +113,13 @@ export function MobileBottomNav({
                 emitNavigationEvent("quick_create_opened", { source: "bottom_nav" });
                 window.dispatchEvent(new Event(OPEN_QUICK_CREATE_EVENT));
               }}
-            />
+              className="-mt-[26px] grid size-[54px] place-items-center rounded-full border-4 border-canvas bg-accent text-accent-fg shadow-menu transition-transform active:scale-95"
+            >
+              <Plus aria-hidden="true" className="size-[22px]" strokeWidth={2.2} />
+            </button>
           </li>
         ) : null}
+        {right.map(renderLink)}
         <li className="min-w-0 flex-1">
           <BarButton
             icon={MoreHorizontal}
@@ -160,12 +169,12 @@ export function MobileBottomNav({
 }
 
 /* A bar cell: icon over label, 56px tall, the whole cell the target. Active is
-   the accent, a bar above the icon, a filled icon weight and aria-current. */
+   the accent, a gold dot above the icon and aria-current; the icon weight stays even. */
 const cellClass =
-  "relative flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-medium leading-tight text-fg-muted transition-colors hover:text-fg data-[active=true]:text-accent-strong";
+  "relative flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:text-accent-strong";
 
 function ActiveMark() {
-  return <span aria-hidden="true" className="absolute inset-x-4 top-0 h-0.5 rounded-b-full bg-accent" />;
+  return <span aria-hidden="true" className="absolute left-1/2 top-0.5 size-1 -translate-x-1/2 rounded-full bg-accent" />;
 }
 
 function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
@@ -187,7 +196,7 @@ function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
       className={cellClass}
     >
       {active ? <ActiveMark /> : null}
-      <Icon aria-hidden="true" className={cn("size-5 shrink-0", active && "stroke-[2.5]")} />
+      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
       {pending ? <PendingDot className="absolute right-3 top-2 text-accent" /> : null}
     </Link>
@@ -206,7 +215,7 @@ function BarButton({
   buttonRef,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: "true" }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: "true" }>;
   label: string;
   active?: boolean;
   expanded: boolean;
@@ -228,7 +237,7 @@ function BarButton({
       className={cellClass}
     >
       {active ? <ActiveMark /> : null}
-      <Icon aria-hidden="true" className={cn("size-5 shrink-0", active && "stroke-[2.5]")} />
+      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
     </button>
   );

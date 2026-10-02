@@ -169,7 +169,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg md:hidden touch:size-11"
         data-testid="mobile-search-trigger"
       >
-        <Search aria-hidden="true" className="size-5" strokeWidth={1.6} />
+        <Search aria-hidden="true" className="size-[21px]" strokeWidth={1.6} />
       </button>
       <button
         type="button"

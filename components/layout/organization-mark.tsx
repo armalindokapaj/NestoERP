@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 
 const sizes = {
   sm: "size-7 rounded-md text-micro",
-  md: "size-8 rounded-lg text-meta",
+  md: "size-8 rounded-lg text-meta max-md:size-10 max-md:rounded-xl max-md:text-[1.1875rem]",
 } as const;
 
 /**

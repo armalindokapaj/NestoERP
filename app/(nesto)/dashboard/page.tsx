@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import Link from "@/components/navigation/nav-link";
 
 import {
@@ -67,16 +67,24 @@ export default async function DashboardPage() {
       <div className="space-y-6">
         <WelcomeHeader context={context} focus={plan.focus} />
 
+        {/* The day's entry point: a dark card on a phone, the plain row from tablet up (Premium Mobile §5.2). */}
         <Link
           href="/my-day"
           data-testid="open-my-day"
-          className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 hover:bg-row-hover"
+          className={cn(
+            "group relative flex items-center justify-between gap-3 overflow-hidden border border-accent/30 bg-hero p-5 text-hero-fg",
+            "rounded-[22px] before:absolute before:left-5 before:top-0 before:h-0.5 before:w-9 before:bg-hero-accent before:content-['']",
+            "md:min-h-14 md:rounded-lg md:border-line md:bg-surface md:px-4 md:py-3 md:text-fg md:before:hidden md:hover:bg-row-hover",
+          )}
         >
           <span className="min-w-0">
-            <span className="block text-body font-semibold text-fg">{misc("myDay.title")}</span>
-            <span className="block truncate text-meta text-fg-muted">{misc("myDay.openMyDayHint")}</span>
+            <span className="nesto-eyebrow block text-hero-accent md:text-body md:font-semibold md:normal-case md:tracking-normal md:text-fg">{misc("myDay.title")}</span>
+            <span className="mt-1.5 block font-serif text-[1.375rem] leading-tight md:mt-0 md:truncate md:font-sans md:text-meta md:leading-normal md:text-fg-muted">{misc("myDay.openMyDayHint")}</span>
           </span>
-          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
+          <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-hero-accent text-hero md:size-auto md:bg-transparent md:text-fg-subtle">
+            <ArrowRight className="size-[18px] md:hidden" />
+            <ChevronRight className="hidden size-4 md:block" />
+          </span>
         </Link>
 
         <Suspense fallback={null}>
