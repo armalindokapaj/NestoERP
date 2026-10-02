@@ -70,15 +70,16 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
         aria-live="polite"
         title={tone === "offline" ? t("status.offlineHint") : t("status.openSyncCenter")}
         className={cn(
-          "inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-micro font-medium touch:min-h-11",
+          "inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-micro font-semibold touch:min-h-11",
           inShell && "pointer-events-auto shadow-menu",
-          tone === "offline" && "border-line-strong bg-surface-muted text-fg",
-          tone === "attention" && "border-transparent bg-warning-soft text-warning-strong",
-          (tone === "syncing" || tone === "waiting") && "border-transparent bg-info-soft text-info-strong",
-          tone === "synced" && "border-transparent bg-success-soft text-success-strong",
+          tone === "offline" && "border-line-strong bg-surface text-fg",
+          tone === "attention" && "border-warning/30 bg-surface text-warning-strong",
+          // The platform's gold-outline chip on a surface ground, as the role chip on the dashboard: no blue.
+          (tone === "syncing" || tone === "waiting") && "border-accent/30 bg-surface text-accent-strong",
+          tone === "synced" && "border-success/30 bg-surface text-success-strong",
         )}
       >
-        <Icon className={cn("size-3.5 shrink-0", tone === "syncing" && "animate-spin")} aria-hidden />
+        <Icon className={cn("size-3.5 shrink-0", tone === "syncing" && "animate-spin motion-reduce:animate-none")} strokeWidth={1.8} aria-hidden />
         <span className="truncate">{text}</span>
       </Link>
     </div>
