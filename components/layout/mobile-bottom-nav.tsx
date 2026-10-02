@@ -188,7 +188,7 @@ export function MobileBottomNav({
               <X aria-hidden="true" className="size-5" strokeWidth={1.6} />
             </DrawerClose>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className="flex min-h-0 flex-1 flex-col">
             <MoreBody
               groups={more}
               account={account}
@@ -296,7 +296,9 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
   const name = `${account.firstName} ${account.lastName}`.trim();
 
   return (
-    <div className="space-y-4" data-testid="mobile-more-body">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="mobile-more-body">
+      {/* Pinned: the profile and the search stay put while the modules scroll. */}
+      <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
       <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-lg border border-line px-3 py-2 hover:bg-hover">
         <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" />
         <span className="min-w-0 flex-1 leading-tight">
@@ -322,7 +324,9 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
           />
         </div>
       ) : null}
+      </div>
 
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-2">
       {shown.length === 0 ? (
         <p role="status" className="px-1 py-4 text-center text-table text-fg-muted">{t("mobile.noModules")}</p>
       ) : (
@@ -342,6 +346,10 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
         ))
       )}
 
+      </div>
+
+      {/* Pinned: Settings, the theme and Logout stay at the foot. */}
+      <div className="shrink-0 space-y-3 border-t border-line px-4 pb-4 pt-3">
       <section aria-label={t("mobile.account")} className="overflow-hidden rounded-lg border border-line">
         <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 text-body font-medium text-fg hover:bg-hover">
           <Settings aria-hidden="true" className="size-[18px] text-fg-subtle" />
@@ -360,6 +368,7 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
       </section>
 
       {footer}
+      </div>
     </div>
   );
 }
