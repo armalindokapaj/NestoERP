@@ -480,8 +480,10 @@ export const sq: Messages = {
       phone: "Telefoni",
       website: "Faqja e internetit",
       slug: "Identifikuesi i hapësirës së punës",
+      nameSave: "Ndrysho emrin e kompanisë",
+      nameUpdated: "Emri i kompanisë u përditësua",
       readOnly:
-        "Të dhënat e kompanisë janë vetëm për lexim në V0.1. Redaktimi vjen me modulin e cilësimeve.",
+        "Të dhënat e tjera të kompanisë janë vetëm për lexim në V0.1. Redaktimi vjen me modulin e cilësimeve.",
       ownership: "Pronësia",
       ownershipDescription: "Kush e zotëron kompaninë, dhe sa.",
       ownershipHolder: "Pronari",

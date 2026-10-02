@@ -47,6 +47,7 @@ export const AuditAction = {
   /** A company provisioned by the bootstrap CLI rather than a seed (PRD #38 §19). */
   COMPANY_CREATED: "COMPANY_CREATED",
   COMPANY_SETTINGS_UPDATED: "COMPANY_SETTINGS_UPDATED",
+  COMPANY_RENAMED: "COMPANY_RENAMED",
   COMPANY_MODULE_ENABLED: "COMPANY_MODULE_ENABLED",
   COMPANY_MODULE_DISABLED: "COMPANY_MODULE_DISABLED",
   COMPANY_INTEGRATION_SETTING_CHANGED: "COMPANY_INTEGRATION_SETTING_CHANGED",
@@ -586,6 +587,7 @@ const POLICIES: AuditPolicy[] = [
   /* Configuration -------------------------------------------------------- */
   { actionKey: AuditAction.COMPANY_CREATED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["name", "slug", "ownerEmail", "modules"], required: true },
   { actionKey: AuditAction.COMPANY_SETTINGS_UPDATED, moduleKey: "settings", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["locale", "timezone", "dateFormat", "fiscalYearStartMonth", "defaultPaymentTermsDays", "defaultTaxRate"], required: false },
+  { actionKey: AuditAction.COMPANY_RENAMED, moduleKey: "settings", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["name"], required: true },
   { actionKey: AuditAction.COMPANY_MODULE_ENABLED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["moduleKey", "enabled"], required: true },
   { actionKey: AuditAction.COMPANY_MODULE_DISABLED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["moduleKey", "enabled"], required: true },
   { actionKey: AuditAction.COMPANY_INTEGRATION_SETTING_CHANGED, moduleKey: "settings", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["qualityGateForInventoryReceipts", "autoCreateFinanceCommitmentFromApprovedPo"], required: true },

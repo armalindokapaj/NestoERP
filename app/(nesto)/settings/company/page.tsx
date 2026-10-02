@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CompanyNameForm } from "./company-name-form";
+import { can } from "@/lib/access/can";
 import { requireSettingsSection } from "../settings-access";
 import { getCompany } from "@/lib/database/queries";
 import { getCompanyOwners } from "@/lib/modules/settings/company-settings.service";
@@ -22,8 +24,10 @@ export default async function CompanySettingsPage() {
 
   const t = await getTranslations("settings");
 
+  const canRename = can(user, "company.name.update");
+
   const fields = [
-    { id: "name", label: t("company.name"), value: company.name },
+    ...(canRename ? [] : [{ id: "name", label: t("company.name"), value: company.name }]),
     // The company is the employing legal entity (E-01 §7, §28; ADR 0002).
     { id: "legalName", label: t("company.legalName"), value: company.legalName ?? "" },
     { id: "registrationNumber", label: t("company.registrationNumber"), value: company.registrationNumber ?? "" },
@@ -45,6 +49,7 @@ export default async function CompanySettingsPage() {
       />
 
       <section className="nesto-card p-6">
+        {canRename ? <div className="mb-4"><CompanyNameForm name={company.name} /></div> : null}
         <div className="grid gap-4 sm:grid-cols-2">
           {fields.map((field) => (
             <div key={field.id} className="space-y-1.5">

@@ -2,7 +2,25 @@ import { DEMO_DISCLAIMER } from "@/components/dashboard/demo-disclaimer";
 import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
 import { PoweredBy } from "@/components/layout/powered-by";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
-import type { NavigationGroup } from "@/config/navigation";
+import type { NavigationGroup, NavigationItem } from "@/config/navigation";
+
+/** Pinned to the top of the rail while the rest scrolls, in this order. */
+const PINNED_TOP = ["dashboard", "projects", "tasks"];
+/** Pinned to the bottom of the rail, in this order. */
+const PINNED_BOTTOM = ["support", "settings"];
+
+function splitNavigation(navigation: NavigationGroup[]) {
+  const items = navigation.flatMap((group) => group.items);
+  const pick = (keys: string[]): NavigationItem[] =>
+    keys.flatMap((key) => items.filter((item) => item.key === key));
+  const asGroup = (list: NavigationItem[]): NavigationGroup[] =>
+    list.length ? [{ group: "primary", label: null, items: list }] : [];
+  const pinned = new Set([...PINNED_TOP, ...PINNED_BOTTOM]);
+  const middle = navigation
+    .map((group) => ({ ...group, items: group.items.filter((item) => !pinned.has(item.key)) }))
+    .filter((group) => group.items.length > 0);
+  return { top: asGroup(pick(PINNED_TOP)), middle, bottom: asGroup(pick(PINNED_BOTTOM)) };
+}
 
 /**
  * Persistent navigation (design spec §11, §12, §14, §44).
@@ -23,16 +41,27 @@ import type { NavigationGroup } from "@/config/navigation";
  * the one slot the rail header has.
  */
 export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
+  const { top, middle, bottom } = splitNavigation(navigation);
   return (
-    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-line bg-sidebar transition-[width] lg:flex">
+    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
         <OrganizationWorkspaceHeader variant="sidebar" />
       </div>
 
       {/* Inert while a workspace switch is in flight (OW §34), like the foot and the top bar. */}
-      <div className="min-h-0 flex-1 overflow-y-auto" data-shell-region>
-        <SidebarNav navigation={navigation} />
+      {top.length ? (
+        <div className="shrink-0 border-b border-accent/25 pb-1" data-shell-region data-testid="sidebar-pinned-top">
+          <SidebarNav navigation={top} />
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-shell-region>
+        <SidebarNav navigation={middle} />
       </div>
+      {bottom.length ? (
+        <div className="shrink-0 border-t border-accent/25 pb-1" data-shell-region data-testid="sidebar-pinned-bottom">
+          <SidebarNav navigation={bottom} />
+        </div>
+      ) : null}
 
       <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4" data-shell-region>
         <PoweredBy isDemo={isDemo} />

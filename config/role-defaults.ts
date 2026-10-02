@@ -979,6 +979,7 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
     ],
     MANAGE: [
       "company.manage",
+      "company.name.update",
       "company.settings.update",
       "company.modules.manage",
       "company.integrations.manage",
@@ -1442,6 +1443,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
       ],
     },
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
+    // The CEO may rename their company (user, 2026-10-02); nothing else on it.
+    company: { extra: ["company.name.update"] },
   },
   HR: {
     // The role the module exists for: everything on the ladder, plus pay

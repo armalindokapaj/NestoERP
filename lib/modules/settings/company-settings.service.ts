@@ -295,6 +295,30 @@ export async function updateCompanySettings(
   return getCompanySettings(context);
 }
 
+export const renameCompanySchema = z.object({
+  name: z.string().trim().min(2, "Enter a company name of at least 2 characters").max(120, "Use at most 120 characters"),
+});
+
+/** Changes the company's display name; the slug and legal name are untouched. */
+export async function renameCompany(context: UserContext, input: z.infer<typeof renameCompanySchema>): Promise<void> {
+  assertPermission(context, "company.name.update");
+  const current = await prisma.company.findUniqueOrThrow({ where: { id: context.companyId }, select: { name: true } });
+  if (current.name === input.name) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.company.update({ where: { id: context.companyId }, data: { name: input.name, configVersion: { increment: 1 } } });
+    await recordUserAction(
+      context,
+      {
+        actionKey: AuditAction.COMPANY_RENAMED,
+        entity: { type: "company", id: context.companyId },
+        before: { name: current.name },
+        after: { name: input.name },
+      },
+      { tx },
+    );
+  });
+}
+
 export type CompanyOwnerView = { id: string; holderName: string; holderRegistration: string | null; sharePercent: number; since: string | null; isGroup: boolean };
 
 /**

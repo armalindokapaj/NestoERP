@@ -62,7 +62,7 @@ function NavItem({
         strokeWidth={1.6}
         className={cn(
           "size-[18px] shrink-0",
-          active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted",
+          active ? "text-accent" : "text-accent-strong group-hover:text-accent",
         )}
       />
       <span className="nesto-nav-label truncate">{label}</span>
@@ -111,7 +111,7 @@ export function SidebarNav({
         <div key={group.group}>
           {group.group !== "primary" ? (
             <>
-              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-fg-subtle">
+              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-accent-strong">
                 {t(`groups.${group.group}`)}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps

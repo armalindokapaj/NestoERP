@@ -58,7 +58,9 @@ export const settingsSections: SettingsSection[] = [
   {
     slug: "company",
     icon: "Landmark",
-    permission: "settings.manage",
+    // Owner and Group IT hold it with the company module; the CEO holds it so
+    // they can rename their company without the rest of Settings.
+    permission: "company.name.update",
   },
   {
     slug: "users",

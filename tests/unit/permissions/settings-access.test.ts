@@ -72,7 +72,9 @@ describe("visibleSettingsSections", () => {
       for (const section of settingsSections.filter((s) => !s.personal)) {
         // Users and Roles are Team administration's doors from Company Settings
         // (CEO Users & Roles §5): their own Team permission is the rule.
-        const teamDoor = section.slug === "users" || section.slug === "roles";
+        // Company opens on company.name.update, which the CEO holds to rename
+        // their company (user, 2026-10-02).
+        const teamDoor = section.slug === "users" || section.slug === "roles" || section.slug === "company";
         const expected =
           (teamDoor || mayManage) &&
           access.moduleAccess.settings.accessLevel !== "NONE" &&
@@ -82,10 +84,10 @@ describe("visibleSettingsSections", () => {
     }
   });
 
-  it("opens Users and Roles to the CEO, and nothing else of the company's", () => {
+  it("opens Company, Users and Roles to the CEO, and nothing else of the company's", () => {
     const slugs = visibleSettingsSections(accessFor("CEO")).map((section) => section.slug);
-    expect(slugs).toEqual(expect.arrayContaining(["users", "roles"]));
-    for (const slug of ["company", "modules", "numbering", "integrations", "audit"] as const) {
+    expect(slugs).toEqual(expect.arrayContaining(["company", "users", "roles"]));
+    for (const slug of ["modules", "numbering", "integrations", "audit"] as const) {
       expect(slugs.includes(slug), `CEO sees ${slug}`).toBe(false);
     }
   });

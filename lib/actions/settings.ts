@@ -9,6 +9,8 @@ import { MODULE_KEYS } from "@/config/modules";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import {
   companySettingsSchema,
+  renameCompany,
+  renameCompanySchema,
   updateCompanySettings,
 } from "@/lib/modules/settings/company-settings.service";
 import {
@@ -93,6 +95,12 @@ export async function updateCompanySettingsAction(formData: FormData): Promise<A
     defaultTaxRate: field(formData, "defaultTaxRate"),
   });
   return run(() => updateCompanySettings(context, input), ["/settings/localization", "/finance"]);
+}
+
+export async function renameCompanyAction(formData: FormData): Promise<ActionResult> {
+  const context = await requireCompanyContext();
+  const input = renameCompanySchema.parse({ name: formData.get("name") });
+  return run(() => renameCompany(context, input), ["/", "/settings/company"]);
 }
 
 export async function updateIntegrationSettingsAction(formData: FormData): Promise<ActionResult> {
