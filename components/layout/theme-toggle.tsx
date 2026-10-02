@@ -67,7 +67,7 @@ export function ThemeToggle({ variant = "icon", className }: { variant?: "icon" 
         data-testid="theme-toggle"
         className={cn("flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left text-body font-medium text-fg hover:bg-hover", className)}
       >
-        <Icon aria-hidden="true" className="size-[18px] text-fg-subtle" strokeWidth={1.6} />
+        <Icon aria-hidden="true" className="size-[18px] text-accent-strong" strokeWidth={1.6} />
         {label}
       </button>
     );
