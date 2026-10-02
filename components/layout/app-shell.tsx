@@ -142,7 +142,9 @@ export async function AppShell({
                     }}
               >
               <BreadcrumbRegistryProvider>
-              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
+              {/* Below lg the shell scrolls inside this box, not the document: the browser's own toolbars then
+                  never slide in and out, so the floating bottom bar stays exactly where it is (styles/globals.css). */}
+              <div data-shell-scroll className="pl-[var(--nesto-nav-width)] transition-[padding] max-lg:h-dvh max-lg:overflow-y-auto max-lg:overscroll-y-contain">
                 <Topbar context={context} navigation={navigation} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
                 <BreadcrumbBar />
