@@ -51,7 +51,15 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
 
   const Icon = tone === "offline" ? CloudOff : tone === "attention" ? TriangleAlert : tone === "syncing" ? Loader2 : tone === "synced" ? CheckCircle2 : RefreshCw;
   return (
-    <div className={cn("flex justify-center", inShell && "px-4 pt-2", className)}>
+    // In the shell it floats under the sticky bars instead of taking a row, so showing or
+    // clearing a sync never moves the page below it.
+    <div
+      className={cn(
+        "flex justify-center",
+        inShell && "pointer-events-none fixed inset-x-0 top-[calc(var(--nesto-shell-header-h)+var(--nesto-shell-breadcrumb-h)+0.5rem)] z-[var(--nesto-z-shell-breadcrumb)] px-4",
+        className,
+      )}
+    >
       <Link
         href="/offline?view=sync"
         // A plain navigation: offline, the router's own fetch would fail; the service worker answers a real one.
@@ -63,6 +71,7 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
         title={tone === "offline" ? t("status.offlineHint") : t("status.openSyncCenter")}
         className={cn(
           "inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-micro font-medium touch:min-h-11",
+          inShell && "pointer-events-auto shadow-menu",
           tone === "offline" && "border-line-strong bg-surface-muted text-fg",
           tone === "attention" && "border-transparent bg-warning-soft text-warning-strong",
           (tone === "syncing" || tone === "waiting") && "border-transparent bg-info-soft text-info-strong",
