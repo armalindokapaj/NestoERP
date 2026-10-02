@@ -153,6 +153,7 @@ export const sq: Messages = {
     title: "Qendra e aktivitetit",
     all: "Të gjitha",
     notifications: "Njoftimet",
+    barLabel: "Njoftime",
     announcements: "Lajmërimet",
     markAll: "Shëno të gjitha si të lexuara",
     viewAll: "Shiko gjithë aktivitetin",

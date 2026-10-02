@@ -1,3 +1,4 @@
+import { ActivityBell } from "@/components/layout/activity-bell";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
@@ -160,6 +161,7 @@ export async function AppShell({
                 <MobileBottomNav
                   navigation={navigation}
                   canCreate={core.quickCreate.canOpen}
+                  activity={<ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} placement="bar" />}
                   account={{
                     firstName: context.firstName,
                     lastName: context.lastName,

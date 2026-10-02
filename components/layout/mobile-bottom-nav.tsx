@@ -6,6 +6,7 @@ import { LogOut, MoreHorizontal, Plus, Search, Settings } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
+import { usePhone } from "@/components/layout/use-phone";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useSignOut } from "@/components/layout/use-sign-out";
 import Link from "@/components/navigation/nav-link";
@@ -20,6 +21,9 @@ import { cn } from "@/lib/utils/cn";
 
 /** The event the Create button raises; Quick Create listens for it (components/layout/quick-create.tsx). */
 export const OPEN_QUICK_CREATE_EVENT = "nesto:open-quick-create";
+
+/** The phone's hamburger in the top bar raises this; the More sheet below opens (components/layout/mobile-menu-button.tsx). */
+export const OPEN_MORE_EVENT = "nesto:open-more";
 
 export type MobileAccount = {
   firstName: string;
@@ -53,14 +57,18 @@ export function MobileBottomNav({
   canCreate,
   account,
   footer,
+  activity,
 }: {
   navigation: NavigationGroup[];
   canCreate: boolean;
   account: MobileAccount;
   /** Extra controls for the More sheet's foot (the development user switcher). */
   footer?: React.ReactNode;
+  /** The notification bell, which takes the last place on a phone, where the hamburger now carries More. */
+  activity?: React.ReactNode;
 }) {
   const t = useTranslations("shell");
+  const phone = usePhone();
   const pathname = usePathname();
   const { primary, more } = React.useMemo(() => resolveMobileNavigation(navigation), [navigation]);
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -70,6 +78,18 @@ export function MobileBottomNav({
   const moreButton = React.useRef<HTMLButtonElement>(null);
   // Set when More closes because a destination was chosen: focus then goes to the new page, not back to the bar.
   const navigated = React.useRef(false);
+
+  // The hamburger asks for More; focus goes back to it on close.
+  const opener = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => {
+    const onOpen = (event: Event) => {
+      opener.current = (event as CustomEvent<{ opener?: HTMLElement }>).detail?.opener ?? null;
+      navigated.current = false;
+      setMoreOpen(true);
+    };
+    window.addEventListener(OPEN_MORE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_MORE_EVENT, onOpen);
+  }, []);
 
   // A completed navigation closes More, so no sheet is left over the new page.
   React.useEffect(() => setMoreOpen(false), [pathname]);
@@ -120,7 +140,10 @@ export function MobileBottomNav({
           </li>
         ) : null}
         {right.map(renderLink)}
-        <li className="min-w-0 flex-1">
+        {/* Phone: the bell, with More in the top bar's hamburger. Tablet keeps More here. */}
+        {activity ? <li className="flex min-w-0 flex-1 md:hidden">{activity}</li> : null}
+        {phone === true && activity ? null : (
+        <li className={cn("min-w-0 flex-1", activity && "max-md:hidden")}>
           <BarButton
             icon={MoreHorizontal}
             label={t("mobile.more")}
@@ -136,6 +159,7 @@ export function MobileBottomNav({
             }}
           />
         </li>
+        )}
       </ul>
 
       <BottomSheet
@@ -151,7 +175,8 @@ export function MobileBottomNav({
             return;
           }
           event.preventDefault();
-          moreButton.current?.focus({ preventScroll: true });
+          (opener.current ?? moreButton.current)?.focus({ preventScroll: true });
+          opener.current = null;
         }}
       >
         <MoreBody

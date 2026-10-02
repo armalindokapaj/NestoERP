@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Bell, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { createActivityController, fetchTransport, type ActivityController } from "@/lib/activity/activity-controller";
 import { onActivityReset, removeLegacyActivityCache, subscribeActivity } from "@/lib/activity/client";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
+import { usePhone } from "@/components/layout/use-phone";
 import { cn } from "@/lib/utils/cn";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
 import { handleSessionLost, reconcileTabContext } from "@/components/unsaved/unsaved-host";
@@ -23,7 +25,20 @@ import { unsaved } from "@/lib/unsaved/coordinator";
 
 const body = createPanelLoader("activity", () => import("@/components/layout/panels/activity-panel-body"));
 
-export function ActivityBell({ contextKey, canManageAnnouncements = false }: { contextKey: string; canManageAnnouncements?: boolean }) {
+/**
+ * `placement="bar"` is the phone's bottom bar cell (icon over label). The bell
+ * lives in the top bar from tablet up and in the bar on a phone; once the width
+ * is known only the one that belongs is mounted, so there is one controller and
+ * one `notification-bell`.
+ */
+export function ActivityBell({ contextKey, canManageAnnouncements = false, placement = "topbar" }: { contextKey: string; canManageAnnouncements?: boolean; placement?: "topbar" | "bar" }) {
+  const phone = usePhone();
+  if (phone === true && placement === "topbar") return null;
+  if (phone === false && placement === "bar") return null;
+  return <BellControl contextKey={contextKey} canManageAnnouncements={canManageAnnouncements} placement={placement} />;
+}
+
+function BellControl({ contextKey, canManageAnnouncements, placement }: { contextKey: string; canManageAnnouncements: boolean; placement: "topbar" | "bar" }) {
   const t = useTranslations("activity");
   const panelId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -68,8 +83,34 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
   const label = counts === null ? t("title") : `${t("title")} — ${t("unreadCount", { count: total })}${snapshot.count.stale ? ` (${t("countStale")})` : ""}`;
   const Body = code.status === "ready" ? code.module.ActivityPanelBody : null;
 
+  const inBar = placement === "bar";
+  const panel = open ? (
+    <div
+      ref={panelRef}
+      id={panelId}
+      role="dialog"
+      aria-label={t("title")}
+      className="fixed inset-0 z-50 flex flex-col bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:absolute sm:pb-0 sm:pt-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(36rem,80vh)] sm:w-[min(26rem,calc(100vw-1.5rem))] sm:rounded-lg sm:border sm:border-line sm:shadow-lg"
+      data-testid="activity-panel"
+    >
+      {Body ? (
+        <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} />
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
+            <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
+            <button type="button" onClick={() => close(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          {code.status === "failed" ? <PanelFailure kind="code" reloadAdvised={code.reloadAdvised} onRetry={retryCode} onClose={() => close(true)} /> : <PanelLoading label={t("loading")} />}
+        </>
+      )}
+    </div>
+  ) : null;
+
   return (
-    <div className="relative">
+    <div className={cn("relative", inBar && "min-w-0 flex-1")}>
       <button
         ref={triggerRef}
         type="button"
@@ -78,43 +119,33 @@ export function ActivityBell({ contextKey, canManageAnnouncements = false }: { c
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        className="relative grid size-9 shrink-0 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover touch:size-11"
+        className={cn(
+          "relative shrink-0 text-fg-muted transition-colors hover:text-fg",
+          inBar
+            ? "flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle aria-expanded:text-accent-strong"
+            : "grid size-9 place-items-center rounded-md hover:bg-hover aria-expanded:bg-hover touch:size-11",
+        )}
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}
         {...warm}
       >
-        <Bell aria-hidden="true" className="size-[21px] md:size-[18px]" strokeWidth={1.6} />
-        {total > 0 ? (
+        <span className="relative">
+          <Bell aria-hidden="true" className={inBar ? "size-[22px]" : "size-[18px]"} strokeWidth={1.6} />
+          {total > 0 && inBar ? (
+            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+              {total > 99 ? "99+" : total}
+            </span>
+          ) : null}
+        </span>
+        {inBar ? <span className="max-w-full truncate tracking-tight">{t("barLabel")}</span> : null}
+        {total > 0 && !inBar ? (
           <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
             {total > 99 ? "99+" : total}
           </span>
         ) : null}
       </button>
 
-      {open ? (
-        <div
-          ref={panelRef}
-          id={panelId}
-          role="dialog"
-          aria-label={t("title")}
-          className="fixed inset-0 z-50 flex flex-col bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:absolute sm:pb-0 sm:pt-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(36rem,80vh)] sm:w-[min(26rem,calc(100vw-1.5rem))] sm:rounded-lg sm:border sm:border-line sm:shadow-lg"
-          data-testid="activity-panel"
-        >
-          {Body ? (
-            <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} />
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-                <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
-                <button type="button" onClick={() => close(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
-                  <X aria-hidden="true" className="size-4" />
-                </button>
-              </div>
-              {code.status === "failed" ? <PanelFailure kind="code" reloadAdvised={code.reloadAdvised} onRetry={retryCode} onClose={() => close(true)} /> : <PanelLoading label={t("loading")} />}
-            </>
-          )}
-        </div>
-      ) : null}
+      {inBar && panel ? createPortal(panel, document.body) : panel}
     </div>
   );
 }
