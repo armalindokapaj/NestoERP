@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { ChevronRight, Menu, X } from "lucide-react";
 
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { NestoLogo } from "@/components/layout/nesto-logo";
@@ -70,9 +70,9 @@ export function SiteHeader({
           <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
             <Link href="/login">{copy.signIn}</Link>
           </Button>
-          {/* On the very narrowest phones this moves into the menu; the hero
+          {/* On a phone this moves into the menu; the hero
               repeats it just below. */}
-          <Button asChild size="sm" className="max-[359px]:hidden">
+          <Button asChild size="sm" className="max-sm:hidden">
             <Link href="/contact">{copy.requestAccess}</Link>
           </Button>
 
@@ -84,51 +84,49 @@ export function SiteHeader({
               type="button"
               onClick={() => setOpen(true)}
               aria-label={copy.openMenu}
-              className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg lg:hidden"
+              className="grid size-11 shrink-0 place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover lg:hidden"
             >
-              <Menu aria-hidden="true" className="size-[18px]" />
+              <Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} />
             </button>
 
-            <DrawerContent side="left" className="bg-surface">
+            {/* The same menu as the app's hamburger: from the right, canvas ground, gold accents, rounded cards, a pinned foot. */}
+            <DrawerContent side="right" className="bg-canvas">
               <DrawerTitle className="sr-only">{copy.drawerTitle}</DrawerTitle>
-              <div className="flex h-16 items-center justify-between border-b border-line px-4">
+              <div className="flex h-14 shrink-0 items-center justify-between border-b border-accent/25 pl-4 pr-2">
                 <NestoLogo />
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   aria-label={copy.closeMenu}
-                  className="grid size-8 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg"
+                  className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
                 >
-                  <X aria-hidden="true" className="size-4" />
+                  <X aria-hidden="true" className="size-5" strokeWidth={1.6} />
                 </button>
               </div>
 
-              <nav aria-label={copy.siteNavigation} className="flex flex-col gap-1 p-3">
-                {siteNav.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    aria-current={isCurrent(link.href) ? "page" : undefined}
-                    className={cn(
-                      "rounded-md px-3 py-2.5 text-body font-medium transition-colors hover:bg-hover hover:text-fg",
-                      isCurrent(link.href) ? "bg-hover text-fg" : "text-fg-muted",
-                    )}
-                  >
-                    {nav[link.key]}
-                  </Link>
-                ))}
-                <Link
-                  href="/faq"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-2.5 text-body font-medium text-fg-muted transition-colors hover:bg-hover hover:text-fg"
-                >
-                  {nav.faq}
-                </Link>
+              <nav aria-label={copy.siteNavigation} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+                <ul className="overflow-hidden rounded-[18px] border border-line bg-surface">
+                  {[...siteNav.map((link) => ({ href: link.href, label: nav[link.key] })), { href: "/faq", label: nav.faq }].map((link) => (
+                    <li key={link.href} className="border-b border-line last:border-b-0">
+                      <Link
+                        href={link.href}
+                        onClick={() => setOpen(false)}
+                        aria-current={isCurrent(link.href) ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-12 items-center justify-between gap-3 px-4 text-body font-medium transition-colors active:bg-accent-soft",
+                          isCurrent(link.href) ? "bg-accent-soft text-accent-strong" : "text-fg",
+                        )}
+                      >
+                        {link.label}
+                        <ChevronRight aria-hidden="true" strokeWidth={1.6} className="size-4 shrink-0 text-accent-strong" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </nav>
 
-              <div className="mt-auto space-y-2 border-t border-line p-3">
-                <Button asChild size="md" className="w-full min-[360px]:hidden">
+              <div className="mt-auto shrink-0 space-y-2 border-t border-accent/25 p-4">
+                <Button asChild size="md" className="w-full sm:hidden">
                   <Link href="/contact" onClick={() => setOpen(false)}>
                     {copy.requestAccess}
                   </Link>
