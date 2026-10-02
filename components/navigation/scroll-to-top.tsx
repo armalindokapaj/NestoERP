@@ -22,6 +22,8 @@ export function ScrollToTop() {
   React.useLayoutEffect(() => {
     if (window.location.hash) return;
     window.scrollTo(0, 0);
+    // Below lg the shell scrolls in its own box (components/layout/app-shell.tsx).
+    document.querySelector("[data-shell-scroll]")?.scrollTo(0, 0);
   }, [pathname]);
 
   return null;

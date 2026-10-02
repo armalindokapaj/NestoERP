@@ -246,6 +246,23 @@
     }
   }
 
+  /*
+   * Below lg the shell scrolls in its own box (`data-shell-scroll`, app-shell.tsx), so the
+   * document never scrolls and a phone browser's toolbars stay where they are: a fixed
+   * bottom bar then truly does not move. The sticky offsets follow the box.
+   */
+  @media (max-width: 1023.98px) {
+    html:has([data-shell-scroll]),
+    html:has([data-shell-scroll]) body {
+      height: 100%;
+      overflow: hidden;
+    }
+    [data-shell-scroll] {
+      scroll-padding-top: calc(var(--nesto-sticky-stack) + 1rem);
+      scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
+    }
+  }
+
   /* A form's action bar takes the bottom edge: the bar reserves its own room (5.5rem on a phone). */
   html:has([data-mobile-bottom-nav]):has([data-sticky-action-bar]) {
     --nesto-bottom-nav-space: 0px;
