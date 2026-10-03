@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { autoMatchUnitNodes } from "@/lib/3d/shared/unit-matching";
 
 type Unit = {
@@ -38,11 +39,11 @@ type Workspace = {
 
 /** The unit camera's compass direction, as in the Rozaris unit editor. */
 const POI_YAW_PRESETS = [
-  { label: "N", name: "north", deg: 0 },
-  { label: "E", name: "east", deg: 90 },
-  { label: "S", name: "south", deg: 180 },
-  { label: "W", name: "west", deg: 270 },
-];
+  { name: "north", deg: 0 },
+  { name: "east", deg: 90 },
+  { name: "south", deg: 180 },
+  { name: "west", deg: 270 },
+] as const;
 
 /** An empty field clears the override: the Experience's unit camera setting applies. */
 function overrideValue(value: string): number | null {
@@ -83,6 +84,7 @@ export function UnitBindingEditor({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const toast = useToast();
+  const t = useTranslations("adminPlatform");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -97,11 +99,11 @@ export function UnitBindingEditor({
       setDraft(loaded);
       setSaved(JSON.stringify(loaded));
     } catch (failure) {
-      setError(failureMessage(failure, "The unit links could not be loaded."));
+      setError(failureMessage(failure, t("threeDAdmin.bindings.loadFailed")));
     } finally {
       setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, t]);
 
   React.useEffect(() => {
     void load();
@@ -143,17 +145,17 @@ export function UnitBindingEditor({
         method: "PUT",
         body: { bindings: Object.values(draft).filter((binding) => binding.projectUnitId) },
       });
-      toast({ title: "Unit links saved.", tone: "success" });
+      toast({ title: t("threeDAdmin.bindings.saved"), tone: "success" });
       await load();
     } catch (failure) {
-      setError(failureMessage(failure, "The unit links could not be saved."));
+      setError(failureMessage(failure, t("threeDAdmin.bindings.saveFailed")));
     } finally {
       setPending(false);
     }
   }
 
-  if (loading) return <div className="nesto-card p-5 text-body text-fg-muted">Loading scene nodes and project units…</div>;
-  if (!workspace) return <div className="nesto-card p-5 text-body text-danger-strong">{error ?? "The unit links could not be loaded."}</div>;
+  if (loading) return <div className="nesto-card p-5 text-body text-fg-muted">{t("threeDAdmin.bindings.loading")}</div>;
+  if (!workspace) return <div className="nesto-card p-5 text-body text-danger-strong">{error ?? t("threeDAdmin.bindings.loadFailed")}</div>;
 
   const selectedUnitIds = new Set(Object.values(draft).map((binding) => binding.projectUnitId).filter(Boolean));
   const linkedCount = selectedUnitIds.size;
@@ -162,29 +164,29 @@ export function UnitBindingEditor({
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Unit binding</CardTitle>
+          <CardTitle>{t("threeDAdmin.bindings.title")}</CardTitle>
           <CardDescription>
-            Link named model nodes to canonical NESTO units. {linkedCount} of {workspace.detectedNodes.length} detected nodes are linked.
+            {t("threeDAdmin.bindings.description", { linked: linkedCount, total: workspace.detectedNodes.length })}
           </CardDescription>
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={autoMatch} disabled={pending || workspace.detectedNodes.length === 0}>
-          Match by unit code
+          {t("threeDAdmin.bindings.matchByCode")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {workspace.detectedNodes.length === 0 ? (
           <p className="rounded-md border border-line bg-surface-subtle px-4 py-3 text-body text-fg-muted">
-            This model has no nodes named like <code>Unit_A-101</code>. Rename unit nodes in the source GLB and upload a new version.
+            {t("threeDAdmin.bindings.noNodesBefore")}<code>Unit_A-101</code>{t("threeDAdmin.bindings.noNodesAfter")}
           </p>
         ) : (
           <Table flush>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Scene node</TableHeaderCell>
-                <TableHeaderCell>Project unit</TableHeaderCell>
-                <TableHeaderCell>POI</TableHeaderCell>
-                <TableHeaderCell>Camera from</TableHeaderCell>
-                <TableHeaderCell>Distance / height</TableHeaderCell>
+                <TableHeaderCell>{t("threeDAdmin.bindings.cols.node")}</TableHeaderCell>
+                <TableHeaderCell>{t("threeDAdmin.bindings.cols.unit")}</TableHeaderCell>
+                <TableHeaderCell>{t("threeDAdmin.bindings.cols.poi")}</TableHeaderCell>
+                <TableHeaderCell>{t("threeDAdmin.bindings.cols.cameraFrom")}</TableHeaderCell>
+                <TableHeaderCell>{t("threeDAdmin.bindings.cols.distanceHeight")}</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -195,13 +197,13 @@ export function UnitBindingEditor({
                     <TableCell className="font-mono text-table">{meshName}</TableCell>
                     <TableCell className="min-w-72">
                       <select
-                        aria-label={`Unit for ${meshName}`}
+                        aria-label={t("threeDAdmin.bindings.unitFor", { node: meshName })}
                         className={selectClass}
                         value={binding.projectUnitId}
                         onChange={(event) => setBinding(meshName, { projectUnitId: event.target.value })}
                         disabled={pending}
                       >
-                        <option value="">Unlinked</option>
+                        <option value="">{t("threeDAdmin.bindings.unlinked")}</option>
                         {workspace.units.map((unit) => (
                           <option
                             key={unit.id}
@@ -221,30 +223,30 @@ export function UnitBindingEditor({
                           onChange={(event) => setBinding(meshName, { poiEnabled: event.target.checked })}
                           disabled={pending || !binding.projectUnitId}
                         />
-                        Show
+                        {t("threeDAdmin.bindings.show")}
                       </label>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1" role="group" aria-label={`Camera direction for ${meshName}`}>
+                      <div className="flex items-center gap-1" role="group" aria-label={t("threeDAdmin.bindings.cameraDirection", { node: meshName })}>
                         {POI_YAW_PRESETS.map((preset) => (
                           <button
-                            key={preset.label}
+                            key={preset.name}
                             type="button"
                             aria-pressed={binding.poiYawDeg === preset.deg}
-                            title={`Camera from the ${preset.name}`}
+                            title={t(`threeDAdmin.bindings.directions.${preset.name}`)}
                             className={`size-6 rounded border text-[11px] font-semibold disabled:opacity-40 ${binding.poiYawDeg === preset.deg ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-line text-fg-muted"}`}
                             onClick={() => setBinding(meshName, { poiYawDeg: preset.deg })}
                             disabled={pending || !binding.projectUnitId || !binding.poiEnabled}
                           >
-                            {preset.label}
+                            {t(`threeDAdmin.bindings.directionLabels.${preset.name}`)}
                           </button>
                         ))}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <input type="number" step="0.1" min="0.1" aria-label={`Camera distance for ${meshName}`} placeholder="Dist." className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiDistanceOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiDistanceOverride: overrideValue(event.target.value) })} />
-                        <input type="number" step="0.1" aria-label={`Camera height for ${meshName}`} placeholder="Height" className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiHeightOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiHeightOverride: overrideValue(event.target.value) })} />
+                        <input type="number" step="0.1" min="0.1" aria-label={t("threeDAdmin.bindings.cameraDistance", { node: meshName })} placeholder={t("threeDAdmin.bindings.distPlaceholder")} className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiDistanceOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiDistanceOverride: overrideValue(event.target.value) })} />
+                        <input type="number" step="0.1" aria-label={t("threeDAdmin.bindings.cameraHeight", { node: meshName })} placeholder={t("threeDAdmin.bindings.heightPlaceholder")} className="h-7 w-16 rounded border border-line bg-transparent px-1 text-table" value={binding.poiHeightOverride ?? ""} disabled={pending || !binding.projectUnitId || !binding.poiEnabled} onChange={(event) => setBinding(meshName, { poiHeightOverride: overrideValue(event.target.value) })} />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -256,16 +258,16 @@ export function UnitBindingEditor({
 
         <div className="flex justify-end border-t border-line pt-4">
           <Button type="button" onClick={requestSave} disabled={pending || !["READY", "PUBLISHED"].includes(workspace.version.status)}>
-            {pending ? "Saving…" : "Save unit links"}
+            {pending ? t("threeDAdmin.bindings.saving") : t("threeDAdmin.bindings.save")}
           </Button>
         </div>
         {error ? <p role="alert" className="text-table text-danger-strong">{error}</p> : null}
         <ConfirmDialog
           open={unbinding !== null}
           onOpenChange={(open) => { if (!open) setUnbinding(null); }}
-          title={unbinding?.length === 1 ? `Unbind Unit ${unbinding[0]}?` : `Unbind ${unbinding?.length ?? 0} units?`}
-          description={unbinding?.length === 1 ? "The 3D object will no longer open the canonical Unit page." : `The 3D objects of ${unbinding?.slice(0, 5).join(", ")}${(unbinding?.length ?? 0) > 5 ? " and others" : ""} will no longer open their canonical Unit pages.`}
-          confirmLabel="Unbind"
+          title={unbinding?.length === 1 ? t("threeDAdmin.bindings.unbindOne", { code: unbinding[0] }) : t("threeDAdmin.bindings.unbindMany", { count: unbinding?.length ?? 0 })}
+          description={unbinding?.length === 1 ? t("threeDAdmin.bindings.unbindOneDescription") : t((unbinding?.length ?? 0) > 5 ? "threeDAdmin.bindings.unbindManyOthers" : "threeDAdmin.bindings.unbindManyDescription", { codes: unbinding?.slice(0, 5).join(", ") ?? "" })}
+          confirmLabel={t("threeDAdmin.bindings.unbind")}
           onConfirm={() => void save()}
         />
       </CardContent>

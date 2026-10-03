@@ -28,6 +28,9 @@ export type Severity = "critical" | "warning" | "info";
 /** One thing a Platform Admin should act on, whatever produced it (§49). */
 export type AttentionItem = {
   id: string;
+  /** Names the dictionary entry the page renders this item from (admin namespace, dashboard.attention.*); the English text below is the fallback. */
+  code: string;
+  values?: Record<string, string | number>;
   severity: Severity;
   title: string;
   entity: string | null;
@@ -107,32 +110,32 @@ export async function dashboardAttention(context: PlatformContext, limit = 5): P
     if (row.state !== "DOWN" && row.state !== "DEGRADED") continue;
     // Email is reported below with its own count.
     if (row.service === "Email") continue;
-    items.push({ id: `health:${row.service}`, severity: row.state === "DOWN" ? "critical" : "warning", title: `${row.service} ${row.state === "DOWN" ? "unavailable" : "degraded"}`, entity: null, description: row.detail, at: null, href: "/admin/system/health", actionLabel: "Review" });
+    items.push({ id: `health:${row.service}`, code: row.state === "DOWN" ? "healthDown" : "healthDegraded", values: { service: row.service }, severity: row.state === "DOWN" ? "critical" : "warning", title: `${row.service} ${row.state === "DOWN" ? "unavailable" : "degraded"}`, entity: null, description: row.detail, at: null, href: "/admin/system/health", actionLabel: "Review" });
   }
   for (const row of failedModels) {
-    items.push({ id: `model:${row.id}`, severity: "critical", title: "3D model processing failed", entity: row.project.name, description: `${row.originalFileName} could not be prepared. Replace or re-upload the model.`, at: row.createdAt.toISOString(), href: `/admin/3d/projects/${row.projectId}/models`, actionLabel: "Review" });
+    items.push({ id: `model:${row.id}`, code: "modelFailed", values: { file: row.originalFileName }, severity: "critical", title: "3D model processing failed", entity: row.project.name, description: `${row.originalFileName} could not be prepared. Replace or re-upload the model.`, at: row.createdAt.toISOString(), href: `/admin/3d/projects/${row.projectId}/models`, actionLabel: "Review" });
   }
   for (const row of failedJobs) {
-    items.push({ id: `job:${row.jobKey}`, severity: "critical", title: "Background job failing", entity: row.jobKey, description: `${row._count._all} failed run${row._count._all === 1 ? "" : "s"} not yet retried.`, at: row._max.failedAt?.toISOString() ?? null, href: "/admin/system/jobs", actionLabel: "Review" });
+    items.push({ id: `job:${row.jobKey}`, code: "jobFailing", values: { count: row._count._all }, severity: "critical", title: "Background job failing", entity: row.jobKey, description: `${row._count._all} failed run${row._count._all === 1 ? "" : "s"} not yet retried.`, at: row._max.failedAt?.toISOString() ?? null, href: "/admin/system/jobs", actionLabel: "Review" });
   }
   if (failedMail) {
-    items.push({ id: "mail", severity: "warning", title: "Email delivery failures", entity: null, description: `${failedMail} message${failedMail === 1 ? "" : "s"} could not be delivered. Password reset email may be affected.`, at: null, href: "/admin/system/health", actionLabel: "Review" });
+    items.push({ id: "mail", code: "mail", values: { count: failedMail }, severity: "warning", title: "Email delivery failures", entity: null, description: `${failedMail} message${failedMail === 1 ? "" : "s"} could not be delivered. Password reset email may be affected.`, at: null, href: "/admin/system/health", actionLabel: "Review" });
   }
   for (const row of quotas) {
     const max = Number(row.maxStorageBytes);
     const used = Number(row.company.storageUsage?.usedBytes ?? 0);
     const share = max > 0 ? used / max : 0;
     if (share < STORAGE_WARNING) continue;
-    items.push({ id: `storage:${row.companyId}`, severity: share >= STORAGE_CRITICAL ? "critical" : "warning", title: "Storage quota nearly used", entity: row.company.name, description: `${Math.round(share * 100)}% of the company's storage quota is in use.`, at: null, href: "/admin/system/storage", actionLabel: "Review" });
+    items.push({ id: `storage:${row.companyId}`, code: "storage", values: { percent: Math.round(share * 100) }, severity: share >= STORAGE_CRITICAL ? "critical" : "warning", title: "Storage quota nearly used", entity: row.company.name, description: `${Math.round(share * 100)}% of the company's storage quota is in use.`, at: null, href: "/admin/system/storage", actionLabel: "Review" });
   }
   for (const row of suspendedGroups) {
-    items.push({ id: `group:${row.id}`, severity: "warning", title: "Group suspended", entity: row.name, description: "Its companies' users cannot sign in until it is reactivated.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Open" });
+    items.push({ id: `group:${row.id}`, code: "groupSuspended", severity: "warning", title: "Group suspended", entity: row.name, description: "Its companies' users cannot sign in until it is reactivated.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Open" });
   }
   for (const row of suspendedCompanies) {
-    items.push({ id: `company:${row.id}`, severity: "warning", title: "Company suspended", entity: row.name, description: "Its users cannot work in it until it is reactivated.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Open" });
+    items.push({ id: `company:${row.id}`, code: "companySuspended", severity: "warning", title: "Company suspended", entity: row.name, description: "Its users cannot work in it until it is reactivated.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Open" });
   }
   for (const row of validation) {
-    items.push({ id: `validation:${row.id}`, severity: "info", title: "Implementation ready for validation", entity: row.name, description: "The group's setup is complete and waits for handover.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Validate" });
+    items.push({ id: `validation:${row.id}`, code: "validation", severity: "info", title: "Implementation ready for validation", entity: row.name, description: "The group's setup is complete and waits for handover.", at: row.updatedAt.toISOString(), href: `/admin/organizations/${row.id}`, actionLabel: "Validate" });
   }
   items.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || (b.at ?? "").localeCompare(a.at ?? ""));
   return { items: items.slice(0, limit), total: items.length };
@@ -171,6 +174,7 @@ export async function dashboardActivity(context: PlatformContext, limit = 6) {
   });
   return rows.map((row) => ({
     id: row.id,
+    actionKey: row.actionKey,
     label: activityLabel(row.actionKey),
     entity: row.entityLabelSnapshot,
     actor: row.actorDisplayNameSnapshot,

@@ -4,26 +4,30 @@ import { CheckCircle2, Circle } from "lucide-react";
 import { PlatformCommandButton, PlatformCommandMenu } from "@/components/platform/platform-command";
 import { RECOVERY_RETENTION_DAYS } from "@/lib/modules/platform/recovery-constants";
 import { deleteItem, purgeItem, restoreItem } from "./recovery-actions";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translator";
 import { formatDate } from "@/lib/utils/format";
 import type { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 
 type Overview = Awaited<ReturnType<typeof getPlatformCompanyOverview>>;
 type Props = { overview: Overview };
 
-export const COMPANY_FIELDS = [
-  { name: "name", label: "Company name", type: "text", required: true },
-  { name: "legalName", label: "Legal name", type: "text" },
-  { name: "registrationNumber", label: "Registration number / NUIS", type: "text" },
-  { name: "taxNumber", label: "VAT / Tax ID", type: "text" },
-  { name: "industry", label: "Industry", type: "text" },
-  { name: "country", label: "Country", type: "text" },
-  { name: "address", label: "Address", type: "text", wide: true },
-  { name: "email", label: "Email", type: "email" },
-  { name: "phone", label: "Phone", type: "text" },
-  { name: "website", label: "Website", type: "text" },
-  { name: "logoUrl", label: "Logo", type: "textarea", hint: "A path on this deployment (/branding/logo.svg) or an inline image (data:image/png;base64,…). Leave empty for initials." },
-  { name: "reason", label: "Reason", type: "textarea", required: true },
-] as const;
+export function companyFields(t: Translate<"adminOrgs">) {
+  return [
+    { name: "name", label: t("company.fields.name"), type: "text", required: true },
+    { name: "legalName", label: t("company.fields.legalName"), type: "text" },
+    { name: "registrationNumber", label: t("company.fields.registrationNumber"), type: "text" },
+    { name: "taxNumber", label: t("company.fields.taxNumber"), type: "text" },
+    { name: "industry", label: t("company.fields.industry"), type: "text" },
+    { name: "country", label: t("company.fields.country"), type: "text" },
+    { name: "address", label: t("company.fields.address"), type: "text", wide: true },
+    { name: "email", label: t("company.fields.email"), type: "email" },
+    { name: "phone", label: t("company.fields.phone"), type: "text" },
+    { name: "website", label: t("company.fields.website"), type: "text" },
+    { name: "logoUrl", label: t("company.fields.logo"), type: "textarea", hint: t("company.fields.logoHint") },
+    { name: "reason", label: t("common.reason"), type: "textarea", required: true },
+  ] as const;
+}
 
 /**
  * Where the company sits, and the controls that change it (Organizations PRD
@@ -31,101 +35,110 @@ export const COMPANY_FIELDS = [
  * group company to another group in one step, or make it standalone again;
  * suspend or reactivate. Every one asks for a reason and confirmation.
  */
-export function CompanyHeaderActions({ overview }: Props) {
+export async function CompanyHeaderActions({ overview }: Props) {
+  const t = await getTranslations("adminOrgs");
   const { company, structure, detach } = overview;
   const suspended = company.status !== "ACTIVE";
   if (company.status === "DELETED") {
     const withGroup = overview.deletedWithGroup;
-    return <PlatformCommandMenu items={withGroup ? [] : [restoreItem({ kind: "company", id: company.id, name: company.name }), purgeItem({ kind: "company", id: company.id, name: company.name })]} label={`${company.name} actions`} />;
+    return <PlatformCommandMenu items={withGroup ? [] : [restoreItem({ kind: "company", id: company.id, name: company.name }, t), purgeItem({ kind: "company", id: company.id, name: company.name }, t)]} label={t("company.menu.actionsLabel", { name: company.name })} />;
   }
   const others = overview.groupOptions.filter((option) => option.value !== structure.group?.id);
   const menu: React.ComponentProps<typeof PlatformCommandMenu>["items"] = [
-    { label: "Edit", title: `Edit ${company.name}`, action: "company.update", fixed: { companyId: company.id }, fields: COMPANY_FIELDS.map((field) => ({ ...field })), initial: { ...company, logoUrl: company.logoUrl ?? "" }, submitLabel: "Save", success: "Company updated." },
+    { label: t("company.menu.edit"), title: t("company.menu.editTitle", { name: company.name }), action: "company.update", fixed: { companyId: company.id }, fields: companyFields(t).map((field) => ({ ...field })), initial: { ...company, logoUrl: company.logoUrl ?? "" }, submitLabel: t("company.menu.save"), success: t("company.menu.updated") },
     ...(structure.group && others.length ? [{
-      label: "Move to group", title: `Move ${company.name}?`,
-      description: `From ${structure.group.name} to the group you choose. Company data and projects stay unchanged; group-wide access from ${structure.group.name} ends here.`,
+      label: t("company.menu.moveLabel"), title: t("company.menu.moveTitle", { name: company.name }),
+      description: t("company.menu.moveDescription", { group: structure.group.name }),
       action: "company.move", fixed: { companyId: company.id },
-      fields: [{ name: "groupId", label: "To", type: "select" as const, required: true, options: others }, { name: "reason", label: "Reason", type: "textarea" as const, required: true }],
-      submitLabel: "Move Company", success: "Company moved.",
+      fields: [{ name: "groupId", label: t("company.menu.moveTo"), type: "select" as const, required: true, options: others }, { name: "reason", label: t("common.reason"), type: "textarea" as const, required: true }],
+      submitLabel: t("company.menu.moveSubmit"), success: t("company.menu.moved"),
     }] : []),
     ...(structure.group && detach?.allowed ? [{
-      label: "Remove from group", title: `Remove ${company.name} from ${structure.group.name}?`,
+      label: t("company.menu.detachLabel"), title: t("company.menu.detachTitle", { name: company.name, group: structure.group.name }),
       description: [
-        "The company will become a standalone company. Its projects, users and data will not be deleted.",
-        detach.movingPeople ? `${detach.movingPeople} ${detach.movingPeople === 1 ? "person moves" : "people move"} with it.` : "",
-        detach.groupLevelPeople.length ? `Group-level access ends here for: ${detach.groupLevelPeople.join(", ")}.` : "",
+        t("company.menu.detachBase"),
+        detach.movingPeople ? t("company.menu.detachMoving", { count: detach.movingPeople }) : "",
+        detach.groupLevelPeople.length ? t("company.menu.detachGroupLevel", { people: detach.groupLevelPeople.join(", ") }) : "",
       ].filter(Boolean).join(" "),
-      action: "company.detach", fixed: { companyId: company.id }, reasonOnly: true, destructive: true, submitLabel: "Remove From Group", success: "Company is now standalone.",
+      action: "company.detach", fixed: { companyId: company.id }, reasonOnly: true, destructive: true, submitLabel: t("company.menu.detachSubmit"), success: t("company.menu.detached"),
     }] : []),
     suspended
-      ? { label: "Reactivate", title: `Reactivate ${company.name}?`, description: "Its users regain access according to their memberships. Nothing was deleted while it was inactive.", action: "company.status", fixed: { companyId: company.id, status: "ACTIVE" }, reasonOnly: true, submitLabel: "Reactivate", success: "Company reactivated." }
-      : { label: "Suspend", title: `Suspend ${company.name}?`, description: "Users will lose normal access to this company until it is reactivated. No company data will be deleted.", action: "company.status", fixed: { companyId: company.id, status: "SUSPENDED" }, reasonOnly: true, destructive: true, submitLabel: "Suspend Company", success: "Company suspended." },
-    deleteItem({ kind: "company", id: company.id, name: company.name }, RECOVERY_RETENTION_DAYS),
+      ? { label: t("company.menu.reactivateLabel"), title: t("company.menu.reactivateTitle", { name: company.name }), description: t("company.menu.reactivateDescription"), action: "company.status", fixed: { companyId: company.id, status: "ACTIVE" }, reasonOnly: true, submitLabel: t("company.menu.reactivateSubmit"), success: t("company.menu.reactivated") }
+      : { label: t("company.menu.suspendLabel"), title: t("company.menu.suspendTitle", { name: company.name }), description: t("company.menu.suspendDescription"), action: "company.status", fixed: { companyId: company.id, status: "SUSPENDED" }, reasonOnly: true, destructive: true, submitLabel: t("company.menu.suspendSubmit"), success: t("company.menu.suspended") },
+    deleteItem({ kind: "company", id: company.id, name: company.name }, RECOVERY_RETENTION_DAYS, t),
   ];
   return (
     <>
       {structure.group ? null : (
         <PlatformCommandButton
-          label="Assign to group"
-          title={`Assign ${company.name} to a Parent Group`}
-          description="The company keeps its ID, users, projects, documents, units, contracts, permissions, modules and history. Its people and departments join the group; nothing group-wide travels with it."
+          label={t("company.assign.label")}
+          title={t("company.assign.title", { name: company.name })}
+          description={t("company.assign.description")}
           action="company.attach"
           fixed={{ companyId: company.id }}
           fields={[
-            { name: "groupId", label: "Parent Group", type: "select", required: true, options: overview.groupOptions },
-            { name: "reason", label: "Reason", type: "textarea", required: true },
+            { name: "groupId", label: t("company.assign.groupField"), type: "select", required: true, options: overview.groupOptions },
+            { name: "reason", label: t("common.reason"), type: "textarea", required: true },
           ]}
-          submitLabel="Assign to Group"
-          success="Company assigned to the group."
+          submitLabel={t("company.assign.submit")}
+          success={t("company.assign.success")}
         />
       )}
-      <PlatformCommandMenu items={menu} label={`${company.name} actions`} />
+      <PlatformCommandMenu items={menu} label={t("company.menu.actionsLabel", { name: company.name })} />
     </>
   );
 }
 
-export function DetachBlocked({ overview }: Props) {
+export async function DetachBlocked({ overview }: Props) {
+  const t = await getTranslations("adminOrgs");
   const { structure, detach } = overview;
   if (!structure.group || !detach || detach.allowed) return null;
   return (
     <p className="nesto-card p-4 text-table text-fg-muted" data-testid="detach-blocked">
-      It cannot leave {structure.group.name} while these people also work in another of its companies: {detach.sharedPeople.join(", ")}.
+      {t("company.detachBlocked", { group: structure.group.name, people: detach.sharedPeople.join(", ") })}
     </p>
   );
 }
 
 /** The Overview tab: what can still be completed, the counts, recent history (§21, §57). */
-export function CompanyOverview({ overview }: Props) {
+const SETUP = {
+  legal: "company.overview.setup.legal", registration: "company.overview.setup.registration", address: "company.overview.setup.address", contact: "company.overview.setup.contact", logo: "company.overview.setup.logo",
+  group: "company.overview.setup.group", users: "company.overview.setup.users", projects: "company.overview.setup.projects", modules: "company.overview.setup.modules",
+} as const;
+
+export async function CompanyOverview({ overview }: Props) {
+  const t = await getTranslations("adminOrgs");
   const { company, counts, setup } = overview;
   const open = setup.filter((item) => !item.done).length;
+  const setupLabel = (item: { key: string; label: string }) => (SETUP[item.key as keyof typeof SETUP] ? t(SETUP[item.key as keyof typeof SETUP]) : item.label);
   return (
     <div className="space-y-5">
       <DetachBlocked overview={overview} />
       <section className="nesto-card p-5" aria-labelledby="company-counts">
-        <h2 id="company-counts" className="text-card font-semibold text-fg">At a glance</h2>
+        <h2 id="company-counts" className="text-card font-semibold text-fg">{t("company.overview.glance")}</h2>
         <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {([["Users", counts.users], ["Employees", counts.people], ["Projects", counts.projects], ["Departments", counts.departments], ["Modules on", counts.modules]] as const).map(([label, value]) => (
+          {([[t("company.overview.users"), counts.users], [t("company.overview.employees"), counts.people], [t("company.overview.projects"), counts.projects], [t("company.overview.departments"), counts.departments], [t("company.overview.modulesOn"), counts.modules]] as const).map(([label, value]) => (
             <div key={label}>
               <dt className="text-meta text-fg-subtle">{label}</dt>
               <dd className="text-card font-semibold tabular-nums text-fg">{value}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-meta text-fg-subtle">Created {formatDate(company.createdAt)}{overview.createdBy ? ` by ${overview.createdBy}` : ""}</p>
+        <p className="mt-3 text-meta text-fg-subtle">{overview.createdBy ? t("company.overview.createdBy", { date: formatDate(company.createdAt), name: overview.createdBy }) : t("company.overview.created", { date: formatDate(company.createdAt) })}</p>
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="company-setup">
-        <h2 id="company-setup" className="text-card font-semibold text-fg">Complete setup</h2>
+        <h2 id="company-setup" className="text-card font-semibold text-fg">{t("company.overview.setupTitle")}</h2>
         <p className="mt-1 text-table text-fg-muted">
-          {open === 0 ? "Everything is set up." : "Optional. None of this blocks the company from working, and it can be completed at any time."}
+          {open === 0 ? t("company.overview.setupDone") : t("company.overview.setupOptional")}
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2" data-testid="company-setup">
           {setup.map((item) => (
             <li key={item.key} className="flex items-start gap-2 text-table" data-done={item.done}>
               {item.done ? <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" /> : <Circle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" />}
               <span className={item.done ? "text-fg" : "text-fg-muted"}>
-                {item.href && !item.done ? <Link href={item.href} className="hover:underline">{item.label}</Link> : item.label}
-                <span className="sr-only">{item.done ? " — done" : " — not done"}</span>
+                {item.href && !item.done ? <Link href={item.href} className="hover:underline">{setupLabel(item)}</Link> : setupLabel(item)}
+                <span className="sr-only">{item.done ? t("company.overview.done") : t("company.overview.notDone")}</span>
               </span>
             </li>
           ))}
@@ -134,17 +147,17 @@ export function CompanyOverview({ overview }: Props) {
 
       <section className="nesto-card p-5" aria-labelledby="company-history">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="company-history" className="text-card font-semibold text-fg">Recent history</h2>
-          <Link href={`/admin/audit?org=${company.id}`} className="text-table font-medium text-accent-strong hover:underline">Open in Audit Log →</Link>
+          <h2 id="company-history" className="text-card font-semibold text-fg">{t("company.overview.historyTitle")}</h2>
+          <Link href={`/admin/audit?org=${company.id}`} className="text-table font-medium text-accent-strong hover:underline">{t("company.overview.openAudit")}</Link>
         </div>
         {overview.history.length === 0 ? (
-          <p className="mt-3 text-table text-fg-muted">Nothing recorded yet.</p>
+          <p className="mt-3 text-table text-fg-muted">{t("company.overview.historyEmpty")}</p>
         ) : (
           <ul className="mt-3 divide-y divide-line">
             {overview.history.slice(0, 5).map((event) => (
               <li key={event.id} className="flex flex-wrap justify-between gap-2 py-2 text-table">
                 <span className="text-fg">{event.actionKey.replace(/^PLATFORM_/, "").toLowerCase().replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase())}</span>
-                <span className="text-fg-muted">{event.actor ?? "System"} · {formatDate(event.occurredAt)}</span>
+                <span className="text-fg-muted">{event.actor ?? t("common.system")} · {formatDate(event.occurredAt)}</span>
               </li>
             ))}
           </ul>
@@ -155,18 +168,19 @@ export function CompanyOverview({ overview }: Props) {
 }
 
 /** The Settings tab: General, Organization, Branding, Status (§42, §43). Every field optional but the name. */
-export function CompanySettings({ overview }: Props) {
+export async function CompanySettings({ overview }: Props) {
+  const t = await getTranslations("adminOrgs");
   const { company, structure } = overview;
   const rows: [string, string | null][] = [
-    ["Company name", company.name], ["Legal name", company.legalName], ["Registration number / NUIS", company.registrationNumber], ["VAT / Tax ID", company.taxNumber],
-    ["Industry", company.industry], ["Country", company.country], ["Address", company.address], ["Email", company.email], ["Phone", company.phone], ["Website", company.website],
+    [t("company.fields.name"), company.name], [t("company.fields.legalName"), company.legalName], [t("company.fields.registrationNumber"), company.registrationNumber], [t("company.fields.taxNumber"), company.taxNumber],
+    [t("company.fields.industry"), company.industry], [t("company.fields.country"), company.country], [t("company.fields.address"), company.address], [t("company.fields.email"), company.email], [t("company.fields.phone"), company.phone], [t("company.fields.website"), company.website],
   ];
   return (
     <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="company-general">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="company-general" className="text-card font-semibold text-fg">General</h2>
-          <PlatformCommandButton label="Edit" title={`Edit ${company.name}`} action="company.update" fixed={{ companyId: company.id }} fields={COMPANY_FIELDS.map((field) => ({ ...field }))} initial={{ ...company, logoUrl: company.logoUrl ?? "" }} success="Company updated." />
+          <h2 id="company-general" className="text-card font-semibold text-fg">{t("company.settings.general")}</h2>
+          <PlatformCommandButton label={t("company.menu.edit")} title={t("company.menu.editTitle", { name: company.name })} action="company.update" fixed={{ companyId: company.id }} fields={companyFields(t).map((field) => ({ ...field }))} initial={{ ...company, logoUrl: company.logoUrl ?? "" }} success={t("company.menu.updated")} />
         </div>
         <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
           {rows.map(([label, value]) => (
@@ -175,15 +189,15 @@ export function CompanySettings({ overview }: Props) {
         </dl>
       </section>
       <section className="nesto-card p-5" aria-labelledby="company-organization">
-        <h2 id="company-organization" className="text-card font-semibold text-fg">Organization</h2>
+        <h2 id="company-organization" className="text-card font-semibold text-fg">{t("company.settings.organization")}</h2>
         <p className="mt-2 text-body text-fg">
-          {structure.group ? <>Belongs to <Link href={`/admin/organizations/${structure.group.id}`} className="text-accent-strong hover:underline">{structure.group.name}</Link>.</> : "Standalone company — no Parent Group."}
+          {structure.group ? (() => { const [before, after] = t("company.settings.belongsTo", { group: "\u0001" }).split("\u0001"); return <>{before}<Link href={`/admin/organizations/${structure.group.id}`} className="text-accent-strong hover:underline">{structure.group.name}</Link>{after}</>; })() : t("company.settings.standaloneNote")}
         </p>
-        <p className="mt-1 text-table text-fg-muted">Assign, move or remove with the controls at the top of the page.</p>
+        <p className="mt-1 text-table text-fg-muted">{t("company.settings.controlsNote")}</p>
       </section>
       <section className="nesto-card p-5" aria-labelledby="company-branding">
-        <h2 id="company-branding" className="text-card font-semibold text-fg">Branding</h2>
-        <p className="mt-2 text-table text-fg-muted">{company.logoUrl ? "A logo is set; it stands for the company in its workspace." : "No logo — the company's initials stand in."}</p>
+        <h2 id="company-branding" className="text-card font-semibold text-fg">{t("company.settings.branding")}</h2>
+        <p className="mt-2 text-table text-fg-muted">{company.logoUrl ? t("company.settings.logoSet") : t("company.settings.logoNone")}</p>
       </section>
       <DetachBlocked overview={overview} />
     </div>

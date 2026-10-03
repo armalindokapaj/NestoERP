@@ -1,5 +1,4 @@
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -21,9 +20,13 @@ import { platformActor } from "@/lib/modules/organization/departments/department
 import { getDepartmentDetail, listDepartmentCandidates, listGroupDepartments } from "@/lib/modules/organization/departments/department.query";
 import type { PositionDTO } from "@/lib/modules/organization/departments/department.types";
 import { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
+import { getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
-export const metadata: Metadata = { title: "Departments" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminOrgs");
+  return { title: t("meta.departments") };
+}
 
 type Props = { params: Promise<{ organizationId: string }>; searchParams: Promise<{ department?: string }> };
 
@@ -40,6 +43,7 @@ async function options(context: PlatformContext, groupId: string, departmentId: 
  */
 export default async function PlatformDepartmentsPage({ params, searchParams }: Props) {
   const { organizationId: groupId } = await params;
+  const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
   const actor = platformActor(context, groupId);
   const departments = await listGroupDepartments(actor, { status: "ALL" }).catch((error: unknown) => {
@@ -64,27 +68,27 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: "Parent groups", href: "/admin" }, { label: group.group.name, href: `/admin/organizations/${groupId}` }, { label: "Departments" }]} />
+      <Breadcrumbs items={[{ label: t("departments.parentGroups"), href: "/admin" }, { label: group.group.name, href: `/admin/organizations/${groupId}` }, { label: t("departments.title") }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-page font-semibold text-fg">Departments</h1>
-          <p className="mt-1 text-body text-fg-muted">Defined once for {group.group.name}, activated in the companies that run them.</p>
+          <h1 className="text-page font-semibold text-fg">{t("departments.title")}</h1>
+          <p className="mt-1 text-body text-fg-muted">{t("departments.description", { name: group.group.name })}</p>
         </div>
         {group.actions.canConfigure ? <NewDepartmentButton api={api} /> : null}
       </div>
 
       <section className="nesto-card p-5" aria-labelledby="platform-departments">
         <h2 id="platform-departments" className="sr-only">
-          The group&apos;s departments
+          {t("departments.listLabel")}
         </h2>
         <Table stack flush aria-labelledby="platform-departments">
           <TableHead>
             <TableRow>
-              <TableHeaderCell>Department</TableHeaderCell>
-              <TableHeaderCell>Code</TableHeaderCell>
-              <TableHeaderCell>Group head</TableHeaderCell>
-              <TableHeaderCell>Active companies</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell>{t("departments.department")}</TableHeaderCell>
+              <TableHeaderCell>{t("common.code")}</TableHeaderCell>
+              <TableHeaderCell>{t("departments.groupHead")}</TableHeaderCell>
+              <TableHeaderCell>{t("departments.activeCompanies")}</TableHeaderCell>
+              <TableHeaderCell>{t("common.status")}</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -96,7 +100,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
                   </Link>
                 </TableCell>
                 <TableCell className="font-mono text-meta">{department.code}</TableCell>
-                <TableCell>{department.groupHead?.name ?? <span className="text-fg-subtle">No head</span>}</TableCell>
+                <TableCell>{department.groupHead?.name ?? <span className="text-fg-subtle">{t("departments.noHead")}</span>}</TableCell>
                 <TableCell className="tabular-nums">{department.activeCompanyCount}</TableCell>
                 <TableCell>
                   <StatusBadge status={department.status} />
@@ -125,17 +129,17 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-table" data-testid="platform-department-head">
-            <span className="text-fg-muted">Group head:</span>
+            <span className="text-fg-muted">{t("departments.groupHeadLabel")}</span>
             <span className="text-fg">{selected.groupHead?.name ?? "—"}</span>
-            {selected.capabilities.canAssignHead ? <AppointButton api={api} target={{ kind: "head", departmentId: selected.id }} title={`${selected.groupHead ? "Replace" : "Assign"} the head of ${selected.name}`} holder={selected.groupHead?.name ?? null} candidates={headOptions} /> : null}
+            {selected.capabilities.canAssignHead ? <AppointButton api={api} target={{ kind: "head", departmentId: selected.id }} title={t(selected.groupHead ? "departments.replaceHead" : "departments.assignHead", { name: selected.name })} holder={selected.groupHead?.name ?? null} candidates={headOptions} /> : null}
           </div>
-          <Table stack flush aria-label={`${selected.name} by company`}>
+          <Table stack flush aria-label={t("departments.byCompany", { name: selected.name })}>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Company</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Manager</TableHeaderCell>
-                <TableHeaderCell>People</TableHeaderCell>
+                <TableHeaderCell>{t("common.company")}</TableHeaderCell>
+                <TableHeaderCell>{t("common.status")}</TableHeaderCell>
+                <TableHeaderCell>{t("departments.manager")}</TableHeaderCell>
+                <TableHeaderCell>{t("departments.people")}</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -144,7 +148,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
                   <TableCell className="font-medium">{row.company.name}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
-                      {row.branch ? <StatusBadge status={row.branch.status} /> : <span className="text-meta text-fg-subtle">Not active</span>}
+                      {row.branch ? <StatusBadge status={row.branch.status} /> : <span className="text-meta text-fg-subtle">{t("departments.notActive")}</span>}
                       {selected.capabilities.canConfigure && selected.status === "ACTIVE" && row.company.status === "ACTIVE" ? <BranchStatusButton api={api} department={selected} company={row.company} status={row.branch?.status ?? null} /> : null}
                     </div>
                   </TableCell>
@@ -152,7 +156,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{row.branch?.manager?.name ?? "—"}</span>
                       {row.branch && selected.capabilities.managerCompanyIds.includes(row.company.id) ? (
-                        <AppointButton api={api} target={{ kind: "manager", branchId: row.branch.id }} title={`${row.branch.manager ? "Replace" : "Assign"} the manager of ${selected.name} in ${row.company.name}`} holder={row.branch.manager?.name ?? null} candidates={managerOptions.get(row.company.id) ?? []} />
+                        <AppointButton api={api} target={{ kind: "manager", branchId: row.branch.id }} title={t(row.branch.manager ? "departments.replaceManager" : "departments.assignManager", { name: selected.name, company: row.company.name })} holder={row.branch.manager?.name ?? null} candidates={managerOptions.get(row.company.id) ?? []} />
                       ) : null}
                     </div>
                   </TableCell>
@@ -161,7 +165,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
               ))}
             </TableBody>
           </Table>
-          {!group.actions.canConfigure ? <p className="text-meta text-fg-subtle">The group is live: its Owner and Group IT keep its departments now.</p> : null}
+          {!group.actions.canConfigure ? <p className="text-meta text-fg-subtle">{t("departments.live")}</p> : null}
         </section>
       ) : null}
     </div>

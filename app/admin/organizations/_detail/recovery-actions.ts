@@ -1,56 +1,64 @@
 import type { PlatformCommandMenu } from "@/components/platform/platform-command";
+import { createTranslator, type Translate } from "@/lib/i18n/translator";
+import { adminOrgsEn } from "@/lib/i18n/modules/adminOrgs/en";
 
 type Item = React.ComponentProps<typeof PlatformCommandMenu>["items"][number];
 type Subject = { kind: "company" | "group"; id: string; name: string };
+type T = Translate<"adminOrgs">;
 
-const REASON = { name: "reason", label: "Reason", type: "textarea" as const, required: true };
+/** A caller that passes no `t` gets the English wording; pass `await getTranslations("adminOrgs")` for the reader's language. */
+const english: T = createTranslator<"adminOrgs">("en", adminOrgsEn);
 
-function confirmName(name: string) {
-  return { name: "confirmationName", label: `Type “${name}” to confirm`, type: "text" as const, required: true };
+function reasonField(t: T) {
+  return { name: "reason", label: t("common.reason"), type: "textarea" as const, required: true };
+}
+
+function confirmName(t: T, name: string) {
+  return { name: "confirmationName", label: t("recovery.confirmName", { name }), type: "text" as const, required: true };
 }
 
 /** Delete: ends access at once, keeps every row, restorable (Platform Recovery). */
-export function deleteItem({ kind, id, name }: Subject, days: number): Item {
+export function deleteItem({ kind, id, name }: Subject, days: number, t: T = english): Item {
   const group = kind === "group";
   return {
-    label: group ? "Delete group" : "Delete company",
-    title: `Delete ${name}?`,
-    description: `${group ? "The group and all of its companies lose access immediately" : "Everyone loses access to this company immediately"}. Nothing is erased: you can restore ${group ? "them" : "it"} from Recovery, and it becomes eligible for permanent removal after ${days} days.`,
+    label: group ? t("recovery.delete.labelGroup") : t("recovery.delete.labelCompany"),
+    title: t("recovery.delete.title", { name }),
+    description: group ? t("recovery.delete.descriptionGroup", { days }) : t("recovery.delete.descriptionCompany", { days }),
     action: `${kind}.delete`,
     fixed: { [`${kind}Id`]: id },
-    fields: [confirmName(name), REASON],
+    fields: [confirmName(t, name), reasonField(t)],
     destructive: true,
-    submitLabel: group ? "Delete Group" : "Delete Company",
-    success: group ? "Group deleted. It can be restored from Recovery." : "Company deleted. It can be restored from Recovery.",
+    submitLabel: group ? t("recovery.delete.submitGroup") : t("recovery.delete.submitCompany"),
+    success: group ? t("recovery.delete.successGroup") : t("recovery.delete.successCompany"),
   };
 }
 
-export function restoreItem({ kind, id, name }: Subject): Item {
+export function restoreItem({ kind, id, name }: Subject, t: T = english): Item {
   const group = kind === "group";
   return {
-    label: "Restore",
-    title: `Restore ${name}?`,
-    description: `${group ? "The group and the companies deleted with it" : "The company"} return exactly as they were, with the same status and data. People regain access according to their memberships.`,
+    label: t("recovery.restore.label"),
+    title: t("recovery.restore.title", { name }),
+    description: group ? t("recovery.restore.descriptionGroup") : t("recovery.restore.descriptionCompany"),
     action: `${kind}.restore`,
     fixed: { [`${kind}Id`]: id },
     reasonOnly: true,
-    submitLabel: "Restore",
-    success: group ? "Group restored." : "Company restored.",
+    submitLabel: t("recovery.restore.submit"),
+    success: group ? t("recovery.restore.successGroup") : t("recovery.restore.successCompany"),
   };
 }
 
 /** Permanent removal: irreversible, so the name is typed back. */
-export function purgeItem({ kind, id, name }: Subject): Item {
+export function purgeItem({ kind, id, name }: Subject, t: T = english): Item {
   const group = kind === "group";
   return {
-    label: "Delete permanently",
-    title: `Permanently delete ${name}?`,
-    description: `This erases ${group ? "the group, its companies" : "the company"} and everything inside ${group ? "them" : "it"}: projects, documents, files, finance and history. It cannot be undone.`,
+    label: t("recovery.purge.label"),
+    title: t("recovery.purge.title", { name }),
+    description: group ? t("recovery.purge.descriptionGroup") : t("recovery.purge.descriptionCompany"),
     action: `${kind}.purge`,
     fixed: { [`${kind}Id`]: id },
-    fields: [confirmName(name), REASON],
+    fields: [confirmName(t, name), reasonField(t)],
     destructive: true,
-    submitLabel: "Delete Permanently",
-    success: group ? "Group permanently deleted." : "Company permanently deleted.",
+    submitLabel: t("recovery.purge.submit"),
+    success: group ? t("recovery.purge.successGroup") : t("recovery.purge.successCompany"),
   };
 }

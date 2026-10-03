@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 /**
  * Takes a model out of the Experience: a confirmation, never a typed reason
@@ -18,6 +19,7 @@ export function RemoveModelDialog({ projectId, slot, onOpenChange, onRemoved }: 
   onOpenChange: (open: boolean) => void;
   onRemoved: (slotId: string) => void;
 }) {
+  const t = useTranslations("adminPlatform");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -34,20 +36,20 @@ export function RemoveModelDialog({ projectId, slot, onOpenChange, onRemoved }: 
       onRemoved(slot.id);
       onOpenChange(false);
     } catch (failure) {
-      setError(failureMessage(failure, "The model could not be removed."));
+      setError(failureMessage(failure, t("threeDAdmin.removeModel.failed")));
     } finally {
       setPending(false);
     }
   }
 
-  const name = slot?.displayName ?? "This model";
+  const name = slot?.displayName ?? t("threeDAdmin.removeModel.thisModel");
   return (
     <ConfirmDialog
       open={slot !== null}
       onOpenChange={(open) => { if (!pending) onOpenChange(open); }}
-      title="Remove model?"
-      description={`${name} will be removed from this 3D Experience. Its files stay in the Model Library, and the published viewer keeps showing it until the next release is published.`}
-      confirmLabel="Remove"
+      title={t("threeDAdmin.removeModel.title")}
+      description={t("threeDAdmin.removeModel.description", { name })}
+      confirmLabel={t("threeDAdmin.removeModel.confirm")}
       pending={pending}
       onConfirm={() => void remove()}
     >

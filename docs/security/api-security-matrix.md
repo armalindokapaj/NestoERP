@@ -12,9 +12,9 @@ Every permission-sensitive entry point NESTO exposes — route handlers, server 
 - **Tests**, continued — `via fn: file` names a test that imports and exercises a domain service the entry point calls directly (the permission, scope and record checks live there; the route or action is a door onto it, PRD #48 §108). It proves the service's authorization, not the door's own guard.
 - **Status** — `covered`: at least one specific test exercises it, directly or through the service it calls. `uncovered`: none does (a sweep alone is not counted). `not-applicable`: a public page or provider endpoint with no tenant data.
 
-**942 route handlers, 265 server actions, 542 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 53 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1593 · NOTIFICATION 114 · PLATFORM 139 · PUBLIC 32 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 2.
+**942 route handlers, 265 server actions, 541 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 53 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1593 · NOTIFICATION 114 · PLATFORM 138 · PUBLIC 32 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 2.
 
-Status: covered 1559 · not-applicable 14 · uncovered 396 (667 by a test of the entry point itself, 892 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **2**.
+Status: covered 1559 · not-applicable 14 · uncovered 395 (667 by a test of the entry point itself, 892 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **2**.
 
 ## Unclassified entry points
 
@@ -1742,7 +1742,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PAGE | `/admin` | PLATFORM | — | platform | `projects` | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `dashboardSummary`: `api/platform/organizations.test.ts` +1 | covered |
+| PAGE | `/admin` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/a11y/aud11-shared.spec.ts` +4; via `dashboardSummary`: `api/platform/organizations.test.ts` +1 | covered |
 | PAGE | `/admin/3d` | PLATFORM | — | project-3d | `company` | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/project-3d.spec.ts`, `unit/a11y/aud11-modules.test.ts`; via `listProject3DExperiences`: `api/project-3d/experience-lifecycle.test.ts` +2 | covered |
 | PAGE | `/admin/3d/diagnostics` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/3d/models` | PLATFORM | — | project-3d | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listProject3DModels`: `api/project-3d/model-lifecycle.test.ts` | covered |
@@ -1763,7 +1763,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | PAGE | `/admin/modules` | PLATFORM | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/modules/[companyId]` | PLATFORM | — | entitlements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts`; via `getCompanyEntitlements`: `api/platform/entitlements.test.ts` | covered |
 | PAGE | `/admin/modules/catalog` | PLATFORM | — | entitlements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/modules/plans` | PLATFORM | — | entitlements | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
+| PAGE | `/admin/modules/plans` | PLATFORM | — | core/entitlements | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +144 | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/modules/pricing` | PLATFORM | — | pricing | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/modules/platform-pricing.spec.ts` | covered |
 | PAGE | `/admin/modules/templates` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/organizations` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | `e2e/a11y/aud11-modules.spec.ts`, `e2e/modules/organization-departments.spec.ts` +1; via `listOrganizations`: `api/platform/organizations.test.ts` | covered |
@@ -1773,7 +1773,6 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | PAGE | `/admin/projects/[projectId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.create`, `announcement.view`, `approvals.view` +146 | platform session; tenant refused | `assertFound`, `requirePlatformContext` | — | via `getPlatformProjectDetail`: `api/platform/projects-3d-admin.test.ts` +1 | covered |
 | PAGE | `/admin/system` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/system/authentication` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
-| PAGE | `/admin/system/demo` | PLATFORM | — | — | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/system/diagnostics` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/system/email` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireHttpsInProduction`, `requirePlatformContext` | — | — | uncovered |
 | PAGE | `/admin/system/feature-flags` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requirePlatformContext` | — | via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |

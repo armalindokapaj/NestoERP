@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { listProject3DDiagnostics } from "@/lib/modules/project-3d/project-3d.service";
 
-export const metadata = { title: "3D Diagnostics" };
+export async function generateMetadata() { const t = await getTranslations("adminPlatform"); return { title: t("threeD.diagnostics.metaTitle") }; }
 
 export default async function DiagnosticsPage() {
+  const t = await getTranslations("adminPlatform");
   const context = await requirePlatformContext();
   const rows = await listProject3DDiagnostics(context);
   const withoutModel = rows.filter((row) => row.slots.length === 0 || row.slots.some((slot) => slot.versions.length === 0));
@@ -18,20 +20,20 @@ export default async function DiagnosticsPage() {
   const unpublished = rows.filter((row) => row.entitlementStatus === "ACTIVE" && !row.activeReleaseId);
 
   return <div className="space-y-5">
-    <PageHeader title="3D diagnostics" description="Model processing, validation, entitlement, and release integrity across native Project 3D workspaces." />
+    <PageHeader title={t("threeD.diagnostics.title")} description={t("threeD.diagnostics.description")} />
     <div className="grid gap-4 md:grid-cols-4">
-      <Card className="p-5"><p className="text-table text-fg-muted">Workspaces</p><p className="mt-2 text-3xl font-semibold">{rows.length}</p></Card>
-      <Card className="p-5"><p className="text-table text-fg-muted">Missing models</p><p className="mt-2 text-3xl font-semibold">{withoutModel.length}</p></Card>
-      <Card className="p-5"><p className="text-table text-fg-muted">Failed versions</p><p className="mt-2 text-3xl font-semibold">{failed.length}</p></Card>
-      <Card className="p-5"><p className="text-table text-fg-muted">Awaiting release</p><p className="mt-2 text-3xl font-semibold">{unpublished.length}</p></Card>
+      <Card className="p-5"><p className="text-table text-fg-muted">{t("threeD.diagnostics.workspaces")}</p><p className="mt-2 text-3xl font-semibold">{rows.length}</p></Card>
+      <Card className="p-5"><p className="text-table text-fg-muted">{t("threeD.diagnostics.missing")}</p><p className="mt-2 text-3xl font-semibold">{withoutModel.length}</p></Card>
+      <Card className="p-5"><p className="text-table text-fg-muted">{t("threeD.diagnostics.failed")}</p><p className="mt-2 text-3xl font-semibold">{failed.length}</p></Card>
+      <Card className="p-5"><p className="text-table text-fg-muted">{t("threeD.diagnostics.awaiting")}</p><p className="mt-2 text-3xl font-semibold">{unpublished.length}</p></Card>
     </div>
     <Card className="p-5">
-      <h2 className="text-card font-semibold">Findings</h2>
+      <h2 className="text-card font-semibold">{t("threeD.diagnostics.findings")}</h2>
       <div className="mt-4 space-y-2">
-        {withoutModel.map((row) => <Finding key={`model-${row.id}`} row={row} label="has an active slot without a model version." tone="warning" badge="MODEL NEEDED" />)}
-        {failed.map(({ row, slot, version }) => <Finding key={version.id} row={row} label={`${slot.displayName} v${version.version} failed processing or validation.`} tone="danger" badge="FAILED" />)}
-        {unpublished.map((row) => <Finding key={`release-${row.id}`} row={row} label="has active entitlement but no active release." tone="info" badge="UNPUBLISHED" />)}
-        {!withoutModel.length && !failed.length && !unpublished.length ? <p className="text-table text-fg-muted">No 3D integrity problems detected.</p> : null}
+        {withoutModel.map((row) => <Finding key={`model-${row.id}`} row={row} label={t("threeD.diagnostics.noModel")} tone="warning" badge={t("threeD.diagnostics.modelNeeded")} />)}
+        {failed.map(({ row, slot, version }) => <Finding key={version.id} row={row} label={t("threeD.diagnostics.failedVersion", { slot: slot.displayName, version: version.version })} tone="danger" badge={t("threeD.diagnostics.failedBadge")} />)}
+        {unpublished.map((row) => <Finding key={`release-${row.id}`} row={row} label={t("threeD.diagnostics.unpublished")} tone="info" badge={t("threeD.diagnostics.unpublishedBadge")} />)}
+        {!withoutModel.length && !failed.length && !unpublished.length ? <p className="text-table text-fg-muted">{t("threeD.diagnostics.none")}</p> : null}
       </div>
     </Card>
   </div>;

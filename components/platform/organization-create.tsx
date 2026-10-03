@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Building2, ChevronDown, Link2, Network, Plus } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, type FormField } from "@/components/engineering/form-kit";
 import { useCreateParam } from "@/components/platform/platform-command";
@@ -20,26 +21,27 @@ type Option = { value: string; label: string };
  */
 export function CreateCompanyDialog({ open, onOpenChange, groups, group }: { open: boolean; onOpenChange: (open: boolean) => void; groups: Option[]; group?: Option }) {
   const toast = useToast();
+  const t = useTranslations("adminOrgs");
   const fields: FormField[] = [
-    { name: "name", label: "Company name", type: "text", required: true, maxLength: 120, validate: (value) => (typeof value === "string" && value.trim().length < 2 ? "Enter at least two characters." : null) },
+    { name: "name", label: t("create.company.nameLabel"), type: "text", required: true, maxLength: 120, validate: (value) => (typeof value === "string" && value.trim().length < 2 ? t("create.company.minChars") : null) },
     group
-      ? { name: "groupId", label: "Parent Group", type: "select", options: [group], disabled: true }
-      : { name: "groupId", label: "Parent Group", type: "select", options: groups, emptyLabel: "None — standalone company", hint: "Optional. A company can join or leave a group later." },
+      ? { name: "groupId", label: t("create.company.groupLabel"), type: "select", options: [group], disabled: true }
+      : { name: "groupId", label: t("create.company.groupLabel"), type: "select", options: groups, emptyLabel: t("create.company.noneStandalone"), hint: t("create.company.groupHint") },
   ];
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Create Company"
-      description="Only the name is needed. Everything else can be completed from the company's page."
+      title={t("create.company.dialogTitle")}
+      description={t("create.company.dialogDescription")}
       fields={fields}
       initial={{ groupId: group?.value ?? "" }}
-      submitLabel="Create Company"
+      submitLabel={t("create.company.submit")}
       testId="new-company-dialog"
       onSubmit={async (payload) => {
         const groupId = group?.value ?? payload.groupId;
         const result = await engineeringApi<{ companyId: string }>("/api/platform-admin/command", { body: { action: "company.create", name: payload.name, ...(groupId ? { groupId } : {}) } });
-        toast({ title: "Company created.", tone: "success" });
+        toast({ title: t("create.company.toast"), tone: "success" });
         return { redirectTo: `/admin/organizations/${result.companyId}` };
       }}
     />
@@ -48,18 +50,19 @@ export function CreateCompanyDialog({ open, onOpenChange, groups, group }: { ope
 
 export function CreateGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const toast = useToast();
+  const t = useTranslations("adminOrgs");
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Create Parent Group"
-      description="Only the name is needed. Companies, owners and details follow from the group's page."
-      fields={[{ name: "name", label: "Group name", type: "text", required: true, maxLength: 120, validate: (value) => (typeof value === "string" && value.trim().length < 2 ? "Enter at least two characters." : null) }]}
-      submitLabel="Create Group"
+      title={t("create.group.dialogTitle")}
+      description={t("create.group.dialogDescription")}
+      fields={[{ name: "name", label: t("create.group.nameLabel"), type: "text", required: true, maxLength: 120, validate: (value) => (typeof value === "string" && value.trim().length < 2 ? t("create.company.minChars") : null) }]}
+      submitLabel={t("create.group.submit")}
       testId="new-group-dialog"
       onSubmit={async (payload) => {
         const created = await engineeringApi<{ id: string }>("/api/platform/parent-groups", { body: { name: payload.name } });
-        toast({ title: "Parent Group created.", tone: "success" });
+        toast({ title: t("create.group.toast"), tone: "success" });
         return { redirectTo: `/admin/organizations/${created.id}` };
       }}
     />
@@ -68,6 +71,7 @@ export function CreateGroupDialog({ open, onOpenChange }: { open: boolean; onOpe
 
 /** The directory's one Create (§5, §13): Company or Parent Group. */
 export function OrganizationCreateMenu({ groups, canCompany, canGroup }: { groups: Option[]; canCompany: boolean; canGroup: boolean }) {
+  const t = useTranslations("adminOrgs");
   const [company, setCompany] = useCreateParam("company");
   const [group, setGroup] = useCreateParam("group");
   if (!canCompany && !canGroup) return null;
@@ -75,11 +79,11 @@ export function OrganizationCreateMenu({ groups, canCompany, canGroup }: { group
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" data-testid="organization-create"><Plus aria-hidden="true" />Create<ChevronDown aria-hidden="true" /></Button>
+          <Button size="sm" data-testid="organization-create"><Plus aria-hidden="true" />{t("create.menu.create")}<ChevronDown aria-hidden="true" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          {canCompany ? <DropdownMenuItem onSelect={() => setCompany(true)}><Building2 aria-hidden="true" className="size-4" />Create Company</DropdownMenuItem> : null}
-          {canGroup ? <DropdownMenuItem onSelect={() => setGroup(true)}><Network aria-hidden="true" className="size-4" />Create Parent Group</DropdownMenuItem> : null}
+          {canCompany ? <DropdownMenuItem onSelect={() => setCompany(true)}><Building2 aria-hidden="true" className="size-4" />{t("create.menu.company")}</DropdownMenuItem> : null}
+          {canGroup ? <DropdownMenuItem onSelect={() => setGroup(true)}><Network aria-hidden="true" className="size-4" />{t("create.menu.group")}</DropdownMenuItem> : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {canCompany ? <CreateCompanyDialog open={company} onOpenChange={setCompany} groups={groups} /> : null}
@@ -95,32 +99,33 @@ export function OrganizationCreateMenu({ groups, canCompany, canGroup }: { group
 export function AddCompanyToGroup({ group, standalone }: { group: Option; standalone: Option[] }) {
   const [mode, setMode] = React.useState<"new" | "existing" | null>(null);
   const toast = useToast();
+  const t = useTranslations("adminOrgs");
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" data-testid="group-add-company"><Plus aria-hidden="true" />Add Company<ChevronDown aria-hidden="true" /></Button>
+          <Button size="sm" data-testid="group-add-company"><Plus aria-hidden="true" />{t("create.add.addCompany")}<ChevronDown aria-hidden="true" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-60">
-          <DropdownMenuItem onSelect={() => setMode("new")}><Building2 aria-hidden="true" className="size-4" />Create New Company</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setMode("existing")} disabled={standalone.length === 0}><Link2 aria-hidden="true" className="size-4" />Add Existing Standalone Company</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setMode("new")}><Building2 aria-hidden="true" className="size-4" />{t("create.add.createNew")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setMode("existing")} disabled={standalone.length === 0}><Link2 aria-hidden="true" className="size-4" />{t("create.add.addExisting")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateCompanyDialog open={mode === "new"} onOpenChange={(open) => setMode(open ? "new" : null)} groups={[]} group={group} />
       <FormDialog
         open={mode === "existing"}
         onOpenChange={(open) => setMode(open ? "existing" : null)}
-        title={`Add an existing company to ${group.label}`}
-        description="The company keeps its ID, projects, users, modules and history. Its people and departments join the group; nothing group-wide travels with it."
+        title={t("create.add.existingTitle", { group: group.label })}
+        description={t("create.add.existingDescription")}
         fields={[
-          { name: "companyId", label: "Standalone company", type: "select", required: true, options: standalone },
-          { name: "reason", label: "Reason", type: "textarea", required: true },
+          { name: "companyId", label: t("create.add.standaloneLabel"), type: "select", required: true, options: standalone },
+          { name: "reason", label: t("common.reason"), type: "textarea", required: true },
         ]}
-        submitLabel="Add to Group"
+        submitLabel={t("create.add.submit")}
         testId="attach-company-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/platform-admin/command", { body: { action: "company.attach", companyId: payload.companyId, groupId: group.value, reason: payload.reason } });
-          toast({ title: `Company added to ${group.label}.`, tone: "success" });
+          toast({ title: t("create.add.toast", { group: group.label }), tone: "success" });
           return { redirectTo: `/admin/organizations/${group.value}?tab=companies` };
         }}
       />

@@ -2,6 +2,7 @@ import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
 import type { ReactNode } from "react";
 
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,9 +33,12 @@ export default async function ExperienceEditorLayout({ children }: { children: R
       {/* A refresh (a model finished preparing) is shown once its data lands (vercel/next.js#86151). */}
       <ResponseBeats />
       <UnsavedHost identity={identityKeys(context)} workspace={null} />
-      <ToastProvider>
-        <TooltipProvider>{children}</TooltipProvider>
-      </ToastProvider>
+      {/* The panels shared with the admin pages (model ingestion, unit bindings, remove dialog) read their words from here. */}
+      <ModuleMessages namespaces={["adminPlatform"]}>
+        <ToastProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </ToastProvider>
+      </ModuleMessages>
     </div>
   );
 }

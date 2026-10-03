@@ -1,12 +1,17 @@
 import { PricingAdministration } from "@/components/pricing/pricing-administration";
 import { PageHeader } from "@/components/ui/page-header";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { getTranslations } from "@/lib/i18n/server";
 import { getPricingAdministration } from "@/lib/modules/pricing/pricing.service";
 
-export const metadata = { title: "Pricing" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminOrgs");
+  return { title: t("meta.pricing") };
+}
 
 export default async function PricingAdministrationPage() {
+  const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
   const data = await getPricingAdministration(context);
-  return <div className="space-y-5"><PageHeader title="Pricing" description="Publish versioned public price books, manage promotions, and review saved commercial configurations." /><PricingAdministration data={data} /></div>;
+  return <div className="space-y-5"><PageHeader title={t("pricing.title")} description={t("pricing.description")} /><PricingAdministration data={data} /></div>;
 }

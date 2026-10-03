@@ -1,4 +1,12 @@
 import type { Locale } from "../config";
+import { adminEn } from "./admin/en";
+import { adminSq } from "./admin/sq";
+import { adminOrgsEn } from "./adminOrgs/en";
+import { adminOrgsSq } from "./adminOrgs/sq";
+import { adminAccessEn } from "./adminAccess/en";
+import { adminAccessSq } from "./adminAccess/sq";
+import { adminPlatformEn } from "./adminPlatform/en";
+import { adminPlatformSq } from "./adminPlatform/sq";
 import { announcementsEn } from "./announcements/en";
 import { announcementsSq } from "./announcements/sq";
 import { approvalsEn } from "./approvals/en";
@@ -98,6 +106,10 @@ export const moduleMessagesEn = {
   misc: miscEn,
   threeD: threeDEn,
   offline: offlineEn,
+  admin: adminEn,
+  adminOrgs: adminOrgsEn,
+  adminAccess: adminAccessEn,
+  adminPlatform: adminPlatformEn,
 };
 
 export type ModuleMessages = typeof moduleMessagesEn;
@@ -135,5 +147,9 @@ export const moduleMessages: Record<Locale, ModuleMessages> = {
     misc: miscSq,
     threeD: threeDSq,
     offline: offlineSq,
+    admin: adminSq,
+    adminOrgs: adminOrgsSq,
+    adminAccess: adminAccessSq,
+    adminPlatform: adminPlatformSq,
   },
 };
