@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 
 import Link from "@/components/navigation/nav-link";
@@ -8,16 +9,14 @@ import { RecoveryExperiences } from "./_sections/experiences";
 import { RecoveryMedia } from "./_sections/media";
 import { RecoveryTenants } from "./_sections/tenants";
 
-export const metadata: Metadata = { title: "Recovery" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminPlatform");
+  return { title: t("system.recovery.metaTitle") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const SECTIONS = [
-  { key: "tenants", label: "Companies & groups" },
-  { key: "documents", label: "Documents" },
-  { key: "media", label: "Project media" },
-  { key: "experiences", label: "3D experiences" },
-] as const;
+const SECTIONS = [{ key: "tenants" }, { key: "documents" }, { key: "media" }, { key: "experiences" }] as const;
 
 /**
  * Everything the Platform Admin can bring back, in one place: deleted
@@ -26,18 +25,19 @@ const SECTIONS = [
  * keep it.
  */
 export default async function RecoveryPage({ searchParams }: Props) {
+  const t = await getTranslations("adminPlatform");
   await requirePlatformContext();
   const raw = await searchParams;
   const requested = Array.isArray(raw.section) ? raw.section[0] : raw.section;
   const section = SECTIONS.find((item) => item.key === requested)?.key ?? "tenants";
   return (
     <div className="space-y-5">
-      <nav aria-label="Recovery sections" className="border-b border-line">
+      <nav aria-label={t("system.recovery.sectionsLabel")} className="border-b border-line">
         <ul className="flex min-w-max gap-1 overflow-x-auto">
           {SECTIONS.map((item) => (
             <li key={item.key}>
               <Link href={item.key === "tenants" ? "/admin/system/recovery" : `/admin/system/recovery?section=${item.key}`} scroll={false} aria-current={item.key === section ? "page" : undefined} data-testid={`recovery-tab-${item.key}`} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", item.key === section ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
-                {item.label}
+                {t(`system.recovery.tabs.${item.key}` as never)}
               </Link>
             </li>
           ))}

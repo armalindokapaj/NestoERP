@@ -2,27 +2,21 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import { startRecoveryEmailAction } from "@/lib/actions/platform-account";
-
-const MESSAGES: Record<string, string> = {
-  EMAIL_INVALID: "Enter a valid email address.",
-  CURRENT_PASSWORD_REQUIRED: "Enter your current password.",
-  CURRENT_PASSWORD_INCORRECT: "That is not your current password.",
-  RECOVERY_EMAIL_UNCHANGED: "That is already your recovery email.",
-  RECOVERY_EMAIL_TAKEN: "Another account already uses that recovery email.",
-  RATE_LIMITED: "Too many attempts. Wait a few minutes and try again.",
-};
 
 /**
  * Starts a recovery-email change (ADM-01): the current password proves recent
  * authentication, and nothing changes until the new address confirms.
  */
 export function RecoveryEmailForm({ hasCurrent }: { hasCurrent: boolean }) {
+  const t = useTranslations("adminAccess");
   const router = useRouter();
   const toast = useToast();
   const [email, setEmail] = React.useState("");
@@ -40,7 +34,7 @@ export function RecoveryEmailForm({ hasCurrent }: { hasCurrent: boolean }) {
         setEmail("");
         setCurrentPassword("");
         setErrors({});
-        toast({ title: `A confirmation link was sent to ${email.trim().toLowerCase()}.`, tone: "success" });
+        toast({ title: t("recoveryEmail.sent", { email: email.trim().toLowerCase() }), tone: "success" });
         router.refresh();
         return;
       }
@@ -52,24 +46,24 @@ export function RecoveryEmailForm({ hasCurrent }: { hasCurrent: boolean }) {
     }
   }
 
-  const message = (key: string) => (errors[key] ? (MESSAGES[errors[key]] ?? "That could not be saved. Try again.") : null);
+  const message = (key: string) => (errors[key] ? enumLabel(t, "recoveryEmail.errors", errors[key], t("recoveryEmail.fallbackError")) : null);
 
   return (
     <form noValidate onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
       {errors.form ? <p role="alert" className="text-meta text-danger-strong sm:col-span-2">{message("form")}</p> : null}
       <div className="space-y-1.5">
-        <Label htmlFor="recovery-email">{hasCurrent ? "New recovery email" : "Recovery email"}</Label>
+        <Label htmlFor="recovery-email">{hasCurrent ? t("recoveryEmail.newLabel") : t("recoveryEmail.label")}</Label>
         <Input id="recovery-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "recovery-email-error" : undefined} />
         {errors.email ? <p id="recovery-email-error" className="text-meta text-danger-strong">{message("email")}</p> : null}
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="recovery-current-password">Current password</Label>
+        <Label htmlFor="recovery-current-password">{t("recoveryEmail.currentPassword")}</Label>
         <Input id="recovery-current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} aria-invalid={Boolean(errors.currentPassword)} aria-describedby={errors.currentPassword ? "recovery-password-error" : undefined} />
         {errors.currentPassword ? <p id="recovery-password-error" className="text-meta text-danger-strong">{message("currentPassword")}</p> : null}
       </div>
       <div className="sm:col-span-2">
         <Button type="submit" disabled={pending || !email.trim() || !currentPassword}>
-          {pending ? "Sending…" : "Send confirmation link"}
+          {pending ? t("recoveryEmail.sending") : t("recoveryEmail.send")}
         </Button>
       </div>
     </form>

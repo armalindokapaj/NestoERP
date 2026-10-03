@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -23,7 +24,9 @@ async function command<T>(body: Record<string, unknown>) {
  * The group is shown as inherited from the company, never picked on its own.
  * The same project keeps its identity; only its owner changes.
  */
-export function AssignProjectCompany({ projectId, projectName, companies, label = "Assign Company", variant = "primary", size }: { projectId: string; projectName: string; companies: Option[]; label?: string; variant?: ButtonProps["variant"]; size?: ButtonProps["size"] }) {
+export function AssignProjectCompany({ projectId, projectName, companies, label: labelProp, variant = "primary", size }: { projectId: string; projectName: string; companies: Option[]; label?: string; variant?: ButtonProps["variant"]; size?: ButtonProps["size"] }) {
+  const t = useTranslations("adminOrgs");
+  const label = labelProp ?? t("assign.label");
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
@@ -57,7 +60,7 @@ export function AssignProjectCompany({ projectId, projectName, companies, label 
     setError(null);
     try {
       await command({ action: "project.assign", projectId, companyId, reason });
-      toast({ title: `${projectName} assigned to ${preview?.company.name ?? "the company"}.`, tone: "success" });
+      toast({ title: t("assign.toast", { project: projectName, company: preview?.company.name ?? t("assign.fallbackCompany") }), tone: "success" });
       setOpen(false);
       reset();
       router.refresh();
@@ -76,43 +79,43 @@ export function AssignProjectCompany({ projectId, projectName, companies, label 
       <Button type="button" size={size} variant={variant} onClick={() => setOpen(true)} data-testid="assign-company">{label}</Button>
       <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) reset(); }}>
         <DialogContent>
-          <DialogTitle>Assign Project</DialogTitle>
-          <DialogDescription>Choose the company that will own {projectName}. The project is not copied: it keeps its identity, history and everything attached to it.</DialogDescription>
+          <DialogTitle>{t("assign.title")}</DialogTitle>
+          <DialogDescription>{t("assign.description", { name: projectName })}</DialogDescription>
           <div className="space-y-4">
-            <dl className="text-table"><dt className="text-meta text-fg-subtle">Project</dt><dd className="text-fg">{projectName}</dd></dl>
+            <dl className="text-table"><dt className="text-meta text-fg-subtle">{t("assign.project")}</dt><dd className="text-fg">{projectName}</dd></dl>
             <div>
-              <label htmlFor="assign-company-select" className="text-meta text-fg-subtle">Company</label>
+              <label htmlFor="assign-company-select" className="text-meta text-fg-subtle">{t("assign.company")}</label>
               <select id="assign-company-select" className={select} value={companyId} onChange={(event) => void choose(event.target.value)} disabled={pending}>
-                <option value="">Select company</option>
+                <option value="">{t("assign.selectCompany")}</option>
                 {companies.map((company) => <option key={company.value} value={company.value}>{company.label}</option>)}
               </select>
             </div>
-            {loading ? <p className="text-table text-fg-muted" role="status">Checking the assignment…</p> : null}
+            {loading ? <p className="text-table text-fg-muted" role="status">{t("assign.checking")}</p> : null}
             {preview ? (
               <div className="space-y-3 rounded-lg border border-line p-3 text-table" data-testid="assignment-preview">
                 <dl className="grid gap-3 sm:grid-cols-2">
-                  <div><dt className="text-meta text-fg-subtle">Destination</dt><dd className="text-fg">{preview.company.name}</dd></div>
-                  <div><dt className="text-meta text-fg-subtle">Parent Group</dt><dd className="text-fg">{preview.group ? <>{preview.group.name} <span className="text-fg-subtle">· inherited automatically</span></> : "Standalone company"}</dd></div>
+                  <div><dt className="text-meta text-fg-subtle">{t("assign.destination")}</dt><dd className="text-fg">{preview.company.name}</dd></div>
+                  <div><dt className="text-meta text-fg-subtle">{t("assign.parentGroup")}</dt><dd className="text-fg">{preview.group ? <>{preview.group.name} <span className="text-fg-subtle">· {t("assign.inherited")}</span></> : t("assign.standaloneCompany")}</dd></div>
                 </dl>
                 <p className="text-fg-muted">
-                  Stays with the project: {preview.data.units} {preview.data.units === 1 ? "unit" : "units"}, {preview.data.documents} {preview.data.documents === 1 ? "document" : "documents"}, {preview.data.threeDExperiences} 3D {preview.data.threeDExperiences === 1 ? "experience" : "experiences"}.
+                  {t("assign.stays", { units: t("assign.units", { count: preview.data.units }), documents: t("assign.documents", { count: preview.data.documents }), experiences: t("assign.experiences", { count: preview.data.threeDExperiences }) })}
                 </p>
                 {preview.blockers.length ? <ul className="space-y-1 text-danger-strong" role="alert">{preview.blockers.map((item) => <li key={item.code}>{item.message}</li>)}</ul> : null}
                 {preview.warnings.length ? <ul className="space-y-1 text-warning-strong">{preview.warnings.map((item) => <li key={item.code}>{item.message}</li>)}</ul> : null}
-                <p className="text-fg-muted">Access changes with this company&apos;s roles and permissions. Nobody is added to the company by this action.</p>
+                <p className="text-fg-muted">{t("assign.accessNote")}</p>
               </div>
             ) : null}
             {preview ? (
               <div>
-                <label htmlFor="assign-company-reason" className="text-meta text-fg-subtle">Reason (optional)</label>
+                <label htmlFor="assign-company-reason" className="text-meta text-fg-subtle">{t("assign.reasonOptional")}</label>
                 <input id="assign-company-reason" className={select} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} disabled={pending} />
               </div>
             ) : null}
             {error ? <p className="text-table text-danger-strong" role="alert" data-testid="assignment-error">{error}</p> : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => { setOpen(false); reset(); }} disabled={pending}>Cancel</Button>
-            <Button type="button" onClick={() => void assign()} disabled={!preview || blocked || pending} data-testid="assign-project-confirm">{pending ? "Assigning…" : "Assign Project"}</Button>
+            <Button type="button" variant="secondary" onClick={() => { setOpen(false); reset(); }} disabled={pending}>{t("assign.cancel")}</Button>
+            <Button type="button" onClick={() => void assign()} disabled={!preview || blocked || pending} data-testid="assign-project-confirm">{pending ? t("assign.assigning") : t("assign.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/ui/page-header";
@@ -5,7 +6,10 @@ import { requirePlatformContext } from "@/lib/context/platform-context";
 import { notificationHealth } from "@/lib/core/notifications/push.health";
 import { Fact } from "../_parts";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminPlatform");
+  return { title: t("system.notifications.metaTitle") };
+}
 
 /**
  * Notification system health (MOB-10 §191, §192): counts and states for the
@@ -13,34 +17,35 @@ export const metadata: Metadata = { title: "Notifications" };
  * or read times.
  */
 export default async function NotificationHealthPage() {
+  const t = await getTranslations("adminPlatform");
   await requirePlatformContext();
   const health = await notificationHealth();
-  const mode = { off: "Off — no push is queued", log: "Log only — nothing leaves the server", live: "Live" }[health.mode];
+  const mode = t(`system.notifications.modes.${health.mode}` as never);
   return (
     <div className="space-y-5">
-      <PageHeader title="Notifications" description={`System health, last ${health.windowHours} hours. Accepted by the provider is not delivered, and not read.`} />
+      <PageHeader title={t("system.notifications.title")} description={t("system.notifications.description", { hours: health.windowHours })} />
       <section className="nesto-card p-5" data-testid="notification-health">
-        <h2 className="mb-4 text-card font-semibold">Push</h2>
+        <h2 className="mb-4 text-card font-semibold">{t("system.notifications.push")}</h2>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Fact label="Mode">{mode}</Fact>
-          <Fact label="Apple (APNs) credentials">{health.credentials.apns ? "Configured" : "Not set"}</Fact>
-          <Fact label="Google (FCM) credentials">{health.credentials.fcm ? "Configured" : "Not set"}</Fact>
-          <Fact label="Registered devices">{health.registeredDevices.ios} iOS · {health.registeredDevices.android} Android</Fact>
-          <Fact label="Push attempted">{health.pushAttempted}</Fact>
-          <Fact label="Provider accepted">{health.pushAccepted}</Fact>
-          <Fact label="Failed">{health.pushFailed}</Fact>
-          <Fact label="Invalid tokens">{health.invalidTokens}</Fact>
-          <Fact label="Not sent (device gone, already read, …)">{health.pushSuppressed}</Fact>
-          <Fact label="Waiting to be sent now">{health.pushQueueDue}</Fact>
+          <Fact label={t("system.notifications.mode")}>{mode}</Fact>
+          <Fact label={t("system.notifications.apns")}>{health.credentials.apns ? t("system.notifications.configured") : t("system.notifications.notSet")}</Fact>
+          <Fact label={t("system.notifications.fcm")}>{health.credentials.fcm ? t("system.notifications.configured") : t("system.notifications.notSet")}</Fact>
+          <Fact label={t("system.notifications.registered")}>{t("system.notifications.registeredValue", { ios: health.registeredDevices.ios, android: health.registeredDevices.android })}</Fact>
+          <Fact label={t("system.notifications.attempted")}>{health.pushAttempted}</Fact>
+          <Fact label={t("system.notifications.accepted")}>{health.pushAccepted}</Fact>
+          <Fact label={t("system.notifications.failed")}>{health.pushFailed}</Fact>
+          <Fact label={t("system.notifications.invalid")}>{health.invalidTokens}</Fact>
+          <Fact label={t("system.notifications.suppressed")}>{health.pushSuppressed}</Fact>
+          <Fact label={t("system.notifications.queueDue")}>{health.pushQueueDue}</Fact>
         </dl>
       </section>
       <section className="nesto-card p-5">
-        <h2 className="mb-4 text-card font-semibold">Events and notifications</h2>
+        <h2 className="mb-4 text-card font-semibold">{t("system.notifications.events")}</h2>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Fact label="Events processed">{health.eventsProcessed}</Fact>
-          <Fact label="Notifications created">{health.notificationsCreated}</Fact>
-          <Fact label="Outbox backlog">{health.outboxBacklog}</Fact>
-          <Fact label="Outbox events failed">{health.outboxFailed}</Fact>
+          <Fact label={t("system.notifications.processed")}>{health.eventsProcessed}</Fact>
+          <Fact label={t("system.notifications.created")}>{health.notificationsCreated}</Fact>
+          <Fact label={t("system.notifications.backlog")}>{health.outboxBacklog}</Fact>
+          <Fact label={t("system.notifications.outboxFailed")}>{health.outboxFailed}</Fact>
         </dl>
       </section>
     </div>

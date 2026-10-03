@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 
+import { ModuleMessages } from "@/components/i18n/module-messages";
 import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { RouteFocus } from "@/components/layout/route-focus";
@@ -30,6 +31,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
   const sidebarState = readSidebarState((await cookies()).get(SIDEBAR_COOKIE)?.value);
 
   return (
+    <ModuleMessages namespaces={["admin", "adminOrgs", "adminAccess", "adminPlatform"]}>
     <ToastProvider>
     <TooltipProvider>
     {/* Unsaved work (AUD-03): no workspace here, only the person. */}
@@ -49,5 +51,6 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
     </PlatformShell>
     </TooltipProvider>
     </ToastProvider>
+    </ModuleMessages>
   );
 }

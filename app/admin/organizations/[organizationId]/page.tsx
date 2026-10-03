@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
@@ -8,33 +7,38 @@ import { AccessError } from "@/lib/access/guards";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 import { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
 import { CompanyHeaderActions, CompanyOverview, CompanySettings } from "../_detail/company-detail";
 import { GroupHeaderActions, GroupOverview } from "../_detail/group-detail";
+import { statusWord } from "../_detail/labels";
 import { GroupSettings } from "../_detail/group-settings";
 import { GroupCompaniesTab, ModulesTab, ProjectsTab, RolesTab, UsageTab, UsersTab } from "../_detail/tabs";
 
-export const metadata: Metadata = { title: "Organization" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminOrgs");
+  return { title: t("meta.organization") };
+}
 
 type Props = { params: Promise<{ organizationId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 const GROUP_TABS = ["overview", "companies", "projects", "users", "roles", "modules", "usage", "settings"] as const;
 const COMPANY_TABS = ["overview", "projects", "users", "roles", "modules", "usage", "settings"] as const;
-const LABEL: Record<string, string> = { overview: "Overview", companies: "Companies", projects: "Projects", users: "Users", roles: "Roles", modules: "Modules", usage: "Usage", settings: "Settings" };
 
 const orNull = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
   if (error instanceof AccessError && error.code === "NOT_FOUND") return null;
   throw error;
 });
 
-function Tabs({ id, tabs, current }: { id: string; tabs: readonly string[]; current: string }) {
+function Tabs({ id, tabs, current, t }: { id: string; tabs: readonly string[]; current: string; t: Translate<"adminOrgs"> }) {
   return (
-    <nav aria-label="Organization sections" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
+    <nav aria-label={t("detail.sectionsNav")} className="nesto-context-tabs overflow-x-auto" data-context-tabs>
       <ul className="border-b border-line flex min-w-max gap-1">
         {tabs.map((tab) => (
           <li key={tab}>
             <Link href={tab === "overview" ? `/admin/organizations/${id}` : `/admin/organizations/${id}?tab=${tab}`} scroll={false} aria-current={tab === current ? "page" : undefined} data-testid={`org-detail-tab-${tab}`} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", tab === current ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
-              {LABEL[tab]}
+              {t(`detail.tabs.${tab}` as "detail.tabs.overview")}
             </Link>
           </li>
         ))}
@@ -50,6 +54,7 @@ function Tabs({ id, tabs, current }: { id: string; tabs: readonly string[]; curr
  */
 export default async function OrganizationPage({ params, searchParams }: Props) {
   const [{ organizationId }, rawParams] = await Promise.all([params, searchParams]);
+  const t = await getTranslations("adminOrgs");
   const query = Object.fromEntries(Object.entries(rawParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const rawTab = query.tab;
   const context = await requirePlatformContext();
@@ -65,7 +70,7 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const org = { id: organizationId, name, open: status === "ACTIVE" || status === "IMPLEMENTING" || status === "READY_FOR_VALIDATION" };
   // A group company sits under its group, so the way back to the group is one click (§52, §101).
   const parent = company?.structure.group ? [{ label: company.structure.group.name, href: `/admin/organizations/${company.structure.group.id}?tab=companies` }] : [];
-  const crumbs = [{ label: "Organizations", href: "/admin/organizations" }, ...parent, tab === "overview" ? { label: name } : { label: name, href: `/admin/organizations/${organizationId}` }, ...(tab === "overview" ? [] : [{ label: LABEL[tab] }])];
+  const crumbs = [{ label: t("detail.organizations"), href: "/admin/organizations" }, ...parent, tab === "overview" ? { label: name } : { label: name, href: `/admin/organizations/${organizationId}` }, ...(tab === "overview" ? [] : [{ label: t(`detail.tabs.${tab}` as "detail.tabs.overview") }])];
 
   return (
     <div className="space-y-5">
@@ -75,11 +80,11 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
           <h1 className="text-page font-semibold text-fg">{name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted" data-testid="organization-kind">
             {group ? (
-              <><span>Parent Group</span><AdminStatusBadge status={group.group.status} /></>
+              <><span>{t("detail.kind.parentGroup")}</span><AdminStatusBadge status={group.group.status} /></>
             ) : company!.structure.group ? (
-              <><span>Company</span><span aria-hidden="true">·</span><Link href={`/admin/organizations/${company!.structure.group.id}`} className="text-accent-strong hover:underline" data-testid="company-structure">{company!.structure.group.name}</Link><AdminStatusBadge status={company!.company.status} /></>
+              <><span>{t("detail.kind.company")}</span><span aria-hidden="true">·</span><Link href={`/admin/organizations/${company!.structure.group.id}`} className="text-accent-strong hover:underline" data-testid="company-structure">{company!.structure.group.name}</Link><AdminStatusBadge status={company!.company.status} /></>
             ) : (
-              <><span data-testid="company-structure">Standalone Company</span><AdminStatusBadge status={company!.company.status} /></>
+              <><span data-testid="company-structure">{t("detail.kind.standaloneCompany")}</span><AdminStatusBadge status={company!.company.status} /></>
             )}
           </div>
         </div>
@@ -87,9 +92,9 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
           {group ? <GroupHeaderActions implementation={group} /> : <CompanyHeaderActions overview={company!} />}
         </div>
       </header>
-      <Tabs id={organizationId} tabs={tabs} current={tab} />
+      <Tabs id={organizationId} tabs={tabs} current={tab} t={t} />
       {tab === "overview" ? (group ? <GroupOverview implementation={group} /> : <CompanyOverview overview={company!} />) : null}
-      {!org.open ? <p className="nesto-card border-warning/40 p-3 text-table text-fg" role="status" data-testid="organization-closed">{name} is {status.toLowerCase()}. Its records are kept; users, roles and projects cannot be changed until it is reactivated.</p> : null}
+      {!org.open ? <p className="nesto-card border-warning/40 p-3 text-table text-fg" role="status" data-testid="organization-closed">{t("detail.closed", { name, status: statusWord(t, status) })}</p> : null}
       {tab === "companies" && group ? <GroupCompaniesTab context={context} group={org} /> : null}
       {tab === "projects" ? <ProjectsTab context={context} scope={scope} org={org} /> : null}
       {tab === "users" ? <UsersTab context={context} scope={scope} org={org} params={query} /> : null}

@@ -1,4 +1,9 @@
+"use client";
+
+import { useTranslations } from "@/components/i18n/i18n-provider";
+import { adminText } from "@/components/platform/admin-i18n";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import type { Translate } from "@/lib/i18n/translator";
 
 /**
  * One word per state across Platform Admin (Dashboard PRD §56): the same
@@ -35,10 +40,13 @@ const STATES: Record<string, { label: string; tone: BadgeProps["tone"] }> = {
   Deleted: { label: "Deleted", tone: "default" },
 };
 
-export function adminStatusLabel(status: string): string {
-  return STATES[status]?.label ?? status.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+/** The English word for a state; pass the admin translator for the reader's language. */
+export function adminStatusLabel(status: string, t?: Translate<"admin">): string {
+  const english = STATES[status]?.label ?? status.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  return t ? adminText(t, `status.${status}`, english) : english;
 }
 
 export function AdminStatusBadge({ status, className }: { status: string; className?: string }) {
-  return <Badge tone={STATES[status]?.tone ?? "default"} className={className}>{adminStatusLabel(status)}</Badge>;
+  const t = useTranslations("admin");
+  return <Badge tone={STATES[status]?.tone ?? "default"} className={className}>{adminStatusLabel(status, t)}</Badge>;
 }

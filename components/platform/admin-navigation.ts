@@ -90,10 +90,14 @@ export const adminDestinations: AdminDestination[] = [
       { label: "Recovery", href: "/admin/system/recovery", permission: "platform.recovery.view" },
       { label: "Data diagnostics", href: "/admin/system/diagnostics", permission: "platform.operations.view" },
       { label: "Support", href: "/admin/system/support", permission: "platform.support.view" },
-      { label: "Demo", href: "/admin/system/demo" },
     ],
   },
 ];
+
+/** The dictionary key of a tab (nav.tab.<key> in the admin namespace), from its href: "/admin/users/roles" → "users_roles". */
+export function adminTabKey(href: string): string {
+  return href.replace(/^\/admin\/?/, "").replaceAll("/", "_").replaceAll("-", "") || "dashboard";
+}
 
 /** The one destination a path belongs to, by hierarchy rather than equality (§12). */
 export function activeDestination(pathname: string): AdminDestination | undefined {

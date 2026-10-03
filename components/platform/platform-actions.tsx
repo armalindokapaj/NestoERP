@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
@@ -17,19 +18,19 @@ import type { GroupImplementationDTO, InitialUserResultDTO } from "@/lib/modules
  * its first project assignments, send it for validation and activate it.
  */
 
-const identityFields: FormField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
-  { name: "slug", label: "Slug", type: "text", required: true, hint: "Lowercase letters, digits and hyphens. Fixed once created." },
-  { name: "legalName", label: "Legal name", type: "text" },
-  { name: "country", label: "Country", type: "text" },
-  { name: "timezone", label: "Time zone", type: "text", placeholder: "Europe/Tirane" },
-  { name: "currency", label: "Currency", type: "text", placeholder: "EUR" },
-];
-
 type Open = "identity" | "company" | "person" | "project" | "ready" | "activate" | null;
 
 export function GroupImplementationActions({ implementation }: { implementation: GroupImplementationDTO }) {
+  const t = useTranslations("adminAccess");
   const { pending, run } = useCommand();
+  const identityFields: FormField[] = [
+    { name: "name", label: t("implementation.fields.name"), type: "text", required: true },
+    { name: "slug", label: t("implementation.fields.slug"), type: "text", required: true, hint: t("implementation.fields.slugHint") },
+    { name: "legalName", label: t("implementation.fields.legalName"), type: "text" },
+    { name: "country", label: t("implementation.fields.country"), type: "text" },
+    { name: "timezone", label: t("implementation.fields.timezone"), type: "text", placeholder: "Europe/Tirane" },
+    { name: "currency", label: t("implementation.fields.currency"), type: "text", placeholder: "EUR" },
+  ];
   const [open, setOpen] = React.useState<Open>(null);
   const [created, setCreated] = React.useState<InitialUserResultDTO | null>(null);
   const base = `/api/platform/parent-groups/${implementation.group.id}`;
@@ -41,73 +42,73 @@ export function GroupImplementationActions({ implementation }: { implementation:
 
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="implementation-actions">
-      {actions.canActivate ? <Button size="sm" onClick={() => setOpen("activate")}>Activate group</Button> : null}
-      {actions.canMarkReady ? <Button size="sm" variant="secondary" onClick={() => setOpen("ready")}>Send for validation</Button> : null}
-      {actions.canAddCompany ? <Button size="sm" variant="secondary" onClick={() => setOpen("company")}>New company</Button> : null}
-      {actions.canProvision && companies.length > 0 ? <Button size="sm" variant="secondary" onClick={() => setOpen("person")}>Add to roster</Button> : null}
-      {actions.canProvision && projects.length > 0 && people.length > 0 ? <Button size="sm" variant="ghost" onClick={() => setOpen("project")}>Assign to project</Button> : null}
-      {actions.canConfigure ? <Button size="sm" variant="ghost" onClick={() => setOpen("identity")}>Edit details</Button> : null}
+      {actions.canActivate ? <Button size="sm" onClick={() => setOpen("activate")}>{t("implementation.activateGroup")}</Button> : null}
+      {actions.canMarkReady ? <Button size="sm" variant="secondary" onClick={() => setOpen("ready")}>{t("implementation.sendForValidation")}</Button> : null}
+      {actions.canAddCompany ? <Button size="sm" variant="secondary" onClick={() => setOpen("company")}>{t("implementation.newCompany")}</Button> : null}
+      {actions.canProvision && companies.length > 0 ? <Button size="sm" variant="secondary" onClick={() => setOpen("person")}>{t("implementation.addToRoster")}</Button> : null}
+      {actions.canProvision && projects.length > 0 && people.length > 0 ? <Button size="sm" variant="ghost" onClick={() => setOpen("project")}>{t("implementation.assignToProject")}</Button> : null}
+      {actions.canConfigure ? <Button size="sm" variant="ghost" onClick={() => setOpen("identity")}>{t("implementation.editDetails")}</Button> : null}
 
       <FormDialog
         open={open === "identity"}
         onOpenChange={close}
-        title="Group details"
+        title={t("implementation.groupDetails")}
         fields={identityFields.filter((field) => field.name !== "slug")}
         initial={implementation.group}
-        submitLabel="Save"
+        submitLabel={t("implementation.save")}
         onSubmit={async (payload) => {
           await engineeringApi(base, { method: "PATCH", body: payload });
-          await run("identity", async () => null, "Group details saved.");
+          await run("identity", async () => null, t("implementation.groupDetailsSaved"));
         }}
       />
       <FormDialog
         open={open === "company"}
         onOpenChange={close}
-        title="New company"
-        description="Its settings, modules and numbering are created with it, and a branch of each department chosen below. The group's Owner and IT join it."
+        title={t("implementation.newCompany")}
+        description={t("implementation.newCompanyDescription")}
         fields={[
-          { name: "name", label: "Name", type: "text", required: true },
-          { name: "slug", label: "Code", type: "text", hint: "Optional. Made from the name when left empty." },
-          { name: "legalName", label: "Legal name", type: "text" },
-          { name: "registrationNumber", label: "Registration number", type: "text", hint: "The company is the employing legal entity." },
-          { name: "taxNumber", label: "Tax number", type: "text" },
-          { name: "industry", label: "Industry", type: "text" },
-          { name: "country", label: "Country", type: "text" },
-          { name: "address", label: "Address", type: "text", wide: true },
-          { name: "email", label: "Email", type: "email" },
-          { name: "phone", label: "Phone", type: "text" },
-          { name: "website", label: "Website", type: "text" },
+          { name: "name", label: t("implementation.fields.name"), type: "text", required: true },
+          { name: "slug", label: t("implementation.fields.code"), type: "text", hint: t("implementation.fields.codeHint") },
+          { name: "legalName", label: t("implementation.fields.legalName"), type: "text" },
+          { name: "registrationNumber", label: t("implementation.fields.registrationNumber"), type: "text", hint: t("implementation.fields.registrationHint") },
+          { name: "taxNumber", label: t("implementation.fields.taxNumber"), type: "text" },
+          { name: "industry", label: t("implementation.fields.industry"), type: "text" },
+          { name: "country", label: t("implementation.fields.country"), type: "text" },
+          { name: "address", label: t("implementation.fields.address"), type: "text", wide: true },
+          { name: "email", label: t("implementation.fields.email"), type: "email" },
+          { name: "phone", label: t("implementation.fields.phone"), type: "text" },
+          { name: "website", label: t("implementation.fields.website"), type: "text" },
           // The departments the company runs (E-13 §48, §49): only these get a branch.
           ...implementation.departmentOptions.map((department) => ({ name: `department:${department.id}`, label: `${department.name} (${department.code})`, type: "checkbox" as const })),
         ]}
         initial={Object.fromEntries(implementation.departmentOptions.map((department) => [`department:${department.id}`, true]))}
-        submitLabel="Create company"
+        submitLabel={t("implementation.createCompany")}
         wide
         testId="create-company-dialog"
         onSubmit={async (payload) => {
           const departmentIds = Object.entries(payload).filter(([key, value]) => key.startsWith("department:") && value === true).map(([key]) => key.slice("department:".length));
           const company = Object.fromEntries(Object.entries(payload).filter(([key]) => !key.startsWith("department:")));
           await engineeringApi(`${base}/companies`, { body: { ...company, disabledModules: [], departmentIds } });
-          await run("company", async () => null, "Company created.");
+          await run("company", async () => null, t("implementation.companyCreated"));
         }}
       />
       <FormDialog
         open={open === "person"}
         onOpenChange={close}
-        title="Add to the initial roster"
-        description="From the approved roster only. The Owner and Group IT work in every company; everyone else in the one chosen."
+        title={t("implementation.rosterTitle")}
+        description={t("implementation.rosterDescription")}
         fields={[
-          { name: "firstName", label: "First name", type: "text", required: true },
-          { name: "lastName", label: "Last name", type: "text", required: true },
-          { name: "workEmail", label: "Work email", type: "email" },
-          { name: "username", label: "Username", type: "text", hint: "Blank follows firstname.lastname." },
-          { name: "roleKey", label: "Role", type: "select", required: true, options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: roleLabel(value) })) },
-          { name: "companyId", label: "Company", type: "select", options: companies, emptyLabel: "Every company (Owner, Group IT)" },
-          { name: "position", label: "Position", type: "select", required: true, options: [{ value: "MEMBER", label: "Member" }, { value: "COMPANY_MANAGER", label: "Company department manager" }, { value: "GROUP_HEAD", label: "Group department head" }] },
-          { name: "jobTitle", label: "Job title", type: "text" },
+          { name: "firstName", label: t("implementation.fields.firstName"), type: "text", required: true },
+          { name: "lastName", label: t("implementation.fields.lastName"), type: "text", required: true },
+          { name: "workEmail", label: t("implementation.fields.workEmail"), type: "email" },
+          { name: "username", label: t("implementation.fields.username"), type: "text", hint: t("implementation.fields.usernameHint") },
+          { name: "roleKey", label: t("implementation.fields.role"), type: "select", required: true, options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: roleLabel(value) })) },
+          { name: "companyId", label: t("implementation.fields.company"), type: "select", options: companies, emptyLabel: t("implementation.fields.everyCompany") },
+          { name: "position", label: t("implementation.fields.position"), type: "select", required: true, options: [{ value: "MEMBER", label: t("implementation.positions.MEMBER") }, { value: "COMPANY_MANAGER", label: t("implementation.positions.COMPANY_MANAGER") }, { value: "GROUP_HEAD", label: t("implementation.positions.GROUP_HEAD") }] },
+          { name: "jobTitle", label: t("implementation.fields.jobTitle"), type: "text" },
         ]}
         initial={{ position: "MEMBER" }}
-        submitLabel="Create account"
+        submitLabel={t("implementation.createAccount")}
         // The credentials are shown once: never created from an unsaved-changes prompt (AUD-03 §3).
         saveKind="none"
         wide
@@ -117,70 +118,70 @@ export function GroupImplementationActions({ implementation }: { implementation:
             body: { ...payload, companyId: undefined, companyIds: payload.companyId ? [payload.companyId] : [] },
           });
           setCreated(result);
-          await run("person", async () => null, "Account created.");
+          await run("person", async () => null, t("implementation.accountCreated"));
         }}
       />
       <FormDialog
         open={open === "project"}
         onOpenChange={close}
-        title="Assign to a project"
+        title={t("implementation.assignTitle")}
         fields={[
-          { name: "userId", label: "Person", type: "select", required: true, options: people },
-          { name: "projectId", label: "Project", type: "select", required: true, options: projects },
-          { name: "projectRole", label: "Role on the project", type: "text" },
+          { name: "userId", label: t("implementation.fields.person"), type: "select", required: true, options: people },
+          { name: "projectId", label: t("implementation.fields.project"), type: "select", required: true, options: projects },
+          { name: "projectRole", label: t("implementation.fields.projectRole"), type: "text" },
         ]}
         initial={{ userId: people[0]?.value, projectId: projects[0]?.value }}
-        submitLabel="Assign"
+        submitLabel={t("implementation.assign")}
         onSubmit={async (payload) => {
           await engineeringApi(`${base}/initial-project-members`, { body: payload });
-          await run("project", async () => null, "Assigned.");
+          await run("project", async () => null, t("implementation.assigned"));
         }}
       />
       <ConfirmDialog
         open={open === "ready"}
         onOpenChange={close}
-        title="Send the implementation for validation?"
-        description="The Owner and stakeholders check companies, departments, people, roles, managers and projects before the group goes live."
-        confirmLabel="Send for validation"
+        title={t("implementation.readyTitle")}
+        description={t("implementation.readyDescription")}
+        confirmLabel={t("implementation.sendForValidation")}
         destructive={false}
         pending={pending === "ready"}
-        onConfirm={() => void run("ready", () => engineeringApi(`${base}/ready`, { body: {} }), "Sent for validation.", () => setOpen(null))}
+        onConfirm={() => void run("ready", () => engineeringApi(`${base}/ready`, { body: {} }), t("implementation.readySent"), () => setOpen(null))}
       />
       <ConfirmDialog
         open={open === "activate"}
         onOpenChange={close}
-        title={`Activate ${implementation.group.name}?`}
-        description="The group goes live. From now on HR and Group IT add people, and department managers assign projects; the initial roster closes."
-        confirmLabel="Activate group"
+        title={t("implementation.activateTitle", { name: implementation.group.name })}
+        description={t("implementation.activateDescription")}
+        confirmLabel={t("implementation.activateGroup")}
         destructive={false}
         pending={pending === "activate"}
-        onConfirm={() => void run("activate", () => engineeringApi(`${base}/activate`, { body: {} }), "Group activated.", () => setOpen(null))}
+        onConfirm={() => void run("activate", () => engineeringApi(`${base}/activate`, { body: {} }), t("implementation.activated"), () => setOpen(null))}
       />
 
       <Dialog open={created !== null} onOpenChange={(next) => !next && setCreated(null)}>
         <DialogContent className="max-w-md" data-testid="initial-user-credentials">
-          <DialogTitle>Account created</DialogTitle>
-          <DialogDescription>Hand these over securely. The temporary password is not shown again and must be changed at first sign-in.</DialogDescription>
+          <DialogTitle>{t("implementation.credentialsTitle")}</DialogTitle>
+          <DialogDescription>{t("implementation.credentialsDescription")}</DialogDescription>
           {created ? (
             <dl className="mt-4 space-y-3">
               <div>
-                <dt className="text-meta text-fg-subtle">Username</dt>
+                <dt className="text-meta text-fg-subtle">{t("implementation.username")}</dt>
                 <dd className="flex items-center gap-2 font-mono text-body text-fg">
                   {created.username}
-                  <CopyButton value={created.username} label="Copy username" />
+                  <CopyButton value={created.username} label={t("implementation.copyUsername")} />
                 </dd>
               </div>
               <div>
-                <dt className="text-meta text-fg-subtle">Temporary password</dt>
+                <dt className="text-meta text-fg-subtle">{t("implementation.temporaryPassword")}</dt>
                 <dd className="flex items-center gap-2 font-mono text-body text-fg">
                   {created.temporaryPassword}
-                  <CopyButton value={created.temporaryPassword} label="Copy password" />
+                  <CopyButton value={created.temporaryPassword} label={t("implementation.copyPassword")} />
                 </dd>
               </div>
             </dl>
           ) : null}
           <DialogFooter>
-            <Button onClick={() => setCreated(null)}>Done</Button>
+            <Button onClick={() => setCreated(null)}>{t("implementation.done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

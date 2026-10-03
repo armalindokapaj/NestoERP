@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, type FormField } from "@/components/engineering/form-kit";
 import { MoreHorizontal } from "lucide-react";
@@ -60,14 +61,15 @@ function clean(payload: Record<string, unknown>) {
 
 type DialogProps = Omit<Props, "label" | "variant" | "size" | "openOnCreate">;
 
-function CommandDialog({ open, setOpen, title, description, action, fixed = {}, fields = [], initial, submitLabel, success = "Platform updated.", reasonOnly = false, destructive = false, redirectTo }: DialogProps & { open: boolean; setOpen: (open: boolean) => void; submitLabel: string }) {
+function CommandDialog({ open, setOpen, title, description, action, fixed = {}, fields = [], initial, submitLabel, success, reasonOnly = false, destructive = false, redirectTo }: DialogProps & { open: boolean; setOpen: (open: boolean) => void; submitLabel: string }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("admin");
 
   async function submit(payload: Record<string, unknown>) {
     const result = await engineeringApi<({ pageRefresh?: "complete" | "pending" } & Record<string, unknown>) | undefined>("/api/platform-admin/command", { body: { ...clean(payload), action, ...fixed } });
     // A maintenance change is saved even when pages have not caught up yet (NAV-02 CACHE-02).
-    toast(result?.pageRefresh === "pending" ? { title: "Setting saved. Page updates may take up to five seconds.", tone: "success" } : { title: success, tone: "success" });
+    toast(result?.pageRefresh === "pending" ? { title: t("command.settingSaved"), tone: "success" } : { title: success ?? t("command.updated"), tone: "success" });
     if (redirectTo) {
       router.push(redirectTo.replace(/\{(\w+)\}/g, (_, key: string) => encodeURIComponent(String(result?.[key] ?? ""))));
       return;
@@ -97,7 +99,9 @@ export function PlatformCommandButton({ label, variant = "secondary", size = "sm
  * rarely used and destructive actions stay reachable without a large
  * permanent button. Each item opens the same dialog its button would.
  */
-export function PlatformCommandMenu({ items, label = "More actions" }: { items: Array<Omit<Props, "variant" | "size" | "openOnCreate">>; label?: string }) {
+export function PlatformCommandMenu({ items, label }: { items: Array<Omit<Props, "variant" | "size" | "openOnCreate">>; label?: string }) {
+  const t = useTranslations("admin");
+  const menuLabel = label ?? t("command.moreActions");
   const [active, setActive] = React.useState<number | null>(null);
   if (items.length === 0) return null;
   const current = active === null ? null : items[active];
@@ -105,7 +109,7 @@ export function PlatformCommandMenu({ items, label = "More actions" }: { items: 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="secondary" size="sm" aria-label={label} data-testid="organization-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
+          <Button type="button" variant="secondary" size="sm" aria-label={menuLabel} data-testid="organization-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {items.map((item, index) => (

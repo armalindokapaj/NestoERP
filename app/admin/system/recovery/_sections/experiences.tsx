@@ -1,3 +1,4 @@
+import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { Badge } from "@/components/ui/badge";
@@ -10,23 +11,24 @@ import { formatDate } from "@/lib/utils/format";
 
 /** Deleted 3D experiences inside their restoration window. A restore returns one offline with a new public link. */
 export async function RecoveryExperiences() {
+  const t = await getTranslations("adminPlatform");
   const context = await requirePlatformContext();
   const rows = await listDeletedExperiences(context);
   const canRestore = canPlatform(context, "platform.recovery.restore") && canPlatform(context, "platform.3d.experience.restore");
   return (
     <div className="space-y-5">
-      <PageHeader title="Recover 3D experiences" description="A restored experience comes back offline with a new public link; opening it to viewers is a separate decision." />
+      <PageHeader title={t("system.recovery.experiences.title")} description={t("system.recovery.experiences.description")} />
       {rows.length === 0 ? (
-        <EmptyState title="No deleted 3D experiences" description="Experiences deleted from 3D / Rozaris appear here until their files are removed." />
+        <EmptyState title={t("system.recovery.experiences.empty")} description={t("system.recovery.experiences.emptyDescription")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table stack flush aria-label="Deleted 3D experiences" data-testid="deleted-experiences">
+          <Table stack flush aria-label={t("system.recovery.experiences.tableLabel")} data-testid="deleted-experiences">
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Experience</TableHeaderCell>
-                <TableHeaderCell>Company</TableHeaderCell>
-                <TableHeaderCell>Deleted</TableHeaderCell>
-                <TableHeaderCell>Files removed after</TableHeaderCell>
+                <TableHeaderCell>{t("system.recovery.experiences.cols.experience")}</TableHeaderCell>
+                <TableHeaderCell>{t("system.recovery.experiences.cols.company")}</TableHeaderCell>
+                <TableHeaderCell>{t("system.recovery.experiences.cols.deleted")}</TableHeaderCell>
+                <TableHeaderCell>{t("system.recovery.experiences.cols.filesRemoved")}</TableHeaderCell>
                 <TableHeaderCell />
               </TableRow>
             </TableHead>
@@ -38,7 +40,7 @@ export async function RecoveryExperiences() {
                   <TableCell>{formatDate(row.deletedAt)}</TableCell>
                   <TableCell>{row.purgeAfter ? formatDate(row.purgeAfter) : "—"}</TableCell>
                   <TableCell className="text-right">
-                    {!row.restorable ? <Badge tone="default">Window ended</Badge> : canRestore ? <PlatformCommandButton label="Restore" title={`Restore ${row.name}?`} description="It returns offline with a new public link. Old share links stay dead." action="experience3d.restore" fixed={{ projectId: row.projectId, expectedControlVersion: row.controlVersion }} reasonOnly submitLabel="Restore" success="3D experience restored." /> : null}
+                    {!row.restorable ? <Badge tone="default">{t("system.recovery.experiences.windowEnded")}</Badge> : canRestore ? <PlatformCommandButton label={t("common.restore")} title={t("system.recovery.experiences.restoreTitle", { name: row.name })} description={t("system.recovery.experiences.restoreDescription")} action="experience3d.restore" fixed={{ projectId: row.projectId, expectedControlVersion: row.controlVersion }} reasonOnly submitLabel={t("common.restore")} success={t("system.recovery.experiences.restored")} /> : null}
                   </TableCell>
                 </TableRow>
               ))}

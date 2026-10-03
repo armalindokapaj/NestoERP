@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 
 export type ExperienceProvisioningGroup = {
   id: string;
@@ -38,9 +39,10 @@ function locate(groups: ExperienceProvisioningGroup[], projectId: string | undef
   return { groupId: "", companyId: "", projectId: "" };
 }
 
-export function NewExperienceDialog({ groups, triggerLabel = "New Experience", initialProjectId, defaultOpen = false }: { groups: ExperienceProvisioningGroup[]; triggerLabel?: string; initialProjectId?: string; defaultOpen?: boolean }) {
+export function NewExperienceDialog({ groups, triggerLabel, initialProjectId, defaultOpen = false }: { groups: ExperienceProvisioningGroup[]; triggerLabel?: string; initialProjectId?: string; defaultOpen?: boolean }) {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("adminPlatform");
   const start = locate(groups, initialProjectId);
   const [open, setOpen] = React.useState(defaultOpen && Boolean(start.projectId));
   const [step, setStep] = React.useState(1);
@@ -71,7 +73,7 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience", i
     setProjectId(value);
     const selected = availableProjects.find((item) => item.id === value);
     if (selected) {
-      setExperienceName(`${selected.name} 3D Experience`);
+      setExperienceName(t("threeDAdmin.newExperience.defaultName", { name: selected.name }));
       const existing = selected._count.buildings + selected._count.floors + selected._count.units > 0;
       setStructureMode(existing ? "USE_EXISTING" : "CREATE_NOW");
     }
@@ -79,66 +81,66 @@ export function NewExperienceDialog({ groups, triggerLabel = "New Experience", i
 
   function advance() {
     setError(null);
-    if (step === 1 && !project) return setError("Choose a Group, Company, and Project.");
-    if (step === 2 && experienceName.trim().length < 2) return setError("Give the Experience a name.");
+    if (step === 1 && !project) return setError(t("threeDAdmin.newExperience.chooseAll"));
+    if (step === 2 && experienceName.trim().length < 2) return setError(t("threeDAdmin.newExperience.nameRequired"));
     setStep((current) => Math.min(4, current + 1));
   }
 
   async function create() {
-    if (!group || !company || !project) return setError("Choose a valid Project.");
+    if (!group || !company || !project) return setError(t("threeDAdmin.newExperience.invalidProject"));
     setPending(true); setError(null);
     try {
       const result = await engineeringApi<{ openPath: string }>("/api/platform/3d/experiences", {
         method: "POST",
         body: { parentGroupId: group.id, companyId: company.id, projectId: project.id, experienceName, internalNotes: internalNotes.trim() || null, activateEntitlement: true, structureMode },
       });
-      toast({ title: "3D Experience created.", tone: "success" });
+      toast({ title: t("threeDAdmin.newExperience.created"), tone: "success" });
       setOpen(false); reset();
       router.push(result.openPath); router.refresh();
     } catch (failure) {
-      setError(failureMessage(failure, "The 3D Experience could not be created."));
+      setError(failureMessage(failure, t("threeDAdmin.newExperience.createFailed")));
     } finally { setPending(false); }
   }
 
   return <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) reset(); }}>
-    <DialogTrigger asChild><Button type="button"><Plus />{triggerLabel}</Button></DialogTrigger>
+    <DialogTrigger asChild><Button type="button"><Plus />{triggerLabel ?? t("threeDAdmin.newExperience.defaultTrigger")}</Button></DialogTrigger>
     <DialogContent className="max-w-2xl">
-      <DialogTitle>New 3D Experience</DialogTitle>
-      <DialogDescription>Provision the Platform workspace against one canonical NESTO Project.</DialogDescription>
-      <ol className="mt-5 grid grid-cols-4 gap-2" aria-label="Creation progress">
-        {["Project", "Details", "Structure", "Review"].map((label, index) => <li key={label} className={`rounded-lg border px-3 py-2 text-center text-meta font-medium ${step === index + 1 ? "border-accent bg-accent-soft text-accent-strong" : step > index + 1 ? "border-success/30 bg-success-soft text-success-strong" : "border-line text-fg-subtle"}`}>{step > index + 1 ? <Check className="mr-1 inline size-3" /> : null}{label}</li>)}
+      <DialogTitle>{t("threeDAdmin.newExperience.title")}</DialogTitle>
+      <DialogDescription>{t("threeDAdmin.newExperience.description")}</DialogDescription>
+      <ol className="mt-5 grid grid-cols-4 gap-2" aria-label={t("threeDAdmin.newExperience.progressLabel")}>
+        {(["project", "details", "structure", "review"] as const).map((key, index) => <li key={key} className={`rounded-lg border px-3 py-2 text-center text-meta font-medium ${step === index + 1 ? "border-accent bg-accent-soft text-accent-strong" : step > index + 1 ? "border-success/30 bg-success-soft text-success-strong" : "border-line text-fg-subtle"}`}>{step > index + 1 ? <Check className="mr-1 inline size-3" /> : null}{t(`threeDAdmin.newExperience.steps.${key}`)}</li>)}
       </ol>
 
       <div className="mt-5 min-h-72">
         {step === 1 ? <div className="space-y-4">
-          <Field label="Group"><select className={selectClass} value={groupId} onChange={(event) => { setGroupId(event.target.value); setCompanyId(""); setProjectId(""); }}><option value="">Choose a Group</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-          <Field label="Company"><select className={selectClass} value={companyId} disabled={!group} onChange={(event) => { setCompanyId(event.target.value); setProjectId(""); }}><option value="">Choose a Company</option>{group?.companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-          <Field label="Project"><select className={selectClass} value={projectId} disabled={!company} onChange={(event) => chooseProject(event.target.value)}><option value="">Choose an unprovisioned Project</option>{availableProjects.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></Field>
-          {company && availableProjects.length === 0 ? <p className="rounded-lg bg-info-soft p-3 text-table text-info-strong">Every Project in this Company already has an Experience.</p> : null}
+          <Field label={t("threeDAdmin.newExperience.group")}><select className={selectClass} value={groupId} onChange={(event) => { setGroupId(event.target.value); setCompanyId(""); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseGroup")}</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+          <Field label={t("threeDAdmin.newExperience.company")}><select className={selectClass} value={companyId} disabled={!group} onChange={(event) => { setCompanyId(event.target.value); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseCompany")}</option>{group?.companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+          <Field label={t("threeDAdmin.newExperience.project")}><select className={selectClass} value={projectId} disabled={!company} onChange={(event) => chooseProject(event.target.value)}><option value="">{t("threeDAdmin.newExperience.chooseProject")}</option>{availableProjects.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></Field>
+          {company && availableProjects.length === 0 ? <p className="rounded-lg bg-info-soft p-3 text-table text-info-strong">{t("threeDAdmin.newExperience.allProvisioned")}</p> : null}
         </div> : null}
 
         {step === 2 ? <div className="space-y-4">
-          <Field label="Experience name"><Input value={experienceName} onChange={(event) => setExperienceName(event.target.value)} maxLength={160} /></Field>
-          <Field label="Internal notes"><Textarea value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} maxLength={2000} placeholder="Platform-only implementation notes" /></Field>
-          <div className="rounded-lg border border-line bg-surface-muted p-3 text-table text-fg-muted">The Experience uses the canonical Project cover. Change that cover from the Project workspace.</div>
-          <label className="flex items-center gap-2 text-body text-fg"><input type="checkbox" checked disabled /> Activate the premium 3D entitlement</label>
+          <Field label={t("threeDAdmin.newExperience.experienceName")}><Input value={experienceName} onChange={(event) => setExperienceName(event.target.value)} maxLength={160} /></Field>
+          <Field label={t("threeDAdmin.newExperience.internalNotes")}><Textarea value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} maxLength={2000} placeholder={t("threeDAdmin.newExperience.notesPlaceholder")} /></Field>
+          <div className="rounded-lg border border-line bg-surface-muted p-3 text-table text-fg-muted">{t("threeDAdmin.newExperience.coverNote")}</div>
+          <label className="flex items-center gap-2 text-body text-fg"><input type="checkbox" checked disabled /> {t("threeDAdmin.newExperience.activateEntitlement")}</label>
         </div> : null}
 
         {step === 3 && project ? <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">{(["buildings", "floors", "units"] as const).map((key) => <div key={key} className="rounded-xl border border-line bg-surface-muted p-4"><p className="text-page font-semibold text-fg">{project._count[key]}</p><p className="capitalize text-meta text-fg-muted">{key}</p></div>)}</div>
-          <p className="text-body text-fg-muted">{hasStructure ? "Canonical Project structure is available and can be used immediately." : "This Project has no canonical structure yet."}</p>
-          {([hasStructure ? ["USE_EXISTING", "Use existing structure", "Keep the canonical Buildings, Floors, and Units already on this Project."] : null, ["CREATE_NOW", "Create structure now", "Open Project Structure after provisioning."], ["CREATE_LATER", "Create structure later", "Open the Overview and configure structure when ready."]] as Array<[StructureMode, string, string] | null>).filter(Boolean).map((option) => option && <label key={option[0]} className={`block cursor-pointer rounded-xl border p-4 ${structureMode === option[0] ? "border-accent bg-accent-soft" : "border-line"}`}><span className="flex items-start gap-3"><input type="radio" name="structureMode" checked={structureMode === option[0]} onChange={() => setStructureMode(option[0])} /><span><span className="block text-body font-semibold text-fg">{option[1]}</span><span className="text-table text-fg-muted">{option[2]}</span></span></span></label>)}
+          <div className="grid grid-cols-3 gap-3">{(["buildings", "floors", "units"] as const).map((key) => <div key={key} className="rounded-xl border border-line bg-surface-muted p-4"><p className="text-page font-semibold text-fg">{project._count[key]}</p><p className="capitalize text-meta text-fg-muted">{t(`threeDAdmin.newExperience.counts.${key}`)}</p></div>)}</div>
+          <p className="text-body text-fg-muted">{hasStructure ? t("threeDAdmin.newExperience.structureAvailable") : t("threeDAdmin.newExperience.structureNone")}</p>
+          {(hasStructure ? (["USE_EXISTING", "CREATE_NOW", "CREATE_LATER"] as const) : (["CREATE_NOW", "CREATE_LATER"] as const)).map((mode) => <label key={mode} className={`block cursor-pointer rounded-xl border p-4 ${structureMode === mode ? "border-accent bg-accent-soft" : "border-line"}`}><span className="flex items-start gap-3"><input type="radio" name="structureMode" checked={structureMode === mode} onChange={() => setStructureMode(mode)} /><span><span className="block text-body font-semibold text-fg">{t(`threeDAdmin.newExperience.modes.${mode}.title`)}</span><span className="text-table text-fg-muted">{t(`threeDAdmin.newExperience.modes.${mode}.detail`)}</span></span></span></label>)}
         </div> : null}
 
         {step === 4 && project && group && company ? <div className="space-y-4">
-          <dl className="grid gap-3 rounded-xl border border-line bg-surface-muted p-4 sm:grid-cols-2"><Review label="Experience" value={experienceName} /><Review label="Project" value={`${project.code} · ${project.name}`} /><Review label="Organization" value={`${group.name} · ${company.name}`} /><Review label="Structure" value={structureMode === "USE_EXISTING" ? "Use existing" : structureMode === "CREATE_NOW" ? "Create now" : "Create later"} /><Review label="Entitlement" value="Active · viewer enabled" /></dl>
+          <dl className="grid gap-3 rounded-xl border border-line bg-surface-muted p-4 sm:grid-cols-2"><Review label={t("threeDAdmin.newExperience.reviewExperience")} value={experienceName} /><Review label={t("threeDAdmin.newExperience.reviewProject")} value={`${project.code} · ${project.name}`} /><Review label={t("threeDAdmin.newExperience.reviewOrganization")} value={`${group.name} · ${company.name}`} /><Review label={t("threeDAdmin.newExperience.reviewStructure")} value={t(`threeDAdmin.newExperience.reviewModes.${structureMode}`)} /><Review label={t("threeDAdmin.newExperience.reviewEntitlement")} value={t("threeDAdmin.newExperience.entitlementValue")} /></dl>
         </div> : null}
       </div>
 
       {error ? <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-table text-danger-strong">{error}</p> : null}
       <DialogFooter className="justify-between">
-        <Button type="button" variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))} disabled={step === 1 || pending}><ArrowLeft />Back</Button>
-        {step < 4 ? <Button type="button" onClick={advance}>Continue<ArrowRight /></Button> : <Button type="button" onClick={() => void create()} disabled={pending}>{pending ? "Creating…" : "Create Experience"}</Button>}
+        <Button type="button" variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))} disabled={step === 1 || pending}><ArrowLeft />{t("threeDAdmin.newExperience.back")}</Button>
+        {step < 4 ? <Button type="button" onClick={advance}>{t("threeDAdmin.newExperience.continue")}<ArrowRight /></Button> : <Button type="button" onClick={() => void create()} disabled={pending}>{pending ? t("threeDAdmin.newExperience.creating") : t("threeDAdmin.newExperience.create")}</Button>}
       </DialogFooter>
     </DialogContent>
   </Dialog>;
