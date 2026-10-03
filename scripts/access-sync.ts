@@ -9,12 +9,12 @@
  *
  *   tsx scripts/access-sync.ts
  */
-import { appEnvironment } from "../lib/config/env";
 import { syncAccessConfiguration } from "../lib/core/access/access-sync.service";
 import { prisma } from "../lib/database/prisma";
 
 async function main() {
-  console.log(`Access sync — environment=${appEnvironment()}\n`);
+  // Not the validated app environment: this runs during the build, where the runtime secrets and URLs are not all present.
+  console.log(`Access sync — environment=${process.env.APP_ENV ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development"}\n`);
   const result = await syncAccessConfiguration(prisma);
   console.log(
     `  ${result.roles} roles, ${result.permissions} permissions, ${result.modules} modules, ` +
