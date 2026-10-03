@@ -94,7 +94,7 @@ export default async function OrganizationsPage({ searchParams }: Props) {
           )
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Organizations">
+            <Table stack flush aria-label="Organizations">
               <TableHead>
                 <TableRow>
                   {sortHeader("Organization", "name")}

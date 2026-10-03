@@ -28,29 +28,29 @@ export default async function AuditLogPage({ searchParams }: Props) {
     const params = new URLSearchParams(Object.entries({ ...Object.fromEntries(FILTER_KEYS.map((key) => [key, filter[key]])), page: String(filter.page), ...changes }).filter(([key, value]) => value !== "" && !(key === "page" && value === "1")));
     return params.size ? `?${params}` : "";
   };
-  const field = "h-9 rounded-lg border border-line bg-surface px-2.5 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+  const field = "h-11 w-full rounded-lg border border-line bg-surface px-2.5 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:h-9 sm:w-auto";
   return (
     <div className="space-y-4">
       <PageHeader title="Audit Log" description="Who did what, to which record, and when — across the platform." actions={<a href={`/api/platform-admin/audit/export${query({ page: "1" })}`} className="inline-flex h-9 items-center rounded-lg border border-line px-3.5 text-table font-medium text-fg hover:bg-hover" data-testid="audit-export">Export CSV</a>} />
-      <form method="get" action="/admin/audit" className="nesto-card flex flex-wrap items-end gap-2 p-3" aria-label="Filter audit events">
-        <label className="flex flex-col gap-1 text-meta text-fg-subtle">Search<input name="q" defaultValue={filter.q} placeholder="Actor, record, action..." className={field} /></label>
-        <label className="flex flex-col gap-1 text-meta text-fg-subtle">Actor<input name="actor" defaultValue={filter.actor} className={field} /></label>
-        <label className="flex flex-col gap-1 text-meta text-fg-subtle">Action<input name="action" defaultValue={filter.action} className={field} /></label>
+      <form method="get" action="/admin/audit" className="nesto-card grid grid-cols-2 gap-2 p-3 sm:flex sm:flex-wrap sm:items-end" aria-label="Filter audit events">
+        <label className="col-span-2 flex flex-col gap-1 text-meta text-fg-subtle sm:col-auto">Search<input name="q" defaultValue={filter.q} placeholder="Actor, record, action..." className={field} /></label>
+        <label className="col-span-2 flex flex-col gap-1 text-meta text-fg-subtle sm:col-auto">Actor<input name="actor" defaultValue={filter.actor} className={field} /></label>
+        <label className="col-span-2 flex flex-col gap-1 text-meta text-fg-subtle sm:col-auto">Action<input name="action" defaultValue={filter.action} className={field} /></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">Record type<select name="entity" defaultValue={filter.entity} className={field}><option value="">Any</option>{options.entities.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">Group<select name="org" defaultValue={filter.org} className={field}><option value="">Any</option>{options.organizations.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">Category<select name="category" defaultValue={filter.category} className={field}><option value="">Any</option>{options.categories.map((value) => <option key={value} value={value}>{value.toLowerCase().replaceAll("_", " ")}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">Severity<select name="severity" defaultValue={filter.severity} className={field}><option value="">Any</option><option value="INFO">Info</option><option value="IMPORTANT">Important</option><option value="CRITICAL">Critical</option></select></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">From<input type="date" name="from" defaultValue={filter.from} className={field} /></label>
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">To<input type="date" name="to" defaultValue={filter.to} className={field} /></label>
-        <button type="submit" className="h-9 rounded-lg bg-accent px-3.5 text-table font-medium text-accent-fg hover:bg-accent-strong">Apply</button>
-        {filtered ? <Link href="/admin/audit" className="h-9 px-2 text-table leading-9 text-fg-muted hover:text-fg">Clear</Link> : null}
+        <button type="submit" className="col-span-2 h-11 rounded-lg bg-accent px-3.5 text-table font-medium text-accent-fg hover:bg-accent-strong sm:col-auto sm:h-9">Apply</button>
+        {filtered ? <Link href="/admin/audit" className="col-span-2 h-11 px-2 text-center text-table leading-[2.75rem] text-fg-muted hover:text-fg sm:col-auto sm:h-9 sm:leading-9">Clear</Link> : null}
       </form>
       <section className="nesto-card overflow-hidden" data-testid="audit-log">
         {rows.length === 0 ? (
           filtered ? <NoResultsState className="m-4" noun="events" clearHref="/admin/audit" /> : <EmptyState className="m-4" title="No audit events have been recorded yet." />
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Audit events">
+            <Table stack flush aria-label="Audit events">
               <TableHead><TableRow><TableHeaderCell>Time</TableHeaderCell><TableHeaderCell>Actor</TableHeaderCell><TableHeaderCell>Action</TableHeaderCell><TableHeaderCell className="max-md:hidden">Record</TableHeaderCell><TableHeaderCell className="max-lg:hidden">Organization</TableHeaderCell><TableHeaderCell>Severity</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

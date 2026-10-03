@@ -59,7 +59,7 @@ async function ByOrganization({ context, raw }: { context: Awaited<ReturnType<ty
           filtered ? <NoResultsState className="m-4" noun="companies" clearHref="/admin/modules" /> : <EmptyState className="m-4" title="No Companies found." description="Create a Company before assigning modules." />
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Company entitlements">
+            <Table stack flush aria-label="Company entitlements">
               <TableHead><TableRow><TableHeaderCell>Company</TableHeaderCell><TableHeaderCell className="max-md:hidden">Parent Group</TableHeaderCell><TableHeaderCell>Plan</TableHeaderCell><TableHeaderCell>Modules</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Projects</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (
@@ -135,7 +135,7 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
           <EmptyState className="m-4" title="No Companies currently use this module." />
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label={`${selected.name} companies`}>
+            <Table stack flush aria-label={`${selected.name} companies`}>
               <TableHead><TableRow><TableHeaderCell>Company</TableHeaderCell><TableHeaderCell className="max-md:hidden">Group</TableHeaderCell><TableHeaderCell>Plan</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Since</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {holders.map((row) => (

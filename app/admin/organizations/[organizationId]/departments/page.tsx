@@ -77,7 +77,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
         <h2 id="platform-departments" className="sr-only">
           The group&apos;s departments
         </h2>
-        <Table flush aria-labelledby="platform-departments">
+        <Table stack flush aria-labelledby="platform-departments">
           <TableHead>
             <TableRow>
               <TableHeaderCell>Department</TableHeaderCell>
@@ -129,7 +129,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
             <span className="text-fg">{selected.groupHead?.name ?? "—"}</span>
             {selected.capabilities.canAssignHead ? <AppointButton api={api} target={{ kind: "head", departmentId: selected.id }} title={`${selected.groupHead ? "Replace" : "Assign"} the head of ${selected.name}`} holder={selected.groupHead?.name ?? null} candidates={headOptions} /> : null}
           </div>
-          <Table flush aria-label={`${selected.name} by company`}>
+          <Table stack flush aria-label={`${selected.name} by company`}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Company</TableHeaderCell>

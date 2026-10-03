@@ -33,7 +33,7 @@ export async function RecoveryDocuments({ searchParams }: Props) {
         <EmptyState title={q ? "No archived document matches" : "No archived documents"} description={q ? "Try another name." : "Documents a company archives appear here."} />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label="Archived documents" data-testid="archived-documents">
+          <Table stack flush aria-label="Archived documents" data-testid="archived-documents">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Document</TableHeaderCell>

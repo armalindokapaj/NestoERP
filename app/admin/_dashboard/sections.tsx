@@ -167,7 +167,7 @@ export async function OrganizationsSection({ context }: { context: PlatformConte
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Recent organizations">
+          <Table stack flush aria-label="Recent organizations">
             <TableHead><TableRow><TableHeaderCell>Organization</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Type</TableHeaderCell><TableHeaderCell className="max-md:hidden">Companies</TableHeaderCell><TableHeaderCell>Projects</TableHeaderCell><TableHeaderCell className="max-md:hidden">Users</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -200,7 +200,7 @@ export async function ProjectsSection({ context, summary }: { context: PlatformC
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Recent projects">
+          <Table stack flush aria-label="Recent projects">
             <TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Company</TableHeaderCell><TableHeaderCell>3D</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (

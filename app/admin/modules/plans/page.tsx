@@ -43,7 +43,7 @@ export default async function PlansPage() {
     <div className="space-y-5">
       <PageHeader title="Plans" description="Reusable module and limit templates. A company can also be Custom, with exceptions only." actions={canManage ? <PlatformCommandButton label="New plan" title="New plan" action="plan.save" variant="primary" fields={fields} initial={initial()} submitLabel="Create plan" success="Plan created." /> : undefined} />
       <section className="nesto-card overflow-x-auto">
-        <Table flush aria-label="Plans">
+        <Table stack flush aria-label="Plans">
           <TableHead><TableRow><TableHeaderCell>Plan</TableHeaderCell><TableHeaderCell>Modules</TableHeaderCell><TableHeaderCell className="max-md:hidden">Limits</TableHeaderCell><TableHeaderCell>Companies</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
           <TableBody>
             {plans.map((plan) => (

@@ -780,6 +780,40 @@ html[data-unsaved-masked] [data-experience-editor] {
   [data-admin-shell] { --nesto-gutter: 2rem; }
 }
 
+/*
+ * Tables that opt in with `stack` read as cards on a phone (Table, `stack`):
+ * the heading row is kept for screen readers, each row is one card, its first
+ * cell the title and the others "label  value" lines. No sideways scroll.
+ */
+@media (max-width: 767.98px) {
+  table[data-stack] { display: block; }
+  table[data-stack] thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  table[data-stack] tbody { display: block; }
+  table[data-stack] tr {
+    display: block; position: relative; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-line);
+  }
+  table[data-stack] tr:last-child { border-bottom: 0; }
+  table[data-stack] td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    height: auto; min-height: 0; padding: 0.125rem 0; text-align: right;
+  }
+  table[data-stack] td:first-child { display: block; padding-bottom: 0.25rem; text-align: left; font-size: var(--text-card, 1rem); }
+  table[data-stack] td[data-label]:not([data-label=""])::before {
+    content: attr(data-label); flex: none; text-align: left; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-fg-subtle);
+  }
+  /* Wide cells (a record's description, an id) wrap inside the card rather than push it sideways. */
+  table[data-stack] td > * { min-width: 0; overflow-wrap: anywhere; }
+}
+
+/* Admin on a phone: fields are thumb-sized and 16px, so iOS does not zoom the page on focus. */
+@media (max-width: 767.98px) {
+  [data-admin-shell] main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    min-height: 2.75rem; font-size: 1rem;
+  }
+}
+
 @layer components {
   /* The sticky context-tab row (Sticky Navigation §3, §9): under the breadcrumb bar, opaque, full width of the column. */
   .nesto-context-tabs {

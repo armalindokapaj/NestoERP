@@ -128,7 +128,7 @@ async function SessionsTab({ context, userId, name }: { context: Context; userId
       </div>
       {rows.length === 0 ? <EmptyState className="m-4" title="No sessions." /> : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Sessions">
+          <Table stack flush aria-label="Sessions">
             <TableHead><TableRow><TableHeaderCell>Device / browser</TableHeaderCell><TableHeaderCell className="max-md:hidden">Address</TableHeaderCell><TableHeaderCell className="max-lg:hidden">Workspace</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Started</TableHeaderCell><TableHeaderCell>Last active</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Expires</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (

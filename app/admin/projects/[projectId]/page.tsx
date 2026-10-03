@@ -154,7 +154,7 @@ async function UsersTab({ context, projectId }: { context: Awaited<ReturnType<ty
     <section className="nesto-card overflow-hidden" aria-label="Users">
       {rows.length === 0 ? <EmptyState className="m-4" title="No users assigned yet." description="People are assigned to projects in the company workspace." /> : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Project users">
+          <Table stack flush aria-label="Project users">
             <TableHead><TableRow><TableHeaderCell>User</TableHeaderCell><TableHeaderCell>Role</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => <TableRow key={row.id}><TableCell><span className="font-medium text-fg">{row.name}</span>{row.primary ? <span className="ml-2 text-meta text-fg-subtle">primary</span> : null}<p className="font-mono text-micro text-fg-subtle">{row.username}</p></TableCell><TableCell>{row.role}</TableCell><TableCell><AdminStatusBadge status={row.status} /></TableCell></TableRow>)}

@@ -23,7 +23,7 @@ export async function RecoveryTenants() {
         <EmptyState title="Nothing is deleted" description="Companies and groups you delete from Organizations appear here." />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label="Deleted companies and groups" data-testid="deleted-tenants">
+          <Table stack flush aria-label="Deleted companies and groups" data-testid="deleted-tenants">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Name</TableHeaderCell>
