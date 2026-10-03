@@ -46,6 +46,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
       {actions.canMarkReady ? <Button size="sm" variant="secondary" onClick={() => setOpen("ready")}>{t("implementation.sendForValidation")}</Button> : null}
       {actions.canAddCompany ? <Button size="sm" variant="secondary" onClick={() => setOpen("company")}>{t("implementation.newCompany")}</Button> : null}
       {actions.canProvision && companies.length > 0 ? <Button size="sm" variant="secondary" onClick={() => setOpen("person")}>{t("implementation.addToRoster")}</Button> : null}
+      {actions.canProvision && companies.length === 0 ? <span className="max-w-xs text-meta text-fg-subtle" data-testid="roster-needs-company">{t("implementation.rosterNeedsCompany")}</span> : null}
       {actions.canProvision && projects.length > 0 && people.length > 0 ? <Button size="sm" variant="ghost" onClick={() => setOpen("project")}>{t("implementation.assignToProject")}</Button> : null}
       {actions.canConfigure ? <Button size="sm" variant="ghost" onClick={() => setOpen("identity")}>{t("implementation.editDetails")}</Button> : null}
 
@@ -102,7 +103,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
           { name: "lastName", label: t("implementation.fields.lastName"), type: "text", required: true },
           { name: "workEmail", label: t("implementation.fields.workEmail"), type: "email" },
           { name: "username", label: t("implementation.fields.username"), type: "text", hint: t("implementation.fields.usernameHint") },
-          { name: "roleKey", label: t("implementation.fields.role"), type: "select", required: true, options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: roleLabel(value) })) },
+          { name: "roleKey", label: t("implementation.fields.role"), type: "select", required: true, hint: t("implementation.fields.roleHint"), options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: roleLabel(value) })) },
           { name: "companyId", label: t("implementation.fields.company"), type: "select", options: companies, emptyLabel: t("implementation.fields.everyCompany") },
           { name: "position", label: t("implementation.fields.position"), type: "select", required: true, options: [{ value: "MEMBER", label: t("implementation.positions.MEMBER") }, { value: "COMPANY_MANAGER", label: t("implementation.positions.COMPANY_MANAGER") }, { value: "GROUP_HEAD", label: t("implementation.positions.GROUP_HEAD") }] },
           { name: "jobTitle", label: t("implementation.fields.jobTitle"), type: "text" },

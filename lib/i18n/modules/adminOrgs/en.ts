@@ -393,6 +393,7 @@ export const adminOrgsEn = {
     },
     users: {
       description: "Manage user access for {name}.",
+      groupLevelHint: "This list adds people to a company. The Group Owner and Group IT belong to the whole group: add them with “Add to roster” at the top of this page while the group is being set up. The group cannot go live without them.",
       filterLabel: "Filter users",
       searchPlaceholder: "Search users...",
       searchAria: "Search users",
