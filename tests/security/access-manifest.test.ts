@@ -35,9 +35,6 @@ import { prisma } from "../helpers";
  *                            (`loadGroupMemberContexts`), answers the same
  *                            memberships, positions, departments, projects and
  *                            module access, persona by persona (RP-01)
- *
- * The ARMAAR facts NESTO's owner supplied (§5) are stated here literally, not
- * read back from the seed they are checking.
  */
 
 const committed = JSON.parse(readFileSync(ACCESS_MANIFEST_PATH, "utf8")) as AccessManifest;
@@ -50,27 +47,10 @@ const persona = (username: string): ManifestPersona => {
 };
 const usable = (entry: ManifestPersona) => entry.memberships.filter((membership) => membership.usable);
 
-const ARMAAR_EMPLOYER = "armaar_co_arlis_administrim";
-const ARMAAR_IDEAL = "armaar_co_ideal_construction";
-/** The nine companies D-01 §5 lists as active; the other four are suspended. */
-const ARMAAR_ACTIVE_COMPANIES = [
-  "armaar_co_arlis_administrim",
-  "armaar_co_arlis_ndertim",
-  "armaar_co_arsol_energy",
-  "armaar_co_building_construction_invest",
-  "armaar_co_ideal_construction",
-  "armaar_co_kf_pogradeci",
-  "armaar_co_klais",
-  "armaar_co_saranda_marina_invest",
-  "armaar_co_unico_construction",
-];
-
-/** Who heads a group function, as the demo and D-01/D-03 define it — nobody else does (E-06 §51, §52). */
+/** Who heads a group function, as the demo defines it — nobody else does (E-06 §51, §52). */
 const EXPECTED_GROUP_HEADS = [
   "owner", "group-it", "group-hr", "group-architecture", "group-engineering", "group-finance", "group-legal",
   "group-sales", "group-procurement", "group-inventory", "group-qaqc", "group-hse",
-  "armaar.owner", "armaar.it", "armaar.finance", "armaar.legal", "armaar.procurement", "armaar.hr", "armaar.engineering",
-  "armaar.architecture", "armaar.projects", "armaar.sales", "armaar.hse", "armaar.qaqc", "armaar.inventory",
 ].sort();
 
 beforeAll(() => {
@@ -168,52 +148,6 @@ describe("curated personas (RP-01)", () => {
   });
 });
 
-describe("ARMAAR's supplied facts (§5, RP-01, RP-21)", () => {
-  const HEADS = [
-    { name: "Adela Dervishaj", username: "armaar.procurement", role: "PROCUREMENT", department: "procurement" },
-    { name: "Edvin Gace", username: "armaar.finance", role: "FINANCE", department: "finance" },
-    { name: "Besar Zifla", username: "armaar.architecture", role: "ARCHITECT", department: "architecture" },
-    { name: "Arted Ballaj", username: "armaar.hse", role: "HSE", department: "hse" },
-    { name: "Migena Bajro", username: "armaar.legal", role: "LEGAL", department: "legal" },
-    { name: "Xhejsi Lilo", username: "armaar.hr", role: "HR", department: "hr" },
-  ] as const;
-
-  it.each(HEADS)("$name heads Group $department: employed by ARLIS ADMINISTRIM, a login in each of the nine active companies", (head) => {
-    const entry = persona(head.username);
-    expect(entry.name).toBe(head.name);
-    expect(entry.tenant).toBe("armaar");
-    expect(entry.picker).toBe("demo-tenant");
-    const logins = usable(entry);
-    expect(logins.map((membership) => membership.companyId).sort()).toEqual(ARMAAR_ACTIVE_COMPANIES);
-    for (const membership of logins) {
-      expect(membership.role).toBe(head.role);
-      expect(membership.position).toBe("GROUP_HEAD");
-    }
-    expect(entry.memberships.filter((membership) => membership.employing).map((membership) => membership.companyId)).toEqual([ARMAAR_EMPLOYER]);
-    expect(logins.find((membership) => membership.companyId === ARMAAR_EMPLOYER)!.department).toBe(head.department);
-    expect(entry.signIn.outcome).toBe("GROUP");
-    expect(entry.groupWorkspace).toEqual({ standing: true, mayEnter: true });
-  });
-
-  it("the Group Owner is Armand Lilo, OWNER as group head", () => {
-    const owner = persona("armaar.owner");
-    expect(owner.name).toBe("Armand Lilo");
-    expect(usable(owner).every((membership) => membership.role === "OWNER" && membership.position === "GROUP_HEAD")).toBe(true);
-    expect(usable(owner).map((membership) => membership.companyId).sort()).toEqual(ARMAAR_ACTIVE_COMPANIES);
-  });
-
-  it("Tedi Gogu manages Eyes of Tirana as IDEAL Construction's project manager, and works nowhere else", () => {
-    const tedi = persona("unico.pm");
-    expect(tedi.name).toBe("Tedi Gogu");
-    expect(tedi.memberships).toHaveLength(1);
-    const [membership] = tedi.memberships;
-    expect(membership).toMatchObject({ companyId: ARMAAR_IDEAL, role: "PROJECT_MANAGER", position: "MEMBER", department: "projects", employing: true, usable: true });
-    expect(membership.projects).toEqual([{ projectId: "armaar_prj_eyes_of_tirana", name: "Eyes of Tirana", manager: true }]);
-    expect(tedi.signIn).toEqual({ outcome: "COMPANY", companyId: ARMAAR_IDEAL });
-    expect(tedi.groupWorkspace).toEqual({ standing: false, mayEnter: false });
-  });
-});
-
 describe("no persona holds more than its role, position and grants derive (manifest ⊆ derivation)", () => {
   const LEVELS: AccessLevel[] = ["NONE", "VIEW", "CONTRIBUTE", "APPROVE", "MANAGE"];
   const SCOPE_RANK = ["SELF", "ASSIGNED", "PROJECT", "DEPARTMENT", "COMPANY", "GROUP", "SYSTEM"];
@@ -270,7 +204,7 @@ describe("no persona holds more than its role, position and grants derive (manif
 });
 
 describe("the seeded database, read by the real resolver, agrees (RP-01)", () => {
-  const SEEDED_GROUPS = ["group_demo_nesto", "armaar_group", "group_fixture", "group_fixture_solo"];
+  const SEEDED_GROUPS = ["group_demo_nesto", "group_fixture", "group_fixture_solo"];
 
   it("every persona's user, status and platform access are seeded as the manifest says", async () => {
     const users = await prisma.user.findMany({

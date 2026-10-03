@@ -1,7 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { db } from "../db";
-import { DEMO_PASSWORD, mainRegion, signIn, signOut } from "../fixtures";
+import { mainRegion, signIn, signOut } from "../fixtures";
 
 /**
  * One way to a person (E-08 §101-§105, §112, §117, §118; ADR 0008).
@@ -10,10 +10,7 @@ import { DEMO_PASSWORD, mainRegion, signIn, signOut } from "../fixtures";
  * result all lead to the same `/people/[personId]`, and from a profile back to
  * the project. The architect sets her own photo; Group IT reads the Access
  * section nobody else is shown; the Head of Group Architecture puts her on a
- * project from her profile and takes her off again. In ARMAAR, a finisher who
- * left Tirana Lake is still a link from the crew he was on — to "Former
- * employee" and nothing more — and a selected candidate's profile waits for
- * her account where only Group IT and HR see it.
+ * project from her profile and takes her off again.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -23,14 +20,6 @@ const PAVILION = { id: "e2e_e08_project_pavilion", code: "E2E-E08-PAV", name: "E
 // A 1×1 PNG: an image by its bytes, not by its name.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 const startedAt = new Date();
-
-async function signInArmaar(page: Page, username: string, to: string) {
-  await page.goto(`/login?callbackUrl=${encodeURIComponent(to)}`);
-  await page.getByLabel("Username").fill(username);
-  await page.getByLabel("Password").fill(process.env.ARMAAR_DEMO_PASSWORD ?? DEMO_PASSWORD);
-  await page.locator("form").getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
-}
 
 test.beforeAll(async () => {
   await db.project.upsert({
@@ -157,37 +146,4 @@ test("the Head of Group Architecture puts the architect on a project from her pr
   await expect(page.getByText("Anna Rossi is off the project.", { exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: `Take Anna Rossi off ${PAVILION.name}` })).toHaveCount(0);
   expect(await db.projectMember.count({ where: { projectId: PAVILION.id, status: "ACTIVE" } })).toBe(0);
-});
-
-test("a finisher who left is still a link from his crew, to a former employee's profile (§54, §118)", async ({ page }) => {
-  await signInArmaar(page, "bci.pm", "/workforce/crews/armaar_crew_tl_concrete");
-  await mainRegion(page).getByRole("link", { name: "Bujar Kelmendi" }).click();
-  await page.waitForURL(/\/people\/person_armaar_former_bujar(\?tab=workforce)?$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Bujar Kelmendi" })).toBeVisible();
-  await expect(mainRegion(page).getByText("Former employee").first()).toBeVisible();
-  const sections = page.getByRole("navigation", { name: "Profile sections" });
-  await expect(sections.getByRole("link", { name: /^Projects/ })).toHaveCount(0);
-
-  // Linkable, not listed: the directory does not offer him to a colleague.
-  await page.goto("/people?q=Kelmendi&status=all");
-  await expect(mainRegion(page).getByTestId("person-card").filter({ hasText: "Bujar Kelmendi" })).toHaveCount(0);
-});
-
-test("a selected candidate waits for her account: hidden from colleagues, provisioned from her profile (§46, §117, §119)", async ({ page }) => {
-  await signInArmaar(page, "bci.pm", "/dashboard");
-  const response = await page.goto("/people/person_armaar_selected_kejsi");
-  expect(response?.status()).toBe(404);
-  // A hard-loaded refusal answers 404 before the shell streams, so its page is the standalone
-  // not-found screen (NAV-01 §2.1); the way back is its own link.
-  await page.getByRole("link", { name: "Return to Dashboard" }).click();
-  await page.waitForURL(/\/dashboard/);
-  await signOut(page);
-
-  await signInArmaar(page, "armaar.it", "/people/person_armaar_selected_kejsi?tab=access");
-  const access = mainRegion(page).getByTestId("person-access");
-  await expect(access).toContainText("Not active — no NESTO account.");
-  await expect(access).toContainText("BUILDING CONSTRUCTION INVEST");
-  await expect(access).toContainText("approved");
-  await access.getByRole("link", { name: "Open the request" }).click();
-  await page.waitForURL(/\/organization\/provisioning\/provisioning_armaar_kejsi$/);
 });

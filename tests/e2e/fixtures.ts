@@ -49,8 +49,6 @@ export const DEMO_USERNAME = {
   /** Architect in Aurelia and in Forma (E-06 §55). */
   MULTI_COMPANY: "multi-architect",
   PM_B: "pm-b",
-  /** ARMAAR's head of Legal, Migena Bajro: nine companies and the group (D-03). */
-  ARMAAR_LEGAL: "armaar.legal",
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERNAME;

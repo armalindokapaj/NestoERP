@@ -21,7 +21,7 @@ they need `CI=true` and `NESTO_CONFIRM_DESTRUCTIVE=<database>`.
 | `pnpm verify:authorization` · `verify:ownership` · `verify:state` · `verify:workers` · `verify:production-guards` | installed | static gates. They exit 0 or name the file and rule |
 | `pnpm check:client-bundle` | installed | static scan of client import chains. It exits 0 or prints each chain |
 | `pnpm security:matrix --check` · `security:access-manifest:check` | installed | fail when `docs/security/*` is stale |
-| `pnpm verify:company-integrity` · `verify:organization` · `verify:employment` · `verify:employee-integrity` · `verify:demo` · `verify:workflows` | `DATABASE_URL` points at a seeded database | read queries only. They exit 0 or list findings |
+| `pnpm verify:company-integrity` · `verify:organization` · `verify:employment` · `verify:employee-integrity` · `verify:workflows` | `DATABASE_URL` points at a seeded database | read queries only. They exit 0 or list findings |
 | `pnpm worker --validate` · `--status` · `--failures` · `--health` | `DATABASE_URL` for status/failures | print, no job runs |
 | `pnpm db:studio` | database | opens Prisma Studio, which can edit rows if you use it to |
 
@@ -40,7 +40,6 @@ they need `CI=true` and `NESTO_CONFIRM_DESTRUCTIVE=<database>`.
 | `pnpm dev` · `pnpm start` | migrated database | sessions and whatever you do in the app |
 | `pnpm db:deploy` | `DATABASE_URL` | applies pending migrations. It never resets, pushes or seeds |
 | `pnpm db:seed` | migrated database, and seed guard passes | demo companies, people and records, then validates them. Refuses production/staging and unnamed remote databases |
-| `pnpm seed:armaar` | migrated database | adds or updates the ARMAAR demo tenant |
 | `pnpm access:sync` | database | roles, permissions and the module matrix from `config/`. Safe in every environment |
 | `pnpm company:bootstrap` | database, `access:sync` done | a new company and its owner invite |
 | `pnpm verify:roles` | a running server on 3000 | signs in as every persona over HTTP, which creates sessions |

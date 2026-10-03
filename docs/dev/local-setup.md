@@ -37,16 +37,15 @@ before you run it and what you should see afterwards.
    - *Before:* `DATABASE_URL` names that database. Do not point it at a database somebody else uses.
    - *After:* "All migrations have been successfully applied." `db:deploy` never resets or drops anything.
 
-4. **Seed the demo data**
+4. **Seed the test fixtures** (development and test databases only)
    ```bash
    pnpm db:seed
    ```
    - *Before:* a migrated database. The seed refuses production/staging environments and remote databases not named in `NESTO_SEED_TARGET` (`prisma/seed/guard.ts`, `lib/core/database/target.ts`).
-   - *After:* the seed builds the demo tenant and validates it. A validation failure exits non-zero. The ARMAAR tenant is described in [../demo-armaar.md](../demo-armaar.md).
+   - *After:* the seed builds the fixture groups and validates them. A validation failure exits non-zero.
 
 5. **Verify the seed** (read-only)
    ```bash
-   pnpm verify:demo
    pnpm verify:organization
    ```
    - *After:* both exit 0.

@@ -140,9 +140,8 @@ cannot be committed twice.
   employment ended; leave and attendance carry the login their employment has,
   or none; every document filed under an employee names an employment of its
   company. Read-only; run after seeding, and in CI after the suites.
-- `pnpm verify:employment` (E-03) and `verify:demo` (D-01) cover the rest:
-  every employment agrees with its history; a demo person without a login has
-  an employment and a provenance record.
+- `pnpm verify:employment` (E-03) covers the rest:
+  every employment agrees with its history.
 - Tests: `tests/api/workforce/workforce.test.ts` (trades, sites, assignments,
   crews, races, scope, site attendance, ending),
   `tests/api/workforce/workforce-stage3.test.ts` (HSE, daily-log suggestions,
@@ -152,12 +151,7 @@ cannot be committed twice.
 
 ## Demo data
 
-Only ARMAAR's (`prisma/seed/armaar/workforce.ts`): 34 site workers without a
-login in BUILDING CONSTRUCTION INVEST and ARLIS - NDERTIM, nine trades, five
-sites, seven active crews and Square 21's archived one, their assignments,
-the last working days marked on site, and inductions — see
-[demo-armaar.md](demo-armaar.md). The five-company demo has none; tests make
-their own.
+None. Tests make their own.
 
 ## Not here
 

@@ -18,7 +18,6 @@ import { findDeviceForSignIn } from "./device.service";
 import { installIdFromCookieHeader } from "@/lib/core/security/install-id";
 import { recordSignIn } from "./identity";
 import { getMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
-import { isDevMode } from "./dev-mode";
 
 export type AuthenticatedUser = { id: string; username: string; sessionId: string; mustChangePassword: boolean };
 
@@ -176,8 +175,6 @@ export async function authenticateCredentials(
     sessionId: session.id,
     ipAddress,
     userAgent,
-    // A one-click demo sign-in says so (AUD-06 §4); only where those exist.
-    ...(parsed.data.via && isDevMode ? { metadata: { via: parsed.data.via } } : {}),
   });
 
   return {

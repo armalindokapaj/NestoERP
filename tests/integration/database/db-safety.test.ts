@@ -194,11 +194,5 @@ describe.skipIf(!local)("database safety commands (AUD-12 §5)", () => {
       expect(result.status).not.toBe(0);
       expect(result.output).toContain("the environment is production");
     });
-
-    it("refuses the ARMAAR seed the same way", () => {
-      const result = run(["prisma/seed/armaar/index.ts"], { DATABASE_URL: "postgresql://u:secret@db.example.invalid:5432/demo", VERCEL_ENV: "production" });
-      expect(result.status).not.toBe(0);
-      expect(result.output).toContain("Refusing to seed demo data");
-    });
   });
 });

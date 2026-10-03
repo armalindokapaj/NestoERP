@@ -1,8 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { dashboardForRole } from "../../../config/dashboards";
-import { DEMO_PASSWORD } from "../../../config/demo-accounts";
-import { chooseWorkspace, DEMO_USERNAME, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader } from "../fixtures";
+import { chooseWorkspace, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader } from "../fixtures";
 
 /**
  * AUD-05 §3, §4, §7, §8 — navigation and first-time orientation, per
@@ -254,40 +252,6 @@ test.describe("Quick Create (UX-09)", () => {
     await expect(page.getByTestId("quick-create-button")).toHaveCount(0);
     await page.keyboard.press("c");
     await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);
-  });
-});
-
-test.describe("demo identity switch resets everything (UX-06)", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    test.skip((await page.getByText("Demo accounts").count()) === 0, "the demo user switcher exists in development only (APP_ENV=development)");
-  });
-
-  test("Group Owner → Finance: identity, dashboard, navigation, help dismissals and workspace are the new person's", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Username").fill(DEMO_USERNAME.OWNER);
-    await page.getByLabel("Password").fill(DEMO_PASSWORD);
-    await page.locator("form").getByRole("button", { name: /sign in/i }).click();
-    await page.waitForURL(/\/dashboard/);
-    // The Group Owner's own dashboard: the Owner's focus line, not a departmental one.
-    await expect(mainRegion(page).getByText(dashboardForRole("OWNER", "GROUP_HEAD").focus)).toBeVisible();
-    const ownerNav = await sidebarLinks(page);
-    // A dismissal stored for the Owner, keyed by their opaque identity.
-    await page.evaluate(() => sessionStorage.setItem("nesto.guidance.start-here:owner-marker:v1", "1"));
-    const ownerKeys = await page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.startsWith("nesto.")));
-
-    await page.getByRole("button", { name: "Switch demo user" }).click();
-    const dialog = page.getByRole("dialog", { name: "Switch demo user" });
-    await dialog.getByRole("searchbox", { name: "Search demo users" }).fill("finance");
-    await dialog.getByRole("button", { name: /finance/i }).first().click();
-    await page.waitForURL(/\/dashboard/);
-
-    await expect(page.getByRole("button", { name: /open user menu/i })).not.toContainText(/owner/i);
-    await expect(mainRegion(page).getByText(dashboardForRole("OWNER", "GROUP_HEAD").focus)).toHaveCount(0);
-    expect(await sidebarLinks(page)).not.toEqual(ownerNav);
-    // The new person's help keys are theirs: nothing the Owner dismissed applies to them.
-    const financeKeys = await page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.startsWith("nesto.help") || key.startsWith("nesto.guidance")));
-    for (const key of financeKeys) expect(ownerKeys.filter((owner) => owner !== "nesto.guidance.start-here:owner-marker:v1")).not.toContain(key);
   });
 });
 

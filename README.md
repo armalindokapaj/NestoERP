@@ -53,7 +53,7 @@ state-machine rules are enforced by gates in CI.
 | Workers | `lib/core/jobs`, `scripts/worker.ts` | [docs/workers.md](docs/workers.md), [docs/worker-matrix.md](docs/worker-matrix.md) |
 | Data model | `prisma/schema.prisma`, `prisma/migrations` | [docs/data-model.md](docs/data-model.md), [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md) |
 | Environments | `lib/config/env.ts`, `lib/auth/dev-mode.ts` | [docs/environments.md](docs/environments.md) |
-| Demo data | `prisma/seed`, `prisma/seed/armaar` | [docs/demo-armaar.md](docs/demo-armaar.md) |
+| Test fixtures | `prisma/seed` | development and test only |
 | Decisions | | [docs/adr/](docs/adr/) |
 | UX, tables, forms, mobile, accessibility, performance | | [docs/ux/](docs/ux/), [docs/tables/](docs/tables/), [docs/forms/](docs/forms/), [docs/mobile/](docs/mobile/), [docs/a11y/](docs/a11y/), [docs/perf/](docs/perf/) |
 | Operations | | [docs/runbooks/](docs/runbooks/) |

@@ -1,19 +1,9 @@
 import { createHash } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { db } from "../db";
-import { signIn as fixtureSignIn, signOut as fixtureSignOut, DEMO_USERNAME, DEMO_PASSWORD, dropOrphanedStreamSegments, type DemoRole } from "../fixtures";
-const armaar: Partial<Record<DemoRole, string>> = { OWNER: "armaar.owner", SALES: "armaar.sales", ARCHITECT: "armaar.architecture", PROJECT_MANAGER: "armaar.projects", GROUP_IT: "armaar.it", PLATFORM_ADMIN: "armaar.platform-admin" };
-const username = (role: DemoRole) => process.env.E2E_AUTH_TENANT === "armaar" ? armaar[role]! : DEMO_USERNAME[role];
-async function signIn(page: import("@playwright/test").Page, role: DemoRole) {
-  if (process.env.E2E_AUTH_TENANT !== "armaar") return fixtureSignIn(page, role);
-  await dropOrphanedStreamSegments(page);
-  await page.goto("/login");
-  await page.getByLabel("Username").fill(username(role));
-  await page.getByLabel("Password").fill(DEMO_PASSWORD);
-  await page.locator("form").getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL((url) => url.pathname !== "/login");
-  await page.getByRole("button", { name: /open user menu|^sign out$/i }).waitFor();
-}
+import { signIn as fixtureSignIn, signOut as fixtureSignOut, DEMO_USERNAME, type DemoRole } from "../fixtures";
+const signIn = fixtureSignIn;
+const username = (role: DemoRole) => DEMO_USERNAME[role];
 async function signOut(page: import("@playwright/test").Page) {
   if (new URL(page.url()).pathname.startsWith("/admin")) {
     await page.getByRole("button", { name: /^sign out$/i }).click();
@@ -92,7 +82,7 @@ test("storage events synchronize logout without BroadcastChannel", async ({ page
 });
 
 test("logout from Finance and a nested project route", async ({ page }) => {
-  for (const destination of ["/finance", process.env.E2E_AUTH_TENANT === "armaar" ? "/projects/armaar_prj_tirana_lake/documents" : "/projects"]) {
+  for (const destination of ["/finance", "/projects"]) {
     await signIn(page, "OWNER");
     await page.goto(destination);
     await signOut(page);
@@ -132,42 +122,6 @@ test("expiration masks an unsaved form and same-user reauthentication restores i
   await expect(firstName).toHaveValue("Unsaved work shift draft");
   await signOut(other);
   await expect(page).toHaveURL(/\/login/);
-});
-
-async function switchDemo(page: import("@playwright/test").Page, role: "OWNER" | "SALES") {
-  await page.getByRole("button", { name: "Switch demo user" }).click();
-  const dialog = page.getByRole("dialog", { name: "Switch demo user" });
-  await dialog.getByRole("searchbox", { name: "Search demo users" }).fill(username(role));
-  const established = page.waitForResponse((response) => response.url().endsWith("/api/auth/lifecycle") && response.request().method() === "GET" && response.status() === 200);
-  await dialog.getByRole("button", { name: new RegExp(`\\(${username(role).replaceAll(".", "\\.")}\\)$`) }).click();
-  await established;
-  await expect(dialog).toBeHidden();
-  await expect(page.getByRole("button", { name: /open user menu/i })).toBeVisible();
-}
-
-test("Owner impersonates Sales, switches back, then logs out the impersonated session", async ({ page, context, playwright, baseURL }) => {
-  await signIn(page, "OWNER");
-  const before = await (await page.request.get("/api/auth/lifecycle")).json();
-  const ownerCookies = await context.cookies();
-  await page.evaluate(() => sessionStorage.setItem("nesto.owner-record", "owner only"));
-  await switchDemo(page, "SALES");
-  const sales = await (await page.request.get("/api/auth/lifecycle")).json();
-  expect(sales.user).not.toBe(before.user);
-  expect(sales.identity).not.toBe(before.identity);
-  expect(await page.evaluate(() => sessionStorage.getItem("nesto.owner-record"))).toBeNull();
-  const replay = await playwright.request.newContext({ baseURL, storageState: { cookies: ownerCookies, origins: [] } });
-  expect((await replay.get("/api/auth/lifecycle")).status()).toBe(401);
-  await replay.dispose();
-  await switchDemo(page, "OWNER");
-  const restored = await (await page.request.get("/api/auth/lifecycle")).json();
-  expect(restored.user).toBe(before.user);
-  expect(restored.identity).not.toBe(before.identity);
-  await switchDemo(page, "SALES");
-  const cookies = await context.cookies();
-  await signOut(page);
-  const stale = await playwright.request.newContext({ baseURL, storageState: { cookies, origins: [] } });
-  expect((await stale.get("/api/auth/lifecycle")).status()).toBe(401);
-  await stale.dispose();
 });
 
 test("logout from the standalone 3D viewer and platform Experience Editor", async ({ page }) => {

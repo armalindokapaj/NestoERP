@@ -112,7 +112,7 @@ const AUTHED_REDIRECT_ROUTES = ["/login", "/forgot-password"] as const;
  * ERR_TOO_MANY_REDIRECTS — locking the person out of the only page that could
  * have fixed their session.
  */
-const DEAD_SESSION_REASONS = ["session-expired", "account-unavailable", "demo-switch-failed", "signed-out"] as const;
+const DEAD_SESSION_REASONS = ["session-expired", "account-unavailable", "signed-out"] as const;
 
 /** Did a server-side context check already reject the cookie on this request? */
 export function isDeadSessionReason(reason: string | null | undefined): boolean {

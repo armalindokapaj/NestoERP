@@ -17,7 +17,7 @@ import { cleanupSessions, loginAs, prisma } from "../../helpers";
  */
 
 const PREFIX = "aud09c2_";
-const FOREIGN_ITEM = "armaar_grn_tl_membrane_0068_item_1"; // another company's delivery line
+const FOREIGN_ITEM = "armaar_grn_tl_membrane_0068_item_1"; // a delivery line that is not in this company
 const created = { requests: [] as string[], defects: [] as string[], actions: [] as string[] };
 let qaqc: UserContext;
 

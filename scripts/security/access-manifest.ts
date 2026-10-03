@@ -3,7 +3,7 @@
  *
  * Writes docs/security/access-manifest.json: every role × position × module
  * cell of the matrix, and every seeded persona — the curated sign-in roster,
- * the demo's other logins, the ARMAAR tenant and the test fixtures — with each
+ * the demo's other logins and the test fixtures — with each
  * membership's role, position, department, projects, grants and the module
  * access the product's resolver computes for it. Derived, never maintained:
  * see access-manifest.derive.ts for where each fact comes from.

@@ -255,11 +255,6 @@ jobs:
         # employee documents name the right employment (E-04 §197, §198).
         run: pnpm verify:employee-integrity
 
-      - name: Demo tenant
-        # The ARMAAR demo tenant the seed builds is still what D-01 says: public
-        # facts unchanged, companies, people, projects and provenance (ADR 0005).
-        run: pnpm verify:demo
-
       - name: Upload failure artefacts
         if: failure()
         uses: actions/upload-artifact@v4

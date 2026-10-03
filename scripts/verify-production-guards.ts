@@ -16,18 +16,11 @@ type Check = { name: string; run: () => string | null };
 
 const checks: Check[] = [
   {
-    // C-01 §59: every demo action refuses before it does anything, outside development.
-    name: "the demo sign-in action is guarded",
+    // There is no demo sign-in or user switch to guard: the platform has no way in but a username and password.
+    name: "no demo sign-in action or picker exists",
     run: () => {
-      const path = "lib/actions/demo.ts";
-      const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);
-      const actions = source.statements.filter(
-        (statement): statement is ts.FunctionDeclaration =>
-          ts.isFunctionDeclaration(statement) && Boolean(statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)),
-      );
-      if (actions.length === 0) return `${path} exports no action`;
-      const unguarded = actions.filter((action) => !/^if \(!isDevMode\)/.test(action.body?.statements[0]?.getText(source) ?? ""));
-      return unguarded.length > 0 ? `does not begin with an isDevMode refusal: ${unguarded.map((action) => action.name?.text).join(", ")}` : null;
+      const present = ["lib/actions/demo.ts", "lib/auth/demo-tenants.ts", "app/(public)/login/demo-accounts.tsx"].filter((path) => existsSync(path));
+      return present.length ? `demo sign-in code is back: ${present.join(", ")}` : null;
     },
   },
   {
@@ -363,7 +356,7 @@ const checks: Check[] = [
     run: () => {
       const build = readFileSync("scripts/vercel-build.sh", "utf8");
       if (/db\s+seed/.test(build) && !(/NESTO_SEED_TARGET/.test(build) && /checkSeedTarget/.test(build))) return "scripts/vercel-build.sh seeds without checking NESTO_SEED_TARGET and checkSeedTarget";
-      for (const path of ["prisma/seed.ts", "prisma/seed/armaar/index.ts"]) {
+      for (const path of ["prisma/seed.ts"]) {
         if (!/assertSeedAllowed\(\)/.test(readFileSync(path, "utf8"))) return `${path} does not call assertSeedAllowed() before seeding`;
       }
       return null;

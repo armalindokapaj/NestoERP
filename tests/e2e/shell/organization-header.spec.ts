@@ -12,7 +12,6 @@ import { chooseWorkspace, DEMO_PASSWORD, dropOrphanedStreamSegments, mainRegion,
  * header changes only once the new workspace has committed.
  */
 
-const ARLIS = "armaar_co_arlis_ndertim";
 const AURELIA = "company_demo_a";
 
 /** No arrow, chevron, caret or dropdown sign, in any state (§4, §74, §92): the header draws no icon at all. */
@@ -41,35 +40,6 @@ async function sameDocument(page: Page) {
 }
 
 test.describe("identity (§72, §73, §86, §91, §96)", () => {
-  test("a company workspace: the group above the company, at the top of the sidebar; the top bar carries neither (§72, §19)", async ({ page }) => {
-    await signIn(page, "ARMAAR_LEGAL", { company: ARLIS, to: "/dashboard" });
-    const header = workspaceHeader(page);
-    await expect(header.getByTestId("organization-name")).toHaveText("ARMAAR GROUP");
-    await expect(header.getByTestId("workspace-label")).toHaveText("ARLIS - NDERTIM");
-    await expect(header.getByTestId("organization-mark")).toHaveText("AG");
-    await expect(header).toHaveAccessibleName("Switch workspace. Current workspace: ARLIS - NDERTIM.");
-
-    // The top bar: search, + Create, Activity, profile — no workspace, no demo chip (§19, §100).
-    const bar = page.locator("header[data-shell-region]");
-    await expect(bar.getByTestId("organization-header")).toHaveCount(0);
-    await expect(bar.getByText("Demo data")).toHaveCount(0);
-    await expect(bar.getByText("ARLIS - NDERTIM")).toHaveCount(0);
-    // NESTO signs the foot, quietly; the demo notice sits beside it (§71, D-01 §68).
-    await expect(page.getByTestId("powered-by")).toContainText("Powered by NESTO");
-    await expect(page.getByTestId("demo-notice")).toBeVisible();
-    await expect(page.getByTestId("sidebar-header")).not.toContainText("NESTO");
-  });
-
-  test("the Group workspace names the group once, then the scope (§73)", async ({ page }) => {
-    await signIn(page, "ARMAAR_LEGAL", { to: "/dashboard" });
-    await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } });
-    await page.goto("/dashboard");
-    const header = workspaceHeader(page);
-    await expect(header.getByTestId("organization-name")).toHaveText("ARMAAR GROUP");
-    await expect(header.getByTestId("workspace-label")).toHaveText("Group Workspace");
-    await expect(header).toHaveAttribute("data-scope", "GROUP");
-  });
-
   test("a standalone company is the organization: no group, no second line, nothing to switch (§8, §45, §86, §87)", async ({ page }) => {
     await signInAs(page, "solo-owner");
     await page.goto("/dashboard");
@@ -148,20 +118,6 @@ test.describe("the header as a control (§14-§17, §74, §75, §90)", () => {
     await expect(panel.getByRole("option", { selected: true })).toContainText("Aurelia Construction");
     // Two companies: no search field (§25).
     await expect(panel.getByTestId("workspace-search")).toHaveCount(0);
-  });
-
-  test("a long list has a search, which narrows the companies and never the Group (§25)", async ({ page }) => {
-    await signIn(page, "ARMAAR_LEGAL", { company: ARLIS, to: "/dashboard" });
-    await workspaceHeader(page).click();
-    const panel = workspacePanel(page);
-    // Suspended companies are not offered (§68).
-    await expect(panel).not.toContainText("SKYLINE TOWERS");
-    await panel.getByTestId("workspace-search").fill("ndert");
-    await expect(panel.getByTestId("workspace-option").filter({ hasText: "ARLIS - NDERTIM" })).toBeVisible();
-    await expect(panel.getByTestId("workspace-option").filter({ hasText: "IDEAL" })).toHaveCount(0);
-    await expect(panel.getByTestId("workspace-option").first()).toHaveAttribute("data-scope", "GROUP");
-    await panel.getByTestId("workspace-search").fill("zzz");
-    await expect(panel.getByText("No company matches your search.")).toBeVisible();
   });
 
   test("keyboard: Enter and Space open it, the current workspace is active, arrows move, Escape closes back to the header (§52-§56, §90)", async ({ page }) => {

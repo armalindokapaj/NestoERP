@@ -82,9 +82,8 @@ describe("seeded demo group (E-06 §42-§47, §131-§134)", () => {
   const FIXTURE_GROUP = "group_fixture";
   const DEMO_COMPANIES = [COMPANY.a, COMPANY.b, COMPANY.c, COMPANY.d, COMPANY.e];
 
-  it("creates one visible parent group of five active companies, and the ARMAAR demo tenant beside it (E-06 §131, §132; D-01)", async () => {
+  it("creates one visible parent group of five active companies (E-06 §131, §132)", async () => {
     expect(await prisma.parentGroup.findMany({ where: { isTestFixture: false }, select: { id: true, status: true, isDemo: true }, orderBy: { id: "asc" } })).toEqual([
-      { id: "armaar_group", status: "ACTIVE", isDemo: true },
       { id: DEMO_GROUP, status: "ACTIVE", isDemo: false },
     ]);
     const companies = await prisma.company.findMany({ where: { parentGroupId: DEMO_GROUP }, select: { id: true, status: true }, orderBy: { id: "asc" } });

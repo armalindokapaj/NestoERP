@@ -41,8 +41,6 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "modules", actual: await prisma.module.count(), expected: MODULE_KEYS.length, comparison: "eq" },
     /* E-06 §131-§133: the visible demo is exact. */
     { label: "visible parent groups", actual: await prisma.parentGroup.count({ where: { isTestFixture: false, isDemo: false } }), expected: 1, comparison: "eq" },
-    /* D-01: the ARMAAR demo tenant beside it, checked by its own verification. */
-    { label: "demo tenants", actual: await prisma.parentGroup.count({ where: { isDemo: true } }), expected: 1, comparison: "eq" },
     { label: "active companies in the demo group", actual: await prisma.company.count({ where: { parentGroupId: DEMO_GROUP.id, status: "ACTIVE" } }), expected: 5, comparison: "eq" },
     { label: "companies in the demo group", actual: await prisma.company.count({ where: { parentGroupId: DEMO_GROUP.id } }), expected: 5, comparison: "eq" },
     { label: "visible projects", actual: await prisma.project.count({ where: { company: { parentGroupId: DEMO_GROUP.id }, archivedAt: null } }), expected: 5, comparison: "eq" },

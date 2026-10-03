@@ -8,7 +8,6 @@
  *   config/permissions.ts, config/role-defaults.ts   the role × position × module matrix
  *   config/demo-accounts.ts                           the curated sign-in personas
  *   prisma/seed/demo/**, prisma/seed/fixtures/**      the five-company demo and the test fixtures
- *   prisma/seed/armaar/**                             the ARMAAR demo tenant
  *   prisma/seed/business.ts, team.ts                  project teams and the invited account
  *
  * and each seeded membership's module access is computed by the product's own
@@ -39,12 +38,6 @@ import { POSITION_LEVELS, ROLE_KEYS, roles, type PositionLevel, type RoleKey } f
 import { assembleContext, hasGroupStanding, mayEnterGroupWorkspace } from "../../lib/context/build-context";
 import type { ContextAssignment, ContextGrant } from "../../lib/context/organization-access";
 import type { UserContext } from "../../lib/context/types";
-import { companiesOf, memberId as armaarMemberId } from "../../prisma/seed/armaar/access";
-import { COMPANY_PROFILES, companyId as armaarCompanyId } from "../../prisma/seed/armaar/organization";
-import { ARMAAR_PEOPLE, GROUP_PEOPLE, PLATFORM_ADMIN as ARMAAR_PLATFORM_ADMIN, userId as armaarUserId } from "../../prisma/seed/armaar/people";
-import { PROJECTS as ARMAAR_PROJECTS, projectId as armaarProjectId } from "../../prisma/seed/armaar/projects";
-import { COMPANY_FACTS, GROUP_FACTS, PROJECT_FACTS } from "../../prisma/seed/armaar/public-facts";
-import { ARMAAR_GROUP_ID } from "../../prisma/seed/armaar/records";
 import { DEMO_COMPANIES, DEMO_COMPANY_CODES, DEMO_GROUP, DEMO_PROJECTS } from "../../prisma/seed/demo/projects";
 import { COMPANY_USERS, GROUP_USERS, PLATFORM_USERS, POSITIONS, isMemberOf, memberId as demoMemberId, personaIn } from "../../prisma/seed/demo/users";
 import {
@@ -88,7 +81,7 @@ export type ManifestMembership = {
   /** The group department key of the membership's branch, or null when the company runs no such branch. */
   department: GroupDepartmentKey | null;
   jobTitle: string | null;
-  /** ARMAAR: whether this company is the person's employing legal entity (§5, RP-21). Null where the seed records none. */
+  /** Whether this company is the person's employing legal entity. Null where the seed records none. */
   employing: boolean | null;
   projects: ManifestProject[];
   grants: ContextGrant[];
@@ -102,10 +95,10 @@ export type ManifestPersona = {
   username: string;
   userId: string;
   name: string;
-  tenant: "platform" | "demo" | "armaar" | "fixture";
+  tenant: "platform" | "demo" | "fixture";
   parentGroupId: string | null;
   /** How the persona is reached on the sign-in screen: the curated roster, a demo tenant's data-driven roster, or not at all. */
-  picker: "curated" | "demo-tenant" | null;
+  picker: "curated" | null;
   /** config/demo-accounts.ts's statement about a curated persona, kept beside what the seed derives so the two can be compared. */
   curated: { role: RoleKey; position: PositionLevel; assignment: string } | null;
   userStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
@@ -175,11 +168,6 @@ const SOURCES = [
   "config/roles.ts",
   "lib/context/build-context.ts (assembleContext, hasGroupStanding, mayEnterGroupWorkspace)",
   "lib/context/organization-access.ts (positionFor, grantsInCompany)",
-  "prisma/seed/armaar/access.ts",
-  "prisma/seed/armaar/organization.ts",
-  "prisma/seed/armaar/people.ts",
-  "prisma/seed/armaar/projects.ts",
-  "prisma/seed/armaar/provided-facts.ts",
   "prisma/seed/business.ts",
   "prisma/seed/demo/organization.ts",
   "prisma/seed/demo/projects.ts",
@@ -320,71 +308,6 @@ function demoAccounts(): SeedAccount[] {
   return [...platform, ...people];
 }
 
-/* ARMAAR ---------------------------------------------------------------------- */
-
-function armaarCompanies(): SeedCompany[] {
-  return COMPANY_FACTS.map((fact) => ({ id: armaarCompanyId(fact.code), name: fact.name, status: fact.status, parentGroupId: ARMAAR_GROUP_ID, disabledModules: [], departments: COMPANY_PROFILES[fact.code].departments }));
-}
-
-function armaarAccounts(): SeedAccount[] {
-  const platform: SeedAccount = {
-    username: ARMAAR_PLATFORM_ADMIN.username,
-    userId: ARMAAR_PLATFORM_ADMIN.id,
-    firstName: ARMAAR_PLATFORM_ADMIN.firstName,
-    lastName: ARMAAR_PLATFORM_ADMIN.lastName,
-    email: ARMAAR_PLATFORM_ADMIN.email,
-    tenant: "platform",
-    parentGroupId: null,
-    userStatus: "ACTIVE",
-    platformRole: "PLATFORM_ADMIN",
-    picker: null,
-    logins: [],
-    positions: [],
-    grants: [],
-  };
-  const people = ARMAAR_PEOPLE.map((person): SeedAccount => {
-    const isHead = GROUP_PEOPLE.includes(person);
-    const positions: SeedPosition[] = [];
-    if (isHead) positions.push({ department: person.department, role: person.role, level: "GROUP_HEAD", companyId: null });
-    if (person.manages) positions.push({ department: person.department, role: person.role, level: "COMPANY_MANAGER", companyId: armaarCompanyId(person.company) });
-    return {
-      username: person.username,
-      userId: armaarUserId(person.username),
-      firstName: person.firstName,
-      lastName: person.lastName,
-      email: `${person.username.replace(/^armaar\./, "")}@armaar-demo.test`,
-      tenant: "armaar",
-      parentGroupId: ARMAAR_GROUP_ID,
-      userStatus: "ACTIVE",
-      platformRole: null,
-      // The tenant roster (lib/auth/demo-tenants.ts) offers its group heads and
-      // every employed person with a login in an active company.
-      picker: "demo-tenant",
-      logins: companiesOf(person).map((code) => ({
-        companyId: armaarCompanyId(code),
-        membershipId: armaarMemberId(person.username, code),
-        status: "ACTIVE" as const,
-        role: person.role,
-        department: COMPANY_PROFILES[code].departments.includes(person.department) ? person.department : null,
-        jobTitle: person.jobTitle,
-        employing: code === person.company,
-      })),
-      positions,
-      grants: [],
-    };
-  });
-  return [platform, ...people];
-}
-
-function armaarProjects(): SeedProject[] {
-  return ARMAAR_PROJECTS.map((plan) => {
-    const company = armaarCompanyId(plan.company);
-    const team = [plan.manager, ...plan.team.map((member) => member.username)].map(armaarUserId);
-    const name = PROJECT_FACTS.find((fact) => fact.code === plan.code)?.name ?? plan.code;
-    return { id: armaarProjectId(plan.code), name, companyId: company, managerUserId: armaarUserId(plan.manager), teamUserIds: [...new Set(team)] };
-  });
-}
-
 /* The test fixtures --------------------------------------------------------- */
 
 function fixtureCompanies(): SeedCompany[] {
@@ -500,15 +423,14 @@ function sortedObject<T>(entries: Array<[string, T]>): Record<string, T> {
 export function deriveAccessManifest(): AccessManifest {
   const tenants = [
     { parentGroupId: DEMO_GROUP.id, name: DEMO_GROUP.name, companies: demoCompanies() },
-    { parentGroupId: ARMAAR_GROUP_ID, name: GROUP_FACTS.name, companies: armaarCompanies() },
     { parentGroupId: FIXTURE_GROUP.id, name: FIXTURE_GROUP.name, companies: fixtureCompanies().filter((company) => company.parentGroupId === FIXTURE_GROUP.id) },
     { parentGroupId: SOLO_GROUP.id, name: SOLO_GROUP.name, companies: fixtureCompanies().filter((company) => company.parentGroupId === SOLO_GROUP.id) },
   ];
   const companies = new Map(tenants.flatMap((tenant) => tenant.companies.map((company) => [company.id, company] as const)));
-  const groupOf = new Map(tenants.map((tenant) => [tenant.parentGroupId, tenant]));
+  const groupOf = new Map<string, (typeof tenants)[number]>(tenants.map((tenant) => [tenant.parentGroupId, tenant]));
 
-  const projects = [...demoProjects(), ...armaarProjects(), ...fixtureProjects()];
-  const accounts = [...demoAccounts(), ...armaarAccounts(), ...fixtureAccounts()];
+  const projects = [...demoProjects(), ...fixtureProjects()];
+  const accounts = [...demoAccounts(), ...fixtureAccounts()];
 
   const usernames = new Set<string>();
   for (const account of accounts) {
