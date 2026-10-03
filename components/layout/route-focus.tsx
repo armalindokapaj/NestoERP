@@ -28,6 +28,9 @@ export function RouteFocus() {
     if (previous.current === pathname) return;
     previous.current = pathname;
     clearAnnouncements();
+    // A page opens from the top, whatever the last one was scrolled to.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.getElementById("nesto-main")?.scrollTo?.({ top: 0 });
 
     const active = document.activeElement;
     const lost = !active || active === document.body || !active.isConnected;

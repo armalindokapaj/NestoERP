@@ -81,7 +81,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
         <h2 id="platform-departments" className="sr-only">
           {t("departments.listLabel")}
         </h2>
-        <Table stack flush aria-labelledby="platform-departments">
+        <Table stack aria-labelledby="platform-departments">
           <TableHead>
             <TableRow>
               <TableHeaderCell>{t("departments.department")}</TableHeaderCell>
@@ -133,7 +133,7 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
             <span className="text-fg">{selected.groupHead?.name ?? "—"}</span>
             {selected.capabilities.canAssignHead ? <AppointButton api={api} target={{ kind: "head", departmentId: selected.id }} title={t(selected.groupHead ? "departments.replaceHead" : "departments.assignHead", { name: selected.name })} holder={selected.groupHead?.name ?? null} candidates={headOptions} /> : null}
           </div>
-          <Table stack flush aria-label={t("departments.byCompany", { name: selected.name })}>
+          <Table stack aria-label={t("departments.byCompany", { name: selected.name })}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("common.company")}</TableHeaderCell>

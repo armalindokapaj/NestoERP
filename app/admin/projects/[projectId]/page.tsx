@@ -159,7 +159,7 @@ async function UsersTab({ context, projectId }: { context: Awaited<ReturnType<ty
     <section className="nesto-card overflow-hidden" aria-label={t("project.tabs.users")}>
       {rows.length === 0 ? <EmptyState className="m-4" title={t("project.users.emptyTitle")} description={t("project.users.emptyBody")} /> : (
         <div className="overflow-x-auto">
-          <Table stack flush aria-label={t("project.users.label")}>
+          <Table stack aria-label={t("project.users.label")}>
             <TableHead><TableRow><TableHeaderCell>{t("project.users.user")}</TableHeaderCell><TableHeaderCell>{t("common.role")}</TableHeaderCell><TableHeaderCell>{t("common.status")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => <TableRow key={row.id}><TableCell><span className="font-medium text-fg">{row.name}</span>{row.primary ? <span className="ml-2 text-meta text-fg-subtle">{t("project.users.primary")}</span> : null}<p className="font-mono text-micro text-fg-subtle">{row.username}</p></TableCell><TableCell>{row.role}</TableCell><TableCell><AdminStatusBadge status={row.status} /></TableCell></TableRow>)}

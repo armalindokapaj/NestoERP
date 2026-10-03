@@ -59,7 +59,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
           filtered ? <NoResultsState className="m-4" noun={t("audit.list.noun")} clearHref="/admin/audit" /> : <EmptyState className="m-4" title={t("audit.list.empty")} />
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("audit.list.tableLabel")}>
+            <Table stack aria-label={t("audit.list.tableLabel")}>
               <TableHead><TableRow><TableHeaderCell>{t("audit.list.cols.time")}</TableHeaderCell><TableHeaderCell>{t("audit.list.cols.actor")}</TableHeaderCell><TableHeaderCell>{t("audit.list.cols.action")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("audit.list.cols.record")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("audit.list.cols.organization")}</TableHeaderCell><TableHeaderCell>{t("audit.list.cols.severity")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

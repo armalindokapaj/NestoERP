@@ -64,7 +64,7 @@ async function ByOrganization({ context, raw }: { context: Awaited<ReturnType<ty
           filtered ? <NoResultsState className="m-4" noun={t("modules.noun")} clearHref="/admin/modules" /> : <EmptyState className="m-4" title={t("modules.emptyTitle")} description={t("modules.emptyBody")} />
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("modules.tableLabel")}>
+            <Table stack aria-label={t("modules.tableLabel")}>
               <TableHead><TableRow><TableHeaderCell>{t("modules.headers.company")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("modules.headers.parentGroup")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.plan")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.modules")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("modules.headers.projects")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.status")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (
@@ -141,7 +141,7 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
           <EmptyState className="m-4" title={t("modules.noHolders")} />
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("modules.holdersTable", { name: selected.name })}>
+            <Table stack aria-label={t("modules.holdersTable", { name: selected.name })}>
               <TableHead><TableRow><TableHeaderCell>{t("modules.holderHeaders.company")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("modules.holderHeaders.group")}</TableHeaderCell><TableHeaderCell>{t("modules.holderHeaders.plan")}</TableHeaderCell><TableHeaderCell>{t("modules.holderHeaders.status")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("modules.holderHeaders.since")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {holders.map((row) => (

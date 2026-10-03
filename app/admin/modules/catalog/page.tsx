@@ -26,7 +26,7 @@ export default async function ModuleCatalogPage() {
     <div className="space-y-5">
       <PageHeader title={t("catalog.title")} description={t("catalog.description")} />
       <section className="nesto-card overflow-x-auto">
-        <Table stack flush aria-label={t("catalog.title")}>
+        <Table stack aria-label={t("catalog.title")}>
           <TableHead><TableRow><TableHeaderCell>{t("catalog.headers.module")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("catalog.headers.key")}</TableHeaderCell><TableHeaderCell>{t("catalog.headers.scope")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("catalog.headers.needs")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("catalog.headers.inUse")}</TableHeaderCell><TableHeaderCell>{t("catalog.headers.availability")}</TableHeaderCell></TableRow></TableHead>
           <TableBody>
             {catalog.modules.map((row) => (

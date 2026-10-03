@@ -35,7 +35,7 @@ export async function RecoveryDocuments({ searchParams }: Props) {
         <EmptyState title={q ? t("system.recovery.documents.noMatch") : t("system.recovery.documents.none")} description={q ? t("system.recovery.documents.tryAnother") : t("system.recovery.documents.emptyDescription")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table stack flush aria-label={t("system.recovery.documents.tableLabel")} data-testid="archived-documents">
+          <Table stack aria-label={t("system.recovery.documents.tableLabel")} data-testid="archived-documents">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("system.recovery.documents.cols.document")}</TableHeaderCell>

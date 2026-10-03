@@ -91,7 +91,7 @@ export async function GroupOverview({ implementation }: Props) {
         {implementation.people.length === 0 ? (
           <p className="mt-3 text-table text-fg-muted">{t("group.overview.peopleEmpty")}</p>
         ) : (
-          <Table stack flush className="mt-3" aria-labelledby="group-people">
+          <Table stack className="mt-3" aria-labelledby="group-people">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("group.overview.person")}</TableHeaderCell>

@@ -139,7 +139,7 @@ async function SessionsTab({ context, userId, name }: { context: Context; userId
       </div>
       {rows.length === 0 ? <EmptyState className="m-4" title={t("users.detail.sessions.empty")} /> : (
         <div className="overflow-x-auto">
-          <Table stack flush aria-label={t("users.detail.sessions.label")}>
+          <Table stack aria-label={t("users.detail.sessions.label")}>
             <TableHead><TableRow><TableHeaderCell>{t("users.detail.sessions.cols.device")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("users.detail.sessions.cols.address")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("users.detail.sessions.cols.workspace")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("users.detail.sessions.cols.started")}</TableHeaderCell><TableHeaderCell>{t("users.detail.sessions.cols.lastActive")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("users.detail.sessions.cols.expires")}</TableHeaderCell><TableHeaderCell>{t("users.detail.sessions.cols.status")}</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (

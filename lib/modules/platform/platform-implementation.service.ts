@@ -5,7 +5,7 @@ import { GROUP_DEPARTMENTS, groupDepartmentRows } from "@/config/group-departmen
 import { isMembershipRoleKey, roleLabel, type RoleKey } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { createProvisionedUser } from "@/lib/auth/identity";
-import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
+import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem } from "@/lib/auth/username";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { type PlatformPermission } from "@/config/platform";
@@ -328,7 +328,7 @@ async function assertImplementing(groupId: string) {
   return group;
 }
 
-export type InitialUserResultDTO = { userId: string; username: string; temporaryPassword: string; expiresAt: string };
+export type InitialUserResultDTO = { userId: string; username: string; temporaryPassword: string; expiresAt: string | null };
 
 /**
  * One approved person of the initial roster (§30, §60): the person, the login,
@@ -359,8 +359,8 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
   ]);
   if (!groupDepartment) throw new AccessError("VALIDATION_ERROR", "The group has no department for that role.", { field: "roleKey" });
 
-  const temporaryPassword = generateTemporaryPassword();
-  const expiresAt = temporaryPasswordExpiry();
+  const temporaryPassword = DEFAULT_PASSWORD;
+  const expiresAt = null;
   const name = `${input.firstName} ${input.lastName}`;
 
   const user = await prisma.$transaction(async (tx) => {
@@ -416,7 +416,7 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
     return account;
   });
 
-  return { userId: user.id, username: user.username, temporaryPassword, expiresAt: expiresAt.toISOString() };
+  return { userId: user.id, username: user.username, temporaryPassword, expiresAt: null };
 }
 
 /** A first project assignment from the approved roster (§30, §32, §138). */

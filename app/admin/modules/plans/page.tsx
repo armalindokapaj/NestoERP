@@ -50,7 +50,7 @@ export default async function PlansPage() {
     <div className="space-y-5">
       <PageHeader title={t("plans.title")} description={t("plans.description")} actions={canManage ? <PlatformCommandButton label={t("plans.newPlan")} title={t("plans.newPlan")} action="plan.save" variant="primary" fields={fields} initial={initial()} submitLabel={t("plans.createSubmit")} success={t("plans.created")} /> : undefined} />
       <section className="nesto-card overflow-x-auto">
-        <Table stack flush aria-label={t("plans.tableLabel")}>
+        <Table stack aria-label={t("plans.tableLabel")}>
           <TableHead><TableRow><TableHeaderCell>{t("plans.headers.plan")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.modules")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("plans.headers.limits")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.companies")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.status")}</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
           <TableBody>
             {plans.map((plan) => (

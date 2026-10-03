@@ -13,6 +13,13 @@ import { randomInt } from "node:crypto";
  */
 const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
+/**
+ * The password every new account starts with. Platform decision: new users sign
+ * in with it, are warned on every sign-in until they choose their own, and it
+ * never lapses. Resets still issue a generated one-off password.
+ */
+export const DEFAULT_PASSWORD = "nesto1234";
+
 /** Four groups of four, hyphenated: long enough to resist guessing, short enough to dictate. */
 export function generateTemporaryPassword(): string {
   const groups: string[] = [];

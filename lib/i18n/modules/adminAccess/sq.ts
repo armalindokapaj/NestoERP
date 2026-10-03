@@ -460,6 +460,11 @@ export const adminAccessSq: typeof adminAccessEn = {
       reasonPrefix: "Arsyeja: ",
     },
   },
+  passwordNotice: {
+    title: "Ndryshoni fjalëkalimin",
+    body: "Po hyni me fjalëkalimin e paracaktuar. Zgjidhni tuajin tani: kushdo që e njeh atë mund të hyjë si ju.",
+    action: "Ndrysho fjalëkalimin",
+  },
   account: {
     metaTitle: "Llogaria ime dhe siguria",
     title: "Llogaria ime dhe siguria",

@@ -80,7 +80,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
           )
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("projects.title")}>
+            <Table stack aria-label={t("projects.title")}>
               <TableHead><TableRow><TableHeaderCell>{t("projects.headers.project")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("projects.headers.company")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("projects.headers.group")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("projects.headers.modules")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.threeD")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.status")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

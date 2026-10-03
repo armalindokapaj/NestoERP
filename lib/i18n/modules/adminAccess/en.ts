@@ -458,6 +458,11 @@ export const adminAccessEn = {
       reasonPrefix: "Reason: ",
     },
   },
+  passwordNotice: {
+    title: "Change your password",
+    body: "You are signing in with the default password. Choose your own now: anyone who knows the default can sign in as you.",
+    action: "Change password",
+  },
   account: {
     metaTitle: "My Account & Security",
     title: "My Account & Security",
