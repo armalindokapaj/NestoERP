@@ -2,11 +2,10 @@ import { Suspense } from "react";
 
 import { AdminSectionBoundary } from "@/components/platform/admin-section-boundary";
 import { AdminRefreshButton } from "@/components/platform/admin-refresh-button";
-import { PageHeader } from "@/components/ui/page-header";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { dashboardSummary } from "@/lib/modules/platform/platform-dashboard.query";
 import {
-  ActivitySection, AttentionSection, FirstRun, ListSkeleton, OrganizationsSection, ProjectsSection, SummarySection, SummarySkeleton, UsageSection,
+  ActivitySection, AttentionSection, DashboardHeader, FirstRun, ListSkeleton, OrganizationsSection, ProjectsSection, SummarySection, SummarySkeleton, UsageSection,
 } from "./_dashboard/sections";
 
 export const metadata = { title: "Dashboard" };
@@ -26,15 +25,15 @@ export default async function PlatformDashboardPage() {
     <AdminSectionBoundary title={title}><Suspense fallback={fallback}>{node}</Suspense></AdminSectionBoundary>
   );
   return (
-    <div className="space-y-5">
-      <PageHeader title="Dashboard" description="Platform status and administration overview." actions={<AdminRefreshButton />} />
+    <div className="space-y-6">
+      <DashboardHeader context={context} actions={<AdminRefreshButton />} />
       {section("Summary", <SummarySection context={context} summary={summary} />, <SummarySkeleton />)}
       <Suspense fallback={null}><FirstRun summary={summary} /></Suspense>
-      <div className="grid gap-5 xl:grid-cols-[3fr_2fr]">
+      <div className="grid gap-4 xl:grid-cols-[3fr_2fr] [&>*]:min-w-0">
         {section("Attention required", <AttentionSection context={context} />, <ListSkeleton rows={3} label="attention" />)}
         {section("Recent activity", <ActivitySection context={context} />, <ListSkeleton rows={6} label="recent activity" />)}
       </div>
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2 [&>*]:min-w-0">
         {section("Organizations", <OrganizationsSection context={context} />, <ListSkeleton label="organizations" />)}
         {section("Projects", <ProjectsSection context={context} summary={summary} />, <ListSkeleton label="projects" />)}
       </div>
