@@ -4,7 +4,9 @@
 # DATABASE WRITES (AUD-12 §5) — this build writes to the deployment's database:
 #   1. `prisma migrate deploy`: applies pending migrations. Always. It never
 #      resets, pushes or seeds, and it refuses on a failed migration.
-#   2. The demo seed: only when ALL of these hold, checked before it starts:
+#   2. `scripts/access-sync.ts`: rewrites roles, permissions, modules and the
+#      role matrix from config/. Always. Configuration only, no business data.
+#   3. The demo seed: only when ALL of these hold, checked before it starts:
 #      - NESTO_SEED_ON_BUILD=1 (the opt-in);
 #      - NESTO_SEED_TARGET names this database as "host/database" (a flag
 #        copied to another deployment names the wrong database and seeds
@@ -23,6 +25,11 @@ set -euo pipefail
 direct_url="${POSTGRES_URL_NON_POOLING:-${DATABASE_URL:-}}"
 
 DATABASE_URL="$direct_url" npx prisma migrate deploy
+
+# Access configuration (roles, permissions, modules and the role matrix) comes
+# from config/, not from migrations, so every deploy brings the database level
+# with the code. Idempotent; touches no company, person or business record.
+DATABASE_URL="$direct_url" npx tsx scripts/access-sync.ts
 
 if [ "${NESTO_SEED_ON_BUILD:-}" = "1" ]; then
   eligible=$(DATABASE_URL="$direct_url" npx tsx -e '
