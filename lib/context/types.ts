@@ -34,7 +34,7 @@ export type ParentGroupContext = {
   id: string;
   slug: string;
   name: string;
-  status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+  status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED" | "DELETED";
   /** A demonstration tenant: every page says its operational data is synthetic (D-01 §69). */
   isDemo: boolean;
   /** The tenant's own logo, as the platform set it; the shell's identity mark (OW §12, §44). */

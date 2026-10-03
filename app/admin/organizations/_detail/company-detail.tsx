@@ -2,6 +2,8 @@ import Link from "@/components/navigation/nav-link";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import { PlatformCommandButton, PlatformCommandMenu } from "@/components/platform/platform-command";
+import { RECOVERY_RETENTION_DAYS } from "@/lib/modules/platform/recovery-constants";
+import { deleteItem, purgeItem, restoreItem } from "./recovery-actions";
 import { formatDate } from "@/lib/utils/format";
 import type { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 
@@ -32,6 +34,10 @@ export const COMPANY_FIELDS = [
 export function CompanyHeaderActions({ overview }: Props) {
   const { company, structure, detach } = overview;
   const suspended = company.status !== "ACTIVE";
+  if (company.status === "DELETED") {
+    const withGroup = overview.deletedWithGroup;
+    return <PlatformCommandMenu items={withGroup ? [] : [restoreItem({ kind: "company", id: company.id, name: company.name }), purgeItem({ kind: "company", id: company.id, name: company.name })]} label={`${company.name} actions`} />;
+  }
   const others = overview.groupOptions.filter((option) => option.value !== structure.group?.id);
   const menu: React.ComponentProps<typeof PlatformCommandMenu>["items"] = [
     { label: "Edit", title: `Edit ${company.name}`, action: "company.update", fixed: { companyId: company.id }, fields: COMPANY_FIELDS.map((field) => ({ ...field })), initial: { ...company, logoUrl: company.logoUrl ?? "" }, submitLabel: "Save", success: "Company updated." },
@@ -54,6 +60,7 @@ export function CompanyHeaderActions({ overview }: Props) {
     suspended
       ? { label: "Reactivate", title: `Reactivate ${company.name}?`, description: "Its users regain access according to their memberships. Nothing was deleted while it was inactive.", action: "company.status", fixed: { companyId: company.id, status: "ACTIVE" }, reasonOnly: true, submitLabel: "Reactivate", success: "Company reactivated." }
       : { label: "Suspend", title: `Suspend ${company.name}?`, description: "Users will lose normal access to this company until it is reactivated. No company data will be deleted.", action: "company.status", fixed: { companyId: company.id, status: "SUSPENDED" }, reasonOnly: true, destructive: true, submitLabel: "Suspend Company", success: "Company suspended." },
+    deleteItem({ kind: "company", id: company.id, name: company.name }, RECOVERY_RETENTION_DAYS),
   ];
   return (
     <>

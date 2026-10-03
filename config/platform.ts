@@ -59,6 +59,12 @@ export const PLATFORM_PERMISSIONS = [
   "platform.maintenance.manage",
   "platform.group.activate",
   "platform.audit.view",
+  // Platform Recovery: removing a tenant, bringing it back, and removing it for good are separate decisions.
+  "platform.recovery.view",
+  "platform.company.delete",
+  "platform.group.delete",
+  "platform.recovery.restore",
+  "platform.recovery.purge",
 ] as const;
 
 export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number];

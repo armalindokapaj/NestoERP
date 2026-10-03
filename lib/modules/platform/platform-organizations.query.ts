@@ -59,14 +59,14 @@ export async function listOrganizations(context: PlatformContext, raw: Partial<R
 
   const [groups, companies] = await Promise.all([
     wantGroups && !query.group
-      ? prisma.parentGroup.findMany({ where: { ...REAL, kind: "GROUP", ...nameMatch, ...(query.status ? { status: query.status as never } : {}) }, select: { id: true, name: true, slug: true, status: true, createdAt: true, _count: { select: { companies: true } } } })
+      ? prisma.parentGroup.findMany({ where: { ...REAL, kind: "GROUP", ...nameMatch, status: query.status ? (query.status as never) : { not: "DELETED" } }, select: { id: true, name: true, slug: true, status: true, createdAt: true, _count: { select: { companies: true } } } })
       : Promise.resolve([]),
     wantCompanies
       ? prisma.company.findMany({
           where: {
             ...nameMatch,
             parentGroup: { ...REAL, ...(query.type === "standalone" ? { kind: "STANDALONE" as const } : {}), ...(query.group ? { id: query.group, kind: "GROUP" as const } : {}) },
-            ...(query.status ? { status: query.status as never } : {}),
+            status: query.status ? (query.status as never) : { not: "DELETED" },
           },
           select: {
             id: true, name: true, slug: true, status: true, createdAt: true, parentGroupId: true,
@@ -130,7 +130,7 @@ export async function listOrganizations(context: PlatformContext, raw: Partial<R
 export async function organizationGroupOptions(context: PlatformContext, { openOnly = false } = {}) {
   if (!canPlatform(context, "platform.group.view")) throw new AccessError("FORBIDDEN");
   const rows = await prisma.parentGroup.findMany({
-    where: { ...REAL, kind: "GROUP", ...(openOnly ? { status: { notIn: ["SUSPENDED", "ARCHIVED"] } } : {}) },
+    where: { ...REAL, kind: "GROUP", ...(openOnly ? { status: { notIn: ["SUSPENDED", "ARCHIVED", "DELETED"] } } : { status: { not: "DELETED" } }) },
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: { id: true, name: true },
   });
@@ -140,6 +140,6 @@ export async function organizationGroupOptions(context: PlatformContext, { openO
 /** Standalone companies a group can take in (§27). */
 export async function attachableCompanies(context: PlatformContext) {
   if (!canPlatform(context, "platform.company.view")) throw new AccessError("FORBIDDEN");
-  const rows = await prisma.company.findMany({ where: { parentGroup: { ...REAL, kind: "STANDALONE" } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } });
+  const rows = await prisma.company.findMany({ where: { status: { not: "DELETED" }, parentGroup: { ...REAL, kind: "STANDALONE" } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } });
   return rows.map((row) => ({ value: row.id, label: row.name }));
 }

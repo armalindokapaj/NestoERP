@@ -204,3 +204,7 @@ export const supportAccessSchema = z.object({
 }).refine((value) => Boolean(value.parentGroupId || value.companyId || value.projectId || value.targetUserId), "Choose a support target.");
 
 export type AccessInspectorInput = z.infer<typeof accessInspectorSchema>;
+
+/** Platform Recovery: delete and permanent removal need the name typed back; restore needs only a reason. */
+export const tenantDeleteSchema = z.object({ reason, confirmationName: z.string().trim().min(1, "Type the name to confirm.").max(200) });
+export const tenantRestoreSchema = z.object({ reason });

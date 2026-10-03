@@ -41,9 +41,9 @@ export type AttentionItem = {
 export async function dashboardSummary(context: PlatformContext) {
   assertDashboard(context);
   const [groups, companies, standalone, projects, users] = await Promise.all([
-    prisma.parentGroup.count({ where: { ...REAL_GROUP, status: { not: "ARCHIVED" } } }),
-    prisma.company.count({ where: REAL_COMPANY }),
-    prisma.company.count({ where: { parentGroup: { ...REAL, kind: "STANDALONE" } } }),
+    prisma.parentGroup.count({ where: { ...REAL_GROUP, status: { notIn: ["ARCHIVED", "DELETED"] } } }),
+    prisma.company.count({ where: { ...REAL_COMPANY, status: { not: "DELETED" } } }),
+    prisma.company.count({ where: { status: { not: "DELETED" }, parentGroup: { ...REAL, kind: "STANDALONE" } } }),
     prisma.project.groupBy({ by: ["status"], where: { company: REAL_COMPANY, archivedAt: null }, _count: { _all: true } }),
     // Accounts, not people: an employee without a login is not a user (§10).
     prisma.user.groupBy({ by: ["status"], _count: { _all: true } }),
