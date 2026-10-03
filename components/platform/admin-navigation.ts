@@ -13,7 +13,7 @@ export type AdminDestination = {
   key: string;
   label: string;
   href: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   permission: PlatformPermission;
   /** Below the separator (§5). */
   utility?: boolean;
