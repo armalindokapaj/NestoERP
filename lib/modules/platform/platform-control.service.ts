@@ -1,4 +1,5 @@
-import type { FeatureFlagScopeType, FeatureFlagState, MembershipStatus, Prisma, UserStatus } from "@prisma/client";
+import { assignedCompany } from "@/lib/access/project-ownership";
+import { Prisma, type FeatureFlagScopeType, type FeatureFlagState, type MembershipStatus, type UserStatus } from "@prisma/client";
 
 import { CORE_MODULE_KEYS, MODULE_KEYS, modules as moduleRegistry, type ModuleKey } from "@/config/modules";
 import type { PlatformPermission } from "@/config/platform";
@@ -345,8 +346,11 @@ export async function setFeatureFlagOverride(context: PlatformContext, flagId: s
   });
 }
 
-/** A project code from its name: "Eyes of Tirana" → "EOT", unique within the company. */
-async function freeProjectCode(companyId: string, name: string): Promise<string> {
+/**
+ * A project code from its name: "Eyes of Tirana" → "EOT". Unique within the
+ * company, or among unassigned projects when there is no company yet.
+ */
+async function freeProjectCode(companyId: string | null, name: string): Promise<string> {
   const words = name.normalize("NFKD").replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
   const base = (words.length > 1 ? words.map((word) => word[0]).join("") : (words[0] ?? "PRJ").slice(0, 4)).toUpperCase().slice(0, 8) || "PRJ";
   for (let attempt = 1; attempt < 1000; attempt += 1) {
@@ -356,41 +360,73 @@ async function freeProjectCode(companyId: string, name: string): Promise<string>
   throw new AccessError("CONFLICT", "No free project code was found for that name.");
 }
 
-export async function createPlatformProject(context: PlatformContext, input: { companyId: string; code?: string; name: string; description?: string; status: "PENDING" | "ACTIVE" | "FINISHED"; reason?: string }) {
-  assertPlatform(context, "platform.project.manage");
-  const company = assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true, status: true } }));
-  if (company.status !== "ACTIVE") throw new AccessError("CONFLICT", "Projects are created for an active company.", { code: "COMPANY_INACTIVE" });
-  if (input.code && await prisma.project.count({ where: { companyId: company.id, code: input.code } })) throw new AccessError("CONFLICT", "That company already uses this project code.");
-  const code = input.code ?? await freeProjectCode(company.id, input.name);
-  return prisma.$transaction(async (tx) => {
-    await assertWithinLimit(tx, company.id, "projects");
-    const project = await tx.project.create({ data: { companyId: company.id, code, name: input.name, description: input.description || null, status: input.status, createdBy: context.userId } });
-    await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_PROJECT_CREATED, entity: { type: "Project", id: project.id, label: project.name }, projectId: project.id, after: { companyId: company.id, code: project.code, name: project.name, status: project.status }, reason: input.reason }, { tx });
-    return { id: project.id };
-  });
+type ProjectAuditSubject = { companyId: string | null; company: { parentGroupId: string } | null };
+
+/**
+ * A platform event about a project: the owning group's when it has a company,
+ * global while it has none (Standalone Project PRD §44). Either way the project
+ * id travels with it, so the history survives assignment unchanged (§18).
+ */
+async function recordProjectAction(context: PlatformContext, project: ProjectAuditSubject, input: Parameters<typeof recordGlobalPlatformAction>[1], tx: Prisma.TransactionClient) {
+  if (project.company) await recordPlatformAction(context, project.company.parentGroupId, input, { tx });
+  else await recordGlobalPlatformAction(context, input, { tx });
+}
+
+export async function createPlatformProject(context: PlatformContext, input: { companyId?: string; code?: string; name: string; description?: string; status: "PENDING" | "ACTIVE" | "FINISHED"; reason?: string }) {
+  assertPlatform(context, input.companyId ? "platform.project.manage" : "platform.project.create_unassigned");
+  const company = input.companyId
+    ? assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true, status: true } }))
+    : null;
+  if (company && company.status !== "ACTIVE") throw new AccessError("CONFLICT", "Projects are created for an active company.", { code: "COMPANY_INACTIVE" });
+  const scope = company?.id ?? null;
+  if (input.code && await prisma.project.count({ where: { companyId: scope, code: input.code } })) {
+    throw new AccessError("CONFLICT", company ? "That company already uses this project code." : "Another unassigned project already uses this code.", { code: "PROJECT_CODE_TAKEN" });
+  }
+  const code = input.code ?? await freeProjectCode(scope, input.name);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      if (company) await assertWithinLimit(tx, company.id, "projects");
+      const project = await tx.project.create({ data: { companyId: scope, code, name: input.name, description: input.description || null, status: input.status, createdBy: context.userId } });
+      await recordProjectAction(
+        context,
+        { companyId: scope, company: company ? { parentGroupId: company.parentGroupId } : null },
+        { actionKey: company ? AuditAction.PLATFORM_PROJECT_CREATED : AuditAction.PLATFORM_PROJECT_CREATED_UNASSIGNED, entity: { type: "Project", id: project.id, label: project.name }, projectId: project.id, after: { companyId: scope, code: project.code, name: project.name, status: project.status }, reason: input.reason },
+        tx,
+      );
+      return { id: project.id };
+    });
+  } catch (error) {
+    // Two administrators taking the same unassigned code at once: the partial unique index answers.
+    if (!company && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new AccessError("CONFLICT", "Another unassigned project already uses this code.", { code: "PROJECT_CODE_TAKEN" });
+    }
+    throw error;
+  }
 }
 
 /**
  * Edits a project's identity and lifecycle from Platform Admin (Admin Projects
  * & 3D PRD #5 §64); archival goes through `archivePlatformProject`. Its 3D
- * audience is a separate decision and never changes here (§9).
+ * audience is a separate decision and never changes here (§9). An unassigned
+ * project is edited the same way; its ownership never changes here (Standalone
+ * Project PRD §36) — only the assignment action gives it a company.
  */
 export async function updatePlatformProject(context: PlatformContext, input: { projectId: string; name: string; description?: string | null; status: "PENDING" | "ACTIVE" | "FINISHED"; reason: string }) {
   assertPlatform(context, "platform.project.manage");
-  const project = assertFound(await prisma.project.findFirst({ where: { id: input.projectId, archivedAt: null, company: { parentGroup: { isTestFixture: false } } }, select: { id: true, name: true, description: true, status: true, companyId: true, company: { select: { parentGroupId: true } } } }));
+  const project = assertFound(await prisma.project.findFirst({ where: { id: input.projectId, archivedAt: null, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] }, select: { id: true, name: true, description: true, status: true, companyId: true, company: { select: { parentGroupId: true } } } }));
   await prisma.$transaction(async (tx) => {
-    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status }, data: { name: input.name, description: input.description ?? null, status: input.status } }));
-    await recordPlatformAction(context, project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: input.name }, projectId: project.id, before: { name: project.name, status: project.status }, after: { name: input.name, status: input.status }, reason: input.reason }, { tx });
+    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status, companyId: project.companyId }, data: { name: input.name, description: input.description ?? null, status: input.status } }));
+    await recordProjectAction(context, project, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: input.name }, projectId: project.id, before: { name: project.name, status: project.status }, after: { name: input.name, status: input.status }, reason: input.reason }, tx);
   });
 }
 
 /** Archives a project; nothing is deleted and its 3D experience goes offline with it (§65, §68). */
 export async function archivePlatformProject(context: PlatformContext, projectId: string, reason: string) {
   assertPlatform(context, "platform.project.manage");
-  const project = assertFound(await prisma.project.findFirst({ where: { id: projectId, archivedAt: null, company: { parentGroup: { isTestFixture: false } } }, select: { id: true, name: true, status: true, company: { select: { parentGroupId: true } } } }));
+  const project = assertFound(await prisma.project.findFirst({ where: { id: projectId, archivedAt: null, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] }, select: { id: true, name: true, status: true, companyId: true, company: { select: { parentGroupId: true } } } }));
   await prisma.$transaction(async (tx) => {
-    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status, archivedAt: null }, data: { status: "ARCHIVED", archivedAt: new Date() } }));
-    await recordPlatformAction(context, project.company.parentGroupId, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: project.name }, projectId: project.id, before: { name: project.name, status: project.status }, after: { name: project.name, status: "ARCHIVED" }, reason }, { tx });
+    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status, archivedAt: null, companyId: project.companyId }, data: { status: "ARCHIVED", archivedAt: new Date() } }));
+    await recordProjectAction(context, project, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: project.name }, projectId: project.id, before: { name: project.name, status: project.status }, after: { name: project.name, status: "ARCHIVED" }, reason }, tx);
   });
 }
 
@@ -469,8 +505,8 @@ export async function createSupportAccess(context: PlatformContext, input: { par
   if (input.projectId) {
     const project = assertFound(await prisma.project.findFirst({ where: { id: input.projectId, company: { parentGroup: { isTestFixture: false } } }, select: { companyId: true, company: { select: { parentGroupId: true } } } }));
     if (input.companyId && input.companyId !== project.companyId) throw new AccessError("VALIDATION_ERROR", "The project does not belong to the selected company.");
-    if (parentGroupId && parentGroupId !== project.company.parentGroupId) throw new AccessError("VALIDATION_ERROR", "The support targets do not share a parent group.");
-    parentGroupId = project.company.parentGroupId;
+    if (parentGroupId && parentGroupId !== assignedCompany(project).parentGroupId) throw new AccessError("VALIDATION_ERROR", "The support targets do not share a parent group.");
+    parentGroupId = assignedCompany(project).parentGroupId;
   }
   if (input.targetUserId && !(await prisma.user.count({ where: { id: input.targetUserId } }))) throw new AccessError("NOT_FOUND");
   if (parentGroupId && !(await prisma.parentGroup.count({ where: { id: parentGroupId, isTestFixture: false } }))) throw new AccessError("NOT_FOUND");

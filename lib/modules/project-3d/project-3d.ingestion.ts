@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import type { Prisma, Project3DValidationStatus } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
@@ -118,7 +119,7 @@ export async function retryProject3DModelProcessing(context: PlatformContext, pr
       data: { status: "PROCESSING", validationStatus: "PENDING", validationIssues: [], processingDiagnostics: { stage: "queued", retriedAt: new Date().toISOString() } },
     });
     if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being retried. Refresh and try again.");
-    await recordPlatformAction(context, version.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(version.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${version.slot.displayName} v${version.version}` },
       projectId,
@@ -149,7 +150,7 @@ export async function deactivateProject3DModelSlot(context: PlatformContext, pro
     if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being removed. Refresh and try again.");
     await tx.project3DModelSlot.updateMany({ where: { projectId, transformParentSlotId: slot.id }, data: { transformParentSlotId: null } });
     const before = { projectId, slotId: slot.id, slotKey: slot.slotKey, displayName: slot.displayName, kind: slot.kind, role: slot.role, isActive: true };
-    await recordPlatformAction(context, slot.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(slot.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelSlot", id: slot.id, label: slot.displayName },
       projectId,
@@ -193,7 +194,7 @@ export async function updateProject3DModelSlot(context: PlatformContext, project
   return prisma.$transaction(async (tx) => {
     const updated = await tx.project3DModelSlot.update({ where: { id: slot.id }, data, select: { id: true, displayName: true, transformParentSlotId: true } });
     const before = { projectId, slotId: slot.id, displayName: slot.displayName, transformParentSlotId: slot.transformParentSlotId };
-    await recordPlatformAction(context, slot.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(slot.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelSlot", id: slot.id, label: updated.displayName },
       projectId,
@@ -238,7 +239,7 @@ export async function createProject3DModelSlot(context: PlatformContext, project
       sortOrder: input.sortOrder,
       transformParentSlotId: input.transformParentSlotId ?? null,
     } });
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelSlot", id: slot.id, label: slot.displayName },
       projectId,
@@ -285,7 +286,7 @@ export async function createProject3DModelUpload(context: PlatformContext, proje
       processingDiagnostics: { stage: "awaiting_upload", uploadExpiresAt: new Date(Date.now() + UPLOAD_TTL_SECONDS * 1000).toISOString() },
       uploadedByUserId: context.userId,
     } });
-    await recordPlatformAction(context, slot.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(slot.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${slot.displayName} v${version.version}` },
       projectId,
@@ -334,7 +335,7 @@ export async function completeProject3DModelUpload(context: PlatformContext, pro
   await prisma.$transaction(async (tx) => {
     const changed = await tx.project3DModelVersion.updateMany({ where: { id: version.id, status: "UPLOADED" }, data: { status: "PROCESSING", sourceChecksum: metadata.checksumSha256 ?? metadata.etag, processingDiagnostics: { stage: "queued", verifiedAt: new Date().toISOString() } } });
     if (changed.count !== 1) throw new AccessError("CONFLICT", "This model upload changed while it was being completed.");
-    await recordPlatformAction(context, version.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(version.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${version.slot.displayName} v${version.version}` },
       projectId,

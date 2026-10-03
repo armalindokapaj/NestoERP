@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { createHash } from "node:crypto";
 import { Prisma, type UnitCommercialStatus } from "@prisma/client";
 
@@ -216,7 +217,7 @@ export async function prepareProject3DPublicProjection(context: PlatformContext,
     // The unapproved projection this replaces owned its artifacts alone.
     for (const artifact of Object.values(previous)) await provider.deleteObject(artifact.key).catch(() => undefined);
 
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_PUBLIC_PREPARED,
       entity: { type: "Project3DRelease", id: release.id, label: `${project3DExperienceLabel(config)} release ${release.releaseNumber}` }, projectId,
       before: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber: release.releaseNumber, publicManifestHash: release.publicManifestHash },
@@ -261,7 +262,7 @@ export async function approveProject3DPublicProjection(context: PlatformContext,
       if (moved.count !== 1) throw new AccessError("CONFLICT", "The live release or audience changed. Reload and review again.", { code: "RELEASE_RACED" });
     }
     const label = `${config.experienceName || `${config.project.name} 3D Experience`} release ${release.releaseNumber}`;
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_PUBLIC_APPROVED,
       entity: { type: "Project3DRelease", id: release.id, label }, projectId,
       before: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber: release.releaseNumber, publicManifestHash: release.publicManifestHash },

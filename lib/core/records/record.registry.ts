@@ -1,3 +1,4 @@
+import { assignedCompanyId } from "@/lib/access/project-ownership";
 import type { Prisma } from "@prisma/client";
 
 import type { ModuleKey } from "@/config/modules";
@@ -121,7 +122,7 @@ const DEFINITIONS: RecordDefinition[] = [
         select: { id: true, companyId: true, code: true, name: true, status: true, archivedAt: true, projectManagerMemberId: true },
       });
       return row && {
-        type: "project", id: row.id, companyId: row.companyId, label: numbered(row.code, row.name),
+        type: "project", id: row.id, companyId: assignedCompanyId(row), label: numbered(row.code, row.name),
         href: `/projects/${row.id}`, projectId: row.id, archived: isArchived(row),
         stakeholderMemberIds: unique(row.projectManagerMemberId),
       };

@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { Prisma, type EmploymentStatus } from "@prisma/client";
 
 import { isMembershipRoleKey, roleLabel } from "@/config/roles";
@@ -616,7 +617,7 @@ async function projectsOf(context: UserContext, userId: string): Promise<PersonP
     projectId: openable.has(row.project.id) ? row.project.id : null,
     code: row.project.code,
     name: row.project.name,
-    company: row.project.company,
+    company: assignedCompany(row.project),
     projectRole: row.projectRole,
     status: row.status,
     joinedAt: row.joinedAt?.toISOString() ?? null,
@@ -834,7 +835,7 @@ export async function getAccessSummary(context: UserContext, personId: string): 
       since: membership.createdAt.toISOString(),
     })),
     positions: positions.map((position) => ({ department: position.groupDepartment.name, company: position.company?.name ?? null, position: position.positionLevel })),
-    projects: projects.map((project) => ({ code: project.project.code, name: project.project.name, company: project.project.company.name, role: project.projectRole, status: project.status })),
+    projects: projects.map((project) => ({ code: project.project.code, name: project.project.name, company: assignedCompany(project.project).name, role: project.projectRole, status: project.status })),
     grants: grants.map((grant) => ({ functionKey: grant.functionKey, scopeType: grant.scopeType, accessLevel: grant.accessLevel, expiresAt: grant.expiresAt?.toISOString() ?? null })),
     completeness: {
       photo: person.photoChecksum !== null,

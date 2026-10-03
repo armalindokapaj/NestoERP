@@ -1,3 +1,4 @@
+import { assignedOnlyList } from "@/lib/access/project-ownership";
 import type { DepartmentPositionLevel, DepartmentStatus, Prisma } from "@prisma/client";
 
 import { GROUP_DEPARTMENTS, isChartFunction, rolesOfFunction } from "@/config/group-departments";
@@ -345,7 +346,7 @@ export async function getDepartmentTeam(actor: DepartmentActor, groupDepartmentI
     );
   const managedCompanies = coveredCompanies.filter((companyId) => rows.some((row) => row.companyId === companyId && manages(companyId, row.companyDepartmentId)));
   const projects = assigns && managedCompanies.length
-    ? await prisma.project.findMany({ where: { companyId: { in: managedCompanies }, archivedAt: null, status: { in: ["PENDING", "ACTIVE"] } }, select: { id: true, code: true, name: true, companyId: true }, orderBy: { name: "asc" } })
+    ? assignedOnlyList(await prisma.project.findMany({ where: { companyId: { in: managedCompanies }, archivedAt: null, status: { in: ["PENDING", "ACTIVE"] } }, select: { id: true, code: true, name: true, companyId: true }, orderBy: { name: "asc" } }))
     : [];
   const acting = context ? await actingContexts(context, coveredCompanies) : new Map<string, UserContext>();
   const managerOf = new Map(rows.filter((row) => row.positionLevel === "COMPANY_MANAGER" && row.status === "ACTIVE").map((row) => [`${row.userId}:${row.companyDepartmentId}`, true]));
@@ -378,7 +379,7 @@ export async function getDepartmentTeam(actor: DepartmentActor, groupDepartmentI
     });
     const position = own.reduce<DepartmentPositionLevel>((best, row) => (row.status === "ACTIVE" && RANK[row.positionLevel] > RANK[best] ? row.positionLevel : best), "MEMBER");
     const coveredHere = new Set(coverage.map((row) => row.company.id));
-    const onProjects = mine.filter((membership) => coveredHere.has(membership.companyId)).flatMap((membership) => membership.projectMemberships.map((row) => ({ projectMemberId: row.id, projectId: row.project.id, code: row.project.code, name: row.project.name, companyId: row.project.companyId, projectRole: row.projectRole })));
+    const onProjects = mine.filter((membership) => coveredHere.has(membership.companyId)).flatMap((membership) => membership.projectMemberships.map((row) => ({ projectMemberId: row.id, projectId: row.project.id, code: row.project.code, name: row.project.name, companyId: membership.companyId, projectRole: row.projectRole })));
     const on = new Set(onProjects.map((row) => row.projectId));
     const assignable = mine
       .filter((membership) => coverage.some((row) => row.company.id === membership.companyId && row.status === "ACTIVE" && manages(membership.companyId, row.branchId)))

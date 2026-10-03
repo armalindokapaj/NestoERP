@@ -87,7 +87,10 @@ const ACTIVITIES: ActivitySpec[] = [
 async function companyOfRecord(prisma: PrismaClient, entityType: string, entityId: string): Promise<string | null> {
   const where = { where: { id: entityId }, select: { companyId: true } } as const;
   const lookups: Record<string, () => Promise<{ companyId: string } | null>> = {
-    Project: () => prisma.project.findUnique(where),
+    Project: async () => {
+      const project = await prisma.project.findUnique(where);
+      return project?.companyId ? { companyId: project.companyId } : null;
+    },
     Task: () => prisma.task.findUnique(where),
     Document: () => prisma.document.findUnique(where),
     PurchaseRequest: () => prisma.purchaseRequest.findUnique(where),

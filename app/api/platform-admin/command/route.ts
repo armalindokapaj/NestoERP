@@ -8,6 +8,7 @@ import { platformDeviceAction, savePlatformMobilePolicy } from "@/lib/modules/pl
 import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
 import { deleteCompany, deleteGroup, purgeCompany, purgeGroup, restoreArchivedDocument, restoreCompany, restoreGroup, restoreRemovedProjectMedia } from "@/lib/modules/platform/platform-recovery.service";
+import { assignProjectToCompany, previewProjectAssignment } from "@/lib/modules/platform/platform-project-assignment.service";
 import { restoreProject3DExperience } from "@/lib/modules/project-3d/project-3d.lifecycle";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
@@ -30,6 +31,8 @@ import {
   platformUserCreateSchema,
   personCreateSchema,
   personUpdateSchema,
+  projectAssignPreviewSchema,
+  projectAssignSchema,
   projectCreateSchema,
   projectUpdateSchema,
   sessionRevokeSchema,
@@ -268,6 +271,13 @@ export async function POST(request: Request) {
       case "project.create": {
         const input = projectCreateSchema.parse(body);
         return apiOk({ data: await createPlatformProject(context, input) }, { status: 201 });
+      }
+      case "project.assignPreview": {
+        return apiOk({ data: await previewProjectAssignment(context, projectAssignPreviewSchema.parse(body)) });
+      }
+      case "project.assign": {
+        const input = projectAssignSchema.parse(body);
+        return apiOk({ data: await assignProjectToCompany(context, input) });
       }
       case "project.update": {
         await updatePlatformProject(context, projectUpdateSchema.parse(body));

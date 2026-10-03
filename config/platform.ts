@@ -20,6 +20,9 @@ export const PLATFORM_PERMISSIONS = [
   "platform.company.configure",
   "platform.project.view",
   "platform.project.manage",
+  // Standalone Project PRD §4, §35: a project with no company, and giving it one, are their own decisions.
+  "platform.project.create_unassigned",
+  "platform.project.assign_company",
   "platform.implementation.manage",
   "platform.people.view",
   "platform.user.view",

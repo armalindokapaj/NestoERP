@@ -11,6 +11,7 @@ import {
 } from "@/lib/modules/platform/platform-dashboard.query";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
+import { assignedCompany } from "@/lib/access/project-ownership";
 
 /*
  * The Dashboard's sections (Dashboard PRD §5, §34). Each is its own async
@@ -205,7 +206,7 @@ export async function ProjectsSection({ context, summary }: { context: PlatformC
               {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell><Link href={`/admin/projects/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link></TableCell>
-                  <TableCell className="max-sm:hidden"><Link href={`/admin/organizations/${row.company.id}`} className="text-fg-muted hover:underline">{row.company.name}</Link></TableCell>
+                  <TableCell className="max-sm:hidden"><Link href={`/admin/organizations/${assignedCompany(row).id}`} className="text-fg-muted hover:underline">{assignedCompany(row).name}</Link></TableCell>
                   <TableCell>{row.has3D ? <Link href={`/admin/3d/projects/${row.id}`} aria-label={`3D: ${row.threeD}. Open 3D administration for ${row.name}`} className="hover:opacity-80"><AdminStatusBadge status={row.threeD} /></Link> : <AdminStatusBadge status={row.threeD} />}</TableCell>
                   <TableCell><AdminStatusBadge status={row.status} /></TableCell>
                 </TableRow>

@@ -1,3 +1,4 @@
+import { assignedCompanyId, assignedOnly } from "@/lib/access/project-ownership";
 import type { ProjectStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -41,17 +42,17 @@ export async function authorizeTeamChange(
   // A role with neither door is refused before anything is looked up (PRD #10 §133).
   if (!can(session, projectPermission) && !can(session, departmentPermission)) throw new AccessError("FORBIDDEN");
 
-  const project = await prisma.project.findFirst({
+  const project = assignedOnly(await prisma.project.findFirst({
     where: { id: projectId, company: { parentGroupId: session.parentGroupId } },
     select: { id: true, name: true, companyId: true, status: true, archivedAt: true, projectManagerMemberId: true },
-  });
+  }));
   if (!project) throw new AccessError("NOT_FOUND");
-  const acting = await contextInCompany(session, project.companyId);
+  const acting = await contextInCompany(session, assignedCompanyId(project));
   if (!acting) throw new AccessError("NOT_FOUND");
   assertModule(acting, "projects");
 
   const member = await prisma.companyMember.findFirst({
-    where: { id: companyMemberId, companyId: project.companyId, ...(change === "add" ? { status: "ACTIVE", user: { status: "ACTIVE" } } : {}) },
+    where: { id: companyMemberId, companyId: assignedCompanyId(project), ...(change === "add" ? { status: "ACTIVE", user: { status: "ACTIVE" } } : {}) },
     select: { id: true, userId: true, departmentId: true, department: { select: { groupDepartmentId: true } }, user: { select: { firstName: true, lastName: true } } },
   });
   if (!member) {

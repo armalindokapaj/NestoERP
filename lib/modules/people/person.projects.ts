@@ -1,3 +1,4 @@
+import { assignedCompany, assignedCompanyId } from "@/lib/access/project-ownership";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
@@ -62,7 +63,7 @@ export async function assignableProjects(context: UserContext, personId: string)
   });
   const result: AssignableProjectDTO[] = [];
   for (const project of candidates) {
-    if (await allowed(context, project.id, memberships.get(project.companyId)!, "add")) result.push({ projectId: project.id, code: project.code, name: project.name, company: project.company });
+    if (await allowed(context, project.id, memberships.get(assignedCompanyId(project))!, "add")) result.push({ projectId: project.id, code: project.code, name: project.name, company: assignedCompany(project) });
   }
   return result;
 }
@@ -88,7 +89,7 @@ export async function assignPersonToProject(context: UserContext, personId: stri
   await getWorkProfile(context, personId);
   const project = await prisma.project.findFirst({ where: { id: input.projectId, company: { parentGroupId: context.parentGroupId } }, select: { companyId: true } });
   if (!project) throw new AccessError("NOT_FOUND");
-  const companyMemberId = (await membershipsOf(context, personId)).get(project.companyId);
+  const companyMemberId = (await membershipsOf(context, personId)).get(assignedCompanyId(project));
   if (!companyMemberId) throw new AccessError("VALIDATION_ERROR", "They have no login in that project's company.", { code: "NO_MEMBERSHIP" });
   await addMember(context, input.projectId, { companyMemberId, projectRole: input.projectRole ?? undefined });
 }

@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import type { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
@@ -234,7 +235,7 @@ export async function updateProject3DExperience(
     const changed = await tx.project3DConfig.updateMany({ where: { id: config.id, companyId: config.companyId, projectId }, data: { authoringDocument: parsed as unknown as Prisma.InputJsonValue, schemaVersion: parsed.schemaVersion, updatedByUserId: context.userId } });
     if (changed.count !== 1) throw new AccessError("NOT_FOUND");
     const updated = await tx.project3DConfig.findFirstOrThrow({ where: { id: config.id, companyId: config.companyId, projectId }, select: { updatedAt: true } });
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
       entity: { type: "Project3DConfig", id: config.id, label: config.project.name },
       projectId,
@@ -272,7 +273,7 @@ export async function updateProject3DModelSettings(
     });
     if (changed.count !== 1) throw new AccessError("CONFLICT", "The model changed while you were editing it. Reload and try again.", { code: "MODEL_RACED" });
     const updated = await tx.project3DModelVersion.findFirstOrThrow({ where: { id: version.id, companyId: version.companyId, projectId } });
-    await recordPlatformAction(context, version.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(version.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${version.project.name} v${version.version}` },
       projectId,

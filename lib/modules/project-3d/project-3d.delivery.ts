@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { project3DReleaseManifestSchema } from "@/lib/3d/shared/release.schema";
@@ -106,7 +107,7 @@ export async function authorizeProject3DAsset(handle: string, requester: Request
   if (!row || row.deletedAt || row.accessEpoch !== claims.e) return null;
 
   if (requester.audience === "preview" || requester.audience === "platform") {
-    if (row.projectId !== requester.projectId || !canPlatform(requester.context, "platform.3d.view") || row.project.company.parentGroup.isTestFixture) return null;
+    if (row.projectId !== requester.projectId || !canPlatform(requester.context, "platform.3d.view") || assignedCompany(row.project).parentGroup.isTestFixture) return null;
     if (requester.audience === "platform" && row.activeReleaseId !== claims.r) return null;
   } else {
     if (row.activeReleaseId !== claims.r) return null;

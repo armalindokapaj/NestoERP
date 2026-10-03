@@ -1,3 +1,4 @@
+import { withCompany } from "@/lib/access/project-ownership";
 import type { CompanyStatus, ParentGroupStatus } from "@prisma/client";
 import { z } from "zod";
 
@@ -94,7 +95,7 @@ export async function listOrganizations(context: PlatformContext, raw: Partial<R
   const usersByCompany = distinct(companyMembers.map((row) => [row.companyId, row.userId]));
   const usersByGroup = distinct([...groupCompanyMembers.map((row) => [row.company.parentGroupId, row.userId] as [string, string]), ...groupSeats.map((row) => [row.parentGroupId, row.userId] as [string, string])]);
   const projectsByGroup = new Map<string, number>();
-  for (const row of groupProjects) projectsByGroup.set(row.company.parentGroupId, (projectsByGroup.get(row.company.parentGroupId) ?? 0) + 1);
+  for (const row of withCompany(groupProjects)) projectsByGroup.set(row.company.parentGroupId, (projectsByGroup.get(row.company.parentGroupId) ?? 0) + 1);
 
   const rows: OrganizationRow[] = [
     ...groups.map((row) => ({

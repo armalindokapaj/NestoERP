@@ -1,3 +1,4 @@
+import { withCompany } from "@/lib/access/project-ownership";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { applyTransition } from "@/lib/core/state/transition";
 import { Prisma, type PurchaseOrderStatus } from "@prisma/client";
@@ -609,7 +610,7 @@ export async function orderFilterOptionsForWorkspace(session: UserContext): Prom
 
   return {
     suppliers,
-    projects,
+    projects: withCompany(projects),
     currencies: currencies.map((row) => row.currency),
     companies: companyFilterOptions(contexts),
   };

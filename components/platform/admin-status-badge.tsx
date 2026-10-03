@@ -17,6 +17,8 @@ const STATES: Record<string, { label: string; tone: BadgeProps["tone"] }> = {
   IMPLEMENTING: { label: "Implementing", tone: "warning" },
   READY_FOR_VALIDATION: { label: "Ready for validation", tone: "info" },
   PENDING: { label: "Pending", tone: "warning" },
+  // Ownership, not lifecycle: a project with no company yet (Standalone Project PRD §9).
+  UNASSIGNED: { label: "Unassigned", tone: "info" },
   FINISHED: { label: "Finished", tone: "default" },
   Public: { label: "Public", tone: "success" },
   Required: { label: "Required", tone: "neutral" },

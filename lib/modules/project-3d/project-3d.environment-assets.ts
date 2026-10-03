@@ -1,3 +1,4 @@
+import { assignedCompanyId } from "@/lib/access/project-ownership";
 import { prisma } from "@/lib/database/prisma";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
@@ -63,7 +64,7 @@ export async function createEnvironmentUpload(context: PlatformContext, projectI
   const rule = KINDS[kind];
   if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) throw new AccessError("VALIDATION_ERROR", "The file is empty.", { field: "file" });
   if (sizeBytes > rule.maxBytes) throw tooLarge(sizeBytes, kind);
-  const storageKey = buildProject3DStorageKey({ companyId: project.companyId, projectId: project.id, kind: "environment", extension: rule.extension });
+  const storageKey = buildProject3DStorageKey({ companyId: assignedCompanyId(project), projectId: project.id, kind: "environment", extension: rule.extension });
   const upload = await storageProvider().createUploadUrl({ storageKey, contentType: rule.contentType, maxBytes: sizeBytes, expiresInSeconds: UPLOAD_TTL_SECONDS });
   return {
     ref: `${ENVIRONMENT_REF_PREFIX}${storageKey.slice(storageKey.lastIndexOf("/") + 1)}`,
@@ -81,7 +82,7 @@ export async function completeEnvironmentUpload(context: PlatformContext, projec
   const file = environmentRefFile(ref);
   if (!file || !file.endsWith(`.${KINDS[kind].extension}`)) throw new AccessError("VALIDATION_ERROR", "Upload the file again.", { field: "file" });
   const storageKey = `companies/${project.companyId}/projects/${project.id}/3d/environment/${file}`;
-  assertProject3DStorageKey(storageKey, project.companyId, project.id, "environment");
+  assertProject3DStorageKey(storageKey, assignedCompanyId(project), project.id, "environment");
   const provider = storageProvider();
   const head = await provider.headObject(storageKey);
   if (!head) throw new AccessError("VALIDATION_ERROR", "The upload did not arrive. Upload the file again.", { field: "file" });
@@ -123,7 +124,7 @@ export async function platformEnvironmentAsset(context: PlatformContext, project
     select: { id: true, companyId: true },
   });
   if (!project) return new Response(null, { status: 404, headers: HEADERS });
-  return streamEnvironmentAsset(project.companyId, project.id, file);
+  return streamEnvironmentAsset(assignedCompanyId(project), project.id, file);
 }
 
 /**
