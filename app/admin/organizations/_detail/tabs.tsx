@@ -152,6 +152,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
   const add = canManage && companies.length ? <AddOrganizationUser organizationName={org.name} companies={companies} roles={assignable} projects={projects} /> : null;
   return (
     <Card title={t("common.users")} description={t("tabs.users.description", { name: org.name })} action={add}>
+      {scope.kind === "group" ? <p className="border-b border-line px-5 py-3 text-table text-fg-muted" data-testid="group-level-hint">{t("tabs.users.groupLevelHint")}</p> : null}
       <form method="get" action={`/admin/organizations/${org.id}`} className="flex flex-wrap items-end gap-2 border-b border-line px-5 py-3" aria-label={t("tabs.users.filterLabel")}>
         <input type="hidden" name="tab" value="users" />
         <input name="q" defaultValue={filter.q} placeholder={t("tabs.users.searchPlaceholder")} aria-label={t("tabs.users.searchAria")} className={cn(fieldClass, "min-w-48 flex-1")} />
