@@ -84,7 +84,7 @@ export function GroupOverview({ implementation }: Props) {
         {implementation.people.length === 0 ? (
           <p className="mt-3 text-table text-fg-muted">Nobody yet. Add the approved initial roster.</p>
         ) : (
-          <Table flush className="mt-3" aria-labelledby="group-people">
+          <Table stack flush className="mt-3" aria-labelledby="group-people">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Person</TableHeaderCell>

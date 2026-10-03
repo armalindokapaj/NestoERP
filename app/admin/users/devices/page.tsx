@@ -19,7 +19,7 @@ export default async function PlatformDevicesPage() {
     <div className="space-y-5">
       <PageHeader title="Mobile devices" description="Installed NESTO apps across every organization. Revoking ends the device's sessions and queues NESTO Data Removal; it does not erase the phone." />
       <section className="nesto-card p-5">
-        <Table flush aria-label="Mobile devices">
+        <Table stack flush aria-label="Mobile devices">
           <TableHead>
             <TableRow>
               <TableHeaderCell>User</TableHeaderCell>

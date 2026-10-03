@@ -47,7 +47,7 @@ export default async function UsersPage({ searchParams }: Props) {
           filtered ? <NoResultsState className="m-4" noun="users" clearHref="/admin/users" /> : <EmptyState className="m-4" title="No NESTO user accounts have been created yet." />
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Users">
+            <Table stack flush aria-label="Users">
               <TableHead><TableRow><TableHeaderCell>User</TableHeaderCell><TableHeaderCell className="max-md:hidden">Organization</TableHeaderCell><TableHeaderCell>Role</TableHeaderCell><TableHeaderCell className="max-lg:hidden">Scope</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Last active</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

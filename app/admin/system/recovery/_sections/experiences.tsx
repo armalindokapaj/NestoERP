@@ -20,7 +20,7 @@ export async function RecoveryExperiences() {
         <EmptyState title="No deleted 3D experiences" description="Experiences deleted from 3D / Rozaris appear here until their files are removed." />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label="Deleted 3D experiences" data-testid="deleted-experiences">
+          <Table stack flush aria-label="Deleted 3D experiences" data-testid="deleted-experiences">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Experience</TableHeaderCell>

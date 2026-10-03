@@ -76,7 +76,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
           )
         ) : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Projects">
+            <Table stack flush aria-label="Projects">
               <TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Company</TableHeaderCell><TableHeaderCell className="max-lg:hidden">Group</TableHeaderCell><TableHeaderCell className="max-md:hidden">Modules</TableHeaderCell><TableHeaderCell>3D</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

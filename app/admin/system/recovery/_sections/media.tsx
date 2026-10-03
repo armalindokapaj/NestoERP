@@ -19,7 +19,7 @@ export async function RecoveryMedia() {
         <EmptyState title="No removed media to recover" description="Media removed from a project appears here while its file still exists." />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label="Removed project media" data-testid="removed-media">
+          <Table stack flush aria-label="Removed project media" data-testid="removed-media">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Media</TableHeaderCell>

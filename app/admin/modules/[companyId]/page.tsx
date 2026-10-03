@@ -88,7 +88,7 @@ export default async function CompanyEntitlementsPage({ params, searchParams }: 
             <EmptyState className="m-4" title="No Projects yet." description="Project-scoped modules, such as the 3D Viewer, are granted project by project." />
           ) : (
             <div className="overflow-x-auto">
-              <Table flush aria-label="Project entitlements">
+              <Table stack flush aria-label="Project entitlements">
                 <TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell>3D Viewer</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Status</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
                 <TableBody>
                   {data.projects.map((row) => (

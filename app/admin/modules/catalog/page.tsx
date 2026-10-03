@@ -21,7 +21,7 @@ export default async function ModuleCatalogPage() {
     <div className="space-y-5">
       <PageHeader title="Module catalog" description="Every NESTO module, its internal key, scope and what it needs granted beside it." />
       <section className="nesto-card overflow-x-auto">
-        <Table flush aria-label="Module catalog">
+        <Table stack flush aria-label="Module catalog">
           <TableHead><TableRow><TableHeaderCell>Module</TableHeaderCell><TableHeaderCell className="max-md:hidden">Internal key</TableHeaderCell><TableHeaderCell>Scope</TableHeaderCell><TableHeaderCell className="max-lg:hidden">Needs</TableHeaderCell><TableHeaderCell className="max-sm:hidden">In use</TableHeaderCell><TableHeaderCell>Availability</TableHeaderCell></TableRow></TableHead>
           <TableBody>
             {catalog.modules.map((row) => (

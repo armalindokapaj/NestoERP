@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { TableScrollRegion } from "@/components/ui/scroll-region";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -22,16 +23,25 @@ import { cn } from "@/lib/utils/cn";
 export function Table({
   className,
   flush = false,
+  stack = false,
   label,
   ...props
 }: React.ComponentProps<"table"> & {
   flush?: boolean;
+  /**
+   * On a phone each row becomes a card: the first cell is its title, the rest
+   * are "label  value" lines taken from the column headings. Above `md` it is
+   * the table. Same rows, same links, no separate mobile list (globals.css,
+   * `table[data-stack]`).
+   */
+  stack?: boolean;
   /** The scroll region's accessible name. */
   label?: string;
 }) {
   return (
     <TableScrollRegion label={label ?? props["aria-label"]}>
       <table
+        data-stack={stack ? "" : undefined}
         className={cn(
           "w-full border-collapse text-table",
           /* Inside a card the outer columns align to the card's own padding
@@ -42,6 +52,7 @@ export function Table({
         )}
         {...props}
       />
+      {stack ? <TableStackLabels /> : null}
     </TableScrollRegion>
   );
 }

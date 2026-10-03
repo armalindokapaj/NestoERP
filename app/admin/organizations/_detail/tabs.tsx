@@ -63,7 +63,7 @@ export async function GroupCompaniesTab({ context, group }: { context: PlatformC
         <EmptyState className="m-4" title="No Companies in this Group." description="Create a new Company or add an existing standalone Company with Add Company." />
       ) : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Companies">
+          <Table stack flush aria-label="Companies">
             <TableHead><TableRow><TableHeaderCell>Company</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Projects</TableHeaderCell><TableHeaderCell className="max-sm:hidden">Users</TableHeaderCell><TableHeaderCell className="max-md:hidden">Modules</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -111,7 +111,7 @@ export async function ProjectsTab({ context, scope, org }: { context: PlatformCo
         <EmptyState className="m-4" title="No Projects yet." description={`Create a Project for ${org.name}. A NESTO project has one managing company, so an existing project of another company cannot be associated here.`} />
       ) : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Projects">
+          <Table stack flush aria-label="Projects">
             <TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell>{scope.kind === "group" ? <TableHeaderCell className="max-sm:hidden">Managing Company</TableHeaderCell> : <TableHeaderCell className="max-sm:hidden">Role</TableHeaderCell>}<TableHeaderCell className="max-md:hidden">Users</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell className="max-sm:hidden">3D</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -161,7 +161,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
         )
       ) : (
         <div className="overflow-x-auto">
-          <Table flush aria-label="Users">
+          <Table stack flush aria-label="Users">
             <TableHead><TableRow><TableHeaderCell>User</TableHeaderCell><TableHeaderCell>Role</TableHeaderCell>{scope.kind === "group" ? <TableHeaderCell className="max-md:hidden">Company</TableHeaderCell> : null}<TableHeaderCell className="max-md:hidden">Projects</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell><span className="sr-only">Actions</span></TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -322,7 +322,7 @@ export async function ModulesTab({ context, scope, org }: { context: PlatformCon
       <Card title="Project-controlled modules" description="The 3D Viewer is granted project by project.">
         {data.projects.length === 0 ? <EmptyState className="m-4" title="No Projects yet." /> : (
           <div className="overflow-x-auto">
-            <Table flush aria-label="Project entitlements">
+            <Table stack flush aria-label="Project entitlements">
               <TableHead><TableRow><TableHeaderCell>Project</TableHeaderCell><TableHeaderCell>3D Viewer</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
               <TableBody>
                 {data.projects.map((row) => (

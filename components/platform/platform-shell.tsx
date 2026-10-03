@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, UserRound, X } from "lucide-react";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { useSignOut } from "@/components/layout/use-sign-out";
 import { activeDestination, activeTab, adminDestinations, SIDEBAR_COOKIE, visibleTo, type AdminDestination } from "@/components/platform/admin-navigation";
 import { PlatformQuickCreate } from "@/components/platform/platform-quick-create";
 import { PlatformSearch } from "@/components/platform/platform-search";
@@ -103,6 +104,22 @@ function ProfileMenu({ user }: { user: User }) {
   );
 }
 
+/** The signed-in person, Account and Sign out at the foot of the phone drawer: the top bar has room only for the initials. */
+function DrawerAccount({ user, onNavigate }: { user: User; onNavigate: () => void }) {
+  const { signOut, signingOut } = useSignOut();
+  const row = "flex h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-table text-fg-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+  return (
+    <div className="mt-auto border-t border-line p-3" data-testid="admin-drawer-account">
+      <p className="px-3 pb-2 pt-1">
+        <span className="block truncate text-body font-medium text-fg">{user.name}</span>
+        <span className="block truncate text-meta text-fg-subtle">{user.email ?? user.username}</span>
+      </p>
+      <Link href="/admin/account" onClick={onNavigate} className={row}><UserRound aria-hidden="true" className="size-[18px]" />Account</Link>
+      <button type="button" disabled={signingOut} onClick={() => void signOut()} className={row}><LogOut aria-hidden="true" className="size-[18px]" />{signingOut ? "Signing out…" : "Sign out"}</button>
+    </div>
+  );
+}
+
 /** A destination's secondary pages, shown only on those pages themselves (Admin IA §23). */
 function SectionTabs({ permissions }: { permissions: readonly string[] }) {
   const pathname = usePathname();
@@ -173,13 +190,14 @@ export function PlatformShell({ user, permissions, initialCollapsed, devActions,
             </DrawerClose>
           </div>
           <Navigation permissions={permissions} onNavigate={() => setMobile(false)} />
+          <DrawerAccount user={user} onNavigate={() => setMobile(false)} />
         </DrawerContent>
       </Drawer>
       {/* The admin header is 64px at every width; the breadcrumb bar pins beneath it (Sticky Navigation §33). */}
       <BreadcrumbRegistryProvider>
       <div className={cn("transition-[padding] duration-150", collapsed ? "lg:pl-16" : "lg:pl-60")} style={{ "--nesto-shell-header-h": "4rem" } as React.CSSProperties} data-admin-shell>
         <header className="sticky top-0 z-[var(--nesto-z-shell-header)] border-b border-line bg-surface/95 backdrop-blur">
-          <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6">
+          <div className="flex min-h-16 items-center gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
             <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
             <ContextLabel className="shrink-0 max-sm:hidden lg:hidden" />
             <PlatformSearch />
@@ -191,7 +209,7 @@ export function PlatformShell({ user, permissions, initialCollapsed, devActions,
           </div>
         </header>
         <BreadcrumbBar root={{ label: "NESTO Admin", href: "/admin" }} />
-        <main id="nesto-main" tabIndex={-1} className="w-full px-4 py-6 outline-none sm:px-6 lg:px-8">
+        <main id="nesto-main" tabIndex={-1} className="w-full min-w-0 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 outline-none sm:px-6 lg:px-8 [&_.grid>*]:min-w-0">
           <SectionTabs permissions={permissions} />
           {children}
         </main>
