@@ -1,3 +1,4 @@
+import { assignedCompany, assignedCompanyId } from "@/lib/access/project-ownership";
 import { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
@@ -119,7 +120,7 @@ export async function listProject3DExperiences(context: PlatformContext, query: 
         projectId: row.projectId,
         experienceName: row.experienceName || `${row.project.name} 3D Experience`,
         internalNotes: row.internalNotes,
-        project: { id: row.project.id, code: row.project.code, name: row.project.name, status: row.project.status, company: { id: row.project.company.id, name: row.project.company.name, parentGroup: { id: row.project.company.parentGroup.id, name: row.project.company.parentGroup.name } } },
+        project: { id: row.project.id, code: row.project.code, name: row.project.name, status: row.project.status, company: { id: assignedCompany(row.project).id, name: assignedCompany(row.project).name, parentGroup: { id: assignedCompany(row.project).parentGroup.id, name: assignedCompany(row.project).parentGroup.name } } },
         visibility: row.visibility,
         controlVersion: row.controlVersion,
         availability,
@@ -158,10 +159,10 @@ export async function createProject3DExperience(context: PlatformContext, input:
     return await prisma.$transaction(async (tx) => {
       const entitlement = project.project3DEntitlement
         ? await tx.project3DEntitlement.update({ where: { id: project.project3DEntitlement.id, status: project.project3DEntitlement.status }, data: { status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId } })
-        : await tx.project3DEntitlement.create({ data: { companyId: project.companyId, projectId: project.id, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId, planKey: "PREMIUM_3D" } });
+        : await tx.project3DEntitlement.create({ data: { companyId: assignedCompanyId(project), projectId: project.id, status: "ACTIVE", viewerEnabled: true, activatedAt: new Date(), provisionedByUserId: context.userId, planKey: "PREMIUM_3D" } });
       const config = await tx.project3DConfig.create({
         // New experiences start OFFLINE (the column default): nobody views until an audience is chosen (§3).
-        data: { companyId: project.companyId, projectId: project.id, publicId: newProject3DPublicId(), experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+        data: { companyId: assignedCompanyId(project), projectId: project.id, publicId: newProject3DPublicId(), experienceName: input.experienceName, internalNotes: input.internalNotes?.trim() || null, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
         select: { id: true },
       });
       await recordPlatformAction(context, input.parentGroupId, {
@@ -201,7 +202,7 @@ export async function updateProject3DExperienceMetadata(context: PlatformContext
     });
     if (moved.count !== 1) throw new AccessError("CONFLICT", "Someone else changed this 3D experience. Reload to see the latest details, then try again.", { code: "STALE_CONTROL_VERSION" });
     const updated = await tx.project3DConfig.findUniqueOrThrow({ where: { id: config.id }, select: { id: true, experienceName: true, internalNotes: true, controlVersion: true } });
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_CHANGED,
       entity: { type: "Project3DConfig", id: config.id, label: input.experienceName }, projectId,
       before: { projectId, configurationId: config.id, experienceName: config.experienceName || `${config.project.name} 3D Experience`, internalNotes: config.internalNotes },
@@ -309,7 +310,7 @@ export async function listProject3DDiagnostics(context: PlatformContext) {
     id: row.id,
     projectId: row.projectId,
     projectName: row.project.name,
-    companyName: row.project.company.name,
+    companyName: assignedCompany(row.project).name,
     entitlementStatus: row.project.project3DEntitlement?.status ?? null,
     activeReleaseId: row.activeReleaseId,
     slots: row.slots,
@@ -371,17 +372,17 @@ export async function updateProject3DEntitlement(context: PlatformContext, proje
             data: { status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
           });
           if (changed.count !== 1) throw new AccessError("CONFLICT", "The 3D entitlement changed while you were editing it.");
-          return tx.project3DEntitlement.findFirstOrThrow({ where: { id: existingEntitlement.id, companyId: project.companyId, projectId: project.id } });
+          return tx.project3DEntitlement.findFirstOrThrow({ where: { id: existingEntitlement.id, companyId: assignedCompanyId(project), projectId: project.id } });
         })()
       : await tx.project3DEntitlement.create({
-          data: { companyId: project.companyId, projectId: project.id, provisionedByUserId: context.userId, status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
+          data: { companyId: assignedCompanyId(project), projectId: project.id, provisionedByUserId: context.userId, status: after.status, planKey: after.planKey, viewerEnabled: after.viewerEnabled, activatedAt: after.activatedAt, expiresAt: after.expiresAt },
         });
     await tx.project3DConfig.upsert({
       where: { projectId: project.id },
       update: { updatedByUserId: context.userId },
-      create: { companyId: project.companyId, projectId: project.id, publicId: newProject3DPublicId(), experienceName: `${project.name} 3D Experience`, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
+      create: { companyId: assignedCompanyId(project), projectId: project.id, publicId: newProject3DPublicId(), experienceName: `${project.name} 3D Experience`, schemaVersion: 1, authoringDocument: EMPTY_EXPERIENCE, updatedByUserId: context.userId },
     });
-    await recordPlatformAction(context, project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_ENTITLEMENT_CHANGED,
       entity: { type: "Project3DEntitlement", id: entitlement.id, label: project.name },
       projectId: project.id,

@@ -1,3 +1,4 @@
+import { assignedOnlyList, withCompany } from "@/lib/access/project-ownership";
 import { z } from "zod";
 
 import { modules as registry } from "@/config/modules";
@@ -45,7 +46,7 @@ export async function organizationProjects(context: PlatformContext, scope: Orga
     orderBy: [{ archivedAt: { sort: "asc", nulls: "first" } }, { name: "asc" }, { id: "asc" }],
     select: { id: true, code: true, name: true, status: true, archivedAt: true, company: { select: { id: true, name: true } }, _count: { select: { members: { where: { status: "ACTIVE" } } } }, project3DConfig: { select: { visibility: true, deletedAt: true } } },
   });
-  return rows.map((row) => ({ id: row.id, code: row.code, name: row.name, status: row.archivedAt ? "ARCHIVED" : row.status, company: row.company, users: row._count.members, threeD: threeDState(row.project3DConfig) }));
+  return withCompany(rows).map((row) => ({ id: row.id, code: row.code, name: row.name, status: row.archivedAt ? "ARCHIVED" : row.status, company: row.company, users: row._count.members, threeD: threeDState(row.project3DConfig) }));
 }
 
 export const organizationUserFilterSchema = z.object({
@@ -151,7 +152,7 @@ export async function organizationRoles(context: PlatformContext, scope: Organiz
 export async function organizationProjectOptions(context: PlatformContext, scope: OrganizationScope) {
   assertView(context);
   const rows = await prisma.project.findMany({ where: { company: companyWhere(scope), archivedAt: null }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true, companyId: true } });
-  return rows.map((row) => ({ value: row.id, label: row.name, companyId: row.companyId }));
+  return assignedOnlyList(rows).map((row) => ({ value: row.id, label: row.name, companyId: row.companyId }));
 }
 
 /**

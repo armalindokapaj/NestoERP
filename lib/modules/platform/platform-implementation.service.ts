@@ -1,3 +1,4 @@
+import { assignedCompanyId } from "@/lib/access/project-ownership";
 import type { ParentGroupStatus, Prisma } from "@prisma/client";
 
 import { GROUP_DEPARTMENTS, groupDepartmentRows } from "@/config/group-departments";
@@ -423,7 +424,7 @@ export async function assignInitialProjectMember(context: PlatformContext, group
   assertPlatform(context, "platform.user.initial_provision");
   const group = await assertImplementing(groupId);
   const project = assertFound(await prisma.project.findFirst({ where: { id: input.projectId, company: { parentGroupId: group.id }, archivedAt: null }, select: { id: true, name: true, companyId: true } }));
-  const member = await prisma.companyMember.findFirst({ where: { userId: input.userId, companyId: project.companyId, status: "ACTIVE" }, select: { id: true, user: { select: { firstName: true, lastName: true } } } });
+  const member = await prisma.companyMember.findFirst({ where: { userId: input.userId, companyId: assignedCompanyId(project), status: "ACTIVE" }, select: { id: true, user: { select: { firstName: true, lastName: true } } } });
   if (!member) throw new AccessError("VALIDATION_ERROR", "That person does not work in the project's company.", { field: "userId" });
 
   await prisma.$transaction(async (tx) => {
@@ -432,7 +433,7 @@ export async function assignInitialProjectMember(context: PlatformContext, group
     if (existing) {
       await tx.projectMember.updateMany({ where: { id: existing.id, status: existing.status }, data: { status: "ACTIVE", leftAt: null, projectRole: input.projectRole ?? null } });
     } else {
-      await tx.projectMember.create({ data: { companyId: project.companyId, projectId: project.id, companyMemberId: member.id, projectRole: input.projectRole ?? null, status: "ACTIVE", joinedAt: new Date() } });
+      await tx.projectMember.create({ data: { companyId: assignedCompanyId(project), projectId: project.id, companyMemberId: member.id, projectRole: input.projectRole ?? null, status: "ACTIVE", joinedAt: new Date() } });
     }
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_INITIAL_PROJECT_MEMBER_ASSIGNED, entity: { type: "Project", id: project.id, label: project.name }, after: { projectId: project.id, userId: input.userId, companyMemberId: member.id } }, { tx });
   });

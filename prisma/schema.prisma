@@ -2784,7 +2784,10 @@ model UserProvisioningRequest {
 
 model Project {
   id                     String           @id @default(cuid())
-  companyId              String
+  /// NULL is an unassigned project (Standalone Project PRD §2, §30): visible to
+  /// Platform Admin only, never to a company, and never "public". Ownership
+  /// state is derived from this column, so the two cannot disagree (§31).
+  companyId              String?
   code                   String
   name                   String
   description            String?
@@ -2824,8 +2827,11 @@ model Project {
   updatedBy  String?
   archivedBy String?
   archivedAt DateTime?
+  /// When and by whom an unassigned project was given its company (§44). Set once.
+  assignedAt DateTime?
+  assignedBy String?
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
   client  Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   coverImage Document? @relation("ProjectCoverImage", fields: [coverImageDocumentId], references: [id], onDelete: SetNull)

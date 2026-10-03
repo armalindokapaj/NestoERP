@@ -1,3 +1,4 @@
+import { withCompany } from "@/lib/access/project-ownership";
 import { Prisma, type PurchaseRequestStatus } from "@prisma/client";
 
 import { inGroupWorkspace } from "@/config/workspace";
@@ -497,7 +498,7 @@ export async function requestFilterOptionsForWorkspace(session: UserContext): Pr
     }),
   ]);
 
-  return { projects, departments, requesters, companies: companyFilterOptions(contexts) };
+  return { projects: withCompany(projects), departments, requesters, companies: companyFilterOptions(contexts) };
 }
 
 /**

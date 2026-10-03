@@ -28,24 +28,25 @@ export default async function ProjectsPage({ searchParams }: Props) {
   const context = await requirePlatformContext();
   const [result, companies, groups] = await Promise.all([listProjectsDirectory(context, raw), projectCompanyOptions(context), organizationGroupOptions(context)]);
   const { rows, query, total, pages } = result;
-  const filtered = Boolean(query.q || query.company || query.group || query.status || query.three);
+  const filtered = Boolean(query.q || query.company || query.group || query.status || query.three || query.ownership);
   const link = (changes: Record<string, string>) => {
     const params = new URLSearchParams(Object.entries({ ...raw, ...changes }).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1] !== "" && !(entry[0] === "page" && entry[1] === "1")));
     return `/admin/projects${params.size ? `?${params}` : ""}`;
   };
-  const canCreate = canPlatform(context, "platform.project.manage");
+  const canUnassigned = canPlatform(context, "platform.project.create_unassigned");
+  const canCreate = canPlatform(context, "platform.project.manage") || canUnassigned;
   const create = canCreate ? (
     <PlatformCommandButton
       label="Create Project"
       title="Create Project"
-      description="A name and its managing company are enough. The code is made from the name; 3D is configured separately."
+      description="A name is enough. Leave the company as Unassigned to prepare the project first and assign it later. The code is made from the name."
       action="project.create"
       openOnCreate="project"
       variant="primary"
       success="Project created."
       fields={[
         { name: "name", label: "Project name", type: "text", required: true },
-        { name: "companyId", label: "Managing company", type: "select", required: true, options: companies },
+        { name: "companyId", label: "Company", type: "select", required: !canUnassigned, emptyLabel: canUnassigned ? "Unassigned" : undefined, options: companies },
         { name: "code", label: "Code", type: "text", hint: "Optional. Made from the name when empty." },
       ]}
       redirectTo="/admin/projects/{id}"
@@ -57,6 +58,11 @@ export default async function ProjectsPage({ searchParams }: Props) {
       <PageHeader title="Projects" description="Manage Projects across NESTO." actions={create} />
       <div className="flex flex-wrap items-center gap-2">
         <OrganizationFilters statuses={[{ value: "ACTIVE", label: "Active" }, { value: "PENDING", label: "Pending" }, { value: "FINISHED", label: "Finished" }, { value: "ARCHIVED", label: "Archived" }]} groups={groups} showGroup placeholder="Search projects..." />
+        <nav aria-label="Ownership" className="flex flex-wrap gap-1" data-testid="ownership-filter">
+          {([["", "All projects"], ["assigned", "Assigned"], ["unassigned", "Unassigned"]] as const).map(([value, label]) => (
+            <Link key={value || "all"} href={link({ ownership: value, page: "1" })} replace aria-current={query.ownership === value ? "true" : undefined} className={cn("rounded-full border px-2.5 py-1 text-meta", query.ownership === value ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover")}>{label}</Link>
+          ))}
+        </nav>
         <nav aria-label="3D status" className="flex flex-wrap gap-1">
           {THREE_D.map(([value, label]) => (
             <Link key={value || "any"} href={link({ three: value, page: "1" })} replace aria-current={query.three === value ? "true" : undefined} className={cn("rounded-full border px-2.5 py-1 text-meta", query.three === value ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover")}>{label}</Link>
@@ -76,9 +82,9 @@ export default async function ProjectsPage({ searchParams }: Props) {
                 {rows.map((row) => (
                   <TableRow key={row.id} data-testid="project-row">
                     <TableCell><Link href={`/admin/projects/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.code}</p></TableCell>
-                    <TableCell className="max-sm:hidden"><Link href={`/admin/organizations/${row.company.id}`} className="text-fg-muted hover:underline">{row.company.name}</Link></TableCell>
+                    <TableCell className="max-sm:hidden">{row.company ? <Link href={`/admin/organizations/${row.company.id}`} className="text-fg-muted hover:underline">{row.company.name}</Link> : <AdminStatusBadge status="UNASSIGNED" />}</TableCell>
                     <TableCell className="max-lg:hidden">{row.group ? <Link href={`/admin/organizations/${row.group.id}`} className="text-fg-muted hover:underline">{row.group.name}</Link> : "—"}</TableCell>
-                    <TableCell className="tabular-nums max-md:hidden">{row.modules}</TableCell>
+                    <TableCell className="tabular-nums max-md:hidden">{row.modules ?? "—"}</TableCell>
                     <TableCell>{row.threeD === "Not configured" ? <AdminStatusBadge status={row.threeD} /> : <Link href={`/admin/3d/projects/${row.id}`} aria-label={`3D: ${row.threeD}. Open 3D administration for ${row.name}`}><AdminStatusBadge status={row.threeD} /></Link>}</TableCell>
                     <TableCell><AdminStatusBadge status={row.status} /></TableCell>
                   </TableRow>

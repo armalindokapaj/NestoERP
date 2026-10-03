@@ -5,6 +5,7 @@ import { AccessError, assertFound } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { ENTITLABLE_MODULES, entitledModulesFor, moduleLabel } from "@/lib/core/entitlements/entitlement.resolver";
 import { prisma } from "@/lib/database/prisma";
+import { ownershipOf, withCompany } from "@/lib/access/project-ownership";
 import { threeDState } from "@/lib/modules/platform/platform-dashboard.query";
 
 /**
@@ -22,6 +23,8 @@ export const projectDirectorySchema = z.object({
   q: z.string().trim().max(120).catch(""),
   company: z.string().trim().max(128).catch(""),
   group: z.string().trim().max(128).catch(""),
+  /** Ownership is its own filter, apart from the construction status (Standalone Project PRD §9, §10). */
+  ownership: z.enum(["", "assigned", "unassigned"]).catch(""),
   status: z.enum(["", "PENDING", "ACTIVE", "FINISHED", "ARCHIVED"]).catch(""),
   three: z.enum(["", "configured", "none", "PUBLIC", "COMPANY_ONLY", "PRIVATE", "OFFLINE"]).catch(""),
   page: z.coerce.number().int().min(1).max(10_000).catch(1),
@@ -32,11 +35,20 @@ export async function listProjectsDirectory(context: PlatformContext, raw: Recor
   const query = projectDirectorySchema.parse(raw);
   const contains = query.q ? { contains: query.q, mode: "insensitive" as const } : undefined;
   const liveConfig = { deletedAt: null };
+  const ownedBy: Prisma.ProjectWhereInput = { company: { parentGroup: { isTestFixture: false, ...(query.group ? { id: query.group } : {}) }, ...(query.company ? { id: query.company } : {}) } };
+  // A company or group filter can only match an assigned project; otherwise an
+  // unassigned one is listed beside the assigned ones (§10, §43).
+  const ownership: Prisma.ProjectWhereInput =
+    query.ownership === "unassigned" ? { companyId: null }
+    : query.ownership === "assigned" || query.company || query.group ? ownedBy
+    : { OR: [{ companyId: null }, ownedBy] };
   const where: Prisma.ProjectWhereInput = {
-    company: { parentGroup: { isTestFixture: false, ...(query.group ? { id: query.group } : {}) }, ...(query.company ? { id: query.company } : {}) },
-    ...(contains ? { OR: [{ name: contains }, { code: contains }, { company: { name: contains } }, { company: { parentGroup: { name: contains, kind: "GROUP" } } }] } : {}),
-    ...(query.status === "ARCHIVED" ? { OR: [{ archivedAt: { not: null } }, { status: "ARCHIVED" }] } : query.status ? { status: query.status, archivedAt: null } : {}),
-    ...(query.three === "configured" ? { project3DConfig: { is: liveConfig } } : query.three === "none" ? { OR: [{ project3DConfig: { is: null } }, { project3DConfig: { is: { deletedAt: { not: null } } } }] } : query.three ? { project3DConfig: { is: { ...liveConfig, visibility: query.three } } } : {}),
+    AND: [
+      ownership,
+      ...(contains ? [{ OR: [{ name: contains }, { code: contains }, { company: { name: contains } }, { company: { parentGroup: { name: contains, kind: "GROUP" as const } } }] }] : []),
+      query.status === "ARCHIVED" ? { OR: [{ archivedAt: { not: null } }, { status: "ARCHIVED" as const }] } : query.status ? { status: query.status, archivedAt: null } : {},
+      query.three === "configured" ? { project3DConfig: { is: liveConfig } } : query.three === "none" ? { OR: [{ project3DConfig: { is: null } }, { project3DConfig: { is: { deletedAt: { not: null } } } }] } : query.three ? { project3DConfig: { is: { ...liveConfig, visibility: query.three } } } : {},
+    ],
   };
   const [total, rows] = await Promise.all([
     prisma.project.count({ where }),
@@ -46,21 +58,22 @@ export async function listProjectsDirectory(context: PlatformContext, raw: Recor
       skip: (query.page - 1) * PROJECT_PAGE_SIZE,
       take: PROJECT_PAGE_SIZE,
       select: {
-        id: true, code: true, name: true, status: true, archivedAt: true, updatedAt: true,
+        id: true, code: true, name: true, status: true, archivedAt: true, updatedAt: true, companyId: true,
         company: { select: { id: true, name: true, parentGroup: { select: { id: true, name: true, kind: true } } } },
         project3DConfig: { select: { visibility: true, deletedAt: true } },
       },
     }),
   ]);
-  const entitled = await entitledModulesFor([...new Set(rows.map((row) => row.company.id))]);
+  const entitled = await entitledModulesFor([...new Set(rows.flatMap((row) => (row.company ? [row.company.id] : [])))]);
   return {
     query, total, pages: Math.max(1, Math.ceil(total / PROJECT_PAGE_SIZE)),
     rows: rows.map((row) => ({
       id: row.id, code: row.code, name: row.name,
       status: row.archivedAt ? "ARCHIVED" : row.status,
-      company: { id: row.company.id, name: row.company.name },
-      group: row.company.parentGroup.kind === "GROUP" ? { id: row.company.parentGroup.id, name: row.company.parentGroup.name } : null,
-      modules: [...(entitled.get(row.company.id) ?? [])].filter((key) => ENTITLABLE_MODULES.includes(key)).length,
+      ownership: ownershipOf(row),
+      company: row.company ? { id: row.company.id, name: row.company.name } : null,
+      group: row.company && row.company.parentGroup.kind === "GROUP" ? { id: row.company.parentGroup.id, name: row.company.parentGroup.name } : null,
+      modules: row.company ? [...(entitled.get(row.company.id) ?? [])].filter((key) => ENTITLABLE_MODULES.includes(key)).length : null,
       threeD: threeDState(row.project3DConfig),
       updatedAt: row.updatedAt.toISOString(),
     })),
@@ -82,9 +95,9 @@ export async function projectCompanyOptions(context: PlatformContext) {
 export async function getPlatformProjectDetail(context: PlatformContext, projectId: string) {
   assertView(context);
   const row = assertFound(await prisma.project.findFirst({
-    where: { id: projectId, company: { parentGroup: { isTestFixture: false } } },
+    where: { id: projectId, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] },
     select: {
-      id: true, code: true, name: true, description: true, status: true, archivedAt: true, createdAt: true, updatedAt: true,
+      id: true, code: true, name: true, description: true, status: true, archivedAt: true, createdAt: true, updatedAt: true, companyId: true, assignedAt: true,
       company: { select: { id: true, name: true, status: true, parentGroup: { select: { id: true, name: true, kind: true } } } },
       projectManager: { select: { user: { select: { firstName: true, lastName: true } } } },
       project3DEntitlement: { select: { status: true, viewerEnabled: true, expiresAt: true } },
@@ -101,8 +114,10 @@ export async function getPlatformProjectDetail(context: PlatformContext, project
     id: row.id, code: row.code, name: row.name, description: row.description,
     status: row.archivedAt ? "ARCHIVED" : row.status, archived: Boolean(row.archivedAt),
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
-    company: { id: row.company.id, name: row.company.name, status: row.company.status },
-    group: row.company.parentGroup.kind === "GROUP" ? { id: row.company.parentGroup.id, name: row.company.parentGroup.name } : null,
+    ownership: ownershipOf(row),
+    assignedAt: row.assignedAt?.toISOString() ?? null,
+    company: row.company ? { id: row.company.id, name: row.company.name, status: row.company.status } : null,
+    group: row.company && row.company.parentGroup.kind === "GROUP" ? { id: row.company.parentGroup.id, name: row.company.parentGroup.name } : null,
     manager: row.projectManager ? `${row.projectManager.user.firstName} ${row.projectManager.user.lastName}` : null,
     members: row._count.members,
     units: row._count.units,
@@ -152,5 +167,5 @@ export async function unconfiguredProjects(context: PlatformContext, q: string) 
     take: 200,
     select: { id: true, code: true, name: true, status: true, company: { select: { id: true, name: true } }, project3DEntitlement: { select: { status: true } }, _count: { select: { units: true } } },
   });
-  return rows.map((row) => ({ id: row.id, code: row.code, name: row.name, status: row.status, company: row.company, units: row._count.units, entitled: row.project3DEntitlement?.status === "ACTIVE" }));
+  return withCompany(rows).map((row) => ({ id: row.id, code: row.code, name: row.name, status: row.status, company: row.company, units: row._count.units, entitled: row.project3DEntitlement?.status === "ACTIVE" }));
 }

@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { Prisma, type ProjectStatus } from "@prisma/client";
 
 import { roleLabel, isRoleKey } from "@/config/roles";
@@ -1134,9 +1135,9 @@ function toDetailDTO(
     builtArea: row.builtArea === null ? null : Number(row.builtArea),
     isKeyProject: row.isKeyProject,
     company: {
-      id: row.company.id,
-      name: row.company.name,
-      parentGroup: { id: row.company.parentGroup.id, name: row.company.parentGroup.name },
+      id: assignedCompany(row).id,
+      name: assignedCompany(row).name,
+      parentGroup: { id: assignedCompany(row).parentGroup.id, name: assignedCompany(row).parentGroup.name },
     },
     projectType: row.projectType ? { id: row.projectType.id, name: row.projectType.name } : null,
     coverImageDocumentId: row.coverImageDocumentId,

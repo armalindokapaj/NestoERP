@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { ENTITLABLE_MODULES, entitledModulesFor } from "@/lib/core/entitlements/entitlement.resolver";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
@@ -201,7 +202,7 @@ export async function dashboardOrganizations(context: PlatformContext, limit = 5
     prisma.companyMember.findMany({ where: { status: "ACTIVE", company: { parentGroupId: { in: rootIds } } }, select: { userId: true, company: { select: { parentGroupId: true } } } }),
   ]);
   const projectsBy = new Map<string, number>();
-  for (const row of projects) projectsBy.set(row.company.parentGroupId, (projectsBy.get(row.company.parentGroupId) ?? 0) + 1);
+  for (const row of projects) projectsBy.set(assignedCompany(row).parentGroupId, (projectsBy.get(assignedCompany(row).parentGroupId) ?? 0) + 1);
   const usersBy = new Map<string, Set<string>>();
   for (const row of members) {
     const set = usersBy.get(row.company.parentGroupId) ?? new Set<string>();

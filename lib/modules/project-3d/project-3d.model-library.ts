@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import type { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
@@ -111,7 +112,7 @@ export async function deleteProject3DModelVersion(context: PlatformContext, vers
     if (changed.count !== 1) throw new AccessError("CONFLICT", "This model changed while it was being deleted. Refresh and try again.", { code: "MODEL_RACED" });
     const bindings = await tx.project3DUnitMeshBinding.deleteMany({ where: { modelVersionId: version.id, projectId: version.projectId, companyId: version.companyId } });
     const snapshot = { projectId: version.projectId, slotId: version.slotId, versionId: version.id, version: version.version, status: version.status, validationStatus: version.validationStatus, fileName: version.originalFileName };
-    await recordPlatformAction(context, version.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(version.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_MODEL_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: `${version.slot.displayName} v${version.version}` },
       projectId: version.projectId,

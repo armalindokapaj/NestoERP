@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
+import { AssignProjectCompany } from "@/components/platform/project-assignment";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
-import { getPlatformProjectDetail, projectModules, projectUsers } from "@/lib/modules/platform/platform-projects.query";
+import { getPlatformProjectDetail, projectCompanyOptions, projectModules, projectUsers } from "@/lib/modules/platform/platform-projects.query";
+import { UNASSIGNED_PROJECT_MESSAGE } from "@/lib/access/project-ownership";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 
@@ -31,28 +33,34 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   });
-  const tab = TABS.some(([key]) => key === rawTab) ? rawTab! : "overview";
+  // An unassigned project has no company to own users, modules or a 3D experience yet (Standalone Project PRD §13).
+  const company = project.company;
+  const tabs = company ? TABS : TABS.filter(([key]) => key === "overview" || key === "settings");
+  const tab = tabs.some(([key]) => key === rawTab) ? rawTab! : "overview";
   const canManage = canPlatform(context, "platform.project.manage");
-  const label = TABS.find(([key]) => key === tab)![1];
+  const canAssign = !company && !project.archived && canPlatform(context, "platform.project.assign_company");
+  const companyOptions = canAssign ? await projectCompanyOptions(context) : [];
+  const label = tabs.find(([key]) => key === tab)![1];
 
   return (
     <div className="space-y-5">
-      {from && (from === project.company.id || from === project.group?.id) ? <Link href={`/admin/organizations/${from}?tab=projects`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {from === project.company.id ? project.company.name : project.group!.name}</Link> : null}
+      {company && from && (from === company.id || from === project.group?.id) ? <Link href={`/admin/organizations/${from}?tab=projects`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {from === company.id ? company.name : project.group!.name}</Link> : null}
       <Breadcrumbs items={[{ label: "Projects", href: "/admin/projects" }, tab === "overview" ? { label: project.name } : { label: project.name, href: `/admin/projects/${project.id}` }, ...(tab === "overview" ? [] : [{ label }])]} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-page font-semibold text-fg">{project.name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted">
-            <Link href={`/admin/organizations/${project.company.id}`} className="text-accent-strong hover:underline">{project.company.name}</Link>
+            {company ? <Link href={`/admin/organizations/${company.id}`} className="text-accent-strong hover:underline">{company.name}</Link> : <AdminStatusBadge status="UNASSIGNED" />}
             <AdminStatusBadge status={project.status} />
             <span className="font-mono text-meta">{project.code}</span>
           </div>
         </div>
+        {canAssign ? <AssignProjectCompany projectId={project.id} projectName={project.name} companies={companyOptions} /> : null}
         {project.threeD.configured ? <Button asChild size="sm" variant="secondary"><Link href={`/admin/3d/projects/${project.id}`}>3D administration</Link></Button> : null}
       </header>
       <nav aria-label="Project sections" className="nesto-context-tabs overflow-x-auto" data-context-tabs>
         <ul className="border-b border-line flex min-w-max gap-1">
-          {TABS.map(([key, text]) => (
+          {tabs.map(([key, text]) => (
             <li key={key}><Link href={key === "overview" ? `/admin/projects/${project.id}` : `/admin/projects/${project.id}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{text}</Link></li>
           ))}
         </ul>
@@ -62,8 +70,8 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
         <section className="nesto-card p-5" aria-label="Overview">
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             {([
-              ["Managing company", project.company.name],
-              ["Parent Group", project.group?.name ?? "Standalone company"],
+              ["Managing company", company ? company.name : "Not assigned"],
+              ["Parent Group", company ? (project.group?.name ?? "Standalone company") : "Inherited from the company once assigned"],
               ["Project manager", project.manager ?? "—"],
               ["Users", project.members],
               ["Units", project.units],
@@ -73,22 +81,28 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
             ] as const).map(([name, value]) => <div key={name}><dt className="text-meta text-fg-subtle">{name}</dt><dd className="text-body text-fg">{value}</dd></div>)}
           </dl>
           {project.description ? <p className="mt-4 text-table text-fg-muted">{project.description}</p> : null}
+          {!company ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-hover p-3" data-testid="unassigned-notice">
+              <p className="text-table text-fg-muted">{UNASSIGNED_PROJECT_MESSAGE} Only Platform Admin can see this project until then.</p>
+              {canAssign ? <AssignProjectCompany projectId={project.id} projectName={project.name} companies={companyOptions} /> : null}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
-      {tab === "companies" ? (
+      {company && tab === "companies" ? (
         <section className="nesto-card p-5" aria-label="Companies">
           <h2 className="text-card font-semibold text-fg">Managing company</h2>
-          <p className="mt-2 text-body"><Link href={`/admin/organizations/${project.company.id}`} className="text-accent-strong hover:underline">{project.company.name}</Link>{project.group ? <span className="text-fg-muted"> · {project.group.name}</span> : null}</p>
+          <p className="mt-2 text-body"><Link href={`/admin/organizations/${company!.id}`} className="text-accent-strong hover:underline">{company!.name}</Link>{project.group ? <span className="text-fg-muted"> · {project.group.name}</span> : null}</p>
           <h2 className="mt-5 text-card font-semibold text-fg">Participating companies</h2>
           <p className="mt-2 text-table text-fg-muted">None. A NESTO project belongs to one managing company today; its people from other companies take part through their own project assignments.</p>
         </section>
       ) : null}
 
-      {tab === "users" ? <UsersTab context={context} projectId={project.id} /> : null}
-      {tab === "modules" ? <ModulesTab context={context} companyId={project.company.id} /> : null}
+      {company && tab === "users" ? <UsersTab context={context} projectId={project.id} /> : null}
+      {company && tab === "modules" ? <ModulesTab context={context} companyId={company.id} /> : null}
 
-      {tab === "3d" ? (
+      {company && tab === "3d" ? (
         <section className="nesto-card p-5" aria-label="3D Experience">
           <h2 className="text-card font-semibold text-fg">3D Experience</h2>
           {project.threeD.configured ? (
@@ -111,7 +125,7 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
           ) : (
             <div className="mt-2 space-y-3">
               <p className="text-table text-fg-muted">Not configured. Create a 3D Experience to enable the interactive Project Viewer.</p>
-              {project.threeD.entitlement?.status !== "ACTIVE" ? <p className="text-table text-fg-muted">The 3D Viewer is not enabled for this Project yet. <Link href={`/admin/modules/${project.company.id}?tab=projects`} className="text-accent-strong hover:underline">Manage Entitlements</Link></p> : null}
+              {project.threeD.entitlement?.status !== "ACTIVE" ? <p className="text-table text-fg-muted">The 3D Viewer is not enabled for this Project yet. <Link href={`/admin/modules/${company!.id}?tab=projects`} className="text-accent-strong hover:underline">Manage Entitlements</Link></p> : null}
               {canPlatform(context, "platform.3d.configure") ? <Button asChild size="sm"><Link href={`/admin/3d?tab=unconfigured&q=${encodeURIComponent(project.code)}`}>Configure 3D</Link></Button> : null}
             </div>
           )}

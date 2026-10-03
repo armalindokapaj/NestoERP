@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import type { Prisma } from "@prisma/client";
 
 import { AccessError, assertFound, invalidRecordLink, stateDenied } from "@/lib/access/guards";
@@ -173,7 +174,7 @@ export async function replaceProject3DUnitBindings(
         })),
       });
     }
-    await recordPlatformAction(context, version.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(version.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_BINDING_CHANGED,
       entity: { type: "Project3DModelVersion", id: version.id, label: version.project.name },
       projectId,

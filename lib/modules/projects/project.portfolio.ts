@@ -1,3 +1,4 @@
+import { assignedOnly, assignedCompany, assignedCompanyId } from "@/lib/access/project-ownership";
 import { Prisma, type ProjectStatus } from "@prisma/client";
 import { cache } from "react";
 import { z } from "zod";
@@ -117,10 +118,10 @@ export async function findPortfolioProject(session: UserContext, projectId: stri
   const portfolio = await resolveProjectPortfolio(session);
   if (portfolio.length === 0) return null;
 
-  const project = await prisma.project.findFirst({
+  const project = assignedOnly(await prisma.project.findFirst({
     where: { AND: [portfolioProjectWhere(portfolio), { id: projectId }] },
     select: { id: true, companyId: true, name: true, archivedAt: true },
-  });
+  }));
   if (!project) return null;
 
   const membership = portfolio.find((candidate) => candidate.companyId === project.companyId);
@@ -316,7 +317,8 @@ async function readableCovers(portfolio: PortfolioMembership[], rows: ListRow[])
   const byCompany = new Map<string, string[]>();
   for (const row of rows) {
     if (!row.coverImageDocumentId) continue;
-    byCompany.set(row.companyId, [...(byCompany.get(row.companyId) ?? []), row.coverImageDocumentId]);
+    const companyId = assignedCompanyId(row);
+    byCompany.set(companyId, [...(byCompany.get(companyId) ?? []), row.coverImageDocumentId]);
   }
 
   await Promise.all(
@@ -478,6 +480,7 @@ function toCard(
   lookups: { favorites: Set<string>; enabledCompanies: Set<string>; covers: Map<string, number> },
 ): ProjectCardDTO {
   const membership = portfolio.find((candidate) => candidate.companyId === row.companyId)!;
+  const company = assignedCompany(row);
   const coverVersion = row.coverImageDocumentId ? lookups.covers.get(row.coverImageDocumentId) : undefined;
 
   return {
@@ -486,12 +489,12 @@ function toCard(
     name: row.name,
     status: row.status,
     href: `/projects/${row.id}`,
-    company: { id: row.companyId, name: row.company.name, isCurrent: membership.isCurrent },
+    company: { id: assignedCompanyId(row), name: company.name, isCurrent: membership.isCurrent },
     location: row.city || row.country ? { city: row.city, country: row.country } : null,
     // The version is the document's, so the same cover keeps the same URL between loads (§98).
     cover: coverVersion !== undefined ? { thumbnailUrl: `/api/projects/${row.id}/cover?v=${coverVersion.toString(36)}` } : null,
     initials: projectInitials(row.name),
     isFavorite: lookups.favorites.has(row.id),
-    canFavorite: lookups.enabledCompanies.has(row.companyId),
+    canFavorite: lookups.enabledCompanies.has(assignedCompanyId(row)),
   };
 }

@@ -351,12 +351,12 @@ export async function platformSearch(context: PlatformContext, query: string) {
     prisma.company.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ name: contains }, { slug: contains }] }, take: 6, select: { id: true, name: true, slug: true, parentGroup: { select: { kind: true, name: true } } } }),
     prisma.personProfile.findMany({ where: { parentGroup: { isTestFixture: false }, OR: [{ firstName: contains }, { lastName: contains }, { workEmail: contains }] }, take: 6, select: { id: true, firstName: true, lastName: true, parentGroup: { select: { name: true } } } }),
     prisma.user.findMany({ where: { OR: [{ username: contains }, { firstName: contains }, { lastName: contains }] }, take: 6, select: { id: true, username: true, firstName: true, lastName: true } }),
-    prisma.project.findMany({ where: { company: { parentGroup: { isTestFixture: false } }, OR: [{ name: contains }, { code: contains }] }, take: 6, select: { id: true, name: true, code: true, company: { select: { name: true } } } }),
+    prisma.project.findMany({ where: { OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }], AND: [{ OR: [{ name: contains }, { code: contains }] }] }, take: 6, select: { id: true, name: true, code: true, company: { select: { name: true } } } }),
   ]);
   return [
     ...groups.map((row) => ({ type: "Group", id: row.id, title: row.name, subtitle: row.slug, href: `/admin/organizations/${row.id}` })),
     ...companies.map((row) => ({ type: "Company", id: row.id, title: row.name, subtitle: row.parentGroup.kind === "STANDALONE" ? "Standalone company" : row.parentGroup.name, href: `/admin/organizations/${row.id}` })),
-    ...projects.map((row) => ({ type: "Project", id: row.id, title: row.name, subtitle: `${row.company.name} · ${row.code}`, href: `/admin/projects/${row.id}` })),
+    ...projects.map((row) => ({ type: "Project", id: row.id, title: row.name, subtitle: `${row.company ? row.company.name : "Unassigned"} · ${row.code}`, href: `/admin/projects/${row.id}` })),
     ...users.map((row) => ({ type: "User", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.username, href: `/admin/users/${row.id}` })),
     ...people.map((row) => ({ type: "Person", id: row.id, title: `${row.firstName} ${row.lastName}`, subtitle: row.parentGroup.name, href: "/admin/users/people" })),
   ].slice(0, 20);

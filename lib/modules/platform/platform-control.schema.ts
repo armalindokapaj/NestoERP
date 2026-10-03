@@ -151,13 +151,22 @@ export const membershipRepairSchema = z.object({ membershipId: id, reason });
 
 /** A name and a managing company are enough (Admin Projects & 3D PRD #5 §10); the code is made from the name. */
 export const projectCreateSchema = z.object({
-  companyId: id,
+  /** Optional: no company creates an unassigned project (Standalone Project PRD §5, §7). */
+  companyId: z.preprocess((value) => (value === "" || value === null ? undefined : value), id.optional()),
   code: z.preprocess((value) => (value === "" || value === null ? undefined : value), z.string().trim().min(1).max(30).optional()),
   name: z.string().trim().min(2).max(160),
   description: z.string().trim().max(2000).optional(),
   status: z.enum(["PENDING", "ACTIVE", "FINISHED"]).default("PENDING"),
   reason: z.preprocess((value) => (value === "" || value === null ? undefined : value), reason.optional()),
 });
+
+export const projectAssignSchema = z.object({
+  projectId: id,
+  companyId: id,
+  reason: z.preprocess((value) => (value === "" || value === null ? undefined : value), reason.optional()),
+});
+
+export const projectAssignPreviewSchema = z.object({ projectId: id, companyId: id });
 
 export const projectUpdateSchema = z.object({
   projectId: id,

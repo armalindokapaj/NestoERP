@@ -1,3 +1,4 @@
+import { assignedCompanyId } from "@/lib/access/project-ownership";
 import { Prisma } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
@@ -70,7 +71,7 @@ export async function getProjectStructure(context: UserContext, projectId: strin
   });
 
   return {
-    project: { id: project.id, name: project.name, code: project.code, companyId: project.companyId },
+    project: { id: project.id, name: project.name, code: project.code, companyId: assignedCompanyId(project) },
     totals: { buildings: buildings.length, floors: floors.length, units: nodes.reduce((sum, building) => sum + building.unitCount, 0) },
     buildings: nodes,
     unitTypes,

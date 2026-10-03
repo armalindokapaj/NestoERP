@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma, type Project3DVisibility } from "@prisma/client";
 
@@ -109,8 +110,8 @@ export function availabilityOf(row: Project3DAvailabilityRow, now = new Date()) 
     activeRelease: row.activeRelease,
     entitlement: row.project.project3DEntitlement,
     project: row.project,
-    companyStatus: row.project.company.status,
-    groupStatus: row.project.company.parentGroup.status,
+    companyStatus: assignedCompany(row.project).status,
+    groupStatus: assignedCompany(row.project).parentGroup.status,
   }, now);
 }
 
@@ -264,7 +265,7 @@ export async function setProject3DVisibility(context: PlatformContext, projectId
       data: { visibility: input.visibility, updatedByUserId: context.userId, controlVersion: ADVANCE.controlVersion, accessEpoch: ADVANCE.accessEpoch },
     }));
     const after = await controlOutcome(tx, projectId);
-    await recordPlatformAction(context, row.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(row.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_VISIBILITY_CHANGED,
       entity: { type: "Project3DConfig", id: row.id, label: project3DExperienceLabel(row) }, projectId,
       before: { projectId, configurationId: row.id, visibility: row.visibility, releaseId: row.activeReleaseId, controlVersion: row.controlVersion, accessEpoch: row.accessEpoch },
@@ -306,7 +307,7 @@ export async function deleteProject3DExperience(context: PlatformContext, projec
       purgeAfter, purgeStatus: "SCHEDULED", purgeClaimedAt: null, purgeError: null, updatedByUserId: context.userId, controlVersion: ADVANCE.controlVersion, accessEpoch: ADVANCE.accessEpoch },
     }));
     const after = await controlOutcome(tx, projectId);
-    await recordPlatformAction(context, row.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(row.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_DELETED,
       entity: { type: "Project3DConfig", id: row.id, label }, projectId,
       before: { projectId, configurationId: row.id, visibility: row.visibility, deletedAt: null, controlVersion: row.controlVersion, accessEpoch: row.accessEpoch, activeReleaseId: row.activeReleaseId },
@@ -342,7 +343,7 @@ export async function restoreProject3DExperience(context: PlatformContext, proje
       purgeAfter: null, purgeStatus: null, purgeClaimedAt: null, purgeError: null, updatedByUserId: context.userId, controlVersion: ADVANCE.controlVersion, accessEpoch: ADVANCE.accessEpoch },
     }));
     const after = await controlOutcome(tx, projectId);
-    await recordPlatformAction(context, row.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(row.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_EXPERIENCE_RESTORED,
       entity: { type: "Project3DConfig", id: row.id, label: project3DExperienceLabel(row) }, projectId,
       before: { projectId, configurationId: row.id, visibility: row.visibility, deletedAt: row.deletedAt.toISOString(), controlVersion: row.controlVersion, accessEpoch: row.accessEpoch },
@@ -368,7 +369,7 @@ export async function rotateProject3DPublicLink(context: PlatformContext, projec
       data: { publicId, updatedByUserId: context.userId, controlVersion: ADVANCE.controlVersion, accessEpoch: ADVANCE.accessEpoch },
     }));
     const after = await controlOutcome(tx, projectId);
-    await recordPlatformAction(context, row.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(row.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_PUBLIC_LINK_ROTATED,
       entity: { type: "Project3DConfig", id: row.id, label: project3DExperienceLabel(row) }, projectId,
       before: { projectId, configurationId: row.id, controlVersion: row.controlVersion, accessEpoch: row.accessEpoch },

@@ -348,6 +348,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-project-assignment.service.ts",
+    reason:
+      "Assigning an unassigned project to a company changes one column of one project, as a compare-and-set on its being unassigned, in the same transaction as its audit event. It is a Platform Admin decision, permission-checked, that no tenant role can make: the project has no company until this runs, so no company-scoped service has a context to run it in (Standalone Project PRD §17, §34, §36, §51).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-recovery.service.ts",
     reason:
       "Platform Recovery deletes, restores and permanently removes a company or a group — the company and group statuses with their deletion markers move together in one transaction, so a group and the companies it took down come back as one — and brings an archived document or a removed project-media link back for a company that is closed to its own users. These are Platform Admin decisions, permission-checked and audited, that no tenant role can make, so they cannot be routed through a tenant-scoped service.",

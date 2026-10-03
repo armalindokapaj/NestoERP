@@ -1,3 +1,4 @@
+import { assignedCompany } from "@/lib/access/project-ownership";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
@@ -144,7 +145,7 @@ export async function publishProject3DRelease(
       if (config.visibility === "PUBLIC") {
         const staged = await tx.project3DRelease.create({ data: { id: releaseId, companyId: config.companyId, projectId, configId: config.id, releaseNumber, schemaVersion: PROJECT_3D_SCHEMA_VERSION, experienceSnapshot: experience as unknown as Prisma.InputJsonValue, manifest: manifest as unknown as Prisma.InputJsonValue, manifestHash: hash, status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now, activatedAt: now, supersededAt: now } });
         await tx.project3DModelVersion.updateMany({ where: { id: { in: input.versionIds }, status: { in: ["READY", "PUBLISHED"] } }, data: { status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now } });
-        await recordPlatformAction(context, config.project.company.parentGroupId, {
+        await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
           actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_PUBLISHED,
           entity: { type: "Project3DRelease", id: staged.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
           before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
@@ -159,14 +160,14 @@ export async function publishProject3DRelease(
       const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId, deletedAt: null }, data: { activeReleaseId: release.id, updatedByUserId: context.userId, accessEpoch: { increment: 1 } } });
       if (moved.count !== 1) throw new AccessError("CONFLICT", "Another release became active while publishing. Reload and try again.", { code: "RELEASE_RACED" });
       await tx.project3DModelVersion.updateMany({ where: { id: { in: input.versionIds }, status: { in: ["READY", "PUBLISHED"] } }, data: { status: "PUBLISHED", publishedByUserId: context.userId, publishedAt: now } });
-      await recordPlatformAction(context, config.project.company.parentGroupId, {
+      await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
         actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_PUBLISHED,
         entity: { type: "Project3DRelease", id: release.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
         before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
         after: { projectId, configurationId: config.id, releaseId: release.id, releaseNumber, manifestHash: hash }, reason: input.reason,
         metadata: project3DAuditMetadata("RELEASE_PUBLISHED", `Release ${releaseNumber} published with ${input.versionIds.length} model${input.versionIds.length === 1 ? "" : "s"}`, { versionIds: input.versionIds }),
       }, { tx });
-      await recordPlatformAction(context, config.project.company.parentGroupId, {
+      await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
         actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_ACTIVATED,
         entity: { type: "Project3DRelease", id: release.id, label: `${config.project.name} release ${releaseNumber}` }, projectId,
         before: config.activeReleaseId ? { projectId, configurationId: config.id, releaseId: config.activeReleaseId } : null,
@@ -200,7 +201,7 @@ export async function activateProject3DRelease(context: PlatformContext, project
     if (activated.count !== 1) throw new AccessError("NOT_FOUND");
     const moved = await tx.project3DConfig.updateMany({ where: { id: config.id, activeReleaseId: config.activeReleaseId, deletedAt: null }, data: { activeReleaseId: target.id, updatedByUserId: context.userId, accessEpoch: { increment: 1 } } });
     if (moved.count !== 1) throw new AccessError("CONFLICT", "The active release changed. Reload and try again.", { code: "RELEASE_RACED" });
-    await recordPlatformAction(context, config.project.company.parentGroupId, {
+    await recordPlatformAction(context, assignedCompany(config.project).parentGroupId, {
       actionKey: AuditAction.PLATFORM_THREE_D_RELEASE_ACTIVATED,
       entity: { type: "Project3DRelease", id: target.id, label: `${config.project.name} release ${target.releaseNumber}` }, projectId,
       before: { projectId, configurationId: config.id, releaseId: config.activeReleaseId },

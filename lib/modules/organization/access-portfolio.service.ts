@@ -78,8 +78,10 @@ export async function getAccessPortfolio(session: UserContext): Promise<AccessPo
         position: position(assignment.positionLevel),
       })),
     projects: projectMembers
-      .filter((row) => companyName.has(row.project.companyId))
-      .map((row) => ({ id: row.project.id, code: row.project.code, name: row.project.name, company: { id: row.project.companyId, name: companyName.get(row.project.companyId)! }, projectRole: row.projectRole })),
+      .flatMap((row) => {
+        const companyId = row.project.companyId;
+        return companyId !== null && companyName.has(companyId) ? [{ id: row.project.id, code: row.project.code, name: row.project.name, company: { id: companyId, name: companyName.get(companyId)! }, projectRole: row.projectRole }] : [];
+      }),
     grants: organization.grants.map((grant) => ({ id: grant.id, moduleKey: grant.moduleKey, scope: grant.scopeType, accessLevel: grant.accessLevel })),
   };
 }

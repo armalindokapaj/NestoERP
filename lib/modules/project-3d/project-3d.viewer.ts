@@ -1,3 +1,4 @@
+import { assignedCompanyId } from "@/lib/access/project-ownership";
 import type { Prisma, ProjectPhaseStatus, UnitCommercialStatus } from "@prisma/client";
 
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
@@ -297,7 +298,7 @@ async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: Vie
   const config = project.project3DConfig!;
   const handleValidUntil = new Date(Date.now() + VIEWER_HANDLE_NOMINAL_SECONDS * 1000).toISOString();
   const models = manifest.models.map((model) => {
-    assertProject3DStorageKey(model.runtimeStorageKey, project.companyId, project.id, "runtime");
+    assertProject3DStorageKey(model.runtimeStorageKey, assignedCompanyId(project), project.id, "runtime");
     const handle = signProject3DAssetHandle({ c: config.id, r: release.id, a: model.versionId, au: reader.audience, e: config.accessEpoch });
     return {
       slotId: model.slotId,
