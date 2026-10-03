@@ -161,13 +161,17 @@ function DrawerAccount({ user, onNavigate }: { user: User; onNavigate: () => voi
   const row = "flex h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-table text-fg-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
   return (
     <div className="mt-auto border-t border-line p-3" data-testid="admin-drawer-account">
-      <p className="px-3 pb-2 pt-1">
-        <span className="block truncate text-body font-medium text-fg">{user.name}</span>
-        <span className="block truncate text-meta text-fg-subtle">{user.email ?? user.username}</span>
-      </p>
-      <div className="flex items-center gap-1 px-1 pb-1"><LocaleSwitch label={t("shell.language")} className="h-11 px-3" /><ThemeToggle /></div>
-      <Link href="/admin/account" onClick={onNavigate} className={row}><UserRound aria-hidden="true" className="size-[18px]" />{t("shell.account")}</Link>
-      <button type="button" disabled={signingOut} onClick={() => void signOut()} className={row}><LogOut aria-hidden="true" className="size-[18px]" />{signingOut ? t("shell.signingOut") : t("shell.signOut")}</button>
+      <div className="flex items-center justify-between gap-2 pb-2 pl-3 pt-1">
+        <p className="min-w-0">
+          <span className="block truncate text-body font-medium text-fg">{user.name}</span>
+          <span className="block truncate text-meta text-fg-subtle">{user.email ?? user.username}</span>
+        </p>
+        <div className="flex shrink-0 items-center gap-1"><LocaleSwitch label={t("shell.language")} className="h-11 px-3" /><ThemeToggle /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Link href="/admin/account" onClick={onNavigate} className={row}><UserRound aria-hidden="true" className="size-[18px]" />{t("shell.account")}</Link>
+        <button type="button" disabled={signingOut} onClick={() => void signOut()} className={row}><LogOut aria-hidden="true" className="size-[18px]" />{signingOut ? t("shell.signingOut") : t("shell.signOut")}</button>
+      </div>
     </div>
   );
 }
