@@ -27,7 +27,7 @@ export async function RecoveryTenants() {
         <EmptyState title={t("system.recovery.tenants.empty")} description={t("system.recovery.tenants.emptyDescription")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table stack flush aria-label={t("system.recovery.tenants.tableLabel")} data-testid="deleted-tenants">
+          <Table stack aria-label={t("system.recovery.tenants.tableLabel")} data-testid="deleted-tenants">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("system.recovery.tenants.cols.name")}</TableHeaderCell>

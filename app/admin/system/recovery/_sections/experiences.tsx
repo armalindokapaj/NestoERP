@@ -22,7 +22,7 @@ export async function RecoveryExperiences() {
         <EmptyState title={t("system.recovery.experiences.empty")} description={t("system.recovery.experiences.emptyDescription")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table stack flush aria-label={t("system.recovery.experiences.tableLabel")} data-testid="deleted-experiences">
+          <Table stack aria-label={t("system.recovery.experiences.tableLabel")} data-testid="deleted-experiences">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("system.recovery.experiences.cols.experience")}</TableHeaderCell>

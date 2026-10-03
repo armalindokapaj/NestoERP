@@ -6,6 +6,7 @@ import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { EntitlementEditor } from "@/components/platform/entitlement-editor";
 import { AddCompanyToGroup } from "@/components/platform/organization-create";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
+import { LinkRow } from "@/components/platform/link-row";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
@@ -67,17 +68,17 @@ export async function GroupCompaniesTab({ context, group }: { context: PlatformC
         <EmptyState className="m-4" title={t("tabs.companies.emptyTitle")} description={t("tabs.companies.emptyBody")} />
       ) : (
         <div className="overflow-x-auto">
-          <Table stack flush aria-label={t("tabs.companies.title")}>
+          <Table stack aria-label={t("tabs.companies.title")}>
             <TableHead><TableRow><TableHeaderCell>{t("tabs.companies.company")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("common.projects")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("common.users")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("common.modules")}</TableHeaderCell><TableHeaderCell>{t("common.status")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
-                <TableRow key={row.id} data-testid="group-company">
+                <LinkRow key={row.id} href={`/admin/organizations/${row.id}`} data-testid="group-company">
                   <TableCell><Link href={`/admin/organizations/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.slug}</p></TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{row.projects}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{row.users}</TableCell>
                   <TableCell className="tabular-nums max-md:hidden">{row.modules}</TableCell>
                   <TableCell><AdminStatusBadge status={row.status} /></TableCell>
-                </TableRow>
+                </LinkRow>
               ))}
             </TableBody>
           </Table>
@@ -92,6 +93,8 @@ export async function ProjectsTab({ context, scope, org }: { context: PlatformCo
   const t = await getTranslations("adminOrgs");
   const [rows, companies] = await Promise.all([organizationProjects(context, scope), companiesOf(context, scope, org)]);
   const canCreate = org.open && canPlatform(context, "platform.project.manage") && companies.length > 0;
+  const needCompany = scope.kind === "group" && org.open && companies.length === 0;
+  const addCompany = needCompany ? <AddCompanyToGroup group={{ value: org.id, label: org.name }} standalone={await attachableCompanies(context)} /> : null;
   const add = canCreate ? (
     <PlatformCommandButton
       label={t("tabs.projects.add")}
@@ -111,22 +114,22 @@ export async function ProjectsTab({ context, scope, org }: { context: PlatformCo
     />
   ) : null;
   return (
-    <Card title={t("tabs.projects.title")} description={scope.kind === "group" ? t("tabs.projects.descriptionGroup", { name: org.name }) : t("tabs.projects.descriptionCompany", { name: org.name })} action={add}>
+    <Card title={t("tabs.projects.title")} description={scope.kind === "group" ? t("tabs.projects.descriptionGroup", { name: org.name }) : t("tabs.projects.descriptionCompany", { name: org.name })} action={add ?? addCompany}>
       {rows.length === 0 ? (
-        <EmptyState className="m-4" title={t("tabs.projects.emptyTitle")} description={t("tabs.projects.emptyBody", { name: org.name })} />
+        <EmptyState className="m-4" title={t("tabs.projects.emptyTitle")} description={needCompany ? t("tabs.users.needCompany") : t("tabs.projects.emptyBody", { name: org.name })} />
       ) : (
         <div className="overflow-x-auto">
-          <Table stack flush aria-label={t("tabs.projects.title")}>
+          <Table stack aria-label={t("tabs.projects.title")}>
             <TableHead><TableRow><TableHeaderCell>{t("tabs.projects.project")}</TableHeaderCell>{scope.kind === "group" ? <TableHeaderCell className="max-sm:hidden">{t("tabs.projects.managingCompany")}</TableHeaderCell> : <TableHeaderCell className="max-sm:hidden">{t("tabs.projects.role")}</TableHeaderCell>}<TableHeaderCell className="max-md:hidden">{t("common.users")}</TableHeaderCell><TableHeaderCell>{t("common.status")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("tabs.projects.threeD")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
-                <TableRow key={row.id} data-testid="org-project">
+                <LinkRow key={row.id} href={`/admin/projects/${row.id}?from=${org.id}`} data-testid="org-project">
                   <TableCell><Link href={`/admin/projects/${row.id}?from=${org.id}`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.code}</p></TableCell>
                   <TableCell className="max-sm:hidden">{scope.kind === "group" ? <Link href={`/admin/organizations/${row.company.id}?tab=projects`} className="hover:underline">{row.company.name}</Link> : t("tabs.projects.managing")}</TableCell>
                   <TableCell className="tabular-nums max-md:hidden">{row.users}</TableCell>
                   <TableCell><AdminStatusBadge status={row.status} /></TableCell>
                   <TableCell className="max-sm:hidden"><AdminStatusBadge status={row.threeD} /></TableCell>
-                </TableRow>
+                </LinkRow>
               ))}
             </TableBody>
           </Table>
@@ -150,8 +153,10 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
   const assignable = roleOptions(roles, tr);
   const filtered = Boolean(filter.q || filter.role || filter.project || filter.status || filter.company);
   const add = canManage && companies.length ? <AddOrganizationUser organizationName={org.name} companies={companies} roles={assignable} projects={projects} /> : null;
+  const needCompany = scope.kind === "group" && org.open && companies.length === 0;
+  const addCompany = needCompany ? <AddCompanyToGroup group={{ value: org.id, label: org.name }} standalone={await attachableCompanies(context)} /> : null;
   return (
-    <Card title={t("common.users")} description={t("tabs.users.description", { name: org.name })} action={add}>
+    <Card title={t("common.users")} description={t("tabs.users.description", { name: org.name })} action={add ?? addCompany}>
       {scope.kind === "group" ? <p className="border-b border-line px-5 py-3 text-table text-fg-muted" data-testid="group-level-hint">{t("tabs.users.groupLevelHint")}</p> : null}
       <form method="get" action={`/admin/organizations/${org.id}`} className="flex flex-wrap items-end gap-2 border-b border-line px-5 py-3" aria-label={t("tabs.users.filterLabel")}>
         <input type="hidden" name="tab" value="users" />
@@ -165,11 +170,11 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       </form>
       {rows.length === 0 ? (
         filtered ? <NoResultsState className="m-4" noun={t("tabs.users.noun")} clearHref={tabHref(org, "users")} /> : (
-          <div className="m-4 space-y-3 text-center"><EmptyState title={t("tabs.users.emptyTitle")} description={t("tabs.users.emptyBody", { kind: scope.kind === "group" ? t("tabs.users.kindGroup") : t("tabs.users.kindCompany") })} />{add}</div>
+          <div className="m-4 space-y-3 text-center"><EmptyState title={t("tabs.users.emptyTitle")} description={needCompany ? t("tabs.users.needCompany") : t("tabs.users.emptyBody", { kind: scope.kind === "group" ? t("tabs.users.kindGroup") : t("tabs.users.kindCompany") })} />{add ?? addCompany}</div>
         )
       ) : (
         <div className="overflow-x-auto">
-          <Table stack flush aria-label={t("common.users")}>
+          <Table stack aria-label={t("common.users")}>
             <TableHead><TableRow><TableHeaderCell>{t("tabs.users.user")}</TableHeaderCell><TableHeaderCell>{t("common.role")}</TableHeaderCell>{scope.kind === "group" ? <TableHeaderCell className="max-md:hidden">{t("common.company")}</TableHeaderCell> : null}<TableHeaderCell className="max-md:hidden">{t("common.projects")}</TableHeaderCell><TableHeaderCell>{t("common.status")}</TableHeaderCell><TableHeaderCell><span className="sr-only">{t("common.actions")}</span></TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -337,7 +342,7 @@ export async function ModulesTab({ context, scope, org }: { context: PlatformCon
       <Card title={t("tabs.modules.projectControlled")} description={t("tabs.modules.projectControlledDescription")}>
         {data.projects.length === 0 ? <EmptyState className="m-4" title={t("tabs.modules.noProjects")} /> : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("tabs.modules.projectEntitlements")}>
+            <Table stack aria-label={t("tabs.modules.projectEntitlements")}>
               <TableHead><TableRow><TableHeaderCell>{t("common.project")}</TableHeaderCell><TableHeaderCell>{t("tabs.modules.viewer3d")}</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
               <TableBody>
                 {data.projects.map((row) => (

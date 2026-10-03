@@ -240,7 +240,7 @@ export async function OrganizationsSection({ context }: { context: PlatformConte
         </div>
       ) : (
         <div className="mt-4 min-w-0 flex-1">
-          <Table stack flush aria-label={t("dashboard.recentOrgsLabel")}>
+          <Table stack aria-label={t("dashboard.recentOrgsLabel")}>
             <TableHead><TableRow><TableHeaderCell>{t("dashboard.colOrganization")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("dashboard.colType")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("dashboard.colCompanies")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colProjects")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("dashboard.colUsers")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colStatus")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (
@@ -273,7 +273,7 @@ export async function ProjectsSection({ context, summary }: { context: PlatformC
         </div>
       ) : (
         <div className="mt-4 min-w-0 flex-1">
-          <Table stack flush aria-label={t("dashboard.recentProjectsLabel")}>
+          <Table stack aria-label={t("dashboard.recentProjectsLabel")}>
             <TableHead><TableRow><TableHeaderCell>{t("dashboard.colProject")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("dashboard.colCompany")}</TableHeaderCell><TableHeaderCell>{t("dashboard.col3d")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colStatus")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
               {rows.map((row) => (

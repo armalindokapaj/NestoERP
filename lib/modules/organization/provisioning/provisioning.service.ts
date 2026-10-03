@@ -4,7 +4,7 @@ import { isMembershipRoleKey, roleLabel } from "@/config/roles";
 import { can, canAny, getModuleScope } from "@/lib/access/can";
 import { AccessError, assertFound, assertPermission } from "@/lib/access/guards";
 import { createProvisionedUser } from "@/lib/auth/identity";
-import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
+import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, suggestUsername, usernameProblem } from "@/lib/auth/username";
 import { contextInCompany } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
@@ -542,8 +542,8 @@ export async function provisionAccount(context: UserContext, requestId: string, 
   if (!role) throw new AccessError("CONFLICT", "The role on this request no longer exists.", { code: "ROLE_NOT_ALLOWED" });
 
   const chosen = input.username ? checkedUsername(input.username) : row.requestedUsername;
-  const temporaryPassword = existingUser ? null : generateTemporaryPassword();
-  const expiresAt = existingUser ? null : temporaryPasswordExpiry();
+  const temporaryPassword = existingUser ? null : DEFAULT_PASSWORD;
+  const expiresAt: Date | null = null;
   const personName = `${row.person.firstName} ${row.person.lastName}`;
 
   const result = await prisma.$transaction(async (tx) => {
@@ -566,7 +566,7 @@ export async function provisionAccount(context: UserContext, requestId: string, 
         phone: row.person.workPhone,
         username: chosen,
         temporaryPassword: temporaryPassword!,
-        expiresAt: expiresAt!,
+        expiresAt,
       });
     }
 
@@ -665,7 +665,7 @@ export async function provisionAccount(context: UserContext, requestId: string, 
     userId: result.id,
     username: result.username,
     temporaryPassword,
-    expiresAt: expiresAt?.toISOString() ?? null,
+    expiresAt: null,
     newAccount: !existingUser,
   };
 }

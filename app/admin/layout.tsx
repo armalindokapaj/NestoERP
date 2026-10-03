@@ -7,6 +7,7 @@ import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
+import { PasswordChangeNotice } from "@/components/platform/password-change-notice";
 import { PlatformShell } from "@/components/platform/platform-shell";
 import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
@@ -47,6 +48,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
       permissions={context.permissions}
       initialSidebar={sidebarState}
     >
+      <PasswordChangeNotice userId={context.userId} href="/admin/account" />
       {children}
     </PlatformShell>
     </TooltipProvider>

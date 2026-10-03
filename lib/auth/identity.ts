@@ -174,7 +174,7 @@ export async function createProvisionedUser(
     /** Already checked by the caller; null to allocate one. */
     username: string | null;
     temporaryPassword: string;
-    expiresAt: Date;
+    expiresAt: Date | null;
   },
 ): Promise<{ id: string; username: string }> {
   const username = input.username ?? (await allocateUsername(tx, input.firstName, input.lastName));

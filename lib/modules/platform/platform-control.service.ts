@@ -7,7 +7,7 @@ import { isMembershipRoleKey } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
-import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
+import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem, USERNAME_MESSAGES } from "@/lib/auth/username";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -122,14 +122,14 @@ export async function createPlatformUser(context: PlatformContext, input: { pers
     if (await prisma.user.count({ where: { username } })) throw new AccessError("CONFLICT", "That username is already in use.", { field: "username" });
   }
   if (person.workEmail && await prisma.user.count({ where: { email: person.workEmail } })) throw new AccessError("CONFLICT", "That work email is already linked to another account.", { field: "username" });
-  const temporaryPassword = generateTemporaryPassword();
-  const expiresAt = temporaryPasswordExpiry();
+  const temporaryPassword = DEFAULT_PASSWORD;
+  const expiresAt = null;
   const user = await prisma.$transaction(async (tx) => {
     const created = await createProvisionedUser(tx, { personProfileId: person.id, firstName: person.firstName, lastName: person.lastName, email: person.workEmail, phone: person.workPhone, username, temporaryPassword, expiresAt });
-    await recordPlatformAction(context, person.parentGroupId, { actionKey: AuditAction.PLATFORM_USER_CREATED, entity: { type: "User", id: created.id, label: created.username }, after: { personProfileId: person.id, userId: created.id, username: created.username, status: "ACTIVE", mustChangePassword: true, expiresAt: expiresAt.toISOString() }, reason: input.reason }, { tx });
+    await recordPlatformAction(context, person.parentGroupId, { actionKey: AuditAction.PLATFORM_USER_CREATED, entity: { type: "User", id: created.id, label: created.username }, after: { personProfileId: person.id, userId: created.id, username: created.username, status: "ACTIVE", mustChangePassword: true, expiresAt: null }, reason: input.reason }, { tx });
     return created;
   });
-  return { userId: user.id, username: user.username, temporaryPassword, expiresAt: expiresAt.toISOString() };
+  return { userId: user.id, username: user.username, temporaryPassword, expiresAt: null };
 }
 
 export async function setGroupStatus(context: PlatformContext, groupId: string, status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED", reason: string) {

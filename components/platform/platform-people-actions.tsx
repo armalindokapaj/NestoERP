@@ -27,7 +27,7 @@ function usePersonFields(): FormField[] {
   ];
 }
 
-type Credentials = { userId: string; username: string; temporaryPassword: string; expiresAt: string };
+type Credentials = { userId: string; username: string; temporaryPassword: string; expiresAt: string | null };
 
 function usePlatformCommand() {
   const router = useRouter();

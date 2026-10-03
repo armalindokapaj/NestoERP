@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { PasswordChangeNotice } from "@/components/platform/password-change-notice";
 import { ModuleMessages } from "@/components/i18n/module-messages";
 import { requireUserContext } from "@/lib/context/current-user";
 import { admitPage, getPageMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
@@ -39,6 +40,7 @@ export default async function NestoLayout({ children }: { children: React.ReactN
   return (
     <ModuleMessages namespaces={["offline"]}>
       <AppShell context={context} startedAt={startedAt}>
+        <PasswordChangeNotice userId={context.userId} href="/settings/profile" />
         {children}
       </AppShell>
     </ModuleMessages>

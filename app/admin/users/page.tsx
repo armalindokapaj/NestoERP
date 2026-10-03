@@ -55,7 +55,7 @@ export default async function UsersPage({ searchParams }: Props) {
           filtered ? <NoResultsState className="m-4" noun={t("users.list.noun")} clearHref="/admin/users" /> : <EmptyState className="m-4" title={t("users.list.empty")} />
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("users.list.tableLabel")}>
+            <Table stack aria-label={t("users.list.tableLabel")}>
               <TableHead><TableRow><TableHeaderCell>{t("users.list.cols.user")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("users.list.cols.organization")}</TableHeaderCell><TableHeaderCell>{t("users.list.cols.role")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("users.list.cols.scope")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("users.list.cols.lastActive")}</TableHeaderCell><TableHeaderCell>{t("users.list.cols.status")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {rows.map((row) => (

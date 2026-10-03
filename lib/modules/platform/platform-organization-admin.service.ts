@@ -5,7 +5,7 @@ import { MEMBERSHIP_ROLE_KEYS, isMembershipRoleKey } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
-import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
+import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
@@ -113,8 +113,8 @@ export async function addOrganizationUser(context: PlatformContext, raw: unknown
     if (existing) {
       throw new AccessError("CONFLICT", `A NESTO account already exists for this email. Add ${existing.firstName} ${existing.lastName} to ${company.name} instead?`, { code: "ACCOUNT_EXISTS", field: "email", userId: existing.id, name: `${existing.firstName} ${existing.lastName}` });
     }
-    const temporaryPassword = generateTemporaryPassword();
-    const expiresAt = temporaryPasswordExpiry();
+    const temporaryPassword = DEFAULT_PASSWORD;
+    const expiresAt = null;
     return prisma.$transaction(async (tx) => {
       const projectIds = await companyProjects(tx, company.id, input.projectIds);
       await assertWithinLimit(tx, company.id, "users");
@@ -124,7 +124,7 @@ export async function addOrganizationUser(context: PlatformContext, raw: unknown
       const member = await tx.companyMember.create({ data: { companyId: company.id, userId: account.id, roleId: role.id, departmentId, status: "ACTIVE", joinedAt: new Date() }, select: { id: true } });
       await syncProjects(tx, company.id, member.id, projectIds);
       await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_ORGANIZATION_USER_ADDED, entity: { type: "User", id: account.id, label: `${input.firstName} ${input.lastName} · ${company.name}` }, after: { companyId: company.id, userId: account.id, roleKey: input.roleKey, status: "ACTIVE", projectIds, newAccount: true, username: account.username }, reason: input.reason }, { tx, companyId: company.id });
-      return { userId: account.id, membershipId: member.id, username: account.username, temporaryPassword, expiresAt: expiresAt.toISOString() };
+      return { userId: account.id, membershipId: member.id, username: account.username, temporaryPassword, expiresAt: undefined };
     });
   }
 

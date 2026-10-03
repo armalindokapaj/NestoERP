@@ -94,7 +94,7 @@ export default async function CompanyEntitlementsPage({ params, searchParams }: 
             <EmptyState className="m-4" title={t("tabs.modules.noProjects")} description={t("entitlements.projectsEmptyBody")} />
           ) : (
             <div className="overflow-x-auto">
-              <Table stack flush aria-label={t("entitlements.projectsLabel")}>
+              <Table stack aria-label={t("entitlements.projectsLabel")}>
                 <TableHead><TableRow><TableHeaderCell>{t("common.project")}</TableHeaderCell><TableHeaderCell>{t("entitlements.viewer3d")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("common.status")}</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
                 <TableBody>
                   {data.projects.map((row) => (

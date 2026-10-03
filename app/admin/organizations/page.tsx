@@ -6,6 +6,7 @@ import { OrganizationCreateMenu } from "@/components/platform/organization-creat
 import { OrganizationFilters } from "@/components/platform/organization-filters";
 import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { LinkRow } from "@/components/platform/link-row";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { COMPANY_STATUSES, GROUP_STATUSES, listOrganizations, organizationGroupOptions, type OrganizationQuery } from "@/lib/modules/platform/platform-organizations.query";
@@ -95,7 +96,7 @@ export default async function OrganizationsPage({ searchParams }: Props) {
           )
         ) : (
           <div className="overflow-x-auto">
-            <Table stack flush aria-label={t("orgs.title")}>
+            <Table stack aria-label={t("orgs.title")}>
               <TableHead>
                 <TableRow>
                   {sortHeader(t("orgs.headers.organization"), "name")}
@@ -110,7 +111,7 @@ export default async function OrganizationsPage({ searchParams }: Props) {
               </TableHead>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.id} data-testid="organization-row" data-type={row.type}>
+                  <LinkRow key={row.id} href={`/admin/organizations/${row.id}`} data-testid="organization-row" data-type={row.type}>
                     <TableCell>
                       <Link href={`/admin/organizations/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link>
                       <p className="font-mono text-micro text-fg-subtle">{row.slug}</p>
@@ -122,7 +123,7 @@ export default async function OrganizationsPage({ searchParams }: Props) {
                     <TableCell className="tabular-nums max-lg:hidden">{row.modules ?? "—"}</TableCell>
                     <TableCell><AdminStatusBadge status={row.status} /></TableCell>
                     <TableCell className="max-xl:hidden">{new Date(row.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</TableCell>
-                  </TableRow>
+                  </LinkRow>
                 ))}
               </TableBody>
             </Table>

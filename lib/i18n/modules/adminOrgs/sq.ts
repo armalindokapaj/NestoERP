@@ -393,6 +393,7 @@ export const adminOrgsSq: typeof adminOrgsEn = {
     },
     users: {
       description: "Menaxhoni qasjen e përdoruesve për {name}.",
+      needCompany: "Ky grup nuk ka ende kompani. Projektet dhe përdoruesit i përkasin një kompanie, ndaj shtoni fillimisht një.",
       groupLevelHint: "Kjo listë shton persona në një kompani. Pronari i grupit dhe IT-ja e grupit i përkasin gjithë grupit: shtoji me “Shto në listë” në krye të kësaj faqeje ndërsa grupi konfigurohet. Grupi nuk mund të hyjë në punë pa ta.",
       filterLabel: "Filtro përdoruesit",
       searchPlaceholder: "Kërko përdorues...",
