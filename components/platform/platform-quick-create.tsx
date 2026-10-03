@@ -14,7 +14,7 @@ export function PlatformQuickCreate({ permissions }: { permissions: readonly str
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" data-testid="admin-quick-create"><Plus aria-hidden="true" /><span className="max-sm:sr-only">Create</span></Button>
+        <Button variant="accent" size="sm" data-testid="admin-quick-create"><Plus aria-hidden="true" /><span className="max-sm:sr-only">Create</span></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">
         {items.map((item) => (

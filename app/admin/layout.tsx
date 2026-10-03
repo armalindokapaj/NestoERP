@@ -6,13 +6,13 @@ import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
-import { SIDEBAR_COOKIE } from "@/components/platform/admin-navigation";
 import { PlatformShell } from "@/components/platform/platform-shell";
 import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 
 export const metadata: Metadata = {
   title: { template: "%s · NESTO Platform", default: "NESTO Platform" },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  */
 export default async function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const context = await requirePlatformContext();
-  const collapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value === "1";
+  const sidebarState = readSidebarState((await cookies()).get(SIDEBAR_COOKIE)?.value);
 
   return (
     <ToastProvider>
@@ -41,9 +41,9 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
     {/* vercel/next.js#86151: a refreshed page is shown once its data lands, as in the application shell. */}
     <ResponseBeats />
     <PlatformShell
-      user={{ name: context.fullName, email: context.email, username: context.username }}
+      user={{ name: context.fullName, firstName: context.firstName, lastName: context.fullName.slice(context.firstName.length).trim(), email: context.email, username: context.username }}
       permissions={context.permissions}
-      initialCollapsed={collapsed}
+      initialSidebar={sidebarState}
     >
       {children}
     </PlatformShell>

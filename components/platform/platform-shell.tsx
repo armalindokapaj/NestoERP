@@ -5,48 +5,66 @@ import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, UserRound, X } from "lucide-react";
+import { ChevronDown, LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, UserRound, X } from "lucide-react";
 
-import { NestoLogo } from "@/components/layout/nesto-logo";
+import { OrganizationMark } from "@/components/layout/organization-mark";
+import { PoweredBy } from "@/components/layout/powered-by";
+import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-provider";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { usePhone } from "@/components/layout/use-phone";
 import { useSignOut } from "@/components/layout/use-sign-out";
-import { activeDestination, activeTab, adminDestinations, SIDEBAR_COOKIE, visibleTo, type AdminDestination } from "@/components/platform/admin-navigation";
+import { activeDestination, activeTab, adminDestinations, visibleTo, type AdminDestination } from "@/components/platform/admin-navigation";
 import { PlatformQuickCreate } from "@/components/platform/platform-quick-create";
 import { PlatformSearch } from "@/components/platform/platform-search";
+import { QUICK_CREATE } from "@/components/platform/quick-create-items";
+import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { PageContainer } from "@/components/ui/page-container";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { logout } from "@/lib/auth/client-lifecycle";
-import { unsaved } from "@/lib/unsaved/coordinator";
+import type { SidebarState } from "@/lib/layout/sidebar-state";
 import { cn } from "@/lib/utils/cn";
 
-type User = { name: string; email: string | null; username: string };
+type User = { name: string; firstName: string; lastName: string; email: string | null; username: string };
 
-function ContextLabel({ className }: { className?: string }) {
-  return <span className={cn("rounded-md bg-fg px-2 py-1 text-micro font-semibold uppercase tracking-wider text-canvas", className)} data-testid="platform-context">Platform Admin</span>;
+/** The mark, the name and the workspace line, as the platform's sidebar header has them (OW §2-§18). */
+function AdminIdentity() {
+  return (
+    <Link href="/admin" aria-label="NESTO Platform, Platform Admin. Dashboard" data-testid="platform-context" className="flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left">
+      <OrganizationMark name="NESTO Platform" logoUrl={null} />
+      <span className="nesto-nav-label min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-body font-semibold text-fg max-md:text-meta max-md:font-bold max-md:uppercase max-md:tracking-[0.08em]">NESTO Platform</span>
+        <span className="mt-0.5 block truncate text-meta text-fg-muted">Platform Admin</span>
+      </span>
+    </Link>
+  );
 }
 
-function NavRow({ item, active, collapsed, onNavigate }: { item: AdminDestination; active: boolean; collapsed: boolean; onNavigate?: () => void }) {
+/* The platform's navigation row (components/layout/sidebar-nav.tsx): a light accent ground, accent icon and text, a 2px left marker. */
+function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; active: boolean; dense: boolean; onNavigate?: () => void }) {
+  const { isRail } = useSidebar();
   const link = (
     <Link
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? item.label : undefined}
+      aria-label={item.label}
       data-testid={`admin-nav-${item.key}`}
       className={cn(
-        "flex h-10 items-center gap-3 rounded-lg px-3 text-table transition-colors touch:min-h-11",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
+        dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
         // Pending shows before the route commits (§28), not by colour alone.
         "data-[nav-pending]:bg-hover data-[nav-pending]:[&>svg]:animate-pulse",
-        active ? "bg-accent-soft font-semibold text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
-        collapsed && "justify-center px-0",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        active ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >
-      <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
-      {collapsed ? null : <span className="truncate">{item.label}</span>}
+      {active ? <span aria-hidden="true" className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent" /> : null}
+      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-accent-strong group-hover:text-accent")} />
+      <span className="nesto-nav-label truncate">{item.label}</span>
     </Link>
   );
-  if (!collapsed) return link;
+  if (dense || !isRail) return link;
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
@@ -55,49 +73,72 @@ function NavRow({ item, active, collapsed, onNavigate }: { item: AdminDestinatio
   );
 }
 
-function Navigation({ permissions, collapsed = false, onNavigate }: { permissions: readonly string[]; collapsed?: boolean; onNavigate?: () => void }) {
+function Navigation({ permissions, utility = false, dense = false, onNavigate }: { permissions: readonly string[]; utility?: boolean; dense?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const current = activeDestination(pathname)?.key;
-  const items = visibleTo(adminDestinations, permissions);
-  const row = (item: AdminDestination) => <li key={item.key}><NavRow item={item} active={item.key === current} collapsed={collapsed} onNavigate={onNavigate} /></li>;
+  const items = visibleTo(adminDestinations, permissions).filter((item) => Boolean(item.utility) === utility);
+  if (!items.length) return null;
   return (
-    <nav aria-label="Platform administration" className="px-3 py-4">
-      <ul className="space-y-0.5">{items.filter((item) => !item.utility).map(row)}</ul>
-      <ul className="mt-4 space-y-0.5 border-t border-line pt-4">{items.filter((item) => item.utility).map(row)}</ul>
+    <nav aria-label={utility ? "Platform administration, system" : "Platform administration"} className={cn("flex flex-col px-3 py-2", dense ? "gap-4" : "gap-6")}>
+      <ul className="space-y-0.5">
+        {items.map((item) => <li key={item.key}><NavRow item={item} active={item.key === current} dense={dense} onNavigate={onNavigate} /></li>)}
+      </ul>
     </nav>
   );
 }
 
+/** The collapse control lives in the top bar, as the platform's does (components/layout/sidebar-toggle.tsx). */
+function SidebarToggle() {
+  const { state, toggle } = useSidebar();
+  const collapsed = state === "collapsed";
+  const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" onClick={toggle} aria-label={label} aria-pressed={collapsed} data-testid="admin-sidebar-toggle" className="hidden size-8 shrink-0 cursor-pointer place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11">
+          <Icon aria-hidden="true" className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function ProfileMenu({ user }: { user: User }) {
-  const [pending, startTransition] = React.useTransition();
-  const initials = user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const { signOut, signingOut } = useSignOut();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" aria-label={`Account menu for ${user.name}`} data-testid="admin-profile" className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-surface-muted text-table font-semibold text-fg hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 touch:size-11">
-          {initials || <UserRound className="size-4" />}
-        </button>
+      <DropdownMenuTrigger
+        aria-label={`Account menu for ${user.name}`}
+        data-testid="admin-profile"
+        className="flex cursor-pointer items-center justify-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 touch:min-h-11 touch:min-w-11 max-md:pr-1"
+      >
+        <Avatar firstName={user.firstName} lastName={user.lastName} size="md" className="border-transparent bg-accent font-serif font-normal text-accent-fg" />
+        <span className="hidden min-w-0 text-left lg:block">
+          <span className="block truncate text-table font-medium leading-tight text-fg">{user.name}</span>
+          <span className="block truncate text-micro leading-tight text-fg-muted">Platform Admin</span>
+        </span>
+        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle max-md:hidden" strokeWidth={1.6} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-60">
-        <DropdownMenuLabel className="font-normal">
-          <span className="block text-micro font-semibold uppercase tracking-wider text-fg-subtle">Platform Admin</span>
-          <span className="mt-1 block text-body font-medium text-fg">{user.name}</span>
-          <span className="block truncate text-meta text-fg-subtle">{user.email ?? user.username}</span>
+      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+        <DropdownMenuLabel className="flex items-center gap-3 font-normal">
+          <Avatar firstName={user.firstName} lastName={user.lastName} size="md" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium text-fg">{user.name}</span>
+            <span className="block truncate text-meta text-fg-subtle">Platform Admin · {user.email ?? user.username}</span>
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild><Link href="/admin/account" className="cursor-pointer"><UserRound aria-hidden="true" className="size-4" />Account</Link></DropdownMenuItem>
         <DropdownMenuItem
-          disabled={pending}
+          disabled={signingOut}
           onSelect={(event) => {
             event.preventDefault();
-            // Unsaved work first, before the session ends (AUD-03 §7).
-            void unsaved.requestDeparture({ kind: "identity", action: "sign-out" }).then((approval) => {
-              if (!approval || !approval.run(() => undefined)) return;
-              startTransition(async () => { await logout(); });
-            });
+            void signOut();
           }}
         >
-          <LogOut aria-hidden="true" className="size-4" />{pending ? "Signing out…" : "Sign out"}
+          <LogOut aria-hidden="true" className="size-4" />{signingOut ? "Signing out…" : "Sign out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -117,6 +158,73 @@ function DrawerAccount({ user, onNavigate }: { user: User; onNavigate: () => voi
       <Link href="/admin/account" onClick={onNavigate} className={row}><UserRound aria-hidden="true" className="size-[18px]" />Account</Link>
       <button type="button" disabled={signingOut} onClick={() => void signOut()} className={row}><LogOut aria-hidden="true" className="size-[18px]" />{signingOut ? "Signing out…" : "Sign out"}</button>
     </div>
+  );
+}
+
+/* A bar cell, as in the platform's phone bottom bar (components/layout/mobile-bottom-nav.tsx): icon over label, the whole cell the target, a gold dot above the active one. */
+const cellClass =
+  "relative flex h-14 w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+
+/**
+ * The phone and tablet bottom bar, the same floating bar the platform has:
+ * three destinations, Create in the middle and More, which opens the drawer.
+ * `data-mobile-bottom-nav` is what makes the page leave room for it and the bar
+ * step aside for a form's action bar or the keyboard (styles/globals.css).
+ */
+function AdminBottomNav({ permissions, onMore }: { permissions: readonly string[]; onMore: () => void }) {
+  const pathname = usePathname();
+  const current = activeDestination(pathname)?.key;
+  const items = visibleTo(adminDestinations, permissions).filter((item) => ["dashboard", "organizations", "projects"].includes(item.key));
+  const create = QUICK_CREATE.filter((item) => permissions.includes(item.permission));
+  const left = items.slice(0, Math.ceil(items.length / 2));
+  const right = items.slice(left.length);
+  const link = (item: AdminDestination) => {
+    const active = item.key === current;
+    return (
+      <li key={item.key} className="min-w-0 flex-1">
+        <Link href={item.href} aria-current={active ? "page" : undefined} data-active={active} data-testid={`admin-bar-${item.key}`} className={cellClass}>
+          {active ? <span aria-hidden="true" className="absolute left-1/2 top-0.5 size-1 -translate-x-1/2 rounded-full bg-accent" /> : null}
+          <item.icon className="size-[22px] shrink-0" aria-hidden="true" />
+          <span className="max-w-full truncate">{item.label}</span>
+        </Link>
+      </li>
+    );
+  };
+  return (
+    <nav
+      aria-label="Platform administration bar"
+      data-mobile-bottom-nav
+      className="nesto-bottom-nav fixed inset-x-[max(0.75rem,var(--nesto-safe-left))] bottom-[calc(0.875rem+var(--nesto-safe-bottom))] z-[var(--nesto-z-shell-tabs)] mx-auto h-[68px] max-w-xl rounded-[24px] border border-line bg-surface/85 px-1.5 shadow-menu backdrop-blur-xl lg:hidden"
+    >
+      <ul className="flex h-full items-center">
+        {left.map(link)}
+        {create.length ? (
+          <li className="flex min-w-0 flex-1 justify-center md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="Create" data-testid="admin-bar-create" className="-mt-[26px] grid size-[54px] cursor-pointer place-items-center rounded-full border-4 border-canvas bg-accent text-accent-fg shadow-menu transition-transform active:scale-95">
+                  <Plus aria-hidden="true" className="size-[22px]" strokeWidth={2.2} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="center" className="min-w-44">
+                {create.map((item) => (
+                  <DropdownMenuItem key={item.key} asChild>
+                    <Link href={item.href} className="cursor-pointer"><item.icon aria-hidden="true" className="size-4" />{item.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </li>
+        ) : null}
+        {right.map(link)}
+        <li className="min-w-0 flex-1">
+          <button type="button" onClick={onMore} aria-haspopup="dialog" data-testid="admin-bar-more" className={cellClass}>
+            <MoreHorizontal className="size-[22px] shrink-0" aria-hidden="true" />
+            <span className="max-w-full truncate">More</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
   );
 }
 
@@ -148,73 +256,75 @@ function SectionTabs({ permissions }: { permissions: readonly string[] }) {
 }
 
 /**
- * The Platform Admin shell (Admin IA §10-§15, §38, §39): one sidebar of eight
- * destinations, collapsible on desktop and a drawer below it; a top bar with
- * search, the one Create and the account menu; "Platform Admin" always in
- * view. It lives in the /admin layout, so moving between admin pages swaps
- * only the main region (§54).
+ * The Platform Admin shell, built from the platform's own parts (Admin IA §10-§15,
+ * §38, §39): the same sidebar (the mark and names at the top, the navigation, the
+ * foot), top bar (collapse control, search, Create, theme, account, and on a phone
+ * the menu at the top right), breadcrumb bar, page container and bottom bar. It
+ * lives in the /admin layout, so moving between admin pages swaps only the main
+ * region (§54).
  */
-export function PlatformShell({ user, permissions, initialCollapsed, devActions, children }: { user: User; permissions: readonly string[]; initialCollapsed: boolean; devActions?: React.ReactNode; children: React.ReactNode }) {
+export function PlatformShell({ user, permissions, initialSidebar, devActions, children }: { user: User; permissions: readonly string[]; initialSidebar: SidebarState; devActions?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <SidebarProvider initial={initialSidebar} className="min-h-dvh bg-canvas">
+      <Shell user={user} permissions={permissions} devActions={devActions}>{children}</Shell>
+    </SidebarProvider>
+  );
+}
+
+function Shell({ user, permissions, devActions, children }: { user: User; permissions: readonly string[]; devActions?: React.ReactNode; children: React.ReactNode }) {
   const [mobile, setMobile] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(initialCollapsed);
+  const phone = usePhone();
   const pathname = usePathname();
   React.useEffect(() => setMobile(false), [pathname]);
 
-  function toggle() {
-    const next = !collapsed;
-    setCollapsed(next);
-    // Per browser, and read by the layout so a refresh renders the right width at once (§13, §70).
-    document.cookie = `${SIDEBAR_COOKIE}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
-  }
-
   return (
-    <div className="min-h-dvh bg-canvas" data-sidebar={collapsed ? "collapsed" : "expanded"}>
-      <aside className={cn("fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-surface transition-[width] duration-150 lg:flex", collapsed ? "w-16" : "w-60")} data-testid="admin-sidebar">
-        <div className={cn("flex h-16 shrink-0 items-center gap-2 border-b border-line", collapsed ? "justify-center px-2" : "px-4")}>
-          {collapsed ? <span role="img" aria-label="NESTO Platform Admin" className="grid size-9 place-items-center rounded-md bg-fg text-micro font-bold text-canvas">PA</span> : <><NestoLogo /><ContextLabel /></>}
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto"><Navigation permissions={permissions} collapsed={collapsed} /></div>
-        <div className={cn("border-t border-line p-3", collapsed && "flex justify-center")}>
-          <button type="button" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-pressed={collapsed} data-testid="admin-sidebar-toggle" className="flex h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-table text-fg-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-            {collapsed ? <PanelLeftOpen className="size-[18px]" aria-hidden="true" /> : <><PanelLeftClose className="size-[18px]" aria-hidden="true" /><span>Collapse</span></>}
-          </button>
-        </div>
+    <>
+      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex" data-testid="admin-sidebar">
+        <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header"><AdminIdentity /></div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><Navigation permissions={permissions} /></div>
+        <div className="shrink-0 border-t border-accent/25 pb-1"><Navigation permissions={permissions} utility /></div>
+        <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4"><PoweredBy isDemo={false} /></div>
       </aside>
       <Drawer open={mobile} onOpenChange={setMobile}>
-        <DrawerContent side="left" className="bg-surface lg:hidden" aria-describedby={undefined}>
-          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
-            <span className="flex items-center gap-2"><NestoLogo /><ContextLabel /></span>
-            <DrawerTitle className="sr-only">Platform administration</DrawerTitle>
+        <DrawerContent side={phone ? "right" : "left"} className="bg-canvas lg:hidden" aria-describedby={undefined}>
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
+            <DrawerTitle className="font-serif text-[1.375rem] font-normal text-fg">Menu</DrawerTitle>
             <DrawerClose asChild>
-              <button type="button" aria-label="Close navigation" className="grid size-11 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover"><X className="size-5" /></button>
+              <button type="button" aria-label="Close navigation" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"><X aria-hidden="true" className="size-5" strokeWidth={1.6} /></button>
             </DrawerClose>
           </div>
-          <Navigation permissions={permissions} onNavigate={() => setMobile(false)} />
+          <Navigation permissions={permissions} dense onNavigate={() => setMobile(false)} />
+          <div className="border-t border-accent/25"><Navigation permissions={permissions} utility dense onNavigate={() => setMobile(false)} /></div>
           <DrawerAccount user={user} onNavigate={() => setMobile(false)} />
         </DrawerContent>
       </Drawer>
-      {/* The admin header is 64px at every width; the breadcrumb bar pins beneath it (Sticky Navigation §33). */}
       <BreadcrumbRegistryProvider>
-      <div className={cn("transition-[padding] duration-150", collapsed ? "lg:pl-16" : "lg:pl-60")} style={{ "--nesto-shell-header-h": "4rem" } as React.CSSProperties} data-admin-shell>
-        <header className="sticky top-0 z-[var(--nesto-z-shell-header)] border-b border-line bg-surface/95 backdrop-blur">
-          <div className="flex min-h-16 items-center gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
-            <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover lg:hidden"><Menu className="size-5" /></button>
-            <ContextLabel className="shrink-0 max-sm:hidden lg:hidden" />
-            <PlatformSearch />
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <PlatformQuickCreate permissions={permissions} />
-              {devActions}
-              <ProfileMenu user={user} />
-            </div>
+      <div className="pl-[var(--nesto-nav-width)] transition-[padding]" data-admin-shell>
+        <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-14 items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
+            <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>
+            <SidebarToggle />
+            <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0"><PlatformSearch /></div>
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1 md:gap-2">
+            <span className="max-md:hidden"><PlatformQuickCreate permissions={permissions} /></span>
+            {devActions}
+            <ThemeToggle className="max-md:hidden" />
+            <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
+            {/* Phone: the account is in the menu, as in the platform (MOB-02 §39). */}
+            <div className="contents max-md:hidden"><ProfileMenu user={user} /></div>
+            <button type="button" onClick={() => setMobile(true)} aria-label="Open navigation" aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} /></button>
           </div>
         </header>
         <BreadcrumbBar root={{ label: "NESTO Admin", href: "/admin" }} />
-        <main id="nesto-main" tabIndex={-1} className="w-full min-w-0 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 outline-none sm:px-6 lg:px-8 [&_.grid>*]:min-w-0">
+        <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
           <SectionTabs permissions={permissions} />
           {children}
-        </main>
+        </PageContainer>
+        <AdminBottomNav permissions={permissions} onMore={() => setMobile(true)} />
       </div>
       </BreadcrumbRegistryProvider>
-    </div>
+    </>
   );
 }

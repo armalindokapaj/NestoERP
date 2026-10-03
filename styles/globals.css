@@ -772,13 +772,6 @@ html[data-unsaved-masked] [data-experience-editor] {
 @media (min-width: 1280px) {
   :root { --nesto-gutter: 2rem; }
 }
-[data-admin-shell] { --nesto-gutter: 1rem; }
-@media (min-width: 640px) {
-  [data-admin-shell] { --nesto-gutter: 1.5rem; }
-}
-@media (min-width: 1024px) {
-  [data-admin-shell] { --nesto-gutter: 2rem; }
-}
 
 /*
  * Tables that opt in with `stack` read as cards on a phone (Table, `stack`):
