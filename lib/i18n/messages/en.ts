@@ -666,7 +666,6 @@ export const en = {
       description: "Sign in to continue to your workspace.",
       sessionExpired: "Your work session has expired. Please sign in again.",
       accountUnavailable: "Your account is currently unavailable. Contact your administrator.",
-      demoSwitchFailed: "The demo user switch signed you out but could not sign you in as the person you chose. Sign in again.",
       password: "Password",
       submit: "Sign In",
       submitting: "Signing in…",

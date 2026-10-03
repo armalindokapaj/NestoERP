@@ -659,8 +659,6 @@ export const sq: Messages = {
       sessionExpired: "Seanca juaj skadoi. Ju lutemi hyni përsëri.",
       accountUnavailable:
         "Llogaria juaj nuk është e disponueshme për momentin. Kontaktoni administratorin tuaj.",
-      demoSwitchFailed:
-        "Ndërrimi i përdoruesit demo ju nxori nga llogaria, por nuk ju futi si personi që zgjodhët. Hyni përsëri.",
       password: "Fjalëkalimi",
       submit: "Hyr",
       submitting: "Duke hyrë…",

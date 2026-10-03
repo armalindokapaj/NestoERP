@@ -42,7 +42,6 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: (
 
 const PREFIX = "aud06sw_";
 const GROUP_ID = "group_demo_nesto";
-const EKTA = "arvela_co_ekta";
 const sessions: string[] = [];
 
 beforeEach(() => {
@@ -176,29 +175,6 @@ describe("a refused switch changes nothing and lets no write cross (RP-06)", () 
     const own = await submitTask("own-a", PROJECT.a, companyKey(COMPANY.a));
     expect(own.result).toMatchObject({ ok: true });
     expect(await tasksTitled("own-a")).toEqual([{ companyId: COMPANY.a, createdByMemberId: "member_pm" }]);
-  });
-
-  it("a suspended company the person does belong to", async () => {
-    const owner = await signedIn("member_arvela_owner_arvela_infrastruktura");
-    const arvelaKey = (companyId: string) => workspaceKey({ parentGroupId: owner.parentGroupId, scopeType: "COMPANY", companyId });
-    expect(await prisma.companyMember.count({ where: { userId: owner.userId, companyId: EKTA, status: "ACTIVE" } })).toBe(1);
-    expect((await prisma.company.findUniqueOrThrow({ where: { id: EKTA } })).status).toBe("SUSPENDED");
-    const before = await sessionRow(owner.sessionId);
-    const eksoTasks = await prisma.task.count({ where: { companyId: EKTA } });
-
-    expect((await refusal(switchWorkspace(owner, { scopeType: "COMPANY", companyId: EKTA }))).code).toBe("COMPANY_INACTIVE");
-
-    expect(await sessionRow(owner.sessionId)).toEqual(before);
-    expect(await events(owner.sessionId)).toEqual([]);
-    expect((await resolved(owner.sessionId)).companyId).toBe(owner.companyId);
-    const assumed = await submitTask("assumed-ekta", null, arvelaKey(EKTA));
-    expect(assumed.thrown?.digest).toBe("NESTO_WORKSPACE_CHANGED");
-    expect(await prisma.task.count({ where: { companyId: EKTA } })).toBe(eksoTasks);
-
-    // Positive control: an active ARVELA company of theirs switches.
-    const other = await prisma.companyMember.findFirstOrThrow({ where: { userId: owner.userId, status: "ACTIVE", company: { status: "ACTIVE" }, companyId: { not: owner.companyId } }, select: { companyId: true } });
-    expect((await switchWorkspace(owner, { scopeType: "COMPANY", companyId: other.companyId })).switched).toBe(true);
-    expect((await resolved(owner.sessionId)).companyId).toBe(other.companyId);
   });
 
   it("an older switch arriving after a newer one: the newer workspace stands and the older tab cannot write", async () => {

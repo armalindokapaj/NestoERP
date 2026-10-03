@@ -3,11 +3,6 @@ import { z } from "zod";
 export const credentialsSchema = z.object({
   username: z.string().trim().min(1, "Enter your username"),
   password: z.string().min(1, "Password is required"),
-  /**
-   * How a demo sign-in arrived, for its audit record (AUD-06 §4). Recorded only
-   * where the demo conveniences exist; anywhere else it is ignored.
-   */
-  via: z.enum(["DEMO_SIGN_IN"]).optional(),
 });
 
 export type CredentialsInput = z.infer<typeof credentialsSchema>;

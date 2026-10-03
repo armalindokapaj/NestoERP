@@ -49,8 +49,6 @@ export const DEMO_USERNAME = {
   /** Architect in Aurelia and in Forma (E-06 §55). */
   MULTI_COMPANY: "multi-architect",
   PM_B: "pm-b",
-  /** ARVELA's head of Legal, Mimoza Bala: nine companies and the group (D-03). */
-  ARVELA_LEGAL: "arvela.legal",
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERNAME;

@@ -35,9 +35,6 @@ import { prisma } from "../helpers";
  *                            (`loadGroupMemberContexts`), answers the same
  *                            memberships, positions, departments, projects and
  *                            module access, persona by persona (RP-01)
- *
- * The ARVELA facts NESTO's owner supplied (§5) are stated here literally, not
- * read back from the seed they are checking.
  */
 
 const committed = JSON.parse(readFileSync(ACCESS_MANIFEST_PATH, "utf8")) as AccessManifest;
@@ -50,27 +47,10 @@ const persona = (username: string): ManifestPersona => {
 };
 const usable = (entry: ManifestPersona) => entry.memberships.filter((membership) => membership.usable);
 
-const ARVELA_EMPLOYER = "arvela_co_velar_administrim";
-const ARVELA_ARVEL = "arvela_co_arvel_construction";
-/** The nine companies D-01 §5 lists as active; the other four are suspended. */
-const ARVELA_ACTIVE_COMPANIES = [
-  "arvela_co_velar_administrim",
-  "arvela_co_velar_ndertim",
-  "arvela_co_velsol_energy",
-  "arvela_co_arvela_infrastruktura",
-  "arvela_co_arvel_construction",
-  "arvela_co_kf_lakeside",
-  "arvela_co_kalter",
-  "arvela_co_bay_marina_invest",
-  "arvela_co_unika_construction",
-];
-
-/** Who heads a group function, as the demo and D-01/D-03 define it — nobody else does (E-06 §51, §52). */
+/** Who heads a group function, as the demo defines it — nobody else does (E-06 §51, §52). */
 const EXPECTED_GROUP_HEADS = [
   "owner", "group-it", "group-hr", "group-architecture", "group-engineering", "group-finance", "group-legal",
   "group-sales", "group-procurement", "group-inventory", "group-qaqc", "group-hse",
-  "arvela.owner", "arvela.it", "arvela.finance", "arvela.legal", "arvela.procurement", "arvela.hr", "arvela.engineering",
-  "arvela.architecture", "arvela.projects", "arvela.sales", "arvela.hse", "arvela.qaqc", "arvela.inventory",
 ].sort();
 
 beforeAll(() => {
@@ -168,52 +148,6 @@ describe("curated personas (RP-01)", () => {
   });
 });
 
-describe("ARVELA's supplied facts (§5, RP-01, RP-21)", () => {
-  const HEADS = [
-    { name: "Alma Dedja", username: "arvela.procurement", role: "PROCUREMENT", department: "procurement" },
-    { name: "Endri Gani", username: "arvela.finance", role: "FINANCE", department: "finance" },
-    { name: "Bujar Zeqo", username: "arvela.architecture", role: "ARCHITECT", department: "architecture" },
-    { name: "Arlind Basha", username: "arvela.hse", role: "HSE", department: "hse" },
-    { name: "Mimoza Bala", username: "arvela.legal", role: "LEGAL", department: "legal" },
-    { name: "Xheni Lulaj", username: "arvela.hr", role: "HR", department: "hr" },
-  ] as const;
-
-  it.each(HEADS)("$name heads Group $department: employed by VELAR ADMINISTRIM, a login in each of the nine active companies", (head) => {
-    const entry = persona(head.username);
-    expect(entry.name).toBe(head.name);
-    expect(entry.tenant).toBe("arvela");
-    expect(entry.picker).toBe("demo-tenant");
-    const logins = usable(entry);
-    expect(logins.map((membership) => membership.companyId).sort()).toEqual(ARVELA_ACTIVE_COMPANIES);
-    for (const membership of logins) {
-      expect(membership.role).toBe(head.role);
-      expect(membership.position).toBe("GROUP_HEAD");
-    }
-    expect(entry.memberships.filter((membership) => membership.employing).map((membership) => membership.companyId)).toEqual([ARVELA_EMPLOYER]);
-    expect(logins.find((membership) => membership.companyId === ARVELA_EMPLOYER)!.department).toBe(head.department);
-    expect(entry.signIn.outcome).toBe("GROUP");
-    expect(entry.groupWorkspace).toEqual({ standing: true, mayEnter: true });
-  });
-
-  it("the Group Owner is Arsen Lulaj, OWNER as group head", () => {
-    const owner = persona("arvela.owner");
-    expect(owner.name).toBe("Arsen Lulaj");
-    expect(usable(owner).every((membership) => membership.role === "OWNER" && membership.position === "GROUP_HEAD")).toBe(true);
-    expect(usable(owner).map((membership) => membership.companyId).sort()).toEqual(ARVELA_ACTIVE_COMPANIES);
-  });
-
-  it("Toni Gega manages Edge of Tirana as Arvela Ndertim's project manager, and works nowhere else", () => {
-    const toni = persona("unika.pm");
-    expect(toni.name).toBe("Toni Gega");
-    expect(toni.memberships).toHaveLength(1);
-    const [membership] = toni.memberships;
-    expect(membership).toMatchObject({ companyId: ARVELA_ARVEL, role: "PROJECT_MANAGER", position: "MEMBER", department: "projects", employing: true, usable: true });
-    expect(membership.projects).toEqual([{ projectId: "arvela_prj_edge_of_tirana", name: "Edge of Tirana", manager: true }]);
-    expect(toni.signIn).toEqual({ outcome: "COMPANY", companyId: ARVELA_ARVEL });
-    expect(toni.groupWorkspace).toEqual({ standing: false, mayEnter: false });
-  });
-});
-
 describe("no persona holds more than its role, position and grants derive (manifest ⊆ derivation)", () => {
   const LEVELS: AccessLevel[] = ["NONE", "VIEW", "CONTRIBUTE", "APPROVE", "MANAGE"];
   const SCOPE_RANK = ["SELF", "ASSIGNED", "PROJECT", "DEPARTMENT", "COMPANY", "GROUP", "SYSTEM"];
@@ -270,7 +204,7 @@ describe("no persona holds more than its role, position and grants derive (manif
 });
 
 describe("the seeded database, read by the real resolver, agrees (RP-01)", () => {
-  const SEEDED_GROUPS = ["group_demo_nesto", "arvela_group", "group_fixture", "group_fixture_solo"];
+  const SEEDED_GROUPS = ["group_demo_nesto", "group_fixture", "group_fixture_solo"];
 
   it("every persona's user, status and platform access are seeded as the manifest says", async () => {
     const users = await prisma.user.findMany({

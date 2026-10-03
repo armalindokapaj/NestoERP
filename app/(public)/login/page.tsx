@@ -3,10 +3,7 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
-import { demoRosters } from "@/lib/auth/demo-tenants";
-import { isDevMode } from "@/lib/auth/dev-mode";
 import { getTranslations } from "@/lib/i18n/server";
-import { DemoAccounts } from "./demo-accounts";
 import { LoginForm } from "./login-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,8 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const SIGN_IN_NOTICES = {
   "session-expired": "login.sessionExpired",
   "account-unavailable": "login.accountUnavailable",
-  // Development only: a demo user switch ended the old session and could not start the new one (C-01 §46).
-  "demo-switch-failed": "login.demoSwitchFailed",
 } as const;
 
 function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN_IN_NOTICES {
@@ -85,10 +80,6 @@ export default async function LoginPage({
                 {t("backToHome")}
               </Link>
             </div>
-
-            {isDevMode ? (
-              <DemoAccounts rosters={await demoRosters()} />
-            ) : null}
           </div>
         </main>
 

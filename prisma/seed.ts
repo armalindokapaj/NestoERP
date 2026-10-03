@@ -3,8 +3,7 @@
  *
  * Fresh database → migrations → seed → sign in as any curated demo persona and
  * navigate a fully populated group of five companies, without creating a
- * single record by hand (PRD #9 §2) — and, beside it, the ARVELA Group demo
- * tenant (D-01), whose people sign in with their own password.
+ * single record by hand (PRD #9 §2). It is a development and test fixture; no deployment runs it.
  *
  * Order matters: configuration first, then the demo group and the test
  * fixtures with their people, then the core business graph, then module test
@@ -31,8 +30,6 @@ import { seedDemoOrganization } from "./seed/demo/organization";
 import { syncMemberPlaces } from "./seed/organization-helpers";
 import { seedEmploymentHistoryStories, syncEmploymentHistory } from "./seed/employment-history";
 import { seedFixtureOrganization } from "./seed/fixtures/organization";
-import { GROUP_PEOPLE } from "./seed/arvela/people";
-import { arvelaPassword, describeArvela, seedArvela } from "./seed/arvela/seed";
 import { PRIMARY_DEMO_ACCOUNTS } from "../config/demo-accounts";
 import { hashPassword } from "../lib/auth/password";
 import { seedModuleRecords } from "./seed/module-records";
@@ -109,10 +106,6 @@ async function main() {
   await syncEmploymentHistory(prisma);
   await seedEmploymentHistoryStories(prisma);
 
-  // A second, realistic group beside the demo's: the ARVELA demo tenant (D-01,
-  // ADR 0005). Its own password; its own checks; nothing shared with the demo group.
-  const arvela = await seedArvela(prisma, await hashPassword(arvelaPassword()));
-
   await validateSeed(prisma);
 
   const counts = {
@@ -133,7 +126,7 @@ async function main() {
   console.log(`✓ Modules: ${access.modules}`);
   console.log(`✓ Role permissions: ${access.rolePermissions}`);
   console.log(`✓ Role module access: ${access.roleModuleAccess}`);
-  console.log(`✓ Parent groups: ${counts.groups} (${DEMO_GROUP.name}, and the ARVELA demo tenant) and one test fixture group`);
+  console.log(`✓ Parent groups: ${counts.groups} (${DEMO_GROUP.name}) and one test fixture group`);
   console.log(`✓ Companies: ${counts.companies} in the demo group, ${counts.fixtureCompanies} test fixtures`);
   console.log(`✓ Users: ${counts.users}`);
   console.log(`✓ Projects: ${counts.projects}`);
@@ -191,20 +184,12 @@ async function main() {
       `${hse.stopWorks} stop-work`,
   );
   console.log(`✓ Activities: ${activities}`);
-  for (const line of describeArvela(arvela)) console.log(line);
   console.log("✓ Seed validation passed");
   console.log(
     `\nSign in as any of the ${PRIMARY_DEMO_ACCOUNTS.length} demo personas, password: ${DEMO_PASSWORD}`,
   );
   for (const account of PRIMARY_DEMO_ACCOUNTS) {
     console.log(`  ${account.username.padEnd(22)} ${account.assignment}`);
-  }
-  console.log(
-    `\nARVELA GROUP — its heads below, everybody else as <company>.<role> (docs/demo-arvela.md), password: ` +
-      (process.env.ARVELA_DEMO_PASSWORD ? "ARVELA_DEMO_PASSWORD" : DEMO_PASSWORD),
-  );
-  for (const person of GROUP_PEOPLE) {
-    console.log(`  ${person.username.padEnd(22)} ${person.jobTitle}`);
   }
 }
 
