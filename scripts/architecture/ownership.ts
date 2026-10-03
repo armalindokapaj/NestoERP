@@ -348,6 +348,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-recovery.service.ts",
+    reason:
+      "Platform Recovery deletes, restores and permanently removes a company or a group — the company and group statuses with their deletion markers move together in one transaction, so a group and the companies it took down come back as one — and brings an archived document or a removed project-media link back for a company that is closed to its own users. These are Platform Admin decisions, permission-checked and audited, that no tenant role can make, so they cannot be routed through a tenant-scoped service.",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-control.service.ts",
     reason:
       "The Platform Admin control plane coordinates reviewed, permission-checked and audited changes across tenant domains. It validates each canonical record in its owning scope and keeps cross-domain lifecycle changes in one transaction without creating a second persistence model.",

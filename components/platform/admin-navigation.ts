@@ -87,6 +87,7 @@ export const adminDestinations: AdminDestination[] = [
       { label: "Health", href: "/admin/system/health", permission: "platform.operations.view" },
       { label: "Jobs", href: "/admin/system/jobs", permission: "platform.operations.view" },
       { label: "Storage", href: "/admin/system/storage", permission: "platform.operations.view" },
+      { label: "Recovery", href: "/admin/system/recovery", permission: "platform.recovery.view" },
       { label: "Data diagnostics", href: "/admin/system/diagnostics", permission: "platform.operations.view" },
       { label: "Support", href: "/admin/system/support", permission: "platform.support.view" },
       { label: "Demo", href: "/admin/system/demo" },

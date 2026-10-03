@@ -13,6 +13,7 @@ const STATES: Record<string, { label: string; tone: BadgeProps["tone"] }> = {
   SUSPENDED: { label: "Suspended", tone: "danger" },
   INACTIVE: { label: "Inactive", tone: "default" },
   ARCHIVED: { label: "Archived", tone: "default" },
+  DELETED: { label: "Deleted", tone: "danger" },
   IMPLEMENTING: { label: "Implementing", tone: "warning" },
   READY_FOR_VALIDATION: { label: "Ready for validation", tone: "info" },
   PENDING: { label: "Pending", tone: "warning" },

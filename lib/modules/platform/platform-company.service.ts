@@ -65,12 +65,14 @@ export async function freeSlug(client: Prisma.TransactionClient | typeof prisma,
 }
 
 async function companyOrNotFound(companyId: string) {
-  return assertFound(
+  const company = assertFound(
     await prisma.company.findFirst({
       where: { id: companyId, parentGroup: { isTestFixture: false } },
-      select: { id: true, name: true, slug: true, parentGroupId: true, parentGroup: { select: { id: true, name: true, kind: true, status: true } } },
+      select: { id: true, name: true, slug: true, status: true, parentGroupId: true, parentGroup: { select: { id: true, name: true, kind: true, status: true } } },
     }),
   );
+  if (company.status === "DELETED") throw new AccessError("CONFLICT", "This company is deleted. Restore it from Recovery first.", { code: "COMPANY_DELETED" });
+  return company;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -133,7 +135,7 @@ type TargetGroup = { id: string; name: string; status: string };
 
 async function openGroup(groupId: string): Promise<TargetGroup> {
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, kind: "GROUP", isTestFixture: false }, select: { id: true, name: true, status: true } }));
-  if (group.status === "SUSPENDED" || group.status === "ARCHIVED") throw new AccessError("CONFLICT", "Companies are not added to a suspended or archived group.", { code: "GROUP_CLOSED" });
+  if (group.status === "SUSPENDED" || group.status === "ARCHIVED" || group.status === "DELETED") throw new AccessError("CONFLICT", "Companies are not added to a suspended, archived or deleted group.", { code: "GROUP_CLOSED" });
   return group;
 }
 
@@ -411,6 +413,7 @@ export type PlatformCompanyOverviewDTO = {
   structure: { kind: ParentGroupKind; group: { id: string; name: string } | null };
   counts: { users: number; projects: number; departments: number; modules: number; people: number };
   createdBy: string | null;
+  deletedWithGroup: boolean;
   setup: SetupItemDTO[];
   groupOptions: Array<{ value: string; label: string }>;
   detach: DetachPreviewDTO | null;
@@ -423,14 +426,14 @@ export async function getPlatformCompanyOverview(context: PlatformContext, compa
     await prisma.company.findFirst({
       where: { id: companyId, parentGroup: { isTestFixture: false } },
       select: {
-        id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true,
+        id: true, slug: true, name: true, legalName: true, registrationNumber: true, taxNumber: true, industry: true, country: true, address: true, email: true, phone: true, website: true, logoUrl: true, status: true, createdAt: true, deletedWithGroup: true,
         parentGroup: { select: { id: true, name: true, kind: true } },
         _count: { select: { memberships: true, projects: true, departments: true, modules: { where: { enabled: true } }, employeeProfiles: true } },
       },
     }),
   );
   const [groups, history, created, detach] = await Promise.all([
-    prisma.parentGroup.findMany({ where: { kind: "GROUP", isTestFixture: false, status: { notIn: ["SUSPENDED", "ARCHIVED"] } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.parentGroup.findMany({ where: { kind: "GROUP", isTestFixture: false, status: { notIn: ["SUSPENDED", "ARCHIVED", "DELETED"] } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.auditEvent.findMany({ where: { OR: [{ companyId: row.id }, { entityType: "Company", entityId: row.id }] }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 10, select: { id: true, actionKey: true, actorDisplayNameSnapshot: true, occurredAt: true } }),
     prisma.auditEvent.findFirst({ where: { entityType: "Company", entityId: row.id, actionKey: { in: [AuditAction.PLATFORM_COMPANY_CREATED, AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP] } }, orderBy: { occurredAt: "asc" }, select: { actorDisplayNameSnapshot: true } }),
     row.parentGroup.kind === "GROUP" ? previewDetach(context, row.id) : Promise.resolve(null),
@@ -453,6 +456,7 @@ export async function getPlatformCompanyOverview(context: PlatformContext, compa
     structure: { kind: parentGroup.kind, group: parentGroup.kind === "GROUP" ? { id: parentGroup.id, name: parentGroup.name } : null },
     counts: { users: _count.memberships, projects: _count.projects, departments: _count.departments, modules: _count.modules, people: _count.employeeProfiles },
     createdBy: created?.actorDisplayNameSnapshot ?? null,
+    deletedWithGroup: row.deletedWithGroup,
     setup,
     groupOptions: groups.map((group) => ({ value: group.id, label: group.name })),
     detach,

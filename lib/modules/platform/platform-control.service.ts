@@ -134,6 +134,7 @@ export async function createPlatformUser(context: PlatformContext, input: { pers
 export async function setGroupStatus(context: PlatformContext, groupId: string, status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED", reason: string) {
   assertPlatform(context, "platform.group.lifecycle");
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true, activatedAt: true } }));
+  if (group.status === "DELETED") throw new AccessError("CONFLICT", "This group is deleted. Restore it from Recovery first.");
   if (group.status === "ARCHIVED") throw new AccessError("CONFLICT", "An archived group is historical and cannot be reopened from the console.");
   // activatedAt is the record of a completed handover. A group without one was
   // still being set up, so whatever state it is in now — suspension included —
@@ -164,7 +165,7 @@ export async function setGroupStatus(context: PlatformContext, groupId: string, 
 export async function setGroupBranding(context: PlatformContext, groupId: string, input: { logoUrl: string; reason: string }) {
   assertPlatform(context, "platform.group.configure");
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true, logoUrl: true } }));
-  if (group.status === "ARCHIVED") throw new AccessError("CONFLICT", "An archived group is historical and cannot be changed from the console.");
+  if (group.status === "ARCHIVED" || group.status === "DELETED") throw new AccessError("CONFLICT", group.status === "DELETED" ? "This group is deleted. Restore it from Recovery first." : "An archived group is historical and cannot be changed from the console.");
   const logoUrl = nullable(input.logoUrl);
   if (logoUrl === group.logoUrl) return;
   await prisma.$transaction(async (tx) => {
@@ -177,6 +178,7 @@ export async function setGroupBranding(context: PlatformContext, groupId: string
 export async function setCompanyStatus(context: PlatformContext, companyId: string, status: "ACTIVE" | "INACTIVE" | "SUSPENDED", reason: string) {
   assertPlatform(context, "platform.company.configure");
   const company = assertFound(await prisma.company.findFirst({ where: { id: companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, status: true, parentGroupId: true } }));
+  if (company.status === "DELETED") throw new AccessError("CONFLICT", "This company is deleted. Restore it from Recovery first.");
   if (company.status === status) return;
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.company.updateMany({ where: { id: company.id, status: company.status }, data: { status, configVersion: { increment: 1 } } }));

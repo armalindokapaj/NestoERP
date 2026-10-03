@@ -34,6 +34,8 @@ enum CompanyStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+  /// Deleted by the Platform Admin and restorable until purged (Platform Recovery).
+  DELETED
 }
 
 enum MembershipStatus {
@@ -181,6 +183,8 @@ enum ParentGroupStatus {
   ACTIVE
   SUSPENDED
   ARCHIVED
+  /// Deleted by the Platform Admin and restorable until purged (Platform Recovery).
+  DELETED
 }
 
 /// Where a person sits in a department (E-06 §7). Management is a position held
@@ -1438,6 +1442,17 @@ model Company {
   website            String?
   status             CompanyStatus @default(ACTIVE)
 
+  /// Platform Recovery: a deleted company keeps its rows and its pre-delete
+  /// status, so a restore returns it exactly as it was. `deletedWithGroup` marks
+  /// a company taken down by deleting its whole group, so restoring the group
+  /// brings back those companies and not ones deleted earlier on their own.
+  deletedAt         DateTime?
+  deletedByUserId   String?
+  deleteReason      String?
+  statusBeforeDelete CompanyStatus?
+  deletedWithGroup  Boolean       @default(false)
+  purgeAfter        DateTime?
+
   /// The business root this company belongs to (E-06 §3.1, §9): its Parent
   /// Group, or its own STANDALONE root when it has none (Simplified Company
   /// Creation §3). It changes only when the Platform Admin attaches the company
@@ -1947,6 +1962,12 @@ model ParentGroup {
   logoUrl            String?
   status             ParentGroupStatus @default(IMPLEMENTING)
   kind               ParentGroupKind   @default(GROUP)
+  /// Platform Recovery: see the same columns on Company.
+  deletedAt          DateTime?
+  deletedByUserId    String?
+  deleteReason       String?
+  statusBeforeDelete ParentGroupStatus?
+  purgeAfter         DateTime?
   /// A deterministic test tenant: kept out of the Platform Admin's group list and
   /// the demo sign-in screen (E-06 §45, §150). Never set outside the seed.
   isTestFixture      Boolean           @default(false)

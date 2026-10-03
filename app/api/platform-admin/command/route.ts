@@ -7,6 +7,8 @@ import { sendTestEmail } from "@/lib/modules/platform/platform-system.service";
 import { platformDeviceAction, savePlatformMobilePolicy } from "@/lib/modules/platform/platform-mobile-security.service";
 import { applyEntitlementChanges, previewPlanChange, savePlan, setCompanyLimits } from "@/lib/modules/entitlements/entitlement.service";
 import { attachCompanyToGroup, createCompany, detachCompanyFromGroup, moveCompanyToGroup } from "@/lib/modules/platform/platform-company.service";
+import { deleteCompany, deleteGroup, purgeCompany, purgeGroup, restoreArchivedDocument, restoreCompany, restoreGroup, restoreRemovedProjectMedia } from "@/lib/modules/platform/platform-recovery.service";
+import { restoreProject3DExperience } from "@/lib/modules/project-3d/project-3d.lifecycle";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
@@ -31,6 +33,8 @@ import {
   projectCreateSchema,
   projectUpdateSchema,
   sessionRevokeSchema,
+  tenantDeleteSchema,
+  tenantRestoreSchema,
   supportAccessSchema,
   userStatusSchema,
 } from "@/lib/modules/platform/platform-control.schema";
@@ -76,6 +80,51 @@ export async function POST(request: Request) {
       case "group.status": {
         const input = groupStatusSchema.extend({ groupId: id }).parse(body);
         await setGroupStatus(context, input.groupId, input.status, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "company.delete": {
+        const input = tenantDeleteSchema.extend({ companyId: id }).parse(body);
+        await deleteCompany(context, input.companyId, input);
+        return apiOk({ data: { ok: true } });
+      }
+      case "group.delete": {
+        const input = tenantDeleteSchema.extend({ groupId: id }).parse(body);
+        await deleteGroup(context, input.groupId, input);
+        return apiOk({ data: { ok: true } });
+      }
+      case "company.restore": {
+        const input = tenantRestoreSchema.extend({ companyId: id }).parse(body);
+        await restoreCompany(context, input.companyId, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "group.restore": {
+        const input = tenantRestoreSchema.extend({ groupId: id }).parse(body);
+        await restoreGroup(context, input.groupId, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "company.purge": {
+        const input = tenantDeleteSchema.extend({ companyId: id }).parse(body);
+        await purgeCompany(context, input.companyId, input);
+        return apiOk({ data: { ok: true } });
+      }
+      case "group.purge": {
+        const input = tenantDeleteSchema.extend({ groupId: id }).parse(body);
+        await purgeGroup(context, input.groupId, input);
+        return apiOk({ data: { ok: true } });
+      }
+      case "document.restore": {
+        const input = tenantRestoreSchema.extend({ documentId: id }).parse(body);
+        await restoreArchivedDocument(context, input.documentId, input.reason);
+        return apiOk({ data: { ok: true } });
+      }
+      case "experience3d.restore": {
+        const input = tenantRestoreSchema.extend({ projectId: id, expectedControlVersion: z.coerce.number().int().min(0) }).parse(body);
+        await restoreProject3DExperience(context, input.projectId, { expectedControlVersion: input.expectedControlVersion, reason: input.reason });
+        return apiOk({ data: { ok: true } });
+      }
+      case "projectMedia.restore": {
+        const input = tenantRestoreSchema.extend({ eventId: id }).parse(body);
+        await restoreRemovedProjectMedia(context, input.eventId, input.reason);
         return apiOk({ data: { ok: true } });
       }
       case "group.branding": {

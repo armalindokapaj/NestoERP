@@ -212,7 +212,7 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
     checklist,
     actions: {
       canConfigure: implementing && canPlatform(context, "platform.group.configure"),
-      canAddCompany: group.status !== "ARCHIVED" && group.status !== "SUSPENDED" && canPlatform(context, "platform.company.create"),
+      canAddCompany: group.status !== "ARCHIVED" && group.status !== "SUSPENDED" && group.status !== "DELETED" && canPlatform(context, "platform.company.create"),
       canProvision: implementing && canPlatform(context, "platform.user.initial_provision"),
       canMarkReady: group.status === "IMPLEMENTING" && canPlatform(context, "platform.implementation.manage"),
       canActivate: implementing && canPlatform(context, "platform.group.activate") && checklist.every((item) => !item.blocking || item.done),
@@ -262,7 +262,7 @@ export async function activateParentGroup(context: PlatformContext, groupId: str
 export async function createGroupCompany(context: PlatformContext, groupId: string, input: CreateGroupCompanyInput): Promise<{ companyId: string }> {
   assertPlatform(context, "platform.company.create");
   const group = await groupOrNotFound(groupId);
-  if (group.status === "ARCHIVED" || group.status === "SUSPENDED") throw new AccessError("CONFLICT", "Companies are not added to a suspended or archived group.", { code: "GROUP_CLOSED" });
+  if (group.status === "ARCHIVED" || group.status === "SUSPENDED" || group.status === "DELETED") throw new AccessError("CONFLICT", "Companies are not added to a suspended, archived or deleted group.", { code: "GROUP_CLOSED" });
   if (input.slug && (await prisma.company.count({ where: { slug: input.slug } })) > 0) throw new AccessError("CONFLICT", "Another company already uses that slug.", { field: "slug" });
   // A name is enough (Organizations PRD §3, §26): the code is made from it when not given.
   const slug = input.slug ?? (await freeSlug(prisma, input.name));
