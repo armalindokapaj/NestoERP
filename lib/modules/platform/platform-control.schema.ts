@@ -20,7 +20,7 @@ const logoSource = z
   .refine((value) => value === "" || isShellLogoSource(value), "Use a path on this deployment (for example /branding/logo.svg) or an inline image (data:image/png;base64,…).");
 
 export const groupStatusSchema = z.object({
-  status: z.enum(["IMPLEMENTING", "READY_FOR_VALIDATION", "ACTIVE", "SUSPENDED", "ARCHIVED"]),
+  status: z.enum(["ACTIVE", "SUSPENDED", "ARCHIVED"]),
   reason,
 });
 

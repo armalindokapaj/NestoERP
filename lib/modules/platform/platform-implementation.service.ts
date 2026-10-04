@@ -43,7 +43,8 @@ import {
  * a member of what they build (§20, §116).
  */
 
-const IMPLEMENTING: ParentGroupStatus[] = ["IMPLEMENTING", "READY_FOR_VALIDATION"];
+/** The groups the platform may still configure: every live one. There is no validation or handover step; a group is ACTIVE from creation. Legacy setup statuses stay listed for rows not yet migrated. */
+const IMPLEMENTING: ParentGroupStatus[] = ["IMPLEMENTING", "READY_FOR_VALIDATION", "ACTIVE"];
 
 function assertPlatform(context: PlatformContext, permission: PlatformPermission): void {
   if (!canPlatform(context, permission)) throw new AccessError("FORBIDDEN");
@@ -82,13 +83,15 @@ export async function createParentGroup(context: PlatformContext, input: CreateP
         country: input.country ?? null,
         timezone: input.timezone ?? null,
         currency: input.currency ?? null,
-        status: "IMPLEMENTING",
+        status: "ACTIVE",
+        activatedAt: new Date(),
+        activatedByUserId: context.userId,
       },
       select: { id: true },
     });
     // Every function once for the group, from the start (§11, §36).
     await tx.groupDepartment.createMany({ data: groupDepartmentRows(group.id), skipDuplicates: true });
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, entity: { type: "ParentGroup", id: group.id, label: input.name }, after: { slug, name: input.name, status: "IMPLEMENTING" } }, { tx });
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, entity: { type: "ParentGroup", id: group.id, label: input.name }, after: { slug, name: input.name, status: "ACTIVE" } }, { tx });
     return group;
   });
 }
@@ -97,7 +100,7 @@ export async function updateParentGroup(context: PlatformContext, groupId: strin
   assertPlatform(context, "platform.group.configure");
   const group = await groupOrNotFound(groupId);
   // An active group's identity is its Owner's to change, not the platform's (§20).
-  if (!IMPLEMENTING.includes(group.status)) throw new AccessError("CONFLICT", "An active group's details are no longer set by the platform.", { code: "GROUP_ACTIVE" });
+  if (!IMPLEMENTING.includes(group.status)) throw new AccessError("CONFLICT", "This group's details are not set by the platform in its current state.", { code: "GROUP_ACTIVE" });
   await prisma.$transaction(async (tx) => {
     const moved = await tx.parentGroup.updateMany({
       where: { id: group.id, status: group.status },
@@ -119,7 +122,7 @@ export type GroupImplementationDTO = {
   departmentOptions: Array<{ id: string; code: string; name: string }>;
   people: Array<{ userId: string; name: string; username: string; placements: string[]; mustChangePassword: boolean }>;
   checklist: ChecklistItemDTO[];
-  actions: { canConfigure: boolean; canAddCompany: boolean; canProvision: boolean; canMarkReady: boolean; canActivate: boolean };
+  actions: { canConfigure: boolean; canAddCompany: boolean; canProvision: boolean };
 };
 
 export async function getGroupImplementation(context: PlatformContext, groupId: string): Promise<GroupImplementationDTO> {
@@ -182,11 +185,11 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
   const managersIn = (companyId: string) => openBranches.filter((branch) => branch.companyId === companyId && branch.assignments.length > 0).length;
 
   const checklist: ChecklistItemDTO[] = [
-    { key: "companies", label: "Companies configured", done: active.length > 0, blocking: true },
-    { key: "departments", label: "Group departments created", done: departments.length > 0, blocking: true },
-    { key: "branches", label: "Company branches activated", done: active.length > 0 && active.every((company) => company._count.departments > 0), blocking: true },
-    { key: "owner", label: "At least one active Group Owner", done: roleHeld("OWNER"), blocking: true },
-    { key: "groupIt", label: "Group IT appointed", done: roleHeld("GROUP_IT"), blocking: true },
+    { key: "companies", label: "Companies configured", done: active.length > 0, blocking: false },
+    { key: "departments", label: "Group departments created", done: departments.length > 0, blocking: false },
+    { key: "branches", label: "Company branches activated", done: active.length > 0 && active.every((company) => company._count.departments > 0), blocking: false },
+    { key: "owner", label: "At least one active Group Owner", done: roleHeld("OWNER"), blocking: false },
+    { key: "groupIt", label: "Group IT appointed", done: roleHeld("GROUP_IT"), blocking: false },
     { key: "heads", label: "Group heads assigned", done: setup.needingHead > 0 && setup.withHead === setup.needingHead, blocking: false },
     { key: "managers", label: "Company managers assigned", done: setup.branches > 0 && setup.branchesWithManager === setup.branches, blocking: false },
     { key: "projects", label: "Every company has a project with a project manager", done: active.length > 0 && active.every((company) => company.projects.some((project) => project.projectManagerMemberId)), blocking: false },
@@ -204,39 +207,8 @@ export async function getGroupImplementation(context: PlatformContext, groupId: 
       canConfigure: implementing && canPlatform(context, "platform.group.configure"),
       canAddCompany: group.status !== "ARCHIVED" && group.status !== "SUSPENDED" && group.status !== "DELETED" && canPlatform(context, "platform.company.create"),
       canProvision: implementing && canPlatform(context, "platform.user.initial_provision"),
-      canMarkReady: group.status === "IMPLEMENTING" && canPlatform(context, "platform.implementation.manage"),
-      canActivate: implementing && canPlatform(context, "platform.group.activate") && checklist.every((item) => !item.blocking || item.done),
     },
   };
-}
-
-export async function markReadyForValidation(context: PlatformContext, groupId: string): Promise<void> {
-  assertPlatform(context, "platform.implementation.manage");
-  const group = await groupOrNotFound(groupId);
-  await prisma.$transaction(async (tx) => {
-    const moved = await tx.parentGroup.updateMany({ where: { id: group.id, status: "IMPLEMENTING" }, data: { status: "READY_FOR_VALIDATION" } });
-    if (moved.count === 0) throw new AccessError("CONFLICT", "Only a group being implemented can be sent for validation.", { code: "STATE_DENIED" });
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { status: group.status }, after: { status: "READY_FOR_VALIDATION" } }, { tx });
-  });
-}
-
-/** Hands the group over (§21, §71): refused while anything the checklist blocks on is missing. */
-export async function activateParentGroup(context: PlatformContext, groupId: string): Promise<void> {
-  assertPlatform(context, "platform.group.activate");
-  const implementation = await getGroupImplementation(context, groupId);
-  const missing = implementation.checklist.filter((item) => item.blocking && !item.done);
-  if (missing.length > 0) {
-    throw new AccessError("CONFLICT", `Not ready to activate: ${missing.map((item) => item.label.toLowerCase()).join("; ")}.`, { code: "IMPLEMENTATION_INCOMPLETE", missing: missing.map((item) => item.key) });
-  }
-  const group = implementation.group;
-  await prisma.$transaction(async (tx) => {
-    const moved = await tx.parentGroup.updateMany({
-      where: { id: group.id, status: { in: IMPLEMENTING } },
-      data: { status: "ACTIVE", activatedAt: new Date(), activatedByUserId: context.userId },
-    });
-    if (moved.count === 0) throw new AccessError("CONFLICT", "Only a group being implemented can be activated.", { code: "STATE_DENIED" });
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_PARENT_GROUP_ACTIVATED, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { status: group.status }, after: { status: "ACTIVE" } }, { tx });
-  });
 }
 
 /* -------------------------------------------------------------------------- */

@@ -7,7 +7,6 @@ import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";
 import Link from "@/components/navigation/nav-link";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { MEMBERSHIP_ROLE_KEYS, roleLabel } from "@/config/roles";
@@ -16,14 +15,14 @@ import type { GroupImplementationDTO, InitialUserResultDTO } from "@/lib/modules
 /**
  * The Platform Admin's implementation controls (E-06 §20, §21, §70, §71):
  * create a group, add its companies, record the approved initial roster and
- * its first project assignments, send it for validation and activate it.
+ * its first project assignments, 
  */
 
-type Open = "identity" | "company" | "person" | "project" | "ready" | "activate" | null;
+type Open = "identity" | "company" | "person" | "project" | null;
 
 export function GroupImplementationActions({ implementation }: { implementation: GroupImplementationDTO }) {
   const t = useTranslations("adminAccess");
-  const { pending, run } = useCommand();
+  const { run } = useCommand();
   const identityFields: FormField[] = [
     { name: "name", label: t("implementation.fields.name"), type: "text", required: true },
     { name: "slug", label: t("implementation.fields.slug"), type: "text", required: true, hint: t("implementation.fields.slugHint") },
@@ -43,8 +42,6 @@ export function GroupImplementationActions({ implementation }: { implementation:
 
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="implementation-actions">
-      {actions.canActivate ? <Button size="sm" onClick={() => setOpen("activate")}>{t("implementation.activateGroup")}</Button> : null}
-      {actions.canMarkReady ? <Button size="sm" variant="secondary" onClick={() => setOpen("ready")}>{t("implementation.sendForValidation")}</Button> : null}
       {actions.canAddCompany ? <Button size="sm" variant="secondary" onClick={() => setOpen("company")}>{t("implementation.newCompany")}</Button> : null}
       {implementation.checklist.some((item) => item.key === "owner" && !item.done) ? <Link href={`/admin/organizations/${implementation.group.id}?tab=users`} className="inline-flex h-8 items-center rounded-lg border border-line px-3 text-table font-medium text-fg hover:bg-hover" data-testid="assign-group-ceo-link">{t("implementation.assignGroupCeo")}</Link> : null}
       {actions.canProvision && companies.length > 0 ? <Button size="sm" variant="secondary" onClick={() => setOpen("person")}>{t("implementation.addToRoster")}</Button> : null}
@@ -140,27 +137,6 @@ export function GroupImplementationActions({ implementation }: { implementation:
           await run("project", async () => null, t("implementation.assigned"));
         }}
       />
-      <ConfirmDialog
-        open={open === "ready"}
-        onOpenChange={close}
-        title={t("implementation.readyTitle")}
-        description={t("implementation.readyDescription")}
-        confirmLabel={t("implementation.sendForValidation")}
-        destructive={false}
-        pending={pending === "ready"}
-        onConfirm={() => void run("ready", () => engineeringApi(`${base}/ready`, { body: {} }), t("implementation.readySent"), () => setOpen(null))}
-      />
-      <ConfirmDialog
-        open={open === "activate"}
-        onOpenChange={close}
-        title={t("implementation.activateTitle", { name: implementation.group.name })}
-        description={t("implementation.activateDescription")}
-        confirmLabel={t("implementation.activateGroup")}
-        destructive={false}
-        pending={pending === "activate"}
-        onConfirm={() => void run("activate", () => engineeringApi(`${base}/activate`, { body: {} }), t("implementation.activated"), () => setOpen(null))}
-      />
-
       <Dialog open={created !== null} onOpenChange={(next) => !next && setCreated(null)}>
         <DialogContent className="max-w-md" data-testid="initial-user-credentials">
           <DialogTitle>{t("implementation.credentialsTitle")}</DialogTitle>

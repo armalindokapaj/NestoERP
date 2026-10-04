@@ -4,12 +4,10 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { resolvePlatformContextForSession } from "@/lib/context/platform-context";
 import { clearOutbox } from "@/lib/mail";
 import {
-  activateParentGroup,
   assignInitialProjectMember,
   createGroupCompany,
   createParentGroup,
   getGroupImplementation,
-  markReadyForValidation,
   provisionInitialUser,
 } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema, createParentGroupSchema, initialUserSchema } from "@/lib/modules/platform/platform.schema";
@@ -108,17 +106,14 @@ describe("implementing a group (§20, §21, §30, §35, §71, §138)", () => {
   let companyId: string;
   let architectId: string;
 
-  it("creates the group implementing, with its departments, audited at group level", async () => {
+  it("creates the group active, with its departments, audited at group level", async () => {
     const created = await createParentGroup(admin, createParentGroupSchema.parse({ name: "Harbour Holdings", slug: GROUP, country: "Albania", currency: "EUR", timezone: "Europe/Tirane" }));
     groupId = created.id;
     const group = await prisma.parentGroup.findUniqueOrThrow({ where: { id: groupId }, include: { _count: { select: { departments: true } } } });
-    expect(group).toMatchObject({ status: "IMPLEMENTING", isTestFixture: false });
+    expect(group).toMatchObject({ status: "ACTIVE", isTestFixture: false });
     expect(group._count.departments).toBe(13);
     const audit = await prisma.auditEvent.findFirstOrThrow({ where: { parentGroupId: groupId, actionKey: "PLATFORM_PARENT_GROUP_CREATED" } });
     expect(audit).toMatchObject({ companyId: null, actorUserId: admin.userId, actorRoleSnapshot: "PLATFORM_ADMIN" });
-
-    // Nothing to hand over yet.
-    await expect(activateParentGroup(admin, groupId)).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   it("adds a company with its settings, modules and a branch of every department", async () => {
@@ -149,31 +144,19 @@ describe("implementing a group (§20, §21, §30, §35, §71, §138)", () => {
     expect(roles.map((row) => row.role.key).sort()).toEqual(["GROUP_IT", "OWNER"]);
   });
 
-  it("assigns a first project from the roster, then hands the group over once the checklist is met", async () => {
+  it("assigns a first project from the roster, with no validation or handover step", async () => {
     const pm = await prisma.companyMember.findFirstOrThrow({ where: { companyId, user: { email: EMAILS[0] } }, select: { id: true } });
     const project = await prisma.project.create({ data: { companyId, code: "HB-001", name: "Harbour Quay", status: "ACTIVE", projectManagerMemberId: pm.id, projectTypeId: await projectTypeId(companyId), createdBy: "test" } });
     await assignInitialProjectMember(admin, groupId, { projectId: project.id, userId: architectId, projectRole: "Architect" });
     expect(await prisma.projectMember.count({ where: { projectId: project.id, status: "ACTIVE" } })).toBe(1);
 
-    const before = await getGroupImplementation(admin, groupId);
-    expect(before.checklist.filter((item) => item.blocking && !item.done)).toEqual([]);
-    expect(before.actions.canActivate).toBe(true);
-
-    await markReadyForValidation(admin, groupId);
-    await activateParentGroup(admin, groupId);
-    const group = await prisma.parentGroup.findUniqueOrThrow({ where: { id: groupId } });
-    expect(group).toMatchObject({ status: "ACTIVE", activatedByUserId: admin.userId });
-    expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, actionKey: "PLATFORM_PARENT_GROUP_ACTIVATED" } })).toBe(1);
+    // No validation or handover: the group is ACTIVE from creation and nothing on the checklist blocks it.
+    const after = await getGroupImplementation(admin, groupId);
+    expect(after.checklist.filter((item) => item.blocking)).toEqual([]);
+    expect(after.group.status).toBe("ACTIVE");
+    expect(after.actions).not.toHaveProperty("canActivate");
 
     // The Platform Admin never became a member of what they built (§20, §116).
     expect(await prisma.companyMember.count({ where: { userId: admin.userId } })).toBe(0);
-  });
-
-  it("closes the initial roster once the group is active (§30, §138)", async () => {
-    await expect(provisionInitialUser(admin, groupId, initialUserSchema.parse({ firstName: "Late", lastName: "Harbour", workEmail: EMAILS[3], roleKey: "VIEWER", companyIds: [companyId] }))).rejects.toMatchObject({ code: "CONFLICT" });
-    const project = await prisma.project.findFirstOrThrow({ where: { companyId } });
-    const owner = await prisma.user.findFirstOrThrow({ where: { email: EMAILS[0] } });
-    await expect(assignInitialProjectMember(admin, groupId, { projectId: project.id, userId: owner.id, projectRole: undefined })).rejects.toMatchObject({ code: "CONFLICT" });
-    expect(await prisma.user.count({ where: { email: EMAILS[3] } })).toBe(0);
   });
 });

@@ -7,11 +7,9 @@ import { activateInCompanies, createGroupDepartment } from "@/lib/modules/organi
 import { getCompanyDepartments, listGroupDepartments } from "@/lib/modules/organization/departments/department.query";
 import { createDepartmentSchema } from "@/lib/modules/organization/departments/department.schema";
 import {
-  activateParentGroup,
   createGroupCompany,
   createParentGroup,
   getGroupImplementation,
-  markReadyForValidation,
   provisionInitialUser,
 } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema, createParentGroupSchema, initialUserSchema } from "@/lib/modules/platform/platform.schema";
@@ -144,10 +142,8 @@ describe("setting up a group's departments from the platform", () => {
     expect(implementation.companies.find((company) => company.id === build)).toMatchObject({ branches: 4, managers: 1 });
   });
 
-  it("closes the platform's department tools when the group goes live; its Owner keeps them (§52, §94)", async () => {
-    await markReadyForValidation(admin, groupId);
-    await activateParentGroup(admin, groupId);
-    await expect(createGroupDepartment(platformActor(admin, groupId), createDepartmentSchema.parse({ name: "Late", code: "LATE" }))).rejects.toMatchObject({ code: "CONFLICT", details: { code: "IMPLEMENTATION_CLOSED" } });
+  it("keeps the platform's department tools open on an active group, beside its Owner (§52, §94)", async () => {
+    await createGroupDepartment(platformActor(admin, groupId), createDepartmentSchema.parse({ name: "Platform made", code: "PLATFORM-MADE" }));
 
     const owner = await prisma.user.findFirstOrThrow({ where: { email: EMAILS[0] }, select: { id: true } });
     const membership = await prisma.companyMember.findFirstOrThrow({ where: { userId: owner.id, companyId: build }, select: { id: true } });
