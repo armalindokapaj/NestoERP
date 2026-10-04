@@ -7,9 +7,9 @@ export function bedroomLabel(bedrooms: number): string {
 export type StatusFilter = "available" | "reserved" | "sold" | "all";
 
 export const STATUS_DOT: Record<Unit["status"], string> = {
-  available: "bg-emerald-400",
-  reserved: "bg-amber-400",
-  sold: "bg-red-400",
+  available: "bg-success",
+  reserved: "bg-warning",
+  sold: "bg-danger",
 };
 export type SortOption = "recommended" | "priceAsc" | "priceDesc" | "areaAsc" | "areaDesc" | "floorAsc" | "floorDesc";
 

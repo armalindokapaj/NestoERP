@@ -142,7 +142,7 @@ export function FloorRail({
           <button
             type="button"
             onClick={() => setBuildingMenuOpen((open) => !open)}
-            className="viewer-glass flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[11px] font-semibold text-white/85 transition-colors hover:text-white"
+            className="viewer-glass flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[11px] font-semibold text-fg/85 transition-colors hover:text-fg"
           >
             {building.name}
             <ChevronDown className={cn("h-3 w-3 transition-transform", buildingMenuOpen && "rotate-180")} />
@@ -160,8 +160,8 @@ export function FloorRail({
                   className={cn(
                     "block w-full px-3 py-1.5 text-left text-[11px] font-medium transition-colors",
                     i === buildingIndex
-                      ? "bg-brand-500/15 text-brand-300"
-                      : "text-white/70 hover:bg-white/5 hover:text-white"
+                      ? "bg-accent/15 text-accent-strong"
+                      : "text-fg/70 hover:bg-fg/5 hover:text-fg"
                   )}
                 >
                   {b.name}
@@ -174,10 +174,10 @@ export function FloorRail({
 
       <div ref={wrapperRef} className="relative">
         <div className="viewer-glass pointer-events-auto overflow-hidden rounded-panel">
-          <div className="px-1.5 pb-1 pt-2 text-center text-[9px] font-semibold uppercase tracking-[0.08em] text-white/40">
+          <div className="px-1.5 pb-1 pt-2 text-center text-[9px] font-semibold uppercase tracking-[0.08em] text-fg/40">
             {t("unit.floorRailHeading")}
           </div>
-          <div className="mx-1.5 border-t border-white/10" />
+          <div className="mx-1.5 border-t border-fg/10" />
           <div
             ref={containerRef}
             role="group"
@@ -230,12 +230,12 @@ export function FloorRail({
                       className={cn(
                         "flex h-8 w-10 items-center justify-center rounded-control transition-colors duration-150",
                         disabled
-                          ? "text-white/25"
+                          ? "text-fg/25"
                           : active
-                            ? "bg-brand-500 text-white"
+                            ? "bg-accent text-accent-fg"
                             : selected
-                              ? "text-brand-300 group-hover:bg-white/5 group-hover:text-brand-200"
-                              : "text-white/70 group-hover:bg-white/5 group-hover:text-white"
+                              ? "text-accent-strong group-hover:bg-fg/5 group-hover:text-accent-strong"
+                              : "text-fg/70 group-hover:bg-fg/5 group-hover:text-fg"
                       )}
                     >
                       <span
@@ -254,11 +254,11 @@ export function FloorRail({
 
         {hoveredEntry && hovered && (
           <span
-            className="viewer-glass pointer-events-none absolute left-full ml-3 -translate-y-1/2 whitespace-nowrap rounded-pill px-2.5 py-1 text-[11px] font-medium text-white/90"
+            className="viewer-glass pointer-events-none absolute left-full ml-3 -translate-y-1/2 whitespace-nowrap rounded-pill px-2.5 py-1 text-[11px] font-medium text-fg/90"
             style={{ top: hovered.top }}
           >
             {t("unit.floorLabel", { n: hoveredEntry.floor })}
-            <span className="text-white/50">
+            <span className="text-fg/50">
               {" · "}
               {hoveredEntry.sectionId == null
                 ? t("unit.floorRailNoSectionShort")

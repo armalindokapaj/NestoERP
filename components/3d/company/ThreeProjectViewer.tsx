@@ -149,17 +149,17 @@ export const ThreeProjectViewer = forwardRef<ThreeProjectViewerHandle, ThreeProj
     return (
       <div ref={containerRef} className={className}>
         {webglFailed && (
-          <div className="flex h-full w-full items-center justify-center bg-neutral-900 text-sm text-white/60">
+          <div className="flex h-full w-full items-center justify-center bg-surface text-sm text-fg/60">
             {t("renderer.cannotDisplay")}
           </div>
         )}
         {contextLost && !webglFailed && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-900/95 p-6 text-center text-sm text-white/70">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface/95 p-6 text-center text-sm text-fg/70">
             <p>{t("renderer.interrupted")}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="rounded-control border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+              className="rounded-control border border-fg/20 px-3 py-1.5 text-xs font-medium text-fg hover:bg-fg/10"
             >
               {t("renderer.reload")}
             </button>

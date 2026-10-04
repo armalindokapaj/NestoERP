@@ -34,7 +34,7 @@ export const ViewsContent = forwardRef<
       onClick={onClose}
       aria-label={t("common.close")}
       title={t("common.close")}
-      className="flex shrink-0 items-center rounded-control px-1.5 text-brand-400 transition-colors hover:text-brand-300"
+      className="flex shrink-0 items-center rounded-control px-1.5 text-accent-strong transition-colors hover:text-accent-strong"
     >
       <X className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -42,7 +42,7 @@ export const ViewsContent = forwardRef<
 
   function renderPresetRow(itemClassName: string, rowClassName?: string) {
     if (presets.length === 0) {
-      return <p className="flex flex-1 items-center justify-center px-2 text-sm text-white/40">{t("views.empty")}</p>;
+      return <p className="flex flex-1 items-center justify-center px-2 text-sm text-fg/40">{t("views.empty")}</p>;
     }
     return (
       <div className={cn("flex flex-1 items-stretch gap-1 self-stretch overflow-x-auto", rowClassName)}>
@@ -58,12 +58,12 @@ export const ViewsContent = forwardRef<
               className={cn(
                 "relative flex shrink-0 flex-col items-center justify-center gap-1 rounded-t-control transition-colors",
                 itemClassName,
-                isActive ? "bg-brand-500/10 text-brand-400" : "text-white/70 hover:bg-white/5 hover:text-white"
+                isActive ? "bg-accent/10 text-accent-strong" : "text-fg/70 hover:bg-fg/5 hover:text-fg"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
               <span className="w-full truncate text-center text-xs font-medium leading-none">{preset.label}</span>
-              {isActive && <span className="absolute inset-x-0 bottom-0 h-1 bg-brand-400" aria-hidden="true" />}
+              {isActive && <span className="absolute inset-x-0 bottom-0 h-1 bg-accent" aria-hidden="true" />}
             </button>
           );
         })}
@@ -75,7 +75,7 @@ export const ViewsContent = forwardRef<
     return (
       <div ref={ref} className="flex h-full w-full items-center gap-3 px-3.5 sm:px-4">
         {renderPresetRow("w-28 px-1", "max-w-[636px]")}
-        <span className="h-6 w-px shrink-0 bg-white/10" aria-hidden="true" />
+        <span className="h-6 w-px shrink-0 bg-fg/10" aria-hidden="true" />
         {closeButton}
       </div>
     );
@@ -84,7 +84,7 @@ export const ViewsContent = forwardRef<
   return (
     <div ref={ref} className="flex w-full min-h-[70px] items-stretch gap-2 px-3.5">
       {renderPresetRow("px-3")}
-      <span className="h-6 w-px shrink-0 self-center bg-white/10" aria-hidden="true" />
+      <span className="h-6 w-px shrink-0 self-center bg-fg/10" aria-hidden="true" />
       {closeButton}
     </div>
   );

@@ -19,13 +19,13 @@ type Unit = { id: string; unitCode: string };
 
 function CheckRow({ ok, label, detail }: { ok: boolean | "warn"; label: string; detail?: string }) {
   const Icon = ok === true ? CheckCircle2 : AlertTriangle;
-  const color = ok === true ? "text-green-500" : ok === "warn" ? "text-amber-500" : "text-red-500";
+  const color = ok === true ? "text-green-500" : ok === "warn" ? "text-warning-strong" : "text-danger-strong";
   return (
     <div className="flex items-start gap-2 py-1">
       <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", color)} aria-hidden="true" />
       <div className="min-w-0">
-        <p className="text-[11px] text-neutral-300">{label}</p>
-        {detail ? <p className="text-[10px] text-neutral-500">{detail}</p> : null}
+        <p className="text-[11px] text-fg-muted">{label}</p>
+        {detail ? <p className="text-[10px] text-fg-subtle">{detail}</p> : null}
       </div>
     </div>
   );
@@ -55,17 +55,17 @@ export function PublishPanel({ slots, units, draft, managementHref }: { slots: S
   const mappedUnitIds = new Set(unitsModels.flatMap(({ version }) => version.unitBindings.map((link) => link.unitId)));
   const missingUnits = units.filter((unit) => !mappedUnitIds.has(unit.id));
 
-  if (chosen.length === 0) return <p className="p-3 text-xs text-neutral-500">Upload a model on the Scene tab first.</p>;
+  if (chosen.length === 0) return <p className="p-3 text-xs text-fg-subtle">Upload a model on the Scene tab first.</p>;
 
   return (
     <div className="space-y-3">
       <SectionHeading>Preview</SectionHeading>
       <GroupCard>
-        <a href={`${managementHref}/viewer`} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800">
+        <a href={`${managementHref}/viewer`} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted">
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Open Company Viewer
         </a>
-        <p className="mt-1 px-1 text-[10px] text-neutral-600">Shows the currently PUBLISHED release, not this draft. Save publishes your changes as a new release.</p>
-        <a href={`${managementHref}/releases`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800">
+        <p className="mt-1 px-1 text-[10px] text-fg-subtle">Shows the currently PUBLISHED release, not this draft. Save publishes your changes as a new release.</p>
+        <a href={`${managementHref}/releases`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted">
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Open Releases
         </a>
       </GroupCard>

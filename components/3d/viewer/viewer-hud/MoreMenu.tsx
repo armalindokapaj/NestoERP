@@ -129,7 +129,7 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
           type="button"
           onClick={() => setSection("none")}
           className={cn(
-            "mb-1 flex w-full items-center gap-1.5 rounded-control px-2.5 py-2 font-semibold uppercase tracking-[0.12em] text-white/60 hover:bg-white/5 hover:text-white",
+            "mb-1 flex w-full items-center gap-1.5 rounded-control px-2.5 py-2 font-semibold uppercase tracking-[0.12em] text-fg/60 hover:bg-fg/5 hover:text-fg",
             textSecondary
           )}
         >
@@ -148,12 +148,12 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
               role="menuitem"
               onClick={() => setSection(id)}
               className={cn(
-                "flex h-11 w-full items-center gap-2.5 rounded-control px-2 font-medium text-white transition-colors hover:bg-white/10",
+                "flex h-11 w-full items-center gap-2.5 rounded-control px-2 font-medium text-fg transition-colors hover:bg-fg/10",
                 textPrimary
               )}
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-white/5">
-                <Icon className="h-4 w-4 text-white/70" aria-hidden="true" />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-fg/5">
+                <Icon className="h-4 w-4 text-fg/70" aria-hidden="true" />
               </span>
               {label}
             </button>
@@ -164,16 +164,16 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
       {section === "projectInformation" && (
         <div className="space-y-3 px-2.5 py-1.5">
           <div>
-            <p className={cn("font-semibold text-white", textPrimary)}>{project.name}</p>
-            <p className={cn("mt-0.5 flex items-center gap-1 text-white/60", textSecondary)}>
+            <p className={cn("font-semibold text-fg", textPrimary)}>{project.name}</p>
+            <p className={cn("mt-0.5 flex items-center gap-1 text-fg/60", textSecondary)}>
               {project.developerName}
-              {project.developerVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-brand-400" aria-label={t("more.verified")} />}
+              {project.developerVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-strong" aria-label={t("more.verified")} />}
             </p>
           </div>
-          {project.city && <p className={cn("text-white/60", textSecondary)}>{project.city}</p>}
-          <p className={cn("text-white/60", textSecondary)}>{t(`more.propertyType.${project.propertyType}`)}</p>
+          {project.city && <p className={cn("text-fg/60", textSecondary)}>{project.city}</p>}
+          <p className={cn("text-fg/60", textSecondary)}>{t(`more.propertyType.${project.propertyType}`)}</p>
           {project.completionLabel && (
-            <p className={cn("text-white/60", textSecondary)}>
+            <p className={cn("text-fg/60", textSecondary)}>
               {t("more.completion")}: {project.completionLabel}
             </p>
           )}
@@ -183,7 +183,7 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
             rel="noopener noreferrer"
             onClick={closeAll}
             className={cn(
-              "flex h-9 w-full items-center justify-center gap-1.5 rounded-control bg-brand-500 font-semibold text-white hover:bg-brand-400",
+              "flex h-9 w-full items-center justify-center gap-1.5 rounded-control bg-accent font-semibold text-accent-fg hover:bg-accent",
               textSecondary
             )}
           >
@@ -198,9 +198,9 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
           <button
             type="button"
             onClick={handleCopyLink}
-            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-white hover:bg-white/10", textPrimary)}
+            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-fg hover:bg-fg/10", textPrimary)}
           >
-            <Copy className="h-4 w-4 text-white/60" aria-hidden="true" />
+            <Copy className="h-4 w-4 text-fg/60" aria-hidden="true" />
             {linkCopied ? t("more.linkCopied") : t("more.copyLink")}
           </button>
           <a
@@ -208,17 +208,17 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={closeAll}
-            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-white hover:bg-white/10", textPrimary)}
+            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-fg hover:bg-fg/10", textPrimary)}
           >
-            <MessageCircle className="h-4 w-4 text-white/60" aria-hidden="true" />
+            <MessageCircle className="h-4 w-4 text-fg/60" aria-hidden="true" />
             {t("more.shareWhatsApp")}
           </a>
           <a
             href={`mailto:?body=${encodeURIComponent(shareUrl)}`}
             onClick={closeAll}
-            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-white hover:bg-white/10", textPrimary)}
+            className={cn("flex h-10 w-full items-center gap-3 rounded-control px-2.5 font-medium text-fg hover:bg-fg/10", textPrimary)}
           >
-            <Mail className="h-4 w-4 text-white/60" aria-hidden="true" />
+            <Mail className="h-4 w-4 text-fg/60" aria-hidden="true" />
             {t("more.shareEmail")}
           </a>
         </div>
@@ -278,7 +278,7 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
             type="button"
             onClick={reset}
             className={cn(
-              "flex h-9 w-full items-center justify-center gap-1.5 rounded-control border border-white/10 font-medium text-white/70 hover:bg-white/5 hover:text-white",
+              "flex h-9 w-full items-center justify-center gap-1.5 rounded-control border border-fg/10 font-medium text-fg/70 hover:bg-fg/5 hover:text-fg",
               textSecondary
             )}
           >
@@ -316,7 +316,7 @@ export function MoreMenu({ project }: { project: MoreMenuProjectInfo }) {
         title={t("viewer.more")}
         className={cn(
           "flex w-11 items-center justify-center rounded-control transition-colors",
-          open ? "bg-white/10 text-white" : "hover:bg-white/10 hover:text-white/70"
+          open ? "bg-fg/10 text-fg" : "hover:bg-fg/10 hover:text-fg/70"
         )}
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -374,11 +374,11 @@ function QualitySetting({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <span className={cn("text-white/70", textSecondary)}>{t("more.settingsQuality")}</span>
+        <span className={cn("text-fg/70", textSecondary)}>{t("more.settingsQuality")}</span>
         <span
           className={cn(
             "flex h-7 shrink-0 items-center gap-1 rounded-pill px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-            open ? "bg-white/20 text-white" : "bg-white/10 text-white/80"
+            open ? "bg-fg/20 text-fg" : "bg-fg/10 text-fg/80"
           )}
         >
           {t(`more.quality.${value}`)}
@@ -389,7 +389,7 @@ function QualitySetting({
         <div
           role="radiogroup"
           aria-label={t("more.settingsQuality")}
-          className="mt-1.5 space-y-0.5 rounded-control bg-white/10 p-0.5"
+          className="mt-1.5 space-y-0.5 rounded-control bg-fg/10 p-0.5"
         >
           {VIEWER_QUALITY_LEVELS.map((level) => (
             <button
@@ -404,7 +404,7 @@ function QualitySetting({
               }}
               className={cn(
                 "flex h-8 w-full items-center rounded-pill px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-                value === level ? "bg-brand-500 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+                value === level ? "bg-accent text-accent-fg" : "text-fg/60 hover:bg-fg/10 hover:text-fg"
               )}
             >
               <span className="truncate">{t(`more.quality.${level}`)}</span>
@@ -420,7 +420,7 @@ function SettingsRow({ label, children }: { label: string; children: React.React
   const isDesktop = useIsDesktop();
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className={cn("text-white/70", isDesktop ? "text-xs" : "text-[11px]")}>{label}</span>
+      <span className={cn("text-fg/70", isDesktop ? "text-xs" : "text-[11px]")}>{label}</span>
       {children}
     </div>
   );
@@ -445,7 +445,7 @@ function ToggleButton({
       onClick={() => onToggle(!on)}
       className={cn(
         "flex h-7 w-16 items-center rounded-pill px-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-        on ? "justify-end bg-brand-500 text-white" : "justify-start bg-white/10 text-white/60"
+        on ? "justify-end bg-accent text-accent-fg" : "justify-start bg-fg/10 text-fg/60"
       )}
     >
       <span className="rounded-pill bg-black/20 px-1.5 py-0.5">{on ? onLabel : offLabel}</span>
@@ -463,7 +463,7 @@ function SegmentedToggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex h-7 items-center gap-0.5 rounded-pill bg-white/10 p-0.5">
+    <div className="flex h-7 items-center gap-0.5 rounded-pill bg-fg/10 p-0.5">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -472,7 +472,7 @@ function SegmentedToggle<T extends string>({
           aria-pressed={value === opt.value}
           className={cn(
             "rounded-pill px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-            value === opt.value ? "bg-brand-500 text-white" : "text-white/60 hover:text-white"
+            value === opt.value ? "bg-accent text-accent-fg" : "text-fg/60 hover:text-fg"
           )}
         >
           {opt.label}
@@ -485,12 +485,12 @@ function SegmentedToggle<T extends string>({
 function HelpRow({ icon: Icon, gesture, action }: { icon: typeof Hand; gesture: string; action: string }) {
   const isDesktop = useIsDesktop();
   return (
-    <div className={cn("flex items-center justify-between rounded-control bg-white/[0.03] px-3 py-2", isDesktop ? "text-xs" : "text-[11px]")}>
-      <span className="flex items-center gap-2 text-white/70">
-        <Icon className="h-3.5 w-3.5 text-white/40" aria-hidden="true" />
+    <div className={cn("flex items-center justify-between rounded-control bg-fg/[0.03] px-3 py-2", isDesktop ? "text-xs" : "text-[11px]")}>
+      <span className="flex items-center gap-2 text-fg/70">
+        <Icon className="h-3.5 w-3.5 text-fg/40" aria-hidden="true" />
         {gesture}
       </span>
-      <span className="font-medium text-white">{action}</span>
+      <span className="font-medium text-fg">{action}</span>
     </div>
   );
 }

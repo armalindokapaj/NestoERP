@@ -44,10 +44,10 @@ export function EditorTopbar({
   const saving = status === "saving";
   const dirty = status === "unsaved" || status === "failed";
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-3">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-canvas px-3">
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-semibold leading-5 text-neutral-100">{experienceName}</h1>
-        <p className="truncate text-[11px] leading-4 text-neutral-500">{context}</p>
+        <h1 className="truncate text-sm font-semibold leading-5 text-fg">{experienceName}</h1>
+        <p className="truncate text-[11px] leading-4 text-fg-subtle">{context}</p>
       </div>
       <Badge tone={activeRelease ? "neutral" : "default"} className="shrink-0" title="What the published viewer shows. Saving never changes it; publish from Releases.">
         {activeRelease ? `Live: Release ${activeRelease.releaseNumber}` : "Not published"}
@@ -55,7 +55,7 @@ export function EditorTopbar({
       <span role="status" aria-live="polite" className="shrink-0">
         <Badge tone={STATUS_TONE[status]} data-testid="editor-save-status">{SAVE_STATUS_LABEL[status]}</Badge>
       </span>
-      <Button type="button" variant="ghost" size="sm" className="shrink-0 text-neutral-300 hover:text-white" onClick={onReset} disabled={saving || !canEdit}>
+      <Button type="button" variant="ghost" size="sm" className="shrink-0 text-fg-muted hover:text-fg" onClick={onReset} disabled={saving || !canEdit}>
         <RotateCcw aria-hidden="true" /> Reset defaults
       </Button>
       <Button asChild variant="secondary" size="sm" className="shrink-0">
@@ -69,7 +69,7 @@ export function EditorTopbar({
       <SignOutButton className="shrink-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-neutral-400 hover:text-white" aria-label="More editor actions">
+          <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-fg-muted hover:text-fg" aria-label="More editor actions">
             <MoreHorizontal aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>

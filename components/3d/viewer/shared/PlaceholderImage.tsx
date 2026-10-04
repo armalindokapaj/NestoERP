@@ -6,12 +6,12 @@ import { threeDLabel } from "@/lib/i18n/modules/threeD/labels";
 import { cn } from "@/lib/3d/viewer/utils";
 
 const GRADIENTS: Array<[string, string]> = [
-  ["#e9e5ff", "#c9c1ff"],
-  ["#dcebff", "#b7d4ff"],
-  ["#ffe9d6", "#ffd2a8"],
-  ["#e3f3ea", "#bfe4cf"],
-  ["#f3e3f0", "#e3bfe0"],
-  ["#eef1ff", "#d3d9ff"],
+  ["var(--nesto-surface-muted)", "var(--nesto-surface)"],
+  ["var(--nesto-accent-soft)", "var(--nesto-surface)"],
+  ["var(--nesto-info-soft)", "var(--nesto-surface)"],
+  ["var(--nesto-success-soft)", "var(--nesto-surface)"],
+  ["var(--nesto-warning-soft)", "var(--nesto-surface)"],
+  ["var(--nesto-surface)", "var(--nesto-surface-muted)"],
 ];
 
 function hash(seed: string) {
@@ -70,12 +70,12 @@ export function PlaceholderImage({
         className="absolute inset-0 opacity-[0.07]"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(45deg, #17162280 0, #17162280 1px, transparent 1px, transparent 14px)",
+            "repeating-linear-gradient(45deg, var(--nesto-border-strong) 0, var(--nesto-border-strong) 1px, transparent 1px, transparent 14px)",
         }}
       />
       <Icon
         className={cn(
-          "relative text-neutral-0/70",
+          "relative text-fg/70",
           iconClassName ?? "h-8 w-8"
         )}
         strokeWidth={1.5}
@@ -83,7 +83,7 @@ export function PlaceholderImage({
       {watermark && (
         <span
           aria-hidden
-          className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[8px] bg-brand-500 text-xs font-bold text-white opacity-50"
+          className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[8px] bg-accent text-xs font-bold text-accent-fg opacity-50"
         >
           R
         </span>

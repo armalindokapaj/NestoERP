@@ -728,7 +728,7 @@ export function ProjectViewerRuntime({
       id="main-content"
       ref={mainRef}
       data-viewer-channel={channel}
-      className="relative flex h-viewport w-full shrink-0 overflow-hidden bg-neutral-900"
+      className="relative flex h-viewport w-full shrink-0 overflow-hidden bg-surface"
     >
       <UnitsWorkspace
         open={leftPanelOpen}
@@ -800,7 +800,7 @@ export function ProjectViewerRuntime({
             {compareCount > 0 && (
               <button
                 onClick={() => setCompareOverlayOpen(true)}
-                className="glass-panel-dark flex items-center gap-1.5 rounded-pill px-3.5 text-xs font-semibold text-white"
+                className="glass-panel-dark flex items-center gap-1.5 rounded-pill px-3.5 text-xs font-semibold text-fg"
               >
                 <SquareStack className="h-3.5 w-3.5" />
                 {compareCount}
@@ -819,13 +819,13 @@ export function ProjectViewerRuntime({
         )}
 
         {screenshotFlash && (
-          <div className="glass-panel-dark pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-pill px-4 py-2 text-xs font-semibold text-white sm:top-20">
+          <div className="glass-panel-dark pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-pill px-4 py-2 text-xs font-semibold text-fg sm:top-20">
             {t(screenshotFlash === "success" ? "project.screenshotSaved" : "project.screenshotFailed")}
           </div>
         )}
 
         {fullscreenUnsupported && (
-          <div className="glass-panel-dark pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-pill px-4 py-2 text-xs font-semibold text-white sm:top-20">
+          <div className="glass-panel-dark pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 rounded-pill px-4 py-2 text-xs font-semibold text-fg sm:top-20">
             {t("project.fullscreenUnavailable")}
           </div>
         )}

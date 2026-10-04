@@ -68,7 +68,7 @@ export function FirstVisitHint({ ready }: { ready: boolean }) {
       aria-live="polite"
       className="pointer-events-none absolute left-1/2 top-[60%] z-10 -translate-x-1/2 opacity-0"
     >
-      <p className="viewer-glass rounded-pill px-4 py-2 text-xs font-medium text-white/80">
+      <p className="viewer-glass rounded-pill px-4 py-2 text-xs font-medium text-fg/80">
         {isDesktop ? t("viewer.dragToExplore") : t("viewer.swipeToExplore")}
       </p>
     </div>

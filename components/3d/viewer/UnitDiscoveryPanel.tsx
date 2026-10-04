@@ -13,7 +13,7 @@ import { RangeSlider, type SliderScale } from "@/components/3d/viewer/shared/Ran
 const STATUS_STYLE: Record<Unit["status"], string> = {
   available: "border-success text-success bg-success/10",
   reserved: "border-warning text-warning bg-warning/10",
-  sold: "border-sold text-sold bg-neutral-100",
+  sold: "border-sold text-sold bg-surface-muted",
 };
 
 const STATUS_LABEL_KEY: Record<Unit["status"], string> = {
@@ -39,8 +39,8 @@ function Pill({
       className={cn(
         "rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors",
         active
-          ? "border-brand-500 bg-brand-500 text-white"
-          : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
+          ? "border-accent bg-accent text-accent-fg"
+          : "border-line bg-surface text-fg-muted hover:border-line-strong"
       )}
     >
       {children}
@@ -108,27 +108,27 @@ export function UnitDiscoveryPanel({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-panel bg-white shadow-[var(--shadow-2)] lg:inset-y-0 lg:right-0 lg:left-auto lg:top-0 lg:h-full lg:max-h-none lg:w-[560px] lg:rounded-l-panel lg:rounded-tr-none"
+      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-panel bg-surface shadow-[var(--shadow-2)] lg:inset-y-0 lg:right-0 lg:left-auto lg:top-0 lg:h-full lg:max-h-none lg:w-[560px] lg:rounded-l-panel lg:rounded-tr-none"
       role="dialog"
       aria-label={t("unit.availableUnitsTitle")}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-5 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
         <div>
-          <h2 className="text-base font-bold text-neutral-900">{t("unit.availableUnitsTitle")}</h2>
-          <p className="text-xs text-neutral-500">
+          <h2 className="text-base font-bold text-fg">{t("unit.availableUnitsTitle")}</h2>
+          <p className="text-xs text-fg-muted">
             {t("unit.unitsMatch", { matched: units.length, total: project.units.length })}
           </p>
         </div>
         <button
           onClick={onClose}
           aria-label={t("unit.closeUnitDiscovery")}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-fg-muted hover:bg-surface-muted"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="shrink-0 border-b border-neutral-100 p-3">
+      <div className="shrink-0 border-b border-line p-3">
         <div className="flex flex-wrap items-center gap-2">
           {project.buildings.length > 1 && (
             <FilterDropdown
@@ -227,7 +227,7 @@ export function UnitDiscoveryPanel({
           {!isDefault && (
             <button
               onClick={resetFilters}
-              className="shrink-0 rounded-pill px-2 py-1.5 text-xs font-medium text-neutral-500 hover:text-brand-600"
+              className="shrink-0 rounded-pill px-2 py-1.5 text-xs font-medium text-fg-muted hover:text-accent-strong"
             >
               {t("filters.resetAllFilters")}
             </button>
@@ -237,7 +237,7 @@ export function UnitDiscoveryPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto scroll-thin p-4">
         {units.length === 0 ? (
-          <p className="py-10 text-center text-sm text-neutral-500">{t("unit.noUnitsMatch")}</p>
+          <p className="py-10 text-center text-sm text-fg-muted">{t("unit.noUnitsMatch")}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {units.map((unit) => (
@@ -248,8 +248,8 @@ export function UnitDiscoveryPanel({
                 className={cn(
                   "flex flex-col overflow-hidden rounded-card border text-left transition-colors",
                   unit.status === "sold"
-                    ? "cursor-not-allowed border-neutral-100 opacity-60"
-                    : "border-neutral-200 hover:border-brand-300 hover:shadow-[var(--shadow-1)]"
+                    ? "cursor-not-allowed border-line opacity-60"
+                    : "border-line hover:border-accent hover:shadow-[var(--shadow-1)]"
                 )}
               >
                 <div className="relative aspect-[4/3] w-full shrink-0">
@@ -264,13 +264,13 @@ export function UnitDiscoveryPanel({
                   </span>
                 </div>
                 <div className="flex flex-1 flex-col gap-1 p-3">
-                  <p className="text-sm font-bold text-neutral-900">
+                  <p className="text-sm font-bold text-fg">
                     {priceFmt(unit.price, { compact: true, currency: unit.currency })}
                   </p>
-                  <p className="truncate text-xs font-medium text-neutral-700">
+                  <p className="truncate text-xs font-medium text-fg">
                     {unit.code} · {t("unit.floorLabel", { n: unit.floor })}
                   </p>
-                  <div className="mt-auto flex items-center gap-3 pt-1 text-xs text-neutral-500">
+                  <div className="mt-auto flex items-center gap-3 pt-1 text-xs text-fg-muted">
                     <span className="flex items-center gap-1">
                       <BedDouble className="h-3.5 w-3.5" /> {unit.bedrooms}
                     </span>

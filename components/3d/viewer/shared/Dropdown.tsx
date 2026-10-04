@@ -21,7 +21,7 @@ export function DropdownPanel({
     <div
       role={role}
       className={cn(
-        "absolute z-40 max-w-[calc(100vw-2rem)] rounded-card border border-neutral-200 bg-neutral-0 p-2 shadow-[var(--shadow-2)]",
+        "absolute z-40 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-surface p-2 shadow-[var(--shadow-2)]",
         width,
         align === "right" ? "right-0" : "left-0",
         openUpward ? "bottom-full mb-2" : "top-full mt-2",
@@ -35,14 +35,14 @@ export function DropdownPanel({
 
 export function DropdownSectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-2 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+    <p className="px-2 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
       {children}
     </p>
   );
 }
 
 export function DropdownSeparator() {
-  return <div className="my-1.5 h-px bg-neutral-100" aria-hidden="true" />;
+  return <div className="my-1.5 h-px bg-surface-muted" aria-hidden="true" />;
 }
 
 type DropdownMenuItemBaseProps = {
@@ -70,12 +70,12 @@ export function DropdownMenuItem(props: DropdownMenuItemAsButton | DropdownMenuI
     <>
       {icon}
       <span className="flex-1 text-left">{children}</span>
-      {selected && <Check className="h-4 w-4 shrink-0 text-brand-500" />}
+      {selected && <Check className="h-4 w-4 shrink-0 text-accent-strong" />}
     </>
   );
   const sharedClassName = cn(
     "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors",
-    variant === "danger" ? "text-danger hover:bg-danger/10" : "text-neutral-700 hover:bg-neutral-100",
+    variant === "danger" ? "text-danger hover:bg-danger/10" : "text-fg hover:bg-surface-muted",
     className
   );
 

@@ -1,59 +1,24 @@
 /*
- * The Project viewer's look (the Rozaris 3D viewer, ported as-is).
- *
- * The viewer's markup keeps Rozaris' Tailwind classes, so this file supplies
- * what they need and NESTO's theme does not: the brand and radius tokens as
- * new names, and — only inside [data-project-viewer] — Rozaris' neutral scale,
- * status colours, faces and shadows over NESTO's. Nothing here changes a NESTO
- * page: every override is scoped to the viewer's frame.
+ * The Project viewer's frame. It wears NESTO's own tokens, fonts and shadows,
+ * in the dark scheme only (the editor does the same): nothing here defines a
+ * second palette. Only the radius names the viewer's markup uses and its
+ * layout helpers live in this file.
  */
 
 @theme {
-  --color-brand-50: #f0eeff;
-  --color-brand-100: #e4dffe;
-  --color-brand-200: #cbc0fd;
-  --color-brand-300: #a794fa;
-  --color-brand-400: #8973f8;
-  --color-brand-500: #6b55f5;
-  --color-brand-600: #5c46e8;
-  --color-brand-700: #4b39c4;
-  --color-brand-800: #3b2d9c;
-  --color-brand-900: #2e2377;
-  --color-neutral-0: #ffffff;
-  --color-sold: #9a9aa3;
-  --color-listing-new-dev: #8b5cf6;
   --radius-panel: 12px;
   --radius-card: 8px;
   --radius-control: 8px;
   --radius-pill: 999px;
-  --font-numeric: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+  --color-sold: var(--nesto-fg-subtle);
+  --font-numeric: var(--font-sans);
 }
 
 [data-project-viewer] {
-  /* Rozaris' neutral scale (Tailwind's neutral utilities read these). */
-  --color-neutral-50: #f7f7f8;
-  --color-neutral-100: #f2f2f4;
-  --color-neutral-200: #e1e1e6;
-  --color-neutral-300: #c9c9d0;
-  --color-neutral-400: #adadb5;
-  --color-neutral-500: #8b8b95;
-  --color-neutral-600: #666670;
-  --color-neutral-700: #4d4d57;
-  --color-neutral-800: #303038;
-  --color-neutral-900: #17171c;
-  /* NESTO maps these utilities onto its own tokens; the viewer uses Rozaris'. */
-  --nesto-success: #23845e;
-  --nesto-warning: #a66a12;
-  --nesto-danger: #c84545;
-  --font-nesto-sans: var(--font-nunito-sans);
-  --font-nesto-serif: var(--font-nunito-sans);
-  --shadow-1: 0 2px 8px rgba(17, 17, 24, 0.06);
-  --shadow-2: 0 8px 24px rgba(17, 17, 24, 0.1);
-  --shadow-3: 0 18px 48px rgba(17, 17, 24, 0.14);
-  background: var(--color-neutral-900);
-  color: #ffffff;
-  font-family: var(--font-nunito-sans), ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: "tnum" 1, "cv11" 1;
+  color-scheme: dark;
+  background: var(--nesto-canvas);
+  color: var(--nesto-fg);
+  font-feature-settings: "tnum" 1;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -87,19 +52,19 @@ body:has([data-project-viewer]) {
 }
 
 [data-project-viewer] :focus-visible {
-  outline: 2px solid var(--color-brand-500);
+  outline: 2px solid var(--nesto-ring);
   outline-offset: 2px;
   border-radius: 6px;
 }
 
 .glass-panel-dark {
-  background: color-mix(in srgb, var(--color-neutral-900) 96%, transparent);
-  border: 1px solid color-mix(in srgb, white 12%, transparent);
+  background: color-mix(in srgb, var(--nesto-surface) 96%, transparent);
+  border: 1px solid var(--nesto-border-strong);
 }
 
 .viewer-glass {
-  background: #0c0e12;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nesto-surface);
+  border: 1px solid var(--nesto-border);
   box-shadow: var(--shadow-1);
 }
 
@@ -115,7 +80,7 @@ body:has([data-project-viewer]) {
 .viewer-loading-bar {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--nesto-fg) 12%, transparent);
 }
 
 .viewer-loading-bar::after {
@@ -124,7 +89,7 @@ body:has([data-project-viewer]) {
   inset: 0;
   width: 40%;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.55);
+  background: color-mix(in srgb, var(--nesto-fg) 55%, transparent);
   animation: rz-viewer-loading-sweep 1.4s ease-in-out infinite;
 }
 
@@ -166,7 +131,7 @@ body:has([data-project-viewer]) {
   height: 6px;
 }
 [data-project-viewer] .scroll-thin::-webkit-scrollbar-thumb {
-  background: var(--color-neutral-300);
+  background: var(--nesto-border-strong);
   border-radius: 999px;
 }
 [data-project-viewer] .scroll-thin::-webkit-scrollbar-track {
@@ -210,8 +175,8 @@ body:has([data-project-viewer]) {
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: white;
-  border: 2px solid var(--color-brand-500);
+  background: var(--nesto-fg);
+  border: 2px solid var(--nesto-accent);
   box-shadow: var(--shadow-1);
   cursor: grab;
   margin-top: 1px;
@@ -221,8 +186,8 @@ body:has([data-project-viewer]) {
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: white;
-  border: 2px solid var(--color-brand-500);
+  background: var(--nesto-fg);
+  border: 2px solid var(--nesto-accent);
   box-shadow: var(--shadow-1);
   cursor: grab;
 }
@@ -233,11 +198,11 @@ body:has([data-project-viewer]) {
   cursor: grabbing;
 }
 .rz-range-thumb:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--color-brand-500);
+  outline: 2px solid var(--nesto-ring);
   outline-offset: 2px;
 }
 .rz-range-thumb:focus-visible::-moz-range-thumb {
-  outline: 2px solid var(--color-brand-500);
+  outline: 2px solid var(--nesto-ring);
   outline-offset: 2px;
 }
 .rz-range-single {
@@ -268,8 +233,8 @@ body:has([data-project-viewer]) {
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: white;
-  border: 2px solid var(--color-brand-500);
+  background: var(--nesto-fg);
+  border: 2px solid var(--nesto-accent);
   box-shadow: var(--shadow-1);
   cursor: grab;
   margin-top: 6px;
@@ -278,8 +243,8 @@ body:has([data-project-viewer]) {
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: white;
-  border: 2px solid var(--color-brand-500);
+  background: var(--nesto-fg);
+  border: 2px solid var(--nesto-accent);
   box-shadow: var(--shadow-1);
   cursor: grab;
 }
@@ -290,11 +255,11 @@ body:has([data-project-viewer]) {
   cursor: grabbing;
 }
 .rz-range-single:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--color-brand-500);
+  outline: 2px solid var(--nesto-ring);
   outline-offset: 2px;
 }
 .rz-range-single:focus-visible::-moz-range-thumb {
-  outline: 2px solid var(--color-brand-500);
+  outline: 2px solid var(--nesto-ring);
   outline-offset: 2px;
 }
 .rz-range-single:disabled {

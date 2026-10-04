@@ -26,14 +26,14 @@ export function ViewerUtilities({
   const showFullscreen = fullscreenEnabled && isDesktop;
 
   return (
-    <div className="viewer-glass relative flex h-12 shrink-0 items-stretch gap-0.5 rounded-panel p-0.5 text-white">
+    <div className="viewer-glass relative flex h-12 shrink-0 items-stretch gap-0.5 rounded-panel p-0.5 text-fg">
       {showScreenshot && (
         <button
           type="button"
           onClick={onScreenshot}
           aria-label={t("project.screenshot")}
           title={t("project.screenshot")}
-          className="flex w-11 items-center justify-center rounded-control transition-colors hover:bg-white/10 hover:text-white/70"
+          className="flex w-11 items-center justify-center rounded-control transition-colors hover:bg-fg/10 hover:text-fg/70"
         >
           <Camera className="h-4 w-4" />
         </button>
@@ -44,12 +44,12 @@ export function ViewerUtilities({
           onClick={onToggleFullscreen}
           aria-label={t("unit.viewerFullscreen")}
           title={t("unit.viewerFullscreen")}
-          className="flex w-11 items-center justify-center rounded-control transition-colors hover:bg-white/10 hover:text-white/70"
+          className="flex w-11 items-center justify-center rounded-control transition-colors hover:bg-fg/10 hover:text-fg/70"
         >
           {fullscreen ? <Minimize className="h-4 w-4" /> : <Expand className="h-4 w-4" />}
         </button>
       )}
-      {(showScreenshot || showFullscreen) && <span className="my-2 w-px shrink-0 bg-white/10" aria-hidden="true" />}
+      {(showScreenshot || showFullscreen) && <span className="my-2 w-px shrink-0 bg-fg/10" aria-hidden="true" />}
       <MoreMenu project={project} />
     </div>
   );

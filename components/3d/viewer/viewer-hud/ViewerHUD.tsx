@@ -145,11 +145,11 @@ export function ViewerHUD({
       <div
         ref={overlayRef}
         className={
-          "absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-neutral-900 " +
+          "absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-surface " +
           (sceneReady ? "pointer-events-none" : "pointer-events-auto")
         }
       >
-        <span className="font-serif text-lg tracking-[0.3em] text-white">NESTO</span>
+        <span className="font-serif text-lg tracking-[0.3em] text-fg">NESTO</span>
         <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
       </div>
 
