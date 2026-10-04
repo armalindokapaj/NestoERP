@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AddGroupUser, GROUP_API, GroupPersonActions } from "@/components/platform/group-users";
+import { GroupUserDrawer, GroupUserOpener } from "@/components/platform/group-user-drawer";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
@@ -45,7 +46,7 @@ export default async function GroupUsersPage() {
             <TableBody>
               {people.map((person) => (
                 <TableRow key={person.userId} data-testid="group-person">
-                  <TableCell><span className="font-medium text-fg">{person.name}</span><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
+                  <TableCell><GroupUserOpener userId={person.userId} name={person.name} /><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
                   <TableCell>{person.roleKey ? t(`groupUsers.role${person.roleKey}`) : t("groupUsers.seatOnly")}</TableCell>
                   <TableCell className="max-sm:hidden">{person.companyAccessMode === "ALL" ? t("groupUsers.accessSummaryAll") : person.companyAccessMode === "SELECTED" ? (person.selectedCompanies === 1 ? t("groupUsers.accessSummaryOne") : t("groupUsers.accessSummaryCount", { count: person.selectedCompanies })) : t("groupUsers.accessSummaryNone")}{person.roleKey === "OWNER" ? <span className="block text-meta text-fg-subtle">{t("groupUsers.accessGroupWide")}</span> : null}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{person.projects}</TableCell>
@@ -61,6 +62,7 @@ export default async function GroupUsersPage() {
           </Table>
         </div>
       )}
+      <GroupUserDrawer groupId={context.groupId} groupName={context.groupName} api={GROUP_API} platform={false} />
     </section>
   );
 }
