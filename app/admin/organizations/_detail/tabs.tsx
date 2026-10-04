@@ -164,8 +164,8 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       description={people.ceo ? t("groupUsers.currentCeo", { name: people.ceo.name }) : t("groupUsers.description", { name: org.name })}
       action={org.open && canManage ? (
         <div className="flex flex-wrap gap-2">
-          <AddGroupUser groupId={org.id} groupName={org.name} hasCompany={companies.length > 0} ceoName={people.ceo?.name ?? null} ceoOnly label={people.ceo ? t("groupUsers.changeCeo") : t("groupUsers.assignCeo")} />
-          <AddGroupUser groupId={org.id} groupName={org.name} hasCompany={companies.length > 0} ceoName={people.ceo?.name ?? null} label={t("groupUsers.add")} />
+          <AddGroupUser groupId={org.id} groupName={org.name} ceoName={people.ceo?.name ?? null} ceoOnly label={people.ceo ? t("groupUsers.changeCeo") : t("groupUsers.assignCeo")} />
+          <AddGroupUser groupId={org.id} groupName={org.name} ceoName={people.ceo?.name ?? null} label={t("groupUsers.add")} />
         </div>
       ) : null}
     >

@@ -8,6 +8,7 @@ import { createProvisionedUser } from "@/lib/auth/identity";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem } from "@/lib/auth/username";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
+import { assertGroupCan, platformActor, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { type PlatformPermission } from "@/config/platform";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
@@ -261,7 +262,12 @@ export async function activateParentGroup(context: PlatformContext, groupId: str
  * their group — with the role they already hold there.
  */
 export async function createGroupCompany(context: PlatformContext, groupId: string, input: CreateGroupCompanyInput): Promise<{ companyId: string }> {
-  assertPlatform(context, "platform.company.create");
+  return createGroupCompanyAs(platformActor(context), groupId, input);
+}
+
+/** The same company creation for any actor the group trusts with it: the Platform Admin or the group's own CEO (Admin PRD #9 §28). */
+export async function createGroupCompanyAs(context: GroupActor, groupId: string, input: CreateGroupCompanyInput): Promise<{ companyId: string }> {
+  assertGroupCan(context, "companies.create", groupId);
   const group = await groupOrNotFound(groupId);
   if (group.status === "ARCHIVED" || group.status === "SUSPENDED" || group.status === "DELETED") throw new AccessError("CONFLICT", "Companies are not added to a suspended, archived or deleted group.", { code: "GROUP_CLOSED" });
   if (input.slug && (await prisma.company.count({ where: { slug: input.slug } })) > 0) throw new AccessError("CONFLICT", "Another company already uses that slug.", { field: "slug" });
@@ -296,10 +302,12 @@ export async function createGroupCompany(context: PlatformContext, groupId: stri
   });
 
   await prisma.$transaction(async (tx) => {
-    const groupLevel = await tx.parentGroupMember.findMany({ where: { parentGroupId: group.id, status: "ACTIVE", user: { status: "ACTIVE" } }, select: { userId: true } });
+    const groupLevel = await tx.parentGroupMember.findMany({ where: { parentGroupId: group.id, status: "ACTIVE", user: { status: "ACTIVE" } }, select: { userId: true, roleId: true, role: { select: { key: true } } } });
     const branches = new Map((await tx.department.findMany({ where: { companyId: result.companyId, status: "ACTIVE", groupDepartmentId: { not: null } }, select: { id: true, key: true, groupDepartmentId: true } })).map((row) => [row.key, row]));
-    for (const { userId } of groupLevel) {
-      const held = await tx.companyMember.findFirst({ where: { userId, status: "ACTIVE", company: { parentGroupId: group.id }, companyId: { not: result.companyId } }, select: { roleId: true, jobTitle: true, role: { select: { key: true } } }, orderBy: { createdAt: "asc" } });
+    for (const { userId, roleId: seatRoleId, role: seatRole } of groupLevel) {
+      const heldElsewhere = await tx.companyMember.findFirst({ where: { userId, status: "ACTIVE", company: { parentGroupId: group.id }, companyId: { not: result.companyId } }, select: { roleId: true, jobTitle: true, role: { select: { key: true } } }, orderBy: { createdAt: "asc" } });
+      // A seat that has worked through no company until now (Admin PRD #9) brings the group role it holds.
+      const held = heldElsewhere ?? (seatRoleId && seatRole ? { roleId: seatRoleId, jobTitle: null, role: { key: seatRole.key } } : null);
       if (!held) continue;
       // Placed in their function's branch when the company runs it, and on its team (ADR 0003).
       const branch = branches.get(departmentKeyFor(held.role.key)) ?? null;
@@ -347,7 +355,8 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
   if (!groupLevel && (input.companyIds.length === 0 || companies.length !== new Set(input.companyIds).size)) {
     throw new AccessError("VALIDATION_ERROR", "Choose the group's companies this person works in.", { field: "companyIds" });
   }
-  if (companies.length === 0) throw new AccessError("VALIDATION_ERROR", "Add a company to the group first.", { field: "companyIds" });
+  // A group seat needs no company (Admin PRD #9); anybody else works in the companies named.
+  if (companies.length === 0 && !groupLevel) throw new AccessError("VALIDATION_ERROR", "Add a company to the group first.", { field: "companyIds" });
   if (input.position === "GROUP_HEAD" && role === "OWNER") throw new AccessError("VALIDATION_ERROR", "The Owner holds the group, not a department of it.", { field: "position" });
 
   const username = input.username ? normaliseUsername(input.username) : null;
@@ -377,7 +386,7 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
     });
     const account = await createProvisionedUser(tx, { personProfileId: person.id, firstName: input.firstName, lastName: input.lastName, email: input.workEmail ?? null, phone: null, username, temporaryPassword, expiresAt });
 
-    if (groupLevel) await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId: account.id, status: "ACTIVE", joinedAt: new Date() } });
+    if (groupLevel) await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId: account.id, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id } });
 
     for (const company of companies) {
       const branch = await tx.department.findFirst({ where: { companyId: company.id, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true, groupDepartmentId: true } });

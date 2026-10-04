@@ -1,0 +1,67 @@
+import type { groupEn } from "./en";
+
+type En = typeof groupEn;
+
+export const groupSq: En = {
+  shell: {
+    area: "Grupi",
+    navLabel: "Seksionet e grupit",
+    overview: "Përmbledhje",
+    companies: "Kompanitë",
+    users: "Përdoruesit",
+    roles: "Rolet",
+    signOut: "Dil",
+    signingOut: "Po del…",
+    language: "Gjuha",
+    account: "Llogaria",
+    meta: "{name} · Grupi",
+  },
+  overview: {
+    welcome: "Mirë se vini në {name}",
+    setup: "Konfiguroni organizatën tuaj",
+    ceo: "CEO i grupit",
+    notAssigned: "Nuk është caktuar",
+    companies: "Kompanitë",
+    users: "Përdoruesit e grupit",
+    status: "Statusi",
+    checklist: {
+      ceo: "CEO i grupit është caktuar",
+      company: "Krijoni kompaninë e parë",
+      users: "Shtoni përdorues të grupit",
+    },
+    nextCompany: "Kompania është hapi tjetër. Projektet, njerëzit dhe modulet i përkasin një kompanie.",
+    goCompanies: "Shko te Kompanitë",
+  },
+  companies: {
+    title: "Kompanitë",
+    description: "Kompanitë e {name}.",
+    emptyTitle: "Ende pa kompani",
+    emptyBody: "Krijoni kompaninë e parë në {name}.",
+    create: "Krijo kompani",
+    createTitle: "Krijo një kompani në {name}",
+    createDescription: "Mjafton një emër për të nisur. Kompania merr automatikisht departamentet dhe cilësimet.",
+    name: "Emri i kompanisë",
+    industry: "Industria",
+    submit: "Krijo kompani",
+    cancel: "Anulo",
+    created: "Kompania u krijua.",
+    failed: "Kompania nuk u krijua.",
+    company: "Kompania",
+    status: "Statusi",
+    people: "Njerëz",
+    projects: "Projekte",
+    noPermission: "Mund t'i shihni kompanitë e grupit por jo t'i krijoni.",
+  },
+  users: {
+    description: "Personat që i përkasin {name}.",
+  },
+  roles: {
+    title: "Rolet",
+    description: "Rolet e nivelit të grupit në {name} dhe kush i mban.",
+    role: "Roli",
+    people: "Njerëz",
+    ownerHelp: "Drejton grupin: kompanitë e tij, njerëzit e tij dhe IT-në e grupit.",
+    itHelp: "Administron llogaritë dhe aksesin në të gjithë grupin.",
+    nobody: "Askush",
+  },
+};

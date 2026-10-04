@@ -4,6 +4,7 @@ import { AccessError, type ApiErrorCode, errorStatus } from "@/lib/access/guards
 import { recordAuthorizationDenial } from "@/lib/access/security-log";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { resolvePlatformContext, type PlatformContext } from "@/lib/context/platform-context";
+import { resolveGroupContext, type GroupContext } from "@/lib/context/group-context";
 import { runWithRequestScope } from "@/lib/core/observability/request-scope";
 import { resolveUserContext, resolveUserContextIgnoringDevice } from "@/lib/context/resolve-user-context";
 import type { ContextResult, UserContext } from "@/lib/context/types";
@@ -155,7 +156,7 @@ async function handleRequest(
     }
     // A Platform Admin is authenticated but is nobody inside any company: a
     // business endpoint is simply not theirs (E-06 §116).
-    if (result.reason === "PLATFORM_SESSION") {
+    if (result.reason === "PLATFORM_SESSION" || result.reason === "GROUP_SESSION") {
       recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
       return apiError("FORBIDDEN");
     }
@@ -269,6 +270,36 @@ export async function withPlatformContext(
         return apiError("FORBIDDEN");
       }
       const result = await resolvePlatformContext();
+      if (!result.ok) {
+        if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
+          recordAuthorizationDenial({ code: "UNAUTHENTICATED" });
+          return apiError("UNAUTHENTICATED");
+        }
+        recordAuthorizationDenial({ code: "FORBIDDEN", reason: "PERMISSION_DENIED" });
+        return apiError("FORBIDDEN");
+      }
+      try {
+        return await handler(result.context);
+      } catch (error) {
+        return translateError(error);
+      }
+    }),
+  );
+}
+
+/**
+ * Wraps a route that answers a group-only session (Admin PRD #9): a person who
+ * belongs to a parent group and to no company. A company session, a platform
+ * session and an anonymous caller are refused here, exactly as the group
+ * session is refused by `withContext` and `withPlatformContext`.
+ */
+export async function withGroupContext(
+  handler: (context: GroupContext) => Promise<Response>,
+): Promise<Response> {
+  return runWithRequestContext(
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    () => runWithRequestScope(async () => {
+      const result = await resolveGroupContext();
       if (!result.ok) {
         if (result.reason === "UNAUTHENTICATED" || result.reason === "SESSION_EXPIRED") {
           recordAuthorizationDenial({ code: "UNAUTHENTICATED" });

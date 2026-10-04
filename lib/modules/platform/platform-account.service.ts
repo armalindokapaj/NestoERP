@@ -45,7 +45,10 @@ export async function getPlatformAccount(context: PlatformContext): Promise<Plat
   };
 }
 
-async function guardPassword(context: PlatformContext, currentPassword: string): Promise<boolean> {
+/** Who changes their own password: a Platform Admin or a group-only person (Admin PRD #9). */
+export type AccountActor = Pick<PlatformContext, "userId" | "sessionId" | "fullName"> & { roleKey: string };
+
+async function guardPassword(context: Pick<AccountActor, "userId">, currentPassword: string): Promise<boolean> {
   const allowance = await peekThrottle("PASSWORD_CHANGE", { account: context.userId });
   if (!allowance.allowed) throw new AccessError("CONFLICT", "RATE_LIMITED", { retryAfterSeconds: allowance.retryAfterSeconds });
   const user = await prisma.user.findUniqueOrThrow({ where: { id: context.userId }, select: { passwordHash: true } });
@@ -54,7 +57,7 @@ async function guardPassword(context: PlatformContext, currentPassword: string):
   return false;
 }
 
-export async function changePlatformPassword(context: PlatformContext, input: ChangePasswordInput, meta: { ipAddress?: string | null; userAgent?: string | null } = {}): Promise<{ revokedSessions: number }> {
+export async function changePlatformPassword(context: AccountActor, input: ChangePasswordInput, meta: { ipAddress?: string | null; userAgent?: string | null } = {}): Promise<{ revokedSessions: number }> {
   if (!(await guardPassword(context, input.currentPassword))) throw new AccessError("VALIDATION_ERROR", "CURRENT_PASSWORD_INCORRECT");
   const revoked = await prisma.$transaction(async (tx) => {
     await setPassword(tx, context.userId, input.newPassword);

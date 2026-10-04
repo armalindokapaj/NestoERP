@@ -29,6 +29,11 @@ export const SIGN_IN_ACCOUNT = {
     orderBy: { createdAt: "asc" },
   },
   platformAccess: { select: { status: true } },
+  /** A group seat with a group role: a way in with no company at all (Admin PRD #9 §4). */
+  parentGroupMemberships: {
+    where: { status: "ACTIVE", roleId: { not: null } },
+    select: { parentGroup: { select: { kind: true, status: true, isTestFixture: true } } },
+  },
 } satisfies Prisma.UserInclude;
 
 type SignInAccount = Prisma.UserGetPayload<{ include: typeof SIGN_IN_ACCOUNT }>;
@@ -39,21 +44,28 @@ type SignInAccount = Prisma.UserGetPayload<{ include: typeof SIGN_IN_ACCOUNT }>;
  *
  * The Platform Admin signs in to the platform, never into a company: their
  * session names no membership, whatever else the account holds. Anybody else
- * starts in their oldest active membership of a usable company and group.
+ * starts in their oldest active membership of a usable company and group, or,
+ * with none, in the group they hold a seat in.
  *
  * The one rule for it: the credentials check below, and the demo user switch
  * validating its target before it ends the current session (C-01 §11, §25).
  */
 export function signInWorkspace(
   account: SignInAccount,
-): { platform: true; membership: null } | { platform: false; membership: SignInAccount["memberships"][number] } | null {
+): { platform: true; membership: null } | { platform: false; membership: SignInAccount["memberships"][number] } | { platform: false; membership: null; group: true } | null {
   if (account.platformAccess?.status === "ACTIVE") return { platform: true, membership: null };
   const membership = account.memberships.find(
     (candidate) =>
       candidate.company.status === "ACTIVE" &&
       USABLE_GROUP_STATUSES.includes(candidate.company.parentGroup.status),
   );
-  return membership ? { platform: false, membership } : null;
+  if (membership) return { platform: false, membership };
+  // No company to work in, but a seat in a usable group: the session names no
+  // membership and starts in the group's own area (Admin PRD #9 §8, §12).
+  const seated = account.parentGroupMemberships.some(
+    (seat) => seat.parentGroup.kind === "GROUP" && !seat.parentGroup.isTestFixture && USABLE_GROUP_STATUSES.includes(seat.parentGroup.status),
+  );
+  return seated ? { platform: false, membership: null, group: true } : null;
 }
 
 /**

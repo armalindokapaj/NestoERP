@@ -8,6 +8,7 @@ import { ENTITLABLE_MODULES, entitledModulesFor } from "@/lib/core/entitlements/
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
 import { threeDState } from "@/lib/modules/platform/platform-dashboard.query";
+import { assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { GROUP_LEVEL_ROLES } from "@/lib/modules/platform/platform.schema";
 
 /**
@@ -210,13 +211,15 @@ export type GroupPersonRow = {
  * with the group role it carries and how far it reaches. Company staff are
  * the company Users tabs' business, not listed here.
  */
-export async function groupPeople(context: PlatformContext, groupId: string): Promise<{ people: GroupPersonRow[]; ceo: { userId: string; name: string } | null }> {
-  assertView(context);
+export async function groupPeople(context: PlatformContext | GroupActor, groupId: string): Promise<{ people: GroupPersonRow[]; ceo: { userId: string; name: string } | null }> {
+  if ("can" in context) assertGroupCan(context, "users.view", groupId);
+  else assertView(context);
   const seats = await prisma.parentGroupMember.findMany({
     where: { parentGroupId: groupId, parentGroup: { isTestFixture: false } },
     orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }, { id: "asc" }],
     select: {
       status: true,
+      role: { select: { key: true, name: true } },
       user: {
         select: {
           id: true, firstName: true, lastName: true, username: true, email: true, status: true,
@@ -231,10 +234,11 @@ export async function groupPeople(context: PlatformContext, groupId: string): Pr
   });
   const people = seats.map((seat): GroupPersonRow => {
     const held = seat.user.memberships;
-    const groupRole = held.find((member) => member.role.key === "OWNER") ?? held.find((member) => member.role.key === "GROUP_IT") ?? null;
+    // The role the seat itself carries (Admin PRD #9); company memberships are only the reach.
+    const groupRole = seat.role && (seat.role.key === "OWNER" || seat.role.key === "GROUP_IT") ? seat.role : null;
     return {
       userId: seat.user.id, name: `${seat.user.firstName} ${seat.user.lastName}`, username: seat.user.username, email: seat.user.email,
-      roleKey: groupRole ? (groupRole.role.key as "OWNER" | "GROUP_IT") : null, roleName: groupRole?.role.name ?? null,
+      roleKey: groupRole ? (groupRole.key as "OWNER" | "GROUP_IT") : null, roleName: groupRole?.name ?? null,
       companies: new Set(held.map((member) => member.companyId)).size,
       projects: new Set(held.flatMap((member) => member.projectMemberships.map((place) => place.projectId))).size,
       seat: seat.status, account: seat.user.status, person: seat.user.personProfile,

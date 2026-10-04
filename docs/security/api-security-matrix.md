@@ -12,9 +12,9 @@ Every permission-sensitive entry point NESTO exposes — route handlers, server 
 - **Tests**, continued — `via fn: file` names a test that imports and exercises a domain service the entry point calls directly (the permission, scope and record checks live there; the route or action is a door onto it, PRD #48 §108). It proves the service's authorization, not the door's own guard.
 - **Status** — `covered`: at least one specific test exercises it, directly or through the service it calls. `uncovered`: none does (a sweep alone is not counted). `not-applicable`: a public page or provider endpoint with no tenant data.
 
-**943 route handlers, 265 server actions, 541 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 53 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1593 · NOTIFICATION 114 · PLATFORM 139 · PUBLIC 32 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 2.
+**945 route handlers, 266 server actions, 546 pages, 59 inline page actions, 26 background jobs, 114 notification events, 21 search providers.** AUTHENTICATED 53 · AUTH_PROVIDER 2 · COMPANY_SCOPED 1593 · NOTIFICATION 114 · PLATFORM 147 · PUBLIC 32 · SIGNED 3 · SYSTEM 26 · TOKEN 5 · UNCLASSIFIED 2.
 
-Status: covered 1559 · not-applicable 14 · uncovered 396 (667 by a test of the entry point itself, 892 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **2**.
+Status: covered 1564 · not-applicable 14 · uncovered 399 (667 by a test of the entry point itself, 897 only through a service it calls). Company-scoped routes and actions with no check on their path: **0**. Unclassified entry points: **2**.
 
 ## Unclassified entry points
 
@@ -451,6 +451,13 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | GET | `/api/finance/settings` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company | — | — | sweep | uncovered |
 | PATCH | `/api/finance/settings` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | session company | — | — | sweep | uncovered |
 
+## /api/group
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| POST | `/api/group/command` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound` | — | via `addGroupUserAs`: `api/platform/group-workspace.test.ts` | covered |
+| GET | `/api/group/eligible-users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `assertFound` | — | via `groupActor`: `api/platform/group-workspace.test.ts` | covered |
+
 ## /api/health
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
@@ -788,7 +795,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | GET | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | `assertFound` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
 | PATCH | `/api/platform/parent-groups/[groupId]` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | `assertFound` | — | via `getGroupImplementation`: `api/platform/platform-departments.test.ts` +1 | covered |
 | GET | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `listParentGroups`: `api/platform/platform-implementation.test.ts` +1 | covered |
-| POST | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `createParentGroup`: `api/platform/organization-scoped-admin.test.ts` +6 | covered |
+| POST | `/api/platform/parent-groups` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | `e2e/auth/aud06-roles.spec.ts`, `e2e/modules/platform-admin.spec.ts`; via `createParentGroup`: `api/platform/group-workspace.test.ts` +7 | covered |
 | PATCH | `/api/platform/pricing/promotions/[promotionId]` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | — | uncovered |
 | POST | `/api/platform/pricing/versions/[versionId]/publish` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | — | uncovered |
 | PATCH | `/api/platform/pricing/versions/[versionId]` | PLATFORM | — | pricing | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | — | uncovered |
@@ -800,7 +807,7 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/api/platform-admin/audit/export` | PLATFORM | EXPORT | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | via `exportAuditLog`: `api/platform/users-system-audit.test.ts` | covered |
-| POST | `/api/platform-admin/command` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +736 | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` | — | via `addGroupUser`: `api/platform/platform-group-users.test.ts` +16 | covered |
+| POST | `/api/platform-admin/command` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +736 | platform session; tenant refused | `assertFound`, `requireHttpsInProduction` | — | via `addGroupUser`: `api/platform/group-workspace.test.ts` +17 | covered |
 | GET | `/api/platform-admin/groups/[groupId]/eligible-users` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | `assertFound` | — | — | uncovered |
 | GET | `/api/platform-admin/organizations/[companyId]/eligible-users` | PLATFORM | — | platform | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | `assertFound` | — | via `eligibleOrganizationUsers`: `api/platform/organization-scoped-admin.test.ts` | covered |
 | GET | `/api/platform-admin/reauthenticate` | PLATFORM | — | announcements | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +729 | platform session; tenant refused | — | — | — | uncovered |
@@ -1454,6 +1461,12 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | ACTION | `updateInvoiceAction` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +731 | session company; `buildClientScopeWhere`, `buildInvoiceScopeWhere` +2 | `assertFound`, `findInvoiceInScope` +1 | `stateDenied` | via `updateInvoice`: `api/finance/finance-service.test.ts`; sweep | covered |
 | ACTION | `voidPaymentAction` | COMPANY_SCOPED | — | finance | `announcements`, `approvals`, `calendar` +25 | `announcement.acknowledge`, `announcement.archive`, `announcement.create` +736 | session company; `buildPaymentScopeWhere`, `buildProjectLinkedScopeWhere` +3 | `assertFound`, `requireCompanyContext` | `applyTransition` | via `voidPayment`: `api/finance/finance-accuracy.test.ts` +2; sweep | covered |
 
+## Server actions — group-account
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ACTION | `changeGroupPasswordAction` | PLATFORM | — | platform | — | — | platform session; tenant refused | — | — | sweep | uncovered |
+
 ## Server actions — hr
 
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
@@ -2001,6 +2014,16 @@ Nothing on these paths names a module, permission, record guard or a reviewed se
 | Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | PAGE | `/full-view` | PUBLIC | — | — | — | — | none | — | — | `e2e/public/landing.spec.ts` | covered |
+
+## Pages — /group
+
+| Method | Entry point | Class | Surface | Owner | Modules | Expected permission | Scope | Record guard | State guard | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PAGE | `/group` | PLATFORM | — | group | — | — | platform session; tenant refused | `requireGroupContext` | — | via `groupOverview`: `api/platform/group-workspace.test.ts` | covered |
+| PAGE | `/group/account` | PLATFORM | — | — | — | — | platform session; tenant refused | `requireGroupContext` | — | — | uncovered |
+| PAGE | `/group/companies` | PLATFORM | — | group | — | — | platform session; tenant refused | `requireGroupContext` | — | via `groupCompanies`: `api/platform/group-workspace.test.ts` | covered |
+| PAGE | `/group/roles` | PLATFORM | — | group | — | — | platform session; tenant refused | `requireGroupContext` | — | — | uncovered |
+| PAGE | `/group/users` | PLATFORM | — | platform | — | — | platform session; tenant refused | `requireGroupContext` | — | via `groupActor`: `api/platform/group-workspace.test.ts` +1 | covered |
 
 ## Pages — /help
 

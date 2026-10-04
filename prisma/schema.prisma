@@ -1708,6 +1708,7 @@ model Role {
   description String?
 
   members      CompanyMember[]
+  groupSeats   ParentGroupMember[]
   permissions  RolePermission[]
   moduleAccess RoleModuleAccess[]
 
@@ -2008,15 +2009,21 @@ model ParentGroupMember {
   userId        String
   status        MembershipStatus @default(ACTIVE)
   joinedAt      DateTime?
+  /// The group-level role this seat carries (OWNER, the Group CEO; GROUP_IT).
+  /// Held on the seat itself so a person can belong to a group with no company
+  /// membership at all (Admin PRD #9). NULL: a seat with no group role.
+  roleId        String?
 
   parentGroup ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
   user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role        Role?       @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([parentGroupId, userId])
   @@index([userId])
+  @@index([roleId])
   @@map("parent_group_members")
 }
 
