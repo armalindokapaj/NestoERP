@@ -16,6 +16,7 @@ import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactiv
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
 import { platformActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
+import { addCompanyUser, bulkCompanyUsers, companyUserActivity, companyUserOptions, getCompanyUserDetail, listCompanyUsers, previewCompanyUserRemoval, reactivateCompanyUserAccess, removeCompanyUserAccess, searchCompanyUserCandidates, suspendCompanyUserAccess, updateCompanyUserAccess } from "@/lib/modules/platform/company-users.service";
 import { assignCompanyCeo, getCompanyLeadership, previewCeoCandidate, removeCompanyCeo, replaceCompanyCeo, searchCeoCandidates } from "@/lib/modules/platform/company-leadership.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
@@ -250,6 +251,30 @@ export async function POST(request: Request) {
         return apiOk({ data: await groupCompanyChoices(platformActor(context), body) });
       case "group.access.update":
         return apiOk({ data: await updateGroupUserAccess(platformActor(context), body) });
+      case "company.users.list":
+        return apiOk({ data: await listCompanyUsers(platformActor(context), body) });
+      case "company.users.options":
+        return apiOk({ data: await companyUserOptions(platformActor(context), body) });
+      case "company.users.detail":
+        return apiOk({ data: await getCompanyUserDetail(platformActor(context), body) });
+      case "company.users.activity":
+        return apiOk({ data: await companyUserActivity(platformActor(context), body) });
+      case "company.users.candidates":
+        return apiOk({ data: await searchCompanyUserCandidates(platformActor(context), body) });
+      case "company.users.add":
+        return apiOk({ data: await addCompanyUser(platformActor(context), body) }, { status: 201 });
+      case "company.users.update":
+        return apiOk({ data: await updateCompanyUserAccess(platformActor(context), body) });
+      case "company.users.suspend":
+        return apiOk({ data: await suspendCompanyUserAccess(platformActor(context), body) });
+      case "company.users.reactivate":
+        return apiOk({ data: await reactivateCompanyUserAccess(platformActor(context), body) });
+      case "company.users.removePreview":
+        return apiOk({ data: await previewCompanyUserRemoval(platformActor(context), body) });
+      case "company.users.remove":
+        return apiOk({ data: await removeCompanyUserAccess(platformActor(context), body) });
+      case "company.users.bulk":
+        return apiOk({ data: await bulkCompanyUsers(platformActor(context), body) });
       case "company.ceo.get":
         return apiOk({ data: await getCompanyLeadership(platformActor(context), body) });
       case "company.ceo.candidates":

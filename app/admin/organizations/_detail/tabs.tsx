@@ -8,6 +8,9 @@ import { AddCompanyToGroup } from "@/components/platform/organization-create";
 import { GroupUserDrawer, GroupUserOpener } from "@/components/platform/group-user-drawer";
 import { AddGroupUser, GroupPersonActions } from "@/components/platform/group-users";
 import { CompanyLeadershipSection } from "./company-detail";
+import { CompanyUsersPanel } from "@/components/platform/company-users-panel";
+import { PLATFORM_COMPANY_API } from "@/components/platform/company-users";
+import { platformActor } from "@/lib/modules/platform/group-actor";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
 import { LinkRow } from "@/components/platform/link-row";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
@@ -150,6 +153,15 @@ export async function ProjectsTab({ context, scope, org }: { context: PlatformCo
 export async function UsersTab({ context, scope, org, params }: { context: PlatformContext; scope: OrganizationScope; org: Org; params: Params }) {
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminOrgs");
+  // A company's people are managed inside the company: its own table and drawer, never the global Users page (PRD #13 §4, §5).
+  if (scope.kind === "company") {
+    return (
+      <div className="space-y-6">
+        <CompanyLeadershipSection companyId={scope.companyId} />
+        <CompanyUsersPanel actor={platformActor(context)} companyId={scope.companyId} open={org.open} api={PLATFORM_COMPANY_API} platform formAction={`/admin/organizations/${org.id}`} hidden={{ tab: "users" }} params={params} leadershipHref={`/admin/organizations/${org.id}`} />
+      </div>
+    );
+  }
   if (params.member) return <MemberPanel context={context} scope={scope} org={org} membershipId={params.member} />;
   const [{ filter, rows: all }, { roles }, projects, companies, people] = await Promise.all([organizationUsers(context, scope, params), organizationRoles(context, scope), organizationProjectOptions(context, scope), companiesOf(context, scope, org), scope.kind === "group" ? groupPeople(context, scope.groupId) : Promise.resolve(null)]);
   // A group's own people have their own card; this list is company staff.
@@ -240,8 +252,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       )}
     </Card>
   );
-  const leadership = scope.kind === "company" ? <CompanyLeadershipSection companyId={scope.companyId} /> : null;
-  return groupCard || leadership ? <div className="space-y-6">{leadership}{groupCard}{list}</div> : list;
+  return groupCard ? <div className="space-y-6">{groupCard}{list}</div> : list;
 }
 
 /** One user as this organization sees them (§23, §24); the platform account is one explicit link away. */
