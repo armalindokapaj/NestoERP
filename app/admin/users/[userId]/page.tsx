@@ -182,6 +182,7 @@ async function SecurityTab({ context, user }: { context: Context; user: Awaited<
           ) : (
             <PlatformCommandButton label={t("users.detail.security.reactivate")} title={t("users.detail.security.reactivateTitle", { name: user.name })} description={t("users.detail.security.reactivateDesc")} action="user.status" fixed={{ userId: user.id, status: "ACTIVE" }} reasonOnly submitLabel={t("users.detail.security.reactivate")} success={t("users.detail.security.reactivated")} />
           )}
+          {self || user.platformAdmin ? null : <PlatformCommandButton label={t("users.detail.security.deleteAccount")} title={t("users.detail.security.deleteTitle", { name: user.name })} description={t("users.detail.security.deleteDesc")} action="user.delete" fixed={{ userId: user.id }} redirectTo="/admin/users" reasonOnly destructive variant="danger" submitLabel={t("users.detail.security.deleteAccount")} success={t("users.detail.security.deleteSuccess")} />}
         </div>
       ) : null}
     </section>

@@ -146,6 +146,7 @@ export const adminSq: typeof adminEn = {
     ORGANIZATION_USER_ADDED: "Përdoruesi u shtua në organizatë",
     ORGANIZATION_USER_PROJECTS_CHANGED: "Projektet e përdoruesit u ndryshuan",
     ORGANIZATION_USER_REMOVED: "Përdoruesi u hoq nga organizata",
+    USER_DELETED: "Llogaria u fshi",
     GROUP_USER_ADDED: "Përdoruesi u shtua në grup",
     GROUP_USER_REMOVED: "Përdoruesi u hoq nga grupi",
     GROUP_CEO_REPLACED: "CEO i grupit u zëvendësua",

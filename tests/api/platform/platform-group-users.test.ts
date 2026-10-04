@@ -5,6 +5,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { clearOutbox } from "@/lib/mail";
 import { createGroupCompany, createParentGroup } from "@/lib/modules/platform/platform-implementation.service";
 import { groupPeople } from "@/lib/modules/platform/platform-organization-detail.query";
+import { deletePlatformUser } from "@/lib/modules/platform/platform-user-delete.service";
 import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
 import { createGroupCompanySchema, createParentGroupSchema } from "@/lib/modules/platform/platform.schema";
 import { cleanupSessions, loginAsPlatformAdmin, prisma } from "../../helpers";
@@ -173,5 +174,19 @@ describe("group people (PRD #8)", () => {
     await removeGroupUser(admin, { groupId, userId: itId, alsoRemoveCompanyAccess: true });
     expect(await companyRoles(itId, "ACTIVE")).toEqual([]);
     expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, actionKey: "PLATFORM_GROUP_USER_REMOVED" } })).toBe(2);
+  });
+
+  it("deletes an account that was never used, and refuses your own, a platform account and one in use", async () => {
+    const fresh = await addGroupUser(admin, { mode: "new", groupId, roleKey: "GROUP_IT", firstName: "Ida", lastName: "Harbour", email: EMAILS[2] });
+    await deletePlatformUser(admin, { userId: fresh.userId });
+    expect(await prisma.user.count({ where: { id: fresh.userId } })).toBe(0);
+    expect(await prisma.parentGroupMember.count({ where: { userId: fresh.userId } })).toBe(0);
+    expect(await prisma.companyMember.count({ where: { userId: fresh.userId } })).toBe(0);
+    expect(await prisma.auditEvent.count({ where: { parentGroupId: null, actionKey: "PLATFORM_USER_DELETED", entityId: fresh.userId } })).toBe(1);
+
+    await expect(deletePlatformUser(admin, { userId: admin.userId })).rejects.toMatchObject({ details: { code: "SELF_DELETE" } });
+    // The first CEO signed in during this suite: suspend, never delete.
+    await expect(deletePlatformUser(admin, { userId: ceoId })).rejects.toMatchObject({ details: { code: "ACCOUNT_IN_USE" } });
+    expect(await prisma.user.count({ where: { id: ceoId } })).toBe(1);
   });
 });

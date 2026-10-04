@@ -507,6 +507,11 @@ export const adminOrgsSq: typeof adminOrgsEn = {
     removeDescription: "{name} humb aksesin e drejtpërdrejtë në grup. Llogaria e tij NESTO dhe aksesi në kompanitë e grupit mbeten, përveç nëse zgjidhni ndryshe më poshtë.",
     alsoCompanies: "Hiq edhe aksesin e tij në kompanitë e grupit",
     removed: "U hoq nga {group}.",
+    editPerson: "Redakto personin",
+    deleteAccount: "Fshi llogarinë",
+    deleteTitle: "Të fshihet llogaria e {name}?",
+    deleteDescription: "Fshin përgjithmonë një llogari që nuk është përdorur kurrë dhe e heq nga {group}. Nëse {name} ka hyrë ose ka të dhëna në emër të tij, kjo refuzohet: përdorni “Hiq nga grupi”, ose pezulloni llogarinë.",
+    deleted: "Llogaria u fshi.",
   },
 
   users: {

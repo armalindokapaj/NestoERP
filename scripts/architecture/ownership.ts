@@ -342,6 +342,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-user-delete.service.ts",
+    reason:
+      "Deleting an account made by mistake removes the account together with the memberships, project places, department placements and sessions only it has, in one transaction that the database rolls back whole if any record still names the account. A Platform Admin decision, permission-checked and audited, refused for any account that has signed in (Admin PRD #8 §42, §46).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-group-users.service.ts",
     reason:
       "Adding, replacing or removing a Parent Group's own people (Group CEO, Group IT) writes the person, the login, the group seat, the group role in each of the group's companies with its department place, and the ending of project places, in one transaction, so a failure leaves nothing half-made and a CEO replacement never shows two CEOs. Every write names the group and is checked against it; it is a Platform Admin decision, permission-checked and audited, made without a company membership of its own (Admin PRD #8 §15, §63-§66, §72, §73).",
