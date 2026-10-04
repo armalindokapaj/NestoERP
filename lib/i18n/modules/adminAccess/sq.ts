@@ -323,6 +323,7 @@ export const adminAccessSq: typeof adminAccessEn = {
     newCompany: "Kompani e re",
     addToRoster: "Shto në listë",
     rosterNeedsCompany: "Shto fillimisht një kompani. Pastaj shto Pronarin e grupit dhe IT-në e grupit me “Shto në listë”.",
+    assignGroupCeo: "Cakto CEO të grupit",
     assignToProject: "Cakto në projekt",
     editDetails: "Ndrysho detajet",
     groupDetails: "Detajet e grupit",

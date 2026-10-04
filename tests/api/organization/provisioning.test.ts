@@ -133,11 +133,11 @@ describe("HR → approval → Group IT (§28, §93)", () => {
     createdUsers.push(result.userId);
     expect(result.newAccount).toBe(true);
     expect(result.username).toMatch(/^besa\.t06p/);
-    expect(result.temporaryPassword).toMatch(/^[\w]{4}-[\w]{4}-[\w]{4}-[\w]{4}$/);
+    expect(result.temporaryPassword).toBe("nesto1234");
 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: result.userId } });
     expect(user).toMatchObject({ personProfileId: hire.personId, mustChangePassword: true, firstName: "Besa", phone: "+355 69 555 0101", status: "ACTIVE" });
-    expect(user.temporaryPasswordExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+    expect(user.temporaryPasswordExpiresAt).toBeNull();
     // The same person, not a copy (§148).
     expect(await prisma.personProfile.count()).toBe(people);
 

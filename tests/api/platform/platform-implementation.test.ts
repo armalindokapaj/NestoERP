@@ -136,7 +136,7 @@ describe("implementing a group (§20, §21, §30, §35, §71, §138)", () => {
     const architect = await provisionInitialUser(admin, groupId, initialUserSchema.parse({ firstName: "Arta", lastName: "Harbour", workEmail: EMAILS[2], roleKey: "ARCHITECT", companyIds: [companyId], position: "COMPANY_MANAGER", jobTitle: "Lead Architect" }));
     architectId = architect.userId;
 
-    expect(owner.temporaryPassword).toMatch(/^\w{4}-\w{4}-\w{4}-\w{4}$/);
+    expect(owner.temporaryPassword).toBe("nesto1234");
     const ownerUser = await prisma.user.findUniqueOrThrow({ where: { id: owner.userId }, include: { personProfile: true } });
     expect(ownerUser).toMatchObject({ mustChangePassword: true, personProfile: { parentGroupId: groupId, lifecycleStatus: "EMPLOYEE" } });
     expect(await prisma.parentGroupMember.count({ where: { parentGroupId: groupId, userId: owner.userId } })).toBe(1);

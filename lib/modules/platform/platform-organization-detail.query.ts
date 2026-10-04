@@ -196,3 +196,48 @@ export async function organizationActivity(context: PlatformContext, scope: Orga
   });
   return rows.map((row) => ({ id: row.id, actionKey: row.actionKey, actor: row.actorDisplayNameSnapshot, entity: row.entityLabelSnapshot, occurredAt: row.occurredAt.toISOString() }));
 }
+
+export type GroupPersonRow = {
+  userId: string; name: string; username: string; email: string | null;
+  /** The group role this person holds through the group's companies, if any. */
+  roleKey: "OWNER" | "GROUP_IT" | null; roleName: string | null;
+  companies: number; projects: number; seat: string; account: string;
+};
+
+/**
+ * The people who belong to the group itself (Admin PRD #8 §19-§20): each seat
+ * with the group role it carries and how far it reaches. Company staff are
+ * the company Users tabs' business, not listed here.
+ */
+export async function groupPeople(context: PlatformContext, groupId: string): Promise<{ people: GroupPersonRow[]; ceo: { userId: string; name: string } | null }> {
+  assertView(context);
+  const seats = await prisma.parentGroupMember.findMany({
+    where: { parentGroupId: groupId, parentGroup: { isTestFixture: false } },
+    orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }, { id: "asc" }],
+    select: {
+      status: true,
+      user: {
+        select: {
+          id: true, firstName: true, lastName: true, username: true, email: true, status: true,
+          memberships: {
+            where: { status: "ACTIVE", archivedAt: null, company: { parentGroupId: groupId, status: "ACTIVE" } },
+            select: { companyId: true, role: { select: { key: true, name: true } }, projectMemberships: { where: { status: "ACTIVE" }, select: { projectId: true } } },
+          },
+        },
+      },
+    },
+  });
+  const people = seats.map((seat): GroupPersonRow => {
+    const held = seat.user.memberships;
+    const groupRole = held.find((member) => member.role.key === "OWNER") ?? held.find((member) => member.role.key === "GROUP_IT") ?? null;
+    return {
+      userId: seat.user.id, name: `${seat.user.firstName} ${seat.user.lastName}`, username: seat.user.username, email: seat.user.email,
+      roleKey: groupRole ? (groupRole.role.key as "OWNER" | "GROUP_IT") : null, roleName: groupRole?.role.name ?? null,
+      companies: new Set(held.map((member) => member.companyId)).size,
+      projects: new Set(held.flatMap((member) => member.projectMemberships.map((place) => place.projectId))).size,
+      seat: seat.status, account: seat.user.status,
+    };
+  });
+  const ceo = people.find((person) => person.roleKey === "OWNER" && person.seat === "ACTIVE");
+  return { people, ceo: ceo ? { userId: ceo.userId, name: ceo.name } : null };
+}

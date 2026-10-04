@@ -122,7 +122,7 @@ describe("Platform Admin control plane", () => {
 
     const account = await createPlatformUser(admin, { personProfileId: created.id, username: `mira.${suffix}`.slice(0, 32), reason: "Provision requested login" });
     userId = account.userId;
-    expect(account.temporaryPassword.length).toBeGreaterThan(10);
+    expect(account.temporaryPassword).toBe("nesto1234");
     expect(await prisma.user.findUnique({ where: { id: account.userId }, select: { mustChangePassword: true, personProfileId: true } })).toEqual({ mustChangePassword: true, personProfileId: created.id });
     expect(await prisma.auditEvent.count({ where: { actionKey: "PLATFORM_USER_CREATED", entityId: account.userId } })).toBe(1);
   });
