@@ -128,7 +128,7 @@ correction E-05A §12 allows. Every move goes through
 and the reason. The edit form offers the status only to somebody with
 `project.status.manage`, and never the correction (it has no reason field).
 
-New projects start Pending. Creating one in any other status needs
+New projects start Pending, except those a platform admin creates, which start Active. Creating one in any other status needs
 `project.status.manage`. Sales' won-deal conversion creates Pending.
 
 ### Default permissions (E-05A §60)

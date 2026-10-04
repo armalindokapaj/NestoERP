@@ -53,7 +53,7 @@ describe("projects and 3D administration", () => {
   it("creates a project from a name and a managing company; the code is made from the name (§10)", async () => {
     ({ id: projectId } = await createPlatformProject(admin, projectCreateSchema.parse({ companyId, name: "Eyes of Tirana", code: "" })));
     const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
-    expect(project).toMatchObject({ code: "EOT", status: "PENDING" });
+    expect(project).toMatchObject({ code: "EOT", status: "ACTIVE" });
     const second = await createPlatformProject(admin, projectCreateSchema.parse({ companyId, name: "Eyes Over Tirana" }));
     expect((await prisma.project.findUniqueOrThrow({ where: { id: second.id } })).code).toBe("EOT-2");
     await prisma.project.delete({ where: { id: second.id } });
@@ -62,7 +62,7 @@ describe("projects and 3D administration", () => {
   it("finds it by project, company and 3D state, paged on the server (§6-§8)", async () => {
     const byName = await listProjectsDirectory(admin, { q: "Eyes of Tirana" });
     expect(byName.rows.map((row) => row.id)).toContain(projectId);
-    expect((await listProjectsDirectory(admin, { q: NAME })).rows[0]).toMatchObject({ id: projectId, group: null, threeD: "Not configured", status: "PENDING" });
+    expect((await listProjectsDirectory(admin, { q: NAME })).rows[0]).toMatchObject({ id: projectId, group: null, threeD: "Not configured", status: "ACTIVE" });
     expect((await listProjectsDirectory(admin, { q: NAME, three: "configured" })).total).toBe(0);
     expect((await listProjectsDirectory(admin, { q: NAME, status: "ARCHIVED" })).total).toBe(0);
     expect((await unconfiguredProjects(admin, "Eyes of Tirana")).map((row) => row.id)).toContain(projectId);
