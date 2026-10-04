@@ -202,6 +202,7 @@ export type GroupPersonRow = {
   /** The group role this person holds through the group's companies, if any. */
   roleKey: "OWNER" | "GROUP_IT" | null; roleName: string | null;
   companies: number; projects: number; seat: string; account: string;
+  person: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } | null;
 };
 
 /**
@@ -219,6 +220,7 @@ export async function groupPeople(context: PlatformContext, groupId: string): Pr
       user: {
         select: {
           id: true, firstName: true, lastName: true, username: true, email: true, status: true,
+          personProfile: { select: { id: true, firstName: true, lastName: true, preferredName: true, jobTitle: true, workEmail: true, workPhone: true, lifecycleStatus: true } },
           memberships: {
             where: { status: "ACTIVE", archivedAt: null, company: { parentGroupId: groupId, status: "ACTIVE" } },
             select: { companyId: true, role: { select: { key: true, name: true } }, projectMemberships: { where: { status: "ACTIVE" }, select: { projectId: true } } },
@@ -235,7 +237,7 @@ export async function groupPeople(context: PlatformContext, groupId: string): Pr
       roleKey: groupRole ? (groupRole.role.key as "OWNER" | "GROUP_IT") : null, roleName: groupRole?.role.name ?? null,
       companies: new Set(held.map((member) => member.companyId)).size,
       projects: new Set(held.flatMap((member) => member.projectMemberships.map((place) => place.projectId))).size,
-      seat: seat.status, account: seat.user.status,
+      seat: seat.status, account: seat.user.status, person: seat.user.personProfile,
     };
   });
   const ceo = people.find((person) => person.roleKey === "OWNER" && person.seat === "ACTIVE");

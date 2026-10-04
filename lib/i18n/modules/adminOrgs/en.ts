@@ -507,6 +507,11 @@ export const adminOrgsEn = {
     removeDescription: "{name} loses direct group access. Their NESTO account and their access in the group's companies stay unless you choose otherwise below.",
     alsoCompanies: "Also remove their access in the group's companies",
     removed: "Removed from {group}.",
+    editPerson: "Edit person",
+    deleteAccount: "Delete account",
+    deleteTitle: "Delete {name}'s account?",
+    deleteDescription: "Permanently deletes an account that was never used, and removes it from {group}. If {name} has signed in or has records under their name this is refused: use Remove from Group, or suspend the account.",
+    deleted: "Account deleted.",
   },
 
   users: {

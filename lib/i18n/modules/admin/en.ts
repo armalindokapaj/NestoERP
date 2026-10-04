@@ -144,6 +144,7 @@ export const adminEn = {
     ORGANIZATION_USER_ADDED: "Organization user added",
     ORGANIZATION_USER_PROJECTS_CHANGED: "Organization user projects changed",
     ORGANIZATION_USER_REMOVED: "Organization user removed",
+    USER_DELETED: "Account deleted",
     GROUP_USER_ADDED: "Group user added",
     GROUP_USER_REMOVED: "Group user removed",
     GROUP_CEO_REPLACED: "Group CEO replaced",

@@ -56,6 +56,13 @@ export function EditPersonButton({ person }: { person: { id: string; firstName: 
   return <><Button size="sm" variant="ghost" onClick={() => setOpen(true)}>{t("peopleActions.edit")}</Button><FormDialog open={open} onOpenChange={setOpen} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} /></>;
 }
 
+export function EditPersonDialog({ open, onOpenChange, person }: { open: boolean; onOpenChange: (open: boolean) => void; person: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } }) {
+  const t = useTranslations("adminAccess");
+  const personFields = usePersonFields();
+  const command = usePlatformCommand();
+  return <FormDialog open={open} onOpenChange={onOpenChange} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} />;
+}
+
 export function CreateUserButton({ personId, personName }: { personId: string; personName: string }) {
   const [open, setOpen] = React.useState(false);
   const [created, setCreated] = React.useState<Credentials | null>(null);

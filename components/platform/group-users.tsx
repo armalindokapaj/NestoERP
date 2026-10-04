@@ -7,6 +7,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi, failureMessage, isFailure } from "@/components/engineering/engineering-api";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { EditPersonDialog } from "@/components/platform/platform-people-actions";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -169,11 +170,12 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
  * "Remove from Group" never deletes the account, and company access stays
  * unless the box is ticked.
  */
-export function GroupPersonActions({ groupId, groupName, person, ceoName }: { groupId: string; groupName: string; person: { userId: string; name: string; roleKey: GroupRole | null; seatActive: boolean }; ceoName: string | null }) {
+export function GroupPersonActions({ groupId, groupName, person, ceoName }: { groupId: string; groupName: string; person: { userId: string; name: string; roleKey: GroupRole | null; seatActive: boolean; profile: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } | null }; ceoName: string | null }) {
   const t = useTranslations("adminOrgs");
   const router = useRouter();
   const toast = useToast();
-  const [dialog, setDialog] = React.useState<"ceo" | "remove" | null>(null);
+  const [dialog, setDialog] = React.useState<"ceo" | "remove" | "delete" | null>(null);
+  const [editing, setEditing] = React.useState(false);
   const [alsoCompanies, setAlsoCompanies] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -203,15 +205,22 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName }: { gr
           <Button type="button" size="sm" variant="ghost" aria-label={t("users.member.actionsFor", { name: person.name })} data-testid="group-person-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {person.profile ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("groupUsers.editPerson")}</DropdownMenuItem> : null}
           {person.seatActive && person.roleKey && !isCeo ? <DropdownMenuItem onSelect={() => { setError(null); setDialog("ceo"); }}>{t("groupUsers.makeCeo")}</DropdownMenuItem> : null}
           {person.seatActive ? <DropdownMenuItem onSelect={() => { setError(null); setAlsoCompanies(false); setDialog("remove"); }} className="text-danger">{t("groupUsers.removeFromGroup")}</DropdownMenuItem> : null}
+          <DropdownMenuItem onSelect={() => { setError(null); setDialog("delete"); }} className="text-danger">{t("groupUsers.deleteAccount")}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild><Link href={`/admin/users/${person.userId}`}>{t("users.member.viewAccount")}</Link></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={dialog !== null} locked={pending} onOpenChange={(next) => !next && setDialog(null)}>
         <DialogContent className="max-w-md">
-          {dialog === "remove" ? (
+          {dialog === "delete" ? (
+            <>
+              <DialogTitle>{t("groupUsers.deleteTitle", { name: person.name })}</DialogTitle>
+              <DialogDescription>{t("groupUsers.deleteDescription", { name: person.name, group: groupName })}</DialogDescription>
+            </>
+          ) : dialog === "remove" ? (
             <>
               <DialogTitle>{t("groupUsers.removeTitle", { name: person.name, group: groupName })}</DialogTitle>
               <DialogDescription>{t("groupUsers.removeDescription", { name: person.name })}</DialogDescription>
@@ -227,10 +236,12 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName }: { gr
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setDialog(null)} disabled={pending}>{t("users.member.cancel")}</Button>
             {dialog === "remove" ? <Button variant="danger" disabled={pending} onClick={() => run({ action: "group.user.remove", groupId, userId: person.userId, alsoRemoveCompanyAccess: alsoCompanies }, t("groupUsers.removed", { group: groupName }))}>{t("groupUsers.removeFromGroup")}</Button> : null}
+            {dialog === "delete" ? <Button variant="danger" disabled={pending} onClick={() => run({ action: "user.delete", userId: person.userId }, t("groupUsers.deleted"))}>{t("groupUsers.deleteAccount")}</Button> : null}
             {dialog === "ceo" ? <Button disabled={pending} onClick={() => run({ action: "group.user.add", mode: "existing", groupId, userId: person.userId, roleKey: "OWNER", replaceCurrent: replacing }, t("groupUsers.ceoChanged", { name: person.name }))}>{t("groupUsers.assignCeo")}</Button> : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {person.profile ? <EditPersonDialog open={editing} onOpenChange={setEditing} person={person.profile} /> : null}
     </>
   );
 }

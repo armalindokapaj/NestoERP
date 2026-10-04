@@ -183,7 +183,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
                   <TableCell className="tabular-nums max-sm:hidden">{person.companies}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{person.projects}</TableCell>
                   <TableCell><AdminStatusBadge status={person.account !== "ACTIVE" ? person.account : person.seat} /></TableCell>
-                  <TableCell className="text-right">{canManage ? <GroupPersonActions groupId={org.id} groupName={org.name} person={{ userId: person.userId, name: person.name, roleKey: person.roleKey, seatActive: person.seat === "ACTIVE" }} ceoName={people.ceo?.name ?? null} /> : null}</TableCell>
+                  <TableCell className="text-right">{canManage ? <GroupPersonActions groupId={org.id} groupName={org.name} person={{ userId: person.userId, name: person.name, roleKey: person.roleKey, seatActive: person.seat === "ACTIVE", profile: person.person }} ceoName={people.ceo?.name ?? null} /> : null}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
