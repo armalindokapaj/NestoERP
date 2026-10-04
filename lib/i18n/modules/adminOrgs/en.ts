@@ -202,6 +202,28 @@ export const adminOrgsEn = {
     },
   },
 
+  logo: {
+    upload: "Upload logo",
+    replace: "Replace logo",
+    remove: "Remove",
+    choose: "Choose a logo image",
+    save: "Save logo",
+    saving: "Saving…",
+    cancel: "Cancel",
+    saved: "Logo saved.",
+    removed: "Logo removed.",
+    reasonSet: "Logo updated",
+    reasonRemoved: "Logo removed",
+    guidance: "One square mark: PNG, JPG, WebP or SVG up to 5 MB, ideally 512 × 512 px or larger on a transparent background. A wide logo is fitted inside the square, not cropped. It shows in the sidebar, the workspace switcher and the 3D project viewer's loading screen.",
+    small: "This image is small and may look soft on the viewer's loading screen. 512 × 512 px or larger is best.",
+    errors: {
+      type: "Use a PNG, JPG, WebP or SVG image.",
+      size: "That file is over 5 MB. Choose a smaller image.",
+      unreadable: "That image could not be read. Try another file.",
+      tooBig: "That image is too detailed to store as a logo. Use a simpler or smaller one.",
+    },
+  },
+
   group: {
     actionsLabel: "{name} actions",
     branding: {

@@ -3,7 +3,6 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import { ChevronLeft, RefreshCw } from "lucide-react";
 
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
@@ -11,6 +10,7 @@ import Link from "@/components/navigation/nav-link";
 import { project3DBootstrapSchema, type Project3DBootstrap } from "@/lib/3d/company/bootstrap.schema";
 import type { ModelLoadStatus } from "@/lib/3d/runtime/render-engine/RenderEngine";
 import { adaptProjectViewerBootstrap } from "@/lib/3d/viewer/bootstrap-adapter";
+import { ViewerSplash, type ViewerBrand } from "./shared/ViewerSplash";
 import { useViewerAvailability } from "./hooks/use-viewer-availability";
 
 type StatusBody = { available?: unknown; token?: unknown } | undefined;
@@ -21,22 +21,8 @@ const readCompanyStatus = (body: unknown) => {
 
 type ApiEnvelope = { data?: unknown; error?: { message?: string } };
 
-// Three.js and the renderer only ever run in the browser.
-const ProjectViewerRuntime = dynamic(
-  () => import("./ProjectViewerRuntime").then((module) => module.ProjectViewerRuntime),
-  { ssr: false, loading: () => <ViewerSplash /> },
-);
-
-/** The viewer's own loading screen (Rozaris' HUD overlay), shown until the runtime takes over. */
-function ViewerSplash() {
-  const t = useThreeDTranslations();
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-surface" role="status" aria-label={t("page.opening")}>
-      <span className="font-serif text-lg tracking-[0.3em] text-fg">NESTO</span>
-      <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
-    </div>
-  );
-}
+// Three.js and the renderer only ever run in the browser; the page is client-only, so the chunk loads lazily.
+const ProjectViewerRuntime = React.lazy(() => import("./ProjectViewerRuntime").then((module) => ({ default: module.ProjectViewerRuntime })));
 
 /**
  * The Company Project viewer page: reads the published release through the
@@ -47,9 +33,11 @@ function ViewerSplash() {
  * expired signature, a network drop) the reader gets a retry that fetches a
  * fresh bootstrap, rather than a half-loaded scene.
  */
-export function ProjectViewerPage({ projectId, projectName, apiBase = `/api/projects/${encodeURIComponent(projectId)}/3d`, backHref = `/projects/${projectId}` }: {
+export function ProjectViewerPage({ projectId, projectName, brand = { name: "", logoUrl: null }, apiBase = `/api/projects/${encodeURIComponent(projectId)}/3d`, backHref = `/projects/${projectId}` }: {
   projectId: string;
   projectName: string;
+  /** The owner's mark for the loading screen (group logo, else the company's). */
+  brand?: ViewerBrand;
   /** Where bootstrap and status are read; Platform Admin reads its own copy. */
   apiBase?: string;
   backHref?: string;
@@ -111,7 +99,7 @@ export function ProjectViewerPage({ projectId, projectName, apiBase = `/api/proj
   const runtimeBootstrap = React.useMemo(() => (bootstrap ? adaptProjectViewerBootstrap(bootstrap) : null), [bootstrap]);
 
   if (!runtimeBootstrap || !bootstrap) {
-    if (loading) return <ViewerSplash />;
+    if (loading) return <ViewerSplash brand={brand} />;
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-surface p-4">
         <div className="viewer-glass w-full max-w-sm rounded-panel p-5 text-center" role="alert">
@@ -140,13 +128,16 @@ export function ProjectViewerPage({ projectId, projectName, apiBase = `/api/proj
 
   return (
     <div className="relative h-full w-full" data-testid="project-3d-viewer" data-release={bootstrap.release.number}>
-      <ProjectViewerRuntime
-        // A fresh bootstrap (new signed URLs) rebuilds the renderer from scratch.
-        key={`${bootstrap.release.id}:${bootstrap.models.map((model) => model.asset.expiresAt).join(":")}`}
-        bootstrap={runtimeBootstrap}
-        channel="company"
-        onModelLoadStatus={setModelStatus}
-      />
+      <React.Suspense fallback={<ViewerSplash brand={brand} />}>
+        <ProjectViewerRuntime
+          // A fresh bootstrap (new signed URLs) rebuilds the renderer from scratch.
+          key={`${bootstrap.release.id}:${bootstrap.models.map((model) => model.asset.expiresAt).join(":")}`}
+          bootstrap={runtimeBootstrap}
+          channel="company"
+          brand={brand}
+          onModelLoadStatus={setModelStatus}
+        />
+      </React.Suspense>
       {availability === "changed" ? (
         <div className="absolute inset-x-0 top-16 z-[60] flex justify-center px-3 sm:top-20">
           <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-fg" role="status">

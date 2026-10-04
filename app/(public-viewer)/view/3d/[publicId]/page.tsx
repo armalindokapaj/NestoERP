@@ -5,7 +5,7 @@ import { PublicLoginRequired } from "@/components/3d/viewer/PublicLoginRequired"
 import { PublicViewerPage } from "@/components/3d/viewer/PublicViewerPage";
 import { resolveUserContext } from "@/lib/context/resolve-user-context";
 import { getTranslations } from "@/lib/i18n/server";
-import { getPublic3DStatus, resolveCompanyViewerForPublicId } from "@/lib/modules/project-3d/project-3d.public";
+import { getPublic3DStatus, getPublicViewerBrand, resolveCompanyViewerForPublicId } from "@/lib/modules/project-3d/project-3d.public";
 
 type Params = { params: Promise<{ publicId: string }> };
 
@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: "3D viewer", robots: { index: false, 
 export default async function PublicThreeDPage({ params }: Params) {
   const { publicId } = await params;
   const status = await getPublic3DStatus(publicId);
-  if (status.state === "AVAILABLE") return <PublicViewerPage publicId={publicId} />;
+  if (status.state === "AVAILABLE") return <PublicViewerPage publicId={publicId} brand={await getPublicViewerBrand(publicId)} />;
   if (status.state !== "LOGIN_REQUIRED") notFound();
 
   const session = await resolveUserContext();

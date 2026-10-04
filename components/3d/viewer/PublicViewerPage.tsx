@@ -1,28 +1,16 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import { RefreshCw } from "lucide-react";
 
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import { public3DBootstrapSchema, type Public3DBootstrap } from "@/lib/3d/public/public-manifest";
 import type { ModelLoadStatus } from "@/lib/3d/runtime/render-engine/RenderEngine";
 import { adaptPublicViewerBootstrap } from "@/lib/3d/viewer/bootstrap-adapter";
+import { ViewerSplash, type ViewerBrand } from "./shared/ViewerSplash";
 import { useViewerAvailability } from "./hooks/use-viewer-availability";
 
-const ProjectViewerRuntime = dynamic(
-  () => import("./ProjectViewerRuntime").then((module) => module.ProjectViewerRuntime),
-  { ssr: false, loading: () => <Splash /> },
-);
-
-function Splash() {
-  const t = useThreeDTranslations();
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-surface" role="status" aria-label={t("page.opening")}>
-      <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
-    </div>
-  );
-}
+const ProjectViewerRuntime = React.lazy(() => import("./ProjectViewerRuntime").then((module) => ({ default: module.ProjectViewerRuntime })));
 
 const readPublicStatus = (body: unknown) => {
   const status = body as { state?: unknown; token?: unknown } | undefined;
@@ -38,7 +26,7 @@ const readPublicStatus = (body: unknown) => {
  * `previewUrl` turns it into the Platform Admin's public preview: the same
  * content, loaded through a Platform-only endpoint, with no polling.
  */
-export function PublicViewerPage({ publicId, previewUrl }: { publicId: string; previewUrl?: string }) {
+export function PublicViewerPage({ publicId, previewUrl, brand = { name: "", logoUrl: null } }: { publicId: string; previewUrl?: string; brand?: ViewerBrand }) {
   const t = useThreeDTranslations();
   const [bootstrap, setBootstrap] = React.useState<Public3DBootstrap | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -91,7 +79,7 @@ export function PublicViewerPage({ publicId, previewUrl }: { publicId: string; p
   const runtime = React.useMemo(() => (bootstrap ? adaptPublicViewerBootstrap(bootstrap, publicId) : null), [bootstrap, publicId]);
 
   if (!runtime || !bootstrap) {
-    if (loading) return <Splash />;
+    if (loading) return <ViewerSplash brand={brand} />;
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-surface p-4">
         <div className="viewer-glass w-full max-w-sm rounded-panel p-5 text-center" role="alert">
@@ -107,7 +95,9 @@ export function PublicViewerPage({ publicId, previewUrl }: { publicId: string; p
 
   return (
     <div className="relative h-full w-full" data-testid="public-3d-viewer" data-release={bootstrap.releaseNumber}>
-      <ProjectViewerRuntime key={bootstrap.token} bootstrap={runtime} channel="public" onModelLoadStatus={setModelStatus} />
+      <React.Suspense fallback={<ViewerSplash brand={brand} />}>
+        <ProjectViewerRuntime key={bootstrap.token} bootstrap={runtime} channel="public" brand={brand} onModelLoadStatus={setModelStatus} />
+      </React.Suspense>
       {previewUrl ? (
         <div className="pointer-events-none absolute left-3 top-3 z-[60] rounded-full bg-warning px-3 py-1 text-xs font-semibold text-canvas">{t("page.previewBadge")}</div>
       ) : null}

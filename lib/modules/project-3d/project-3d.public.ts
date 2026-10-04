@@ -20,6 +20,7 @@ import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { logger } from "@/lib/core/observability/logger";
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { prisma } from "@/lib/database/prisma";
+import { getViewerBrand } from "@/lib/modules/project-3d/project-3d.viewer-brand";
 import { readAuthorizedDocumentThumbnail } from "@/lib/modules/documents/storage/thumbnail.service";
 import { project3DAuditMetadata } from "./project-3d.audit";
 import { project3DViewerToken, readPublicArtifacts, signProject3DAssetHandle, type Project3DPublicArtifacts } from "./project-3d.delivery";
@@ -352,6 +353,12 @@ export async function getPublic3DStatus(publicId: string): Promise<Public3DStatu
   if (row.visibility === "COMPANY_ONLY" || row.visibility === "PRIVATE") return { state: "LOGIN_REQUIRED", token: null };
   if (row.visibility !== "PUBLIC" || !availabilityOf(row).available || !row.activeRelease?.publicApprovedAt) return { state: "UNAVAILABLE", token: null };
   return { state: "AVAILABLE", token: project3DViewerToken(row.activeReleaseId, row.accessEpoch) };
+}
+
+/** The owner's mark for a public viewer's loading screen (only asked once the address is available). */
+export async function getPublicViewerBrand(publicId: string) {
+  const row = await configByPublicId(publicId);
+  return row ? getViewerBrand(row.projectId) : { name: "", logoUrl: null };
 }
 
 /** The anonymous viewer's bootstrap, or the state that replaces it. */

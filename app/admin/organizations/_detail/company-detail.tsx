@@ -1,4 +1,5 @@
 import Link from "@/components/navigation/nav-link";
+import { LogoUpload } from "@/components/platform/logo-upload";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import { requirePlatformContext } from "@/lib/context/platform-context";
@@ -220,6 +221,7 @@ export async function CompanySettings({ overview }: Props) {
       <section className="nesto-card p-5" aria-labelledby="company-branding">
         <h2 id="company-branding" className="text-card font-semibold text-fg">{t("company.settings.branding")}</h2>
         <p className="mt-2 text-table text-fg-muted">{company.logoUrl ? t("company.settings.logoSet") : t("company.settings.logoNone")}</p>
+        <LogoUpload kind="company" id={company.id} name={company.name} logoUrl={company.logoUrl} />
       </section>
       <DetachBlocked overview={overview} />
     </div>

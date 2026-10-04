@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ModuleMessages } from "@/components/i18n/module-messages";
+import { getViewerBrand } from "@/lib/modules/project-3d/project-3d.viewer-brand";
 import { ProjectViewerPage } from "@/components/3d/viewer/ProjectViewerPage";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
@@ -36,6 +37,7 @@ export default async function PlatformCompanyViewerPage({ params }: Params) {
     <div data-project-viewer className={`h-full w-full overflow-hidden antialiased`}>
       <ModuleMessages namespaces={["threeD"]}>
         <ProjectViewerPage
+          brand={await getViewerBrand(project.id)}
           projectId={project.id}
           projectName={project.name}
           apiBase={`/api/platform/3d/projects/${encodeURIComponent(project.id)}/viewer`}

@@ -202,6 +202,28 @@ export const adminOrgsSq: typeof adminOrgsEn = {
     },
   },
 
+  logo: {
+    upload: "Ngarko logon",
+    replace: "Zëvendëso logon",
+    remove: "Hiq",
+    choose: "Zgjidh një imazh logoje",
+    save: "Ruaj logon",
+    saving: "Po ruhet…",
+    cancel: "Anulo",
+    saved: "Logoja u ruajt.",
+    removed: "Logoja u hoq.",
+    reasonSet: "Logoja u përditësua",
+    reasonRemoved: "Logoja u hoq",
+    guidance: "Një shenjë katrore: PNG, JPG, WebP ose SVG deri në 5 MB, mundësisht 512 × 512 px ose më e madhe me sfond transparent. Një logo e gjerë vendoset brenda katrorit, pa u prerë. Shfaqet në shiritin anësor, në ndërruesin e hapësirës dhe në ekranin e ngarkimit të shikuesit 3D.",
+    small: "Ky imazh është i vogël dhe mund të duket i paqartë në ekranin e ngarkimit. Më e mira është 512 × 512 px ose më e madhe.",
+    errors: {
+      type: "Përdor një imazh PNG, JPG, WebP ose SVG.",
+      size: "Skedari kalon 5 MB. Zgjidh një imazh më të vogël.",
+      unreadable: "Imazhi nuk u lexua. Provo një skedar tjetër.",
+      tooBig: "Imazhi është shumë i detajuar për t'u ruajtur si logo. Përdor një më të thjeshtë ose më të vogël.",
+    },
+  },
+
   group: {
     actionsLabel: "Veprimet për {name}",
     branding: {

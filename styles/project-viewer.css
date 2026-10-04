@@ -22,6 +22,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The tokens settle light or dark at the root, so the viewer sets its scheme there. */
+html:has([data-project-viewer]) {
+  color-scheme: dark;
+}
+
 html:has([data-project-viewer]),
 body:has([data-project-viewer]) {
   height: 100dvh;

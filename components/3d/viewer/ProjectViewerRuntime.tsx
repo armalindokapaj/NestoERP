@@ -46,10 +46,13 @@ const MIN_SUN_TIME_WINDOW_HOURS = 1;
 export function ProjectViewerRuntime({
   bootstrap,
   channel,
+  brand,
   onModelLoadStatus,
 }: {
   bootstrap: ProjectViewerRuntimeBootstrap;
   channel: ViewerChannel;
+  /** The owner's mark, drawn on the loading overlay. */
+  brand?: { name: string; logoUrl: string | null };
   /** NESTO: model files arrive on signed URLs, so the page offers a retry when one fails. */
   onModelLoadStatus?: (status: ModelLoadStatus) => void;
 }) {
@@ -745,6 +748,7 @@ export function ProjectViewerRuntime({
         {(
           <>
             <ViewerHUD
+              brand={brand}
               viewerRef={viewerRef}
               sceneReady={sceneReady}
               activeModule={activeModule}

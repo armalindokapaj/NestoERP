@@ -167,6 +167,18 @@ export async function setGroupBranding(context: PlatformContext, groupId: string
   });
 }
 
+/** A company's own logo, alone: the full company edit would rewrite every other field. */
+export async function setCompanyBranding(context: PlatformContext, companyId: string, input: { logoUrl: string; reason: string }) {
+  assertPlatform(context, "platform.company.configure");
+  const company = assertFound(await prisma.company.findFirst({ where: { id: companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true, logoUrl: true } }));
+  const logoUrl = nullable(input.logoUrl);
+  if (logoUrl === company.logoUrl) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.company.update({ where: { id: company.id }, data: { logoUrl, configVersion: { increment: 1 } } });
+    await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_UPDATED, entity: { type: "Company", id: company.id, label: company.name }, before: { logo: describeLogo(company.logoUrl) }, after: { logo: describeLogo(logoUrl) }, reason: input.reason }, { tx });
+  });
+}
+
 export async function setCompanyStatus(context: PlatformContext, companyId: string, status: "ACTIVE" | "INACTIVE" | "SUSPENDED", reason: string) {
   assertPlatform(context, "platform.company.configure");
   const company = assertFound(await prisma.company.findFirst({ where: { id: companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, status: true, parentGroupId: true } }));

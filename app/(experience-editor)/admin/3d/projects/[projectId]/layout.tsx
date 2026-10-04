@@ -29,7 +29,7 @@ export default async function ExperienceEditorLayout({ children }: { children: R
 
   return (
     <div data-experience-editor className="fixed inset-0 h-dvh w-screen overflow-hidden bg-canvas text-fg [color-scheme:dark]">
-      <style>{":root:root{color-scheme:dark}body{background:var(--nesto-canvas)}"}</style>
+      <style>{":root:root:root{color-scheme:dark}body{background:var(--nesto-canvas)}"}</style>
       {/* A refresh (a model finished preparing) is shown once its data lands (vercel/next.js#86151). */}
       <ResponseBeats />
       <UnsavedHost identity={identityKeys(context)} workspace={null} />
