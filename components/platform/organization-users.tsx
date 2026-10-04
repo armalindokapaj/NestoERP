@@ -187,7 +187,7 @@ export function AddOrganizationUser({ organizationName, companies, roles, projec
   );
 }
 
-type Member = { id: string; name: string; roleKey: string; projectIds: string[]; active: boolean };
+type Member = { id: string; name: string; roleKey: string; projectIds: string[]; active: boolean; /** The company CEO changes only through Change / Remove CEO (Admin PRD #12 §81). */ isCeo?: boolean };
 
 /**
  * One membership's row menu (§19-§24): every action is this company's only.
@@ -232,9 +232,9 @@ export function OrganizationMemberActions({ companyId, companyName, member, role
           <DropdownMenuItem asChild><Link href={detailHref}>{t("users.member.viewUser")}</Link></DropdownMenuItem>
           {member.active ? (
             <>
-              <DropdownMenuItem onSelect={() => openDialog("role")}>{t("users.member.changeRole")}</DropdownMenuItem>
+              {member.isCeo ? null : <DropdownMenuItem onSelect={() => openDialog("role")}>{t("users.member.changeRole")}</DropdownMenuItem>}
               <DropdownMenuItem onSelect={() => openDialog("projects")}>{t("users.member.manageProjects")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => openDialog("remove")} className="text-danger">{t("users.member.removeFromCompany")}</DropdownMenuItem>
+              {member.isCeo ? null : <DropdownMenuItem onSelect={() => openDialog("remove")} className="text-danger">{t("users.member.removeFromCompany")}</DropdownMenuItem>}
             </>
           ) : null}
           <DropdownMenuSeparator />

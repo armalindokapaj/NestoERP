@@ -150,7 +150,7 @@ export async function upsertMembership(
   const roleId = membership.roleId.get(membership.role);
   if (!roleId) throw new Error(`Seed: role ${membership.role} is not configured. Run access sync first.`);
   const data = { roleId, departmentId: membership.departmentId, jobTitle: membership.jobTitle, status: membership.status ?? ("ACTIVE" as const) };
-  return prisma.companyMember.upsert({
+  const row = await prisma.companyMember.upsert({
     where: { companyId_userId: { companyId: membership.companyId, userId: membership.userId } },
     update: data,
     create: {
@@ -162,6 +162,11 @@ export async function upsertMembership(
     },
     select: { id: true },
   });
+  // The company's named CEO is the one the pointer says (Admin PRD #12): a seeded CEO is named, unless the company already has one.
+  if (membership.role === "CEO" && data.status === "ACTIVE") {
+    await prisma.company.updateMany({ where: { id: membership.companyId, ceoMemberId: null }, data: { ceoMemberId: row.id } });
+  }
+  return row;
 }
 
 export async function roleIds(prisma: PrismaClient): Promise<Map<string, string>> {

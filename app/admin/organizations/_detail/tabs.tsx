@@ -7,6 +7,7 @@ import { EntitlementEditor } from "@/components/platform/entitlement-editor";
 import { AddCompanyToGroup } from "@/components/platform/organization-create";
 import { GroupUserDrawer, GroupUserOpener } from "@/components/platform/group-user-drawer";
 import { AddGroupUser, GroupPersonActions } from "@/components/platform/group-users";
+import { CompanyLeadershipSection } from "./company-detail";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
 import { LinkRow } from "@/components/platform/link-row";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
@@ -58,7 +59,7 @@ function Card({ title, description, action, children }: { title: string; descrip
 const companiesOf = async (context: PlatformContext, scope: OrganizationScope, org: Org) =>
   scope.kind === "group" ? (await organizationCompanies(context, scope.groupId)).filter((row) => row.status === "ACTIVE").map((row) => ({ value: row.id, label: row.name })) : [{ value: scope.companyId, label: org.name }];
 
-const roleOptions = (roles: Awaited<ReturnType<typeof organizationRoles>>["roles"], tr: Awaited<ReturnType<typeof getTranslations<"roles">>>) => roles.filter((row) => !row.groupLevel).map((row) => ({ value: row.key, label: adminRoleName(tr, row.name) }));
+const roleOptions = (roles: Awaited<ReturnType<typeof organizationRoles>>["roles"], tr: Awaited<ReturnType<typeof getTranslations<"roles">>>) => roles.filter((row) => !row.groupLevel && row.key !== "CEO").map((row) => ({ value: row.key, label: adminRoleName(tr, row.name) }));
 
 export async function GroupCompaniesTab({ context, group }: { context: PlatformContext; group: Org }) {
   const t = await getTranslations("adminOrgs");
@@ -222,13 +223,13 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
                     {row.membershipId ? <Link href={tabHref(org, "users", { member: row.membershipId })} className="font-medium text-fg hover:underline">{row.name}</Link> : <span className="font-medium text-fg">{row.name}</span>}
                     <p className="font-mono text-micro text-fg-subtle">{row.email ?? row.username}</p>
                   </TableCell>
-                  <TableCell>{row.role}</TableCell>
+                  <TableCell>{row.role}{row.roleKey === "CEO" ? <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-micro font-medium text-fg-muted" data-testid="ceo-badge">{t("leadership.badge")}</span> : null}</TableCell>
                   {scope.kind === "group" ? <TableCell className="max-md:hidden">{row.company ? <Link href={`/admin/organizations/${row.company.id}?tab=users`} className="hover:underline">{row.company.name}</Link> : t("tabs.users.allCompanies")}</TableCell> : null}
                   <TableCell className="tabular-nums max-md:hidden">{row.membershipId ? row.projects.length : "—"}</TableCell>
                   <TableCell><AdminStatusBadge status={row.account !== "ACTIVE" ? row.account : row.membership} /></TableCell>
                   <TableCell className="text-right">
                     {row.membershipId && row.company && row.roleKey && canManage ? (
-                      <OrganizationMemberActions companyId={row.company.id} companyName={row.company.name} member={{ id: row.membershipId, name: row.name, roleKey: row.roleKey, projectIds: row.projects.map((project) => project.id), active: row.membership === "ACTIVE" }} roles={assignable} projects={projects} detailHref={tabHref(org, "users", { member: row.membershipId })} accountHref={`/admin/users/${row.userId}?from=${org.id}`} />
+                      <OrganizationMemberActions companyId={row.company.id} companyName={row.company.name} member={{ id: row.membershipId, name: row.name, roleKey: row.roleKey, projectIds: row.projects.map((project) => project.id), active: row.membership === "ACTIVE", isCeo: row.roleKey === "CEO" }} roles={assignable} projects={projects} detailHref={tabHref(org, "users", { member: row.membershipId })} accountHref={`/admin/users/${row.userId}?from=${org.id}`} />
                     ) : null}
                   </TableCell>
                 </TableRow>
@@ -239,7 +240,8 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       )}
     </Card>
   );
-  return groupCard ? <div className="space-y-6">{groupCard}{list}</div> : list;
+  const leadership = scope.kind === "company" ? <CompanyLeadershipSection companyId={scope.companyId} /> : null;
+  return groupCard || leadership ? <div className="space-y-6">{leadership}{groupCard}{list}</div> : list;
 }
 
 /** One user as this organization sees them (§23, §24); the platform account is one explicit link away. */
@@ -259,7 +261,7 @@ async function MemberPanel({ context, scope, org, membershipId }: { context: Pla
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/admin/users/${member.user.id}?from=${org.id}`} className="text-table font-medium text-accent-strong hover:underline">{t("tabs.member.viewAccount")}</Link>
-          {canManage ? <OrganizationMemberActions companyId={member.company.id} companyName={member.company.name} member={{ id: member.id, name: member.user.name, roleKey: member.roleKey, projectIds: member.projects.map((project) => project.id), active: member.status === "ACTIVE" }} roles={roleOptions(roles, tr)} projects={projects} detailHref={tabHref(org, "users", { member: member.id })} accountHref={`/admin/users/${member.user.id}?from=${org.id}`} /> : null}
+          {canManage ? <OrganizationMemberActions companyId={member.company.id} companyName={member.company.name} member={{ id: member.id, name: member.user.name, roleKey: member.roleKey, projectIds: member.projects.map((project) => project.id), active: member.status === "ACTIVE", isCeo: member.roleKey === "CEO" }} roles={roleOptions(roles, tr)} projects={projects} detailHref={tabHref(org, "users", { member: member.id })} accountHref={`/admin/users/${member.user.id}?from=${org.id}`} /> : null}
         </div>
       </div>
       <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -330,7 +332,7 @@ async function RoleDetail({ context, scope, org, role, roles }: { context: Platf
           {rows.map((row) => (
             <li key={row.id} className="flex items-center justify-between gap-3 px-5 py-2.5" data-testid="org-role-holder">
               <span><Link href={tabHref(org, "users", { member: row.membershipId ?? undefined })} className="text-body text-fg hover:underline">{row.name}</Link>{row.company && scope.kind === "group" ? <span className="block text-meta text-fg-subtle">{row.company.name}</span> : null}</span>
-              {canManage && row.membershipId && row.company && row.roleKey ? <OrganizationMemberActions companyId={row.company.id} companyName={row.company.name} member={{ id: row.membershipId, name: row.name, roleKey: row.roleKey, projectIds: row.projects.map((project) => project.id), active: true }} roles={assignable} projects={projects} detailHref={tabHref(org, "users", { member: row.membershipId })} accountHref={`/admin/users/${row.userId}?from=${org.id}`} /> : null}
+              {canManage && row.membershipId && row.company && row.roleKey ? <OrganizationMemberActions companyId={row.company.id} companyName={row.company.name} member={{ id: row.membershipId, name: row.name, roleKey: row.roleKey, projectIds: row.projects.map((project) => project.id), active: true, isCeo: row.roleKey === "CEO" }} roles={assignable} projects={projects} detailHref={tabHref(org, "users", { member: row.membershipId })} accountHref={`/admin/users/${row.userId}?from=${org.id}`} /> : null}
             </li>
           ))}
         </ul>

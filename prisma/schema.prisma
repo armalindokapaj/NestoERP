@@ -1464,7 +1464,15 @@ model Company {
   /// be invalidated without guessing (PRD #37 §22, PRD #24 §315-§317).
   configVersion Int @default(1)
 
-  memberships CompanyMember[]
+  memberships CompanyMember[] @relation("CompanyMembers")
+
+  /// The company's one CEO (PRD #12 §18-§20): the membership that holds the CEO
+  /// role as a direct, company-scoped assignment. NULL: not assigned. The unique
+  /// pointer is what makes "two CEOs" impossible rather than merely discouraged,
+  /// and it is only ever moved by the leadership service.
+  ceoMemberId String?        @unique
+  ceoMember   CompanyMember? @relation("CompanyCeo", fields: [ceoMemberId], references: [id], onDelete: SetNull)
+
   groupSeatSelections ParentGroupMemberCompany[]
   invites     CompanyInvite[]
   departments Department[]
@@ -1842,10 +1850,13 @@ model CompanyMember {
   /// membership and is never touched by a group policy change.
   groupDerived Boolean @default(false)
 
-  company    Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company    Company     @relation("CompanyMembers", fields: [companyId], references: [id], onDelete: Restrict)
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   role       Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   department Department? @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  /// The company this membership is the named CEO of (PRD #12): at most one.
+  ceoOf Company? @relation("CompanyCeo")
 
   managedDepartments Department[]    @relation("DepartmentManager")
   managedProjects    Project[]       @relation("ProjectManager")
