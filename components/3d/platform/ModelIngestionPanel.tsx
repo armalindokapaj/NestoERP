@@ -210,10 +210,10 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
   const status = pending ? step : queuedLabel || step;
 
   const field = compact
-    ? "mt-1 block h-9 w-full min-w-0 rounded-md border border-neutral-700 bg-neutral-900 px-2.5 text-xs text-neutral-100 placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-50"
+    ? "mt-1 block h-9 w-full min-w-0 rounded-md border border-line-strong bg-surface px-2.5 text-xs text-fg placeholder:text-fg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
     : cn(selectClass, "mt-1.5");
-  const label = compact ? "block text-[11px] font-medium text-neutral-400" : "block text-meta font-medium text-fg-muted";
-  const hint = compact ? "text-[11px] leading-4 text-neutral-500" : "text-table text-fg-muted";
+  const label = compact ? "block text-[11px] font-medium text-fg-muted" : "block text-meta font-medium text-fg-muted";
+  const hint = compact ? "text-[11px] leading-4 text-fg-subtle" : "text-table text-fg-muted";
 
   const form = (
     <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void upload(); }}>
@@ -250,7 +250,7 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
           type="file"
           accept=".glb,model/gltf-binary"
           disabled={pending}
-          className={cn(compact ? "mt-1 block w-full min-w-0 text-[11px] text-neutral-300 file:mr-2 file:rounded file:border-0 file:bg-neutral-800 file:px-2 file:py-1.5 file:text-xs file:text-neutral-100 hover:file:bg-neutral-700" : "mt-1.5 block w-full text-table text-fg file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-table file:text-fg")}
+          className={cn(compact ? "mt-1 block w-full min-w-0 text-[11px] text-fg-muted file:mr-2 file:rounded file:border-0 file:bg-surface-muted file:px-2 file:py-1.5 file:text-xs file:text-fg hover:file:bg-line-strong" : "mt-1.5 block w-full text-table text-fg file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-table file:text-fg")}
           onChange={(event) => void chooseFile(event.target.files?.[0] ?? null)}
         />
       </label>
@@ -259,23 +259,23 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
         <Button type="submit" size="sm" disabled={pending || !file}>
           <Upload aria-hidden="true" />{pending ? t("threeDAdmin.ingestion.working") : retryable ? t("threeDAdmin.ingestion.retryUpload") : t("threeDAdmin.ingestion.uploadGlb")}
         </Button>
-        {retryable && !pending ? <Button type="button" size="sm" variant="ghost" className={compact ? "text-neutral-400 hover:text-white" : undefined} onClick={() => { clearFile(); setError(null); }}>{t("threeDAdmin.ingestion.startOver")}</Button> : null}
+        {retryable && !pending ? <Button type="button" size="sm" variant="ghost" className={compact ? "text-fg-muted hover:text-fg" : undefined} onClick={() => { clearFile(); setError(null); }}>{t("threeDAdmin.ingestion.startOver")}</Button> : null}
       </div>
       {progress !== null ? (
         <div>
-          <progress aria-label={t("threeDAdmin.ingestion.progressLabel")} className="h-1.5 w-full overflow-hidden rounded [&::-webkit-progress-bar]:bg-neutral-700 [&::-webkit-progress-value]:bg-indigo-400" max={100} value={progress} />
+          <progress aria-label={t("threeDAdmin.ingestion.progressLabel")} className="h-1.5 w-full overflow-hidden rounded [&::-webkit-progress-bar]:bg-line-strong [&::-webkit-progress-value]:bg-accent" max={100} value={progress} />
           <p className={hint}>{t("threeDAdmin.ingestion.percentSent", { percent: progress })}</p>
         </div>
       ) : null}
       <p role="status" className={cn(hint, !status && "sr-only")}>{status}</p>
-      {error ? <p role="alert" className={compact ? "break-words text-xs text-red-300" : "break-words text-table text-danger-strong"}>{error}</p> : null}
+      {error ? <p role="alert" className={compact ? "break-words text-xs text-danger-strong" : "break-words text-table text-danger-strong"}>{error}</p> : null}
     </form>
   );
 
   if (compact) {
     return (
-      <section aria-label={t("threeDAdmin.ingestion.sectionLabel")} className="border-b border-neutral-800 p-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">{t("threeDAdmin.ingestion.sectionTitle")}</p>
+      <section aria-label={t("threeDAdmin.ingestion.sectionLabel")} className="border-b border-line p-3">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-fg-subtle">{t("threeDAdmin.ingestion.sectionTitle")}</p>
         {form}
       </section>
     );

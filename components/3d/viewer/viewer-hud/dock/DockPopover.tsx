@@ -26,7 +26,7 @@ export function DockPopover({
     <div
       ref={ref}
       className={cn(
-        "viewer-dropdown-in absolute bottom-full z-10 mb-2 rounded-control border border-white/10 bg-[#101216] p-1.5 shadow-[var(--shadow-2)]",
+        "viewer-dropdown-in absolute bottom-full z-10 mb-2 rounded-control border border-fg/10 bg-surface p-1.5 shadow-[var(--shadow-2)]",
         anchorClassName
       )}
     >

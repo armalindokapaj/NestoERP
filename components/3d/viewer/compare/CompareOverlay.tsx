@@ -35,16 +35,16 @@ export function CompareOverlay() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 bg-[rgba(15,15,20,0.28)]"
       />
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-panel bg-white shadow-[var(--shadow-3)] lg:max-h-[85vh] lg:rounded-panel">
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-5 py-4">
-          <h2 className="flex items-center gap-2 text-base font-bold text-neutral-900">
-            <SquareStack className="h-4.5 w-4.5 text-brand-500" />
+      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-panel bg-surface shadow-[var(--shadow-3)] lg:max-h-[85vh] lg:rounded-panel">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="flex items-center gap-2 text-base font-bold text-fg">
+            <SquareStack className="h-4.5 w-4.5 text-accent-strong" />
             {t("compare.title")}
           </h2>
           <button
             onClick={() => setOpen(false)}
             aria-label={t("common.close")}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-fg-muted hover:bg-surface-muted"
           >
             <X className="h-4 w-4" />
           </button>
@@ -52,19 +52,19 @@ export function CompareOverlay() {
 
         {!hasTwo ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-            <SquareStack className="h-8 w-8 text-neutral-300" />
-            <p className="text-sm font-medium text-neutral-700">
+            <SquareStack className="h-8 w-8 text-fg-subtle" />
+            <p className="text-sm font-medium text-fg">
               {compare.length === 0 ? t("compare.hintNone") : t("compare.hintOne")}
             </p>
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-auto scroll-thin">
             <div className="grid grid-cols-[140px_1fr_1fr] lg:grid-cols-[180px_1fr_1fr]">
-              <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white p-3" />
+              <div className="sticky top-0 z-10 border-b border-line bg-surface p-3" />
               {compare.map((item, i) => (
                 <div
                   key={i}
-                  className="sticky top-0 z-10 border-b border-l border-neutral-100 bg-white p-3"
+                  className="sticky top-0 z-10 border-b border-l border-line bg-surface p-3"
                 >
                   <div className="relative">
                     <PlaceholderImage
@@ -76,7 +76,7 @@ export function CompareOverlay() {
                     <button
                       onClick={() => removeCompareAt(i)}
                       aria-label={t("compare.removeFromCompareShort")}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow"
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-fg/90 text-fg-muted shadow"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -84,14 +84,14 @@ export function CompareOverlay() {
                   {compareHref(item) ? (
                     <Link
                       href={compareHref(item)!}
-                      className="mt-2 block truncate text-sm font-semibold text-neutral-900 hover:text-brand-600"
+                      className="mt-2 block truncate text-sm font-semibold text-fg hover:text-accent-strong"
                     >
                       {compareTitle(item)}
                     </Link>
                   ) : (
-                    <p className="mt-2 block truncate text-sm font-semibold text-neutral-900">{compareTitle(item)}</p>
+                    <p className="mt-2 block truncate text-sm font-semibold text-fg">{compareTitle(item)}</p>
                   )}
-                  <p className="text-sm font-bold text-brand-600">
+                  <p className="text-sm font-bold text-accent-strong">
                     {priceFmt(comparePrice(item).price, { currency: comparePrice(item).currency })}
                   </p>
                 </div>
@@ -99,13 +99,13 @@ export function CompareOverlay() {
 
               {rows.map((row) => (
                 <Fragment key={row.label}>
-                  <div className="border-b border-neutral-100 p-3 text-xs font-medium text-neutral-500">
+                  <div className="border-b border-line p-3 text-xs font-medium text-fg-muted">
                     {row.label}
                   </div>
-                  <div className="border-b border-l border-neutral-100 p-3 text-sm text-neutral-800">
+                  <div className="border-b border-l border-line p-3 text-sm text-fg">
                     {row.values[0]}
                   </div>
-                  <div className="border-b border-l border-neutral-100 p-3 text-sm text-neutral-800">
+                  <div className="border-b border-l border-line p-3 text-sm text-fg">
                     {row.values[1]}
                   </div>
                 </Fragment>

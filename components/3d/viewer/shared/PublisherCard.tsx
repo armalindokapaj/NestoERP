@@ -38,7 +38,7 @@ export function PublisherCard({
   const [phoneClicked, setPhoneClicked] = useState(false);
   const dark = tone === "dark";
   return (
-    <div className={cn(!bare && "rounded-panel border border-neutral-200 bg-white p-5")}>
+    <div className={cn(!bare && "rounded-panel border border-line bg-surface p-5")}>
       {/* Rozaris links to the publisher's marketplace profile; a NESTO company has none. */}
       <div className="flex items-center gap-3">
         <PlaceholderImage
@@ -52,15 +52,15 @@ export function PublisherCard({
             className={cn(
               "flex items-center gap-1.5 truncate font-serif",
               compact ? "text-sm" : "text-base",
-              dark ? "text-white" : "text-neutral-900"
+              dark ? "text-fg" : "text-fg"
             )}
           >
             {publisher.name}
             {publisher.verified && (
-              <BadgeCheck className={cn("h-4 w-4 shrink-0", dark ? "text-brand-300" : "text-brand-500")} />
+              <BadgeCheck className={cn("h-4 w-4 shrink-0", dark ? "text-accent-strong" : "text-accent-strong")} />
             )}
           </p>
-          <p className={cn(compact ? "text-[11px]" : "text-xs", dark ? "text-white/45" : "text-neutral-500")}>
+          <p className={cn(compact ? "text-[11px]" : "text-xs", dark ? "text-fg/45" : "text-fg-muted")}>
             {t(TYPE_LABEL_KEY[publisher.type])}
           </p>
         </div>
@@ -94,8 +94,8 @@ export function PublisherCard({
             "flex items-center justify-center gap-1.5 rounded-control border font-semibold",
             compact ? "py-1.5 text-xs" : "py-2.5 text-sm",
             dark
-              ? "border-white/15 text-white/85 hover:bg-white/10 hover:text-white"
-              : "border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+              ? "border-fg/15 text-fg/85 hover:bg-fg/10 hover:text-fg"
+              : "border-line text-fg hover:bg-surface-muted"
           )}
         >
           <Phone className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />

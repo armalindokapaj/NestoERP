@@ -68,9 +68,9 @@ export function ResizeHandle({
         event.preventDefault();
       }}
       className={cn(
-        "relative z-10 w-1 shrink-0 cursor-col-resize touch-none bg-neutral-800 outline-none transition-colors",
-        "hover:bg-indigo-500/60 focus-visible:bg-indigo-400",
-        active && "bg-indigo-400",
+        "relative z-10 w-1 shrink-0 cursor-col-resize touch-none bg-surface-muted outline-none transition-colors",
+        "hover:bg-accent/60 focus-visible:bg-accent",
+        active && "bg-accent",
       )}
     />
   );

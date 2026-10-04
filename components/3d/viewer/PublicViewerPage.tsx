@@ -18,7 +18,7 @@ const ProjectViewerRuntime = dynamic(
 function Splash() {
   const t = useThreeDTranslations();
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-900" role="status" aria-label={t("page.opening")}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-surface" role="status" aria-label={t("page.opening")}>
       <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
     </div>
   );
@@ -93,11 +93,11 @@ export function PublicViewerPage({ publicId, previewUrl }: { publicId: string; p
   if (!runtime || !bootstrap) {
     if (loading) return <Splash />;
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 p-4">
+      <div className="absolute inset-0 flex items-center justify-center bg-surface p-4">
         <div className="viewer-glass w-full max-w-sm rounded-panel p-5 text-center" role="alert">
-          <p className="text-sm font-semibold text-white">{message ?? t("page.unavailableTitle")}</p>
-          <p className="mt-1 text-xs text-white/55">{t("page.unavailableBody")}</p>
-          <button type="button" onClick={() => void load()} className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-brand-500 px-4 text-[13px] font-semibold text-white hover:bg-brand-600">
+          <p className="text-sm font-semibold text-fg">{message ?? t("page.unavailableTitle")}</p>
+          <p className="mt-1 text-xs text-fg/55">{t("page.unavailableBody")}</p>
+          <button type="button" onClick={() => void load()} className="mt-4 inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-accent px-4 text-[13px] font-semibold text-accent-fg hover:bg-accent">
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("page.tryAgain")}
           </button>
         </div>
@@ -109,13 +109,13 @@ export function PublicViewerPage({ publicId, previewUrl }: { publicId: string; p
     <div className="relative h-full w-full" data-testid="public-3d-viewer" data-release={bootstrap.releaseNumber}>
       <ProjectViewerRuntime key={bootstrap.token} bootstrap={runtime} channel="public" onModelLoadStatus={setModelStatus} />
       {previewUrl ? (
-        <div className="pointer-events-none absolute left-3 top-3 z-[60] rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-neutral-900">{t("page.previewBadge")}</div>
+        <div className="pointer-events-none absolute left-3 top-3 z-[60] rounded-full bg-warning px-3 py-1 text-xs font-semibold text-canvas">{t("page.previewBadge")}</div>
       ) : null}
       {availability === "changed" ? (
         <div className="absolute inset-x-0 top-16 z-[60] flex justify-center px-3 sm:top-20">
-          <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-white" role="status">
+          <div className="glass-panel-dark flex max-w-md items-center gap-3 rounded-panel px-4 py-3 text-fg" role="status">
             <p className="min-w-0 text-xs font-semibold">{t("page.updatedTitle")}</p>
-            <button type="button" onClick={() => void load()} disabled={loading} className="flex h-11 shrink-0 items-center gap-1.5 rounded-control bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
+            <button type="button" onClick={() => void load()} disabled={loading} className="flex h-11 shrink-0 items-center gap-1.5 rounded-control bg-accent px-3 text-xs font-semibold text-accent-fg hover:bg-accent disabled:opacity-60">
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("page.reload")}
             </button>
           </div>

@@ -21,9 +21,9 @@ export function CompareReplaceModal() {
         onClick={cancelReplace}
         className="absolute inset-0 bg-[rgba(15,15,20,0.28)]"
       />
-      <div className="relative w-full max-w-sm rounded-panel bg-white p-5 shadow-[var(--shadow-3)]">
-        <h2 className="text-base font-bold text-neutral-900">{t("compare.replaceTitle")}</h2>
-        <p className="mt-1.5 text-sm text-neutral-500">
+      <div className="relative w-full max-w-sm rounded-panel bg-surface p-5 shadow-[var(--shadow-3)]">
+        <h2 className="text-base font-bold text-fg">{t("compare.replaceTitle")}</h2>
+        <p className="mt-1.5 text-sm text-fg-muted">
           {t("compare.replaceBody", { title: compareTitle(candidate) })}
         </p>
         <div className="mt-4 space-y-2">
@@ -31,7 +31,7 @@ export function CompareReplaceModal() {
             <button
               key={i}
               onClick={() => confirmReplace(i)}
-              className="flex w-full items-center gap-3 rounded-card border border-neutral-200 p-2.5 text-left hover:border-brand-400 hover:bg-brand-50"
+              className="flex w-full items-center gap-3 rounded-card border border-line p-2.5 text-left hover:border-accent hover:bg-accent"
             >
               <PlaceholderImage
                 seed={compareImage(item)}
@@ -40,17 +40,17 @@ export function CompareReplaceModal() {
                 iconClassName="h-4 w-4"
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-neutral-800">
+                <span className="block truncate text-sm font-medium text-fg">
                   {compareTitle(item)}
                 </span>
-                <span className="text-xs text-brand-600">{t("compare.replaceThis")}</span>
+                <span className="text-xs text-accent-strong">{t("compare.replaceThis")}</span>
               </span>
             </button>
           ))}
         </div>
         <button
           onClick={cancelReplace}
-          className="mt-4 w-full rounded-control border border-neutral-200 py-2.5 text-sm font-semibold text-neutral-600 hover:bg-neutral-50"
+          className="mt-4 w-full rounded-control border border-line py-2.5 text-sm font-semibold text-fg-muted hover:bg-surface-muted"
         >
           {t("common.cancel")}
         </button>

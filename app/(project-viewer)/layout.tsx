@@ -7,7 +7,6 @@ import { ModuleMessages } from "@/components/i18n/module-messages";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { requireUserContext } from "@/lib/context/current-user";
 import { admitPage, getPageMaintenanceState } from "@/lib/core/maintenance/platform-maintenance";
-import { nunitoSans, roboto } from "@/lib/fonts";
 
 /**
  * The Company Project viewer's own layout: an immersive, full-window 3D
@@ -21,8 +20,7 @@ import { nunitoSans, roboto } from "@/lib/fonts";
  * sends everyone where it sends every other signed-in page. Project access is
  * the page's own check.
  *
- * The viewer's typefaces load only here; [data-project-viewer] scopes its
- * look (styles/project-viewer.css).
+ * [data-project-viewer] scopes its dark NESTO look (styles/project-viewer.css).
  */
 export default async function ProjectViewerLayout({ children }: { children: ReactNode }) {
   const maintenanceCandidate = getPageMaintenanceState();
@@ -34,7 +32,7 @@ export default async function ProjectViewerLayout({ children }: { children: Reac
   return (
     <div
       data-project-viewer
-      className={`${nunitoSans.variable} ${roboto.variable} fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}
+      className={`fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}
     >
       <ResponseBeats />
       <UnsavedHost identity={identityKeys(context)} workspace={null} />

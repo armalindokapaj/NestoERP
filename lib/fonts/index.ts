@@ -37,22 +37,3 @@ export const instrumentSerif = localFont({
   display: "swap",
 });
 
-/**
- * The Project viewer's faces (the Rozaris 3D viewer, ported as-is): Nunito
- * Sans for its interface and Roboto for figures. Latin subset, variable
- * weight, served from this repository like the others. Both SIL OFL 1.1.
- * Loaded only by the viewer's own layout.
- */
-export const nunitoSans = localFont({
-  src: "./files/NunitoSans-Variable-latin.woff2",
-  variable: "--font-nunito-sans",
-  weight: "200 1000",
-  display: "swap",
-});
-
-export const roboto = localFont({
-  src: "./files/Roboto-latin.woff2",
-  variable: "--font-roboto",
-  weight: "100 900",
-  display: "swap",
-});

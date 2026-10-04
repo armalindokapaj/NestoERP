@@ -16,7 +16,7 @@ export default function ExperienceEditorError({ error }: { error: Error & { dige
       actions={<Button onClick={() => window.location.reload()}>Reload editor</Button>}
     >
       Changes saved before the error are kept. Reload to continue from the last saved draft.
-      {error.digest ? <span className="mt-3 block font-mono text-[11px] text-neutral-600">Reference {error.digest}</span> : null}
+      {error.digest ? <span className="mt-3 block font-mono text-[11px] text-fg-subtle">Reference {error.digest}</span> : null}
     </EditorStateScreen>
   );
 }

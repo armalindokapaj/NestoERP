@@ -51,7 +51,7 @@ export function SlotName({ projectId, slot, canEdit }: { projectId: string; slot
 
   if (!editing) {
     return (
-      <button type="button" disabled={!canEdit} title={canEdit ? "Rename model" : undefined} onClick={() => { setValue(slot.displayName); setEditing(true); }} className="min-w-0 truncate text-left text-xs font-semibold text-neutral-300 enabled:hover:text-white">
+      <button type="button" disabled={!canEdit} title={canEdit ? "Rename model" : undefined} onClick={() => { setValue(slot.displayName); setEditing(true); }} className="min-w-0 truncate text-left text-xs font-semibold text-fg-muted enabled:hover:text-fg">
         {slot.displayName}
       </button>
     );
@@ -70,9 +70,9 @@ export function SlotName({ projectId, slot, canEdit }: { projectId: string; slot
           if (event.key === "Enter") event.currentTarget.blur();
           if (event.key === "Escape") { setValue(slot.displayName); setEditing(false); }
         }}
-        className="w-full rounded border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 text-xs text-neutral-100"
+        className="w-full rounded border border-line-strong bg-surface px-1.5 py-0.5 text-xs text-fg"
       />
-      {error ? <span role="alert" className="block text-[10px] text-red-400">{error}</span> : null}
+      {error ? <span role="alert" className="block text-[10px] text-danger-strong">{error}</span> : null}
     </span>
   );
 }
@@ -85,24 +85,24 @@ export function SlotAnchorPanel({ projectId, slots, canEdit }: { projectId: stri
     <div className="space-y-2">
       <SectionHeading>Asset</SectionHeading>
       <GroupCard>
-        {unitsSlots.length === 0 ? <p className="text-[11px] text-neutral-500">No units model yet — upload one on the Scene tab with the purpose &ldquo;Units (Unit_&lt;code&gt; blocks)&rdquo;.</p> : null}
+        {unitsSlots.length === 0 ? <p className="text-[11px] text-fg-subtle">No units model yet — upload one on the Scene tab with the purpose &ldquo;Units (Unit_&lt;code&gt; blocks)&rdquo;.</p> : null}
         {unitsSlots.map((slot) => (
-          <label key={slot.id} className="flex items-center justify-between gap-2 px-0.5 py-1 text-[11px] text-neutral-400">
+          <label key={slot.id} className="flex items-center justify-between gap-2 px-0.5 py-1 text-[11px] text-fg-muted">
             <span className="min-w-0 truncate">{unitsSlots.length > 1 ? `${slot.displayName} · ` : ""}Building Anchor</span>
             <select
               value={slot.transformParentSlotId ?? ""}
               disabled={!canEdit || busy}
               onChange={(event) => void update(slot.id, { transformParentSlotId: event.target.value || null })}
-              className={cn("max-w-[160px] rounded border bg-neutral-900 px-1.5 py-0.5 text-[11px] text-neutral-200", slot.transformParentSlotId ? "border-neutral-700" : "border-amber-500/60")}
+              className={cn("max-w-[160px] rounded border bg-surface px-1.5 py-0.5 text-[11px] text-fg", slot.transformParentSlotId ? "border-line-strong" : "border-warning/60")}
             >
               <option value="">— none —</option>
               {slots.filter((other) => other.id !== slot.id).map((other) => <option key={other.id} value={other.id}>{other.displayName}{other.role === "BUILDING" ? " (building)" : ""}</option>)}
             </select>
           </label>
         ))}
-        {error ? <p role="alert" className="text-[10px] text-red-400">{error}</p> : null}
+        {error ? <p role="alert" className="text-[10px] text-danger-strong">{error}</p> : null}
       </GroupCard>
-      {unitsSlots.length ? <p className="px-0.5 text-[11px] text-neutral-500">The unit blocks move, rotate and scale with their anchor, so they stay on the building when it is aligned.</p> : null}
+      {unitsSlots.length ? <p className="px-0.5 text-[11px] text-fg-subtle">The unit blocks move, rotate and scale with their anchor, so they stay on the building when it is aligned.</p> : null}
     </div>
   );
 }

@@ -98,9 +98,9 @@ export const TimeContent = forwardRef<
 
   const sliderTrack = (
     <div className="relative flex h-5 flex-1 items-center">
-      <div className="pointer-events-none absolute inset-x-0 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div className="pointer-events-none absolute inset-x-0 h-1.5 overflow-hidden rounded-full bg-fg/10">
         <div
-          className="h-full rounded-full bg-brand-400"
+          className="h-full rounded-full bg-accent"
           style={{ width: `calc(${fillPercent}% + ${(1 - fillPercent / 100) * SLIDER_THUMB_INSET_PX}px - ${(fillPercent / 100) * SLIDER_THUMB_INSET_PX}px)`, opacity: interactive ? 1 : 0.35 }}
         />
       </div>
@@ -136,12 +136,12 @@ export const TimeContent = forwardRef<
             onClick={() => handlePresetSelect(preset)}
             className={cn(
               "flex items-center gap-2 rounded-control px-2.5 py-2 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-              isActive ? "bg-brand-500/10 text-brand-400" : "text-white/75 hover:bg-white/5 hover:text-white"
+              isActive ? "bg-accent/10 text-accent-strong" : "text-fg/75 hover:bg-fg/5 hover:text-fg"
             )}
           >
             <PresetIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span className="flex-1 whitespace-nowrap">{t(PRESET_LABEL_KEY[preset.id])}</span>
-            <span className={cn("shrink-0 tabular-nums", isActive ? "text-brand-400/70" : "text-white/40")}>{formatHM(preset.hour)}</span>
+            <span className={cn("shrink-0 tabular-nums", isActive ? "text-accent-strong/70" : "text-fg/40")}>{formatHM(preset.hour)}</span>
             {isActive && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
           </button>
         );
@@ -155,7 +155,7 @@ export const TimeContent = forwardRef<
       onClick={onClose}
       aria-label={t("common.close")}
       title={t("common.close")}
-      className="flex shrink-0 items-center rounded-control px-1.5 text-brand-400 transition-colors hover:text-brand-300"
+      className="flex shrink-0 items-center rounded-control px-1.5 text-accent-strong transition-colors hover:text-accent-strong"
     >
       <X className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -170,12 +170,12 @@ export const TimeContent = forwardRef<
         aria-haspopup="menu"
         aria-expanded={popoverOpen}
         disabled={!interactive}
-        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-fg transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
         {presetTriggerLabel}
-        <ChevronDown className={cn("h-3.5 w-3.5 text-white/50 transition-transform", popoverOpen && "rotate-180")} aria-hidden="true" />
+        <ChevronDown className={cn("h-3.5 w-3.5 text-fg/50 transition-transform", popoverOpen && "rotate-180")} aria-hidden="true" />
       </button>
-      {isDesktop && <span className="h-6 w-px shrink-0 bg-white/10" aria-hidden="true" />}
+      {isDesktop && <span className="h-6 w-px shrink-0 bg-fg/10" aria-hidden="true" />}
       <DockPopover open={popoverOpen} onClose={onClosePopover} triggerRef={presetTriggerRef} anchorClassName="right-0">
         {presetPopoverList}
       </DockPopover>
@@ -183,24 +183,24 @@ export const TimeContent = forwardRef<
   );
 
   const liveTimeReadout = (
-    <span className="shrink-0 text-sm font-semibold tabular-nums text-white">{formatHM(timeHours)}</span>
+    <span className="shrink-0 text-sm font-semibold tabular-nums text-fg">{formatHM(timeHours)}</span>
   );
 
   if (isDesktop) {
     return (
       <div ref={ref} className="flex h-full w-full items-center gap-3 px-3.5 sm:px-4">
         {liveTimeReadout}
-        <span className="h-6 w-px shrink-0 bg-white/10" aria-hidden="true" />
-        <span className="flex shrink-0 items-center gap-1.5 text-sm tabular-nums text-white/70">
+        <span className="h-6 w-px shrink-0 bg-fg/10" aria-hidden="true" />
+        <span className="flex shrink-0 items-center gap-1.5 text-sm tabular-nums text-fg/70">
           <Sunrise className="h-4 w-4 shrink-0" aria-hidden="true" />
           {formatHM(bounds.startHours)}
         </span>
         {sliderTrack}
-        <span className="flex shrink-0 items-center gap-1.5 text-sm tabular-nums text-brand-400">
-          <Sun className="h-4 w-4 shrink-0 fill-brand-400/40" aria-hidden="true" />
+        <span className="flex shrink-0 items-center gap-1.5 text-sm tabular-nums text-accent-strong">
+          <Sun className="h-4 w-4 shrink-0 fill-accent/40" aria-hidden="true" />
           {formatHM(bounds.endHours)}
         </span>
-        <span className="h-6 w-px shrink-0 bg-white/10" aria-hidden="true" />
+        <span className="h-6 w-px shrink-0 bg-fg/10" aria-hidden="true" />
         {presetTrigger}
         {closeButton}
       </div>
@@ -216,18 +216,18 @@ export const TimeContent = forwardRef<
           type="button"
           onClick={onReset}
           disabled={!canReset}
-          className="flex h-7 shrink-0 items-center gap-1.5 rounded-control border border-white/15 px-2.5 text-xs font-medium text-white transition-opacity disabled:opacity-40"
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-control border border-fg/15 px-2.5 text-xs font-medium text-fg transition-opacity disabled:opacity-40"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
         {closeButton}
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-[10px] text-white/40">{formatHM(bounds.startHours)}</span>
+        <span className="shrink-0 text-[10px] text-fg/40">{formatHM(bounds.startHours)}</span>
         {sliderTrack}
-        <span className="shrink-0 text-[10px] text-white/40">{formatHM(bounds.endHours)}</span>
+        <span className="shrink-0 text-[10px] text-fg/40">{formatHM(bounds.endHours)}</span>
       </div>
-      {!interactive && <p className="text-[11px] text-white/35">{t("sunTime.readOnlyHint")}</p>}
+      {!interactive && <p className="text-[11px] text-fg/35">{t("sunTime.readOnlyHint")}</p>}
     </div>
   );
 });

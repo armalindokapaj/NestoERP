@@ -106,25 +106,25 @@ export function UnitsWorkspace({
           borderLeft: 0,
         }}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-fg/10 px-4 py-3.5">
           {detailOpen && selectedUnit ? (
             <button
               type="button"
               onClick={handleBackToSearch}
-              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/70 hover:text-white"
+              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-fg/70 hover:text-fg"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
               {t("units.backToSearch")}
             </button>
           ) : (
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">{t("units.title")}</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-fg/70">{t("units.title")}</span>
           )}
           <button
             type="button"
             onClick={handleClose}
             aria-label={t("units.close")}
             title={t("units.close")}
-            className="flex h-8 w-8 items-center justify-center rounded-control text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-control text-fg/60 transition-colors hover:bg-fg/10 hover:text-fg"
           >
             <X className="h-4 w-4" />
           </button>

@@ -40,11 +40,11 @@ export function NorthCompass({
       aria-label={t("project.northSign")}
       className="viewer-glass flex h-12 w-12 shrink-0 items-center justify-center rounded-panel"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500/15 ring-2 ring-brand-400/50">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 ring-2 ring-accent/50">
         <Navigation2
           ref={needleRef}
           aria-hidden="true"
-          className="h-5 w-5 shrink-0 text-brand-400"
+          className="h-5 w-5 shrink-0 text-accent-strong"
           style={{ transformOrigin: "50% 50%" }}
         />
       </span>

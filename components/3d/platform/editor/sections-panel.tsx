@@ -85,11 +85,11 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
   return (
     <div className="space-y-3">
       <SectionHeading>Sections</SectionHeading>
-      <div className="flex gap-1 rounded-md bg-neutral-900 p-0.5">
-        <button type="button" onClick={() => setMode("floor")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "floor" ? "bg-neutral-700 text-white" : "text-neutral-400")}>
+      <div className="flex gap-1 rounded-md bg-surface p-0.5">
+        <button type="button" onClick={() => setMode("floor")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "floor" ? "bg-line-strong text-fg" : "text-fg-muted")}>
           Floor Sections
         </button>
-        <button type="button" onClick={() => setMode("manual")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "manual" ? "bg-neutral-700 text-white" : "text-neutral-400")}>
+        <button type="button" onClick={() => setMode("manual")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "manual" ? "bg-line-strong text-fg" : "text-fg-muted")}>
           Manual Clipping
         </button>
       </div>
@@ -97,39 +97,39 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
         type="button"
         onClick={create}
         disabled={!canEdit}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Plus className="h-3.5 w-3.5" /> New {mode === "floor" ? "Floor Section" : "Section"}
       </button>
 
       {mode === "floor" && (
-        <p className="rounded-md border border-neutral-800 bg-neutral-900/60 p-2 text-[10px] leading-relaxed text-neutral-400">
-          Name a section after its floor — <span className="text-neutral-200">Floor 7</span> or <span className="text-neutral-200">Kati 7</span> — and every unit on floor 7 gets a
-          &ldquo;View in Floor&rdquo; button in the public viewer that activates it. The default &ldquo;Floor Section 1&rdquo; name does <span className="text-neutral-200">not</span> link (its number is a counter, not a storey).
+        <p className="rounded-md border border-line bg-surface/60 p-2 text-[10px] leading-relaxed text-fg-muted">
+          Name a section after its floor — <span className="text-fg">Floor 7</span> or <span className="text-fg">Kati 7</span> — and every unit on floor 7 gets a
+          &ldquo;View in Floor&rdquo; button in the public viewer that activates it. The default &ldquo;Floor Section 1&rdquo; name does <span className="text-fg">not</span> link (its number is a counter, not a storey).
         </p>
       )}
 
-      <p className="rounded-md border border-neutral-800 bg-neutral-900/60 p-2 text-[10px] leading-relaxed text-neutral-400">{SECTION_SITE_EXEMPT_HINT}</p>
+      <p className="rounded-md border border-line bg-surface/60 p-2 text-[10px] leading-relaxed text-fg-muted">{SECTION_SITE_EXEMPT_HINT}</p>
 
       <SectionHeading>Presets</SectionHeading>
-      {sections.length === 0 && <p className="p-2 text-center text-xs text-neutral-600">No sections saved yet.</p>}
+      {sections.length === 0 && <p className="p-2 text-center text-xs text-fg-subtle">No sections saved yet.</p>}
       <div className="space-y-1">
         {sections.map((s) => {
           const floor = parseSectionFloorNumber(s.name);
           return (
-            <div key={s.id} className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1.5", s.id === activeSectionId ? "border-indigo-500 bg-indigo-500/10" : "border-neutral-800")}>
+            <div key={s.id} className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1.5", s.id === activeSectionId ? "border-accent bg-accent-soft" : "border-line")}>
               <button type="button" onClick={() => activate(s.id === activeSectionId ? null : s.id)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                <span className="flex w-full min-w-0 items-center gap-1.5 text-xs font-semibold text-neutral-200">
-                  <Scissors className="h-3 w-3 shrink-0 text-neutral-500" />
+                <span className="flex w-full min-w-0 items-center gap-1.5 text-xs font-semibold text-fg">
+                  <Scissors className="h-3 w-3 shrink-0 text-fg-subtle" />
                   <span className="truncate">{s.name}</span>
-                  {s.heightOnly && <span className="shrink-0 rounded bg-neutral-800 px-1 text-[9px] text-neutral-400">FLOOR</span>}
+                  {s.heightOnly && <span className="shrink-0 rounded bg-surface-muted px-1 text-[9px] text-fg-muted">FLOOR</span>}
                 </span>
-                {floor !== null && <span className="pl-[18px] text-[10px] font-medium text-indigo-300">Linked to units on floor {floor}</span>}
+                {floor !== null && <span className="pl-[18px] text-[10px] font-medium text-accent-strong">Linked to units on floor {floor}</span>}
               </button>
-              <button type="button" onClick={() => duplicate(s.id)} disabled={!canEdit} title="Duplicate" className="shrink-0 rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-40">
+              <button type="button" onClick={() => duplicate(s.id)} disabled={!canEdit} title="Duplicate" className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-40">
                 <Copy className="h-3 w-3" />
               </button>
-              <button type="button" onClick={() => remove(s.id)} disabled={!canEdit} title="Delete" className="shrink-0 rounded p-1 text-red-500 hover:bg-red-500/10 disabled:opacity-40">
+              <button type="button" onClick={() => remove(s.id)} disabled={!canEdit} title="Delete" className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger-soft disabled:opacity-40">
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>
@@ -139,13 +139,13 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
 
       {active && (
         <div className="space-y-3">
-          <div className="h-px bg-neutral-800" />
+          <div className="h-px bg-surface-muted" />
           <input
             value={active.name}
             disabled={!canEdit}
             aria-label="Section name"
             onChange={(e) => set({ name: e.target.value })}
-            className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2 py-1 text-xs text-fg"
           />
           <GroupCard>
             <ToggleRow label="Height Only" checked={!!active.heightOnly} disabled={!canEdit} onChange={(v) => set({ heightOnly: v })} />
@@ -156,7 +156,7 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
 
           {!active.heightOnly && (
             <>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-600">Footprint</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">Footprint</p>
               <SliderRow label="Center X" value={active.centerX} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerX: v })} />
               <SliderRow label="Center Z" value={active.centerZ} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerZ: v })} />
               <SliderRow label="Width" value={active.widthM} min={0} max={SECTION_FOOTPRINT_MAX_M} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ widthM: v })} />

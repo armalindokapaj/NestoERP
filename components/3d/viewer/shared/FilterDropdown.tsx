@@ -29,14 +29,14 @@ export function FilterDropdown({
         onClick={toggle}
         aria-expanded={open}
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-control border border-neutral-300 bg-white px-3 text-sm font-semibold transition-colors",
+          "flex h-10 w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-control border border-line-strong bg-surface px-3 text-sm font-semibold transition-colors",
           active || open
-            ? "border-neutral-800 text-neutral-900 shadow-[var(--shadow-1)]"
-            : "text-neutral-600 hover:border-neutral-500 hover:text-neutral-900"
+            ? "border-line-strong text-fg shadow-[var(--shadow-1)]"
+            : "text-fg-muted hover:border-line-strong hover:text-fg"
         )}
       >
         {label}
-        {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" />}
+        {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />}
         <ChevronDown className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (

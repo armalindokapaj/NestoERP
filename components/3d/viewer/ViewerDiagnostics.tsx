@@ -70,7 +70,7 @@ export function ViewerDiagnostics({
         key={name}
         href={hrefFor(next)}
         className={`pointer-events-auto rounded border px-1.5 py-0.5 ${
-          isOff ? "border-amber-300/60 bg-amber-300/15 text-amber-200" : "border-white/20 text-white/80"
+          isOff ? "border-warning/60 bg-warning/15 text-warning-strong" : "border-fg/20 text-fg/80"
         }`}
       >
         {name}
@@ -80,8 +80,8 @@ export function ViewerDiagnostics({
 
 
   return (
-    <div className="pointer-events-none fixed left-2 top-2 z-[100] max-w-[calc(100vw-1rem)] rounded-lg border border-white/15 bg-black/85 p-3 font-mono text-[11px] leading-relaxed text-white/85 backdrop-blur">
-      <div className="mb-1.5 font-sans text-xs font-semibold text-white">Viewer diagnostics</div>
+    <div className="pointer-events-none fixed left-2 top-2 z-[100] max-w-[calc(100vw-1rem)] rounded-lg border border-fg/15 bg-black/85 p-3 font-mono text-[11px] leading-relaxed text-fg/85 backdrop-blur">
+      <div className="mb-1.5 font-sans text-xs font-semibold text-fg">Viewer diagnostics</div>
       <Row label="backend" value={facts ? facts.backend : "…starting"} bad={facts?.backend === "webgl2"} />
       <Row label="navigator.gpu" value={facts ? (facts.webgpuAvailable ? "present" : "absent") : "…"} bad={facts?.webgpuAvailable === false} />
       <Row label="gpu" value={facts?.glRenderer ?? (facts?.backend === "webgpu" ? "(not exposed)" : "…")} />
@@ -97,40 +97,40 @@ export function ViewerDiagnostics({
       <Row label="site terrain" value={site} bad={site.startsWith("failed")} />
       <Row label="outline clip" value={stats?.outlineClip ?? "—"} bad={(stats?.outlineClip ?? "").includes("outside")} />
       {facts && facts.gpuErrors.length > 0 && (
-        <div className="mt-1.5 border-t border-white/10 pt-1.5">
-          <div className="text-white/45">gpu errors</div>
+        <div className="mt-1.5 border-t border-fg/10 pt-1.5">
+          <div className="text-fg/45">gpu errors</div>
           {facts.gpuErrors.map((message) => (
-            <p key={message} className="mt-0.5 max-w-[240px] whitespace-normal break-words text-amber-300">
+            <p key={message} className="mt-0.5 max-w-[240px] whitespace-normal break-words text-warning-strong">
               {message}
             </p>
           ))}
         </div>
       )}
-      <div className="my-1.5 h-px bg-white/10" />
-      <div className="mb-1 text-white/45">turn a pass off</div>
+      <div className="my-1.5 h-px bg-fg/10" />
+      <div className="mb-1 text-fg/45">turn a pass off</div>
       <div className="flex flex-wrap gap-1">
         {BISECTABLE_EFFECTS.slice(0, 4).map((name) => bisectLink(name))}
         <a
           href={hrefFor(new Set(BISECTABLE_EFFECTS))}
           className={`pointer-events-auto rounded border px-1.5 py-0.5 ${
-            allOff ? "border-amber-300/60 bg-amber-300/15 text-amber-200" : "border-white/20 text-white/80"
+            allOff ? "border-warning/60 bg-warning/15 text-warning-strong" : "border-fg/20 text-fg/80"
           }`}
         >
           all off
         </a>
         {disabledSet.size > 0 && (
-          <a href={hrefFor(new Set())} className="pointer-events-auto rounded border border-white/20 px-1.5 py-0.5 text-white/80">
+          <a href={hrefFor(new Set())} className="pointer-events-auto rounded border border-fg/20 px-1.5 py-0.5 text-fg/80">
             reset
           </a>
         )}
       </div>
-      <div className="my-1.5 h-px bg-white/10" />
+      <div className="my-1.5 h-px bg-fg/10" />
       <Row label="service worker" value={swControlled ? "controlling" : "none"} />
       <button
         type="button"
         onClick={hardReset}
         disabled={resetting}
-        className="pointer-events-auto mt-2 w-full rounded border border-white/20 px-2 py-1.5 font-sans text-[11px] font-medium text-white hover:bg-white/10 disabled:opacity-50"
+        className="pointer-events-auto mt-2 w-full rounded border border-fg/20 px-2 py-1.5 font-sans text-[11px] font-medium text-fg hover:bg-fg/10 disabled:opacity-50"
       >
         {resetting ? "Resetting…" : "Reset cache & reload"}
       </button>
@@ -141,8 +141,8 @@ export function ViewerDiagnostics({
 function Row({ label, value, bad = false }: { label: string; value: string; bad?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="shrink-0 text-white/45">{label}</span>
-      <span className={bad ? "text-amber-300" : "text-white"}>{value}</span>
+      <span className="shrink-0 text-fg/45">{label}</span>
+      <span className={bad ? "text-warning-strong" : "text-fg"}>{value}</span>
     </div>
   );
 }

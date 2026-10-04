@@ -55,7 +55,7 @@ export function CameraEditorTools({ change, viewerRef, canEdit }: { change: (pat
         <button
           type="button"
           onClick={togglePreview}
-          className={cn("flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-neutral-800", previewing ? "text-indigo-400" : "text-neutral-300")}
+          className={cn("flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold hover:bg-surface-muted", previewing ? "text-accent-strong" : "text-fg-muted")}
         >
           {previewing ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           {previewing ? "Stop Preview" : "Preview Drone"}
@@ -65,7 +65,7 @@ export function CameraEditorTools({ change, viewerRef, canEdit }: { change: (pat
           type="button"
           onClick={() => change(IDLE_DRONE_DEFAULTS)}
           disabled={!canEdit}
-          className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw className="h-3.5 w-3.5" /> Reset Drone Settings
         </button>

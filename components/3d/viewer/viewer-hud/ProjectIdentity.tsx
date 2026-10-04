@@ -27,15 +27,15 @@ export function ProjectIdentity({
         href={backHref}
         aria-label={t("hud.backTo", { project: projectName })}
         data-testid="project-3d-back"
-        className="-ml-1 flex shrink-0 items-center gap-1 font-serif text-xs tracking-[0.14em] text-white transition-colors hover:text-white/70 sm:text-sm"
+        className="-ml-1 flex shrink-0 items-center gap-1 font-serif text-xs tracking-[0.14em] text-fg transition-colors hover:text-fg/70 sm:text-sm"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         NESTO
       </Link>
-      <span className="h-5 w-px shrink-0 bg-white/15" aria-hidden="true" />
+      <span className="h-5 w-px shrink-0 bg-fg/15" aria-hidden="true" />
       <div className="min-w-0">
-        <p className="truncate text-[13px] font-semibold leading-tight text-white sm:text-sm">{projectName}</p>
-        <p className="truncate text-[11px] leading-tight text-white/60 sm:text-xs">
+        <p className="truncate text-[13px] font-semibold leading-tight text-fg sm:text-sm">{projectName}</p>
+        <p className="truncate text-[11px] leading-tight text-fg/60 sm:text-xs">
           {city ? `${developerName} · ${city}` : developerName}
         </p>
       </div>

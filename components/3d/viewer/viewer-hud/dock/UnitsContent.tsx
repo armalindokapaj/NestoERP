@@ -158,7 +158,7 @@ export const UnitsContent = forwardRef<
       onClick={onClose}
       aria-label={t("common.close")}
       title={t("common.close")}
-      className="flex shrink-0 items-center rounded-control px-1.5 text-brand-400 transition-colors hover:text-brand-300"
+      className="flex shrink-0 items-center rounded-control px-1.5 text-accent-strong transition-colors hover:text-accent-strong"
     >
       <X className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -173,12 +173,12 @@ export const UnitsContent = forwardRef<
       title={t("units.listUnits")}
       className={cn(
         "flex shrink-0 items-center gap-1.5 rounded-control px-1.5 text-sm font-medium transition-colors",
-        listOpen ? "text-brand-400" : "text-white hover:text-brand-300"
+        listOpen ? "text-accent-strong" : "text-fg hover:text-accent-strong"
       )}
     >
       <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
       {t("units.filterListLabel")}
-      <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white/70" aria-hidden="true">
+      <span className="rounded-full bg-fg/10 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-fg/70" aria-hidden="true">
         {filteredCount}
       </span>
     </button>
@@ -186,9 +186,9 @@ export const UnitsContent = forwardRef<
 
   const surfaceSlider = areaBounds ? (
     <div className="relative flex h-5 items-center">
-      <div className="pointer-events-none absolute inset-x-0 h-1.5 rounded-full bg-white/10" />
+      <div className="pointer-events-none absolute inset-x-0 h-1.5 rounded-full bg-fg/10" />
       <div
-        className="pointer-events-none absolute h-1.5 rounded-full bg-brand-400"
+        className="pointer-events-none absolute h-1.5 rounded-full bg-accent"
         style={{ left: `${fillLeftPct}%`, right: `${fillRightPct}%` }}
       />
       <input
@@ -214,7 +214,7 @@ export const UnitsContent = forwardRef<
     </div>
   ) : (
     <div className="flex h-5 items-center" aria-hidden="true">
-      <div className="h-1.5 w-full rounded-full bg-white/10" />
+      <div className="h-1.5 w-full rounded-full bg-fg/10" />
     </div>
   );
 
@@ -228,12 +228,12 @@ export const UnitsContent = forwardRef<
         aria-haspopup="dialog"
         aria-expanded={openPopover === "unitsSurface"}
         disabled={!areaBounds}
-        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-fg transition-colors disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <span className="text-white/50">{t("units.filterSurface")}</span>
+        <span className="text-fg/50">{t("units.filterSurface")}</span>
         {surfaceLabel}
         <ChevronDown
-          className={cn("h-3.5 w-3.5 text-white/50 transition-transform", openPopover === "unitsSurface" && "rotate-180")}
+          className={cn("h-3.5 w-3.5 text-fg/50 transition-transform", openPopover === "unitsSurface" && "rotate-180")}
           aria-hidden="true"
         />
       </button>
@@ -246,7 +246,7 @@ export const UnitsContent = forwardRef<
         {areaBounds && (
           <div className="flex flex-col gap-2 px-1.5 py-1">
             {surfaceSlider}
-            <div className="flex items-center justify-between text-xs font-semibold tabular-nums text-white">
+            <div className="flex items-center justify-between text-xs font-semibold tabular-nums text-fg">
               <span>{formatUnitArea(effMin, areaUnit)}</span>
               <span>{formatUnitArea(effMax, areaUnit)}</span>
             </div>
@@ -259,7 +259,7 @@ export const UnitsContent = forwardRef<
   function optionList(label: string, value: number | null, options: number[], formatOption: (v: number) => string, onChange: (v: number | null) => void) {
     return (
       <div className="flex min-w-[112px] flex-1 flex-col gap-0.5" role="menu" aria-label={label}>
-        <span className="px-2.5 pt-1 text-[11px] uppercase tracking-wide text-white/40">{label}</span>
+        <span className="px-2.5 pt-1 text-[11px] uppercase tracking-wide text-fg/40">{label}</span>
         <button
           type="button"
           role="menuitemradio"
@@ -267,7 +267,7 @@ export const UnitsContent = forwardRef<
           onClick={() => onChange(null)}
           className={cn(
             "flex items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-sm font-medium transition-colors",
-            value == null ? "bg-brand-500/10 text-brand-400" : "text-white/75 hover:bg-white/5 hover:text-white"
+            value == null ? "bg-accent/10 text-accent-strong" : "text-fg/75 hover:bg-fg/5 hover:text-fg"
           )}
         >
           <span className="flex-1">{t("common.any")}</span>
@@ -284,7 +284,7 @@ export const UnitsContent = forwardRef<
               onClick={() => onChange(opt)}
               className={cn(
                 "flex items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-sm font-medium transition-colors",
-                isActive ? "bg-brand-500/10 text-brand-400" : "text-white/75 hover:bg-white/5 hover:text-white"
+                isActive ? "bg-accent/10 text-accent-strong" : "text-fg/75 hover:bg-fg/5 hover:text-fg"
               )}
             >
               <span className="flex-1">{formatOption(opt)}</span>
@@ -312,12 +312,12 @@ export const UnitsContent = forwardRef<
         onClick={() => onTogglePopover("unitsRooms")}
         aria-haspopup="menu"
         aria-expanded={openPopover === "unitsRooms"}
-        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-white transition-colors"
+        className="flex items-center gap-1.5 rounded-control px-2 text-sm font-medium text-fg transition-colors"
       >
-        <span className="text-white/50">{t("units.filterRooms")}</span>
+        <span className="text-fg/50">{t("units.filterRooms")}</span>
         {roomsSummary}
         <ChevronDown
-          className={cn("h-3.5 w-3.5 text-white/50 transition-transform", openPopover === "unitsRooms" && "rotate-180")}
+          className={cn("h-3.5 w-3.5 text-fg/50 transition-transform", openPopover === "unitsRooms" && "rotate-180")}
           aria-hidden="true"
         />
       </button>
@@ -331,7 +331,7 @@ export const UnitsContent = forwardRef<
           optionList(t("units.filterBedrooms"), filters.bedrooms, facets.bedrooms, bedroomLabel, (v) =>
             onFiltersChange((prev) => ({ ...prev, bedrooms: v }))
           )}
-        {hasBedrooms && hasBathrooms && <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />}
+        {hasBedrooms && hasBathrooms && <span className="my-1 w-px shrink-0 bg-fg/10" aria-hidden="true" />}
         {hasBathrooms &&
           optionList(t("units.filterBathrooms"), filters.bathrooms, facets.bathrooms, (v) => String(v), (v) =>
             onFiltersChange((prev) => ({ ...prev, bathrooms: v }))
@@ -354,7 +354,7 @@ export const UnitsContent = forwardRef<
               aria-pressed={isActive}
               className={cn(
                 "flex items-center gap-1.5 whitespace-nowrap rounded-control px-2.5 py-1.5 text-xs font-medium transition-colors",
-                isActive ? "bg-brand-500 text-white" : "border border-white/15 text-white/75 hover:border-white/25 hover:text-white"
+                isActive ? "bg-accent text-accent-fg" : "border border-fg/15 text-fg/75 hover:border-fg/25 hover:text-fg"
               )}
             >
               {dotClass && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClass)} aria-hidden="true" />}
@@ -366,7 +366,7 @@ export const UnitsContent = forwardRef<
     );
   }
 
-  const divider = <span className="h-6 w-px shrink-0 bg-white/10" aria-hidden="true" />;
+  const divider = <span className="h-6 w-px shrink-0 bg-fg/10" aria-hidden="true" />;
 
   const filtersToggleMobile = (
     <button
@@ -377,7 +377,7 @@ export const UnitsContent = forwardRef<
       aria-label={t("units.filtersToggle")}
       className={cn(
         "flex h-11 shrink-0 items-center gap-1.5 rounded-control border px-3 text-sm font-medium transition-colors",
-        filtersExpanded ? "border-brand-400/50 bg-brand-500/10 text-brand-400" : "border-white/15 text-white hover:border-white/25"
+        filtersExpanded ? "border-accent/50 bg-accent/10 text-accent-strong" : "border-fg/15 text-fg hover:border-fg/25"
       )}
     >
       <SlidersHorizontal className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -385,7 +385,7 @@ export const UnitsContent = forwardRef<
         <span
           className={cn(
             "shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none",
-            filtersExpanded ? "bg-brand-500/20 text-brand-300" : "bg-white/10 text-white/70"
+            filtersExpanded ? "bg-accent/20 text-accent-strong" : "bg-fg/10 text-fg/70"
           )}
           aria-hidden="true"
         >
@@ -408,12 +408,12 @@ export const UnitsContent = forwardRef<
         aria-label={`${t("units.listUnits")} — ${t("units.foundCount", { count: filteredCount })}`}
         className={cn(
           "flex h-11 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm font-medium transition-colors",
-          listOpen ? "border-brand-400/50 bg-brand-500/10 text-brand-400" : "border-white/15 text-white hover:border-white/25"
+          listOpen ? "border-accent/50 bg-accent/10 text-accent-strong" : "border-fg/15 text-fg hover:border-fg/25"
         )}
       >
         <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="truncate text-left">{t("units.filterListLabel")}</span>
-        <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/70">{filteredCount}</span>
+        <span className="shrink-0 rounded-full bg-fg/10 px-2 py-0.5 text-xs font-semibold text-fg/70">{filteredCount}</span>
       </button>
       {hasAnyFilter && filtersToggleMobile}
       {closeButton}
@@ -428,23 +428,23 @@ export const UnitsContent = forwardRef<
         onClick={() => onTogglePopover("unitsRooms")}
         aria-haspopup="menu"
         aria-expanded={openPopover === "unitsRooms"}
-        className="flex h-11 w-full items-stretch rounded-control border border-white/15 text-sm font-medium text-white transition-colors hover:border-white/25"
+        className="flex h-11 w-full items-stretch rounded-control border border-fg/15 text-sm font-medium text-fg transition-colors hover:border-fg/25"
       >
         {hasBedrooms && (
           <span className="flex flex-1 flex-col items-start justify-center gap-0.5 px-3 text-left">
-            <span className="text-[11px] uppercase tracking-wide text-white/50">{t("units.filterBedrooms")}</span>
-            <span className="text-xs font-semibold text-white">{bedroomsSummary}</span>
+            <span className="text-[11px] uppercase tracking-wide text-fg/50">{t("units.filterBedrooms")}</span>
+            <span className="text-xs font-semibold text-fg">{bedroomsSummary}</span>
           </span>
         )}
-        {hasBedrooms && hasBathrooms && <span className="my-2 w-px shrink-0 bg-white/15" aria-hidden="true" />}
+        {hasBedrooms && hasBathrooms && <span className="my-2 w-px shrink-0 bg-fg/15" aria-hidden="true" />}
         {hasBathrooms && (
           <span className="flex flex-1 flex-col items-start justify-center gap-0.5 px-3 text-left">
-            <span className="text-[11px] uppercase tracking-wide text-white/50">{t("units.filterBathrooms")}</span>
-            <span className="text-xs font-semibold text-white">{bathroomsSummary}</span>
+            <span className="text-[11px] uppercase tracking-wide text-fg/50">{t("units.filterBathrooms")}</span>
+            <span className="text-xs font-semibold text-fg">{bathroomsSummary}</span>
           </span>
         )}
         <ChevronDown
-          className={cn("mr-3 h-3.5 w-3.5 shrink-0 self-center text-white/50 transition-transform", openPopover === "unitsRooms" && "rotate-180")}
+          className={cn("mr-3 h-3.5 w-3.5 shrink-0 self-center text-fg/50 transition-transform", openPopover === "unitsRooms" && "rotate-180")}
           aria-hidden="true"
         />
       </button>
@@ -458,7 +458,7 @@ export const UnitsContent = forwardRef<
           optionList(t("units.filterBedrooms"), filters.bedrooms, facets.bedrooms, bedroomLabel, (v) =>
             onFiltersChange((prev) => ({ ...prev, bedrooms: v }))
           )}
-        {hasBedrooms && hasBathrooms && <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />}
+        {hasBedrooms && hasBathrooms && <span className="my-1 w-px shrink-0 bg-fg/10" aria-hidden="true" />}
         {hasBathrooms &&
           optionList(t("units.filterBathrooms"), filters.bathrooms, facets.bathrooms, (v) => String(v), (v) =>
             onFiltersChange((prev) => ({ ...prev, bathrooms: v }))
@@ -493,10 +493,10 @@ export const UnitsContent = forwardRef<
       <div ref={collapsibleRef} id="viewer-units-filters">
         <div className="flex flex-col gap-3 pt-3">
           {hasSurface && (
-            <div className="flex flex-col gap-1.5 rounded-control border border-white/15 px-3 py-2">
+            <div className="flex flex-col gap-1.5 rounded-control border border-fg/15 px-3 py-2">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-white/50">{t("units.filterSurface")}</span>
-                <span className="text-xs font-semibold tabular-nums text-white">{surfaceLabel}</span>
+                <span className="text-[11px] uppercase tracking-wide text-fg/50">{t("units.filterSurface")}</span>
+                <span className="text-xs font-semibold tabular-nums text-fg">{surfaceLabel}</span>
               </div>
               {surfaceSlider}
             </div>

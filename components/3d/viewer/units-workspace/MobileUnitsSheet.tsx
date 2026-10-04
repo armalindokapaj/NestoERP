@@ -173,27 +173,27 @@ export function MobileUnitsSheet({
   if (!open) return null;
 
   const summaryBar = selectedUnit ? (
-    <div className="shrink-0 border-t border-white/10 bg-brand-500/[0.07] px-4 py-2.5">
+    <div className="shrink-0 border-t border-fg/10 bg-accent/[0.07] px-4 py-2.5">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <span className="truncate text-sm font-semibold text-white">{selectedUnit.code}</span>
-            <span className="shrink-0 font-numeric text-sm font-semibold text-white">
+            <span className="truncate text-sm font-semibold text-fg">{selectedUnit.code}</span>
+            <span className="shrink-0 font-numeric text-sm font-semibold text-fg">
               {unitPriceLabel(selectedUnit, displayCurrency, eurToAllRate, t("projectDetail.priceOnRequest"))}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-white/50">
+          <p className="mt-0.5 truncate text-[11px] text-fg/50">
             {t("units.floorLabel", { floor: selectedUnit.floor })} · {bedroomLabel(selectedUnit.bedrooms)} ·{" "}
             {formatUnitArea(selectedUnit.area, areaUnit)}
           </p>
           {unmappedUnitId === selectedUnit.id && (
-            <p className="mt-0.5 text-[11px] leading-tight text-amber-300/80">{t("units.notInModel")}</p>
+            <p className="mt-0.5 text-[11px] leading-tight text-warning-strong/80">{t("units.notInModel")}</p>
           )}
         </div>
         <button
           type="button"
           onClick={() => setDetailOpen(true)}
-          className="flex h-9 shrink-0 items-center rounded-control bg-brand-500 px-3 text-xs font-semibold text-white"
+          className="flex h-9 shrink-0 items-center rounded-control bg-accent px-3 text-xs font-semibold text-accent-fg"
         >
           {t("units.viewDetails")}
         </button>
@@ -201,7 +201,7 @@ export function MobileUnitsSheet({
           type="button"
           onClick={() => onSelectUnit(null)}
           aria-label={t("units.clearSelection")}
-          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-control text-white/50"
+          className="flex h-9 w-8 shrink-0 items-center justify-center rounded-control text-fg/50"
         >
           <X className="h-4 w-4" />
         </button>
@@ -231,16 +231,16 @@ export function MobileUnitsSheet({
           onPointerCancel={onPointerUp}
           className="flex shrink-0 cursor-grab touch-none flex-col items-center gap-2 pb-1 pt-2.5 active:cursor-grabbing"
         >
-          <span className="h-1 w-9 rounded-full bg-white/25" aria-hidden="true" />
+          <span className="h-1 w-9 rounded-full bg-fg/25" aria-hidden="true" />
         </div>
 
         {detailOpen && selectedUnit ? (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 pb-3 pt-1">
+            <div className="flex shrink-0 items-center justify-between border-b border-fg/10 px-4 pb-3 pt-1">
               <button
                 type="button"
                 onClick={() => setDetailOpen(false)}
-                className="flex h-9 items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/70"
+                className="flex h-9 items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-fg/70"
               >
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                 {t("units.backToSearch")}
@@ -249,7 +249,7 @@ export function MobileUnitsSheet({
                 type="button"
                 onClick={onClose}
                 aria-label={t("units.close")}
-                className="flex h-9 w-9 items-center justify-center rounded-control text-white/60"
+                className="flex h-9 w-9 items-center justify-center rounded-control text-fg/60"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -265,11 +265,11 @@ export function MobileUnitsSheet({
           </>
         ) : (
           <>
-            <div className="shrink-0 space-y-2 border-b border-white/10 px-3 pb-2.5 pt-1">
+            <div className="shrink-0 space-y-2 border-b border-fg/10 px-3 pb-2.5 pt-1">
               <div className="flex items-center gap-2">
                 <div className="relative min-w-0 flex-1">
                   <Search
-                    className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-fg/40"
                     aria-hidden="true"
                   />
                   <input
@@ -277,7 +277,7 @@ export function MobileUnitsSheet({
                     value={filters.query}
                     onChange={(e) => handleFilterPatch({ query: e.target.value })}
                     placeholder={t("units.searchPlaceholder")}
-                    className="h-10 w-full rounded-control border border-white/10 bg-white/5 pl-9 pr-2 text-sm text-white placeholder:text-white/35"
+                    className="h-10 w-full rounded-control border border-fg/10 bg-fg/5 pl-9 pr-2 text-sm text-fg placeholder:text-fg/35"
                   />
                 </div>
                 <button
@@ -286,7 +286,7 @@ export function MobileUnitsSheet({
                   aria-label={t("units.filtersToggle")}
                   className={cn(
                     "flex h-10 shrink-0 items-center gap-1.5 rounded-control border px-2.5 text-xs font-medium",
-                    filterCount > 0 ? "border-brand-400/50 bg-brand-500/10 text-brand-400" : "border-white/15 text-white/80"
+                    filterCount > 0 ? "border-accent/50 bg-accent/10 text-accent-strong" : "border-fg/15 text-fg/80"
                   )}
                 >
                   <SlidersHorizontal className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -296,23 +296,23 @@ export function MobileUnitsSheet({
                   type="button"
                   onClick={onClose}
                   aria-label={t("units.close")}
-                  className="flex h-10 w-9 shrink-0 items-center justify-center rounded-control text-brand-400"
+                  className="flex h-10 w-9 shrink-0 items-center justify-center rounded-control text-accent-strong"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <span className="shrink-0 text-xs text-white/50">{t("units.resultsCount", { count: filtered.length })}</span>
+                <span className="shrink-0 text-xs text-fg/50">{t("units.resultsCount", { count: filtered.length })}</span>
                 <select
                   value={filters.sort}
                   onChange={(e) => handleFilterPatch({ sort: e.target.value as SortOption })}
                   aria-label={t("units.sort.recommended")}
-                  className="h-8 min-w-0 rounded-control border border-white/10 bg-white/5 px-1.5 text-xs text-white/70"
+                  className="h-8 min-w-0 rounded-control border border-fg/10 bg-fg/5 px-1.5 text-xs text-fg/70"
                 >
                   {sortOptionsFor(units).map(
                     (opt) => (
-                      <option key={opt} value={opt} className="bg-neutral-900">
+                      <option key={opt} value={opt} className="bg-surface">
                         {t(`units.sort.${opt}`)}
                       </option>
                     )
@@ -323,7 +323,7 @@ export function MobileUnitsSheet({
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-thin px-3 py-2">
               {visible.length === 0 ? (
-                <p className="px-2 py-8 text-center text-sm text-white/40">{t("units.noResults")}</p>
+                <p className="px-2 py-8 text-center text-sm text-fg/40">{t("units.noResults")}</p>
               ) : (
                 <div className="space-y-1.5">
                   {visible.map((unit) => {
@@ -337,16 +337,16 @@ export function MobileUnitsSheet({
                         aria-current={isSelected ? "true" : undefined}
                         className={cn(
                           "w-full rounded-control border p-3 text-left transition-colors",
-                          isSelected ? "border-brand-400/60 bg-brand-500/15" : "border-white/5 bg-white/[0.03]"
+                          isSelected ? "border-accent/60 bg-accent/15" : "border-fg/5 bg-fg/[0.03]"
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="truncate text-sm font-semibold text-white">{unit.code}</span>
-                          <span className="shrink-0 font-numeric text-sm font-semibold text-white">
+                          <span className="truncate text-sm font-semibold text-fg">{unit.code}</span>
+                          <span className="shrink-0 font-numeric text-sm font-semibold text-fg">
                             {unitPriceLabel(unit, displayCurrency, eurToAllRate, t("projectDetail.priceOnRequest"))}
                           </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-white/50">
+                        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-fg/50">
                           <span className="truncate">
                             {t("units.floorLabel", { floor: unit.floor })} · {bedroomLabel(unit.bedrooms)} ·{" "}
                             {formatUnitArea(unit.area, areaUnit)}
@@ -363,7 +363,7 @@ export function MobileUnitsSheet({
                     <button
                       type="button"
                       onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                      className="flex h-10 w-full items-center justify-center gap-1.5 rounded-control border border-white/10 text-xs font-medium text-brand-400"
+                      className="flex h-10 w-full items-center justify-center gap-1.5 rounded-control border border-fg/10 text-xs font-medium text-accent-strong"
                     >
                       <ChevronUp className="h-3.5 w-3.5 rotate-180" aria-hidden="true" />
                       {t("units.loadMore")}

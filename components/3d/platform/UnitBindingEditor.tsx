@@ -234,7 +234,7 @@ export function UnitBindingEditor({
                             type="button"
                             aria-pressed={binding.poiYawDeg === preset.deg}
                             title={t(`threeDAdmin.bindings.directions.${preset.name}`)}
-                            className={`size-6 rounded border text-[11px] font-semibold disabled:opacity-40 ${binding.poiYawDeg === preset.deg ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-line text-fg-muted"}`}
+                            className={`size-6 rounded border text-[11px] font-semibold disabled:opacity-40 ${binding.poiYawDeg === preset.deg ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted"}`}
                             onClick={() => setBinding(meshName, { poiYawDeg: preset.deg })}
                             disabled={pending || !binding.projectUnitId || !binding.poiEnabled}
                           >

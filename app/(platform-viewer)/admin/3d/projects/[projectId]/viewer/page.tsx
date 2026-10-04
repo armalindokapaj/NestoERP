@@ -5,7 +5,6 @@ import { ModuleMessages } from "@/components/i18n/module-messages";
 import { ProjectViewerPage } from "@/components/3d/viewer/ProjectViewerPage";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
-import { nunitoSans, roboto } from "@/lib/fonts";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -34,7 +33,7 @@ export default async function PlatformCompanyViewerPage({ params }: Params) {
   if (!project) notFound();
 
   return (
-    <div data-project-viewer className={`${nunitoSans.variable} ${roboto.variable} h-full w-full overflow-hidden antialiased`}>
+    <div data-project-viewer className={`h-full w-full overflow-hidden antialiased`}>
       <ModuleMessages namespaces={["threeD"]}>
         <ProjectViewerPage
           projectId={project.id}

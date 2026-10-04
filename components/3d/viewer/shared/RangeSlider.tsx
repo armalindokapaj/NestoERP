@@ -109,7 +109,7 @@ export function RangeSlider({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-sm font-semibold text-neutral-900">
+      <div className="flex items-center justify-between text-sm font-semibold text-fg">
         <span>{formatValue(effectiveMin)}</span>
         <span>
           {formatValue(effectiveMax)}
@@ -117,9 +117,9 @@ export function RangeSlider({
         </span>
       </div>
       <div className="relative flex h-5 items-center">
-        <div className="absolute inset-x-0 h-1.5 rounded-full bg-neutral-200" />
+        <div className="absolute inset-x-0 h-1.5 rounded-full bg-line-strong" />
         <div
-          className="absolute h-1.5 rounded-full bg-brand-500"
+          className="absolute h-1.5 rounded-full bg-accent"
           style={{ left: `${barLeftPct}%`, right: `${barRightPct}%` }}
         />
         <input

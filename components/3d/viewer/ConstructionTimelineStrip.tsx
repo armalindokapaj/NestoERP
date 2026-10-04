@@ -30,7 +30,7 @@ export function ConstructionTimelineStrip({
     const r = 15;
     const circumference = 2 * Math.PI * r;
     return (
-      <div className="glass-panel-dark flex items-center gap-3 rounded-pill py-2 pl-3 pr-4 text-white">
+      <div className="glass-panel-dark flex items-center gap-3 rounded-pill py-2 pl-3 pr-4 text-fg">
         <span className="relative h-9 w-9 shrink-0">
           <svg viewBox="0 0 36 36" className="h-9 w-9">
             <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" />
@@ -39,7 +39,7 @@ export function ConstructionTimelineStrip({
               cy="18"
               r={r}
               fill="none"
-              stroke="#a794fa"
+              stroke="var(--nesto-accent)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -52,7 +52,7 @@ export function ConstructionTimelineStrip({
           </span>
         </span>
         <div className="min-w-0">
-          <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50">
+          <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-fg/50">
             {t("project.progress")}
           </p>
           <p className="truncate text-sm font-semibold">{stageName(activeStage)}</p>
@@ -62,10 +62,10 @@ export function ConstructionTimelineStrip({
   }
 
   return (
-    <div className="glass-panel-dark rounded-panel p-4 text-white">
+    <div className="glass-panel-dark rounded-panel p-4 text-fg">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold">{t("project.constructionProgress")}</p>
-        <span className="text-sm font-bold text-brand-300">{overallPercent}%</span>
+        <span className="text-sm font-bold text-accent-strong">{overallPercent}%</span>
       </div>
       <input
         type="range"
@@ -75,7 +75,7 @@ export function ConstructionTimelineStrip({
         value={selected}
         onChange={(e) => setSelected(Number(e.target.value))}
         aria-label={t("project.scrubTimeline")}
-        className="w-full accent-brand-400"
+        className="w-full accent-accent"
       />
       <div className="mt-2 flex justify-between gap-1">
         {stages.map((s, i) => (
@@ -86,10 +86,10 @@ export function ConstructionTimelineStrip({
             className={cn(
               "h-1.5 flex-1 rounded-full transition-colors",
               i === selected
-                ? "bg-brand-400"
+                ? "bg-accent"
                 : s.status === "done"
-                ? "bg-white/60"
-                : "bg-white/15"
+                ? "bg-fg/60"
+                : "bg-fg/15"
             )}
           />
         ))}
@@ -98,10 +98,10 @@ export function ConstructionTimelineStrip({
         {stage.status === "done" ? (
           <Check className="h-4 w-4 text-green-400" />
         ) : (
-          <Clock className="h-4 w-4 text-brand-300" />
+          <Clock className="h-4 w-4 text-accent-strong" />
         )}
         <span className="font-medium">{stageName(stage)}</span>
-        <span className="text-white/50">· {stage.dateLabel}</span>
+        <span className="text-fg/50">· {stage.dateLabel}</span>
       </div>
     </div>
   );

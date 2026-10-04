@@ -317,9 +317,9 @@ export function UnitPreviewCard({
     <span
       className={cn(
         "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
-        u.status === "available" && "bg-emerald-400/15 text-emerald-300",
-        u.status === "reserved" && "bg-amber-400/15 text-amber-300",
-        u.status === "sold" && "bg-white/10 text-white/55"
+        u.status === "available" && "bg-success/15 text-success-strong",
+        u.status === "reserved" && "bg-warning/15 text-warning-strong",
+        u.status === "sold" && "bg-fg/10 text-fg/55"
       )}
     >
       {t(STATUS_LABEL_KEY[u.status])}
@@ -327,7 +327,7 @@ export function UnitPreviewCard({
   );
 
   const specRow = (u: Unit) => (
-    <div className="flex items-center gap-2.5 text-[11px] text-white/55 sm:gap-3 sm:text-xs">
+    <div className="flex items-center gap-2.5 text-[11px] text-fg/55 sm:gap-3 sm:text-xs">
       <span className="flex items-center gap-1">
         <BedDouble className="h-3.5 w-3.5" /> {u.bedrooms}
       </span>
@@ -345,7 +345,7 @@ export function UnitPreviewCard({
     <button
       onClick={onClose}
       aria-label={t("common.close")}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-fg/45 transition-colors hover:bg-fg/10 hover:text-fg"
     >
       <X className="h-4 w-4" />
     </button>
@@ -359,7 +359,7 @@ export function UnitPreviewCard({
       aria-pressed={saved}
       className={className}
     >
-      <Heart className={cn("h-4 w-4 shrink-0", saved && "fill-red-500 text-red-500")} />
+      <Heart className={cn("h-4 w-4 shrink-0", saved && "fill-danger text-danger-strong")} />
       {withLabel && (
         <span className="truncate">{saved ? t("unit.savedProject") : t("unit.saveProject")}</span>
       )}
@@ -393,7 +393,7 @@ export function UnitPreviewCard({
   );
 
   const wideButtonClass =
-    "flex flex-1 items-center justify-center gap-1.5 rounded-control border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40";
+    "flex flex-1 items-center justify-center gap-1.5 rounded-control border border-fg/15 px-2.5 py-1.5 text-[11px] font-semibold text-fg/85 transition-colors hover:bg-fg/10 hover:text-fg disabled:opacity-40";
 
   return (
     <div
@@ -412,10 +412,10 @@ export function UnitPreviewCard({
         <>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45 sm:text-[11px] sm:tracking-wide">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-fg/45 sm:text-[11px] sm:tracking-wide">
               {t("unit.floorLabel", { n: unit.floor })} · {unit.code}
             </p>
-            <p className="font-numeric mt-0.5 text-[17px] font-semibold leading-tight text-white sm:text-xl sm:leading-normal">
+            <p className="font-numeric mt-0.5 text-[17px] font-semibold leading-tight text-fg sm:text-xl sm:leading-normal">
               {priceFmt(unit.price, { currency: unit.currency })}
             </p>
           </div>
@@ -424,7 +424,7 @@ export function UnitPreviewCard({
 
         <div className="mt-2 sm:mt-2.5">{specRow(unit)}</div>
 
-        <div className="mt-3 flex items-center gap-1.5 border-t border-white/10 pt-3 sm:mt-3.5 sm:gap-2 sm:pt-3.5">
+        <div className="mt-3 flex items-center gap-1.5 border-t border-fg/10 pt-3 sm:mt-3.5 sm:gap-2 sm:pt-3.5">
           {floorSectionName && (
             <button
               onClick={onViewInFloor}
@@ -433,8 +433,8 @@ export function UnitPreviewCard({
               className={cn(
                 "flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-control border text-[12px] font-semibold transition-colors sm:h-9 sm:gap-1.5 sm:text-[13px]",
                 floorSectionActive
-                  ? "border-brand-400/60 bg-brand-500/25 text-white"
-                  : "border-white/15 bg-white/5 text-white/85 hover:bg-white/10 hover:text-white"
+                  ? "border-accent/60 bg-accent/25 text-accent-fg"
+                  : "border-fg/15 bg-fg/5 text-fg/85 hover:bg-fg/10 hover:text-fg"
               )}
             >
               <Layers className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
@@ -443,7 +443,7 @@ export function UnitPreviewCard({
           )}
           <button
             onClick={onExpand}
-            className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-control bg-brand-500 text-[12px] font-semibold text-white transition-colors hover:bg-brand-600 sm:h-9 sm:gap-1.5 sm:text-[13px]"
+            className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-control bg-accent text-[12px] font-semibold text-accent-fg transition-colors hover:bg-accent sm:h-9 sm:gap-1.5 sm:text-[13px]"
           >
             <span className="truncate">{t("results.viewUnit")}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
@@ -460,22 +460,22 @@ export function UnitPreviewCard({
       >
         {unit && (
         <div className="flex flex-col" style={{ maxHeight: limits.maxHeight }}>
-          <div className="shrink-0 border-b border-white/10 px-3.5 pb-2.5 pt-3">
+          <div className="shrink-0 border-b border-fg/10 px-3.5 pb-2.5 pt-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-fg/45">
                   {t("unit.floorLabel", { n: unit.floor })} · {unit.code}
                 </p>
-                <p className="font-numeric mt-0.5 text-lg font-semibold leading-tight text-white">
+                <p className="font-numeric mt-0.5 text-lg font-semibold leading-tight text-fg">
                   {priceFmt(unit.price, { currency: unit.currency })}
                 </p>
-                <p className="mt-0.5 truncate text-[11px] text-white/45">{project.name}</p>
+                <p className="mt-0.5 truncate text-[11px] text-fg/45">{project.name}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   onClick={onCollapse}
                   aria-label={t("unit.collapseUnitDetail")}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-fg/45 transition-colors hover:bg-fg/10 hover:text-fg"
                 >
                   <Minimize2 className="h-3.5 w-3.5" />
                 </button>
@@ -506,7 +506,7 @@ export function UnitPreviewCard({
               <Link
                 href={unit.href}
                 data-testid="project-3d-open-unit"
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control bg-accent px-3 py-2 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent"
               >
                 Open unit record
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -517,15 +517,15 @@ export function UnitPreviewCard({
               <button
                 onClick={() => setDesignLeadSent(true)}
                 disabled={designLeadSent}
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control bg-listing-new-dev px-3 py-2 text-xs font-semibold text-white transition-[filter] hover:brightness-95 disabled:opacity-60"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control bg-listing-new-dev px-3 py-2 text-xs font-semibold text-fg transition-[filter] hover:brightness-95 disabled:opacity-60"
               >
                 <Palette className="h-3.5 w-3.5" />
                 {designLeadSent ? t("unit.requestSent") : t("unit.designThisApartment")}
               </button>
             )}
 
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+            <div className="mt-3 border-t border-fg/10 pt-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-fg/45">
                 {t("listing.contactPublisher")}
               </p>
               <PublisherCard
@@ -541,13 +541,13 @@ export function UnitPreviewCard({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 border-t border-white/10 px-3.5 py-2.5">
+          <div className="flex shrink-0 items-center gap-2 border-t border-fg/10 px-3.5 py-2.5">
             {saveButton(wideButtonClass, true)}
             {compareButton(
               unit,
               cn(
                 wideButtonClass,
-                inCompare && "border-brand-400/60 bg-brand-500/25 text-white hover:bg-brand-500/25"
+                inCompare && "border-accent/60 bg-accent/25 text-accent-fg hover:bg-accent/25"
               ),
               true
             )}
@@ -561,17 +561,17 @@ export function UnitPreviewCard({
           type="button"
           onClick={handleExitPress}
           title={exitFloorTitle ?? undefined}
-          className="flex h-12 items-center gap-1.5 whitespace-nowrap px-4 text-[13px] font-semibold text-white"
+          className="flex h-12 items-center gap-1.5 whitespace-nowrap px-4 text-[13px] font-semibold text-fg"
         >
-          <Layers className="h-4 w-4 shrink-0 text-brand-300" />
+          <Layers className="h-4 w-4 shrink-0 text-accent-strong" />
           <span>{t("unit.exitFloorView")}</span>
           {exitFloorLabel && (
             <>
-              <span className="text-white/45">·</span>
-              <span className="text-white/60">{exitFloorLabel}</span>
+              <span className="text-fg/45">·</span>
+              <span className="text-fg/60">{exitFloorLabel}</span>
             </>
           )}
-          <X className="ml-0.5 h-4 w-4 shrink-0 text-white/45" />
+          <X className="ml-0.5 h-4 w-4 shrink-0 text-fg/45" />
         </button>
       </div>
     </div>
@@ -588,12 +588,12 @@ function Fact({
   value: string | number;
 }) {
   return (
-    <div className="rounded-card border border-white/10 bg-white/[0.03] px-2 py-1.5">
-      <p className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-white/40">
+    <div className="rounded-card border border-fg/10 bg-fg/[0.03] px-2 py-1.5">
+      <p className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-fg/40">
         <Icon className="h-2.5 w-2.5 shrink-0" />
         <span className="truncate">{label}</span>
       </p>
-      <p className="mt-0.5 truncate text-[13px] font-semibold text-white">{value}</p>
+      <p className="mt-0.5 truncate text-[13px] font-semibold text-fg">{value}</p>
     </div>
   );
 }
@@ -621,8 +621,8 @@ function UnitMedia({ unit }: { unit: Unit }) {
   const seeds = Array.from({ length: photoCount }, (_, i) => `${unit.id}-photo-${i}`);
 
   return (
-    <div className="overflow-hidden rounded-card border border-white/10">
-      <div className="relative aspect-[16/9] w-full bg-white/5">
+    <div className="overflow-hidden rounded-card border border-fg/10">
+      <div className="relative aspect-[16/9] w-full bg-fg/5">
         {tab === "photos" && (
           <>
             {unit.images[index] ? (
@@ -639,14 +639,14 @@ function UnitMedia({ unit }: { unit: Unit }) {
             <button
               onClick={() => setIndex((i) => (i - 1 + photoCount) % photoCount)}
               aria-label={t("gallery.prevPhoto")}
-              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/65"
+              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-fg backdrop-blur-sm transition-colors hover:bg-black/65"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setIndex((i) => (i + 1) % photoCount)}
               aria-label={t("gallery.nextPhoto")}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/65"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-fg backdrop-blur-sm transition-colors hover:bg-black/65"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -658,7 +658,7 @@ function UnitMedia({ unit }: { unit: Unit }) {
                   aria-label={t("gallery.goToPhoto", { n: i + 1 })}
                   className={cn(
                     "h-1.5 rounded-full transition-all",
-                    i === index ? "w-4 bg-white" : "w-1.5 bg-white/60"
+                    i === index ? "w-4 bg-surface" : "w-1.5 bg-fg/60"
                   )}
                 />
               ))}
@@ -695,7 +695,7 @@ function UnitMedia({ unit }: { unit: Unit }) {
           </button>
         )}
       </div>
-      <div className="flex gap-1 border-t border-white/10 p-1">
+      <div className="flex gap-1 border-t border-fg/10 p-1">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
@@ -703,7 +703,7 @@ function UnitMedia({ unit }: { unit: Unit }) {
             aria-pressed={tab === key}
             className={cn(
               "truncate rounded-control px-2 py-1 text-[10px] font-semibold transition-colors",
-              tab === key ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/10 hover:text-white"
+              tab === key ? "bg-fg/15 text-fg" : "text-fg/50 hover:bg-fg/10 hover:text-fg"
             )}
           >
             {label}

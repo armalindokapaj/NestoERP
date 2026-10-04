@@ -11,15 +11,15 @@ type PerfStats = { fps: number; frameTimeMs: number; drawCalls: number; triangle
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <span className="flex items-baseline gap-1">
-      <span className="text-neutral-600">{label}</span>
-      <span className="font-mono text-neutral-300">{value}</span>
+      <span className="text-fg-subtle">{label}</span>
+      <span className="font-mono text-fg-muted">{value}</span>
     </span>
   );
 }
 
 export function StatusBar({ stats, qualityPreset, effectiveRenderScale, warnings = 0 }: { stats: PerfStats | null; qualityPreset?: string; effectiveRenderScale?: number | null; warnings?: number }) {
   return (
-    <div role="status" aria-label="Renderer status" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-neutral-800 bg-neutral-950 px-4 py-1.5 text-[11px]">
+    <div role="status" aria-label="Renderer status" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line bg-canvas px-4 py-1.5 text-[11px]">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <Stat label="FPS" value={stats ? String(Math.round(stats.fps)) : "—"} />
         <Stat label="Frame" value={stats ? `${Math.round(stats.frameTimeMs * 10) / 10}ms` : "—"} />
@@ -31,15 +31,15 @@ export function StatusBar({ stats, qualityPreset, effectiveRenderScale, warnings
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="text-neutral-600">
+        <span className="text-fg-subtle">
           Quality Profile{" "}
-          <span className="text-neutral-400">
+          <span className="text-fg-muted">
             {qualityPreset ?? "—"}
             {effectiveRenderScale != null && ` · ${Math.round(effectiveRenderScale * 100)}% scale`}
           </span>
         </span>
-        <span className="text-neutral-600">
-          Warnings <span className="text-neutral-400">{warnings}</span>
+        <span className="text-fg-subtle">
+          Warnings <span className="text-fg-muted">{warnings}</span>
         </span>
       </div>
     </div>

@@ -41,7 +41,7 @@ function FilterDropdown({ label, active, children }: { label: string; active: bo
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex h-8 items-center gap-1 rounded-control border px-2.5 text-xs font-medium transition-colors",
-          active ? "border-brand-400/60 bg-brand-500/15 text-white" : "border-white/10 bg-white/5 text-white/70 hover:text-white"
+          active ? "border-accent/60 bg-accent/15 text-accent-fg" : "border-fg/10 bg-fg/5 text-fg/70 hover:text-fg"
         )}
       >
         {label}
@@ -64,7 +64,7 @@ function NumberField({ placeholder, value, onChange }: { placeholder: string; va
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-      className="h-8 w-full rounded-control border border-white/15 bg-white/5 px-2 text-xs text-white placeholder:text-white/30"
+      className="h-8 w-full rounded-control border border-fg/15 bg-fg/5 px-2 text-xs text-fg placeholder:text-fg/30"
     />
   );
 }
@@ -131,15 +131,15 @@ export function UnitSearchView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 space-y-2.5 border-b border-white/10 px-4 py-3">
+      <div className="shrink-0 space-y-2.5 border-b border-fg/10 px-4 py-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" aria-hidden="true" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg/40" aria-hidden="true" />
           <input
             type="text"
             value={filters.query}
             onChange={(e) => update({ query: e.target.value })}
             placeholder={t("units.searchPlaceholder")}
-            className="h-9 w-full rounded-control border border-white/10 bg-white/5 pl-8 pr-2 text-sm text-white placeholder:text-white/35"
+            className="h-9 w-full rounded-control border border-fg/10 bg-fg/5 pl-8 pr-2 text-sm text-fg placeholder:text-fg/35"
           />
         </div>
 
@@ -152,7 +152,7 @@ export function UnitSearchView({
               onClick={() => update({ status: id })}
               className={cn(
                 "flex h-7 items-center gap-1.5 rounded-pill px-2.5 text-xs font-medium transition-colors",
-                filters.status === id ? "bg-brand-500 text-white" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                filters.status === id ? "bg-accent text-accent-fg" : "bg-fg/5 text-fg/70 hover:bg-fg/10 hover:text-fg"
               )}
             >
               {dotClass && <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden="true" />}
@@ -171,7 +171,7 @@ export function UnitSearchView({
               onClick={() => update({ bedrooms: filters.bedrooms === b ? null : b })}
               className={cn(
                 "flex h-7 items-center rounded-pill px-2.5 text-xs font-medium transition-colors",
-                filters.bedrooms === b ? "bg-brand-500 text-white" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                filters.bedrooms === b ? "bg-accent text-accent-fg" : "bg-fg/5 text-fg/70 hover:bg-fg/10 hover:text-fg"
               )}
             >
               {bedroomLabel(b)}
@@ -219,7 +219,7 @@ export function UnitSearchView({
                   onClick={() => update({ building: filters.building === b ? null : b })}
                   className={cn(
                     "flex w-full items-center justify-between rounded-control px-2 py-1.5 text-left text-xs",
-                    filters.building === b ? "bg-brand-500/20 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                    filters.building === b ? "bg-accent/20 text-accent-fg" : "text-fg/70 hover:bg-fg/10 hover:text-fg"
                   )}
                 >
                   {b}
@@ -231,14 +231,14 @@ export function UnitSearchView({
         </div>
 
         <div className="flex items-center justify-between pt-0.5 text-xs">
-          <span className="cursor-default text-white/30" title={t("units.moreComingSoon")}>
+          <span className="cursor-default text-fg/30" title={t("units.moreComingSoon")}>
             {t("units.advancedFilters")}
           </span>
           {filterCount > 0 && (
             <button
               type="button"
               onClick={() => onFiltersChange(DEFAULT_UNIT_FILTERS)}
-              className="flex items-center gap-1 font-medium text-brand-400 hover:text-brand-300"
+              className="flex items-center gap-1 font-medium text-accent-strong hover:text-accent-strong"
             >
               {t("units.clearFilters")} <span className="tabular-nums">({filterCount})</span>
               <X className="h-3 w-3" aria-hidden="true" />
@@ -247,16 +247,16 @@ export function UnitSearchView({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-2">
-        <span className="text-xs text-white/50">{t("units.resultsCount", { count: filtered.length })}</span>
+      <div className="flex shrink-0 items-center justify-between border-b border-fg/10 px-4 py-2">
+        <span className="text-xs text-fg/50">{t("units.resultsCount", { count: filtered.length })}</span>
         <div className="flex items-center gap-2">
           <select
             value={filters.sort}
             onChange={(e) => update({ sort: e.target.value as SortOption })}
-            className="h-7 rounded-control border border-white/10 bg-white/5 px-1.5 text-xs text-white/70"
+            className="h-7 rounded-control border border-fg/10 bg-fg/5 px-1.5 text-xs text-fg/70"
           >
             {sortOptionsFor(units).map((opt) => (
-              <option key={opt} value={opt} className="bg-neutral-900">
+              <option key={opt} value={opt} className="bg-surface">
                 {t(`units.sort.${opt}`)}
               </option>
             ))}
@@ -266,7 +266,7 @@ export function UnitSearchView({
             onClick={() => onViewModeChange((m) => (m === "list" ? "grid" : "list"))}
             aria-label={t(viewMode === "list" ? "units.viewGrid" : "units.viewList")}
             title={t(viewMode === "list" ? "units.viewGrid" : "units.viewList")}
-            className="flex h-7 w-7 items-center justify-center rounded-control text-white/60 hover:bg-white/10 hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-control text-fg/60 hover:bg-fg/10 hover:text-fg"
           >
             {viewMode === "list" ? <LayoutGrid className="h-3.5 w-3.5" /> : <Rows3 className="h-3.5 w-3.5" />}
           </button>
@@ -275,7 +275,7 @@ export function UnitSearchView({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {visible.length === 0 ? (
-          <p className="px-2 py-8 text-center text-sm text-white/40">{t("units.noResults")}</p>
+          <p className="px-2 py-8 text-center text-sm text-fg/40">{t("units.noResults")}</p>
         ) : (
           <div className={viewMode === "grid" ? "grid grid-cols-2 gap-2" : "space-y-1.5"}>
             {visible.map((unit) => {
@@ -290,14 +290,14 @@ export function UnitSearchView({
                 className={cn(
                   "w-full rounded-control border p-2.5 text-left transition-colors",
                   isSelected
-                    ? "border-brand-400/60 bg-brand-500/15"
-                    : "border-white/5 bg-white/[0.03] hover:border-white/15 hover:bg-white/[0.06]"
+                    ? "border-accent/60 bg-accent/15"
+                    : "border-fg/5 bg-fg/[0.03] hover:border-fg/15 hover:bg-fg/[0.06]"
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-semibold text-white">{unit.code}</span>
+                  <span className="text-sm font-semibold text-fg">{unit.code}</span>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    <span className="text-sm font-semibold text-white">
+                    <span className="text-sm font-semibold text-fg">
                       {unitPriceLabel(unit, displayCurrency, eurToAllRate, t("projectDetail.priceOnRequest"))}
                     </span>
                     <span
@@ -316,13 +316,13 @@ export function UnitSearchView({
                       }}
                       aria-label={t("units.favorite")}
                       aria-pressed={favorites.has(unit.id)}
-                      className="text-white/40 hover:text-white"
+                      className="text-fg/40 hover:text-fg"
                     >
-                      <Heart className={cn("h-3.5 w-3.5", favorites.has(unit.id) && "fill-brand-400 text-brand-400")} />
+                      <Heart className={cn("h-3.5 w-3.5", favorites.has(unit.id) && "fill-accent text-accent-strong")} />
                     </span>
                   </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-white/50">
+                <div className="mt-1 flex items-center justify-between text-xs text-fg/50">
                   <span>
                     {t("units.floorLabel", { floor: unit.floor })} · {bedroomLabel(unit.bedrooms)} · {formatUnitArea(unit.area, areaUnit)}
                   </span>
@@ -332,7 +332,7 @@ export function UnitSearchView({
                   </span>
                 </div>
                 {unmappedUnitId === unit.id && (
-                  <p className="mt-1.5 text-[11px] leading-tight text-amber-300/80">{t("units.notInModel")}</p>
+                  <p className="mt-1.5 text-[11px] leading-tight text-warning-strong/80">{t("units.notInModel")}</p>
                 )}
               </button>
               );
@@ -341,13 +341,13 @@ export function UnitSearchView({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center justify-between border-t border-white/10 px-4 py-2.5 text-xs text-white/50">
+      <div className="flex shrink-0 items-center justify-between border-t border-fg/10 px-4 py-2.5 text-xs text-fg/50">
         <span>{t("units.showingRange", { shown: visible.length, total: filtered.length })}</span>
         {visibleCount < filtered.length && (
           <button
             type="button"
             onClick={() => onVisibleCountChange((c) => c + UNITS_PAGE_SIZE)}
-            className="font-medium text-brand-400 hover:text-brand-300"
+            className="font-medium text-accent-strong hover:text-accent-strong"
           >
             {t("units.loadMore")}
           </button>
