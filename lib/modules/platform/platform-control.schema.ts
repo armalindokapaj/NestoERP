@@ -156,7 +156,8 @@ export const projectCreateSchema = z.object({
   code: z.preprocess((value) => (value === "" || value === null ? undefined : value), z.string().trim().min(1).max(30).optional()),
   name: z.string().trim().min(2).max(160),
   description: z.string().trim().max(2000).optional(),
-  status: z.enum(["PENDING", "ACTIVE", "FINISHED"]).default("PENDING"),
+  /** A platform admin's project is Active from creation; the status stays editable afterwards. */
+  status: z.enum(["PENDING", "ACTIVE", "FINISHED"]).default("ACTIVE"),
   reason: z.preprocess((value) => (value === "" || value === null ? undefined : value), reason.optional()),
 });
 
