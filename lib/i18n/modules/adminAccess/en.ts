@@ -321,6 +321,7 @@ export const adminAccessEn = {
     newCompany: "New company",
     addToRoster: "Add to roster",
     rosterNeedsCompany: "Add a company first. Then add the Group Owner and Group IT with “Add to roster”.",
+    assignGroupCeo: "Assign Group CEO",
     assignToProject: "Assign to project",
     editDetails: "Edit details",
     groupDetails: "Group details",

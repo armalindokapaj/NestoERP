@@ -342,6 +342,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/platform-group-users.service.ts",
+    reason:
+      "Adding, replacing or removing a Parent Group's own people (Group CEO, Group IT) writes the person, the login, the group seat, the group role in each of the group's companies with its department place, and the ending of project places, in one transaction, so a failure leaves nothing half-made and a CEO replacement never shows two CEOs. Every write names the group and is checked against it; it is a Platform Admin decision, permission-checked and audited, made without a company membership of its own (Admin PRD #8 §15, §63-§66, §72, §73).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/platform-company.service.ts",
     reason:
       "Attaching a company to a Parent Group or detaching it moves the company and its business root's rows — people, departments, placements, grants, candidates, qualifications, requests and audit history — between roots in one transaction, because the composite (id, parentGroupId) keys between them only hold once all have moved. Group-wide reach is ended in the same transaction so nobody gains access through the move (Simplified Company Creation §6, §7, §11).",

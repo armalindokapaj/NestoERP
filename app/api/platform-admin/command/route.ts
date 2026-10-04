@@ -11,6 +11,7 @@ import { deleteCompany, deleteGroup, purgeCompany, purgeGroup, restoreArchivedDo
 import { assignProjectToCompany, previewProjectAssignment } from "@/lib/modules/platform/platform-project-assignment.service";
 import { restoreProject3DExperience } from "@/lib/modules/project-3d/project-3d.lifecycle";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
+import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
   accessInspectorSchema,
@@ -218,6 +219,11 @@ export async function POST(request: Request) {
       }
       case "organization.user.add":
         return apiOk({ data: await addOrganizationUser(context, body) }, { status: 201 });
+      case "group.user.add":
+        return apiOk({ data: await addGroupUser(context, body) }, { status: 201 });
+      case "group.user.remove":
+        await removeGroupUser(context, body);
+        return apiOk({ data: { ok: true } });
       case "organization.member.role":
         await changeOrganizationMemberRole(context, body);
         return apiOk({ data: { ok: true } });

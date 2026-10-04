@@ -5,6 +5,7 @@ import { EntitlementControl } from "@/components/3d/platform/EntitlementControl"
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { EntitlementEditor } from "@/components/platform/entitlement-editor";
 import { AddCompanyToGroup } from "@/components/platform/organization-create";
+import { AddGroupUser, GroupPersonActions } from "@/components/platform/group-users";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
 import { LinkRow } from "@/components/platform/link-row";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
@@ -13,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { getCompanyEntitlements, listEntitlementPlans } from "@/lib/modules/entitlements/entitlement.service";
 import {
-  organizationCompanies, organizationMember, organizationModules, organizationProjectOptions, organizationProjects, organizationRoles, organizationUsage, organizationUsers, type OrganizationScope,
+  organizationCompanies, organizationMember, organizationModules, organizationProjectOptions, organizationProjects, organizationRoles, organizationUsage, organizationUsers, groupPeople, type OrganizationScope,
 } from "@/lib/modules/platform/platform-organization-detail.query";
 import { attachableCompanies } from "@/lib/modules/platform/platform-organizations.query";
 import { cn } from "@/lib/utils/cn";
@@ -148,14 +149,50 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminOrgs");
   if (params.member) return <MemberPanel context={context} scope={scope} org={org} membershipId={params.member} />;
-  const [{ filter, rows }, { roles }, projects, companies] = await Promise.all([organizationUsers(context, scope, params), organizationRoles(context, scope), organizationProjectOptions(context, scope), companiesOf(context, scope, org)]);
+  const [{ filter, rows: all }, { roles }, projects, companies, people] = await Promise.all([organizationUsers(context, scope, params), organizationRoles(context, scope), organizationProjectOptions(context, scope), companiesOf(context, scope, org), scope.kind === "group" ? groupPeople(context, scope.groupId) : Promise.resolve(null)]);
+  // A group's own people have their own card; this list is company staff.
+  const rows = scope.kind === "group" ? all.filter((row) => row.membershipId) : all;
   const canManage = org.open && canPlatform(context, "platform.membership.manage");
   const assignable = roleOptions(roles, tr);
   const filtered = Boolean(filter.q || filter.role || filter.project || filter.status || filter.company);
   const add = canManage && companies.length ? <AddOrganizationUser organizationName={org.name} companies={companies} roles={assignable} projects={projects} /> : null;
   const needCompany = scope.kind === "group" && org.open && companies.length === 0;
   const addCompany = needCompany ? <AddCompanyToGroup group={{ value: org.id, label: org.name }} standalone={await attachableCompanies(context)} /> : null;
-  return (
+  const groupCard = people && scope.kind === "group" ? (
+    <Card
+      title={t("groupUsers.title")}
+      description={people.ceo ? t("groupUsers.currentCeo", { name: people.ceo.name }) : t("groupUsers.description", { name: org.name })}
+      action={org.open && canManage ? (
+        <div className="flex flex-wrap gap-2">
+          <AddGroupUser groupId={org.id} groupName={org.name} hasCompany={companies.length > 0} ceoName={people.ceo?.name ?? null} ceoOnly label={people.ceo ? t("groupUsers.changeCeo") : t("groupUsers.assignCeo")} />
+          <AddGroupUser groupId={org.id} groupName={org.name} hasCompany={companies.length > 0} ceoName={people.ceo?.name ?? null} label={t("groupUsers.add")} />
+        </div>
+      ) : null}
+    >
+      {people.people.length === 0 ? (
+        <EmptyState className="m-4" title={people.ceo ? t("groupUsers.emptyTitle") : t("groupUsers.noCeo")} description={needCompany ? t("tabs.users.needCompany") : people.ceo ? t("groupUsers.emptyBody", { name: org.name }) : t("groupUsers.noCeoBody")} />
+      ) : (
+        <div className="overflow-x-auto">
+          <Table stack aria-label={t("groupUsers.title")}>
+            <TableHead><TableRow><TableHeaderCell>{t("groupUsers.person")}</TableHeaderCell><TableHeaderCell>{t("groupUsers.groupRole")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("groupUsers.companies")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("groupUsers.projects")}</TableHeaderCell><TableHeaderCell>{t("groupUsers.status")}</TableHeaderCell><TableHeaderCell><span className="sr-only">{t("common.actions")}</span></TableHeaderCell></TableRow></TableHead>
+            <TableBody>
+              {people.people.map((person) => (
+                <TableRow key={person.userId} data-testid="group-person">
+                  <TableCell><span className="font-medium text-fg">{person.name}</span><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
+                  <TableCell>{person.roleKey ? t(`groupUsers.role${person.roleKey}`) : t("groupUsers.seatOnly")}</TableCell>
+                  <TableCell className="tabular-nums max-sm:hidden">{person.companies}</TableCell>
+                  <TableCell className="tabular-nums max-sm:hidden">{person.projects}</TableCell>
+                  <TableCell><AdminStatusBadge status={person.account !== "ACTIVE" ? person.account : person.seat} /></TableCell>
+                  <TableCell className="text-right">{canManage ? <GroupPersonActions groupId={org.id} groupName={org.name} person={{ userId: person.userId, name: person.name, roleKey: person.roleKey, seatActive: person.seat === "ACTIVE" }} ceoName={people.ceo?.name ?? null} /> : null}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Card>
+  ) : null;
+  const list = (
     <Card title={t("common.users")} description={t("tabs.users.description", { name: org.name })} action={add ?? addCompany}>
       {scope.kind === "group" ? <p className="border-b border-line px-5 py-3 text-table text-fg-muted" data-testid="group-level-hint">{t("tabs.users.groupLevelHint")}</p> : null}
       <form method="get" action={`/admin/organizations/${org.id}`} className="flex flex-wrap items-end gap-2 border-b border-line px-5 py-3" aria-label={t("tabs.users.filterLabel")}>
@@ -200,6 +237,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       )}
     </Card>
   );
+  return groupCard ? <div className="space-y-6">{groupCard}{list}</div> : list;
 }
 
 /** One user as this organization sees them (§23, §24); the platform account is one explicit link away. */

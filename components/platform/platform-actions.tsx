@@ -5,6 +5,7 @@ import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";
+import Link from "@/components/navigation/nav-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -45,6 +46,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
       {actions.canActivate ? <Button size="sm" onClick={() => setOpen("activate")}>{t("implementation.activateGroup")}</Button> : null}
       {actions.canMarkReady ? <Button size="sm" variant="secondary" onClick={() => setOpen("ready")}>{t("implementation.sendForValidation")}</Button> : null}
       {actions.canAddCompany ? <Button size="sm" variant="secondary" onClick={() => setOpen("company")}>{t("implementation.newCompany")}</Button> : null}
+      {implementation.checklist.some((item) => item.key === "owner" && !item.done) ? <Link href={`/admin/organizations/${implementation.group.id}?tab=users`} className="inline-flex h-8 items-center rounded-lg border border-line px-3 text-table font-medium text-fg hover:bg-hover" data-testid="assign-group-ceo-link">{t("implementation.assignGroupCeo")}</Link> : null}
       {actions.canProvision && companies.length > 0 ? <Button size="sm" variant="secondary" onClick={() => setOpen("person")}>{t("implementation.addToRoster")}</Button> : null}
       {actions.canProvision && companies.length === 0 ? <span className="max-w-xs text-meta text-fg-subtle" data-testid="roster-needs-company">{t("implementation.rosterNeedsCompany")}</span> : null}
       {actions.canProvision && projects.length > 0 && people.length > 0 ? <Button size="sm" variant="ghost" onClick={() => setOpen("project")}>{t("implementation.assignToProject")}</Button> : null}
