@@ -552,6 +552,17 @@ export const adminPlatformSq: typeof adminPlatformEn = {
       releases: "Botimet",
     },
     ingestion: {
+      multi: {
+        hint: "Zgjidh një ose disa skedarë GLB, deri në {limit} secili. Secili skedar bëhet një model më vete dhe ngarkohen një nga një.",
+        uploadN: "Ngarko {count} skedarë GLB",
+        removeFile: "Hiq {name} nga lista",
+        clearAll: "Pastro listën",
+        states: { queued: "Në pritje", sending: "Po ngarkohet {percent}%", verifying: "Po verifikohet…", done: "U ngarkua, po përgatitet", failed: "Dështoi", rejected: "Nuk pranohet" },
+        progressTitle: "Po ngarkohet skedari {current} nga {total}",
+        allDone: "{count} modele u ngarkuan.",
+        someFailed: "{done} u ngarkuan, {failed} kërkojnë vëmendje. Provoji përsëri më poshtë.",
+        retryFailed: "Provo skedarët e dështuar",
+      },
       roles: {
         BUILDING: "Ndërtesa",
         UNITS: "Njësitë (blloqe Unit_<code>)",
