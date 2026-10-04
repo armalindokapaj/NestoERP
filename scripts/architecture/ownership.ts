@@ -355,6 +355,12 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/company-leadership.service.ts",
+    reason:
+      "Naming, replacing or removing a company's CEO writes the person and login of a new CEO, the company membership with its CEO role and department place, the outgoing CEO's membership and project places, and the company's CEO pointer in one transaction, under a row lock on the company, so a failure leaves nothing half-made and two administrators can never leave two CEOs. Every write names the company and is checked against the actor's authority over it, and is audited (Admin PRD #12 §41, §88-§91).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/group-company-access.service.ts",
     reason:
       "A seat's company access policy (PRD #10) is carried out as the company memberships it owns, flagged groupDerived: created, role-updated and ended in one transaction with the policy change, and with the company's own lifecycle. Direct memberships are never written here.",

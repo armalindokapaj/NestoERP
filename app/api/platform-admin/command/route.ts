@@ -16,6 +16,7 @@ import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactiv
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
 import { platformActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
+import { assignCompanyCeo, getCompanyLeadership, previewCeoCandidate, removeCompanyCeo, replaceCompanyCeo, searchCeoCandidates } from "@/lib/modules/platform/company-leadership.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
   accessInspectorSchema,
@@ -249,6 +250,19 @@ export async function POST(request: Request) {
         return apiOk({ data: await groupCompanyChoices(platformActor(context), body) });
       case "group.access.update":
         return apiOk({ data: await updateGroupUserAccess(platformActor(context), body) });
+      case "company.ceo.get":
+        return apiOk({ data: await getCompanyLeadership(platformActor(context), body) });
+      case "company.ceo.candidates":
+        return apiOk({ data: await searchCeoCandidates(platformActor(context), body) });
+      case "company.ceo.candidate":
+        return apiOk({ data: await previewCeoCandidate(platformActor(context), body) });
+      case "company.ceo.assign":
+        return apiOk({ data: await assignCompanyCeo(platformActor(context), body) }, { status: 201 });
+      case "company.ceo.replace":
+        return apiOk({ data: await replaceCompanyCeo(platformActor(context), body) });
+      case "company.ceo.remove":
+        await removeCompanyCeo(platformActor(context), body);
+        return apiOk({ data: { ok: true } });
       case "organization.member.role":
         await changeOrganizationMemberRole(context, body);
         return apiOk({ data: { ok: true } });

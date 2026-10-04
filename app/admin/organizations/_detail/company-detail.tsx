@@ -1,6 +1,10 @@
 import Link from "@/components/navigation/nav-link";
 import { CheckCircle2, Circle } from "lucide-react";
 
+import { requirePlatformContext } from "@/lib/context/platform-context";
+import { CompanyLeadershipCard } from "@/components/platform/company-leadership";
+import { getCompanyLeadership } from "@/lib/modules/platform/company-leadership.service";
+import { platformActor } from "@/lib/modules/platform/group-actor";
 import { PlatformCommandButton, PlatformCommandMenu } from "@/components/platform/platform-command";
 import { RECOVERY_RETENTION_DAYS } from "@/lib/modules/platform/recovery-constants";
 import { deleteItem, purgeItem, restoreItem } from "./recovery-actions";
@@ -106,6 +110,23 @@ const SETUP = {
   group: "company.overview.setup.group", users: "company.overview.setup.users", projects: "company.overview.setup.projects", modules: "company.overview.setup.modules",
 } as const;
 
+/** The company's CEO: loaded for this actor; a failed load says so rather than showing "Not assigned" (PRD #12 §130). */
+export async function CompanyLeadershipSection({ companyId }: { companyId: string }) {
+  const t = await getTranslations("adminOrgs");
+  const context = await requirePlatformContext();
+  try {
+    return <CompanyLeadershipCard leadership={await getCompanyLeadership(platformActor(context), { companyId })} />;
+  } catch {
+    return (
+      <section className="nesto-card p-5" aria-labelledby="company-leadership">
+        <h2 id="company-leadership" className="text-card font-semibold text-fg">{t("leadership.title")}</h2>
+        <p role="alert" className="mt-2 text-table text-danger">{t("leadership.loadFailed")}</p>
+        <Link href={`/admin/organizations/${companyId}`} className="text-table font-medium text-accent-strong hover:underline">{t("leadership.retry")}</Link>
+      </section>
+    );
+  }
+}
+
 export async function CompanyOverview({ overview }: Props) {
   const t = await getTranslations("adminOrgs");
   const { company, counts, setup } = overview;
@@ -114,6 +135,7 @@ export async function CompanyOverview({ overview }: Props) {
   return (
     <div className="space-y-5">
       <DetachBlocked overview={overview} />
+      <CompanyLeadershipSection companyId={company.id} />
       <section className="nesto-card p-5" aria-labelledby="company-counts">
         <h2 id="company-counts" className="text-card font-semibold text-fg">{t("company.overview.glance")}</h2>
         <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">

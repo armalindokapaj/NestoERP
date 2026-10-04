@@ -6,6 +6,7 @@ import { groupActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUserAs, removeGroupUserAs } from "@/lib/modules/platform/platform-group-users.service";
 import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactivateGroupAccess, removeDirectCompanyAccess, suspendGroupAccess } from "@/lib/modules/platform/group-user-detail.service";
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
+import { assignCompanyCeo, getCompanyLeadership, previewCeoCandidate, removeCompanyCeo, replaceCompanyCeo, searchCeoCandidates } from "@/lib/modules/platform/company-leadership.service";
 import { createGroupCompanyAs } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema } from "@/lib/modules/platform/platform.schema";
 
@@ -50,6 +51,19 @@ export async function POST(request: Request) {
         const input = createGroupCompanySchema.parse(body);
         return apiOk({ data: await createGroupCompanyAs(actor, context.groupId, input) }, { status: 201 });
       }
+      case "company.ceo.get":
+        return apiOk({ data: await getCompanyLeadership(actor, body) });
+      case "company.ceo.candidates":
+        return apiOk({ data: await searchCeoCandidates(actor, body) });
+      case "company.ceo.candidate":
+        return apiOk({ data: await previewCeoCandidate(actor, body) });
+      case "company.ceo.assign":
+        return apiOk({ data: await assignCompanyCeo(actor, body) }, { status: 201 });
+      case "company.ceo.replace":
+        return apiOk({ data: await replaceCompanyCeo(actor, body) });
+      case "company.ceo.remove":
+        await removeCompanyCeo(actor, body);
+        return apiOk({ data: { ok: true } });
       default:
         throw new AccessError("VALIDATION_ERROR", "Unknown action.");
     }

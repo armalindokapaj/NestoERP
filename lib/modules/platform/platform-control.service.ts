@@ -11,6 +11,7 @@ import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem, USERNAME_MESSAGES } from "@/lib/auth/username";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
+import { assertNotCompanyCeo } from "@/lib/modules/platform/company-leadership.service";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordGlobalPlatformAction, recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
@@ -242,6 +243,7 @@ export async function sendUserPasswordReset(context: PlatformContext, userId: st
 export async function createMembership(context: PlatformContext, input: { userId: string; companyId: string; roleKey: string; status: MembershipStatus; jobTitle?: string; reason: string }) {
   assertPlatform(context, "platform.membership.manage");
   if (!isMembershipRoleKey(input.roleKey)) throw new AccessError("VALIDATION_ERROR", "Choose a tenant role.");
+  if (input.roleKey === "CEO") throw new AccessError("VALIDATION_ERROR", "The company CEO is named with Assign CEO on the company, not from the role list.", { code: "USE_CEO_FLOW" });
   const [companyResult, userResult, roleResult] = await Promise.all([
     prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true } }),
     prisma.user.findUnique({ where: { id: input.userId }, select: { id: true, firstName: true, lastName: true, platformAccess: { select: { status: true } }, personProfile: { select: { parentGroupId: true } } } }),
@@ -268,6 +270,10 @@ export async function updateMembership(context: PlatformContext, membershipId: s
   let roleId = member.role.id;
   if (input.roleKey) {
     if (!isMembershipRoleKey(input.roleKey)) throw new AccessError("VALIDATION_ERROR", "Choose a tenant role.");
+    if (input.roleKey !== member.role.key) {
+      if (input.roleKey === "CEO") throw new AccessError("VALIDATION_ERROR", "The company CEO is named with Assign CEO on the company, not from the role list.", { code: "USE_CEO_FLOW" });
+      await assertNotCompanyCeo(prisma, member.id);
+    }
     roleId = assertFound(await prisma.role.findUnique({ where: { key: input.roleKey }, select: { id: true } })).id;
   }
   const status = input.status ?? member.status;

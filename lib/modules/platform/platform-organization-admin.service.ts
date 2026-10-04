@@ -11,6 +11,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
+import { assertNotCompanyCeo } from "@/lib/modules/platform/company-leadership.service";
 import { departmentKeyFor, memberPlace } from "@/lib/modules/platform/platform-implementation.service";
 import { GROUP_LEVEL_ROLES } from "./platform.schema";
 
@@ -28,7 +29,8 @@ import { GROUP_LEVEL_ROLES } from "./platform.schema";
 const id = z.string().trim().min(1).max(128);
 const reason = z.string().trim().max(500).optional().transform((value) => value || "Organization administration");
 /** Group-wide seats are placed across every company, not from one company's Users tab. */
-const COMPANY_ROLE_KEYS = MEMBERSHIP_ROLE_KEYS.filter((key) => !(GROUP_LEVEL_ROLES as readonly string[]).includes(key));
+/** The CEO is named through Assign / Change CEO, never picked from a role list (Admin PRD #12 §81, §87). */
+const COMPANY_ROLE_KEYS = MEMBERSHIP_ROLE_KEYS.filter((key) => key !== "CEO" && !(GROUP_LEVEL_ROLES as readonly string[]).includes(key));
 const roleKey = z.enum(COMPANY_ROLE_KEYS as [string, ...string[]], { message: "Choose a role." });
 
 export const organizationUserAddSchema = z.discriminatedUnion("mode", [
@@ -158,6 +160,7 @@ export async function changeOrganizationMemberRole(context: PlatformContext, raw
   const company = await openCompany(input.companyId);
   const member = await memberOf(company.id, input.membershipId);
   if (member.role.key === input.roleKey) return;
+  await assertNotCompanyCeo(prisma, member.id);
   if (!isMembershipRoleKey(input.roleKey)) throw new AccessError("VALIDATION_ERROR", "Choose a role.");
   const role = assertFound(await prisma.role.findUnique({ where: { key: input.roleKey }, select: { id: true } }));
   await prisma.$transaction(async (tx) => {
@@ -195,6 +198,7 @@ export async function removeOrganizationMember(context: PlatformContext, raw: un
   const company = assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true } }));
   const member = await memberOf(company.id, input.membershipId);
   if (member.status === "INACTIVE") return;
+  await assertNotCompanyCeo(prisma, member.id);
   await prisma.$transaction(async (tx) => {
     const ended = await tx.projectMember.updateMany({ where: { companyMemberId: member.id, companyId: company.id, status: "ACTIVE" }, data: { status: "INACTIVE", leftAt: new Date() } });
     await tx.companyMember.updateMany({ where: { id: member.id, companyId: company.id, status: member.status }, data: { status: "INACTIVE", deactivatedAt: new Date(), deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
