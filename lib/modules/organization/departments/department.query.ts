@@ -206,7 +206,7 @@ async function capabilitiesFor(reader: Reader, department: { id: string; status:
   if (!reader.context) {
     const actor = reader.actor as Extract<DepartmentActor, { kind: "platform" }>;
     const group = await prisma.parentGroup.findFirst({ where: { id: actor.parentGroupId }, select: { status: true } });
-    const implementing = group?.status === "IMPLEMENTING" || group?.status === "READY_FOR_VALIDATION";
+    const implementing = group?.status === "IMPLEMENTING" || group?.status === "READY_FOR_VALIDATION" || group?.status === "ACTIVE";
     const people = implementing && canPlatform(actor.context, "platform.user.initial_provision");
     return {
       canConfigure: implementing && canPlatform(actor.context, "platform.group.configure"),
@@ -593,7 +593,7 @@ export async function getCompanyDepartments(actor: DepartmentActor, companyId: s
   } else {
     const actorPlatform = actor as Extract<DepartmentActor, { kind: "platform" }>;
     const group = await prisma.parentGroup.findFirst({ where: { id: actorPlatform.parentGroupId }, select: { status: true } });
-    implementing = group?.status === "IMPLEMENTING" || group?.status === "READY_FOR_VALIDATION";
+    implementing = group?.status === "IMPLEMENTING" || group?.status === "READY_FOR_VALIDATION" || group?.status === "ACTIVE";
     configuresHere = implementing && canPlatform(actorPlatform.context, "platform.group.configure");
   }
 

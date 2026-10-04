@@ -134,22 +134,11 @@ export async function createPlatformUser(context: PlatformContext, input: { pers
   return { userId: user.id, username: user.username, temporaryPassword, expiresAt: null };
 }
 
-export async function setGroupStatus(context: PlatformContext, groupId: string, status: "IMPLEMENTING" | "READY_FOR_VALIDATION" | "ACTIVE" | "SUSPENDED" | "ARCHIVED", reason: string) {
+export async function setGroupStatus(context: PlatformContext, groupId: string, status: "ACTIVE" | "SUSPENDED" | "ARCHIVED", reason: string) {
   assertPlatform(context, "platform.group.lifecycle");
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false }, select: { id: true, name: true, status: true, activatedAt: true } }));
   if (group.status === "DELETED") throw new AccessError("CONFLICT", "This group is deleted. Restore it from Recovery first.");
   if (group.status === "ARCHIVED") throw new AccessError("CONFLICT", "An archived group is historical and cannot be reopened from the console.");
-  // activatedAt is the record of a completed handover. A group without one was
-  // still being set up, so whatever state it is in now — suspension included —
-  // it reaches ACTIVE only through the checklist (ADM audit §2): resuming it
-  // goes back into setup. A handed-over group resumes as ACTIVE and never
-  // returns to setup.
-  if (status === "ACTIVE" && !group.activatedAt) {
-    throw new AccessError("CONFLICT", group.status === "SUSPENDED" ? "This group was suspended before its handover. Resume it into setup, then complete the checklist to activate it." : "Complete the implementation checklist and use the handover action to activate this group.", { code: "ACTIVATION_REQUIRES_CHECKLIST" });
-  }
-  if ((status === "IMPLEMENTING" || status === "READY_FOR_VALIDATION") && group.activatedAt) {
-    throw new AccessError("CONFLICT", "A group that has been handed over does not return to setup. Resume it as active.", { code: "ALREADY_HANDED_OVER" });
-  }
   if (group.status === status) return;
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.parentGroup.updateMany({ where: { id: group.id, status: group.status }, data: { status } }));

@@ -41,7 +41,7 @@ export function actorUserId(actor: DepartmentActor): string {
   return actor.context.userId;
 }
 
-const IMPLEMENTING: ParentGroupStatus[] = ["IMPLEMENTING", "READY_FOR_VALIDATION"];
+const IMPLEMENTING: ParentGroupStatus[] = ["IMPLEMENTING", "READY_FOR_VALIDATION", "ACTIVE"];
 
 /** The platform's department tools close when the group goes live (E-13 §94; E-06 §138). */
 async function assertPlatform(actor: Extract<DepartmentActor, { kind: "platform" }>, permission: PlatformPermission): Promise<void> {

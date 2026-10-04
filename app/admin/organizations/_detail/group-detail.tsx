@@ -20,8 +20,7 @@ type Props = { implementation: Awaited<ReturnType<typeof getGroupImplementation>
 export async function GroupHeaderActions({ implementation }: Props) {
   const t = await getTranslations("adminOrgs");
   const { group } = implementation;
-  // A group suspended before its handover resumes into setup; only the checklist activates it (ADM audit §2).
-  const resumeTo = group.activatedAt ? "ACTIVE" : "IMPLEMENTING";
+  const resumeTo = "ACTIVE";
   if (group.status === "DELETED") {
     return <PlatformCommandMenu label={t("group.actionsLabel", { name: group.name })} items={[restoreItem({ kind: "group", id: group.id, name: group.name }, t), purgeItem({ kind: "group", id: group.id, name: group.name }, t)]} />;
   }

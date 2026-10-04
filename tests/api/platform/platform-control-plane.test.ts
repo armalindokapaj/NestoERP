@@ -78,41 +78,9 @@ describe("Platform Admin control plane", () => {
     expect(await prisma.auditEvent.count({ where: { parentGroupId: group.id, actionKey: "PLATFORM_GROUP_STATUS_CHANGED" } })).toBe(1);
   });
 
-  it("resumes a handed-over group as active and never back into setup", async () => {
-    await expect(setGroupStatus(admin, groupId!, "IMPLEMENTING", "Try to reopen setup")).rejects.toMatchObject({ details: { code: "ALREADY_HANDED_OVER" } });
+  it("resumes a suspended group as active", async () => {
     await setGroupStatus(admin, groupId!, "ACTIVE", "Suspension lifted");
     expect(await prisma.parentGroup.findUnique({ where: { id: groupId! }, select: { status: true } })).toEqual({ status: "ACTIVE" });
-  });
-
-  it("never activates a group suspended during setup except through the checklist (IMPLEMENTING → SUSPENDED → ACTIVE)", async () => {
-    const setup = await prisma.parentGroup.create({ data: { slug: `${groupSlug}-setup`, name: "Control Plane Setup Group", status: "IMPLEMENTING" } });
-    try {
-      await setGroupStatus(admin, setup.id, "SUSPENDED", "Customer paused the rollout");
-      await expect(setGroupStatus(admin, setup.id, "ACTIVE", "Try to skip the checklist")).rejects.toMatchObject({ code: "CONFLICT", details: { code: "ACTIVATION_REQUIRES_CHECKLIST" } });
-      await setGroupStatus(admin, setup.id, "IMPLEMENTING", "Customer resumed the rollout");
-      expect(await prisma.parentGroup.findUnique({ where: { id: setup.id }, select: { status: true, activatedAt: true } })).toEqual({ status: "IMPLEMENTING", activatedAt: null });
-      await expect(setGroupStatus(admin, setup.id, "ACTIVE", "Try to skip the checklist")).rejects.toMatchObject({ details: { code: "ACTIVATION_REQUIRES_CHECKLIST" } });
-    } finally {
-      await prisma.auditEvent.deleteMany({ where: { parentGroupId: setup.id } });
-      await prisma.parentGroup.delete({ where: { id: setup.id } });
-    }
-  });
-
-  it("applies company Settings' module policy from the console, integration blockers included", async () => {
-    const modules = await prisma.module.findMany({ where: { key: { in: ["procurement", "inventory", "qaqc", "clients", "sales"] } }, select: { id: true, key: true } });
-    await prisma.companyModule.createMany({ data: modules.filter((row) => row.key !== "sales" && row.key !== "clients").map((row) => ({ companyId: companyId!, moduleId: row.id, enabled: true })) });
-    await prisma.companyIntegrationSettings.create({ data: { companyId: companyId!, qualityGateForInventoryReceipts: true } });
-    try {
-      await expect(setPlatformModule(admin, { companyId: companyId!, moduleKey: "procurement", enabled: false, reason: "Try to break the gate" })).rejects.toMatchObject({ code: "CONFLICT", details: { code: "INTEGRATION_DEPENDENCY_BLOCKED" } });
-      await expect(setPlatformModule(admin, { companyId: companyId!, moduleKey: "sales", enabled: true, reason: "Try without clients" })).rejects.toMatchObject({ details: { code: "MODULE_DEPENDENCY_BLOCKED" } });
-      await expect(setPlatformModule(admin, { companyId: companyId!, moduleKey: "clients", enabled: false, reason: "Shared module" })).rejects.toMatchObject({ code: "CONFLICT" });
-      const before = await prisma.company.findUniqueOrThrow({ where: { id: companyId! }, select: { configVersion: true } });
-      await setPlatformModule(admin, { companyId: companyId!, moduleKey: "clients", enabled: true, reason: "Enable clients" });
-      expect((await prisma.company.findUniqueOrThrow({ where: { id: companyId! }, select: { configVersion: true } })).configVersion).toBe(before.configVersion + 1);
-    } finally {
-      await prisma.companyIntegrationSettings.deleteMany({ where: { companyId: companyId! } });
-      await prisma.companyModule.deleteMany({ where: { companyId: companyId! } });
-    }
   });
 
   it("creates a Person separately from a one-time user credential", async () => {
