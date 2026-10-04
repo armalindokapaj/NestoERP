@@ -186,6 +186,8 @@ export async function removeGroupUserAs(context: GroupActor, raw: unknown): Prom
   const group = await openGroup(input.groupId);
   const seat = assertFound(await prisma.parentGroupMember.findUnique({ where: { parentGroupId_userId: { parentGroupId: group.id, userId: input.userId } }, select: { id: true, status: true, role: { select: { key: true } }, user: { select: { firstName: true, lastName: true } } } }));
   if (seat.status !== "ACTIVE") return;
+  // Never a lockout by accident (PRD #11 §50): another administrator removes you.
+  if (context.userId === input.userId) throw new AccessError("CONFLICT", "You cannot remove your own group access. Ask another administrator.", { code: "SELF_REMOVAL" });
   // Removing the Group CEO's seat is the CEO's own call to make, not IT's.
   if (seat.role?.key === "OWNER") assertGroupCan(context, "ceo.manage", group.id);
 

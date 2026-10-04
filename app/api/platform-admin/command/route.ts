@@ -12,6 +12,7 @@ import { assignProjectToCompany, previewProjectAssignment } from "@/lib/modules/
 import { restoreProject3DExperience } from "@/lib/modules/project-3d/project-3d.lifecycle";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import { deletePlatformUser } from "@/lib/modules/platform/platform-user-delete.service";
+import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactivateGroupAccess, removeDirectCompanyAccess, suspendGroupAccess } from "@/lib/modules/platform/group-user-detail.service";
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
 import { platformActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
@@ -230,6 +231,18 @@ export async function POST(request: Request) {
       case "group.user.remove":
         await removeGroupUser(context, body);
         return apiOk({ data: { ok: true } });
+      case "group.user.detail":
+        return apiOk({ data: await getGroupUserDetail(platformActor(context), body) });
+      case "group.user.activity":
+        return apiOk({ data: await groupUserActivity(platformActor(context), body) });
+      case "group.user.suspend":
+        return apiOk({ data: await suspendGroupAccess(platformActor(context), body) });
+      case "group.user.reactivate":
+        return apiOk({ data: await reactivateGroupAccess(platformActor(context), body) });
+      case "group.user.removePreview":
+        return apiOk({ data: await previewGroupUserRemoval(platformActor(context), body) });
+      case "group.user.removeDirect":
+        return apiOk({ data: await removeDirectCompanyAccess(platformActor(context), body) });
       case "group.access.get":
         return apiOk({ data: await getGroupUserAccess(platformActor(context), body) });
       case "group.access.companies":

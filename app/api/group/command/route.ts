@@ -4,6 +4,7 @@ import { AccessError } from "@/lib/access/guards";
 import { apiOk, readJson, withGroupContext } from "@/lib/api/respond";
 import { groupActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUserAs, removeGroupUserAs } from "@/lib/modules/platform/platform-group-users.service";
+import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactivateGroupAccess, removeDirectCompanyAccess, suspendGroupAccess } from "@/lib/modules/platform/group-user-detail.service";
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
 import { createGroupCompanyAs } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema } from "@/lib/modules/platform/platform.schema";
@@ -27,6 +28,18 @@ export async function POST(request: Request) {
       case "group.user.remove":
         await removeGroupUserAs(actor, body);
         return apiOk({ data: { ok: true } });
+      case "group.user.detail":
+        return apiOk({ data: await getGroupUserDetail(actor, body) });
+      case "group.user.activity":
+        return apiOk({ data: await groupUserActivity(actor, body) });
+      case "group.user.suspend":
+        return apiOk({ data: await suspendGroupAccess(actor, body) });
+      case "group.user.reactivate":
+        return apiOk({ data: await reactivateGroupAccess(actor, body) });
+      case "group.user.removePreview":
+        return apiOk({ data: await previewGroupUserRemoval(actor, body) });
+      case "group.user.removeDirect":
+        return apiOk({ data: await removeDirectCompanyAccess(actor, body) });
       case "group.access.get":
         return apiOk({ data: await getGroupUserAccess(actor, body) });
       case "group.access.companies":

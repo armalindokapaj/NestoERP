@@ -8,6 +8,7 @@ import { engineeringApi, failureMessage, isFailure } from "@/components/engineer
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { CompanyAccessPicker, EditCompanyAccessDialog, NO_COMPANY_ACCESS, type CompanyAccessValue } from "@/components/platform/group-company-access";
+import { useGroupUserNav } from "@/components/platform/group-user-drawer";
 import { EditPersonDialog } from "@/components/platform/platform-people-actions";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -183,6 +184,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
   const t = useTranslations("adminOrgs");
   const router = useRouter();
   const toast = useToast();
+  const nav = useGroupUserNav();
   const [dialog, setDialog] = React.useState<"ceo" | "remove" | "delete" | null>(null);
   const [editing, setEditing] = React.useState(false);
   const [editingAccess, setEditingAccess] = React.useState(false);
@@ -215,6 +217,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
           <Button type="button" size="sm" variant="ghost" aria-label={t("users.member.actionsFor", { name: person.name })} data-testid="group-person-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => nav.open(person.userId)}>{t("groupUser.viewDetails")}</DropdownMenuItem>
           {platform && person.profile ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("groupUsers.editPerson")}</DropdownMenuItem> : null}
           {person.seatActive && person.roleKey && (canAppointCeo || !isCeo) ? <DropdownMenuItem onSelect={() => setEditingAccess(true)}>{t("groupUsers.editAccess")}</DropdownMenuItem> : null}
           {canAppointCeo && person.seatActive && person.roleKey && !isCeo ? <DropdownMenuItem onSelect={() => { setError(null); setDialog("ceo"); }}>{t("groupUsers.makeCeo")}</DropdownMenuItem> : null}

@@ -5,6 +5,7 @@ import { EntitlementControl } from "@/components/3d/platform/EntitlementControl"
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { EntitlementEditor } from "@/components/platform/entitlement-editor";
 import { AddCompanyToGroup } from "@/components/platform/organization-create";
+import { GroupUserDrawer, GroupUserOpener } from "@/components/platform/group-user-drawer";
 import { AddGroupUser, GroupPersonActions } from "@/components/platform/group-users";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
 import { LinkRow } from "@/components/platform/link-row";
@@ -178,7 +179,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
             <TableBody>
               {people.people.map((person) => (
                 <TableRow key={person.userId} data-testid="group-person">
-                  <TableCell><span className="font-medium text-fg">{person.name}</span><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
+                  <TableCell><GroupUserOpener userId={person.userId} name={person.name} /><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
                   <TableCell>{person.roleKey ? t(`groupUsers.role${person.roleKey}`) : t("groupUsers.seatOnly")}</TableCell>
                   <TableCell className="max-sm:hidden">{person.companyAccessMode === "ALL" ? t("groupUsers.accessSummaryAll") : person.companyAccessMode === "SELECTED" ? (person.selectedCompanies === 1 ? t("groupUsers.accessSummaryOne") : t("groupUsers.accessSummaryCount", { count: person.selectedCompanies })) : t("groupUsers.accessSummaryNone")}{person.roleKey === "OWNER" ? <span className="block text-meta text-fg-subtle">{t("groupUsers.accessGroupWide")}</span> : null}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{person.projects}</TableCell>
@@ -190,6 +191,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
           </Table>
         </div>
       )}
+      <GroupUserDrawer groupId={org.id} groupName={org.name} api={{ command: "/api/platform-admin/command" }} />
     </Card>
   ) : null;
   const list = (
