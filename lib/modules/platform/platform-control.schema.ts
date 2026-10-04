@@ -34,6 +34,9 @@ export const groupBrandingSchema = z.object({
   reason,
 });
 
+/** The company's own mark alone: the full company edit would rewrite every other field. */
+export const companyBrandingSchema = groupBrandingSchema;
+
 export const companyUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   logoUrl: logoSource.optional(),

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 
 import { ProjectViewerPage } from "@/components/3d/viewer/ProjectViewerPage";
+import { getViewerBrand } from "@/lib/modules/project-3d/project-3d.viewer-brand";
 import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { loadProject } from "@/app/(nesto)/projects/[projectId]/project-context";
 import { requireProjectPortfolio } from "@/app/(nesto)/projects/portfolio-access";
@@ -33,5 +34,5 @@ export default async function ProjectThreeDPage({ params }: Params) {
   const { context, project } = await loadProject(projectId);
   if (!await hasActiveProject3DViewer(context, project.id)) notFound();
 
-  return <ProjectViewerPage projectId={project.id} projectName={project.name} />;
+  return <ProjectViewerPage projectId={project.id} projectName={project.name} brand={await getViewerBrand(project.id)} />;
 }

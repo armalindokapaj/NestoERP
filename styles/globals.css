@@ -696,6 +696,12 @@ html[data-nesto-covered] body {
   visibility: hidden;
 }
 
+/* The 3D Experience Editor is dark whatever the reader's theme. The tokens settle
+   light or dark at the root, so the scheme is set there while the editor is mounted. */
+html:has([data-experience-editor]) {
+  color-scheme: dark;
+}
+
 /* The session ended or changed hands while a draft was open (AUD-03 §7):
    nothing of it stays readable behind the notice. */
 html[data-unsaved-masked] #nesto-main,

@@ -1,5 +1,6 @@
 "use client";
 
+import { ViewerLoadingMark } from "@/components/3d/viewer/shared/ViewerLoadingMark";
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { gsap } from "gsap";
 import { useIsDesktop } from "@/components/3d/viewer/hooks/useMediaQuery";
@@ -19,6 +20,7 @@ import type { CameraPreset, Unit } from "@/lib/3d/viewer/types";
 import type { MoreMenuProjectInfo } from "./MoreMenu";
 
 export function ViewerHUD({
+  brand,
   viewerRef,
   sceneReady,
   activeModule,
@@ -54,6 +56,8 @@ export function ViewerHUD({
 }: {
   viewerRef: React.RefObject<ThreeProjectViewerHandle | null>;
   sceneReady: boolean;
+  /** The owner's mark for the loading overlay. */
+  brand?: { name: string; logoUrl: string | null };
   activeModule: ActiveModule;
   onActiveModuleChange: (module: ActiveModule) => void;
   chromeDimmed: boolean;
@@ -149,8 +153,7 @@ export function ViewerHUD({
           (sceneReady ? "pointer-events-none" : "pointer-events-auto")
         }
       >
-        <span className="font-serif text-lg tracking-[0.3em] text-fg">NESTO</span>
-        <div className="viewer-loading-bar h-[2px] w-32 rounded-full" />
+        <ViewerLoadingMark name={brand?.name ?? project.developerName} logoUrl={brand?.logoUrl ?? null} />
       </div>
 
       <header

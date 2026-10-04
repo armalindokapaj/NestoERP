@@ -1,4 +1,5 @@
 import type { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
+import { LogoUpload } from "@/components/platform/logo-upload";
 import { getTranslations } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/utils/format";
 
@@ -27,6 +28,7 @@ export async function GroupSettings({ implementation }: Props) {
       <section className="nesto-card p-5" aria-labelledby="group-branding">
         <h2 id="group-branding" className="text-card font-semibold text-fg">{t("group.settings.branding")}</h2>
         <p className="mt-2 text-table text-fg-muted">{group.logoUrl ? t("group.settings.logoSet") : t("group.settings.logoNone")}</p>
+        {group.status !== "ARCHIVED" ? <LogoUpload kind="group" id={group.id} name={group.name} logoUrl={group.logoUrl} /> : null}
       </section>
     </div>
   );
