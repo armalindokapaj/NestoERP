@@ -1,7 +1,7 @@
 import { assignedCompanyId } from "@/lib/access/project-ownership";
-import type { ParentGroupStatus, Prisma } from "@prisma/client";
+import type { ParentGroupStatus } from "@prisma/client";
 
-import { GROUP_DEPARTMENTS, groupDepartmentRows } from "@/config/group-departments";
+import { groupDepartmentRows } from "@/config/group-departments";
 import { isMembershipRoleKey, roleLabel, type RoleKey } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
 import { createProvisionedUser } from "@/lib/auth/identity";
@@ -15,6 +15,7 @@ import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { bootstrapCompany } from "@/lib/modules/company/company-bootstrap.service";
+import { reconcileCompanyForSeats } from "@/lib/modules/platform/group-company-access.service";
 import { freeSlug } from "@/lib/modules/platform/platform-company.service";
 import {
   GROUP_LEVEL_ROLES,
@@ -58,21 +59,8 @@ async function groupOrNotFound(groupId: string) {
   );
 }
 
-/** A member's place in the branch they are placed in (E-13 §24-§29, ADR 0003). */
-export async function memberPlace(
-  tx: Prisma.TransactionClient,
-  input: { parentGroupId: string; userId: string; companyId: string; branch: { id: string; groupDepartmentId: string | null }; roleKey: string; actorUserId: string },
-): Promise<void> {
-  if (!input.branch.groupDepartmentId) return;
-  await tx.departmentAssignment.create({
-    data: { parentGroupId: input.parentGroupId, userId: input.userId, groupDepartmentId: input.branch.groupDepartmentId, companyId: input.companyId, companyDepartmentId: input.branch.id, functionalRoleKey: input.roleKey, positionLevel: "MEMBER", accessLevel: "CONTRIBUTE", status: "ACTIVE", startsAt: new Date(), createdByUserId: input.actorUserId },
-  });
-}
-
-/** The department a role works in (§47): Owner and CEO in Executive, Finance in Finance. */
-export function departmentKeyFor(role: string): string {
-  return GROUP_DEPARTMENTS.find((department) => (department.roles as readonly string[]).includes(role))?.key ?? "executive";
-}
+export { departmentKeyFor, memberPlace } from "./group-placement";
+import { departmentKeyFor, memberPlace } from "./group-placement";
 
 /* -------------------------------------------------------------------------- */
 /* The group                                                                   */
@@ -302,22 +290,10 @@ export async function createGroupCompanyAs(context: GroupActor, groupId: string,
   });
 
   await prisma.$transaction(async (tx) => {
-    const groupLevel = await tx.parentGroupMember.findMany({ where: { parentGroupId: group.id, status: "ACTIVE", user: { status: "ACTIVE" } }, select: { userId: true, roleId: true, role: { select: { key: true } } } });
-    const branches = new Map((await tx.department.findMany({ where: { companyId: result.companyId, status: "ACTIVE", groupDepartmentId: { not: null } }, select: { id: true, key: true, groupDepartmentId: true } })).map((row) => [row.key, row]));
-    for (const { userId, roleId: seatRoleId, role: seatRole } of groupLevel) {
-      const heldElsewhere = await tx.companyMember.findFirst({ where: { userId, status: "ACTIVE", company: { parentGroupId: group.id }, companyId: { not: result.companyId } }, select: { roleId: true, jobTitle: true, role: { select: { key: true } } }, orderBy: { createdAt: "asc" } });
-      // A seat that has worked through no company until now (Admin PRD #9) brings the group role it holds.
-      const held = heldElsewhere ?? (seatRoleId && seatRole ? { roleId: seatRoleId, jobTitle: null, role: { key: seatRole.key } } : null);
-      if (!held) continue;
-      // Placed in their function's branch when the company runs it, and on its team (ADR 0003).
-      const branch = branches.get(departmentKeyFor(held.role.key)) ?? null;
-      const joined = await tx.companyMember.createMany({
-        data: [{ companyId: result.companyId, userId, roleId: held.roleId, departmentId: branch?.id ?? null, jobTitle: held.jobTitle, status: "ACTIVE", joinedAt: new Date() }],
-        skipDuplicates: true,
-      });
-      if (joined.count > 0 && branch) await memberPlace(tx, { parentGroupId: group.id, userId, companyId: result.companyId, branch, roleKey: held.role.key, actorUserId: context.userId });
-    }
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, entity: { type: "Company", id: result.companyId, label: input.name }, after: { companyId: result.companyId, slug, name: input.name, groupLevelMembers: groupLevel.length } }, { tx });
+    // A seat whose company access is ALL reaches the new company at once; NONE and SELECTED do not (PRD #10 §55).
+    await reconcileCompanyForSeats(tx, { companyId: result.companyId, parentGroupId: group.id, actorUserId: context.userId });
+    const groupLevel = await tx.companyMember.count({ where: { companyId: result.companyId, groupDerived: true, status: "ACTIVE" } });
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, entity: { type: "Company", id: result.companyId, label: input.name }, after: { companyId: result.companyId, slug, name: input.name, groupLevelMembers: groupLevel } }, { tx });
   });
 
   return { companyId: result.companyId };
@@ -386,7 +362,7 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
     });
     const account = await createProvisionedUser(tx, { personProfileId: person.id, firstName: input.firstName, lastName: input.lastName, email: input.workEmail ?? null, phone: null, username, temporaryPassword, expiresAt });
 
-    if (groupLevel) await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId: account.id, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id } });
+    if (groupLevel) await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId: account.id, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id, companyAccessMode: "ALL" } });
 
     for (const company of companies) {
       const branch = await tx.department.findFirst({ where: { companyId: company.id, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true, groupDepartmentId: true } });
@@ -399,7 +375,7 @@ export async function provisionInitialUser(context: PlatformContext, groupId: st
       }
       await assertWithinLimit(tx, company.id, "users");
       const member = await tx.companyMember.create({
-        data: { companyId: company.id, userId: account.id, roleId: roleRow.id, departmentId: branch?.id ?? null, jobTitle: input.jobTitle ?? null, status: "ACTIVE", joinedAt: new Date() },
+        data: { companyId: company.id, userId: account.id, roleId: roleRow.id, departmentId: branch?.id ?? null, jobTitle: input.jobTitle ?? null, status: "ACTIVE", groupDerived: groupLevel, joinedAt: new Date() },
         select: { id: true },
       });
       // A home branch has its member place (ADR 0003); a manager's appointment is on top of it.

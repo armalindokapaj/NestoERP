@@ -180,7 +180,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
                 <TableRow key={person.userId} data-testid="group-person">
                   <TableCell><span className="font-medium text-fg">{person.name}</span><p className="font-mono text-micro text-fg-subtle">{person.email ?? person.username}</p></TableCell>
                   <TableCell>{person.roleKey ? t(`groupUsers.role${person.roleKey}`) : t("groupUsers.seatOnly")}</TableCell>
-                  <TableCell className="tabular-nums max-sm:hidden">{person.companies}</TableCell>
+                  <TableCell className="max-sm:hidden">{person.companyAccessMode === "ALL" ? t("groupUsers.accessSummaryAll") : person.companyAccessMode === "SELECTED" ? (person.selectedCompanies === 1 ? t("groupUsers.accessSummaryOne") : t("groupUsers.accessSummaryCount", { count: person.selectedCompanies })) : t("groupUsers.accessSummaryNone")}{person.roleKey === "OWNER" ? <span className="block text-meta text-fg-subtle">{t("groupUsers.accessGroupWide")}</span> : null}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{person.projects}</TableCell>
                   <TableCell><AdminStatusBadge status={person.account !== "ACTIVE" ? person.account : person.seat} /></TableCell>
                   <TableCell className="text-right">{canManage ? <GroupPersonActions groupId={org.id} groupName={org.name} person={{ userId: person.userId, name: person.name, roleKey: person.roleKey, seatActive: person.seat === "ACTIVE", profile: person.person }} ceoName={people.ceo?.name ?? null} /> : null}</TableCell>

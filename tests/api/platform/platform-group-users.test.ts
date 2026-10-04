@@ -103,7 +103,7 @@ describe("group people (PRD #8)", () => {
 
   it("creates the Group CEO before any company exists: a user and a seat with the CEO role, no company, audited", async () => {
     groupId = (await createParentGroup(admin, createParentGroupSchema.parse({ name: "Harbour Holdings", slug: GROUP }))).id;
-    const result = await addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", firstName: "Hana", lastName: "Harbour", email: EMAILS[0] });
+    const result = await addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", companyAccess: { mode: "ALL" }, firstName: "Hana", lastName: "Harbour", email: EMAILS[0] });
     ceoId = result.userId;
     expect(result.temporaryPassword).toBe("nesto1234");
     expect(await seats(ceoId)).toHaveLength(1);
@@ -129,7 +129,7 @@ describe("group people (PRD #8)", () => {
   });
 
   it("replaces the CEO atomically: the old one keeps the seat and the account, loses the authority", async () => {
-    const result = await addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", replaceCurrent: true, firstName: "Nora", lastName: "Harbour", email: EMAILS[1] });
+    const result = await addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", replaceCurrent: true, companyAccess: { mode: "ALL" }, firstName: "Nora", lastName: "Harbour", email: EMAILS[1] });
     ceo2Id = result.userId;
     expect(await companyRoles(ceo2Id, "ACTIVE")).toEqual(["OWNER", "OWNER"]);
     expect(await companyRoles(ceoId, "ACTIVE")).toEqual([]);
@@ -145,8 +145,8 @@ describe("group people (PRD #8)", () => {
 
   it("gives an existing account a seat without a second account, and never twice", async () => {
     const users = await prisma.user.count();
-    await addGroupUser(admin, { mode: "existing", groupId, userId: ceoId, roleKey: "GROUP_IT" });
-    await addGroupUser(admin, { mode: "existing", groupId, userId: ceoId, roleKey: "GROUP_IT" });
+    await addGroupUser(admin, { mode: "existing", groupId, userId: ceoId, roleKey: "GROUP_IT", companyAccess: { mode: "ALL" } });
+    await addGroupUser(admin, { mode: "existing", groupId, userId: ceoId, roleKey: "GROUP_IT", companyAccess: { mode: "ALL" } });
     itId = ceoId;
     expect(await prisma.user.count()).toBe(users);
     expect(await seats(ceoId)).toHaveLength(1);
@@ -161,16 +161,17 @@ describe("group people (PRD #8)", () => {
     expect(await prisma.parentGroupMember.count({ where: { userId: stranger.id, parentGroupId: groupId } })).toBe(0);
   });
 
-  it("refuses to remove the only CEO's company access, then removes a seat while keeping company access and the account", async () => {
+  it("refuses to remove the only CEO, then removes a seat, ends its policy memberships and keeps the account", async () => {
     await expect(removeGroupUser(admin, { groupId, userId: ceo2Id, alsoRemoveCompanyAccess: true })).rejects.toMatchObject({ details: { code: "LAST_GROUP_ADMIN" } });
     expect(await companyRoles(ceo2Id, "ACTIVE")).toEqual(["OWNER", "OWNER"]);
 
     await removeGroupUser(admin, { groupId, userId: itId });
     expect((await seats(itId))[0].status).toBe("INACTIVE");
-    expect(await companyRoles(itId, "ACTIVE")).toEqual(["GROUP_IT", "GROUP_IT"]);
+    // The memberships the seat's own policy created end with it (PRD #10 §59).
+    expect(await companyRoles(itId, "ACTIVE")).toEqual([]);
     expect((await prisma.user.findUniqueOrThrow({ where: { id: itId } })).status).toBe("ACTIVE");
 
-    await addGroupUser(admin, { mode: "existing", groupId, userId: itId, roleKey: "GROUP_IT" });
+    await addGroupUser(admin, { mode: "existing", groupId, userId: itId, roleKey: "GROUP_IT", companyAccess: { mode: "ALL" } });
     await removeGroupUser(admin, { groupId, userId: itId, alsoRemoveCompanyAccess: true });
     expect(await companyRoles(itId, "ACTIVE")).toEqual([]);
     expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, actionKey: "PLATFORM_GROUP_USER_REMOVED" } })).toBe(2);

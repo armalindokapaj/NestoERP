@@ -8,6 +8,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { bootstrapCompany } from "@/lib/modules/company/company-bootstrap.service";
+import { reconcileCompanyForSeats, releaseCompanyFromGroup } from "@/lib/modules/platform/group-company-access.service";
 import type { CreateCompanyInput } from "./platform.schema";
 
 /**
@@ -172,6 +173,8 @@ async function attachInTx(tx: Prisma.TransactionClient, context: PlatformContext
     }
 
     await tx.company.update({ where: { id: company.id }, data: { parentGroupId: group.id, configVersion: { increment: 1 } } });
+    // Seats of the group whose access is ALL reach the company that just joined it (PRD #10 §55).
+    await reconcileCompanyForSeats(tx, { companyId: company.id, parentGroupId: group.id, actorUserId: context.userId });
     const people = await moveRootRows(tx, { from: rootId, to: group.id });
     await tx.groupDepartment.deleteMany({ where: { parentGroupId: rootId } });
     await tx.parentGroup.delete({ where: { id: rootId } });
@@ -315,6 +318,8 @@ async function detachInTx(tx: Prisma.TransactionClient, context: PlatformContext
     // Group-level members stop working here; their reach stays with the group.
     const groupUserIds = plan.groupLevelUsers.map((user) => user.id);
     const now = new Date();
+    // No seat may name the company as selected any more, and the old group's policies stop covering it (PRD #10 §53).
+    await releaseCompanyFromGroup(tx, { companyId: company.id });
     const ended = await tx.companyMember.updateMany({ where: { companyId: company.id, userId: { in: groupUserIds }, status: "ACTIVE" }, data: { status: "INACTIVE" } });
     await tx.departmentAssignment.updateMany({ where: { companyId: company.id, userId: { in: groupUserIds }, status: "ACTIVE" }, data: { status: "INACTIVE", endsAt: now } });
 

@@ -12,6 +12,8 @@ import { assignProjectToCompany, previewProjectAssignment } from "@/lib/modules/
 import { restoreProject3DExperience } from "@/lib/modules/project-3d/project-3d.lifecycle";
 import { createGroupCompany } from "@/lib/modules/platform/platform-implementation.service";
 import { deletePlatformUser } from "@/lib/modules/platform/platform-user-delete.service";
+import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
+import { platformActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUser, removeGroupUser } from "@/lib/modules/platform/platform-group-users.service";
 import { addOrganizationUser, changeOrganizationMemberRole, removeOrganizationMember, setOrganizationMemberProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import {
@@ -228,6 +230,12 @@ export async function POST(request: Request) {
       case "group.user.remove":
         await removeGroupUser(context, body);
         return apiOk({ data: { ok: true } });
+      case "group.access.get":
+        return apiOk({ data: await getGroupUserAccess(platformActor(context), body) });
+      case "group.access.companies":
+        return apiOk({ data: await groupCompanyChoices(platformActor(context), body) });
+      case "group.access.update":
+        return apiOk({ data: await updateGroupUserAccess(platformActor(context), body) });
       case "organization.member.role":
         await changeOrganizationMemberRole(context, body);
         return apiOk({ data: { ok: true } });
