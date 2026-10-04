@@ -550,6 +550,17 @@ export const adminPlatformEn = {
       releases: "Releases",
     },
     ingestion: {
+      multi: {
+        hint: "Choose one or several GLB files, up to {limit} each. Each file becomes its own model, uploaded one after another.",
+        uploadN: "Upload {count} GLB files",
+        removeFile: "Remove {name} from the list",
+        clearAll: "Clear list",
+        states: { queued: "Waiting", sending: "Uploading {percent}%", verifying: "Verifying…", done: "Uploaded, preparing", failed: "Failed", rejected: "Not accepted" },
+        progressTitle: "Uploading file {current} of {total}",
+        allDone: "{count} models uploaded.",
+        someFailed: "{done} uploaded, {failed} need attention. Retry them below.",
+        retryFailed: "Retry failed files",
+      },
       roles: {
         BUILDING: "Building",
         UNITS: "Units (Unit_<code> blocks)",

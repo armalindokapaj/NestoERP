@@ -27,6 +27,10 @@ export type IngestionSlot = { id: string; displayName: string; role: string; ver
 /** One upload in flight, kept across a retry so a retry never makes a second version. */
 type Attempt = { file: File; slotId: string; intent?: ModelUploadIntent; sent: boolean };
 
+/** One file in the multi-upload list (Models page): its own model, uploaded in turn. */
+type Item = { key: string; file: File; state: "queued" | "sending" | "verifying" | "done" | "failed" | "rejected"; percent: number; error: string | null };
+type ItemAttempt = { slotId?: string; intent?: ModelUploadIntent; sent: boolean };
+
 const ROLES = ["BUILDING", "UNITS", "SURROUNDINGS", "CONTEXT", "CUSTOM"] as const;
 
 function slugOf(value: string): string {
@@ -99,11 +103,16 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
   const [retryable, setRetryable] = React.useState(false);
   const [queuedId, setQueuedId] = React.useState<string | null>(null);
   const [removing, setRemoving] = React.useState<IngestionSlot | null>(null);
+  const [items, setItems] = React.useState<Item[]>([]);
+  const attempts = React.useRef(new Map<string, ItemAttempt>());
 
   // The editor runs its own poll; the Models page relies on this one.
   useModelProcessingPoll(projectId, compact ? [] : slots, compact ? null : queuedId);
 
   const targetSlot = slots.find((slot) => slot.id === target) ?? null;
+  // Several files at once: the Models page, as new models (a new version is one file of one model).
+  const multi = !compact && !targetSlot;
+  const patchItem = (key: string, patch: Partial<Item>) => setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   const queued = queuedId ? slots.flatMap((slot) => slot.versions).find((version) => version.id === queuedId) ?? null : null;
 
   React.useEffect(() => {
@@ -138,6 +147,94 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
     }
   }
 
+  async function addFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setError(null);
+    const known = new Set(items.map((item) => `${item.file.name}:${item.file.size}`));
+    const added: Item[] = [];
+    for (const next of Array.from(list)) {
+      const fingerprint = `${next.name}:${next.size}`;
+      if (known.has(fingerprint)) continue;
+      known.add(fingerprint);
+      let state: Item["state"] = "queued";
+      let message: string | null = null;
+      try {
+        await checkModelFile(next, uploadLimitBytes);
+      } catch (failure) {
+        state = "rejected";
+        message = failure instanceof Error ? failure.message : t("threeDAdmin.ingestion.fileRejected");
+      }
+      added.push({ key: crypto.randomUUID(), file: next, state, percent: 0, error: message });
+    }
+    setItems((current) => [...current, ...added]);
+    if (fileInput.current) fileInput.current.value = "";
+  }
+
+  function removeItem(key: string) {
+    attempts.current.delete(key);
+    setItems((current) => current.filter((item) => item.key !== key));
+  }
+
+  async function uploadItems() {
+    if (busy.current) return;
+    const todo = items.filter((item) => item.state === "queued" || item.state === "failed");
+    if (todo.length === 0) return;
+    setBusy(true);
+    setError(null);
+    let done = 0;
+    let failed = 0;
+    let lastQueued: string | null = null;
+    for (const [index, item] of todo.entries()) {
+      setStep(t("threeDAdmin.ingestion.multi.progressTitle", { current: index + 1, total: todo.length }));
+      const mine = attempts.current.get(item.key) ?? { sent: false };
+      attempts.current.set(item.key, mine);
+      try {
+        patchItem(item.key, { state: "sending", percent: 0, error: null });
+        if (!mine.slotId) {
+          const displayName = (todo.length === 1 && name.trim() ? name.trim() : item.file.name.replace(/\.glb$/i, "")).slice(0, 120);
+          if (displayName.length < 2) throw new Error(t("threeDAdmin.ingestion.nameTooShort"));
+          const slot = await engineeringApi<{ id: string }>(`/api/platform/3d/projects/${projectId}/slots`, {
+            body: { kind: "DETAIL", role, slotKey: `${slugOf(displayName)}-${crypto.randomUUID().slice(0, 8)}`, displayName, sortOrder: slots.length + index },
+          });
+          mine.slotId = slot.id;
+        }
+        if (!mine.intent) {
+          mine.intent = await engineeringApi<ModelUploadIntent>(`/api/platform/3d/projects/${projectId}/slots/${mine.slotId}/uploads`, {
+            body: { fileName: item.file.name, sizeBytes: item.file.size },
+          });
+        }
+        if (!mine.sent) {
+          if (Date.parse(mine.intent.upload.expiresAt) <= Date.now()) {
+            mine.intent = undefined;
+            throw new Error(t("threeDAdmin.ingestion.grantExpired"));
+          }
+          await putModelFile(mine.intent, item.file, (percent) => patchItem(item.key, { percent }));
+          mine.sent = true;
+        }
+        patchItem(item.key, { state: "verifying", percent: 100 });
+        await engineeringApi(`/api/platform/3d/projects/${projectId}/versions/${mine.intent.versionId}/complete`, { body: {} });
+        patchItem(item.key, { state: "done" });
+        attempts.current.delete(item.key);
+        lastQueued = mine.intent.versionId;
+        done += 1;
+      } catch (failure) {
+        failed += 1;
+        patchItem(item.key, { state: "failed", error: failureMessage(failure, failure instanceof Error ? failure.message : t("threeDAdmin.ingestion.uploadFailed")) });
+      }
+    }
+    setStep("");
+    setBusy(false);
+    if (lastQueued) setQueuedId(lastQueued);
+    setItems((current) => current.filter((item) => item.state !== "done"));
+    if (failed === 0) {
+      setName("");
+      toast({ title: t("threeDAdmin.ingestion.multi.allDone", { count: done }), description: t("threeDAdmin.ingestion.uploadedToastDescription"), tone: "success" });
+    } else {
+      setError(t("threeDAdmin.ingestion.multi.someFailed", { done, failed }));
+    }
+    router.refresh();
+  }
+
   function clearFile() {
     attempt.current = null;
     setRetryable(false);
@@ -147,6 +244,7 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
   }
 
   async function upload() {
+    if (multi) return uploadItems();
     if (busy.current || !file) return;
     setBusy(true);
     setError(null);
@@ -220,7 +318,7 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
       <fieldset disabled={locked} className="min-w-0 space-y-3">
         <label className={label} htmlFor={`${id}-target`}>
           {t("threeDAdmin.ingestion.uploadAs")}
-          <select id={`${id}-target`} className={field} value={targetSlot ? target : ""} onChange={(event) => setTarget(event.target.value)}>
+          <select id={`${id}-target`} className={field} value={targetSlot ? target : ""} onChange={(event) => { setTarget(event.target.value); if (event.target.value) { setItems([]); attempts.current.clear(); } }}>
             <option value="">{t("threeDAdmin.ingestion.newModel")}</option>
             {slots.map((slot) => <option key={slot.id} value={slot.id}>{t("threeDAdmin.ingestion.newVersionOf", { name: slot.displayName })}</option>)}
           </select>
@@ -229,10 +327,10 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
           <p className={hint}>{t("threeDAdmin.ingestion.addsVersion", { version: Math.max(0, ...targetSlot.versions.map((version) => version.version)) + 1 })}</p>
         ) : (
           <div className={compact ? "space-y-3" : "grid gap-3 sm:grid-cols-2"}>
-            <label className={label} htmlFor={`${id}-name`}>
+            {multi && items.length > 1 ? null : <label className={label} htmlFor={`${id}-name`}>
               {t("threeDAdmin.ingestion.modelName")}
               {compact ? <input id={`${id}-name`} className={field} value={name} maxLength={120} placeholder={t("threeDAdmin.ingestion.modelNamePlaceholder")} onChange={(event) => setName(event.target.value)} /> : <Input id={`${id}-name`} className="mt-1.5" value={name} maxLength={120} placeholder={t("threeDAdmin.ingestion.modelNamePlaceholder")} onChange={(event) => setName(event.target.value)} />}
-            </label>
+            </label>}
             <label className={label} htmlFor={`${id}-role`}>
               {t("threeDAdmin.ingestion.purpose")}
               <select id={`${id}-role`} className={field} value={role} onChange={(event) => setRole(event.target.value)}>
@@ -250,15 +348,39 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
           type="file"
           accept=".glb,model/gltf-binary"
           disabled={pending}
+          multiple={multi}
           className={cn(compact ? "mt-1 block w-full min-w-0 text-[11px] text-fg-muted file:mr-2 file:rounded file:border-0 file:bg-surface-muted file:px-2 file:py-1.5 file:text-xs file:text-fg hover:file:bg-line-strong" : "mt-1.5 block w-full text-table text-fg file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-table file:text-fg")}
-          onChange={(event) => void chooseFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => (multi ? void addFiles(event.target.files) : void chooseFile(event.target.files?.[0] ?? null))}
         />
       </label>
-      <p className={hint}>{file ? t("threeDAdmin.ingestion.fileInfo", { name: file.name, size: formatMegabytes(file.size) }) : ""}{t("threeDAdmin.ingestion.hint", { limit: formatMegabytes(uploadLimitBytes) })}</p>
+      {multi ? (
+        <>
+          <p className={hint}>{t("threeDAdmin.ingestion.multi.hint", { limit: formatMegabytes(uploadLimitBytes) })}</p>
+          {items.length > 0 ? (
+            <ul className="divide-y divide-line rounded-lg border border-line" aria-label={t("threeDAdmin.ingestion.glbFile")}>
+              {items.map((item) => (
+                <li key={item.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-table">
+                  <span className="min-w-0 flex-1 truncate font-medium text-fg">{item.file.name}</span>
+                  <span className="text-meta text-fg-subtle">{formatMegabytes(item.file.size)}</span>
+                  <Badge tone={item.state === "failed" || item.state === "rejected" ? "danger" : item.state === "done" ? "success" : item.state === "queued" ? "neutral" : "info"}>
+                    {item.state === "sending" ? t("threeDAdmin.ingestion.multi.states.sending", { percent: item.percent }) : t(`threeDAdmin.ingestion.multi.states.${item.state}`)}
+                  </Badge>
+                  {!pending ? <Button type="button" size="sm" variant="ghost" aria-label={t("threeDAdmin.ingestion.multi.removeFile", { name: item.file.name })} onClick={() => removeItem(item.key)}><Trash2 aria-hidden="true" /></Button> : null}
+                  {item.state === "sending" ? <progress aria-label={t("threeDAdmin.ingestion.progressLabel")} className="h-1.5 w-full overflow-hidden rounded [&::-webkit-progress-bar]:bg-line-strong [&::-webkit-progress-value]:bg-accent" max={100} value={item.percent} /> : null}
+                  {item.error ? <p role="alert" className="w-full break-words text-meta text-danger-strong">{item.error}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : (
+        <p className={hint}>{file ? t("threeDAdmin.ingestion.fileInfo", { name: file.name, size: formatMegabytes(file.size) }) : ""}{t("threeDAdmin.ingestion.hint", { limit: formatMegabytes(uploadLimitBytes) })}</p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending || !file}>
-          <Upload aria-hidden="true" />{pending ? t("threeDAdmin.ingestion.working") : retryable ? t("threeDAdmin.ingestion.retryUpload") : t("threeDAdmin.ingestion.uploadGlb")}
+        <Button type="submit" size="sm" disabled={pending || (multi ? !items.some((item) => item.state === "queued" || item.state === "failed") : !file)}>
+          <Upload aria-hidden="true" />{pending ? t("threeDAdmin.ingestion.working") : multi ? (items.some((item) => item.state === "failed") ? t("threeDAdmin.ingestion.multi.retryFailed") : t("threeDAdmin.ingestion.multi.uploadN", { count: items.filter((item) => item.state === "queued").length })) : retryable ? t("threeDAdmin.ingestion.retryUpload") : t("threeDAdmin.ingestion.uploadGlb")}
         </Button>
+        {multi && items.length > 0 && !pending ? <Button type="button" size="sm" variant="ghost" onClick={() => { setItems([]); attempts.current.clear(); setError(null); }}>{t("threeDAdmin.ingestion.multi.clearAll")}</Button> : null}
         {retryable && !pending ? <Button type="button" size="sm" variant="ghost" className={compact ? "text-fg-muted hover:text-fg" : undefined} onClick={() => { clearFile(); setError(null); }}>{t("threeDAdmin.ingestion.startOver")}</Button> : null}
       </div>
       {progress !== null ? (
