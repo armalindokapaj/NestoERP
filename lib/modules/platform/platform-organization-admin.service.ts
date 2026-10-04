@@ -65,7 +65,7 @@ async function memberOf(companyId: string, membershipId: string) {
 }
 
 /** Projects must be the company's own, open ones. */
-async function companyProjects(tx: Prisma.TransactionClient, companyId: string, projectIds: string[]) {
+export async function companyProjects(tx: Prisma.TransactionClient, companyId: string, projectIds: string[]) {
   const unique = [...new Set(projectIds)];
   if (unique.length === 0) return [];
   const rows = await tx.project.findMany({ where: { id: { in: unique }, companyId, archivedAt: null }, select: { id: true } });
@@ -74,7 +74,7 @@ async function companyProjects(tx: Prisma.TransactionClient, companyId: string, 
 }
 
 /** Puts the membership on exactly these projects; other companies' places are never read (§66). */
-async function syncProjects(tx: Prisma.TransactionClient, companyId: string, membershipId: string, projectIds: string[]) {
+export async function syncProjects(tx: Prisma.TransactionClient, companyId: string, membershipId: string, projectIds: string[]) {
   const current = await tx.projectMember.findMany({ where: { companyMemberId: membershipId, companyId }, select: { id: true, projectId: true, status: true } });
   const now = new Date();
   for (const row of current) {

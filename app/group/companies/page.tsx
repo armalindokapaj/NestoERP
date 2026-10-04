@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import Link from "@/components/navigation/nav-link";
 import { CreateGroupCompany } from "@/components/group/create-company";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,7 +39,7 @@ export default async function GroupCompaniesPage() {
             <TableBody>
               {rows.map((row) => (
                 <TableRow key={row.id} data-testid="group-company-row">
-                  <TableCell><span className="font-medium text-fg">{row.name}</span><p className="font-mono text-micro text-fg-subtle">{row.slug}</p></TableCell>
+                  <TableCell><Link href={`/group/companies/${row.id}/users`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.slug}</p></TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{row.people}</TableCell>
                   <TableCell className="tabular-nums max-sm:hidden">{row.projects}</TableCell>
                   <TableCell><AdminStatusBadge status={row.status} /></TableCell>

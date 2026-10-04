@@ -6,6 +6,7 @@ import { groupActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUserAs, removeGroupUserAs } from "@/lib/modules/platform/platform-group-users.service";
 import { getGroupUserDetail, groupUserActivity, previewGroupUserRemoval, reactivateGroupAccess, removeDirectCompanyAccess, suspendGroupAccess } from "@/lib/modules/platform/group-user-detail.service";
 import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
+import { addCompanyUser, bulkCompanyUsers, companyUserActivity, companyUserOptions, getCompanyUserDetail, listCompanyUsers, previewCompanyUserRemoval, reactivateCompanyUserAccess, removeCompanyUserAccess, searchCompanyUserCandidates, suspendCompanyUserAccess, updateCompanyUserAccess } from "@/lib/modules/platform/company-users.service";
 import { assignCompanyCeo, getCompanyLeadership, previewCeoCandidate, removeCompanyCeo, replaceCompanyCeo, searchCeoCandidates } from "@/lib/modules/platform/company-leadership.service";
 import { createGroupCompanyAs } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema } from "@/lib/modules/platform/platform.schema";
@@ -51,6 +52,30 @@ export async function POST(request: Request) {
         const input = createGroupCompanySchema.parse(body);
         return apiOk({ data: await createGroupCompanyAs(actor, context.groupId, input) }, { status: 201 });
       }
+      case "company.users.list":
+        return apiOk({ data: await listCompanyUsers(actor, body) });
+      case "company.users.options":
+        return apiOk({ data: await companyUserOptions(actor, body) });
+      case "company.users.detail":
+        return apiOk({ data: await getCompanyUserDetail(actor, body) });
+      case "company.users.activity":
+        return apiOk({ data: await companyUserActivity(actor, body) });
+      case "company.users.candidates":
+        return apiOk({ data: await searchCompanyUserCandidates(actor, body) });
+      case "company.users.add":
+        return apiOk({ data: await addCompanyUser(actor, body) }, { status: 201 });
+      case "company.users.update":
+        return apiOk({ data: await updateCompanyUserAccess(actor, body) });
+      case "company.users.suspend":
+        return apiOk({ data: await suspendCompanyUserAccess(actor, body) });
+      case "company.users.reactivate":
+        return apiOk({ data: await reactivateCompanyUserAccess(actor, body) });
+      case "company.users.removePreview":
+        return apiOk({ data: await previewCompanyUserRemoval(actor, body) });
+      case "company.users.remove":
+        return apiOk({ data: await removeCompanyUserAccess(actor, body) });
+      case "company.users.bulk":
+        return apiOk({ data: await bulkCompanyUsers(actor, body) });
       case "company.ceo.get":
         return apiOk({ data: await getCompanyLeadership(actor, body) });
       case "company.ceo.candidates":

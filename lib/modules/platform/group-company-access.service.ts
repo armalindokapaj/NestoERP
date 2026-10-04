@@ -112,6 +112,8 @@ export async function syncSeatAccess(tx: Tx, input: { seatId: string; actorUserI
       const previous = await tx.companyMember.findFirst({ where: { companyId, userId: seat.userId, archivedAt: null }, select: { id: true, status: true, roleId: true, groupDerived: true } });
       // A direct membership already serves the person here; the policy adds a source, not a row.
       if (previous?.status === "ACTIVE" && !previous.groupDerived) continue;
+      // A direct membership a company administrator suspended stays suspended: the policy does not quietly override that decision (PRD #13 §70).
+      if (previous?.status === "SUSPENDED" && !previous.groupDerived) continue;
       if (previous?.status === "ACTIVE" && previous.roleId === seat.roleId) continue;
       const branch = groupDepartment ? await tx.department.findFirst({ where: { companyId, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true, groupDepartmentId: true } }) : null;
       if (previous?.status !== "ACTIVE") await assertWithinLimit(tx, companyId, "users");
