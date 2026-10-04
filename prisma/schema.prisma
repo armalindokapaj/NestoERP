@@ -1465,6 +1465,7 @@ model Company {
   configVersion Int @default(1)
 
   memberships CompanyMember[]
+  groupSeatSelections ParentGroupMemberCompany[]
   invites     CompanyInvite[]
   departments Department[]
   modules     CompanyModule[]
@@ -1835,6 +1836,12 @@ model CompanyMember {
 
   archivedAt DateTime?
 
+  /// True when this row exists only because a group seat's company access
+  /// covers the company (PRD #10). The seat's policy owns it: it is created,
+  /// ended and re-created with the policy. A row with this false is a direct
+  /// membership and is never touched by a group policy change.
+  groupDerived Boolean @default(false)
+
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   role       Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -2013,10 +2020,17 @@ model ParentGroupMember {
   /// Held on the seat itself so a person can belong to a group with no company
   /// membership at all (Admin PRD #9). NULL: a seat with no group role.
   roleId        String?
+  /// Where the seat's group role reaches into the group's companies (PRD #10):
+  /// none, every company the group holds now and later, or the ones named in
+  /// `companies`. Persisted intent; never inferred from how many are selected.
+  companyAccessMode CompanyAccessMode @default(NONE)
+  /// Bumped on every access change, so two administrators cannot overwrite each other silently.
+  accessVersion     Int               @default(1)
 
-  parentGroup ParentGroup @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
-  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  role        Role?       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  parentGroup ParentGroup                @relation(fields: [parentGroupId], references: [id], onDelete: Restrict)
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role        Role?                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  companies   ParentGroupMemberCompany[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2025,6 +2039,29 @@ model ParentGroupMember {
   @@index([userId])
   @@index([roleId])
   @@map("parent_group_members")
+}
+
+enum CompanyAccessMode {
+  NONE
+  ALL
+  SELECTED
+}
+
+/// One company named in a SELECTED seat's company access (PRD #10). The seat's
+/// group role applies in exactly these companies, and only while each still
+/// belongs to the seat's group — checked on every use, cleaned when it leaves.
+model ParentGroupMemberCompany {
+  id        String   @id @default(cuid())
+  seatId    String
+  companyId String
+  createdAt DateTime @default(now())
+
+  seat    ParentGroupMember @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([seatId, companyId])
+  @@index([companyId])
+  @@map("parent_group_member_companies")
 }
 
 /// Who owns a company, and how much (D-01 §6): the parent group itself, or

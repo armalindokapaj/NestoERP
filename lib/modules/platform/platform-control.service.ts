@@ -1,4 +1,5 @@
 import { assignedCompany } from "@/lib/access/project-ownership";
+import { reconcileCompanyForSeats } from "@/lib/modules/platform/group-company-access.service";
 import { Prisma, type FeatureFlagScopeType, type FeatureFlagState, type MembershipStatus, type UserStatus } from "@prisma/client";
 
 import { CORE_MODULE_KEYS, MODULE_KEYS, modules as moduleRegistry, type ModuleKey } from "@/config/modules";
@@ -184,6 +185,8 @@ export async function setCompanyStatus(context: PlatformContext, companyId: stri
   await prisma.$transaction(async (tx) => {
     assertUpdated(await tx.company.updateMany({ where: { id: company.id, status: company.status }, data: { status, configVersion: { increment: 1 } } }));
     if (status !== "ACTIVE") await revokeSessions(tx, { companyId: company.id, relocate: true });
+    // A company that comes back is reached again by the seats whose access covers it (PRD #10 §57).
+    else await reconcileCompanyForSeats(tx, { companyId: company.id, parentGroupId: company.parentGroupId, actorUserId: context.userId });
     await recordPlatformAction(context, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_STATUS_CHANGED, entity: { type: "Company", id: company.id, label: company.name }, before: { status: company.status }, after: { status }, reason }, { tx });
   });
 }

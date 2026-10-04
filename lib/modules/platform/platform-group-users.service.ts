@@ -11,8 +11,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
-import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
-import { departmentKeyFor, memberPlace } from "@/lib/modules/platform/platform-implementation.service";
+import { companyAccessSchema, syncSeatAccess, writeCompanyPolicy, type CompanyAccessInput } from "@/lib/modules/platform/group-company-access.service";
 import { GROUP_LEVEL_ROLES } from "./platform.schema";
 
 /**
@@ -21,9 +20,10 @@ import { GROUP_LEVEL_ROLES } from "./platform.schema";
  * Users tab, in any status the group is open in — not only while it is being
  * implemented.
  *
- * A group seat is a `ParentGroupMember` plus a membership of the same group
- * role in each of the group's companies (that is how a person signs in and
- * how company-scoped authorization finds them). One account per person: an
+ * A group seat is a `ParentGroupMember` carrying a group role and a company
+ * access policy (none, all or selected; PRD #10). The policy decides in which
+ * companies the seat also holds a policy-owned membership of that role — how
+ * company-scoped authorization finds them. One account per person: an
  * existing account is given the seat, never a second one. Every write is one
  * transaction, checked against the group named in the request.
  */
@@ -34,13 +34,13 @@ const roleKey = z.enum(GROUP_LEVEL_ROLES, { message: "Choose a group role." });
 
 export const groupUserAddSchema = z.discriminatedUnion("mode", [
   z.object({
-    mode: z.literal("new"), groupId: id, roleKey, replaceCurrent: z.boolean().default(false), reason,
+    mode: z.literal("new"), groupId: id, roleKey, replaceCurrent: z.boolean().default(false), reason, companyAccess: companyAccessSchema.default({ mode: "NONE", companyIds: [] }),
     firstName: z.string().trim().min(1, "Enter a first name.").max(80),
     lastName: z.string().trim().min(1, "Enter a last name.").max(80),
     username: z.string().trim().max(60).optional().transform((value) => value || undefined),
     email: z.email("Enter a valid email address.").trim().max(200),
   }),
-  z.object({ mode: z.literal("existing"), groupId: id, userId: id, roleKey, replaceCurrent: z.boolean().default(false), reason }),
+  z.object({ mode: z.literal("existing"), groupId: id, userId: id, roleKey, replaceCurrent: z.boolean().default(false), reason, companyAccess: companyAccessSchema.default({ mode: "NONE", companyIds: [] }) }),
 ]);
 export const groupUserRemoveSchema = z.object({ groupId: id, userId: id, alsoRemoveCompanyAccess: z.boolean().default(false), reason });
 
@@ -52,11 +52,6 @@ async function openGroup(groupId: string) {
     throw new AccessError("CONFLICT", `${group.name} is ${group.status.toLowerCase()}. Reactivate it before changing its people.`, { code: "ORGANIZATION_NOT_ACTIVE" });
   }
   return group;
-}
-
-async function groupCompanies(tx: Prisma.TransactionClient, groupId: string) {
-  // None is a valid state (Admin PRD #9 §75): the seat stands without any company membership.
-  return tx.company.findMany({ where: { parentGroupId: groupId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 }
 
 /** Active holders of a group role: the seats that carry it. */
@@ -86,36 +81,23 @@ async function endGroupRole(tx: Prisma.TransactionClient, groupId: string, userI
 }
 
 /**
- * Gives the person the group seat with this role: the seat, then the role in
- * every company of the group (a different role they held there becomes this one).
+ * Gives the person the group seat with this role and company access policy: the
+ * seat, then the policy, then the memberships the policy covers (and none other).
  */
-async function seatPerson(tx: Prisma.TransactionClient, context: GroupActor, group: { id: string }, companies: Array<{ id: string }>, userId: string, key: string) {
+async function seatPerson(tx: Prisma.TransactionClient, context: GroupActor, group: { id: string }, userId: string, key: string, companyAccess: CompanyAccessInput) {
   const [roleRow, seat] = await Promise.all([
     tx.role.findUniqueOrThrow({ where: { key }, select: { id: true } }),
     tx.parentGroupMember.findUnique({ where: { parentGroupId_userId: { parentGroupId: group.id, userId } }, select: { id: true, status: true } }),
   ]);
+  let seatId: string;
   if (seat) {
     await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: seat.status }, data: { status: "ACTIVE", roleId: roleRow.id, joinedAt: seat.status === "ACTIVE" ? undefined : new Date() } });
+    seatId = seat.id;
   } else {
-    await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id } });
+    seatId = (await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id }, select: { id: true } })).id;
   }
-  const groupDepartment = await tx.groupDepartment.findFirst({ where: { parentGroupId: group.id, key: departmentKeyFor(key), status: "ACTIVE" }, select: { id: true } });
-  for (const company of companies) {
-    const branch = groupDepartment ? await tx.department.findFirst({ where: { companyId: company.id, groupDepartmentId: groupDepartment.id, status: "ACTIVE" }, select: { id: true, groupDepartmentId: true } }) : null;
-    const previous = await tx.companyMember.findFirst({ where: { companyId: company.id, userId, archivedAt: null }, select: { id: true, status: true, roleId: true } });
-    if (previous?.status === "ACTIVE" && previous.roleId === roleRow.id) continue;
-    if (previous?.status !== "ACTIVE") await assertWithinLimit(tx, company.id, "users");
-    if (previous) {
-      await tx.companyMember.updateMany({ where: { id: previous.id, status: previous.status }, data: { roleId: roleRow.id, status: "ACTIVE", departmentId: branch?.id ?? null, joinedAt: new Date(), deactivatedAt: null, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
-      await revokeSessions(tx, { membershipId: previous.id, relocate: false });
-    } else {
-      await tx.companyMember.create({ data: { companyId: company.id, userId, roleId: roleRow.id, departmentId: branch?.id ?? null, status: "ACTIVE", joinedAt: new Date() } });
-    }
-    if (branch) {
-      const placed = await tx.departmentAssignment.count({ where: { userId, companyId: company.id, companyDepartmentId: branch.id, status: "ACTIVE" } });
-      if (!placed) await memberPlace(tx, { parentGroupId: group.id, userId, companyId: company.id, branch, roleKey: key, actorUserId: context.userId });
-    }
-  }
+  await writeCompanyPolicy(tx, { seatId, parentGroupId: group.id, companyAccess });
+  await syncSeatAccess(tx, { seatId, actorUserId: context.userId });
 }
 
 /**
@@ -149,8 +131,6 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
   if (username && usernameProblem(username)) throw new AccessError("VALIDATION_ERROR", "Usernames use lowercase letters, numbers, dots, hyphens and underscores.", { field: "username" });
 
   return prisma.$transaction(async (tx) => {
-    const companies = await groupCompanies(tx, group.id);
-
     let userId: string;
     let accountUsername: string;
     let created = false;
@@ -180,10 +160,10 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
       }
     }
 
-    await seatPerson(tx, context, group, companies, userId, input.roleKey);
+    await seatPerson(tx, context, group, userId, input.roleKey, input.companyAccess);
 
     const personName = existing ? `${existing.firstName} ${existing.lastName}` : input.mode === "new" ? `${input.firstName} ${input.lastName}` : "";
-    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_USER_ADDED, entity: { type: "User", id: userId, label: `${personName} · ${group.name}` }, after: { groupId: group.id, userId, roleKey: input.roleKey, companies: companies.length, newAccount: created, replacedUserId: replaced?.userId ?? null }, reason: input.reason }, { tx });
+    await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_USER_ADDED, entity: { type: "User", id: userId, label: `${personName} · ${group.name}` }, after: { groupId: group.id, userId, roleKey: input.roleKey, companyAccessMode: input.companyAccess.mode, companies: input.companyAccess.companyIds.length, newAccount: created, replacedUserId: replaced?.userId ?? null }, reason: input.reason }, { tx });
     if (replaced) {
       await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_CEO_REPLACED, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { groupId: group.id, userId: replaced.userId, roleKey: "OWNER" }, after: { groupId: group.id, userId, roleKey: "OWNER" }, reason: input.reason }, { tx });
     }
@@ -215,7 +195,9 @@ export async function removeGroupUserAs(context: GroupActor, raw: unknown): Prom
     if (owners.length === 1 && owners[0].userId === input.userId) {
       throw new AccessError("CONFLICT", "This is the only Group CEO. Assign another Group CEO first.", { code: "LAST_GROUP_ADMIN" });
     }
-    await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: "ACTIVE" }, data: { status: "INACTIVE", roleId: null } });
+    await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: "ACTIVE" }, data: { status: "INACTIVE", roleId: null, accessVersion: { increment: 1 } } });
+    // The policy's own memberships end with the seat; direct ones stay unless the administrator says otherwise (§59).
+    await syncSeatAccess(tx, { seatId: seat.id, actorUserId: context.userId });
     await tx.departmentAssignment.updateMany({ where: { parentGroupId: group.id, userId: input.userId, companyId: null, status: "ACTIVE" }, data: { status: "INACTIVE", endsAt: new Date() } });
     const ended = input.alsoRemoveCompanyAccess ? await endGroupRole(tx, group.id, input.userId, null) : 0;
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_USER_REMOVED, entity: { type: "User", id: input.userId, label: `${seat.user.firstName} ${seat.user.lastName} · ${group.name}` }, before: { groupId: group.id, userId: input.userId, status: "ACTIVE" }, after: { groupId: group.id, userId: input.userId, status: "INACTIVE", companyAccessEnded: ended }, reason: input.reason }, { tx });

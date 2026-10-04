@@ -7,6 +7,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi, failureMessage, isFailure } from "@/components/engineering/engineering-api";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { CompanyAccessPicker, EditCompanyAccessDialog, NO_COMPANY_ACCESS, type CompanyAccessValue } from "@/components/platform/group-company-access";
 import { EditPersonDialog } from "@/components/platform/platform-people-actions";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -45,6 +46,7 @@ export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, lab
   const [results, setResults] = React.useState<Account[]>([]);
   const [chosen, setChosen] = React.useState<Account | null>(null);
   const [replace, setReplace] = React.useState(false);
+  const [access, setAccess] = React.useState<CompanyAccessValue>(NO_COMPANY_ACCESS);
   const [error, setError] = React.useState<string | null>(null);
   const [existingOffer, setExistingOffer] = React.useState<{ userId: string; name: string } | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -52,7 +54,7 @@ export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, lab
   const replacing = roleKey === "OWNER" && ceoName !== null && chosen?.name !== ceoName;
 
   function reset() {
-    setMode("new"); setForm({ firstName: "", lastName: "", username: "", email: "" }); setQuery(""); setResults([]); setChosen(null); setReplace(false); setError(null); setExistingOffer(null);
+    setMode("new"); setForm({ firstName: "", lastName: "", username: "", email: "" }); setQuery(""); setResults([]); setChosen(null); setReplace(false); setError(null); setExistingOffer(null); setAccess(NO_COMPANY_ACCESS);
     setRoleKey(ceoOnly ? "OWNER" : "GROUP_IT");
   }
 
@@ -73,9 +75,10 @@ export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, lab
     setExistingOffer(null);
     if (mode === "existing" && !chosen) return setError(t("users.add.chooseAccount"));
     if (replacing && !replace) return setError(t("groupUsers.replaceRequired", { current: ceoName ?? "" }));
+    if (access.mode === "SELECTED" && access.companyIds.length === 0) return setError(t("groupUsers.accessNeedOne"));
     setPending(true);
     try {
-      const base = { action: "group.user.add", groupId, roleKey, replaceCurrent: replacing && replace };
+      const base = { action: "group.user.add", groupId, roleKey, replaceCurrent: replacing && replace, companyAccess: access };
       const result = await run_<Added>(api, mode === "new" ? { ...base, mode, ...form } : { ...base, mode, userId: chosen!.id });
       toast({ title: t("groupUsers.added", { group: groupName }), tone: "success" });
       setOpen(false);
@@ -142,6 +145,7 @@ export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, lab
                   <option value="GROUP_IT">{t("groupUsers.roleGROUP_IT")}</option>
                 </select>
               </label>
+              <CompanyAccessPicker groupId={groupId} groupName={groupName} api={api} value={access} onChange={(next) => { setError(null); setAccess(next); }} idPrefix="add" />
               {replacing ? (
                 <label className="flex items-start gap-2 rounded-lg border border-line bg-warning-soft p-2.5 text-table text-fg" data-testid="group-replace-ceo">
                   <input type="checkbox" className="mt-1" checked={replace} onChange={(event) => setReplace(event.target.checked)} />
@@ -181,6 +185,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
   const toast = useToast();
   const [dialog, setDialog] = React.useState<"ceo" | "remove" | "delete" | null>(null);
   const [editing, setEditing] = React.useState(false);
+  const [editingAccess, setEditingAccess] = React.useState(false);
   const [alsoCompanies, setAlsoCompanies] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -211,6 +216,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {platform && person.profile ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("groupUsers.editPerson")}</DropdownMenuItem> : null}
+          {person.seatActive && person.roleKey && (canAppointCeo || !isCeo) ? <DropdownMenuItem onSelect={() => setEditingAccess(true)}>{t("groupUsers.editAccess")}</DropdownMenuItem> : null}
           {canAppointCeo && person.seatActive && person.roleKey && !isCeo ? <DropdownMenuItem onSelect={() => { setError(null); setDialog("ceo"); }}>{t("groupUsers.makeCeo")}</DropdownMenuItem> : null}
           {person.seatActive ? <DropdownMenuItem onSelect={() => { setError(null); setAlsoCompanies(false); setDialog("remove"); }} className="text-danger">{t("groupUsers.removeFromGroup")}</DropdownMenuItem> : null}
           {platform ? (
@@ -250,6 +256,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <EditCompanyAccessDialog open={editingAccess} onOpenChange={setEditingAccess} groupId={groupId} groupName={groupName} api={api} person={{ userId: person.userId, name: person.name }} />
       {person.profile ? <EditPersonDialog open={editing} onOpenChange={setEditing} person={person.profile} /> : null}
     </>
   );

@@ -87,7 +87,8 @@ export async function organizationUsers(context: PlatformContext, scope: Organiz
         id: true, status: true, jobTitle: true,
         user: { select: { id: true, firstName: true, lastName: true, username: true, email: true, status: true } },
         role: { select: { key: true, name: true } },
-        company: { select: { id: true, name: true } },
+        company: { select: { id: true, name: true, parentGroupId: true } },
+        groupDerived: true,
         department: { select: { name: true } },
         projectMemberships: { where: { status: "ACTIVE" }, select: { project: { select: { id: true, name: true } } } },
       },
@@ -96,11 +97,20 @@ export async function organizationUsers(context: PlatformContext, scope: Organiz
       ? prisma.parentGroupMember.findMany({ where: { parentGroupId: scope.groupId, ...(contains ? { user: userText } : {}) }, select: { id: true, status: true, user: { select: { id: true, firstName: true, lastName: true, username: true, email: true, status: true } } } })
       : Promise.resolve([]),
   ]);
+  // Where each person's access comes from (PRD #10 §43, §44, §78): their own membership, their group seat's policy, or both.
+  const covering = await prisma.parentGroupMember.findMany({
+    where: { status: "ACTIVE", roleId: { not: null }, userId: { in: [...new Set(members.map((row) => row.user.id))] }, parentGroupId: { in: [...new Set(members.map((row) => row.company.parentGroupId))] } },
+    select: { userId: true, parentGroupId: true, companyAccessMode: true, companies: { select: { companyId: true } } },
+  });
+  const covered = (userId: string, groupId: string, companyId: string) =>
+    covering.some((seat) => seat.userId === userId && seat.parentGroupId === groupId && (seat.companyAccessMode === "ALL" || (seat.companyAccessMode === "SELECTED" && seat.companies.some((row) => row.companyId === companyId))));
+  const sourceOf = (row: (typeof members)[number]): "DIRECT" | "GROUP" | "BOTH" =>
+    !row.groupDerived ? (covered(row.user.id, row.company.parentGroupId, row.company.id) ? "BOTH" : "DIRECT") : "GROUP";
   return {
     filter,
     rows: [
-      ...seats.map((row) => ({ id: `seat:${row.id}`, membershipId: null, userId: row.user.id, name: `${row.user.firstName} ${row.user.lastName}`, username: row.user.username, email: row.user.email, roleKey: null, role: "Group level", company: null, department: null, projects: [] as { id: string; name: string }[], membership: row.status, account: row.user.status })),
-      ...members.map((row) => ({ id: row.id, membershipId: row.id, userId: row.user.id, name: `${row.user.firstName} ${row.user.lastName}`, username: row.user.username, email: row.user.email, roleKey: row.role.key, role: row.role.name, company: row.company, department: row.department?.name ?? null, projects: row.projectMemberships.map((place) => place.project), membership: row.status, account: row.user.status })),
+      ...seats.map((row) => ({ id: `seat:${row.id}`, membershipId: null, userId: row.user.id, name: `${row.user.firstName} ${row.user.lastName}`, username: row.user.username, email: row.user.email, roleKey: null, role: "Group level", company: null, department: null, projects: [] as { id: string; name: string }[], membership: row.status, account: row.user.status, source: null as "DIRECT" | "GROUP" | "BOTH" | null })),
+      ...members.map((row) => ({ id: row.id, membershipId: row.id, userId: row.user.id, name: `${row.user.firstName} ${row.user.lastName}`, username: row.user.username, email: row.user.email, roleKey: row.role.key, role: row.role.name, company: row.company, department: row.department?.name ?? null, projects: row.projectMemberships.map((place) => place.project), membership: row.status, account: row.user.status, source: sourceOf(row) as "DIRECT" | "GROUP" | "BOTH" | null })),
     ],
   };
 }
@@ -203,6 +213,8 @@ export type GroupPersonRow = {
   /** The group role this person holds through the group's companies, if any. */
   roleKey: "OWNER" | "GROUP_IT" | null; roleName: string | null;
   companies: number; projects: number; seat: string; account: string;
+  /** The seat's company access policy (PRD #10): where its group role reaches, as persisted. */
+  companyAccessMode: "NONE" | "ALL" | "SELECTED"; selectedCompanies: number;
   person: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } | null;
 };
 
@@ -218,7 +230,8 @@ export async function groupPeople(context: PlatformContext | GroupActor, groupId
     where: { parentGroupId: groupId, parentGroup: { isTestFixture: false } },
     orderBy: [{ user: { lastName: "asc" } }, { user: { firstName: "asc" } }, { id: "asc" }],
     select: {
-      status: true,
+      status: true, companyAccessMode: true,
+      _count: { select: { companies: true } },
       role: { select: { key: true, name: true } },
       user: {
         select: {
@@ -242,6 +255,7 @@ export async function groupPeople(context: PlatformContext | GroupActor, groupId
       companies: new Set(held.map((member) => member.companyId)).size,
       projects: new Set(held.flatMap((member) => member.projectMemberships.map((place) => place.projectId))).size,
       seat: seat.status, account: seat.user.status, person: seat.user.personProfile,
+      companyAccessMode: seat.companyAccessMode, selectedCompanies: seat._count.companies,
     };
   });
   const ceo = people.find((person) => person.roleKey === "OWNER" && person.seat === "ACTIVE");

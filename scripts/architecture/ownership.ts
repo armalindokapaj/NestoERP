@@ -43,6 +43,7 @@ const OWNED: Record<string, string[]> = {
   organization: [
     "parentGroup",
     "parentGroupMember",
+    "parentGroupMemberCompany",
     "groupDepartment",
     "departmentAssignment",
     "accessGrant",
@@ -351,6 +352,18 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
     file: "lib/modules/platform/platform-group-users.service.ts",
     reason:
       "Adding, replacing or removing a Parent Group's own people (Group CEO, Group IT) writes the person, the login, the group seat, the group role in each of the group's companies with its department place, and the ending of project places, in one transaction, so a failure leaves nothing half-made and a CEO replacement never shows two CEOs. Every write names the group and is checked against it; it is a Platform Admin decision, permission-checked and audited, made without a company membership of its own (Admin PRD #8 §15, §63-§66, §72, §73).",
+  },
+  {
+    model: "*",
+    file: "lib/modules/platform/group-company-access.service.ts",
+    reason:
+      "A seat's company access policy (PRD #10) is carried out as the company memberships it owns, flagged groupDerived: created, role-updated and ended in one transaction with the policy change, and with the company's own lifecycle. Direct memberships are never written here.",
+  },
+  {
+    model: "departmentAssignment",
+    file: "lib/modules/platform/group-placement.ts",
+    reason:
+      "A member's own place in the branch they are placed in (E-13 §24-§29, ADR 0003): moved out of the implementation service so the group-access service and the implementation service can share it without importing each other. The one row it writes is the one that service always wrote.",
   },
   {
     model: "*",

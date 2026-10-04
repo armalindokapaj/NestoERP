@@ -4,6 +4,7 @@ import { AccessError } from "@/lib/access/guards";
 import { apiOk, readJson, withGroupContext } from "@/lib/api/respond";
 import { groupActor } from "@/lib/modules/platform/group-actor";
 import { addGroupUserAs, removeGroupUserAs } from "@/lib/modules/platform/platform-group-users.service";
+import { getGroupUserAccess, groupCompanyChoices, updateGroupUserAccess } from "@/lib/modules/platform/group-company-access.service";
 import { createGroupCompanyAs } from "@/lib/modules/platform/platform-implementation.service";
 import { createGroupCompanySchema } from "@/lib/modules/platform/platform.schema";
 
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
       case "group.user.remove":
         await removeGroupUserAs(actor, body);
         return apiOk({ data: { ok: true } });
+      case "group.access.get":
+        return apiOk({ data: await getGroupUserAccess(actor, body) });
+      case "group.access.companies":
+        return apiOk({ data: await groupCompanyChoices(actor, body) });
+      case "group.access.update":
+        return apiOk({ data: await updateGroupUserAccess(actor, body) });
       case "group.company.create": {
         const input = createGroupCompanySchema.parse(body);
         return apiOk({ data: await createGroupCompanyAs(actor, context.groupId, input) }, { status: 201 });
