@@ -119,7 +119,9 @@ export async function syncSeatAccess(tx: Tx, input: { seatId: string; actorUserI
       if (previous?.status !== "ACTIVE") await assertWithinLimit(tx, companyId, "users");
       if (previous) {
         await tx.companyMember.updateMany({ where: { id: previous.id, status: previous.status }, data: { roleId: seat.roleId, status: "ACTIVE", groupDerived: true, departmentId: branch?.id ?? null, joinedAt: new Date(), deactivatedAt: null, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
-        await revokeSessions(tx, { membershipId: previous.id, relocate: false });
+        // A role changed under live sessions ends them; a membership coming back from inactive has none to end, and a
+        // direct row just removed under a person who is still covered by the group must not sign them out (PRD #14 §89).
+        if (previous.status === "ACTIVE") await revokeSessions(tx, { membershipId: previous.id, relocate: false });
       } else {
         await tx.companyMember.create({ data: { companyId, userId: seat.userId, roleId: seat.roleId, departmentId: branch?.id ?? null, status: "ACTIVE", groupDerived: true, joinedAt: new Date() } });
       }

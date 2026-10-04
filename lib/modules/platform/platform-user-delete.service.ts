@@ -31,6 +31,11 @@ export async function deletePlatformUser(context: PlatformContext, raw: unknown)
   if (user.platformAccess) throw new AccessError("CONFLICT", "A Platform Admin account cannot be deleted. Remove its platform access first.", { code: "PLATFORM_ACCOUNT" });
   const used = new AccessError("CONFLICT", `${user.firstName} ${user.lastName} has signed in or has records under their name, so the account cannot be deleted. Suspend it instead.`, { code: "ACCOUNT_IN_USE" });
   if (user.lastLoginAt) throw used;
+  // Deleting the named CEO would null the company's pointer, or empty the group's only CEO seat, with no step that says so (Admin PRD #14 §83, §84).
+  const ceoOf = await prisma.company.findFirst({ where: { ceoMember: { userId: user.id } }, select: { name: true } });
+  if (ceoOf) throw new AccessError("CONFLICT", `${user.firstName} ${user.lastName} is the CEO of ${ceoOf.name}. Change or remove the CEO first.`, { code: "IS_COMPANY_CEO" });
+  const groupCeoOf = await prisma.parentGroupMember.findFirst({ where: { userId: user.id, status: "ACTIVE", role: { key: "OWNER" } }, select: { parentGroup: { select: { name: true } } } });
+  if (groupCeoOf) throw new AccessError("CONFLICT", `${user.firstName} ${user.lastName} is the Group CEO of ${groupCeoOf.parentGroup.name}. Assign another Group CEO first.`, { code: "IS_GROUP_CEO" });
 
   try {
     await prisma.$transaction(async (tx) => {

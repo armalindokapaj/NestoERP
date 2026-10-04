@@ -268,6 +268,11 @@ export async function updateMembership(context: PlatformContext, membershipId: s
   assertPlatform(context, "platform.membership.manage");
   const member = assertFound(await prisma.companyMember.findFirst({ where: { id: membershipId, company: { parentGroup: { isTestFixture: false } } }, select: { id: true, status: true, role: { select: { id: true, key: true } }, userId: true, user: { select: { firstName: true, lastName: true } }, company: { select: { id: true, name: true, parentGroupId: true } } } }));
   let roleId = member.role.id;
+  // A membership the group's company-access policy owns is changed through that policy, never here (Admin PRD #14 §49).
+  const owned = await prisma.companyMember.findUnique({ where: { id: member.id }, select: { groupDerived: true } });
+  if (owned?.groupDerived) throw new AccessError("CONFLICT", "This access comes from the group's company access policy. Change it from the group's Users tab.", { code: "GROUP_DERIVED" });
+  // Suspending or ending the named CEO would leave the company with a pointer to nobody (PRD #14 §83, §84).
+  if (input.status && input.status !== "ACTIVE" && member.status === "ACTIVE") await assertNotCompanyCeo(prisma, member.id);
   if (input.roleKey) {
     if (!isMembershipRoleKey(input.roleKey)) throw new AccessError("VALIDATION_ERROR", "Choose a tenant role.");
     if (input.roleKey !== member.role.key) {

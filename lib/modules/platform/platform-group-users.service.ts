@@ -7,6 +7,7 @@ import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem } from "@/lib/auth/username";
 import { assertGroupCan, platformActor, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { lockGroup } from "@/lib/modules/platform/group-placement";
 import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
@@ -131,6 +132,7 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
   if (username && usernameProblem(username)) throw new AccessError("VALIDATION_ERROR", "Usernames use lowercase letters, numbers, dots, hyphens and underscores.", { field: "username" });
 
   return prisma.$transaction(async (tx) => {
+    await lockGroup(tx, group.id);
     let userId: string;
     let accountUsername: string;
     let created = false;
@@ -192,6 +194,7 @@ export async function removeGroupUserAs(context: GroupActor, raw: unknown): Prom
   if (seat.role?.key === "OWNER") assertGroupCan(context, "ceo.manage", group.id);
 
   await prisma.$transaction(async (tx) => {
+    await lockGroup(tx, group.id);
     const owners = await activeHolders(tx, group.id, "OWNER");
     // The only Group CEO stays until another is named (§74, PRD #9 §62).
     if (owners.length === 1 && owners[0].userId === input.userId) {

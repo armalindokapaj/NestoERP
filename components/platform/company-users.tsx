@@ -287,7 +287,7 @@ export function CompanyUsersTable({ companyId, companyName, groupName, api, init
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full text-table" aria-label={t("companyUsers.title")}>
           <thead>
             <tr className="border-b border-line text-left text-meta font-medium text-fg-subtle">
