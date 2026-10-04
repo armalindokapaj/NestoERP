@@ -78,6 +78,8 @@ export async function resolvePlatformContextForSession(
   // there is nowhere else for it to go.
   const access = record.user.platformAccess;
   if (access?.status !== "ACTIVE" || !isPlatformRoleKey(access.roleKey)) {
+    // A group-only session is somebody else's area, not an ended one (Admin PRD #9).
+    if ((await prisma.parentGroupMember.count({ where: { userId: record.userId, status: "ACTIVE", roleId: { not: null } } })) > 0) return { ok: false, reason: "NOT_PLATFORM" };
     return { ok: false, reason: "SESSION_EXPIRED" };
   }
 

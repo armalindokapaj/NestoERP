@@ -55,6 +55,7 @@ const ACTION_CLASSES: Record<string, string> = {
   "lib/actions/account.ts": "AUTHENTICATED",
   // The Platform Admin's own account (ADM-01): requirePlatformContext, tenant sessions refused.
   "lib/actions/platform-account.ts": "PLATFORM",
+  "lib/actions/group-account.ts": "PLATFORM",
   // Recovery links (ADM-01): the credential is the emailed token, checked by its hash.
   "lib/actions/auth.ts#resetPasswordAction": "TOKEN",
   "lib/actions/auth.ts#confirmRecoveryEmailAction": "TOKEN",
@@ -102,7 +103,7 @@ const SELF_SERVICE_PAGES: Record<string, string> = {
 const REDIRECT_HELPERS = /^(redirect|permanentRedirect|notFound|\w*Href|encodeURIComponent|String|toString|get|getAll|has|set|append|entries|join|map|filter)$/;
 
 /** Guards a page or its layouts call: the class of the entry point is read from these. */
-const GUARD_NAMES = new Set(["requireUserContext", "requireCompanyContext", "requireModule", "requirePermission", "requirePlatformContext", "getUserContext", "withContext", "withPlatformContext", "resolvePlatformContext"]);
+const GUARD_NAMES = new Set(["requireUserContext", "requireCompanyContext", "requireModule", "requirePermission", "requirePlatformContext", "getUserContext", "withContext", "withPlatformContext", "resolvePlatformContext", "withGroupContext", "requireGroupContext", "resolveGroupContext"]);
 const MODULE_GUARDS = new Set(["assertModule", "requireModule", "moduleAndPermissions", "isModuleEnabled", "canAccessModule", "hasAccessLevel", "getModuleScope", "buildProjectLinkedScopeWhere", "resolveModuleExperience"]);
 const SCOPE_PATTERN = /^(build\w*(Scope|Access)Where|\w*Door|readable\w*Where|canAccessProject|accessibleProjectIds|visible\w*Where|\w*ScopeWhere)$/;
 const RECORD_PATTERN = /^(loadRecord|canReadRecord|assertFound|find\w*InScope|require(?!UserContext|Module|Permission)[A-Z]\w*|findReadable\w*|findWritable\w*|get[A-Z]\w*OrThrow)$/;
@@ -394,7 +395,7 @@ for (const file of routeFiles) {
     for (const [method, body] of handlers) {
       const evidence = analyse(body, 0);
       // A handler that answers only a platform session is the platform's, wherever it lives (/api/platform-admin/*).
-      const platformOnly = evidence.guards.has("withPlatformContext") && !evidence.guards.has("withContext");
+      const platformOnly = (evidence.guards.has("withPlatformContext") || evidence.guards.has("withGroupContext")) && !evidence.guards.has("withContext");
       const cls: string = ROUTE_CLASSES[pattern] ?? (pattern.startsWith("/api/platform/") || platformOnly ? "PLATFORM" : SELF_SERVICE.some((regex) => regex.test(pattern)) ? "AUTHENTICATED" : "COMPANY_SCOPED");
       const tests = testsForRoute(pattern);
       const serviceTests = serviceTestsOf(body);
@@ -493,7 +494,7 @@ const isPublicPage = (file: string) => file.startsWith("app/(public)/") || file.
 
 function pageClass(file: string, route: string, own: Evidence, layouts: Evidence, redirectOnly: boolean): { cls: string; note?: string } {
   const guards = new Set([...own.guards, ...layouts.guards]);
-  if (guards.has("requirePlatformContext") || guards.has("resolvePlatformContext")) return { cls: "PLATFORM" };
+  if (guards.has("requirePlatformContext") || guards.has("resolvePlatformContext") || guards.has("requireGroupContext") || guards.has("resolveGroupContext")) return { cls: "PLATFORM" };
   if (isPublicPage(file)) return { cls: "PUBLIC" };
   // The offline workspace renders nothing from the server: it reads this device's own database, and every sync call it makes is a guarded API route (MOB-09).
   if (file.startsWith("app/(offline)/")) return { cls: "AUTHENTICATED", note: "device-local shell; renders no server data; signed in via middleware" };

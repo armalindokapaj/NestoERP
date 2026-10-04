@@ -94,7 +94,11 @@ export async function resolveContextForSession(
   if (!record.membership || !record.currentCompanyId) {
     if (record.user.status !== "ACTIVE") return { ok: false, reason: "USER_INACTIVE" };
     // Platform access revoked since: the session has nothing left to point at.
-    if (record.user.platformAccess?.status !== "ACTIVE") return { ok: false, reason: "SESSION_EXPIRED" };
+    if (record.user.platformAccess?.status !== "ACTIVE") {
+      // No company and no platform: a person who belongs to a group only works in the group's area (Admin PRD #9).
+      const seated = await prisma.parentGroupMember.count({ where: { userId: record.userId, status: "ACTIVE", roleId: { not: null }, parentGroup: { kind: "GROUP", isTestFixture: false } } });
+      return { ok: false, reason: seated > 0 ? "GROUP_SESSION" : "SESSION_EXPIRED" };
+    }
     return { ok: false, reason: "PLATFORM_SESSION" };
   }
   if (record.membership.userId !== record.userId) {

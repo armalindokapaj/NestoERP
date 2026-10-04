@@ -20,7 +20,12 @@ type GroupRole = "OWNER" | "GROUP_IT";
 
 const field = "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
-const command = <T,>(body: Record<string, unknown>) => engineeringApi<T>("/api/platform-admin/command", { body });
+const PLATFORM_API = { command: "/api/platform-admin/command", eligible: (groupId: string) => `/api/platform-admin/groups/${encodeURIComponent(groupId)}/eligible-users` };
+/** The group's own commands, for a person who belongs to the group and to no company (Admin PRD #9). */
+export const GROUP_API = { command: "/api/group/command", eligible: () => "/api/group/eligible-users" };
+export type GroupApi = { command: string; eligible: (groupId: string) => string };
+
+const run_ = <T,>(api: GroupApi, body: Record<string, unknown>) => engineeringApi<T>(api.command, { body });
 
 /**
  * Add User from inside a Parent Group (Admin PRD #8 §22-§29): a new account or
@@ -28,7 +33,7 @@ const command = <T,>(body: Record<string, unknown>) => engineeringApi<T>("/api/p
  * fixed and asks before it replaces the current CEO. One transaction on the
  * server; nothing is half-applied.
  */
-export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly = false, label }: { groupId: string; groupName: string; hasCompany: boolean; ceoName: string | null; ceoOnly?: boolean; label: string }) {
+export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, label, api = PLATFORM_API, allowCeo = true }: { groupId: string; groupName: string; ceoName: string | null; ceoOnly?: boolean; label: string; api?: GroupApi; allowCeo?: boolean }) {
   const t = useTranslations("adminOrgs");
   const router = useRouter();
   const toast = useToast();
@@ -55,11 +60,11 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
     if (!open || mode !== "existing" || chosen) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      engineeringApi<Account[]>(`/api/platform-admin/groups/${encodeURIComponent(groupId)}/eligible-users?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      engineeringApi<Account[]>(`${api.eligible(groupId)}?q=${encodeURIComponent(query)}`, { signal: controller.signal })
         .then(setResults, (failure: unknown) => { if (!controller.signal.aborted) setError(failureMessage(failure)); });
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [open, mode, groupId, query, chosen]);
+  }, [open, mode, groupId, query, chosen, api]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -71,7 +76,7 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
     setPending(true);
     try {
       const base = { action: "group.user.add", groupId, roleKey, replaceCurrent: replacing && replace };
-      const result = await command<Added>(mode === "new" ? { ...base, mode, ...form } : { ...base, mode, userId: chosen!.id });
+      const result = await run_<Added>(api, mode === "new" ? { ...base, mode, ...form } : { ...base, mode, userId: chosen!.id });
       toast({ title: t("groupUsers.added", { group: groupName }), tone: "success" });
       setOpen(false);
       reset();
@@ -102,8 +107,8 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
       <Dialog open={open} locked={pending} onOpenChange={(next) => { setOpen(next); if (!next) reset(); }}>
         <DialogContent className="max-h-[92dvh] max-w-xl overflow-y-auto" data-testid="group-add-user-dialog">
           <DialogTitle>{ceoOnly ? t("groupUsers.ceoTitle", { group: groupName }) : t("users.add.title", { target: groupName })}</DialogTitle>
-          <DialogDescription>{hasCompany ? t("groupUsers.addDescription") : t("tabs.users.needCompany")}</DialogDescription>
-          {hasCompany ? (
+          <DialogDescription>{t("groupUsers.addDescription")}</DialogDescription>
+          {(
             <form onSubmit={submit} className="mt-4 space-y-4">
               <div role="radiogroup" aria-label={t("users.add.accountGroup")} className="flex flex-wrap gap-4 text-table">
                 <label className="flex items-center gap-2"><input type="radio" name="group-mode" checked={mode === "new"} onChange={() => { setMode("new"); setChosen(null); }} />{t("users.add.createNew")}</label>
@@ -133,7 +138,7 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
               )}
               <label className="block space-y-1 text-meta text-fg-subtle">{t("groupUsers.role")}
                 <select className={field} value={roleKey} onChange={(event) => { setRoleKey(event.target.value as GroupRole); setReplace(false); }} disabled={ceoOnly} required>
-                  <option value="OWNER">{t("groupUsers.roleOWNER")}</option>
+                  {allowCeo ? <option value="OWNER">{t("groupUsers.roleOWNER")}</option> : null}
                   <option value="GROUP_IT">{t("groupUsers.roleGROUP_IT")}</option>
                 </select>
               </label>
@@ -150,7 +155,7 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
                 <Button type="submit" disabled={pending}>{ceoOnly ? t("groupUsers.assignCeo") : mode === "new" ? t("users.add.createUser") : t("users.add.addUser")}</Button>
               </DialogFooter>
             </form>
-          ) : <DialogFooter><Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t("users.add.cancel")}</Button></DialogFooter>}
+          )}
         </DialogContent>
       </Dialog>
       <Dialog open={created !== null} onOpenChange={(next) => !next && setCreated(null)}>
@@ -170,7 +175,7 @@ export function AddGroupUser({ groupId, groupName, hasCompany, ceoName, ceoOnly 
  * "Remove from Group" never deletes the account, and company access stays
  * unless the box is ticked.
  */
-export function GroupPersonActions({ groupId, groupName, person, ceoName }: { groupId: string; groupName: string; person: { userId: string; name: string; roleKey: GroupRole | null; seatActive: boolean; profile: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } | null }; ceoName: string | null }) {
+export function GroupPersonActions({ groupId, groupName, person, ceoName, api = PLATFORM_API, platform = true, canAppointCeo = true }: { api?: GroupApi; platform?: boolean; canAppointCeo?: boolean; groupId: string; groupName: string; person: { userId: string; name: string; roleKey: GroupRole | null; seatActive: boolean; profile: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } | null }; ceoName: string | null }) {
   const t = useTranslations("adminOrgs");
   const router = useRouter();
   const toast = useToast();
@@ -187,7 +192,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName }: { gr
     setPending(true);
     setError(null);
     try {
-      await command(body);
+      await run_(api, body);
       toast({ title: success, tone: "success" });
       setDialog(null);
       router.refresh();
@@ -205,12 +210,16 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName }: { gr
           <Button type="button" size="sm" variant="ghost" aria-label={t("users.member.actionsFor", { name: person.name })} data-testid="group-person-actions"><MoreHorizontal aria-hidden="true" className="size-4" /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {person.profile ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("groupUsers.editPerson")}</DropdownMenuItem> : null}
-          {person.seatActive && person.roleKey && !isCeo ? <DropdownMenuItem onSelect={() => { setError(null); setDialog("ceo"); }}>{t("groupUsers.makeCeo")}</DropdownMenuItem> : null}
+          {platform && person.profile ? <DropdownMenuItem onSelect={() => setEditing(true)}>{t("groupUsers.editPerson")}</DropdownMenuItem> : null}
+          {canAppointCeo && person.seatActive && person.roleKey && !isCeo ? <DropdownMenuItem onSelect={() => { setError(null); setDialog("ceo"); }}>{t("groupUsers.makeCeo")}</DropdownMenuItem> : null}
           {person.seatActive ? <DropdownMenuItem onSelect={() => { setError(null); setAlsoCompanies(false); setDialog("remove"); }} className="text-danger">{t("groupUsers.removeFromGroup")}</DropdownMenuItem> : null}
-          <DropdownMenuItem onSelect={() => { setError(null); setDialog("delete"); }} className="text-danger">{t("groupUsers.deleteAccount")}</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link href={`/admin/users/${person.userId}`}>{t("users.member.viewAccount")}</Link></DropdownMenuItem>
+          {platform ? (
+            <>
+              <DropdownMenuItem onSelect={() => { setError(null); setDialog("delete"); }} className="text-danger">{t("groupUsers.deleteAccount")}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild><Link href={`/admin/users/${person.userId}`}>{t("users.member.viewAccount")}</Link></DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={dialog !== null} locked={pending} onOpenChange={(next) => !next && setDialog(null)}>

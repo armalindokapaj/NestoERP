@@ -122,6 +122,8 @@ export type ContextFailure =
   | "CONFIGURATION_ERROR"
   /** A Platform Admin's session: valid, but it has no company to act in (E-06 §116). */
   | "PLATFORM_SESSION"
+  /** A person who belongs to a parent group and to no company: the group's own area is theirs (Admin PRD #9). */
+  | "GROUP_SESSION"
   /** The installed app this session came from was revoked or blocked (MOB-11 §18, §139). */
   | "DEVICE_REVOKED"
   /** The app breaks the security policy (risk, OS): blocked under the Company's policy (MOB-11 §139). */

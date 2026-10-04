@@ -101,24 +101,24 @@ describe("group people (PRD #8)", () => {
   const companyRoles = async (userId: string, status: "ACTIVE" | "INACTIVE") =>
     (await prisma.companyMember.findMany({ where: { userId, status, company: { parentGroupId: groupId } }, select: { role: { select: { key: true } } } })).map((row) => row.role.key);
 
-  it("needs a company first, and says so without creating anything", async () => {
+  it("creates the Group CEO before any company exists: a user and a seat with the CEO role, no company, audited", async () => {
     groupId = (await createParentGroup(admin, createParentGroupSchema.parse({ name: "Harbour Holdings", slug: GROUP }))).id;
-    const before = await prisma.user.count();
-    await expect(addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", firstName: "Hana", lastName: "Harbour", email: EMAILS[0] })).rejects.toMatchObject({ code: "CONFLICT", details: { code: "GROUP_HAS_NO_COMPANY" } });
-    expect(await prisma.user.count()).toBe(before);
-    for (const [index, slug] of COMPANIES.entries()) await createGroupCompany(admin, groupId, createGroupCompanySchema.parse({ name: `Harbour ${index}`, slug }));
-  });
-
-  it("creates the Group CEO: one user, one group seat, the Owner role in every company, audited", async () => {
     const result = await addGroupUser(admin, { mode: "new", groupId, roleKey: "OWNER", firstName: "Hana", lastName: "Harbour", email: EMAILS[0] });
     ceoId = result.userId;
     expect(result.temporaryPassword).toBe("nesto1234");
     expect(await seats(ceoId)).toHaveLength(1);
-    expect(await companyRoles(ceoId, "ACTIVE")).toEqual(["OWNER", "OWNER"]);
+    expect((await prisma.parentGroupMember.findFirstOrThrow({ where: { userId: ceoId }, include: { role: true } })).role?.key).toBe("OWNER");
+    expect(await prisma.company.count({ where: { parentGroupId: groupId } })).toBe(0);
+    expect(await prisma.companyMember.count({ where: { userId: ceoId } })).toBe(0);
     expect(await prisma.auditEvent.count({ where: { parentGroupId: groupId, actionKey: "PLATFORM_GROUP_USER_ADDED" } })).toBe(1);
     // The account signs in with the default password and must change it.
     const signedIn = await authenticateCredentials({ username: result.username, password: "nesto1234" }, new Headers());
     expect(signedIn).toMatchObject({ mustChangePassword: true });
+  });
+
+  it("brings the CEO's role to a company created afterwards", async () => {
+    for (const [index, slug] of COMPANIES.entries()) await createGroupCompany(admin, groupId, createGroupCompanySchema.parse({ name: `Harbour ${index}`, slug }));
+    expect(await companyRoles(ceoId, "ACTIVE")).toEqual(["OWNER", "OWNER"]);
   });
 
   it("refuses a second CEO unless the current one is replaced, and changes nothing", async () => {

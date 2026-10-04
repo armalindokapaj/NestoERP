@@ -6,7 +6,8 @@ import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem } from "@/lib/auth/username";
-import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
+import { assertGroupCan, platformActor, type GroupActor } from "@/lib/modules/platform/group-actor";
+import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
@@ -45,10 +46,6 @@ export const groupUserRemoveSchema = z.object({ groupId: id, userId: id, alsoRem
 
 export type GroupUserAdded = { userId: string; username: string; temporaryPassword?: string; expiresAt?: string };
 
-function assertManage(context: PlatformContext) {
-  if (!canPlatform(context, "platform.membership.manage")) throw new AccessError("FORBIDDEN");
-}
-
 async function openGroup(groupId: string) {
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false, kind: "GROUP" }, select: { id: true, name: true, status: true } }));
   if (!["ACTIVE", "IMPLEMENTING", "READY_FOR_VALIDATION"].includes(group.status)) {
@@ -58,21 +55,17 @@ async function openGroup(groupId: string) {
 }
 
 async function groupCompanies(tx: Prisma.TransactionClient, groupId: string) {
-  const companies = await tx.company.findMany({ where: { parentGroupId: groupId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } });
-  if (companies.length === 0) {
-    throw new AccessError("CONFLICT", "Add a company to the group first. A group seat works through the group's companies.", { code: "GROUP_HAS_NO_COMPANY" });
-  }
-  return companies;
+  // None is a valid state (Admin PRD #9 §75): the seat stands without any company membership.
+  return tx.company.findMany({ where: { parentGroupId: groupId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 }
 
-/** Active holders of a group role, by their group-level memberships. */
+/** Active holders of a group role: the seats that carry it. */
 async function activeHolders(tx: Prisma.TransactionClient, groupId: string, key: string) {
-  const rows = await tx.companyMember.findMany({
-    where: { status: "ACTIVE", archivedAt: null, role: { key }, company: { parentGroupId: groupId }, user: { parentGroupMemberships: { some: { parentGroupId: groupId, status: "ACTIVE" } } } },
+  const rows = await tx.parentGroupMember.findMany({
+    where: { parentGroupId: groupId, status: "ACTIVE", role: { key }, user: { status: "ACTIVE" } },
     select: { userId: true, user: { select: { firstName: true, lastName: true } } },
   });
-  const byUser = new Map(rows.map((row) => [row.userId, `${row.user.firstName} ${row.user.lastName}`]));
-  return [...byUser].map(([userId, name]) => ({ userId, name }));
+  return rows.map((row) => ({ userId: row.userId, name: `${row.user.firstName} ${row.user.lastName}` }));
 }
 
 /** Ends a person's group-role memberships in the group's companies; the seat itself stays. */
@@ -82,6 +75,8 @@ async function endGroupRole(tx: Prisma.TransactionClient, groupId: string, userI
     select: { id: true, companyId: true },
   });
   const now = new Date();
+  // The seat keeps its place in the group; it no longer carries the role.
+  if (key) await tx.parentGroupMember.updateMany({ where: { parentGroupId: groupId, userId, role: { key } }, data: { roleId: null } });
   for (const member of members) {
     await tx.projectMember.updateMany({ where: { companyMemberId: member.id, status: "ACTIVE" }, data: { status: "INACTIVE", leftAt: now } });
     await tx.companyMember.updateMany({ where: { id: member.id, status: "ACTIVE" }, data: { status: "INACTIVE", deactivatedAt: now, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
@@ -94,15 +89,15 @@ async function endGroupRole(tx: Prisma.TransactionClient, groupId: string, userI
  * Gives the person the group seat with this role: the seat, then the role in
  * every company of the group (a different role they held there becomes this one).
  */
-async function seatPerson(tx: Prisma.TransactionClient, context: PlatformContext, group: { id: string }, companies: Array<{ id: string }>, userId: string, key: string) {
+async function seatPerson(tx: Prisma.TransactionClient, context: GroupActor, group: { id: string }, companies: Array<{ id: string }>, userId: string, key: string) {
   const [roleRow, seat] = await Promise.all([
     tx.role.findUniqueOrThrow({ where: { key }, select: { id: true } }),
     tx.parentGroupMember.findUnique({ where: { parentGroupId_userId: { parentGroupId: group.id, userId } }, select: { id: true, status: true } }),
   ]);
   if (seat) {
-    if (seat.status !== "ACTIVE") await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: seat.status }, data: { status: "ACTIVE", joinedAt: new Date() } });
+    await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: seat.status }, data: { status: "ACTIVE", roleId: roleRow.id, joinedAt: seat.status === "ACTIVE" ? undefined : new Date() } });
   } else {
-    await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId, status: "ACTIVE", joinedAt: new Date() } });
+    await tx.parentGroupMember.create({ data: { parentGroupId: group.id, userId, status: "ACTIVE", joinedAt: new Date(), roleId: roleRow.id } });
   }
   const groupDepartment = await tx.groupDepartment.findFirst({ where: { parentGroupId: group.id, key: departmentKeyFor(key), status: "ACTIVE" }, select: { id: true } });
   for (const company of companies) {
@@ -130,8 +125,12 @@ async function seatPerson(tx: Prisma.TransactionClient, context: PlatformContext
  * CEO is one person (§72, §73), replaced in the same transaction.
  */
 export async function addGroupUser(context: PlatformContext, raw: unknown): Promise<GroupUserAdded> {
-  assertManage(context);
+  return addGroupUserAs(platformActor(context), raw);
+}
+
+export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise<GroupUserAdded> {
   const input = groupUserAddSchema.parse(raw);
+  assertGroupCan(context, input.roleKey === "OWNER" ? "ceo.manage" : "users.manage", input.groupId);
   const group = await openGroup(input.groupId);
 
   let existing: { id: string; username: string; firstName: string; lastName: string } | null = null;
@@ -198,18 +197,25 @@ export async function addGroupUser(context: PlatformContext, raw: unknown): Prom
  * touched. The only Group CEO cannot be removed (§74): name another first.
  */
 export async function removeGroupUser(context: PlatformContext, raw: unknown): Promise<void> {
-  assertManage(context);
+  return removeGroupUserAs(platformActor(context), raw);
+}
+
+export async function removeGroupUserAs(context: GroupActor, raw: unknown): Promise<void> {
   const input = groupUserRemoveSchema.parse(raw);
+  assertGroupCan(context, "users.manage", input.groupId);
   const group = await openGroup(input.groupId);
-  const seat = assertFound(await prisma.parentGroupMember.findUnique({ where: { parentGroupId_userId: { parentGroupId: group.id, userId: input.userId } }, select: { id: true, status: true, user: { select: { firstName: true, lastName: true } } } }));
+  const seat = assertFound(await prisma.parentGroupMember.findUnique({ where: { parentGroupId_userId: { parentGroupId: group.id, userId: input.userId } }, select: { id: true, status: true, role: { select: { key: true } }, user: { select: { firstName: true, lastName: true } } } }));
   if (seat.status !== "ACTIVE") return;
+  // Removing the Group CEO's seat is the CEO's own call to make, not IT's.
+  if (seat.role?.key === "OWNER") assertGroupCan(context, "ceo.manage", group.id);
 
   await prisma.$transaction(async (tx) => {
     const owners = await activeHolders(tx, group.id, "OWNER");
-    if (input.alsoRemoveCompanyAccess && owners.length === 1 && owners[0].userId === input.userId) {
+    // The only Group CEO stays until another is named (§74, PRD #9 §62).
+    if (owners.length === 1 && owners[0].userId === input.userId) {
       throw new AccessError("CONFLICT", "This is the only Group CEO. Assign another Group CEO first.", { code: "LAST_GROUP_ADMIN" });
     }
-    await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: "ACTIVE" }, data: { status: "INACTIVE" } });
+    await tx.parentGroupMember.updateMany({ where: { id: seat.id, status: "ACTIVE" }, data: { status: "INACTIVE", roleId: null } });
     await tx.departmentAssignment.updateMany({ where: { parentGroupId: group.id, userId: input.userId, companyId: null, status: "ACTIVE" }, data: { status: "INACTIVE", endsAt: new Date() } });
     const ended = input.alsoRemoveCompanyAccess ? await endGroupRole(tx, group.id, input.userId, null) : 0;
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_USER_REMOVED, entity: { type: "User", id: input.userId, label: `${seat.user.firstName} ${seat.user.lastName} · ${group.name}` }, before: { groupId: group.id, userId: input.userId, status: "ACTIVE" }, after: { groupId: group.id, userId: input.userId, status: "INACTIVE", companyAccessEnded: ended }, reason: input.reason }, { tx });
@@ -217,8 +223,8 @@ export async function removeGroupUser(context: PlatformContext, raw: unknown): P
 }
 
 /** Accounts of this group that may be given a seat: not the platform's own, not already holding one. */
-export async function eligibleGroupUsers(context: PlatformContext, groupId: string, q: string) {
-  assertManage(context);
+export async function eligibleGroupUsers(actor: PlatformContext | GroupActor, groupId: string, q: string) {
+  assertGroupCan("can" in actor ? actor : platformActor(actor), "users.manage", groupId);
   const group = assertFound(await prisma.parentGroup.findFirst({ where: { id: groupId, isTestFixture: false, kind: "GROUP" }, select: { id: true } }));
   const text = q.trim().slice(0, 120);
   const contains = { contains: text, mode: "insensitive" as const };

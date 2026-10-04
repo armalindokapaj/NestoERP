@@ -5,6 +5,8 @@ import { adminOrgsEn } from "./adminOrgs/en";
 import { adminOrgsSq } from "./adminOrgs/sq";
 import { adminAccessEn } from "./adminAccess/en";
 import { adminAccessSq } from "./adminAccess/sq";
+import { groupEn } from "./group/en";
+import { groupSq } from "./group/sq";
 import { adminPlatformEn } from "./adminPlatform/en";
 import { adminPlatformSq } from "./adminPlatform/sq";
 import { announcementsEn } from "./announcements/en";
@@ -110,6 +112,7 @@ export const moduleMessagesEn = {
   adminOrgs: adminOrgsEn,
   adminAccess: adminAccessEn,
   adminPlatform: adminPlatformEn,
+  group: groupEn,
 };
 
 export type ModuleMessages = typeof moduleMessagesEn;
@@ -151,5 +154,6 @@ export const moduleMessages: Record<Locale, ModuleMessages> = {
     adminOrgs: adminOrgsSq,
     adminAccess: adminAccessSq,
     adminPlatform: adminPlatformSq,
+    group: groupSq,
   },
 };
