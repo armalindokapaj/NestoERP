@@ -8,6 +8,7 @@ import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { coveredCompanyIds, syncSeatAccess, type CompanyAccessSource } from "@/lib/modules/platform/group-company-access.service";
 import { assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { lockGroup } from "@/lib/modules/platform/group-placement";
 
 /**
  * One person's relationship with one parent group (Admin PRD #11): the seat,
@@ -218,6 +219,7 @@ async function setSeatStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED" 
   const input = groupUserSuspendSchema.parse(raw);
   assertGroupCan(actor, "users.manage", input.groupId);
   return prisma.$transaction(async (tx) => {
+    await lockGroup(tx, input.groupId);
     const seat = assertFound(await tx.parentGroupMember.findFirst({
       where: { parentGroupId: input.groupId, userId: input.userId, parentGroup: { isTestFixture: false, kind: "GROUP" } },
       select: { id: true, status: true, roleId: true, role: { select: { key: true } }, parentGroup: { select: { name: true, status: true } }, user: { select: { firstName: true, lastName: true } } },

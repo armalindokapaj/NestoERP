@@ -60,8 +60,13 @@ async function openCompany(companyId: string) {
 async function memberOf(companyId: string, membershipId: string) {
   return assertFound(await prisma.companyMember.findFirst({
     where: { id: membershipId, companyId, archivedAt: null },
-    select: { id: true, status: true, userId: true, role: { select: { key: true } }, user: { select: { firstName: true, lastName: true } } },
+    select: { id: true, status: true, userId: true, groupDerived: true, role: { select: { key: true } }, user: { select: { firstName: true, lastName: true } } },
   }));
+}
+
+/** A membership the group's company-access policy owns is changed through that policy, never here (Admin PRD #14 §49). */
+function assertDirectMembership(member: { groupDerived: boolean }): void {
+  if (member.groupDerived) throw new AccessError("CONFLICT", "This access comes from the group's company access policy. Change it from the group's Users tab.", { code: "GROUP_DERIVED" });
 }
 
 /** Projects must be the company's own, open ones. */
@@ -160,6 +165,7 @@ export async function changeOrganizationMemberRole(context: PlatformContext, raw
   const company = await openCompany(input.companyId);
   const member = await memberOf(company.id, input.membershipId);
   if (member.role.key === input.roleKey) return;
+  assertDirectMembership(member);
   await assertNotCompanyCeo(prisma, member.id);
   if (!isMembershipRoleKey(input.roleKey)) throw new AccessError("VALIDATION_ERROR", "Choose a role.");
   const role = assertFound(await prisma.role.findUnique({ where: { key: input.roleKey }, select: { id: true } }));
@@ -198,6 +204,7 @@ export async function removeOrganizationMember(context: PlatformContext, raw: un
   const company = assertFound(await prisma.company.findFirst({ where: { id: input.companyId, parentGroup: { isTestFixture: false } }, select: { id: true, name: true, parentGroupId: true } }));
   const member = await memberOf(company.id, input.membershipId);
   if (member.status === "INACTIVE") return;
+  assertDirectMembership(member);
   await assertNotCompanyCeo(prisma, member.id);
   await prisma.$transaction(async (tx) => {
     const ended = await tx.projectMember.updateMany({ where: { companyMemberId: member.id, companyId: company.id, status: "ACTIVE" }, data: { status: "INACTIVE", leftAt: new Date() } });

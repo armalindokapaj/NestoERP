@@ -42,14 +42,14 @@ export default async function PlatformUserPage({ params, searchParams }: Props) 
   });
   const tab = TABS.some((key) => key === rawTab) ? rawTab! : "overview";
 
+  // Opened from an organization: the way back to it stays one click (Organization-Scoped PRD #7 §53), and the
+  // breadcrumb names that organization, never the Platform's All users (Admin PRD #14 §72).
+  const origin = from ? user.memberships.map((row) => row.company).concat(user.memberships.flatMap((row) => (row.group ? [row.group] : [])), user.groups).find((row) => row.id === from) : undefined;
+
   return (
     <div className="space-y-5">
-      {/* Opened from an organization: the way back to it stays one click (Organization-Scoped PRD #7 §53). */}
-      {(() => {
-        const origin = from ? user.memberships.map((row) => row.company).concat(user.memberships.flatMap((row) => (row.group ? [row.group] : [])), user.groups).find((row) => row.id === from) : undefined;
-        return origin ? <Link href={`/admin/organizations/${origin.id}?tab=users`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {origin.name}</Link> : null;
-      })()}
-      <Breadcrumbs items={[{ label: t("users.detail.breadcrumbRoot"), href: "/admin/users" }, { label: user.name }]} />
+      {origin ? <Link href={`/admin/organizations/${origin.id}?tab=users`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {origin.name}</Link> : null}
+      <Breadcrumbs items={origin ? [{ label: origin.name, href: `/admin/organizations/${origin.id}?tab=users` }, { label: user.name }] : [{ label: t("users.detail.breadcrumbRoot"), href: "/admin/users" }, { label: user.name }]} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-page font-semibold text-fg">{user.name}</h1>

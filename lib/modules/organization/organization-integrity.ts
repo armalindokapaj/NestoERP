@@ -4,6 +4,7 @@ import { accessAtLeast, scopeAtLeast } from "@/config/access";
 import { CUSTOM_DEPARTMENT_KEY_PREFIX, GROUP_DEPARTMENTS, isGrantableModule, rolesOfFunction } from "@/config/group-departments";
 import { defaultAccessFor } from "@/config/role-defaults";
 import { isMembershipRoleKey, type RoleKey } from "@/config/roles";
+import { findAccessFindings } from "./access-integrity";
 import { positionFor, type ContextAssignment } from "@/lib/context/organization-access";
 
 /**
@@ -204,5 +205,6 @@ export async function findOrganizationFindings(prisma: PrismaClient): Promise<Or
     }
   }
 
+  findings.push(...(await findAccessFindings(prisma)));
   return findings;
 }

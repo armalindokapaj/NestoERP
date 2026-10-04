@@ -582,13 +582,16 @@ export async function removeCompanyUserAccess(actor: GroupActor, raw: unknown): 
     const ended = await tx.projectMember.updateMany({ where: { companyMemberId: member.id, companyId: company.id, status: "ACTIVE" }, data: { status: "INACTIVE", leftAt: now } });
     const written = await tx.companyMember.updateMany({ where: { id: member.id, companyId: company.id, status: { in: LISTED }, groupDerived: false }, data: { status: "INACTIVE", deactivatedAt: now, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
     if (written.count === 0) throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
-    await revokeSessions(tx, { membershipId: member.id, relocate: true });
     // Where the seat still covers the company its own membership comes back (PRD #10); the answer reads the same coverage.
     const seat = coverage.get(input.userId);
     if (seat) {
       await syncSeatAccess(tx, { seatId: seat.seatId, actorUserId: actor.userId, companyId: company.id });
     }
     const stillViaGroup = Boolean(seat);
+    // Access that still stands through the group is not taken away, so the person is not signed out (Admin PRD #14 §89, §58);
+    // only a membership that really ended ends its sessions.
+    const standing = await tx.companyMember.findUnique({ where: { id: member.id }, select: { status: true } });
+    if (standing?.status !== "ACTIVE") await revokeSessions(tx, { membershipId: member.id, relocate: true });
     await recordPlatformAction(actor, company.parentGroupId, {
       actionKey: AuditAction.COMPANY_DIRECT_ACCESS_REMOVED,
       entity: { type: "CompanyMember", id: member.id, label: `${row.name} · ${company.name}` },

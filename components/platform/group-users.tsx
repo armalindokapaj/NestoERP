@@ -226,7 +226,7 @@ export function GroupPersonActions({ groupId, groupName, person, ceoName, api = 
             <>
               <DropdownMenuItem onSelect={() => { setError(null); setDialog("delete"); }} className="text-danger">{t("groupUsers.deleteAccount")}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild><Link href={`/admin/users/${person.userId}`}>{t("users.member.viewAccount")}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href={`/admin/users/${person.userId}?from=${encodeURIComponent(groupId)}`}>{t("users.member.viewAccount")}</Link></DropdownMenuItem>
             </>
           ) : null}
         </DropdownMenuContent>
