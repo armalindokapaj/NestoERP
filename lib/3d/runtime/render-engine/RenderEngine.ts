@@ -369,6 +369,42 @@ const DEFAULT_CAMERA_CONFIG: CameraConfig = {
 };
 
 const MOBILE_VIEWPORT_BREAKPOINT = 768;
+// Phone GPUs and iOS's per-tab memory budget draw an oversized texture as black, so
+// textures above this edge are redrawn smaller before they reach the GPU.
+const MOBILE_MAX_TEXTURE_PX = 2048;
+
+function capTextureSizes(root: THREE.Object3D, maxPx: number) {
+  const done = new Set<THREE.Texture>();
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const value of Object.values(material)) {
+        const texture = value as THREE.Texture | null;
+        if (!texture || !(texture as THREE.Texture).isTexture || done.has(texture)) continue;
+        done.add(texture);
+        const image = texture.image as (CanvasImageSource & { width: number; height: number }) | null | undefined;
+        if (!image || !image.width || !image.height || Math.max(image.width, image.height) <= maxPx) continue;
+        const scale = maxPx / Math.max(image.width, image.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) continue;
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        texture.image = canvas;
+        texture.needsUpdate = true;
+      }
+    }
+  });
+}
+
+// Mobile browsers' WebGPU is the least settled backend this renderer meets (the whole
+// model draws black there), so "auto" takes the WebGL2 backend on phones and tablets.
+function isTouchPhoneOrTablet(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent ?? "") || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent ?? ""));
+}
 
 const RESIZE_THROTTLE_MS = 90;
 
@@ -1056,7 +1092,7 @@ export class RenderEngine {
   private async createStandardRenderer(mountToken: number): Promise<THREE.WebGPURenderer | null> {
     const renderer = new THREE.WebGPURenderer({
       antialias: !this.renderingConfig.antialiasEnabled,
-      forceWebGL: this.qualityConfig.renderingMode === "webgl2",
+      forceWebGL: this.qualityConfig.renderingMode === "webgl2" || (this.qualityConfig.renderingMode === "auto" && isTouchPhoneOrTablet()),
     });
     try {
       await renderer.init();
@@ -1192,6 +1228,7 @@ export class RenderEngine {
         if (token !== this.syncToken) return;
         if (existingRoot) existingRoot.removeFromParent();
         const root = gltf.scene;
+        if (isTouchPhoneOrTablet()) capTextureSizes(root, MOBILE_MAX_TEXTURE_PX);
         this.applyTransform(root, model);
         root.visible = model.visible !== false;
         root.traverse((child) => {
