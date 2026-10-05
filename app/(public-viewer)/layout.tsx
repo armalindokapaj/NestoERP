@@ -8,7 +8,7 @@ import { ModuleMessages } from "@/components/i18n/module-messages";
  */
 export default function PublicViewerLayout({ children }: { children: ReactNode }) {
   return (
-    <div data-project-viewer className={`fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}>
+    <div data-project-viewer className={`fixed inset-0 overflow-hidden antialiased`}>
       <ModuleMessages namespaces={["threeD"]}>{children}</ModuleMessages>
     </div>
   );
