@@ -2163,7 +2163,12 @@ export class RenderEngine {
     skyMesh.visible = true;
     scene.remove(skyMesh);
     envScene.add(skyMesh);
+    // The sun disc is far brighter than half-float range; on iPhones it turns the blurred
+    // environment into NaN and every lit surface draws black. The sun is its own light.
+    const discWas = skyMesh.showSunDisc.value;
+    if (isTouchPhoneOrTablet()) skyMesh.showSunDisc.value = 0;
     const renderTarget = pmrem.fromScene(envScene, 0, 0.1, SKY_DOME_SCALE * 1.5, { size: 128 });
+    skyMesh.showSunDisc.value = discWas;
     envScene.remove(skyMesh);
     scene.add(skyMesh);
 
