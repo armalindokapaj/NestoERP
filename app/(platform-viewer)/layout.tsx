@@ -12,7 +12,7 @@ import { requirePlatformContext } from "@/lib/context/platform-context";
 export default async function PlatformViewerLayout({ children }: { children: ReactNode }) {
   await requirePlatformContext();
   return (
-    <div className="fixed inset-0 h-dvh w-screen overflow-hidden bg-surface">
+    <div className="fixed inset-0 overflow-hidden bg-surface">
       <ResponseBeats />
       {children}
     </div>

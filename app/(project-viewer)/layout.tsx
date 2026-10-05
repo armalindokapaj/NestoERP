@@ -32,7 +32,7 @@ export default async function ProjectViewerLayout({ children }: { children: Reac
   return (
     <div
       data-project-viewer
-      className={`fixed inset-0 h-dvh w-screen overflow-hidden antialiased`}
+      className={`fixed inset-0 overflow-hidden antialiased`}
     >
       <ResponseBeats />
       <UnsavedHost identity={identityKeys(context)} workspace={null} />
