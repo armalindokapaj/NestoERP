@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { SquareStack } from "lucide-react";
 import { useViewerStore } from "@/lib/3d/viewer/store";
 import { useIsDesktop } from "@/components/3d/viewer/hooks/useMediaQuery";
@@ -247,10 +247,13 @@ export function ProjectViewerRuntime({
 
   const handleActiveModuleChange = useCallback(
     (module: ActiveModule) => {
-      dropFloorCutIfUncontrolled(module, selectedUnitId);
-      setActiveModule(module);
-      setUnitsListOpen((prev) => (module === "units" ? prev : false));
-      setUnitFiltersExpanded(true);
+      // The tab press paints first; the viewer-wide re-render it causes is interruptible.
+      startTransition(() => {
+        dropFloorCutIfUncontrolled(module, selectedUnitId);
+        setActiveModule(module);
+        setUnitsListOpen((prev) => (module === "units" ? prev : false));
+        setUnitFiltersExpanded(true);
+      });
     },
     [dropFloorCutIfUncontrolled, selectedUnitId]
   );
