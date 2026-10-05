@@ -67,6 +67,17 @@ body:has([data-project-viewer]) {
   border: 1px solid var(--nesto-border-strong);
 }
 
+/* Taps answer at once: no double-tap-zoom wait, a press state on every control. */
+[data-project-viewer] button,
+[data-project-viewer] [role="button"],
+[data-project-viewer] a {
+  touch-action: manipulation;
+}
+[data-project-viewer] button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 60ms ease-out;
+}
+
 .viewer-glass {
   background: var(--nesto-surface);
   border: 1px solid var(--nesto-border);

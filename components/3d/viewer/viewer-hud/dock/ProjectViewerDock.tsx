@@ -81,7 +81,7 @@ export function ProjectViewerDock({
   const targetMode: DockMode = rawTargetMode === "sunTime" && !timeDataReady ? "nav" : rawTargetMode;
 
   const [renderedMode, setRenderedMode] = useState<DockMode>(targetMode);
-  const [transitioning, setTransitioning] = useState(false);
+  const [, setTransitioning] = useState(false);
   const [openPopover, setOpenPopover] = useState<DockPopoverId | null>(null);
 
   const morphTo = useCallback(
@@ -222,12 +222,13 @@ export function ProjectViewerDock({
     };
   }, []);
 
+  // A tap is never swallowed: morphTo kills the running timeline and starts from the
+  // current values, so the last tap always wins.
   const guardedChange = useCallback(
     (module: ActiveModule) => {
-      if (transitioning) return;
       onActiveModuleChange(module);
     },
-    [transitioning, onActiveModuleChange]
+    [onActiveModuleChange]
   );
   const handleSelectNav = useCallback((id: NavId) => guardedChange(id), [guardedChange]);
   const handleBack = useCallback(() => guardedChange("explore"), [guardedChange]);

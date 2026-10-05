@@ -24,13 +24,13 @@ export const DOCK_HEIGHT_DESKTOP = 62;
 export const DOCK_HEIGHT_MOBILE_STANDARD = 70;
 
 export const DOCK_MORPH_TIMING = {
-  selectionFeedback: 0.06,
-  navCollapse: 0.16,
-  containerMorph: 0.3,
-  contentRevealItem: 0.19,
-  contentRevealStagger: 0.04,
+  selectionFeedback: 0.05,
+  navCollapse: 0.07,
+  containerMorph: 0.24,
+  contentRevealItem: 0.14,
+  contentRevealStagger: 0.02,
   presetTween: 0.75,
-  transitionLock: 0.35,
+  transitionLock: 0.1,
   popover: 0.16,
 } as const;
 
