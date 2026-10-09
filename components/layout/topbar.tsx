@@ -4,36 +4,26 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { UserMenu } from "@/components/layout/user-menu";
+import { AccountPanel } from "@/components/shell/account-panel";
+import { can, canAccessModule } from "@/lib/access/can";
 import type { NavigationGroup } from "@/config/navigation";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 
 /**
- * Universal top bar (PRD #3 §16, §76). Identical for every role.
+ * Universal top bar (PRD #3 §16, §76; UI-01 §5). Identical for every role.
  *
- * 56px on mobile, 64px from tablet up. It carries search, + Create, Activity
- * and the profile (PRD #3 §17; OW §19, §108) and no page title: every page
- * already names itself in its own PageHeader directly below, so a module name
- * up here only said the same thing twice. The organization and the workspace
- * are not here either: they lead the sidebar, where the workspace is switched
- * (OW §2, §19), and a demonstration tenant says so at the sidebar's foot.
+ * 56px on mobile, 64px from tablet up. The left zone carries the navigation
+ * controls and + Create; the right zone is the universal cluster, always in
+ * the order Search, Notifications, Account (UI-01 §1) and 44px targets at every
+ * width. Page titles are not here: every page names itself in its own
+ * PageHeader. The organization and the workspace lead the sidebar, where the
+ * workspace is switched (OW §2, §19).
  *
- * Two zones. Search leads the left one, straight after the navigation
- * controls, and the left zone takes all the leftover width while the account
- * cluster keeps its own. Nothing before the search bar depends on who is
- * signed in, so its position is the same for every role, and it only gives up
- * width once the account cluster leaves it less than 420px (PRD #3 §18). Held
- * by roles/topbar-search-position.spec.ts.
- *
- * At 320px every control is a 44px target (AUD-04 §4, MW-02): the icons sit
- * edge to edge on a phone (hit areas adjacent, never overlapping), the account
- * chevron gives way, and the development user switcher — the one control a
- * phone's bar has no room for — moves into the navigation drawer's foot, still
- * labelled and one tap away. The gutters include the safe-area insets, so a
- * phone on its side keeps the controls clear of the notch.
+ * On a phone the bell lives in the bottom bar and the account in More (MOB-02
+ * §39), and the development user switcher moves into the navigation drawer's
+ * foot. The gutters include the safe-area insets.
  */
 export async function Topbar({
   context,
@@ -47,6 +37,8 @@ export async function Topbar({
   const t = await getTranslations("roles");
   // The profile names the workspace beside the role, and switches nothing (OW §43, §66).
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
+  // Company Settings is offered only where its own page would open (settings-access.ts), never by title.
+  const companySettings = context.workspace.scopeType === "COMPANY" && canAccessModule(context, "settings") && can(context, "company.name.update");
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
@@ -61,35 +53,33 @@ export async function Topbar({
             already owns it (PRD #3 §14, OW §47). */}
         <SidebarToggle />
 
-        {/* Up to 420px. The margin separates it from the mark at tablet
-            width; from lg nothing precedes it but the toggle, whose own
-            padding already does that, so it lines up with the page gutter. */}
-        <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0">
-          <GlobalSearch contextKey={core.contextKey} />
-        </div>
+        {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
+            A page action, not a universal control: it sits on the left so the three controls keep the
+            right edge (UI-01 §5.1). The menu loads only when opened (NAV-01 QC-01). */}
+        <QuickCreate userKey={context.userId} summary={core.quickCreate} />
       </div>
 
-      <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1 md:gap-2">
-        {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
-        {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150).
-            The button comes from the shell's summary; the menu loads only when opened (NAV-01 QC-01). */}
-        <QuickCreate userKey={context.userId} summary={core.quickCreate} />
-        {/* Phone: the same switch is in More (Black & Gold reskin §4). */}
-        <ThemeToggle className="max-md:hidden" />
-        {/* Phone: the bell is in the bottom bar. */}
+      {/* The universal cluster, in this order on every surface: Search, Notifications, Account (UI-01 §1). */}
+      <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1" data-testid="global-actions">
+        <GlobalSearch contextKey={core.contextKey} />
+        {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). Phone: the bell is in the bottom bar. */}
         <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
-        <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
         {/* Phone: the account lives in More (MOB-02 §39). */}
         <div className="contents max-md:hidden">
-        <UserMenu
-          user={{
-            firstName: context.firstName,
-            lastName: context.lastName,
-            avatarUrl: context.avatarUrl,
-            roleLabel: t(`${context.role}.label`),
-            companyName: workspaceName,
-          }}
-        />
+          <AccountPanel
+            model={{
+              user: { firstName: context.firstName, lastName: context.lastName, avatarUrl: context.avatarUrl },
+              roleLabel: t(`${context.role}.label`),
+              workspaceName,
+              destinations: {
+                profile: "/settings/profile",
+                settings: "/settings",
+                help: "/help",
+                whatsNew: "/whats-new",
+                organizationSettings: companySettings ? { href: "/settings/company", kind: "company" } : undefined,
+              },
+            }}
+          />
         </div>
         {/* Phone: the menu, fixed at the top right (More). */}
         <MobileMenuButton />

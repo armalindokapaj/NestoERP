@@ -3,14 +3,14 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, LogOut, ShieldCheck, Users } from "lucide-react";
+import { Building2, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { OrganizationMark } from "@/components/layout/organization-mark";
 import { PoweredBy } from "@/components/layout/powered-by";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { useSignOut } from "@/components/layout/use-sign-out";
+import { PlatformSearch } from "@/components/platform/platform-search";
+import { AccountPanel } from "@/components/shell/account-panel";
+import { ContextNotifications } from "@/components/shell/context-notifications";
 import { PageContainer } from "@/components/ui/page-container";
 import { cn } from "@/lib/utils/cn";
 
@@ -22,10 +22,9 @@ type Capabilities = { companies: boolean; users: boolean; roles: boolean };
  * from the seat's capabilities, so nothing here links to a page that would
  * refuse the person.
  */
-export function GroupShell({ group, user, capabilities, children }: { group: { name: string; roleName: string }; user: { name: string }; capabilities: Capabilities; children: React.ReactNode }) {
+export function GroupShell({ group, user, capabilities, children }: { group: { name: string; roleName: string }; user: { id: string; firstName: string; lastName: string }; capabilities: Capabilities; children: React.ReactNode }) {
   const t = useTranslations("group");
   const pathname = usePathname();
-  const { signOut, signingOut } = useSignOut();
   const items = [
     { href: "/group", label: t("shell.overview"), icon: LayoutDashboard, show: true },
     { href: "/group/companies", label: t("shell.companies"), icon: Building2, show: capabilities.companies },
@@ -45,15 +44,18 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
               <span className="block truncate text-meta text-fg-muted">{t("shell.area")} · {group.roleName}</span>
             </span>
           </Link>
-          <div className="ml-auto flex items-center gap-1">
-            <LocaleSwitch label={t("shell.language")} className="h-10 px-3" />
-            <ThemeToggle />
-            <span className="mx-2 hidden h-6 w-px bg-line md:block" aria-hidden="true" />
-            <span className="hidden max-w-40 truncate text-table text-fg md:block">{user.name}</span>
-            <button type="button" disabled={signingOut} onClick={() => void signOut()} aria-label={t("shell.signOut")} data-testid="group-sign-out" className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-table text-fg-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-              <LogOut aria-hidden="true" className="size-[18px]" />
-              <span className="max-md:sr-only">{signingOut ? t("shell.signingOut") : t("shell.signOut")}</span>
-            </button>
+          {/* The universal cluster, the same three controls in the same order on every surface (UI-01 §1). */}
+          <div className="ml-auto flex items-center gap-0 sm:gap-1" data-testid="global-actions">
+            <PlatformSearch endpoint="/api/group/search" recentKey={`group.search.recent.${user.id}`} />
+            <ContextNotifications context={group.name} />
+            <AccountPanel
+              model={{
+                user: { firstName: user.firstName, lastName: user.lastName, avatarUrl: null },
+                roleLabel: group.roleName,
+                workspaceName: group.name,
+                destinations: { profile: "/group/account", settings: "/group/account", help: "/group/help", whatsNew: "/group/whats-new" },
+              }}
+            />
           </div>
         </div>
         <nav aria-label={t("shell.navLabel")} className="mx-auto w-full max-w-[1400px] overflow-x-auto px-4 md:px-6" data-testid="group-nav">

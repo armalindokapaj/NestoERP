@@ -5,7 +5,7 @@ import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, UserRound, X } from "lucide-react";
+import { LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, UserRound, X } from "lucide-react";
 
 import { OrganizationMark } from "@/components/layout/organization-mark";
 import { PoweredBy } from "@/components/layout/powered-by";
@@ -19,16 +19,17 @@ import { adminText } from "@/components/platform/admin-i18n";
 import { activeDestination, activeTab, adminDestinations, adminTabKey, visibleTo, type AdminDestination } from "@/components/platform/admin-navigation";
 import { PlatformQuickCreate } from "@/components/platform/platform-quick-create";
 import { PlatformSearch } from "@/components/platform/platform-search";
+import { AccountPanel } from "@/components/shell/account-panel";
+import { ContextNotifications } from "@/components/shell/context-notifications";
 import { QUICK_CREATE } from "@/components/platform/quick-create-items";
-import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/ui/page-container";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SidebarState } from "@/lib/layout/sidebar-state";
 import { cn } from "@/lib/utils/cn";
 
-type User = { name: string; firstName: string; lastName: string; email: string | null; username: string };
+type User = { id: string; name: string; firstName: string; lastName: string; email: string | null; username: string };
 
 /** The mark, the name and the workspace line, as the platform's sidebar header has them (OW §2-§18). */
 function AdminIdentity() {
@@ -110,47 +111,6 @@ function SidebarToggle() {
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
-  );
-}
-
-function ProfileMenu({ user }: { user: User }) {
-  const { signOut, signingOut } = useSignOut();
-  const t = useTranslations("admin");
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={t("shell.accountMenuFor", { name: user.name })}
-        data-testid="admin-profile"
-        className="flex cursor-pointer items-center justify-center gap-2 rounded-md p-1 pr-1.5 transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 touch:min-h-11 touch:min-w-11 max-md:pr-1"
-      >
-        <Avatar firstName={user.firstName} lastName={user.lastName} size="md" className="border-transparent bg-accent font-serif font-normal text-accent-fg" />
-        <span className="hidden min-w-0 text-left lg:block">
-          <span className="block truncate text-table font-medium leading-tight text-fg">{user.name}</span>
-          <span className="block truncate text-micro leading-tight text-fg-muted">{t("shell.platformAdmin")}</span>
-        </span>
-        <ChevronDown className="size-3.5 shrink-0 text-fg-subtle max-md:hidden" strokeWidth={1.6} />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-        <DropdownMenuLabel className="flex items-center gap-3 font-normal">
-          <Avatar firstName={user.firstName} lastName={user.lastName} size="md" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-body font-medium text-fg">{user.name}</span>
-            <span className="block truncate text-meta text-fg-subtle">{t("shell.adminAccount", { who: user.email ?? user.username })}</span>
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild><Link href="/admin/account" className="cursor-pointer"><UserRound aria-hidden="true" className="size-4" />{t("shell.account")}</Link></DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={signingOut}
-          onSelect={(event) => {
-            event.preventDefault();
-            void signOut();
-          }}
-        >
-          <LogOut aria-hidden="true" className="size-4" />{signingOut ? "Signing out…" : "Sign out"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -323,16 +283,22 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
             {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>
             <SidebarToggle />
-            <div className="ml-auto min-w-0 md:ml-2 md:w-full md:max-w-[420px] lg:ml-0"><PlatformSearch /></div>
-          </div>
-          <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1 md:gap-2">
+            {/* A page action, not a universal control: it stays left so the cluster keeps the right edge (UI-01 §5.1). */}
             <span className="max-md:hidden"><PlatformQuickCreate permissions={permissions} /></span>
+          </div>
+          {/* The universal cluster, the same three controls in the same order on every surface (UI-01 §1, §13). */}
+          <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1" data-testid="global-actions">
             {devActions}
-            <LocaleSwitch label={t("shell.language")} className="max-md:hidden" />
-            <ThemeToggle className="max-md:hidden" />
-            <span aria-hidden="true" className="mx-1 hidden h-6 w-px shrink-0 bg-line lg:block" />
-            {/* Phone: the account is in the menu, as in the platform (MOB-02 §39). */}
-            <div className="contents max-md:hidden"><ProfileMenu user={user} /></div>
+            <PlatformSearch recentKey={`platformAdmin.search.recent.${user.id}`} />
+            <ContextNotifications context={t("shell.platformAdmin")} />
+            <AccountPanel
+              model={{
+                user: { firstName: user.firstName, lastName: user.lastName, avatarUrl: null },
+                roleLabel: t("shell.platformAdmin"),
+                workspaceName: t("shell.platformName"),
+                destinations: { profile: "/admin/account", settings: "/admin/account", help: "/admin/help", whatsNew: "/admin/whats-new" },
+              }}
+            />
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} /></button>
           </div>
         </header>

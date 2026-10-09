@@ -18,17 +18,20 @@ import { recordPanelReady } from "@/lib/navigation/telemetry-registry";
 
 export type PanelId = "search" | "quick_create" | "activity" | "workspace";
 
-let active: PanelId | null = null;
+/** Every top-bar overlay that takes part in "one at a time": the lazy panels, and the account panel, which has no chunk of its own. */
+export type OverlayId = PanelId | "account";
+
+let active: OverlayId | null = null;
 const listeners = new Set<() => void>();
 
-function setActive(next: PanelId | null) {
+function setActive(next: OverlayId | null) {
   if (active === next) return;
   active = next;
   for (const listener of listeners) listener();
 }
 
 /** Whether this panel is the open one, and a setter that closes any other. */
-export function usePanelOpen(id: PanelId): [boolean, (open: boolean) => void] {
+export function usePanelOpen(id: OverlayId): [boolean, (open: boolean) => void] {
   const current = React.useSyncExternalStore(
     (listener) => {
       listeners.add(listener);

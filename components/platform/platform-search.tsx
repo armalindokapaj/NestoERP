@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils/cn";
 
 type Result = { type: string; id: string; title: string; subtitle: string; href: string };
 
-const RECENT_KEY = "platformAdmin.search.recent";
 const SECTIONS: { key: "organizations" | "projects" | "users"; types: string[] }[] = [
   { key: "organizations", types: ["Group", "Company"] },
   { key: "projects", types: ["Project"] },
@@ -18,11 +17,11 @@ const SECTIONS: { key: "organizations" | "projects" | "users"; types: string[] }
 ];
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = { Group: Building2, Company: Building2, Project: FolderKanban, User, Person: Users };
 
-function readRecent(): Result[] {
-  try { return (JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? "[]") as Result[]).slice(0, 5); } catch { return []; }
+function readRecent(key: string): Result[] {
+  try { return (JSON.parse(window.localStorage.getItem(key) ?? "[]") as Result[]).slice(0, 5); } catch { return []; }
 }
-function remember(result: Result) {
-  try { window.localStorage.setItem(RECENT_KEY, JSON.stringify([result, ...readRecent().filter((row) => row.href !== result.href)].slice(0, 5))); } catch { /* per-browser convenience only */ }
+function remember(key: string, result: Result) {
+  try { window.localStorage.setItem(key, JSON.stringify([result, ...readRecent(key).filter((row) => row.href !== result.href)].slice(0, 5))); } catch { /* per-browser convenience only */ }
 }
 
 /**
@@ -31,7 +30,7 @@ function remember(result: Result) {
  * aborted; results are grouped, reachable by arrow keys, and Enter opens the
  * entity's own page. Recent picks are kept in this browser only.
  */
-export function PlatformSearch() {
+export function PlatformSearch({ endpoint = "/api/platform-admin/search", recentKey = "platformAdmin.search.recent" }: { endpoint?: string; recentKey?: string } = {}) {
   const t = useTranslations("admin");
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -55,8 +54,8 @@ export function PlatformSearch() {
   }, []);
 
   React.useEffect(() => {
-    if (open) { setRecent(readRecent()); setActive(0); } else { setQuery(""); setResults([]); setState("idle"); }
-  }, [open]);
+    if (open) { setRecent(readRecent(recentKey)); setActive(0); } else { setQuery(""); setResults([]); setState("idle"); }
+  }, [open, recentKey]);
 
   const term = query.trim();
   React.useEffect(() => {
@@ -65,7 +64,7 @@ export function PlatformSearch() {
     const timer = window.setTimeout(async () => {
       setState("loading");
       try {
-        const response = await fetch(`/api/platform-admin/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const response = await fetch(`${endpoint}?q=${encodeURIComponent(term)}`, { signal: controller.signal });
         if (!response.ok) throw new Error(String(response.status));
         const json = await response.json() as { data?: Result[] };
         setResults(json.data ?? []);
@@ -77,7 +76,7 @@ export function PlatformSearch() {
       }
     }, 200);
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [term]);
+  }, [term, endpoint]);
 
   const typeLabel = (type: string) => (type === "Group" ? t("search.typeGroup") : type === "Company" ? t("search.typeCompany") : type === "Project" ? t("search.typeProject") : type === "User" ? t("search.typeUser") : type === "Person" ? t("search.typePerson") : type);
   const showing = term.length >= 2 ? results : recent;
@@ -87,7 +86,7 @@ export function PlatformSearch() {
   const ordered = groups.flatMap((group) => group.rows);
 
   function choose(result: Result) {
-    remember(result);
+    remember(recentKey, result);
     setOpen(false);
     router.push(result.href);
   }
@@ -97,14 +96,13 @@ export function PlatformSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-10 w-full min-w-0 max-w-xl cursor-pointer items-center gap-2 rounded-lg border border-line bg-canvas px-3 text-left text-body text-fg-subtle transition hover:border-line-strong hover:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={t("search.ariaTrigger")}
         aria-keyshortcuts="Meta+K Control+K"
+        title={`${t("search.ariaTrigger")} (${mac ? "⌘K" : "Ctrl+K"})`}
         data-testid="admin-search-trigger"
       >
-        <Search className="size-4 shrink-0" aria-hidden="true" />
-        <span className="flex-1 truncate">{t("search.placeholderTrigger")}</span>
-        <kbd className="hidden rounded border border-line bg-surface px-1.5 font-sans text-micro text-fg-subtle sm:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
+        <Search className="size-5" strokeWidth={1.6} aria-hidden="true" />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="top-[12vh] max-w-xl -translate-y-0 overflow-hidden p-0" aria-describedby={undefined} data-testid="admin-search">

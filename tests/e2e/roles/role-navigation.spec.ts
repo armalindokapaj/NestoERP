@@ -137,7 +137,7 @@ for (const role of ["VIEWER", "ENGINEER", "FINANCE"] as const) {
     // No company Settings in the sidebar — that part is unchanged.
     await expect(sidebar(page).getByRole("link", { name: "Settings", exact: true })).toHaveCount(0);
 
-    await page.getByRole("button", { name: /open user menu/i }).click();
+    await page.getByTestId("account-trigger").click();
     await page.getByRole("menuitem", { name: "Settings" }).click();
 
     await expect(page).toHaveURL(/\/settings$/);

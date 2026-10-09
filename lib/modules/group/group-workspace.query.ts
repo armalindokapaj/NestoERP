@@ -41,3 +41,31 @@ export async function groupRoleCounts(context: GroupContext) {
   const holders = (key: string) => rows.filter((row) => row.role?.key === key).map((row) => `${row.user.firstName} ${row.user.lastName}`);
   return { OWNER: holders("OWNER"), GROUP_IT: holders("GROUP_IT") };
 }
+
+/**
+ * The group shell's search (UI-01 §8): the group's own companies and seats, and
+ * only those the caller's capabilities already let them list. The group comes
+ * from the session's seat, never from the request, so no query can reach another
+ * group.
+ */
+export async function groupSearch(context: GroupContext, query: string) {
+  const q = query.trim().slice(0, 200);
+  if (q.length < 2) return [];
+  const contains = { contains: q, mode: "insensitive" as const };
+  const [companies, seats] = await Promise.all([
+    canGroup(context, "group.companies.view")
+      ? prisma.company.findMany({ where: { parentGroupId: context.groupId, OR: [{ name: contains }, { slug: contains }] }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 6, select: { id: true, name: true, slug: true } })
+      : [],
+    canGroup(context, "group.users.view")
+      ? prisma.parentGroupMember.findMany({
+          where: { parentGroupId: context.groupId, status: "ACTIVE", user: { status: "ACTIVE", OR: [{ firstName: contains }, { lastName: contains }, { username: contains }] } },
+          take: 6,
+          select: { user: { select: { id: true, firstName: true, lastName: true, username: true } } },
+        })
+      : [],
+  ]);
+  return [
+    ...companies.map((row) => ({ type: "Company", id: row.id, title: row.name, subtitle: row.slug, href: `/group/companies/${row.id}/users` })),
+    ...seats.map((row) => ({ type: "User", id: row.user.id, title: `${row.user.firstName} ${row.user.lastName}`, subtitle: row.user.username, href: "/group/users" })),
+  ];
+}

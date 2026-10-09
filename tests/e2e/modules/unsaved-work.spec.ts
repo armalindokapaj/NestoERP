@@ -326,15 +326,15 @@ test.describe("editors and application navigation", () => {
 
   test("UW-19: signing out asks first; Stay keeps the session, Discard signs out", async ({ page }) => {
     await dirtyClient(page, `${PREFIX} Sign out`);
-    await page.getByRole("button", { name: /open user menu/i }).click();
-    await page.getByRole("menuitem", { name: /logout/i }).click();
+    await page.getByTestId("account-trigger").click();
+    await page.getByTestId("account-sign-out").click();
     await expect(prompt(page)).toContainText("You're signing out.");
     await prompt(page).getByTestId("unsaved-stay").click();
     expect((await page.request.get("/api/me")).status()).toBe(200);
     await expect(clientName(page)).toHaveValue(`${PREFIX} Sign out`);
 
-    await page.getByRole("button", { name: /open user menu/i }).click();
-    await page.getByRole("menuitem", { name: /logout/i }).click();
+    await page.getByTestId("account-trigger").click();
+    await page.getByTestId("account-sign-out").click();
     await prompt(page).getByTestId("unsaved-discard").click();
     await page.waitForURL(/\/login/);
   });
@@ -539,8 +539,8 @@ test.describe("workspace and identity", () => {
     await dirtyClient(page, draft);
     const other = await secondTab(page);
     await other.goto("/dashboard");
-    await other.getByRole("button", { name: /open user menu/i }).click();
-    await other.getByRole("menuitem", { name: /logout/i }).click();
+    await other.getByTestId("account-trigger").click();
+    await other.getByTestId("account-sign-out").click();
     await other.waitForURL(/\/login/);
 
     await expect(page).toHaveURL(/\/login/);
@@ -556,13 +556,13 @@ test.describe("workspace and identity", () => {
     await dirtyClient(page, draft);
     const other = await secondTab(page);
     await other.goto("/dashboard");
-    await other.getByRole("button", { name: /open user menu/i }).click();
-    await other.getByRole("menuitem", { name: /logout/i }).click();
+    await other.getByTestId("account-trigger").click();
+    await other.getByTestId("account-sign-out").click();
     await other.waitForURL(/\/login/);
     await signIn(other, "PROJECT_MANAGER");
     // This tab reloads as the new person: the draft is gone, not shown.
     await expect(page.getByText(draft)).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.getByRole("button", { name: /open user menu/i })).toBeVisible();
+    await expect(page.getByTestId("account-trigger")).toBeVisible();
     await other.close();
   });
 });

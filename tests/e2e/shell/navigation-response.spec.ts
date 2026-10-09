@@ -173,7 +173,7 @@ test.describe("responses and access (§2.1, A02, A04)", () => {
     expect(await page.content()).not.toContain("Meridian");
     await page.getByRole("link", { name: "Return to Dashboard" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole("button", { name: /open user menu/i })).toBeVisible();
+    await expect(page.getByTestId("account-trigger")).toBeVisible();
   });
 
   test("API refusals keep their real status codes", async ({ page }) => {
