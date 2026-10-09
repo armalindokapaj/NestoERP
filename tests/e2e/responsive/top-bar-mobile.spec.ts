@@ -10,7 +10,7 @@ import { signIn } from "../fixtures";
 
 test("search opens full screen with recent work and the link to My Work", async ({ page }) => {
   await signIn(page, "ENGINEER", { to: "/dashboard" });
-  await page.getByTestId("mobile-search-trigger").click();
+  await page.getByTestId("search-trigger").click();
   const dialog = page.getByRole("dialog", { name: "Search NESTO" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("link", { name: /View all recent work/ })).toBeVisible();

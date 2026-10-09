@@ -94,7 +94,7 @@ test.describe("AV-17 automated scans, light and dark", () => {
       await signIn(page, "PROJECT_MANAGER");
       await useTheme(page, theme);
       await page.goto("/tasks/new");
-      await page.getByRole("button", { name: /open user menu/i }).click();
+      await page.getByTestId("account-trigger").click();
       await expect(page.getByRole("menu")).toBeVisible();
       await scan(page, `${theme} user menu open`);
       await page.keyboard.press("Escape");
@@ -300,7 +300,7 @@ test.describe("AV-14 themes", () => {
     expect(await canvas(page)).toBe(systemLight);
 
     // A portal (the user menu) is painted in the pinned scheme too.
-    await page.getByRole("button", { name: /open user menu/i }).click();
+    await page.getByTestId("account-trigger").click();
     const menuBg = await page.getByRole("menu").evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(menuBg).toBe("rgb(255, 255, 255)");
   });
@@ -337,7 +337,7 @@ test.describe("AV-15 reduced motion and forced colours", () => {
       return result;
     });
     expect(probe.name).toBe("none");
-    await page.getByRole("button", { name: /open user menu/i }).click();
+    await page.getByTestId("account-trigger").click();
     const duration = await page.getByRole("menu").evaluate((el) => parseFloat(getComputedStyle(el).animationDuration) || 0);
     expect(duration).toBeLessThanOrEqual(0.001);
   });

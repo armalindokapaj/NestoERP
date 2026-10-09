@@ -26,11 +26,11 @@ test("an Engineer switches NESTO to Albanian and back from Settings", async ({ p
   await expect(mainRegion(page).getByRole("radio", { name: "Shqip" })).toHaveAttribute("aria-checked", "true");
   await expect(html).toHaveAttribute("lang", "sq");
 
-  await page.getByRole("button", { name: "Hap menunë e përdoruesit" }).click();
-  await expect(page.getByRole("menuitem", { name: "Cilësimet" })).toBeVisible();
-  // The identity block opens the person's own Profile, and says so in Albanian too.
-  await expect(page.getByTestId("user-menu-profile")).toHaveAccessibleName(/Profili im$/);
-  await expect(page.getByRole("menuitem", { name: "Dil" })).toBeVisible();
+  await page.getByTestId("account-trigger").click();
+  const panel = page.getByTestId("account-panel");
+  await expect(panel.getByRole("link", { name: "Cilësimet e llogarisë" })).toBeVisible();
+  await expect(panel.getByRole("link", { name: "Profili im" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Dil" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   // It survives a full load of another page.

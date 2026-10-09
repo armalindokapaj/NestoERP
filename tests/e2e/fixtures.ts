@@ -155,8 +155,8 @@ export async function switchToGroup(page: Page) {
 }
 
 export async function signOut(page: Page) {
-  await page.getByRole("button", { name: /open user menu/i }).click();
-  await page.getByRole("menuitem", { name: /logout/i }).click();
+  await page.getByTestId("account-trigger").click();
+  await page.getByTestId("account-sign-out").click();
   await page.waitForURL(/\/login/);
 }
 

@@ -39,7 +39,7 @@ export default async function GroupLayout({ children }: { children: React.ReactN
           <ResponseBeats />
           <GroupShell
             group={{ name: context.groupName, roleName }}
-            user={{ name: context.fullName }}
+            user={{ id: context.userId, firstName: context.firstName, lastName: context.lastName }}
             capabilities={{ companies: canGroup(context, "group.companies.view"), users: canGroup(context, "group.users.view"), roles: canGroup(context, "group.roles.view") }}
           >
             <PasswordChangeNotice userId={context.userId} href="/group/account" />

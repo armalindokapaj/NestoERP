@@ -290,8 +290,8 @@ test("signing out with unsynced work asks first, and Cancel keeps the person sig
   await page.goto("/offline?view=sync");
   expect(await pendingCount(page)).toBe(1);
   await page.goto("/dashboard");
-  await page.getByRole("button", { name: /open user menu/i }).click();
-  await page.getByRole("menuitem", { name: /logout/i }).click();
+  await page.getByTestId("account-trigger").click();
+  await page.getByTestId("account-sign-out").click();
   await expect(page.getByTestId("logout-pending-prompt")).toBeVisible();
   await page.getByRole("button", { name: /^cancel$/i }).click();
   await expect(page).not.toHaveURL(/\/login/);

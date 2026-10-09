@@ -146,8 +146,8 @@ test.describe("AUD-04 dialogs and floating layers (MW-10)", () => {
     // A phone's account lives in More (MOB-02 §39); the menu is the tablet and desktop top bar's.
     test.skip((page.viewportSize()?.width ?? 0) < 768, "the account menu is in More below 768px");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    await page.getByRole("button", { name: /open user menu/i }).click();
-    const menu = page.getByTestId("user-menu");
+    await page.getByTestId("account-trigger").click();
+    const menu = page.getByTestId("account-panel");
     await expect(menu).toBeVisible();
     const z = await menu.evaluate((el) => {
       const wrapper = el.closest("[data-radix-popper-content-wrapper]") ?? el;

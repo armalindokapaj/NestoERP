@@ -44,7 +44,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
     {/* vercel/next.js#86151: a refreshed page is shown once its data lands, as in the application shell. */}
     <ResponseBeats />
     <PlatformShell
-      user={{ name: context.fullName, firstName: context.firstName, lastName: context.fullName.slice(context.firstName.length).trim(), email: context.email, username: context.username }}
+      user={{ id: context.userId, name: context.fullName, firstName: context.firstName, lastName: context.fullName.slice(context.firstName.length).trim(), email: context.email, username: context.username }}
       permissions={context.permissions}
       initialSidebar={sidebarState}
     >

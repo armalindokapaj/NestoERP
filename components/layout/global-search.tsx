@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { GlobalSearchCompany, GlobalSearchResponseDTO } from "@/lib/core/search/search.types";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { readSearchHomeCache, removeLegacySearchHomeCache, subscribeMyWork, writeSearchHomeCache } from "@/lib/productivity/client";
-import { cn } from "@/lib/utils/cn";
 
 /**
  * Global search (design spec §16, §63; PRD #38 §87-§90; NAV-03 PANEL-01,
@@ -161,28 +160,18 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
 
   return (
     <>
-      {/* A phone has room for an icon only; it opens the same panel, full screen (Fast Re-entry §148). */}
+      {/* The first control of the universal cluster, an icon at every width (UI-01 §8.1). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("dialogTitle")}
-        className="grid size-9 place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg md:hidden touch:size-11"
-        data-testid="mobile-search-trigger"
-      >
-        <Search aria-hidden="true" className="size-[21px]" strokeWidth={1.6} />
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn("hidden h-10 w-full items-center gap-2.5 rounded-lg border border-line bg-surface-muted pl-3.5 pr-2 text-left transition-colors md:flex", "hover:border-line-strong hover:bg-surface")}
+        aria-keyshortcuts="Meta+K Control+K"
+        title={`${t("dialogTitle")} (${shortcut.replace(" ", "")})`}
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="search-trigger"
         {...warm}
       >
-        <Search aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" strokeWidth={1.6} />
-        <span className="min-w-0 flex-1 truncate text-table text-fg-subtle">{t("placeholder")}</span>
-        <kbd aria-hidden="true" className="hidden shrink-0 rounded border border-line bg-surface px-1.5 py-0.5 font-sans text-micro font-medium text-fg-subtle lg:block">
-          {shortcut}
-        </kbd>
+        <Search aria-hidden="true" className="size-5" strokeWidth={1.6} />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

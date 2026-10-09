@@ -156,7 +156,7 @@ test.describe("header", () => {
     const header = page.locator("header[data-shell-region]");
     await expect(header.getByTestId("mobile-context")).toBeVisible();
     await expect(header.getByTestId("notification-bell")).toBeVisible();
-    await expect(header.getByTestId("mobile-search-trigger")).toBeVisible();
+    await expect(header.getByTestId("search-trigger")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
     await expect(page.getByRole("button", { name: "Open user menu" })).toBeHidden();
     expect((await header.boundingBox())!.height).toBeLessThanOrEqual(57);

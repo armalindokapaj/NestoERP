@@ -34,7 +34,7 @@ test("switching to a company changes the header, the list and nothing about who 
   // The organizational context changes while the deepest valid location stays.
   await expect(page).toHaveURL(/\/projects$/);
   // The same person, still: only where they work has changed (§11).
-  await expect(page.getByRole("button", { name: /open user menu/i })).toBeVisible();
+  await expect(page.getByTestId("account-trigger")).toBeVisible();
 
   await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
   const inCompany = await mainRegion(page).getByTestId("project-card").count();

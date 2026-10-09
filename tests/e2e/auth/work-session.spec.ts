@@ -33,7 +33,7 @@ test("logout terminates another tab and removes user storage before Sales signs 
   await signIn(page, "OWNER");
   const other = await context.newPage();
   await other.goto(page.url());
-  await other.getByRole("button", { name: /open user menu/i }).waitFor();
+  await other.getByTestId("account-trigger").waitFor();
   await page.evaluate(() => { localStorage.setItem("nesto.test-owner-cache", "owner secret"); sessionStorage.setItem("nesto.test-owner-record", "owner secret"); });
   await signOut(page);
   await expect(other).toHaveURL(/\/login/);
@@ -58,7 +58,7 @@ test("server expiration rejects API access and sends every tab to login", async 
   await signIn(page, "PROJECT_MANAGER");
   const other = await context.newPage();
   await other.goto(page.url());
-  await other.getByRole("button", { name: /open user menu/i }).waitFor();
+  await other.getByTestId("account-trigger").waitFor();
   const { identity } = await (await page.request.get("/api/auth/lifecycle")).json();
   const rows = await db.session.findMany({ where: { user: { username: username("PROJECT_MANAGER") } }, select: { id: true } });
   const current = rows.find((row) => createHash("sha256").update(row.id).digest("hex") === identity)!;
@@ -76,7 +76,7 @@ test("storage events synchronize logout without BroadcastChannel", async ({ page
   await signIn(page, "OWNER");
   const other = await context.newPage();
   await other.goto(page.url());
-  await other.getByRole("button", { name: /open user menu/i }).waitFor();
+  await other.getByTestId("account-trigger").waitFor();
   await signOut(page);
   await expect(other).toHaveURL(/\/login/);
 });
