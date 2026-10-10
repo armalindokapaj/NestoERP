@@ -47,12 +47,15 @@ export function ActivityPanelBody({
   panelId,
   canManageAnnouncements,
   onClose,
+  viewAllLabel,
 }: {
   controller: ActivityController;
   snapshot: ActivitySnapshot;
   panelId: string;
   canManageAnnouncements: boolean;
   onClose: (returnFocus: boolean) => void;
+  /** What the link to the full Activity Center says; the phone's Alerts popup calls it "All alerts". */
+  viewAllLabel?: string;
 }) {
   const t = useTranslations("activity");
   const locale = useLocale();
@@ -281,7 +284,7 @@ export function ActivityPanelBody({
           <span />
         )}
         <Link href={`/activity${tab === "ALL" ? "" : `?type=${tab === "NOTIFICATION" ? "notifications" : "announcements"}`}`} onClick={() => onClose(false)} className="text-table font-medium text-accent-strong hover:underline" data-testid="activity-view-all">
-          {t("viewAll")}
+          {viewAllLabel ?? t("viewAll")}
         </Link>
       </div>
     </div>

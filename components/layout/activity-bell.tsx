@@ -11,6 +11,7 @@ import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "
 import { usePhone } from "@/components/layout/use-phone";
 import { cn } from "@/lib/utils/cn";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
+import { aimPointer, PanelPointer } from "@/components/ui/popup-pointer";
 import { handleSessionLost, reconcileTabContext } from "@/components/unsaved/unsaved-host";
 import { unsaved } from "@/lib/unsaved/coordinator";
 
@@ -84,17 +85,37 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
   const Body = code.status === "ready" ? code.module.ActivityPanelBody : null;
 
   const inBar = placement === "bar";
+
+  // On a touch layout the panel carries a pointer: it is aimed at the bell.
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const aim = () => aimPointer(panelRef.current, triggerRef.current);
+    aim();
+    window.addEventListener("resize", aim);
+    return () => window.removeEventListener("resize", aim);
+  }, [open]);
+
+  // In the top bar it stays fixed under the bar: its top edge on the breadcrumb bar's top line, its right
+  // edge on the content's, like every panel opened from the top bar (lib/layout/topbar-line.ts).
+  // In the phone's bottom bar it is a bubble of glass floating above the bar, its pointer on the bell.
   const panel = open ? (
     <div
       ref={panelRef}
       id={panelId}
       role="dialog"
       aria-label={t("title")}
-      className="fixed inset-0 z-50 flex flex-col bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] sm:absolute sm:pb-0 sm:pt-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(36rem,80vh)] sm:w-[min(26rem,calc(100vw-1.5rem))] sm:rounded-lg sm:border sm:border-line sm:shadow-lg"
+      className={cn(
+        "nesto-popup-glass fixed z-50 flex flex-col rounded-lg border border-line bg-surface shadow-lg",
+        inBar
+          ? "inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+6.5rem)] mx-auto max-h-[min(70dvh,calc(100dvh-10rem))] max-w-md"
+          : "right-[max(1.5rem,env(safe-area-inset-right))] top-[var(--nesto-shell-header-h)] max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] w-[min(26rem,calc(100vw-1.5rem))] touch:mt-3 xl:right-8",
+      )}
       data-testid="activity-panel"
+      data-placement={placement}
     >
+      <PanelPointer side={inBar ? "below" : "above"} />
       {Body ? (
-        <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} />
+        <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} viewAllLabel={inBar ? t("allAlerts") : undefined} />
       ) : (
         <>
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">

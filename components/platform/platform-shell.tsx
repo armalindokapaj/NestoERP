@@ -137,8 +137,10 @@ function DrawerAccount({ user, onNavigate }: { user: User; onNavigate: () => voi
 }
 
 /* A bar cell, as in the platform's phone bottom bar (components/layout/mobile-bottom-nav.tsx): icon over label, the whole cell the target, a gold dot above the active one. */
+/* A bar cell, as the platform's own bar draws it (components/layout/mobile-bottom-nav.tsx): the destination
+   the console is at is filled with the accent colour — the cell itself, not just its ink. */
 const cellClass =
-  "relative flex h-14 w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+  "relative flex h-[52px] w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-accent data-[active=true]:text-accent-fg data-[active=true]:shadow-sm data-[active=true]:hover:text-accent-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /**
  * The phone and tablet bottom bar, the same floating bar the platform has:
@@ -157,9 +159,8 @@ function AdminBottomNav({ permissions, onMore }: { permissions: readonly string[
   const link = (item: AdminDestination) => {
     const active = item.key === current;
     return (
-      <li key={item.key} className="min-w-0 flex-1">
+      <li key={item.key} className="min-w-0 flex-1 px-0.5">
         <Link href={item.href} aria-current={active ? "page" : undefined} data-active={active} data-testid={`admin-bar-${item.key}`} className={cellClass}>
-          {active ? <span aria-hidden="true" className="absolute left-1/2 top-0.5 size-1 -translate-x-1/2 rounded-full bg-accent" /> : null}
           <item.icon className="size-[22px] shrink-0" aria-hidden="true" />
           <span className="max-w-full truncate">{adminText(t, `nav.dest.${item.key}`, item.label)}</span>
         </Link>
@@ -193,7 +194,7 @@ function AdminBottomNav({ permissions, onMore }: { permissions: readonly string[
           </li>
         ) : null}
         {right.map(link)}
-        <li className="min-w-0 flex-1">
+        <li className="min-w-0 flex-1 px-0.5">
           <button type="button" onClick={onMore} aria-haspopup="dialog" data-testid="admin-bar-more" className={cellClass}>
             <MoreHorizontal className="size-[22px] shrink-0" aria-hidden="true" />
             <span className="max-w-full truncate">{t("shell.more")}</span>
@@ -278,7 +279,7 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
       </Drawer>
       <BreadcrumbRegistryProvider>
       <div className="pl-[var(--nesto-nav-width)] transition-[padding]" data-admin-shell>
-        <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-14 items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
+        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-14 items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>

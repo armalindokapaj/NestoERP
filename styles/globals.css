@@ -328,8 +328,6 @@
  */
 [data-sidebar] {
   --nesto-nav-width: 0px;
-  /* The far-left workspace rail, when the person can work in more than one workspace. */
-  --nesto-workspace-rail-w: 0px;
   /* The critical banner's height: 10px padding above and below, a 24px dismiss
      button and a 1px rule. Reserved so a late banner moves nothing (NAV-02 SHELL-03). */
   --nesto-banner-height: 2.8125rem;
@@ -338,9 +336,6 @@
 @media (min-width: 1024px) {
   [data-sidebar] {
     --nesto-nav-width: var(--nesto-sidebar-width-collapsed);
-  }
-  [data-workspace-rail] {
-    --nesto-workspace-rail-w: 3.5rem;
   }
 }
 
@@ -818,6 +813,77 @@ html[data-unsaved-masked] [data-experience-editor] {
   }
 }
 
+/*
+ * Popups on touch layouts — a phone, a tablet, any coarse pointer (the same test
+ * as the `touch:` variant). Every popup is a slab of the platform's glass with a
+ * pointer aimed at the control that opened it, and grows out of that control.
+ * In the utilities layer, after Tailwind's own, so it outranks the plain border,
+ * ground and shadow each primitive carries for a mouse.
+ */
+@layer utilities {
+  @media (max-width: 1023.98px), (pointer: coarse) {
+    .nesto-popup-glass {
+      border: 1px solid light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.12));
+      border-radius: 22px;
+      /* The bottom bar's own weight of glass: frosted, and still readable where a browser draws no blur. */
+      background-color: light-dark(rgb(255 255 255 / 0.84), rgb(24 24 27 / 0.84));
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      backdrop-filter: blur(22px) saturate(160%);
+      box-shadow:
+        0 0 0 0.5px light-dark(rgb(22 20 15 / 0.12), rgb(255 255 255 / 0.1)),
+        0 22px 50px -14px light-dark(rgb(22 20 15 / 0.36), rgb(0 0 0 / 0.72)),
+        0 8px 18px -8px light-dark(rgb(22 20 15 / 0.18), rgb(0 0 0 / 0.5)),
+        inset 0 1px 0 light-dark(rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.16));
+    }
+
+    .nesto-popup-pointer {
+      display: block;
+    }
+
+    /* Radix sets its arrow against the box's outer edge: drawn in a touch over it, the tail covers the hairline it hangs from. */
+    .nesto-popup-shell .nesto-popup-pointer {
+      transform: translateY(-1.5px);
+    }
+
+    /* A focused text field takes the bottom bar away (the keyboard rule above): a panel that pointed down
+       at one of the bar's buttons then has nothing to point at. */
+    html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) .nesto-panel-pointer[data-side="below"] {
+      display: none;
+    }
+
+    /* Out of the control it came from: scale only — fading the shell would switch the glass off while it fades. */
+    .nesto-popup-shell {
+      transform-origin: var(--radix-popper-transform-origin);
+    }
+
+    .nesto-popup-shell[data-state="open"] {
+      animation: nesto-pop-in 200ms var(--nesto-ease);
+    }
+
+    /* Asked for less transparency: the popup and its pointer are solid. */
+    @media (prefers-reduced-transparency: reduce) {
+      .nesto-popup-glass,
+      .nesto-popup-pointer {
+        background-color: var(--nesto-surface);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nesto-popup-shell[data-state="open"] {
+        animation: none;
+      }
+    }
+  }
+}
+
+@keyframes nesto-pop-in {
+  from {
+    transform: scale(0.84);
+  }
+}
+
 @layer components {
   /* The sticky context-tab row (Sticky Navigation §3, §9): under the breadcrumb bar, opaque, full width of the column. */
   .nesto-context-tabs {
@@ -827,6 +893,163 @@ html[data-unsaved-masked] [data-experience-editor] {
     margin-inline: calc(var(--nesto-gutter) * -1);
     padding-inline: var(--nesto-gutter);
     background: var(--nesto-canvas, var(--color-canvas));
+  }
+
+  /*
+   * A popup's pointer (components/ui/popup-pointer.tsx): the tail that says which
+   * control a popup came from. With a mouse it is not drawn; the touch rules
+   * further down turn it on and give popups the platform's glass.
+   */
+  .nesto-popup-pointer {
+    display: none;
+    width: 24px;
+    height: 12px;
+    /* A tail pointing down, its tip slightly blunted. Radix turns it for the other sides. */
+    clip-path: polygon(0 0, 100% 0, 60% 78%, 50% 100%, 40% 78%);
+    background-color: light-dark(rgb(255 255 255 / 0.88), rgb(24 24 27 / 0.88));
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    backdrop-filter: blur(22px) saturate(160%);
+  }
+
+  /* The tail hides the hairline of the box it hangs from. */
+  .nesto-panel-pointer[data-side="below"] {
+    margin-top: -1px;
+  }
+
+  .nesto-panel-pointer[data-side="above"] {
+    margin-bottom: -1px;
+  }
+
+  /*
+   * A patch of the page drawn on the accent colour (the dashboard's Pending
+   * Approvals card). The same components, with the palette turned over: the
+   * accent is the ground and its foreground the ink, so nothing inside needs an
+   * accent variant of its own. The two colours are caught on the patch itself
+   * and swapped for what is inside it, so "accent on accent" never happens.
+   */
+  .nesto-on-accent {
+    --nesto-on-accent-ground: var(--nesto-accent);
+    --nesto-on-accent-ink: var(--nesto-accent-fg);
+    --nesto-surface: var(--nesto-accent);
+    --nesto-surface-muted: color-mix(in srgb, var(--nesto-accent-fg) 14%, var(--nesto-accent));
+    --nesto-fg: var(--nesto-accent-fg);
+    --nesto-fg-muted: color-mix(in srgb, var(--nesto-accent-fg) 94%, var(--nesto-accent));
+    --nesto-fg-subtle: color-mix(in srgb, var(--nesto-accent-fg) 88%, var(--nesto-accent));
+    --nesto-border: color-mix(in srgb, var(--nesto-accent-fg) 26%, var(--nesto-accent));
+    --nesto-border-strong: color-mix(in srgb, var(--nesto-accent-fg) 42%, var(--nesto-accent));
+    --nesto-hover: color-mix(in srgb, var(--nesto-accent-fg) 12%, var(--nesto-accent));
+    --nesto-row-hover: color-mix(in srgb, var(--nesto-accent-fg) 12%, var(--nesto-accent));
+    --nesto-accent-soft: color-mix(in srgb, var(--nesto-accent-fg) 18%, var(--nesto-accent));
+    --nesto-accent-strong: var(--nesto-accent-fg);
+    --nesto-warning-strong: var(--nesto-accent-fg);
+    --nesto-danger-strong: var(--nesto-accent-fg);
+    --nesto-ring: var(--nesto-accent-fg);
+    color: var(--nesto-fg);
+  }
+
+  .nesto-on-accent > * {
+    --nesto-accent: var(--nesto-on-accent-ink);
+    --nesto-accent-fg: var(--nesto-on-accent-ground);
+  }
+
+  /*
+   * Liquid glass — the search panel's slab (components/ui/glass-panel.tsx).
+   *
+   * Glass in the manner of Apple's: the page outside the slab is left alone, so
+   * it stays in view and readable; the slab frosts what lies under its face and
+   * is clear at its rim, where the page shows through bent. The bend itself is
+   * an SVG filter the component draws for the slab's size and hands over as
+   * `--nesto-liquid-filter`; only Chromium uses a filter like that as a
+   * backdrop, so everywhere else the slab is frosted evenly and keeps its edge
+   * light. Colours follow the scheme through light-dark().
+   */
+  .nesto-liquid-glass-shade {
+    /* A breath of shade so the slab reads as in front; no blur, nothing hidden. */
+    background: light-dark(rgb(22 20 15 / 0.05), rgb(0 0 0 / 0.3));
+  }
+
+  .nesto-liquid-glass {
+    border-radius: var(--nesto-liquid-radius, 26px);
+    /* Nearly clear: the face gets its body from the tint layer inside. */
+    background: light-dark(rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.03));
+    -webkit-backdrop-filter: blur(var(--nesto-liquid-frost, 20px)) saturate(140%);
+    backdrop-filter: blur(var(--nesto-liquid-frost, 20px)) saturate(140%);
+    box-shadow:
+      0 0 0 0.5px light-dark(rgb(22 20 15 / 0.16), rgb(255 255 255 / 0.16)),
+      0 30px 70px -18px light-dark(rgb(22 20 15 / 0.36), rgb(0 0 0 / 0.72)),
+      0 10px 24px -10px light-dark(rgb(22 20 15 / 0.2), rgb(0 0 0 / 0.5)),
+      inset 0 0 0 1px light-dark(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.06)),
+      inset 0 0 14px 0 light-dark(rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.04)),
+      inset 0 -10px 16px -14px light-dark(rgb(22 20 15 / 0.22), rgb(0 0 0 / 0.5));
+  }
+
+  .nesto-liquid-glass[data-refract] {
+    -webkit-backdrop-filter: var(--nesto-liquid-filter) saturate(140%);
+    backdrop-filter: var(--nesto-liquid-filter) saturate(140%);
+  }
+
+  /* The light the rim catches: brightest at the top-left and bottom-right corners. */
+  .nesto-liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding: 1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      light-dark(rgb(255 255 255 / 0.98), rgb(255 255 255 / 0.55)) 0%,
+      light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.16)) 16%,
+      light-dark(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04)) 42%,
+      light-dark(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04)) 60%,
+      light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.14)) 86%,
+      light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.42)) 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+
+  /* What keeps words readable on the face. It thins towards the rim, where the glass is clear. */
+  .nesto-liquid-glass-tint {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: light-dark(rgb(255 255 255 / 0.58), rgb(19 19 21 / 0.6));
+    --nesto-liquid-fade: calc(var(--nesto-liquid-bezel, 16px) * 1.75);
+    -webkit-mask-image:
+      linear-gradient(to right, rgb(0 0 0 / 0.1) 0, #000 var(--nesto-liquid-fade), #000 calc(100% - var(--nesto-liquid-fade)), rgb(0 0 0 / 0.1) 100%),
+      linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0, #000 var(--nesto-liquid-fade), #000 calc(100% - var(--nesto-liquid-fade)), rgb(0 0 0 / 0.1) 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, rgb(0 0 0 / 0.1) 0, #000 var(--nesto-liquid-fade), #000 calc(100% - var(--nesto-liquid-fade)), rgb(0 0 0 / 0.1) 100%),
+      linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0, #000 var(--nesto-liquid-fade), #000 calc(100% - var(--nesto-liquid-fade)), rgb(0 0 0 / 0.1) 100%);
+    mask-composite: intersect;
+  }
+
+  /* A phone gets the whole screen: no rim to bend, and a face solid enough to read on. */
+  @media (max-width: 639.98px) {
+    .nesto-liquid-glass::before {
+      display: none;
+    }
+
+    .nesto-liquid-glass-tint {
+      /* Over a whole screen of page, close to solid: readable even where a browser draws no blur behind it. */
+      background: light-dark(rgb(255 255 255 / 0.96), rgb(19 19 21 / 0.96));
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+
+  /* Asked for less transparency: a solid face, no bend. */
+  @media (prefers-reduced-transparency: reduce) {
+    .nesto-liquid-glass-tint {
+      background: var(--nesto-surface);
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
   }
 }
 

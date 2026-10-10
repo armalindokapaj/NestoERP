@@ -29,13 +29,10 @@ const SidebarContext = React.createContext<SidebarContextValue | null>(null);
 export function SidebarProvider({
   initial,
   className,
-  workspaceRail = false,
   children,
 }: {
   initial: SidebarState;
   className?: string;
-  /** The far-left workspace rail is drawn (the person can work in more than one workspace). */
-  workspaceRail?: boolean;
   children: React.ReactNode;
 }) {
   const [state, setState] = React.useState<SidebarState>(initial);
@@ -67,7 +64,7 @@ export function SidebarProvider({
 
   return (
     <SidebarContext.Provider value={value}>
-      <div data-sidebar={state} data-workspace-rail={workspaceRail ? "" : undefined} className={className}>
+      <div data-sidebar={state} className={className}>
         {children}
       </div>
     </SidebarContext.Provider>

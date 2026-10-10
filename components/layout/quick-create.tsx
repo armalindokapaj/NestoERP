@@ -24,6 +24,7 @@ import type { QuickCreateActionDTO, QuickCreateCompany, QuickCreateLaunchDTO, Qu
 import { unsaved } from "@/lib/unsaved/coordinator";
 import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
+import { aimPointer, PanelPointer } from "@/components/ui/popup-pointer";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 
 /**
@@ -115,6 +116,8 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
+  /** The control that opened the panel when it was not this button: the phone bar's Create. */
+  const opener = React.useRef<HTMLElement | null>(null);
 
   // One cache per signed-in user; a different user never inherits it (QC-08, Q13).
   const cache = React.useMemo(() => createMenuCache({ fetcher: fetchMenu }), [userKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -166,10 +169,11 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     setStepNotice(null);
   }, [cache, cancelProjects, setOpen]);
 
-  /** Closes by the person's own hand, handing focus back to the button. */
+  /** Closes by the person's own hand, handing focus back to the button that opened it. */
   const close = React.useCallback(() => {
     dismiss();
-    triggerRef.current?.focus();
+    const bar = opener.current;
+    (bar?.isConnected && bar.getClientRects().length > 0 ? bar : triggerRef.current)?.focus({ preventScroll: true });
   }, [dismiss]);
 
   // The shell says who this is and what they may create; a new answer is a new namespace (QC-02, QC-08).
@@ -267,14 +271,27 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   }, [summary.canOpen, open, openPanel]);
 
   // The phone's bottom bar opens the same panel; its own trigger is hidden below md (MOB-02 §16).
+  // Pressed again while the panel is open, the bar's button closes it, as this one does.
   React.useEffect(() => {
     if (!summary.canOpen) return;
-    const onOpen = () => {
-      if (!open) openPanel();
+    const onOpen = (event: Event) => {
+      // The bar's button, so the panel's pointer can aim at it.
+      opener.current = (event as CustomEvent<{ opener?: HTMLElement }>).detail?.opener ?? null;
+      if (open) close();
+      else openPanel();
     };
     window.addEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
-  }, [summary.canOpen, open, openPanel]);
+  }, [summary.canOpen, open, openPanel, close]);
+
+  // On a touch layout the panel carries a pointer: it is aimed at the button that was pressed.
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const aim = () => aimPointer(panelRef.current, opener.current?.isConnected && opener.current.getClientRects().length > 0 ? opener.current : triggerRef.current);
+    aim();
+    window.addEventListener("resize", aim);
+    return () => window.removeEventListener("resize", aim);
+  }, [open]);
 
   // Escape and a click outside close it (QC-06).
   React.useEffect(() => {
@@ -282,7 +299,8 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && close();
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) close();
+      // The bar's own Create button closes it too, by its own handler: a press on it is not "outside".
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target) && !opener.current?.contains(target)) close();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointer);
@@ -298,10 +316,13 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     const panel = panelRef.current;
     if (!panel) return;
     const focused = document.activeElement;
-    const untouched = !focused || focused === document.body || focused === panel || focused === triggerRef.current;
+    const bar = opener.current?.isConnected && opener.current.getClientRects().length > 0 ? opener.current : null;
+    const untouched = !focused || focused === document.body || focused === panel || focused === triggerRef.current || focused === bar;
     if (!untouched) return;
     if (step.kind === "menu" && menuState.status === "ready") {
-      (searchRef.current ?? panel.querySelector<HTMLElement>("[data-quick-create-action]") ?? panel).focus();
+      // Opened from the phone's bar, no field is focused for the person: a focused field stands for an open
+      // keyboard there, and the bar — with the button this panel points at — steps aside for it (globals.css).
+      (bar ? panel : (searchRef.current ?? panel.querySelector<HTMLElement>("[data-quick-create-action]") ?? panel)).focus({ preventScroll: true });
     } else if (step.kind !== "menu") {
       panel.querySelector<HTMLElement>("select,button[type=submit]")?.focus();
     } else {
@@ -523,6 +544,12 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         <span className="hidden md:inline">{t("quickCreate.create")}</span>
       </button>
 
+      {/* From md up the panel opens to the right of the button — never back under the sidebar — and starts on
+          the breadcrumb bar's top line, like every panel opened from the top bar (lib/layout/topbar-line.ts).
+          The wrapper is centred in the bar above its 1px rule, so half its height plus half the bar's, and
+          half that rule, is the bar's lower edge.
+          Below md the button is the bottom bar's Create: the panel is a bubble of glass floating above the
+          bar, its pointer on that button. On a touch tablet it hangs under the top bar's button the same way. */}
       {open ? (
         <div
           ref={panelRef}
@@ -530,10 +557,12 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-xl outline-none sm:absolute sm:pb-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(34rem,80vh)] sm:w-80 sm:rounded-lg sm:border"
+          className="nesto-popup-glass fixed inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+7.25rem)] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-11rem))] max-w-md flex-col rounded-lg border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >
+          <PanelPointer side="below" className="md:hidden!" />
+          <PanelPointer side="above" className="max-md:hidden!" />
           {Body ? (
             <Body
               panelId={panelId}

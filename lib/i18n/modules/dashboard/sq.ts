@@ -10,6 +10,7 @@ export const dashboardSq: typeof dashboardEn = {
   },
   across: "Në të gjithë {name}",
   viewAll: "Shiko të gjitha",
+  showAllApprovals: "Shfaq të gjitha miratimet në pritje",
   loadFailed: "Ky seksion nuk u ngarkua dot. Rifreskoni faqen për të provuar sërish.",
   progress: "Progresi",
   progressOf: "Progresi i {name}",

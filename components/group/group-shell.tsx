@@ -36,7 +36,7 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
   return (
     <div className="flex min-h-dvh flex-col bg-canvas" data-testid="group-shell">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 md:px-6">
+        <div data-topbar-row className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 md:px-6">
           <Link href="/group" className="flex min-w-0 items-center gap-3" data-testid="group-context">
             <OrganizationMark name={group.name} logoUrl={null} />
             <span className="min-w-0 leading-tight">

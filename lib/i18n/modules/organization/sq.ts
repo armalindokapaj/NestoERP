@@ -273,8 +273,10 @@ export const organizationSq: typeof organizationEn = {
   },
 
   grants: {
+    allModules: "Të gjitha modulet",
+    allModulesNothing: "Asgjë për të deleguar: çdo modul i është deleguar tashmë këtij personi atje, ose është i çaktivizuar në atë kompani.",
     delegateAccess: "Delego qasje",
-    description: "Ngre një modul për një person, në një kompani ose në gjithë grupin. Mund të delegoni vetëm atë që zotëroni vetë.",
+    description: "Ngre një modul, ose të gjithë, për një person, në një kompani ose në gjithë grupin. Mund të delegoni vetëm atë që zotëroni vetë.",
     person: "Personi",
     module: "Moduli",
     access: "Qasja",

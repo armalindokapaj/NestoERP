@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, MoreHorizontal, Plus, Settings, X } from "lucide-react";
+import { AlarmClock, CalendarClock, ListChecks, LogOut, MoreHorizontal, Plus, Settings, UserCheck, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -13,13 +13,18 @@ import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { resolveMobileNavigation } from "@/lib/navigation/mobile";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 
-/** The event the Create button raises; Quick Create listens for it (components/layout/quick-create.tsx). */
+/**
+ * The event the Create button raises; Quick Create listens for it (components/layout/quick-create.tsx)
+ * and opens — or, when it is already open, closes. Its `detail.opener` is the button pressed, so the
+ * panel's pointer can aim at it.
+ */
 export const OPEN_QUICK_CREATE_EVENT = "nesto:open-quick-create";
 
 /** The phone's hamburger in the top bar raises this; the More sheet below opens (components/layout/mobile-menu-button.tsx). */
@@ -73,8 +78,6 @@ export function MobileBottomNav({
   const { primary, more } = React.useMemo(() => resolveMobileNavigation(navigation), [navigation]);
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [createOpen] = usePanelOpen("quick_create");
-  // A tap that closed Create (the panel closes on any outside press) must not reopen it.
-  const createWasOpen = React.useRef(false);
   const moreButton = React.useRef<HTMLButtonElement>(null);
   // Set when More closes because a destination was chosen: focus then goes to the new page, not back to the bar.
   const navigated = React.useRef(false);
@@ -100,8 +103,9 @@ export function MobileBottomNav({
   const left = primary.slice(0, Math.ceil(primary.length / 2));
   const right = primary.slice(left.length);
   const renderLink = (item: NavigationItem) => (
-    <li key={item.key} className="min-w-0 flex-1">
-      <BarLink item={item} active={isNavigationItemActive(item, pathname)} />
+    <li key={item.key} className="min-w-0 flex-1 px-0.5">
+      {/* Tasks opens its own small menu — the views people go to most, and the whole module. */}
+      {item.key === "tasks" ? <TasksMenu item={item} active={isNavigationItemActive(item, pathname)} /> : <BarLink item={item} active={isNavigationItemActive(item, pathname)} />}
     </li>
   );
 
@@ -122,20 +126,15 @@ export function MobileBottomNav({
               aria-haspopup="dialog"
               aria-expanded={createOpen}
               data-testid="mobile-create"
-              onPointerDown={() => {
-                createWasOpen.current = createOpen;
-              }}
-              onClick={() => {
-                if (createWasOpen.current) {
-                  createWasOpen.current = false;
-                  return;
-                }
-                emitNavigationEvent("quick_create_opened", { source: "bottom_nav" });
-                window.dispatchEvent(new Event(OPEN_QUICK_CREATE_EVENT));
+              onClick={(event) => {
+                // One event either way: Quick Create opens on it, and closes when it is already open.
+                if (!createOpen) emitNavigationEvent("quick_create_opened", { source: "bottom_nav" });
+                window.dispatchEvent(new CustomEvent(OPEN_QUICK_CREATE_EVENT, { detail: { opener: event.currentTarget } }));
               }}
               className="-mt-[26px] grid size-[54px] place-items-center rounded-full border-4 border-canvas bg-accent text-accent-fg shadow-menu transition-transform active:scale-95"
             >
-              <Plus aria-hidden="true" className="size-[22px]" strokeWidth={2.2} />
+              {/* The plus turns to a cross while its panel is open: the same button closes it. */}
+              <Plus aria-hidden="true" className={cn("size-[22px] transition-transform duration-200", createOpen && "rotate-45")} strokeWidth={2.2} />
             </button>
           </li>
         ) : null}
@@ -143,7 +142,7 @@ export function MobileBottomNav({
         {/* Phone: the bell, with More in the top bar's hamburger. Tablet keeps More here. */}
         {activity ? <li className="flex min-w-0 flex-1 md:hidden">{activity}</li> : null}
         {phone === true && activity ? null : (
-        <li className={cn("min-w-0 flex-1", activity && "max-md:hidden")}>
+        <li className={cn("min-w-0 flex-1 px-0.5", activity && "max-md:hidden")}>
           <BarButton
             icon={MoreHorizontal}
             label={t("mobile.more")}
@@ -162,11 +161,12 @@ export function MobileBottomNav({
         )}
       </ul>
 
-      {/* The hamburger's menu slides in from the right and closes the same ways a dialog does. */}
+      {/* The hamburger's menu slides in from the right and closes the same ways a dialog does.
+          On a phone it takes two thirds of the screen, so the page it was opened from stays in view beside it. */}
       <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
         <DrawerContent
           side="right"
-          className="bg-canvas"
+          className="w-[66.667vw] max-w-none bg-canvas sm:max-w-[480px]"
           data-testid="mobile-more-drawer"
           onCloseAutoFocus={(event) => {
             if (navigated.current) {
@@ -206,14 +206,10 @@ export function MobileBottomNav({
   );
 }
 
-/* A bar cell: icon over label, 56px tall, the whole cell the target. Active is
-   the accent, a gold dot above the icon and aria-current; the icon weight stays even. */
+/* A bar cell: icon over label, the whole cell the target. The destination the app is at is filled with
+   the accent colour — the cell itself, not just its ink — and carries aria-current; the icon weight stays even. */
 const cellClass =
-  "relative flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:text-accent-strong";
-
-function ActiveMark() {
-  return <span aria-hidden="true" className="absolute left-1/2 top-0.5 size-1 -translate-x-1/2 rounded-full bg-accent" />;
-}
+  "relative flex h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-accent data-[active=true]:text-accent-fg data-[active=true]:shadow-sm data-[active=true]:hover:text-accent-fg";
 
 function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
   const t = useTranslations("modules");
@@ -233,11 +229,67 @@ function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
       data-pending={pending || undefined}
       className={cellClass}
     >
-      {active ? <ActiveMark /> : null}
       <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
       {pending ? <PendingDot className="absolute right-3 top-2 text-accent" /> : null}
     </Link>
+  );
+}
+
+/**
+ * Tasks, from the bar: a small popup — glass, with its pointer on the button —
+ * of the views people go to most, closed by "All tasks", the module itself
+ * (where the button used to go directly). Every row is a tab of the Tasks
+ * module, so anybody who has the button may open each of them.
+ */
+function TasksMenu({ item, active }: { item: NavigationItem; active: boolean }) {
+  const t = useTranslations("shell");
+  const modules = useTranslations("modules");
+  const pathname = usePathname();
+  const [open, setOpen] = React.useState(false);
+  // A completed navigation closes it, so nothing is left over the new page.
+  React.useEffect(() => setOpen(false), [pathname]);
+  const Icon = getIcon(item.icon);
+  const label = modules(`${item.key}.label`);
+  const rows = [
+    { key: "mine", href: `${item.href}/my-tasks`, icon: UserCheck },
+    { key: "today", href: `${item.href}/all?due=today`, icon: CalendarClock },
+    { key: "overdue", href: `${item.href}/overdue`, icon: AlarmClock },
+  ] as const;
+  const row = "flex min-h-12 items-center gap-3 rounded-2xl px-3 text-body font-medium text-fg transition-colors hover:bg-hover active:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  const opened = (target: string) => {
+    emitNavigationEvent("navigation_destination_opened", { module: item.key, source: "bottom_nav" });
+    void target;
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" data-active={active} aria-current={active ? "page" : undefined} aria-haspopup="dialog" data-testid="mobile-tasks" className={cellClass}>
+          <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
+          <span className="max-w-full truncate">{label}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="center" sideOffset={10} collisionPadding={12} aria-label={label} className="w-64 p-1.5" data-testid="mobile-tasks-menu">
+        <ul>
+          {rows.map((entry) => (
+            <li key={entry.key}>
+              <Link href={entry.href} navSource="mobile" onNavigate={() => opened(entry.href)} className={row}>
+                <entry.icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
+                <span className="min-w-0 flex-1 truncate">{t(`mobile.tasksMenu.${entry.key}`)}</span>
+              </Link>
+            </li>
+          ))}
+          <li className="mt-1 border-t border-line/70 pt-1">
+            <Link href={item.href} navSource="mobile" intent onNavigate={() => opened(item.href)} className={row} data-testid="mobile-tasks-all">
+              <ListChecks aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
+              <span className="min-w-0 flex-1 truncate">{t("mobile.tasksMenu.all")}</span>
+            </Link>
+          </li>
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -274,7 +326,6 @@ function BarButton({
       onPointerDown={onPointerDown}
       className={cellClass}
     >
-      {active ? <ActiveMark /> : null}
       <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
     </button>

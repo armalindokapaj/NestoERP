@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Building2, FolderKanban, Loader2, Search, User, Users } from "lucide-react";
+import { Building2, FolderKanban, Loader2, Search, User, Users, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { GlassPanel, type GlassPanelControl } from "@/components/ui/glass-panel";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { cn } from "@/lib/utils/cn";
 
@@ -29,10 +29,20 @@ function remember(key: string, result: Result) {
  * the top bar or ⌘K / Ctrl+K. Requests are debounced and the obsolete one is
  * aborted; results are grouped, reachable by arrow keys, and Enter opens the
  * entity's own page. Recent picks are kept in this browser only.
+ *
+ * It opens as the shell's glass panel, the same as search in a company: out of
+ * the search icon, on the breadcrumb bar's top line, the page left in view.
  */
 export function PlatformSearch({ endpoint = "/api/platform-admin/search", recentKey = "platformAdmin.search.recent" }: { endpoint?: string; recentKey?: string } = {}) {
   const t = useTranslations("admin");
+  const tu = useTranslations("ui");
   const [open, setOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const controlRef = React.useRef<GlassPanelControl | null>(null);
+  const openRef = React.useRef(open);
+  openRef.current = open;
+  /** By the person's own hand: the panel travels back into the icon first. */
+  const close = React.useCallback(() => (controlRef.current ? controlRef.current.close() : setOpen(false)), []);
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<Result[]>([]);
   const [recent, setRecent] = React.useState<Result[]>([]);
@@ -46,12 +56,13 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen((value) => !value);
+        if (openRef.current) close();
+        else setOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [close]);
 
   React.useEffect(() => {
     if (open) { setRecent(readRecent(recentKey)); setActive(0); } else { setQuery(""); setResults([]); setState("idle"); }
@@ -94,6 +105,7 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -104,12 +116,18 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
       >
         <Search className="size-5" strokeWidth={1.6} aria-hidden="true" />
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="top-[12vh] max-w-xl -translate-y-0 overflow-hidden p-0" aria-describedby={undefined} data-testid="admin-search">
-          <DialogTitle className="sr-only">{t("search.dialogTitle")}</DialogTitle>
-          <div className="flex items-center gap-2 border-b border-line px-4">
+      <GlassPanel
+        open={open}
+        onOpenChange={setOpen}
+        triggerRef={triggerRef}
+        controlRef={controlRef}
+        title={t("search.dialogTitle")}
+        testId="admin-search"
+        header={
+          <div className="flex items-center gap-2 border-b border-line/70 px-3">
             <Search className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
             <input
+              data-autofocus
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -124,11 +142,16 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
               aria-expanded={ordered.length > 0}
               aria-controls="admin-search-results"
               aria-activedescendant={ordered[active] ? `admin-search-${active}` : undefined}
-              className="h-14 w-full bg-transparent pr-8 text-body text-fg outline-none placeholder:text-fg-subtle"
+              className="h-12 w-full min-w-0 bg-transparent text-body text-fg outline-none placeholder:text-fg-subtle"
             />
             {state === "loading" ? <Loader2 className="size-4 shrink-0 animate-spin text-fg-subtle" aria-label={t("search.searching")} /> : null}
+            <button type="button" onClick={close} className="grid size-9 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg touch:size-11" aria-label={tu("close")}>
+              <X aria-hidden="true" className="size-4" />
+            </button>
           </div>
-          <div id="admin-search-results" role="listbox" aria-label={t("search.results")} className="max-h-[min(420px,60dvh)] overflow-y-auto overscroll-contain p-2">
+        }
+      >
+          <div id="admin-search-results" role="listbox" aria-label={t("search.results")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
             {state === "error" ? (
               <p className="px-3 py-6 text-center text-table text-danger-strong" role="alert">{t("search.unavailable")}</p>
             ) : term.length >= 2 && state === "idle" && showing.length === 0 ? (
@@ -161,8 +184,7 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
               </div>
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
+      </GlassPanel>
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { engineeringApi } from "@/components/engineering/engineering-api";
+import { engineeringApi, isFailure } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -20,6 +20,11 @@ const LEVELS = [
  * Delegating one module to one person (E-06 §18). The server checks who may,
  * which module, and that nobody hands on more than they hold; this only asks.
  */
+/** The Module list's first entry: delegate every module the grantor may hand on, at once. */
+const ALL_MODULES = "__ALL__";
+/** With "All modules", a module that has nothing to hand on there is passed over, not an error: it is already delegated to this person, or the company has it switched off. */
+const NOTHING_TO_GRANT = new Set(["GRANT_EXISTS", "MODULE_DISABLED"]);
+
 export function GrantAccessButton({ options }: { options: GrantOptionsDTO }) {
   const { run } = useCommand();
   const t = useOrganizationTranslations();
@@ -38,7 +43,7 @@ export function GrantAccessButton({ options }: { options: GrantOptionsDTO }) {
         description={t("grants.description")}
         fields={[
           { name: "userId", label: t("grants.person"), type: "select", required: true, options: options.people.map((person) => ({ value: person.userId, label: person.name })) },
-          { name: "moduleKey", label: t("grants.module"), type: "select", required: true, options: options.modules.map((module) => ({ value: module.key, label: moduleName(module.key, module.label) })) },
+          { name: "moduleKey", label: t("grants.module"), type: "select", required: true, options: [{ value: ALL_MODULES, label: t("grants.allModules") }, ...options.modules.map((module) => ({ value: module.key, label: moduleName(module.key, module.label) }))] },
           { name: "accessLevel", label: t("grants.access"), type: "select", required: true, options: LEVELS.map((level) => ({ value: level.value, label: t(`labels.level.${level.value as "VIEW"}`) })) },
           {
             name: "scope",
@@ -59,7 +64,23 @@ export function GrantAccessButton({ options }: { options: GrantOptionsDTO }) {
         saveKind="none"
         testId="grant-dialog"
         onSubmit={async (payload) => {
-          await engineeringApi("/api/organization/access-grants", { body: payload });
+          if (payload.moduleKey !== ALL_MODULES) {
+            await engineeringApi("/api/organization/access-grants", { body: payload });
+          } else {
+            // "All modules" is one grant per module this person may delegate: the server still checks each
+            // against the grantor's own ceiling, and anything else it refuses stops the run and is shown.
+            let granted = 0;
+            for (const entry of options.modules) {
+              try {
+                await engineeringApi("/api/organization/access-grants", { body: { ...payload, moduleKey: entry.key } });
+                granted += 1;
+              } catch (error) {
+                if (isFailure(error) && error.detailCode && NOTHING_TO_GRANT.has(error.detailCode)) continue;
+                throw error;
+              }
+            }
+            if (granted === 0) throw { status: 409, code: "CONFLICT", message: t("grants.allModulesNothing"), details: {}, fields: {} };
+          }
           await run("grant", async () => null, t("grants.delegated"));
         }}
       />

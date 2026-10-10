@@ -9,6 +9,7 @@ export const dashboardEn = {
   },
   across: "Across {name}",
   viewAll: "View all",
+  showAllApprovals: "Show all pending approvals",
   loadFailed: "Unable to load this section. Refresh the page to try again.",
   progress: "Progress",
   progressOf: "{name} progress",

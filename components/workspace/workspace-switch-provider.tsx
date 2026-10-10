@@ -203,7 +203,7 @@ function SwitchingCover({ name }: { name: string }) {
       role="status"
       aria-live="polite"
       data-testid="workspace-switching"
-      className="fixed bottom-0 left-[calc(var(--nesto-nav-width)+var(--nesto-workspace-rail-w))] right-0 top-14 z-20 flex flex-col items-center justify-center gap-4 bg-canvas/95 md:top-16"
+      className="fixed bottom-0 left-[var(--nesto-nav-width)] right-0 top-14 z-20 flex flex-col items-center justify-center gap-4 bg-canvas/95 md:top-16"
     >
       <LoaderCircle aria-hidden="true" className="size-6 text-accent-strong motion-safe:animate-spin" />
       <p className="text-body font-medium text-fg">{t("switching", { name })}</p>
