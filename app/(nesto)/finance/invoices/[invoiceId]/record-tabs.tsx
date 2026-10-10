@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
 import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 
@@ -22,14 +23,15 @@ export type FinanceTabKey = (typeof TABS)[number]["key"];
 
 export function FinanceRecordTabs({
   basePath,
-  active,
   show,
 }: {
   basePath: string;
-  active: FinanceTabKey;
   show: Partial<Record<FinanceTabKey, boolean>>;
 }) {
   const t = useFinanceTranslations();
+  const pathname = usePathname();
+  // The tab follows the URL, so the header and tabs can live in the record's layout.
+  const active: FinanceTabKey = pathname.endsWith("/documents") ? "documents" : pathname.endsWith("/activity") ? "activity" : "overview";
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (

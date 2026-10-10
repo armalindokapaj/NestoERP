@@ -14,6 +14,7 @@ import { useProcurementServerText, useProcurementTranslations } from "@/componen
 import { ROLE_KEYS } from "@/config/roles";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import type { ProcurementApprovalPolicyDTO } from "@/lib/modules/procurement/approvals/approval.policy";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Purchase order approval limits (PRD #41 §27, §28, §158, §159).
@@ -98,13 +99,13 @@ export function ApprovalPolicyForm({ policy, canManage }: { policy: ProcurementA
               />
             </Field>
             <Field label={t("limits.executiveRole")} name="executiveRoleKey" hint={t("limits.executiveRoleHint")}>
-              <select id="executiveRoleKey" name="executiveRoleKey" className={selectClass} value={form.executiveRoleKey} disabled={!canManage} onChange={(event) => setForm({ ...form, executiveRoleKey: event.target.value as typeof form.executiveRoleKey })}>
+              <FormSelect id="executiveRoleKey" name="executiveRoleKey" className={selectClass} value={form.executiveRoleKey} disabled={!canManage} onChange={(event) => setForm({ ...form, executiveRoleKey: event.target.value as typeof form.executiveRoleKey })}>
                 {ROLE_KEYS.filter((key) => key !== "VIEWER").map((key) => (
                   <option key={key} value={key}>
                     {tRoles(`${key}.label`)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           </FormSection>
         </fieldset>

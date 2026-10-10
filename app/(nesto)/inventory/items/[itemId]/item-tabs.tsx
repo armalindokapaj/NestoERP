@@ -1,5 +1,4 @@
-import Link from "@/components/navigation/nav-link";
-import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 
 import type { ItemCapabilities } from "@/lib/modules/inventory/inventory.types";
 import { getTranslations } from "@/lib/i18n/server";
@@ -23,11 +22,9 @@ export type ItemTabKey = (typeof TABS)[number]["key"];
 
 export async function ItemTabs({
   itemId,
-  active,
   capabilities,
 }: {
   itemId: string;
-  active: ItemTabKey;
   capabilities: ItemCapabilities;
 }) {
   const t = await getTranslations("inventory");
@@ -39,22 +36,12 @@ export async function ItemTabs({
     activity: capabilities.canViewActivity,
   };
 
-  const visible = TABS.filter((tab) => show[tab.key]);
+  const tabs = TABS.filter((tab) => show[tab.key]).map((tab) => ({
+    key: tab.key,
+    label: t(tab.label),
+    href: `/inventory/items/${itemId}${tab.suffix}`,
+  }));
 
-  return (
-    <ContextTabsFrame label={t("tabs.itemSections")}>
-        {visible.map((tab) => {
-          const isActive = tab.key === active;
-          return (
-            <Link key={tab.key} navSource="tab"
-                href={`/inventory/items/${itemId}${tab.suffix}`}
-                aria-current={isActive ? "page" : undefined}
-                className={contextTabClass(isActive)}
-              >
-                {t(tab.label)}
-              </Link>
-          );
-        })}
-      </ContextTabsFrame>
-  );
+  // The active tab follows the URL, so the tabs can sit in the layout and stay put.
+  return <ContextTabs label={t("tabs.itemSections")} tabs={tabs} rootKey="overview" />;
 }

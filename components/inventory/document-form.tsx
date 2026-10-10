@@ -16,6 +16,7 @@ import { ADJUSTMENT_REASONS, adjustmentReasonLabels } from "@/lib/modules/invent
 import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
 import { StockLinesEditor, type HeldBalance, type StockLineValue } from "./stock-lines";
 import { localToday } from "@/components/finance/local-date";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The five stock-document forms (PRD #20 §309–§318).
@@ -103,7 +104,7 @@ export function DocumentForm({
         {kind === "transfers" ? (
           <>
             <Field label={t("fields.fromWarehouse")} name="fromWarehouseId" required>
-              <select
+              <FormSelect
                 id="fromWarehouseId"
                 name="fromWarehouseId"
                 className={selectClass}
@@ -117,11 +118,11 @@ export function DocumentForm({
                     {warehouse.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.toWarehouse")} name="toWarehouseId" required>
-              <select
+              <FormSelect
                 id="toWarehouseId"
                 name="toWarehouseId"
                 className={selectClass}
@@ -135,7 +136,7 @@ export function DocumentForm({
                     {warehouse.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           </>
         ) : (
@@ -144,7 +145,7 @@ export function DocumentForm({
             name="warehouseId"
             required
           >
-            <select
+            <FormSelect
               id="warehouseId"
               name="warehouseId"
               className={selectClass}
@@ -158,7 +159,7 @@ export function DocumentForm({
                   {warehouse.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         )}
 
@@ -179,7 +180,7 @@ export function DocumentForm({
               name="projectId"
               hint={t("documentForm.projectHint")}
             >
-              <select
+              <FormSelect
                 id="projectId"
                 name="projectId"
                 className={selectClass}
@@ -191,11 +192,11 @@ export function DocumentForm({
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.issuedTo")} name="issuedToMemberId">
-              <select
+              <FormSelect
                 id="issuedToMemberId"
                 name="issuedToMemberId"
                 className={selectClass}
@@ -207,11 +208,11 @@ export function DocumentForm({
                     {member.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.requestedBy")} name="requestedByMemberId">
-              <select
+              <FormSelect
                 id="requestedByMemberId"
                 name="requestedByMemberId"
                 className={selectClass}
@@ -223,7 +224,7 @@ export function DocumentForm({
                     {member.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           </>
         ) : null}
@@ -231,7 +232,7 @@ export function DocumentForm({
         {kind === "returns" ? (
           <>
             <Field label={t("fields.fromProject")} name="projectId" required>
-              <select
+              <FormSelect
                 id="projectId"
                 name="projectId"
                 className={selectClass}
@@ -244,11 +245,11 @@ export function DocumentForm({
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.returnedBy")} name="returnedByMemberId">
-              <select
+              <FormSelect
                 id="returnedByMemberId"
                 name="returnedByMemberId"
                 className={selectClass}
@@ -260,7 +261,7 @@ export function DocumentForm({
                     {member.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           </>
         ) : null}
@@ -272,7 +273,7 @@ export function DocumentForm({
             required
             hint={t("documentForm.reasonHint")}
           >
-            <select
+            <FormSelect
               id="reason"
               name="reason"
               className={selectClass}
@@ -284,7 +285,7 @@ export function DocumentForm({
                   {inventoryLabel(t, "adjustmentReason", reason, adjustmentReasonLabels[reason])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 

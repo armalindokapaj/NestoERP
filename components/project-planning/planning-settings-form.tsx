@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils/cn";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { failureMessage, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, useValuesEditor } from "./use-values-editor";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The company's planning rules (PRD #44 §71, §165, §253, §309).
@@ -54,13 +55,13 @@ export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO
       <label className="flex flex-col py-3">
         <span className="text-table font-medium text-fg">{t("settings.dueSoon")}</span>
         <span className="text-meta text-fg-muted">{t("settings.dueSoonBody")}</span>
-        <select className={cn(selectClass, "mt-1.5 w-56")} value={state.milestoneReminderDays} onChange={(event) => setState({ ...state, milestoneReminderDays: Number(event.target.value) })}>
+        <FormSelect className={cn(selectClass, "mt-1.5 w-56")} value={state.milestoneReminderDays} onChange={(event) => setState({ ...state, milestoneReminderDays: Number(event.target.value) })}>
           {[1, 3, 5, 7, 10, 14, 21, 30].map((days) => (
             <option key={days} value={days}>
               {t("settingsExtra.daysAhead", { count: days })}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </label>
       <div className="flex items-start justify-between gap-4 py-3">
         <label htmlFor="baseline-reason">

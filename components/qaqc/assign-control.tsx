@@ -26,6 +26,7 @@ import {
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import type { MessageKey } from "@/lib/i18n/translator";
 import { useQaqcTranslations } from "./qaqc-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Handing a quality record to somebody (PRD #21 §45, §74, §117, §130, §145).
@@ -183,7 +184,7 @@ function AssignBody({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="assign-member">{tc("assign.person")}</Label>
-        <select
+        <FormSelect
           id="assign-member"
           className={selectClass}
           value={memberId}
@@ -196,7 +197,7 @@ function AssignBody({
               {member.name}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {error ? <p className="text-meta text-danger-strong">{error}</p> : null}
       </div>
 

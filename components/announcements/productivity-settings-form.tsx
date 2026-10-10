@@ -15,6 +15,7 @@ import type { ProductivitySettingsDTO } from "@/lib/modules/productivity/product
 import { cn } from "@/lib/utils/cn";
 import { useAnnouncementsTranslations } from "./announcements-text";
 import { announcementApi, announcementFailureOutcome, failureMessage } from "./announcement-api";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** The company's switches for announcements, favorites and recent work (PRD #45 §247). */
 export function ProductivitySettingsForm({ initial }: { initial: ProductivitySettingsDTO }) {
@@ -78,25 +79,25 @@ export function ProductivitySettingsForm({ initial }: { initial: ProductivitySet
       <label className="flex flex-col py-3">
         <span className="text-table font-medium text-fg">{t("settings.reminders")}</span>
         <span className="text-meta text-fg-muted">{t("settings.remindersHint")}</span>
-        <select className={cn(selectClass, "mt-1.5 w-56")} value={state.announcementAckReminderDays} onChange={(event) => setState({ ...state, announcementAckReminderDays: Number(event.target.value) })}>
+        <FormSelect className={cn(selectClass, "mt-1.5 w-56")} value={state.announcementAckReminderDays} onChange={(event) => setState({ ...state, announcementAckReminderDays: Number(event.target.value) })}>
           {[1, 2, 3, 5, 7, 14].map((days) => (
             <option key={days} value={days}>
               {days === 1 ? t("settings.everyDay") : t("settings.everyDays", { count: days })}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </label>
       {toggle("favoritesEnabled", t("settings.favorites"), t("settings.favoritesHint"))}
       {toggle("recentWorkEnabled", t("settings.recent"), t("settings.recentHint"))}
       <label className="flex flex-col py-3">
         <span className="text-table font-medium text-fg">{t("settings.keepRecent")}</span>
-        <select className={cn(selectClass, "mt-1.5 w-56")} value={state.recentWorkRetentionDays} onChange={(event) => setState({ ...state, recentWorkRetentionDays: Number(event.target.value) })}>
+        <FormSelect className={cn(selectClass, "mt-1.5 w-56")} value={state.recentWorkRetentionDays} onChange={(event) => setState({ ...state, recentWorkRetentionDays: Number(event.target.value) })}>
           {[30, 60, 90, 180, 365].map((days) => (
             <option key={days} value={days}>
               {t("settings.days", { count: days })}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </label>
       <div className="flex items-center justify-end gap-3 py-3">
         <UnsavedIndicator save={{ editor, pending, saved: null }} />

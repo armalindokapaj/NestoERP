@@ -23,6 +23,7 @@ import { MilestoneList, type DrawerPanel, type SortKey } from "./milestone-list"
 import { failureMessage, planningApi } from "./planning-api";
 import { defaultZoom, PlanningTimeline, type TimelineZoom } from "./planning-timeline";
 import { Kpi, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The planning workspace (PRD #44 §6, §8, §96, §104, §116, §120, §124-§128,
@@ -349,13 +350,13 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 {view === "milestones" ? (
                   <label className="flex items-center gap-2 text-table text-fg-muted">
                     <span>{t("planning.sort")}</span>
-                    <select className={cn(selectClass, "h-8 w-auto")} value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label={t("planning.sortMilestones")}>
+                    <FormSelect className={cn(selectClass, "h-8 w-auto")} value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label={t("planning.sortMilestones")}>
                       <option value="phase">{t("planning.sortPhase")}</option>
                       <option value="date">{t("planning.sortDate")}</option>
                       <option value="status">{t("planning.sortStatus")}</option>
                       <option value="variance">{t("planning.sortVariance")}</option>
                       <option value="owner">{t("planning.sortOwner")}</option>
-                    </select>
+                    </FormSelect>
                   </label>
                 ) : null}
               </div>
@@ -363,7 +364,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 <div className="nesto-card grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
                     {t("planning.phase")}
-                    <select className={selectClass} value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}>
+                    <FormSelect className={selectClass} value={phaseFilter} onChange={(event) => setPhaseFilter(event.target.value)}>
                       <option value="">{t("planning.allPhases")}</option>
                       {plan.phases.map((phase) => (
                         <option key={phase.id} value={phase.id}>
@@ -371,29 +372,29 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                         </option>
                       ))}
                       <option value="none">{t("planning.noPhase")}</option>
-                    </select>
+                    </FormSelect>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
                     {t("planning.status")}
-                    <select className={selectClass} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MilestoneStatus | "")}>
+                    <FormSelect className={selectClass} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MilestoneStatus | "")}>
                       <option value="">{t("planning.allStatuses")}</option>
                       {MILESTONE_STATUSES.map((status) => (
                         <option key={status} value={status}>
                           {t(`milestoneStatus.${status}`)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
                     {t("planning.owner")}
-                    <select className={selectClass} value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+                    <FormSelect className={selectClass} value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
                       <option value="">{t("planning.anyone")}</option>
                       {owners.map((owner) => (
                         <option key={owner.id} value={owner.id}>
                           {owner.label}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </label>
                   <label className="flex flex-col gap-1 text-meta text-fg-muted">
                     {t("planning.from")}
@@ -687,14 +688,14 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
           <DialogDescription>{t("planning.copyBody")}</DialogDescription>
           <label className="mt-4 flex flex-col gap-1 text-meta text-fg-muted">
             {t("planning.project")}
-            <select className={selectClass} value={copySource} onChange={(event) => setCopySource(event.target.value)}>
+            <FormSelect className={selectClass} value={copySource} onChange={(event) => setCopySource(event.target.value)}>
               <option value="">{copyChoices === null ? t("planning.loading") : copyChoices.length ? t("planning.chooseProject") : t("planning.noOtherPlan")}</option>
               {(copyChoices ?? []).map((choice) => (
                 <option key={choice.id} value={choice.id}>
                   {choice.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <DialogFooter>
             <DialogClose asChild>

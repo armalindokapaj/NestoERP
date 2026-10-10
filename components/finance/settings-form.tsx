@@ -18,6 +18,7 @@ import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateFinanceSettingsAction } from "@/lib/actions/finance";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import type { FinanceSettingsDTO } from "@/lib/modules/finance/finance.settings";
+import { FormSelect } from "@/components/ui/form-select";
 
 const MONTHS = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12"] as const;
 
@@ -66,7 +67,7 @@ export function FinanceSettingsForm({
               required
               hint={t("settings.baseCurrencyHint")}
             >
-              <select
+              <FormSelect
                 id="baseCurrency"
                 name="baseCurrency"
                 className={selectClass}
@@ -78,7 +79,7 @@ export function FinanceSettingsForm({
                     {code}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("settings.paymentTerms")} name="defaultPaymentTermsDays" required hint={t("settings.days")}>
@@ -96,7 +97,7 @@ export function FinanceSettingsForm({
             </Field>
 
             <Field label={t("settings.fiscalYear")} name="fiscalYearStartMonth" required>
-              <select
+              <FormSelect
                 id="fiscalYearStartMonth"
                 name="fiscalYearStartMonth"
                 className={selectClass}
@@ -108,7 +109,7 @@ export function FinanceSettingsForm({
                     {t(`months.${month}`)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("settings.taxRate")} name="defaultTaxRate" hint={t("settings.taxRateHint")}>

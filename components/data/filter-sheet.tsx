@@ -15,6 +15,7 @@ import {
 } from "@/lib/tables/filter-draft";
 import { cn } from "@/lib/utils/cn";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The phone filter sheet (AUD-04 §5, MW-06): a staged form, after the
@@ -112,7 +113,7 @@ export function FilterSheet({
                 <label htmlFor={`${id}-${filter.param}`} className="text-table font-medium text-fg">
                   {filter.label}
                 </label>
-                <select
+                <FormSelect
                   id={`${id}-${filter.param}`}
                   className={cn(
                     "h-11 w-full rounded-md border border-line bg-surface px-3 text-base font-medium text-fg-muted",
@@ -127,7 +128,7 @@ export function FilterSheet({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             ))}
           </div>

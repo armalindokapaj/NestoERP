@@ -22,6 +22,7 @@ import {
 } from "@/lib/tables/filter-draft";
 import { applyListChange, clearListFilters, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type { FilterConfig, FilterOption } from "@/lib/tables/filter-draft";
 
@@ -193,7 +194,7 @@ export function ListToolbar({
           five filters and a sort is wider than the content column (AUD-01 §9). */}
       <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
         {filters.map((filter) => (
-          <select
+          <FormSelect
             key={filter.param}
             aria-label={filter.label}
             className={selectClass}
@@ -206,11 +207,11 @@ export function ListToolbar({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         ))}
 
         {sortOptions.length > 0 ? (
-          <select
+          <FormSelect
             aria-label={t("sort")}
             className={selectClass}
             value={selected(sortParam, sortOptions, false)}
@@ -221,7 +222,7 @@ export function ListToolbar({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         ) : null}
 
         {hasActive ? (
@@ -238,7 +239,7 @@ export function ListToolbar({
           <label htmlFor={`${controlId}-sort`} className="shrink-0 text-table font-medium text-fg-subtle">
             {t("sort")}
           </label>
-          <select
+          <FormSelect
             id={`${controlId}-sort`}
             className="h-11 min-w-0 flex-1 rounded-md border border-line bg-surface px-3 text-base font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
             value={selected(sortParam, sortOptions, false)}
@@ -249,7 +250,7 @@ export function ListToolbar({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
       ) : null}
 

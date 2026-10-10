@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ITEM_CATEGORIES, itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
 import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ItemFormValues = {
   sku: string;
@@ -104,7 +105,7 @@ export function ItemForm({
         </Field>
 
         <Field label={t("fields.category")} name="category" required>
-          <select
+          <FormSelect
             id="category"
             name="category"
             className={selectClass}
@@ -115,7 +116,7 @@ export function ItemForm({
                 {inventoryLabel(t, "itemCategory", category, itemCategoryLabels[category])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.name")} name="name" required className="sm:col-span-2">
@@ -145,7 +146,7 @@ export function ItemForm({
         </Field>
 
         <Field label={t("fields.status")} name="status" required>
-          <select
+          <FormSelect
             id="status"
             name="status"
             className={selectClass}
@@ -153,7 +154,7 @@ export function ItemForm({
           >
             <option value="ACTIVE">{t("labels.itemStatus.ACTIVE")}</option>
             <option value="INACTIVE">{t("labels.itemStatus.INACTIVE")}</option>
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.description")} name="description" className="sm:col-span-2">
@@ -203,7 +204,7 @@ export function ItemForm({
         description={t("itemForm.defaultsDescription")}
       >
         <Field label={t("fields.defaultWarehouse")} name="defaultWarehouseId">
-          <select
+          <FormSelect
             id="defaultWarehouseId"
             name="defaultWarehouseId"
             className={selectClass}
@@ -216,11 +217,11 @@ export function ItemForm({
                 {warehouse.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.defaultLocation")} name="defaultLocationId" hint={locationNote ?? (warehouseId ? undefined : t("itemForm.chooseWarehouseFirst"))}>
-          <select
+          <FormSelect
             id="defaultLocationId"
             name="defaultLocationId"
             className={selectClass}
@@ -237,7 +238,7 @@ export function ItemForm({
                 {location.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
     </RecordForm>

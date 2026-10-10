@@ -14,6 +14,7 @@ import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { defaultFloorName } from "@/lib/modules/project-structure/structure.rules";
 import { FLOOR_LEVEL_TYPES, type BuildingNodeDTO, type FloorLevelType, type FloorNodeDTO } from "@/lib/modules/project-structure/structure.types";
 import { Field, fieldErrors, FormError, failureMessage, structureApi } from "./structure-ui";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Adding and editing a building (E-05B §35, §54) and a floor (§36), moving a
@@ -205,7 +206,7 @@ function FloorForm({ building, floor, onSaved, onDone }: { building: BuildingNod
       <FormError message={formError} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("structureDialogs.level")} htmlFor="floor-level" error={errors.levelType} required>
-          <select
+          <FormSelect
             id="floor-level"
             className={selectClass}
             value={levelType}
@@ -220,7 +221,7 @@ function FloorForm({ building, floor, onSaved, onDone }: { building: BuildingNod
                 {t(`floorLevel.${type}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("structureDialogs.floorNumber")} htmlFor="floor-number" error={errors.number} required={NUMBERED.includes(levelType)} hint={levelType === "BASEMENT" ? t("structureDialogs.belowGround") : NUMBERED.includes(levelType) ? undefined : t("structureDialogs.optionalLevel")}>
           <Input
@@ -321,13 +322,13 @@ function MoveFloorForm({ floor, buildings, onMoved, onDone }: { floor: FloorNode
       <FormError message={error} />
       {others.length ? (
         <Field label={t("structureDialogs.building")} htmlFor="move-floor-building" required>
-          <select id="move-floor-building" className={selectClass} value={target} onChange={(event) => setTarget(event.target.value)}>
+          <FormSelect id="move-floor-building" className={selectClass} value={target} onChange={(event) => setTarget(event.target.value)}>
             {others.map((building) => (
               <option key={building.id} value={building.id}>
                 {building.name}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       ) : (
         <p className="text-table text-fg-muted">{t("structureDialogs.noOtherBuilding")}</p>
@@ -393,7 +394,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
       <FormError message={error} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("structureDialogs.building")} htmlFor="move-unit-building" required>
-          <select
+          <FormSelect
             id="move-unit-building"
             className={selectClass}
             value={buildingId}
@@ -407,10 +408,10 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
                 {building.name}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("structureDialogs.floor")} htmlFor="move-unit-floor" required>
-          <select id="move-unit-floor" className={selectClass} value={floorId} onChange={(event) => setFloorId(event.target.value)}>
+          <FormSelect id="move-unit-floor" className={selectClass} value={floorId} onChange={(event) => setFloorId(event.target.value)}>
             <option value="">{t("structureDialogs.chooseFloorOption")}</option>
             {floors.map((floor) => (
               <option key={floor.id} value={floor.id} disabled={floor.id === unit.floorId}>
@@ -418,7 +419,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
                 {floor.id === unit.floorId ? " (current)" : ""}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </div>
       <DialogFooter>

@@ -27,6 +27,7 @@ import {
   partyTypeLabels,
 } from "@/lib/modules/contracts/parties/party.schema";
 import { contractsLabel, useContractsTranslations } from "./contracts-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The parties to an agreement (PRD #18 §136–§147).
@@ -245,7 +246,7 @@ function PartyForm({
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-3 sm:grid-cols-2">
           <DialogField label={t("parties.role")} name="partyRole" errors={errors}>
-            <select
+            <FormSelect
               id="partyRole"
               name="partyRole"
               className={selectClass}
@@ -256,11 +257,11 @@ function PartyForm({
                   {contractsLabel(t, "partyRole", role, partyRoleLabels[role])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </DialogField>
 
           <DialogField label={t("parties.partyType")} name="partyType" errors={errors}>
-            <select
+            <FormSelect
               id="partyType"
               name="partyType"
               className={selectClass}
@@ -271,7 +272,7 @@ function PartyForm({
                   {contractsLabel(t, "partyType", type, partyTypeLabels[type])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </DialogField>
 
           <DialogField label={t("parties.name")} name="name" errors={errors}>
@@ -301,7 +302,7 @@ function PartyForm({
           </DialogField>
 
           <DialogField label={t("parties.linkedClient")} name="clientId" errors={errors}>
-            <select
+            <FormSelect
               id="clientId"
               name="clientId"
               className={selectClass}
@@ -313,7 +314,7 @@ function PartyForm({
                   {client.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </DialogField>
 
           <DialogField label={t("parties.city")} name="city" errors={errors}>

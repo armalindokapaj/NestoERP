@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "../pw";
 
 import { db, removeTestTasks } from "../db";
 import { mainRegion, signIn, type DemoRole } from "../fixtures";

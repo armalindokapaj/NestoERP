@@ -22,6 +22,7 @@ import type { HeldBalance } from "./stock-lines";
 import { DecimalCell } from "@/components/finance/line-rows";
 import { isPositiveDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Reserve stock for a project (PRD #20 §158, §319).
@@ -102,7 +103,7 @@ export function ReservationForm({
             description={t("reservationForm.sectionDescription")}
           >
             <Field label={t("lines.item")} name="inventoryItemId" required>
-              <select
+              <FormSelect
                 id="inventoryItemId"
                 name="inventoryItemId"
                 className={selectClass}
@@ -116,11 +117,11 @@ export function ReservationForm({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.project")} name="projectId" hint={t("reservationForm.projectHint")}>
-              <select
+              <FormSelect
                 id="projectId"
                 name="projectId"
                 className={selectClass}
@@ -132,11 +133,11 @@ export function ReservationForm({
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("fields.warehouse")} name="warehouseId" required>
-              <select
+              <FormSelect
                 id="warehouseId"
                 name="warehouseId"
                 className={selectClass}
@@ -153,11 +154,11 @@ export function ReservationForm({
                     {warehouse.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <Field label={t("lines.location")} name="locationId" required>
-              <select
+              <FormSelect
                 id="locationId"
                 name="locationId"
                 className={selectClass}
@@ -174,7 +175,7 @@ export function ReservationForm({
                     {location.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
 
             <div className="sm:col-span-2">

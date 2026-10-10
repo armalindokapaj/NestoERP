@@ -26,6 +26,7 @@ import {
 } from "@/lib/modules/hse/hse.status";
 import { useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Building a safety checklist (PRD #22 §43, §45, §349).
@@ -124,7 +125,7 @@ export function TemplateForm({
         </Field>
 
         <Field label={t("record.type")} name="inspectionType" required>
-          <select
+          <FormSelect
             id="inspectionType"
             name="inspectionType"
             className={selectClass}
@@ -135,7 +136,7 @@ export function TemplateForm({
                 {hseLabel(t, "inspectionType", type, inspectionTypeLabels[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.name")} name="name" required className="sm:col-span-2">
@@ -221,7 +222,7 @@ export function TemplateForm({
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor={`item-response-${index}`}>{t("forms.answerType")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-response-${index}`}
                     name={`items[${index}][responseType]`}
                     className={selectClass}
@@ -233,12 +234,12 @@ export function TemplateForm({
                         {hseLabel(t, "responseType", type, responseTypeLabels[type])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor={`item-risk-${index}`}>{t("forms.riskIfFails")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-risk-${index}`}
                     name={`items[${index}][riskIfFailed]`}
                     className={selectClass}
@@ -251,7 +252,7 @@ export function TemplateForm({
                         {hseLabel(t, "severity", value, severityLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="flex flex-col justify-end gap-2 sm:col-span-2">

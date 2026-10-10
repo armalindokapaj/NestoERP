@@ -18,6 +18,7 @@ import type { UnitTypeDTO } from "@/lib/modules/project-structure/unit-type.serv
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The company's list of unit types (E-05B §20, §21, §116).
@@ -33,13 +34,13 @@ type Editing = { id: string; name: string; code: string; category: UnitTypeCateg
 function CategorySelect({ id, value, onChange, label }: { id: string; value: UnitTypeCategory; onChange: (value: UnitTypeCategory) => void; label?: string }) {
   const t = useTranslations("projects");
   return (
-    <select id={id} aria-label={label} className={cn(selectClass, "sm:w-40")} value={value} onChange={(event) => onChange(event.target.value as UnitTypeCategory)}>
+    <FormSelect id={id} aria-label={label} className={cn(selectClass, "sm:w-40")} value={value} onChange={(event) => onChange(event.target.value as UnitTypeCategory)}>
       {UNIT_TYPE_CATEGORIES.map((category) => (
         <option key={category} value={category}>
           {t(`unitCategory.${category}`)}
         </option>
       ))}
-    </select>
+    </FormSelect>
   );
 }
 

@@ -16,6 +16,7 @@ import { useSalesTranslations } from "@/components/sales/sales-text";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ProposalFormValues = {
   proposalNumber: string;
@@ -96,7 +97,7 @@ export function ProposalForm({
             className="sm:col-span-2"
             hint={t("forms.opportunityFixedHint")}
           >
-            <select
+            <FormSelect
               id="opportunityId"
               name="opportunityId"
               className={selectClass}
@@ -109,7 +110,7 @@ export function ProposalForm({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : lockedOpportunity ? (
           <div className="sm:col-span-2">
@@ -119,7 +120,7 @@ export function ProposalForm({
         ) : null}
 
         <Field label={t("forms.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -131,7 +132,7 @@ export function ProposalForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.issueDate")} name="issueDate" required>

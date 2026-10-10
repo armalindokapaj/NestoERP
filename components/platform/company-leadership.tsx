@@ -10,6 +10,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import type { CeoCandidate, CompanyLeadership } from "@/lib/modules/platform/company-leadership.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** Where the company's leadership commands go: the platform console, or the group's own. */
 export type LeadershipApi = { command: string };
@@ -234,10 +235,10 @@ function LeadershipDialog({ flow, leadership, api, onClose }: { flow: Flow; lead
               <label className="flex items-center gap-2"><input type="radio" name="previous" checked={keep === "KEEP_WITH_ROLE"} onChange={() => setKeep("KEEP_WITH_ROLE")} />{t("leadership.keepAccess")}</label>
               {keep === "KEEP_WITH_ROLE" ? (
                 <label className="ml-6 block space-y-1 text-meta text-fg-subtle">{t("leadership.keepRole")}
-                  <select className={field} value={roleKey} onChange={(event) => setRoleKey(event.target.value)} required data-testid="ceo-previous-role">
+                  <FormSelect className={field} value={roleKey} onChange={(event) => setRoleKey(event.target.value)} required data-testid="ceo-previous-role">
                     <option value="">{t("leadership.chooseRole")}</option>
                     {leadership.fallbackRoles.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
-                  </select>
+                  </FormSelect>
                 </label>
               ) : null}
               <label className="flex items-center gap-2"><input type="radio" name="previous" checked={keep === "REMOVE"} onChange={() => setKeep("REMOVE")} />{t("leadership.removeAccess")}</label>

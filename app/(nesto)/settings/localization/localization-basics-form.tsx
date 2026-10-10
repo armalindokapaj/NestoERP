@@ -11,6 +11,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateCompanySettingsAction } from "@/lib/actions/settings";
 import type { CompanySettingsView } from "@/lib/modules/settings/company-settings.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 const TIMEZONES = [
   "UTC", "Europe/Tirane", "Europe/Berlin", "Europe/London", "Europe/Paris",
@@ -73,27 +74,27 @@ export function LocalizationBasicsForm({
         description={t("localization.sectionDescription")}
       >
         <Field label={t("localization.locale")} name="locale" hint={t("localization.localeHint")}>
-          <select id="locale" name="locale" defaultValue={settings.locale} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="locale" name="locale" defaultValue={settings.locale} className={selectClass} disabled={!canUpdate}>
             {COMPANY_LOCALES.map((l) => (
               <option key={l.value} value={l.value}>{t(`localization.locales.${l.key}`)}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("localization.timezone")} name="timezone" hint={t("localization.timezoneHint")}>
-          <select id="timezone" name="timezone" defaultValue={settings.timezone} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="timezone" name="timezone" defaultValue={settings.timezone} className={selectClass} disabled={!canUpdate}>
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("localization.dateFormat")} name="dateFormat">
-          <select id="dateFormat" name="dateFormat" defaultValue={settings.dateFormat} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="dateFormat" name="dateFormat" defaultValue={settings.dateFormat} className={selectClass} disabled={!canUpdate}>
             {["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map((f) => (
               <option key={f} value={f}>{f}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 

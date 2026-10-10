@@ -17,6 +17,7 @@ import { acceptsTimes } from "@/lib/modules/hr/hr.status";
 import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
 import type { AttendanceStatus } from "@prisma/client";
 import { localDay } from "./local-day";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type AttendanceFormValues = {
   employeeId: string | null;
@@ -83,7 +84,7 @@ export function AttendanceForm({
       >
         {!lockedDate && employees ? (
           <Field label={t("columns.employee")} name="employeeId" hint={t("attendanceForm.employeeHint")}>
-            <select
+            <FormSelect
               id="employeeId"
               name="employeeId"
               className={selectClass}
@@ -95,7 +96,7 @@ export function AttendanceForm({
                   {employee.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
@@ -112,7 +113,7 @@ export function AttendanceForm({
         ) : null}
 
         <Field label={t("columns.status")} name="status" required>
-          <select
+          <FormSelect
             id="status"
             name="status"
             className={selectClass}
@@ -124,7 +125,7 @@ export function AttendanceForm({
                 {hrLabel(t, "attendanceStatus", value)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {timed ? (

@@ -20,6 +20,7 @@ import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import type { Translate } from "@/lib/i18n/translator";
 import { RemoveModelDialog } from "./RemoveModelDialog";
 import { useModelProcessingPoll } from "./use-model-processing-poll";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type IngestionVersion = { id: string; version: number; status: string; validationStatus: string; originalFileName: string; validationIssues?: unknown; stalled?: boolean; assetMissing?: boolean };
 export type IngestionSlot = { id: string; displayName: string; role: string; versions: IngestionVersion[] };
@@ -318,10 +319,10 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
       <fieldset disabled={locked} className="min-w-0 space-y-3">
         <label className={label} htmlFor={`${id}-target`}>
           {t("threeDAdmin.ingestion.uploadAs")}
-          <select id={`${id}-target`} className={field} value={targetSlot ? target : ""} onChange={(event) => { setTarget(event.target.value); if (event.target.value) { setItems([]); attempts.current.clear(); } }}>
+          <FormSelect id={`${id}-target`} className={field} value={targetSlot ? target : ""} onChange={(event) => { setTarget(event.target.value); if (event.target.value) { setItems([]); attempts.current.clear(); } }}>
             <option value="">{t("threeDAdmin.ingestion.newModel")}</option>
             {slots.map((slot) => <option key={slot.id} value={slot.id}>{t("threeDAdmin.ingestion.newVersionOf", { name: slot.displayName })}</option>)}
-          </select>
+          </FormSelect>
         </label>
         {targetSlot ? (
           <p className={hint}>{t("threeDAdmin.ingestion.addsVersion", { version: Math.max(0, ...targetSlot.versions.map((version) => version.version)) + 1 })}</p>
@@ -333,9 +334,9 @@ export function ModelIngestionPanel({ projectId, slots, uploadLimitBytes = MAX_M
             </label>}
             <label className={label} htmlFor={`${id}-role`}>
               {t("threeDAdmin.ingestion.purpose")}
-              <select id={`${id}-role`} className={field} value={role} onChange={(event) => setRole(event.target.value)}>
+              <FormSelect id={`${id}-role`} className={field} value={role} onChange={(event) => setRole(event.target.value)}>
                 {ROLES.map((option) => <option key={option} value={option}>{t(`threeDAdmin.ingestion.roles.${option}`)}</option>)}
-              </select>
+              </FormSelect>
             </label>
           </div>
         )}

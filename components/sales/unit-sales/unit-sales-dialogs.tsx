@@ -19,6 +19,7 @@ import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The dialogs a unit's sale is changed through (E-05E §10, §16-§31, §48). Each
@@ -282,13 +283,13 @@ export function useDialogRequest(submit: Submit) {
 
 function CurrencySelect({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
   return (
-    <select id={id} className={selectClass} value={value} onChange={(event) => onChange(event.target.value)}>
+    <FormSelect id={id} className={selectClass} value={value} onChange={(event) => onChange(event.target.value)}>
       {SUPPORTED_CURRENCIES.map((code) => (
         <option key={code} value={code}>
           {code}
         </option>
       ))}
-    </select>
+    </FormSelect>
   );
 }
 
@@ -339,13 +340,13 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
         </Field>
       </div>
       <Field label={t("unitDialogs.priceBasis")} htmlFor="sales-price-basis" hint={t("unitDialogs.priceBasisHint")} error={request.fields.priceBasis}>
-        <select id="sales-price-basis" className={selectClass} value={basis} onChange={(event) => setBasis(event.target.value as typeof basis)}>
+        <FormSelect id="sales-price-basis" className={selectClass} value={basis} onChange={(event) => setBasis(event.target.value as typeof basis)}>
           {UNIT_PRICE_BASES.map((value) => (
             <option key={value} value={value}>
               {salesLabel(t, "priceBasis", value, UNIT_PRICE_BASIS_LABELS[value])}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
       <Field label={t("unitDialogs.changeReason")} htmlFor="sales-price-reason" error={request.fields.reason}>
         <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder="e.g. Second price list" />
@@ -721,10 +722,10 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
               <Input id="reserve-client-name" value={newClient.name} onChange={(event) => { setNewClient({ ...newClient, name: event.target.value }); setDuplicates(null); }} autoFocus maxLength={200} />
             </Field>
             <Field label={t("unitDialogs.type")} htmlFor="reserve-client-type">
-              <select id="reserve-client-type" className={selectClass} value={newClient.type} onChange={(event) => setNewClient({ ...newClient, type: event.target.value })}>
+              <FormSelect id="reserve-client-type" className={selectClass} value={newClient.type} onChange={(event) => setNewClient({ ...newClient, type: event.target.value })}>
                 <option value="INDIVIDUAL">{t("unitDialogs.individual")}</option>
                 <option value="COMPANY">{t("unitDialogs.companyType")}</option>
-              </select>
+              </FormSelect>
             </Field>
             <Field label={t("unitDialogs.phone")} htmlFor="reserve-client-phone">
               <Input id="reserve-client-phone" type="tel" value={newClient.phone} onChange={(event) => setNewClient({ ...newClient, phone: event.target.value })} maxLength={40} />
@@ -762,7 +763,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
 
       <Field label={t("unitDialogs.deal")} htmlFor="reserve-deal" required error={touched && dealMissing ? t("unitDialogs.selectDeal") : request.fields.opportunityId}>
         {clientMode === "existing" && caps.canSeeDeals ? (
-          <select id="reserve-deal" className={cn(selectClass, !client && "opacity-60")} value={dealId} disabled={!client || deals === null} onChange={(event) => setDealId(event.target.value)}>
+          <FormSelect id="reserve-deal" className={cn(selectClass, !client && "opacity-60")} value={dealId} disabled={!client || deals === null} onChange={(event) => setDealId(event.target.value)}>
             {!client ? <option value="">{t("unitDialogs.chooseClientFirst")}</option> : deals === null ? <option value="">{t("unitDialogs.loadingDeals")}</option> : null}
             {deals?.map((deal) => (
               <option key={deal.id} value={deal.id}>
@@ -771,7 +772,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
             ))}
             {client && deals && caps.canCreateDeal ? <option value="new">{t("unitDialogs.newDeal")}</option> : null}
             {client && deals?.length === 0 && !caps.canCreateDeal ? <option value="">{t("unitDialogs.noOpenDeal")}</option> : null}
-          </select>
+          </FormSelect>
         ) : (
           <p id="reserve-deal" className="text-table text-fg-muted">
             {t("unitDialogs.newDealForNewClient")}

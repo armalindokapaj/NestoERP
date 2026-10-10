@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils/cn";
 import type { ActionResult } from "@/lib/actions/projects";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Create / edit project form (PRD #10 §31, §32, §41).
@@ -208,7 +209,7 @@ export function ProjectForm({
           error={fieldErrors.projectTypeId}
           hint={projectTypes.length === 0 ? t("form.noTypes") : undefined}
         >
-          <select
+          <FormSelect
             id="projectTypeId"
             name="projectTypeId"
             defaultValue={initial.projectTypeId}
@@ -224,18 +225,18 @@ export function ProjectForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {statuses.length > 0 ? (
           <Field label={t("form.status")} name="status" required error={fieldErrors.status}>
-            <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
+            <FormSelect id="status" name="status" defaultValue={initial.status} className={selectClass}>
               {statuses.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : (
           <Field
@@ -248,7 +249,7 @@ export function ProjectForm({
         )}
 
         <Field label={t("form.priority")} name="priority" error={fieldErrors.priority}>
-          <select
+          <FormSelect
             id="priority"
             name="priority"
             defaultValue={initial.priority}
@@ -260,13 +261,13 @@ export function ProjectForm({
                 {t(`priority.${value}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </Section>
 
       <Section title={t("form.clientSection")}>
         <Field label={t("form.client")} name="clientId" error={fieldErrors.clientId}>
-          <select
+          <FormSelect
             id="clientId"
             name="clientId"
             defaultValue={initial.clientId}
@@ -278,7 +279,7 @@ export function ProjectForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -287,7 +288,7 @@ export function ProjectForm({
           error={fieldErrors.projectManagerMemberId}
           hint={t("form.managerHint")}
         >
-          <select
+          <FormSelect
             id="projectManagerMemberId"
             name="projectManagerMemberId"
             defaultValue={initial.projectManagerMemberId}
@@ -299,7 +300,7 @@ export function ProjectForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </Section>
 
@@ -335,10 +336,10 @@ export function ProjectForm({
           <Input id="builtArea" name="builtArea" type="number" inputMode="decimal" min={0} step="0.01" defaultValue={initial.builtArea} />
         </Field>
         <Field label={t("form.keyProject")} name="isKeyProject" error={fieldErrors.isKeyProject}>
-          <select id="isKeyProject" name="isKeyProject" defaultValue={initial.isKeyProject} className={selectClass}>
+          <FormSelect id="isKeyProject" name="isKeyProject" defaultValue={initial.isKeyProject} className={selectClass}>
             <option value="NO">{t("form.no")}</option>
             <option value="YES">{t("form.yes")}</option>
-          </select>
+          </FormSelect>
         </Field>
       </Section>
 
@@ -355,7 +356,7 @@ export function ProjectForm({
                   : t("form.coverChooseHint")
               }
             >
-              <select
+              <FormSelect
                 id="coverImageDocumentId"
                 name="coverImageDocumentId"
                 defaultValue={initial.coverImageDocumentId}
@@ -367,7 +368,7 @@ export function ProjectForm({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
             <Link href={covers.uploadHref} className="mt-2 inline-block text-table font-medium text-accent-strong">
               {t("form.openDocuments")}

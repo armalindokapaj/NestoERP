@@ -16,6 +16,7 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { SHEET_STATUSES, sheetStatusLabels, type AttendanceSheetDTO, type AttendanceSheetResult, type SheetStatus } from "@/lib/modules/workforce/workforce.types";
 import { statusLabel } from "@/lib/utils/status";
 import { workforceLabel } from "@/lib/i18n/modules/workforce/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The site sheet (E-04 §123, §124): everybody working there that day, marked
@@ -170,14 +171,14 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
                 <p className="truncate text-meta text-fg-subtle">{[row.trade, row.crew].filter(Boolean).join(" · ") || "—"}</p>
               </div>
               {open ? (
-                <select aria-label={t("sheet.attendanceFor", { name: row.name })} className={selectClass} value={draft.status} onChange={(event) => change(row.employeeId, { status: event.target.value as SheetStatus | "" })}>
+                <FormSelect aria-label={t("sheet.attendanceFor", { name: row.name })} className={selectClass} value={draft.status} onChange={(event) => change(row.employeeId, { status: event.target.value as SheetStatus | "" })}>
                   <option value="">{t("sheet.notMarked")}</option>
                   {SHEET_STATUSES.map((status) => (
                     <option key={status} value={status}>
                       {workforceLabel(t, "sheetStatus", status, sheetStatusLabels[status])}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               ) : (
                 <p className="text-table text-fg-muted">
                   {row.attendance ? workforceLabel(t, "attendanceStatus", row.attendance.status, statusLabel(row.attendance.status)) : t("sheet.notMarked")}

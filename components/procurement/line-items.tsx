@@ -12,6 +12,7 @@ import { compareDecimal, isPositiveDecimal, pricedLinePreview, sumDecimal } from
 import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import { useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The line editor every priced document shares (PRD #19 §266; AUD-09 §3, §7,
@@ -211,7 +212,7 @@ export function LineItemsEditor({
                 {showCategory ? (
                   <div className="space-y-1.5">
                     <Label htmlFor={`${base}-category`}>{t("common.category")}</Label>
-                    <select
+                    <FormSelect
                       id={`${base}-category`}
                       name={`items.${index}.category`}
                       className={selectClass}
@@ -226,7 +227,7 @@ export function LineItemsEditor({
                           {option.label}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                     <CellError id={`${base}-category-error`} message={rowErrors.category} />
                   </div>
                 ) : null}

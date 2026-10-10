@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../pw";
 
 import { db, removeTestInventoryRecords, resetInventoryFixtures } from "../db";
 import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures";

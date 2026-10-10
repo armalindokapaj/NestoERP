@@ -14,6 +14,7 @@ import { hoursValue } from "./timesheet-ui";
 import { useTimesheetsTranslations } from "./timesheets-text";
 import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
 import type { Translate } from "@/lib/i18n/translator";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The weekly grid (PRD #42 §43, §45, §47, §190-§195, §204-§207).
@@ -330,17 +331,17 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
         <div className="flex flex-wrap items-end gap-2" data-testid="add-row-form">
           <label className="flex min-w-[9rem] flex-1 flex-col">
             <span className="text-meta text-fg-muted">{t("grid.workType")}</span>
-            <select className={cn(selectClass, "mt-1 h-9")} value={workType} onChange={(change) => setWorkType(change.target.value as WorkLogType)} aria-label={t("grid.rowWorkType")}>
+            <FormSelect className={cn(selectClass, "mt-1 h-9")} value={workType} onChange={(change) => setWorkType(change.target.value as WorkLogType)} aria-label={t("grid.rowWorkType")}>
               {WORK_LOG_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {timesheetsLabel(t, "workType", type, WORK_LOG_TYPE_LABELS[type])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-[12rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">{t("common.project")}</span>
-            <select
+            <FormSelect
               className={cn(selectClass, "mt-1 h-9")}
               value={projectId}
               onChange={(change) => {
@@ -358,18 +359,18 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-[12rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">{t("common.task")}</span>
-            <select className={cn(selectClass, "mt-1 h-9")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-label={t("grid.rowTask")}>
+            <FormSelect className={cn(selectClass, "mt-1 h-9")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-label={t("grid.rowTask")}>
               <option value="">{t("grid.noTask")}</option>
               {tasks.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={add}>

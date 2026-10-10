@@ -16,6 +16,7 @@ import { LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
 import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
 import { countWorkingDays } from "@/lib/modules/hr/hr.calendar";
 import { localDay } from "./local-day";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type LeaveFormValues = {
   employeeId: string | null;
@@ -84,7 +85,7 @@ export function LeaveForm({
             className="sm:col-span-2"
             hint={t("leaveForm.employeeHint")}
           >
-            <select
+            <FormSelect
               id="employeeId"
               name="employeeId"
               className={selectClass}
@@ -96,12 +97,12 @@ export function LeaveForm({
                   {employee.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
         <Field label={t("reports.leaveType")} name="leaveType" required>
-          <select
+          <FormSelect
             id="leaveType"
             name="leaveType"
             className={selectClass}
@@ -112,7 +113,7 @@ export function LeaveForm({
                 {hrLabel(t, "leaveType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <div className="flex items-end">

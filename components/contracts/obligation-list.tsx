@@ -29,6 +29,7 @@ import {
 } from "@/lib/modules/contracts/obligations/obligation.status";
 import { formatDate } from "@/lib/utils/format";
 import { contractsLabel, useContractsTranslations } from "./contracts-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The obligation register on a contract (PRD #18 §148–§158).
@@ -279,7 +280,7 @@ function ObligationForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="obligationType">{t("common.type")}</Label>
-            <select
+            <FormSelect
               id="obligationType"
               name="obligationType"
               className={selectClass}
@@ -290,7 +291,7 @@ function ObligationForm({
                   {contractsLabel(t, "obligationType", type, obligationTypeLabels[type])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
 
           <div className="space-y-1.5">
@@ -301,7 +302,7 @@ function ObligationForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="responsibleMemberId">{t("obligations.responsible")}</Label>
-          <select
+          <FormSelect
             id="responsibleMemberId"
             name="responsibleMemberId"
             className={selectClass}
@@ -313,7 +314,7 @@ function ObligationForm({
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="space-y-1.5">
@@ -414,7 +415,7 @@ function TaskForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="assigneeMemberId">{t("obligations.assignee")}</Label>
-            <select
+            <FormSelect
               id="assigneeMemberId"
               name="assigneeMemberId"
               className={selectClass}
@@ -426,7 +427,7 @@ function TaskForm({
                   {member.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
 
           <div className="space-y-1.5">

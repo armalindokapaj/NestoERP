@@ -21,6 +21,7 @@ import type { getPricingAdministration } from "@/lib/modules/pricing/pricing.ser
 import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { outcomeOf } from "@/lib/unsaved/outcome";
+import { FormSelect } from "@/components/ui/form-select";
 
 type PricingAdminData = Awaited<ReturnType<typeof getPricingAdministration>>;
 type Version = PricingAdminData["versions"][number];
@@ -309,7 +310,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
                     <TableRow key={row.id} data-testid="pricing-module-row">
                       <TableCell><Input aria-label={t("pricing.aria.name", { id: row.id })} value={row.name} onChange={(event) => setModule(row.id, { name: event.target.value })} className="min-w-40" /><p className="mt-1 font-mono text-micro text-fg-subtle">{row.id} · {row.group}</p></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.public", { id: row.id })} checked={row.enabled && row.public} onChange={(event) => setModule(row.id, { public: event.target.checked, enabled: event.target.checked || row.enabled })} /></TableCell>
-                      <TableCell><select aria-label={t("pricing.aria.tier", { id: row.id })} className="h-9 rounded-md border border-line-strong bg-surface px-2 text-table" value={row.tier} onChange={(event) => setModule(row.id, { tier: event.target.value as PricingModule["tier"] })}>{["S", "A", "B", "C", "ACCESS"].map((tier) => <option key={tier}>{tier}</option>)}</select></TableCell>
+                      <TableCell><FormSelect aria-label={t("pricing.aria.tier", { id: row.id })} className="h-9 rounded-md border border-line-strong bg-surface px-2 text-table" value={row.tier} onChange={(event) => setModule(row.id, { tier: event.target.value as PricingModule["tier"] })}>{["S", "A", "B", "C", "ACCESS"].map((tier) => <option key={tier}>{tier}</option>)}</FormSelect></TableCell>
                       <TableCell><Input aria-label={t("pricing.aria.price", { id: row.id })} type="number" min={0} step="0.01" className="w-28" value={row.monthlyPriceCents / 100} onChange={(event) => setModule(row.id, { monthlyPriceCents: Math.max(0, Math.round(event.target.valueAsNumber * 100) || 0) })} /></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.inPlatform", { id: row.id })} checked={row.includedInFoundations.includes("NESTO_PLATFORM")} onChange={(event) => inFoundation("NESTO_PLATFORM", event.target.checked)} /></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.inRozaris", { id: row.id })} checked={row.includedInFoundations.includes("ROZARIS")} onChange={(event) => inFoundation("ROZARIS", event.target.checked)} /></TableCell>
@@ -335,9 +336,9 @@ function PricingVersionEditor({ version }: { version: Version }) {
               </React.Fragment>
             ))}
             <Field label={t("pricing.usersAcrossProjects")}>
-              <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.rozaris.userAllowanceMode} onChange={(event) => update((current) => ({ ...current, rozaris: { ...current.rozaris, userAllowanceMode: event.target.value as PricingConfig["rozaris"]["userAllowanceMode"] } }))}>
+              <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.rozaris.userAllowanceMode} onChange={(event) => update((current) => ({ ...current, rozaris: { ...current.rozaris, userAllowanceMode: event.target.value as PricingConfig["rozaris"]["userAllowanceMode"] } }))}>
                 <option value="MAX_PROJECT">{t("pricing.allowance.MAX_PROJECT")}</option><option value="SUM_PROJECTS">{t("pricing.allowance.SUM_PROJECTS")}</option><option value="FIRST_PROJECT_ONLY">{t("pricing.allowance.FIRST_PROJECT_ONLY")}</option>
-              </select>
+              </FormSelect>
             </Field>
           </EditorGroup>
           <EditorGroup title={t("pricing.indexation")}>
@@ -442,20 +443,20 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
       <Field label={t("pricing.code")}><Input value={promotion.code} readOnly /></Field>
       <Field label={t("pricing.name")}><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
       <Field label={t("pricing.status")}>
-        <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={status} onChange={(event) => setStatus(event.target.value as "ACTIVE" | "INACTIVE")}>
+        <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={status} onChange={(event) => setStatus(event.target.value as "ACTIVE" | "INACTIVE")}>
           <option value="ACTIVE">{t("pricing.active")}</option><option value="INACTIVE">{t("pricing.inactive")}</option>
-        </select>
+        </FormSelect>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("pricing.eligibleFoundation")}>
-          <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.product} onChange={(event) => setConfig((current) => ({ ...current, product: event.target.value as PricingPromotionConfig["product"] }))}>
+          <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.product} onChange={(event) => setConfig((current) => ({ ...current, product: event.target.value as PricingPromotionConfig["product"] }))}>
             <option value="NESTO_PLATFORM">{t("pricing.foundationPlatform")}</option><option value="ROZARIS">ROZARIS</option>
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("pricing.eligibleTerm")}>
-          <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.requiredContractMonths} onChange={(event) => setConfig((current) => ({ ...current, requiredContractMonths: event.target.value === "12" ? 12 : 24 }))}>
+          <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-3 text-body text-fg" value={config.requiredContractMonths} onChange={(event) => setConfig((current) => ({ ...current, requiredContractMonths: event.target.value === "12" ? 12 : 24 }))}>
             <option value="12">{t("pricing.term12")}</option><option value="24">{t("pricing.term24")}</option>
-          </select>
+          </FormSelect>
         </Field>
         <NumberField label={t("pricing.freeMonths")} value={free.months} set={(value) => setPeriod(0, { months: value, discountPercent: 100 })} />
         <NumberField label={t("pricing.discountMonths")} value={reduced.months} set={(value) => setPeriod(1, { months: value })} />

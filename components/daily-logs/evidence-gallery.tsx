@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils/cn";
 import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
 import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 import { useDailyLogsTranslations } from "./daily-logs-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The day's evidence (PRD #43 §74-§83, §152, §214, §241, §261).
@@ -345,13 +346,13 @@ function DescribeForm({ dailyLogId, item, takenTime, onDone, onChanged }: { dail
       <fieldset disabled={saving} className="m-0 mt-4 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
         <label className="flex flex-col">
           <span className="text-table font-medium text-fg">{t("evidence.category")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={meta.category} onChange={(event) => setMeta({ ...meta, category: event.target.value as DocumentCategory })}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={meta.category} onChange={(event) => setMeta({ ...meta, category: event.target.value as DocumentCategory })}>
             {DOCUMENT_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {dailyLogsLabel(t, "documentCategory", category, DOCUMENT_CATEGORY_LABELS[category])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label className="flex flex-col">
           <span className="text-table font-medium text-fg">{t("evidence.takenAt")}</span>

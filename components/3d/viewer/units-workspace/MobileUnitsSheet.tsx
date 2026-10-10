@@ -20,6 +20,7 @@ import {
   type SortOption,
   type UnitFilterState,
 } from "./unitFilters";
+import { FormSelect } from "@/components/ui/form-select";
 
 type SheetSnap = "peek" | "half" | "full";
 const SNAP_ORDER: SheetSnap[] = ["peek", "half", "full"];
@@ -304,7 +305,7 @@ export function MobileUnitsSheet({
 
               <div className="flex items-center justify-between gap-2">
                 <span className="shrink-0 text-xs text-fg/50">{t("units.resultsCount", { count: filtered.length })}</span>
-                <select
+                <FormSelect
                   value={filters.sort}
                   onChange={(e) => handleFilterPatch({ sort: e.target.value as SortOption })}
                   aria-label={t("units.sort.recommended")}
@@ -317,7 +318,7 @@ export function MobileUnitsSheet({
                       </option>
                     )
                   )}
-                </select>
+                </FormSelect>
               </div>
             </div>
 

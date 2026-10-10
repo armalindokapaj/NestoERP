@@ -16,6 +16,7 @@ import { type FinanceInventoryDTO, type FinanceInventoryRowDTO, type UnitFinanci
 import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { amountLabel, FinancialStatusBadge, UnitContractStatusBadge } from "./finance-status";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A project's units as Finance sees them (E-05F §45-§48, §92, §127).
@@ -178,13 +179,13 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
           <SlidersHorizontal aria-hidden="true" />
           {t("inventory.filters")}{panelCount ? ` (${panelCount})` : ""}
         </Button>
-        <select aria-label={t("inventory.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as Sort })}>
+        <FormSelect aria-label={t("inventory.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as Sort })}>
           {(Object.keys(SORT_KEYS) as Sort[]).map((sort) => (
             <option key={sort} value={sort}>
               {t(`inventory.sort.${SORT_KEYS[sort]}`)}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {active ? (
           <Button
             variant="ghost"
@@ -362,14 +363,14 @@ function FilterSelect({ idKey, label, value, onChange, options }: { idKey: strin
       <label htmlFor={id} className="text-meta font-medium text-fg-muted">
         {label}
       </label>
-      <select id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
+      <FormSelect id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{t("inventory.any")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </div>
   );
 }

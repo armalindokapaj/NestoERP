@@ -38,6 +38,7 @@ import { memberActor } from "@/lib/modules/organization/departments/department.a
 import { getDepartmentActivity, getDepartmentDetail, getDepartmentTeam, listDepartmentCandidates } from "@/lib/modules/organization/departments/department.query";
 import { teamQuerySchema } from "@/lib/modules/organization/departments/department.schema";
 import type { DepartmentCompanyRowDTO, DepartmentDetailDTO, PositionDTO, TeamMemberDTO } from "@/lib/modules/organization/departments/department.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("organization"))("department.metaTitle") };
@@ -311,33 +312,33 @@ async function Team({ context, department, query }: { context: UserContext; depa
           <input type="hidden" name="tab" value="team" />
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("common.company")}
-            <select name="company" defaultValue={filters.company ?? ""} className={selectClass}>
+            <FormSelect name="company" defaultValue={filters.company ?? ""} className={selectClass}>
               <option value="">{t("department.everyCompany")}</option>
               {team.filters.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("department.position")}
-            <select name="position" defaultValue={filters.position ?? ""} className={selectClass}>
+            <FormSelect name="position" defaultValue={filters.position ?? ""} className={selectClass}>
               <option value="">{t("department.any")}</option>
               {(Object.keys(POSITION_LABEL) as PositionDTO[]).map((position) => (
                 <option key={position} value={position}>
                   {organizationLabel(t, "position", position, POSITION_LABEL[position])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("common.status")}
-            <select name="status" defaultValue={filters.status} className={selectClass}>
+            <FormSelect name="status" defaultValue={filters.status} className={selectClass}>
               <option value="ACTIVE">{t("department.current")}</option>
               <option value="INACTIVE">{t("department.ended")}</option>
               <option value="ALL">{t("department.all")}</option>
-            </select>
+            </FormSelect>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("department.search")}

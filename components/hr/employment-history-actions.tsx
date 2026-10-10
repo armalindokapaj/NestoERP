@@ -21,6 +21,7 @@ import type { EmploymentChangeOptionsDTO } from "@/lib/modules/hr/employment/emp
 import type { AssignmentRowDTO, StatusRowDTO } from "@/lib/modules/hr/employment/employment.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
+import { FormSelect } from "@/components/ui/form-select";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -207,37 +208,37 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="correct-department">{t("columns.department")}</Label>
-            <select id="correct-department" className={selectClass} value={draft.departmentId} onChange={set("departmentId")}>
+            <FormSelect id="correct-department" className={selectClass} value={draft.departmentId} onChange={set("departmentId")}>
               <option value="">{t("changes.none")}</option>
               {departments.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="correct-manager">{t("columns.manager")}</Label>
-            <select id="correct-manager" className={selectClass} value={draft.managerMemberId} onChange={set("managerMemberId")}>
+            <FormSelect id="correct-manager" className={selectClass} value={draft.managerMemberId} onChange={set("managerMemberId")}>
               <option value="">{t("employmentForm.noManager")}</option>
               {managers.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="correct-location-type">{t("employmentForm.worksAt")}</Label>
-              <select id="correct-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")}>
+              <FormSelect id="correct-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")}>
                 <option value="">{t("employmentForm.notSet")}</option>
                 {WORK_LOCATION_TYPES.map((value) => (
                   <option key={value} value={value}>
                     {hrLabel(t, "workLocationType", value)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="correct-location">{t("changes.place")}</Label>
@@ -246,19 +247,19 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="correct-type">{t("fields.employmentType")}</Label>
-            <select id="correct-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
+            <FormSelect id="correct-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
               {EMPLOYMENT_TYPES.map((value) => (
                 <option key={value} value={value}>
                   {hrLabel(t, "employmentType", value)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
         </>
       ) : (
         <div className="space-y-1.5">
           <Label htmlFor="correct-status-reason">{t("historyActions.reasonFor", { status: hrLabel(t, "employmentStatus", status!.status).toLowerCase() })}</Label>
-          <select id="correct-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
+          <FormSelect id="correct-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
             {Object.keys(statusReasonLabels)
               .filter((value) => value !== "CORRECTION")
               .map((value) => (
@@ -266,7 +267,7 @@ function CorrectionForm({ employeeId, kind, row, options, onDone }: CorrectionPr
                   {hrLabel(t, "statusReason", value)}
                 </option>
               ))}
-          </select>
+          </FormSelect>
         </div>
       )}
       <div className="space-y-1.5">

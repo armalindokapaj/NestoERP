@@ -14,6 +14,7 @@ import { submitInspectionAction } from "@/lib/actions/qaqc";
 import { qaqcLabel } from "./qaqc-labels";
 import { QaqcText, useQaqcTranslations } from "./qaqc-text";
 import type { QualityInspectionResult } from "@prisma/client";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Finishing an inspection (PRD #21 §76–§79).
@@ -117,7 +118,7 @@ function SubmitInspectionForm({
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
           <Label htmlFor="result">{t("submit.label")}</Label>
-          <select
+          <FormSelect
             id="result"
             name="result"
             className={selectClass}
@@ -130,7 +131,7 @@ function SubmitInspectionForm({
                 {qaqcLabel(t, "inspectionResult", option)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="space-y-1.5">

@@ -21,6 +21,7 @@ import { SECTION_FIELDS, SECTION_NOUNS, type FieldDef, type OptionSource } from 
 import { dailyLogsLabel, type DailyLogsLabelGroup } from "@/lib/i18n/modules/dailyLogs/labels";
 import type { Translate } from "@/lib/i18n/translator";
 import { useDailyLogsTranslations, type DailyLogsKey } from "./daily-logs-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** The dictionary's group for a section's select field, keyed `section.field`. */
 const OPTION_GROUPS: Record<string, DailyLogsLabelGroup> = { "weather.condition": "weather", "equipment.status": "equipment", "delays.category": "delayCategory", "delays.impact": "delayImpact" };
@@ -281,27 +282,27 @@ function Field({ field, t, value, error, options, onChange }: { field: FieldDef;
       break;
     case "select":
       control = (
-        <select id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
+        <FormSelect id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
           <option value="">{field.required ? t("common.choose") : "—"}</option>
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
       );
       break;
     case "option": {
       const list = (field.source && options?.[field.source]) || [];
       control = (
-        <select id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
+        <FormSelect id={id} className={cn(selectClass, "mt-1.5")} value={text} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={described}>
           <option value="">{t("common.none")}</option>
           {list.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
       );
       break;
     }

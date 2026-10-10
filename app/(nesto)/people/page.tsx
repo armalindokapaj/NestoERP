@@ -18,6 +18,7 @@ import type { Translate } from "@/lib/i18n/translator";
 import { ALL_COMPANIES, directoryQuerySchema } from "@/lib/modules/people/people.schema";
 import { directoryFilterOptions, listPeople } from "@/lib/modules/people/people.service";
 import type { PersonCardDTO } from "@/lib/modules/people/people.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("people"))("meta.people") };
@@ -140,36 +141,36 @@ export default async function PeoplePage({ searchParams }: Props) {
           */}
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("directory.company")}
-            <select name="company" defaultValue={query.company ?? (inGroup ? ALL_COMPANIES : context.companyId)} className={selectClass}>
+            <FormSelect name="company" defaultValue={query.company ?? (inGroup ? ALL_COMPANIES : context.companyId)} className={selectClass}>
               <option value={ALL_COMPANIES}>{t("directory.everyCompany")}</option>
               {options.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("directory.department")}
-            <select name="department" defaultValue={query.department ?? ""} className={selectClass}>
+            <FormSelect name="department" defaultValue={query.department ?? ""} className={selectClass}>
               <option value="">{t("directory.everyDepartment")}</option>
               {options.departments.map((department) => (
                 <option key={department.key} value={department.key}>
                   {department.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("directory.role")}
-            <select name="role" defaultValue={query.role ?? ""} className={selectClass}>
+            <FormSelect name="role" defaultValue={query.role ?? ""} className={selectClass}>
               <option value="">{t("directory.anyRole")}</option>
               {options.roles.map((role) => (
                 <option key={role.key} value={role.key}>
                   {role.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("directory.jobTitle")}

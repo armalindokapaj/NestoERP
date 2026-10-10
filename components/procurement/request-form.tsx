@@ -21,6 +21,7 @@ import { LineItemsEditor, type LineValue } from "./line-items";
 import { withSavedOption } from "@/components/finance/saved-option";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 import { useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type RequestFormValues = {
   title: string;
@@ -89,7 +90,7 @@ export function RequestForm({
         </Field>
 
         <Field label={t("common.priority")} name="priority" required>
-          <select
+          <FormSelect
             id="priority"
             name="priority"
             className={selectClass}
@@ -100,7 +101,7 @@ export function RequestForm({
                 {procurementLabel(t, "priority", priority, priorityLabels[priority])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("requests.neededBy")} name="requiredDate">
@@ -128,7 +129,7 @@ export function RequestForm({
         description={t("requests.belongsDescription")}
       >
         <Field label={t("common.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -140,11 +141,11 @@ export function RequestForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.department")} name="departmentId">
-          <select
+          <FormSelect
             id="departmentId"
             name="departmentId"
             className={selectClass}
@@ -156,11 +157,11 @@ export function RequestForm({
                 {department.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("requests.buyer")} name="ownerMemberId" hint={t("requests.buyerHint")}>
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -172,11 +173,11 @@ export function RequestForm({
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.currency")} name="currency" hint={t("requests.currencyHint")}>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -188,7 +189,7 @@ export function RequestForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 

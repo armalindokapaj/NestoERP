@@ -20,6 +20,7 @@ import {
   type UnifiedApprovalStatus,
 } from "@/lib/modules/approvals/approvals.types";
 import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Filters and their chips (PRD #41 §92, §93).
@@ -171,14 +172,14 @@ export function FilterDrawer({
             {companies && companies.length > 1 ? (
               <div className="space-y-1.5">
                 <Label htmlFor="filter-company">{t("filters.company")}</Label>
-                <select id="filter-company" className={selectClass} value={draft.company ?? ""} onChange={(event) => setDraft({ ...draft, company: event.target.value || null })}>
+                <FormSelect id="filter-company" className={selectClass} value={draft.company ?? ""} onChange={(event) => setDraft({ ...draft, company: event.target.value || null })}>
                   <option value="">{t("filters.allCompanies")}</option>
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>
                       {company.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             ) : null}
             {providers.length > 1 ? (
@@ -209,26 +210,26 @@ export function FilterDrawer({
             ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="filter-project">{t("filters.project")}</Label>
-              <select id="filter-project" className={selectClass} value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value || null })}>
+              <FormSelect id="filter-project" className={selectClass} value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value || null })}>
                 <option value="">{t("filters.anyProject")}</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             {tab !== "requested" ? (
               <div className="space-y-1.5">
                 <Label htmlFor="filter-requester">{t("filters.requester")}</Label>
-                <select id="filter-requester" className={selectClass} value={draft.requesterId ?? ""} onChange={(event) => setDraft({ ...draft, requesterId: event.target.value || null })}>
+                <FormSelect id="filter-requester" className={selectClass} value={draft.requesterId ?? ""} onChange={(event) => setDraft({ ...draft, requesterId: event.target.value || null })}>
                   <option value="">{t("filters.anyone")}</option>
                   {requesters.map((person) => (
                     <option key={person.id} value={person.id}>
                       {person.label}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             ) : null}
             <fieldset className="space-y-1.5">

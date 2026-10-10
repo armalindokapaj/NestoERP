@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { APP_LOCK_TIMEOUT_OPTIONS, PROTECTABLE_MODULES, type MobilePolicySettings } from "@/lib/core/security/mobile-policy.schema";
 import { useReauth } from "./use-reauth";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Target = { scope: "PARENT_GROUP" | "COMPANY"; id: string } | { scope: "PLATFORM"; id: "platform" };
 
@@ -40,11 +41,11 @@ export function PolicyForm({ target, initial, editable, isGroup }: { target: Tar
 
   const tri = (key: "appLockRequired" | "biometricRequired" | "offlineAllowed" | "documentExportAllowed" | "nativeShareAllowed" | "externalOpenAllowed" | "sensitiveScreenProtection" | "allowCompanyOverride") => (
     <Field id={`${target.id}-${key}`} label={t(`admin.policy.fields.${key}`)} error={errors[key]}>
-      <select id={`${target.id}-${key}`} className={selectClass} disabled={!editable} value={values[key] === undefined ? "" : values[key] ? "1" : "0"} onChange={(e) => set(key, e.target.value === "" ? undefined : e.target.value === "1")}>
+      <FormSelect id={`${target.id}-${key}`} className={selectClass} disabled={!editable} value={values[key] === undefined ? "" : values[key] ? "1" : "0"} onChange={(e) => set(key, e.target.value === "" ? undefined : e.target.value === "1")}>
         <option value="">{t("admin.policy.options.inherit")}</option>
         <option value="1">{t("admin.policy.options.yes")}</option>
         <option value="0">{t("admin.policy.options.no")}</option>
-      </select>
+      </FormSelect>
     </Field>
   );
   const number = (key: "offlineAuthorizationHours" | "recentAuthMinutes", min: number, max: number) => (
@@ -90,10 +91,10 @@ export function PolicyForm({ target, initial, editable, isGroup }: { target: Tar
       <Section title={t("admin.policy.sections.appLock")}>
         {tri("appLockRequired")}
         <Field id={`${target.id}-timeout`} label={t("admin.policy.fields.appLockTimeoutSeconds")} error={errors.appLockTimeoutSeconds}>
-          <select id={`${target.id}-timeout`} className={selectClass} disabled={!editable} value={values.appLockTimeoutSeconds === undefined ? "" : String(values.appLockTimeoutSeconds)} onChange={(e) => set("appLockTimeoutSeconds", e.target.value === "" ? undefined : Number(e.target.value))}>
+          <FormSelect id={`${target.id}-timeout`} className={selectClass} disabled={!editable} value={values.appLockTimeoutSeconds === undefined ? "" : String(values.appLockTimeoutSeconds)} onChange={(e) => set("appLockTimeoutSeconds", e.target.value === "" ? undefined : Number(e.target.value))}>
             <option value="">{t("admin.policy.options.inherit")}</option>
             {APP_LOCK_TIMEOUT_OPTIONS.map((seconds) => <option key={seconds} value={seconds}>{t(`admin.policy.options.timeout.t${seconds}`)}</option>)}
-          </select>
+          </FormSelect>
         </Field>
       </Section>
       <Section title={t("admin.policy.sections.offline")}>
@@ -102,10 +103,10 @@ export function PolicyForm({ target, initial, editable, isGroup }: { target: Tar
       </Section>
       <Section title={t("admin.policy.sections.devices")}>
         <Field id={`${target.id}-risk`} label={t("admin.policy.fields.deviceRiskPolicy")} error={errors.deviceRiskPolicy} hint={t("admin.policy.hints.risk")}>
-          <select id={`${target.id}-risk`} className={selectClass} disabled={!editable} value={values.deviceRiskPolicy ?? ""} onChange={(e) => set("deviceRiskPolicy", e.target.value === "" ? undefined : (e.target.value as "ALLOW"))}>
+          <FormSelect id={`${target.id}-risk`} className={selectClass} disabled={!editable} value={values.deviceRiskPolicy ?? ""} onChange={(e) => set("deviceRiskPolicy", e.target.value === "" ? undefined : (e.target.value as "ALLOW"))}>
             <option value="">{t("admin.policy.options.inherit")}</option>
             {(["ALLOW", "WARN", "BLOCK"] as const).map((value) => <option key={value} value={value}>{t(`admin.policy.options.risk.${value}`)}</option>)}
-          </select>
+          </FormSelect>
         </Field>
         <Field id={`${target.id}-os-ios`} label={t("admin.policy.fields.minimumOsVersionIos")} error={errors.minimumOsVersion}>
           <Input id={`${target.id}-os-ios`} inputMode="decimal" disabled={!editable} placeholder="17" value={values.minimumOsVersion?.ios ?? ""} onChange={(e) => set("minimumOsVersion", { ...values.minimumOsVersion, ios: e.target.value.trim() || undefined })} />
@@ -129,10 +130,10 @@ export function PolicyForm({ target, initial, editable, isGroup }: { target: Tar
       </Section>
       <Section title={t("admin.policy.sections.compliance")}>
         <Field id={`${target.id}-preview`} label={t("admin.policy.fields.notificationPreviewPolicy")} error={errors.notificationPreviewPolicy}>
-          <select id={`${target.id}-preview`} className={selectClass} disabled={!editable} value={values.notificationPreviewPolicy ?? ""} onChange={(e) => set("notificationPreviewPolicy", e.target.value === "" ? undefined : (e.target.value as "FULL"))}>
+          <FormSelect id={`${target.id}-preview`} className={selectClass} disabled={!editable} value={values.notificationPreviewPolicy ?? ""} onChange={(e) => set("notificationPreviewPolicy", e.target.value === "" ? undefined : (e.target.value as "FULL"))}>
             <option value="">{t("admin.policy.options.inherit")}</option>
             {(["FULL", "LIMITED", "HIDDEN"] as const).map((value) => <option key={value} value={value}>{t(`admin.policy.options.preview.${value}`)}</option>)}
-          </select>
+          </FormSelect>
         </Field>
       </Section>
       <Section title={t("admin.policy.sections.data")}>

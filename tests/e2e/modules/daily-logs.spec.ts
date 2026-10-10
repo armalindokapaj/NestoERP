@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { photoWithExif, removeCreatedDailyLogs } from "../daily-logs-fixtures";
 import { db } from "../db";

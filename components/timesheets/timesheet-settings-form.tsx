@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
 import { useTimesheetsTranslations } from "./timesheets-text";
 import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 
 /**
@@ -132,13 +133,13 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
       <div className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
         <label>
           <span className="text-table font-medium text-fg">{t("settings.weekStartsOn")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={state.weekStartsOn} onChange={(change) => set("weekStartsOn", Number(change.target.value))}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={state.weekStartsOn} onChange={(change) => set("weekStartsOn", Number(change.target.value))}>
             {WEEKDAYS.map((day, index) => (
               <option key={day} value={index + 1}>
                 {weekday(index)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label>
           <span className="text-table font-medium text-fg">{t("settings.standardDay")}</span>
@@ -152,37 +153,37 @@ export function TimesheetSettingsForm({ initial }: { initial: TimesheetSettingsD
         </label>
         <label>
           <span className="text-table font-medium text-fg">{t("settings.backdating")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={state.backdateDays} onChange={(change) => set("backdateDays", Number(change.target.value))}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={state.backdateDays} onChange={(change) => set("backdateDays", Number(change.target.value))}>
             {[0, 3, 7, 14, 21, 31, 62].map((days) => (
               <option key={days} value={days}>
                 {days === 0 ? t("settings.todayOnly") : t("settings.daysBack", { count: days })}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
       </div>
 
       <div className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
         <label>
           <span className="text-table font-medium text-fg">{t("settings.durationSteps")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={state.incrementMinutes} onChange={(change) => set("incrementMinutes", Number(change.target.value))}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={state.incrementMinutes} onChange={(change) => set("incrementMinutes", Number(change.target.value))}>
             {[5, 10, 15, 30, 60].map((minutes) => (
               <option key={minutes} value={minutes}>
                 {t("settings.minutes", { count: minutes })}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label>
           <span className="text-table font-medium text-fg">{t("settings.deadline")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={state.submitDay ?? 0} onChange={(change) => set("submitDay", Number(change.target.value) || null)} aria-invalid={Boolean(errors.deadline)}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={state.submitDay ?? 0} onChange={(change) => set("submitDay", Number(change.target.value) || null)} aria-invalid={Boolean(errors.deadline)}>
             <option value={0}>{t("settings.noDeadline")}</option>
             {WEEKDAYS.map((day, index) => (
               <option key={day} value={index + 1}>
                 {weekday(index)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label>
           <span className="text-table font-medium text-fg">{t("settings.deadlineTime")}</span>
@@ -259,7 +260,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
                   <span className="block text-meta text-fg-muted">{[row.member.jobTitle, row.member.department].filter(Boolean).join(" · ") || "—"}</span>
                 </th>
                 <td className="px-3 py-2">
-                  <select
+                  <FormSelect
                     className={cn(selectClass, "h-9")}
                     value={row.assigned?.memberId ?? ""}
                     onChange={(event) => void change(row.member.memberId, event.target.value)}
@@ -274,7 +275,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
                           {option.name}
                         </option>
                       ))}
-                  </select>
+                  </FormSelect>
                 </td>
                 <td className="px-5 py-2 text-fg-muted">
                   {row.effective ? (

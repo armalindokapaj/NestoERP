@@ -22,6 +22,7 @@ import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
 import { formatDate } from "@/lib/utils/format";
 import { formatAmount, totalsLabel, weightedTotalsLabel } from "./sales-format";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The pipeline board (PRD #17 §98–§103, §284, §297).
@@ -63,7 +64,7 @@ export function PipelineBoard({
         <label htmlFor="pipeline-stage" className="nesto-eyebrow text-fg-subtle">
           {t("pipeline.stage")}
         </label>
-        <select
+        <FormSelect
           id="pipeline-stage"
           className={cn(selectClass, "mt-1.5")}
           value={selected}
@@ -74,7 +75,7 @@ export function PipelineBoard({
               {salesLabel(t, "stage", stage.stage, opportunityStageLabels[stage.stage])} ({stage.count})
             </option>
           ))}
-        </select>
+        </FormSelect>
 
         {active ? (
           <div className="mt-4 space-y-3">
@@ -253,7 +254,7 @@ function PipelineCard({
           <label htmlFor={`move-${opportunity.id}`} className="sr-only">
             {t("pipeline.moveLabel", { name: opportunity.name })}
           </label>
-          <select
+          <FormSelect
             id={`move-${opportunity.id}`}
             className={cn(selectClass, "h-8 text-table")}
             value=""
@@ -268,7 +269,7 @@ function PipelineCard({
                 {salesLabel(t, "stage", stage, opportunityStageLabels[stage])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
       ) : null}
     </article>

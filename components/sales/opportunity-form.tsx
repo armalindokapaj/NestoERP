@@ -22,6 +22,7 @@ import {
   getDefaultStageProbability,
   opportunityStageLabels,
 } from "@/lib/modules/sales/opportunities/opportunity.stage";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type OpportunityFormValues = {
   name: string;
@@ -101,7 +102,7 @@ export function OpportunityForm({
         </Field>
 
         <Field label={t("forms.owner")} name="ownerMemberId" required>
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -114,11 +115,11 @@ export function OpportunityForm({
                 {owner.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.stage")} name="stage" required>
-          <select
+          <FormSelect
             id="stage"
             name="stage"
             className={selectClass}
@@ -130,7 +131,7 @@ export function OpportunityForm({
                 {salesLabel(t, "stage", option, opportunityStageLabels[option])} · {getDefaultStageProbability(option)}%
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -157,7 +158,7 @@ export function OpportunityForm({
           name="contactId"
           hint={clientId ? undefined : t("forms.chooseClientFirst")}
         >
-          <select
+          <FormSelect
             id="contactId"
             name="contactId"
             className={selectClass}
@@ -170,7 +171,7 @@ export function OpportunityForm({
                 {contact.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -187,7 +188,7 @@ export function OpportunityForm({
         </Field>
 
         <Field label={t("forms.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -199,7 +200,7 @@ export function OpportunityForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field

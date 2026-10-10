@@ -16,6 +16,7 @@ import {
 } from "@/lib/modules/procurement/procurement.status";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 import { useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type SupplierFormValues = {
   code: string;
@@ -90,7 +91,7 @@ export function SupplierForm({
         </Field>
 
         <Field label={t("common.type")} name="supplierType" required>
-          <select
+          <FormSelect
             id="supplierType"
             name="supplierType"
             className={selectClass}
@@ -101,11 +102,11 @@ export function SupplierForm({
                 {procurementLabel(t, "supplierType", type, supplierTypeLabels[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.status")} name="status" required>
-          <select
+          <FormSelect
             id="status"
             name="status"
             className={selectClass}
@@ -113,7 +114,7 @@ export function SupplierForm({
           >
             <option value="ACTIVE">{t("suppliers.active")}</option>
             <option value="INACTIVE">{t("suppliers.inactive")}</option>
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -158,7 +159,7 @@ export function SupplierForm({
         </Field>
 
         <Field label={t("suppliers.defaultCurrency")} name="defaultCurrency">
-          <select
+          <FormSelect
             id="defaultCurrency"
             name="defaultCurrency"
             className={selectClass}
@@ -170,7 +171,7 @@ export function SupplierForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 

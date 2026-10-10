@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../pw";
 
 import { mainRegion, signIn } from "../fixtures";
 import { STRUCTURE_SEED } from "../structure-fixtures";

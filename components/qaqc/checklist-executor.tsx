@@ -19,6 +19,7 @@ import {
 } from "@/lib/modules/qaqc/qaqc.status";
 import { qaqcLabel } from "./qaqc-labels";
 import { useQaqcTranslations } from "./qaqc-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Answering a checklist (PRD #21 §70, §71, §72).
@@ -129,7 +130,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
             {verdict ? (
               <div className="space-y-1.5">
                 <Label htmlFor={`answer-${index}`}>{t("checklist.result")}</Label>
-                <select
+                <FormSelect
                   id={`answer-${index}`}
                   name={`answers[${index}][result]`}
                   className={selectClass}
@@ -143,7 +144,7 @@ function ChecklistEditor({ inspectionId, items, readOnly }: ChecklistExecutorPro
                   {allowsNotApplicable(item.responseType) ? (
                     <option value="NA">{t("checklist.notApplicable")}</option>
                   ) : null}
-                </select>
+                </FormSelect>
               </div>
             ) : (
               <div className="space-y-1.5">

@@ -14,6 +14,7 @@ import { isSerious, pendingHseReports, queueHseReport, validateHseReport, type H
 import { offlineRuntime } from "@/lib/offline/runtime";
 
 import { useOfflineQuery } from "./use-offline-data";
+import { FormSelect } from "@/components/ui/form-select";
 
 const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
@@ -49,15 +50,15 @@ export function HseForm({ projectId, projectName, companyId, locked }: { project
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
               <span className="text-body font-medium">{t("hse.type")}</span>
-              <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-2" value={form.incidentType} onChange={(event) => set("incidentType", event.target.value as HseReportInput["incidentType"])} data-testid="hse-type">
+              <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-2" value={form.incidentType} onChange={(event) => set("incidentType", event.target.value as HseReportInput["incidentType"])} data-testid="hse-type">
                 {INCIDENT_TYPES.map((type) => <option key={type} value={type}>{t(`hse.types.${type}` as never)}</option>)}
-              </select>
+              </FormSelect>
             </label>
             <label className="space-y-1">
               <span className="text-body font-medium">{t("hse.severity")}</span>
-              <select className="h-10 w-full rounded-md border border-line-strong bg-surface px-2" value={form.severity} onChange={(event) => set("severity", event.target.value as HseReportInput["severity"])} data-testid="hse-severity">
+              <FormSelect className="h-10 w-full rounded-md border border-line-strong bg-surface px-2" value={form.severity} onChange={(event) => set("severity", event.target.value as HseReportInput["severity"])} data-testid="hse-severity">
                 {SEVERITIES.map((severity) => <option key={severity} value={severity}>{t(`hse.severities.${severity}` as never)}</option>)}
-              </select>
+              </FormSelect>
             </label>
           </div>
           <label className="block space-y-1">

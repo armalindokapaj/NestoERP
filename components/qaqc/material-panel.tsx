@@ -25,6 +25,7 @@ import type {
 } from "@/lib/modules/qaqc/qaqc.types";
 import { ReleaseBadge } from "./qaqc-format";
 import { useQaqcTranslations } from "./qaqc-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Deciding what happens to delivered material (PRD #21 §90, §91, §96, §98).
@@ -332,7 +333,7 @@ function DecisionForm({
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
           <Label htmlFor="goodsReceiptItemId">{t("material.deliveryLine")}</Label>
-          <select
+          <FormSelect
             id="goodsReceiptItemId"
             name="goodsReceiptItemId"
             className={selectClass}
@@ -345,7 +346,7 @@ function DecisionForm({
                 {t("material.lineOption", { description: row.description, quantity: row.receivedQuantity, unit: row.unit })}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -14,6 +14,7 @@ import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { setLeaveBalanceAction } from "@/lib/actions/hr";
 import { LEAVE_TYPES } from "@/lib/modules/hr/hr.schema";
 import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -94,13 +95,13 @@ function EntitlementForm({ employeeId, year, onDone }: { employeeId: string; yea
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="balance-leaveType">{t("reports.leaveType")}</Label>
-          <select id="balance-leaveType" name="leaveType" className={selectClass} defaultValue="ANNUAL">
+          <FormSelect id="balance-leaveType" name="leaveType" className={selectClass} defaultValue="ANNUAL">
             {LEAVE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {hrLabel(t, "leaveType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="space-y-1.5">

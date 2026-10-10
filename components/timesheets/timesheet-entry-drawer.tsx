@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
 import { useTimesheetsTranslations } from "./timesheets-text";
 import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 
 /**
@@ -262,7 +263,7 @@ function EntryForm({
           <label htmlFor="entry-date" className="text-table font-medium text-fg">
             {t("entry.day")}
           </label>
-          <select id="entry-date" className={cn(selectClass, "mt-1.5")} value={workDate} onChange={(change) => setWorkDate(change.target.value)} aria-invalid={Boolean(errors.workDate)}>
+          <FormSelect id="entry-date" className={cn(selectClass, "mt-1.5")} value={workDate} onChange={(change) => setWorkDate(change.target.value)} aria-invalid={Boolean(errors.workDate)}>
             {selectable.map((day) => {
               const label = dayLabel(day.date);
               return (
@@ -272,7 +273,7 @@ function EntryForm({
                 </option>
               );
             })}
-          </select>
+          </FormSelect>
           {fieldError("workDate")}
         </div>
 
@@ -280,7 +281,7 @@ function EntryForm({
           <label htmlFor="entry-type" className="text-table font-medium text-fg">
             {t("grid.workType")}
           </label>
-          <select
+          <FormSelect
             id="entry-type"
             className={cn(selectClass, "mt-1.5")}
             value={workType}
@@ -294,7 +295,7 @@ function EntryForm({
                 {timesheetsLabel(t, "workType", type, WORK_LOG_TYPE_LABELS[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -302,7 +303,7 @@ function EntryForm({
             <label htmlFor="entry-project" className="text-table font-medium text-fg">
               {t("common.project")}{workType === "PROJECT_WORK" ? "" : t("entry.optional")}
             </label>
-            <select
+            <FormSelect
               id="entry-project"
               className={cn(selectClass, "mt-1.5")}
               value={projectId}
@@ -320,21 +321,21 @@ function EntryForm({
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
             {fieldError("projectId")}
           </div>
           <div>
             <label htmlFor="entry-task" className="text-table font-medium text-fg">
               {t("entry.taskOptional")}
             </label>
-            <select id="entry-task" className={cn(selectClass, "mt-1.5")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-invalid={Boolean(errors.taskId)}>
+            <FormSelect id="entry-task" className={cn(selectClass, "mt-1.5")} value={taskId} onChange={(change) => setTaskId(change.target.value)} disabled={!projectId} aria-invalid={Boolean(errors.taskId)}>
               <option value="">{projectId ? t("grid.noTask") : t("entry.chooseProjectFirst")}</option>
               {tasks.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title}
                 </option>
               ))}
-            </select>
+            </FormSelect>
             {fieldError("taskId")}
           </div>
         </div>

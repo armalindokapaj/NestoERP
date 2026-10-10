@@ -18,6 +18,7 @@ import { COMMITTED, useValuesEditor } from "@/components/project-planning/use-va
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { outcomeOf } from "@/lib/unsaved/outcome";
 import type { ProjectMediaCollection, ProjectMediaDTO } from "@/lib/modules/project-media/project-media.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Registry groups each media type takes (AUD-09 §8): renders are images; an
@@ -112,10 +113,10 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
           <div className="flex flex-wrap items-end gap-3">
             <label className="grid gap-1.5 text-table font-medium text-fg">
               {t("mediaManager.mediaType")}
-              <select value={uploadType} onChange={(event) => setUploadType(event.target.value as "RENDER" | "ANIMATION")} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11">
+              <FormSelect value={uploadType} onChange={(event) => setUploadType(event.target.value as "RENDER" | "ANIMATION")} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11">
                 <option value="RENDER">{t("mediaManager.render")}</option>
                 <option value="ANIMATION">{t("mediaManager.animation")}</option>
-              </select>
+              </FormSelect>
             </label>
             <input
               ref={inputRef}
@@ -259,7 +260,7 @@ function EditMediaForm({ item, renders, pending, onSave, onClose }: { item: Proj
         {item.type === "ANIMATION" ? (
           <>
             <label className="grid gap-1.5 text-table font-medium text-fg">{t("mediaManager.duration")}<Input type="number" inputMode="numeric" min={1} max={86400} value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-            <label className="grid gap-1.5 text-table font-medium text-fg">{t("mediaManager.poster")}<select value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11"><option value="">{t("mediaManager.noPoster")}</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</select></label>
+            <label className="grid gap-1.5 text-table font-medium text-fg">{t("mediaManager.poster")}<FormSelect value={poster} onChange={(event) => setPoster(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-3 text-body touch:h-11"><option value="">{t("mediaManager.noPoster")}</option>{renders.map((render) => <option key={render.id} value={render.document.id}>{render.title}</option>)}</FormSelect></label>
           </>
         ) : null}
         <label className="flex items-center gap-2 text-table text-fg"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />{t("mediaManager.featuredOnPage")}</label>

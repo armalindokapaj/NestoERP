@@ -57,6 +57,7 @@ import { durationLabel, meetingClock, meetingDate, meetingDay, MeetingStatusBadg
 import { MinutesPanel } from "./minutes-panel";
 import { useMeetingsTranslations } from "./meetings-text";
 import { ParticipantsPanel } from "./participants-panel";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The meeting workspace (PRD #40 §93-§102, §125-§128, §210-§219).
@@ -719,10 +720,10 @@ function CancelForm({ meeting, onDone, onClose }: { meeting: MeetingDetailDTO; o
         {meeting.series ? (
           <div className="space-y-1.5">
             <Label htmlFor="cancel-scope">{t("cancel.scope")}</Label>
-            <select id="cancel-scope" className={selectClass} value={scope} disabled={pending} onChange={(event) => setScope(event.target.value as "THIS" | "FUTURE")}>
+            <FormSelect id="cancel-scope" className={selectClass} value={scope} disabled={pending} onChange={(event) => setScope(event.target.value as "THIS" | "FUTURE")}>
               <option value="THIS">{t("cancel.thisOnly")}</option>
               <option value="FUTURE">{t("cancel.future")}</option>
-            </select>
+            </FormSelect>
           </div>
         ) : null}
       </div>

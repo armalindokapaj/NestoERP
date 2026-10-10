@@ -26,6 +26,7 @@ import { accessCheckOptions, accessCheckQuerySchema, diagnoseAccess, type Access
 import { grantListQuerySchema, grantOptions, listAccessGrants, type GrantStatus } from "@/lib/modules/organization/access-grant.service";
 import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("organization"))("access.metaTitle") };
@@ -280,24 +281,24 @@ async function CheckView({ context, params }: { context: UserContext; params: Re
         <input type="hidden" name="view" value="check" />
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
           {t("common.person")}
-          <select name="userId" defaultValue={one(params.userId) ?? ""} className={selectClass} required>
+          <FormSelect name="userId" defaultValue={one(params.userId) ?? ""} className={selectClass} required>
             <option value="">{t("access.choosePerson")}</option>
             {options.people.map((person) => (
               <option key={person.userId} value={person.userId}>
                 {person.name} ({person.username})
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
           {t("common.company")}
-          <select name="targetCompanyId" defaultValue={one(params.targetCompanyId) ?? context.companyId} className={selectClass} required>
+          <FormSelect name="targetCompanyId" defaultValue={one(params.targetCompanyId) ?? context.companyId} className={selectClass} required>
             {options.companies.map((company) => (
               <option key={company.id} value={company.id}>
                 {company.name}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-meta font-medium text-fg-muted">
           {t("access.permission")}

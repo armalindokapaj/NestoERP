@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { createPendingExpense, removeExpenses } from "../approvals-fixtures";
 import { db, removeTestTasks } from "../db";

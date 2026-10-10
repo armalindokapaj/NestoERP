@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { GlassPanel, type GlassPanelControl } from "@/components/ui/glass-panel";
 import type { GlobalSearchCompany, GlobalSearchResponseDTO } from "@/lib/core/search/search.types";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { readSearchHomeCache, removeLegacySearchHomeCache, subscribeMyWork, writeSearchHomeCache } from "@/lib/productivity/client";
@@ -34,10 +34,12 @@ export type SearchShortcut = { entityType: string; entityId: string; title: stri
 export type SearchHome = { favorites: SearchShortcut[]; recent: SearchShortcut[]; favoriteKeys?: string[]; workspace: { scopeType: "GROUP" | "COMPANY"; companyId: string | null } };
 export type SearchState = { status: "idle" } | { status: "loading" } | { status: "error" } | { status: "done"; response: GlobalSearchResponseDTO };
 
+
 const body = createPanelLoader("search", () => import("@/components/layout/panels/search-panel-body"));
 
 export function GlobalSearch({ contextKey }: { contextKey: string }) {
   const t = useTranslations("search");
+  const tu = useTranslations("ui");
   const [open, setOpenState] = usePanelOpen("search");
   const [shortcut, setShortcut] = React.useState("Ctrl K");
   const [query, setQuery] = React.useState("");
@@ -53,6 +55,9 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
   const warm = useWarmIntent(body);
   const { state: code, retry: retryCode } = usePanelModule(body, open);
 
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const controlRef = React.useRef<GlassPanelControl | null>(null);
+
   const setOpen = React.useCallback(
     (next: boolean) => {
       generation.current += 1;
@@ -66,6 +71,8 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
     [setOpenState],
   );
 
+  const requestClose = React.useCallback(() => (controlRef.current ? controlRef.current.close() : setOpen(false)), [setOpen]);
+
   // One listener for the page's life; the body need not be loaded for the shortcut to work (PANEL-02).
   const openRef = React.useRef(open);
   openRef.current = open;
@@ -76,12 +83,13 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
       if (event.repeat || event.isComposing) return;
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
-        setOpen(!openRef.current);
+        if (openRef.current) requestClose();
+        else setOpen(true);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen]);
+  }, [setOpen, requestClose]);
 
   // A changed identity or workspace forgets what was shown.
   React.useEffect(() => {
@@ -156,12 +164,13 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
   }, [open, contextKey]);
 
   const Body = code.status === "ready" ? code.module.SearchPanelBody : null;
-  const close = React.useCallback(() => setOpen(false), [setOpen]);
+  const close = requestClose;
 
   return (
     <>
       {/* The first control of the universal cluster, an icon at every width (UI-01 §8.1). */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("dialogTitle")}
@@ -174,19 +183,22 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         <Search aria-hidden="true" className="size-5" strokeWidth={1.6} />
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        {/* Full screen on a phone: the dialog's viewport cap does not apply there, and the
-            header keeps clear of the 44px close control (AUD-04 §6). */}
-        <DialogContent className="top-[12%] max-w-xl translate-y-0 p-0 max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:flex max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:flex-col max-sm:overflow-hidden max-sm:rounded-none max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]" closeClassName="touch:top-[calc(env(safe-area-inset-top)+0.375rem)]">
-          <div className="border-b border-line p-3 touch:pr-14">
-            <DialogTitle className="sr-only">{t("dialogTitle")}</DialogTitle>
-            <div className="relative">
+      <GlassPanel
+        open={open}
+        onOpenChange={setOpen}
+        triggerRef={triggerRef}
+        controlRef={controlRef}
+        title={t("dialogTitle")}
+        header={
+          <div className="flex items-center gap-2 border-b border-line/70 p-2">
+            <div className="relative min-w-0 flex-1">
               {state.status === "loading" ? (
                 <Loader2 aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-fg-subtle" />
               ) : (
                 <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
               )}
               <input
+                data-autofocus
                 autoFocus
                 type="search"
                 role="combobox"
@@ -200,25 +212,28 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
                 maxLength={200}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => keyHandler.current?.(event)}
-                className="h-10 w-full rounded-md border border-control bg-surface pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
+                className="h-10 w-full rounded-lg border border-transparent bg-transparent pl-9 pr-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11 [&::-webkit-search-cancel-button]:hidden"
                 data-testid="search-input"
               />
             </div>
+            <button type="button" onClick={requestClose} className="grid size-9 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg touch:size-11" aria-label={tu("close")}>
+              <X aria-hidden="true" className="size-4" />
+            </button>
           </div>
+        }
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2" aria-live="polite">
+          {Body ? (
+            <Body query={query} state={state} shortcuts={shortcuts} homeFailed={homeFailed} listId={listId} active={active} setActive={setActive} keyHandler={keyHandler} onOptions={setOptions} onClose={close} />
+          ) : code.status === "failed" ? (
+            <PanelFailure kind="code" reloadAdvised={code.reloadAdvised} onRetry={retryCode} onClose={close} />
+          ) : (
+            <PanelLoading label={t("searching")} />
+          )}
+        </div>
 
-          <div className="max-h-[min(26rem,60vh)] overflow-y-auto p-2 max-sm:max-h-none max-sm:flex-1" aria-live="polite">
-            {Body ? (
-              <Body query={query} state={state} shortcuts={shortcuts} homeFailed={homeFailed} listId={listId} active={active} setActive={setActive} keyHandler={keyHandler} onOptions={setOptions} onClose={close} />
-            ) : code.status === "failed" ? (
-              <PanelFailure kind="code" reloadAdvised={code.reloadAdvised} onRetry={retryCode} onClose={close} />
-            ) : (
-              <PanelLoading label={t("searching")} />
-            )}
-          </div>
-
-          <p className="hidden border-t border-line px-4 py-2 text-micro text-fg-subtle sm:block">{t("keys")}</p>
-        </DialogContent>
-      </Dialog>
+        <p className="hidden border-t border-line/70 px-4 py-2 text-micro text-fg-subtle sm:block">{t("keys")}</p>
+      </GlassPanel>
     </>
   );
 }

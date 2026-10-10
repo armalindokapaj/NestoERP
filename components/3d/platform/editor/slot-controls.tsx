@@ -7,6 +7,7 @@ import { engineeringApi, failureMessage } from "@/components/engineering/enginee
 import { PROJECT_3D_PLATFORM_API_ROOT } from "@/lib/3d/platform";
 import { cn } from "@/lib/utils/cn";
 import { GroupCard, SectionHeading } from "./rozaris-fields";
+import { FormSelect } from "@/components/ui/form-select";
 
 /*
  * The Rozaris editor's slot rename (SlotTabStrip) and "Building Anchor"
@@ -89,7 +90,7 @@ export function SlotAnchorPanel({ projectId, slots, canEdit }: { projectId: stri
         {unitsSlots.map((slot) => (
           <label key={slot.id} className="flex items-center justify-between gap-2 px-0.5 py-1 text-[11px] text-fg-muted">
             <span className="min-w-0 truncate">{unitsSlots.length > 1 ? `${slot.displayName} · ` : ""}Building Anchor</span>
-            <select
+            <FormSelect
               value={slot.transformParentSlotId ?? ""}
               disabled={!canEdit || busy}
               onChange={(event) => void update(slot.id, { transformParentSlotId: event.target.value || null })}
@@ -97,7 +98,7 @@ export function SlotAnchorPanel({ projectId, slots, canEdit }: { projectId: stri
             >
               <option value="">— none —</option>
               {slots.filter((other) => other.id !== slot.id).map((other) => <option key={other.id} value={other.id}>{other.displayName}{other.role === "BUILDING" ? " (building)" : ""}</option>)}
-            </select>
+            </FormSelect>
           </label>
         ))}
         {error ? <p role="alert" className="text-[10px] text-danger-strong">{error}</p> : null}

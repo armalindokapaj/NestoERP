@@ -21,6 +21,7 @@ import { previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decima
 import { useFieldErrors } from "@/components/forms/record-form";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 import { DecimalCell } from "./line-rows";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ExpenseFormValues = {
   expenseNumber: string | null;
@@ -112,7 +113,7 @@ export function ExpenseForm({
         </Field>
 
         <Field label={t("form.category")} name="category" required>
-          <select
+          <FormSelect
             id="category"
             name="category"
             className={selectClass}
@@ -123,7 +124,7 @@ export function ExpenseForm({
                 {t(`category.${value as keyof typeof expenseCategoryLabels}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("expenseForm.date")} name="expenseDate" required>
@@ -146,7 +147,7 @@ export function ExpenseForm({
               : t("form.projectRequired")
           }
         >
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -164,7 +165,7 @@ export function ExpenseForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("expenseForm.payee")} name="payeeName">
@@ -190,7 +191,7 @@ export function ExpenseForm({
 
       <FormSection title={t("expenseForm.amounts")} description={t("expenseForm.amountsHint")}>
         <Field label={t("form.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -202,7 +203,7 @@ export function ExpenseForm({
                 {code}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <AmountField

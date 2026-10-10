@@ -21,6 +21,7 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { inviteSupplierAction } from "@/lib/actions/procurement";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Asking one more supplier to quote (PRD #19 §84).
@@ -131,7 +132,7 @@ function InviteForm({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="invite-supplier">{t("common.supplier")}</Label>
-        <select
+        <FormSelect
           id="invite-supplier"
           className={selectClass}
           value={supplierId}
@@ -146,7 +147,7 @@ function InviteForm({
               {supplier.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </div>
 
       <DialogFooter>

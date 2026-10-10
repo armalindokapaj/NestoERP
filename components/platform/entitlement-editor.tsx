@@ -11,6 +11,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Mode = "INHERIT" | "ENABLED" | "DISABLED" | "TRIAL";
 type ModuleRow = {
@@ -103,10 +104,10 @@ export function EntitlementEditor({ companyId, version, plan, plans, modules, ca
       <div className="flex flex-wrap items-end justify-between gap-3">
         <label className="flex flex-col gap-1 text-meta text-fg-subtle">
           {t("editor.plan")}
-          <select value={planId ?? ""} disabled={!canManage} onChange={(event) => setPlanId(event.target.value || null)} className={`${selectClass} h-9 min-w-56`} aria-label={t("editor.plan")}>
+          <FormSelect value={planId ?? ""} disabled={!canManage} onChange={(event) => setPlanId(event.target.value || null)} className={`${selectClass} h-9 min-w-56`} aria-label={t("editor.plan")}>
             {plans.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             <option value="">{t("editor.customOption")}</option>
-          </select>
+          </FormSelect>
         </label>
         {canManage ? (
           <div className="flex items-center gap-2">
@@ -146,9 +147,9 @@ export function EntitlementEditor({ companyId, version, plan, plans, modules, ca
                       <span className="text-fg-subtle">{t("editor.alwaysOn")}</span>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
-                        <select aria-label={t("editor.entitlementAria", { name: row.name })} disabled={!canManage} value={value.mode} onChange={(event) => stage(row, { ...value, mode: event.target.value as Mode, endsAt: event.target.value === "DISABLED" || event.target.value === "INHERIT" ? "" : value.endsAt, startsAt: event.target.value === "INHERIT" ? "" : value.startsAt })} className={selectClass}>
+                        <FormSelect aria-label={t("editor.entitlementAria", { name: row.name })} disabled={!canManage} value={value.mode} onChange={(event) => stage(row, { ...value, mode: event.target.value as Mode, endsAt: event.target.value === "DISABLED" || event.target.value === "INHERIT" ? "" : value.endsAt, startsAt: event.target.value === "INHERIT" ? "" : value.startsAt })} className={selectClass}>
                           {(Object.keys(MODE_KEY) as Mode[]).map((mode) => <option key={mode} value={mode}>{modeLabel(mode)}</option>)}
-                        </select>
+                        </FormSelect>
                         {value.mode === "ENABLED" || value.mode === "TRIAL" ? (
                           <label className="flex items-center gap-1 text-meta text-fg-subtle">{t("editor.from")}<input type="date" disabled={!canManage} value={value.startsAt} onChange={(event) => stage(row, { ...value, startsAt: event.target.value })} className={selectClass} aria-label={t("editor.startsAria", { name: row.name })} /></label>
                         ) : null}

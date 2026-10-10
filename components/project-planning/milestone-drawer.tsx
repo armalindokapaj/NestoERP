@@ -38,6 +38,7 @@ import { MilestoneFormDialog } from "./milestone-form";
 import { failureMessage, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID } from "./use-values-editor";
 import { CommittedBadge, CriticalBadge, MilestoneStatusBadge, OwnerName, ProgressBar, useVarianceLabel, Variance } from "./planning-ui";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The milestone drawer (PRD #44 §108-§113, §153-§159, §161, §162, §246, §247).
@@ -116,14 +117,14 @@ function Labeled({ label, htmlFor, children }: { label: string; htmlFor: string;
 
 function OptionSelect({ id, value, onChange, options, placeholder }: { id: string; value: string; onChange: (value: string) => void; options: Array<Option & { disabled?: boolean }>; placeholder: string }) {
   return (
-    <select id={id} className={selectClass} value={value} onChange={(event) => onChange(event.target.value)}>
+    <FormSelect id={id} className={selectClass} value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{placeholder}</option>
       {options.map((option) => (
         <option key={option.id} value={option.id} disabled={option.disabled}>
           {option.label}
         </option>
       ))}
-    </select>
+    </FormSelect>
   );
 }
 
@@ -525,13 +526,13 @@ function MilestoneDrawerBody({
               <Section title={t("drawer.update")} id="quick-update">
                 <div ref={quickRef} className="grid gap-3 sm:grid-cols-3">
                   <Labeled label={t("drawer.status")} htmlFor="quick-status">
-                    <select id="quick-status" className={selectClass} value={quick.status} onChange={(event) => setQuick({ ...quick, status: event.target.value as MilestoneStatus })}>
+                    <FormSelect id="quick-status" className={selectClass} value={quick.status} onChange={(event) => setQuick({ ...quick, status: event.target.value as MilestoneStatus })}>
                       {MILESTONE_STATUSES.filter((status) => status !== "COMPLETED").map((status) => (
                         <option key={status} value={status}>
                           {t(`milestoneStatus.${status}`)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </Labeled>
                   <Labeled label={t("drawer.forecastDate")} htmlFor="quick-forecast">
                     <Input id="quick-forecast" type="date" value={quick.forecastDate} onChange={(event) => setQuick({ ...quick, forecastDate: event.target.value })} />
@@ -748,13 +749,13 @@ function MilestoneDrawerBody({
                       <OptionSelect id="link-task" value={text("taskId")} onChange={(value) => setField("taskId", value)} options={(options?.tasks ?? []).map((row) => ({ id: row.id, label: row.label, disabled: row.linked }))} placeholder={options ? t("drawer.chooseTask") : t("drawer.loadingShort")} />
                     </Labeled>
                     <Labeled label={t("drawer.relationship")} htmlFor="link-task-type">
-                      <select id="link-task-type" className={selectClass} value={text("linkType")} onChange={(event) => setField("linkType", event.target.value)}>
+                      <FormSelect id="link-task-type" className={selectClass} value={text("linkType")} onChange={(event) => setField("linkType", event.target.value)}>
                         {TASK_LINK_TYPES.map((type) => (
                           <option key={type} value={type}>
                             {t(`taskLink.${type}`)}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                     </Labeled>
                   </div>
                   {error ? <p role="alert" className="mt-2 text-table text-danger-strong">{error}</p> : null}
@@ -807,13 +808,13 @@ function MilestoneDrawerBody({
                     </Labeled>
                     <div className="grid gap-2 sm:grid-cols-3">
                       <Labeled label={t("drawer.severity")} htmlFor="blocker-severity">
-                        <select id="blocker-severity" className={selectClass} value={text("severity")} onChange={(event) => setField("severity", event.target.value)}>
+                        <FormSelect id="blocker-severity" className={selectClass} value={text("severity")} onChange={(event) => setField("severity", event.target.value)}>
                           {BLOCKER_SEVERITIES.map((severity) => (
                             <option key={severity} value={severity}>
                               {t(`severity.${severity}`)}
                             </option>
                           ))}
-                        </select>
+                        </FormSelect>
                       </Labeled>
                       <Labeled label={t("drawer.owner")} htmlFor="blocker-owner">
                         <OptionSelect id="blocker-owner" value={text("ownerMemberId")} onChange={(value) => setField("ownerMemberId", value)} options={options?.members ?? members} placeholder={t("drawer.unassigned")} />

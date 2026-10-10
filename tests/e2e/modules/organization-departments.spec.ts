@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../pw";
 
 import { GROUP_DEPARTMENTS } from "../../../config/group-departments";
 import { db } from "../db";

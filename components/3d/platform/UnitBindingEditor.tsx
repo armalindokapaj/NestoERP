@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { autoMatchUnitNodes } from "@/lib/3d/shared/unit-matching";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Unit = {
   id: string;
@@ -196,7 +197,7 @@ export function UnitBindingEditor({
                   <TableRow key={meshName}>
                     <TableCell className="font-mono text-table">{meshName}</TableCell>
                     <TableCell className="min-w-72">
-                      <select
+                      <FormSelect
                         aria-label={t("threeDAdmin.bindings.unitFor", { node: meshName })}
                         className={selectClass}
                         value={binding.projectUnitId}
@@ -213,7 +214,7 @@ export function UnitBindingEditor({
                             {unit.unitCode} · {unit.floor.building.name} / {unit.floor.name}{unit.name ? ` · ${unit.name}` : ""}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                     </TableCell>
                     <TableCell>
                       <label className="flex items-center gap-2 text-table text-fg-muted">

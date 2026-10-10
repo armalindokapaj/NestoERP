@@ -22,6 +22,7 @@ import { DecisionBadge, formatDateTime, ReviewBadge } from "./engineering-ui";
 import { useEngineeringTranslations } from "./engineering-text";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import { RequestMessages, useRequestEditor } from "./form-kit";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Revisions and their review (PRD #46 §66-§75, §102-§105, §171, §172, §311).
@@ -184,7 +185,7 @@ export function RevisionPanel({
                       </Link>
                       {revision.file.versionNumber ? <span className="text-fg-subtle">v{revision.file.versionNumber}</span> : null}
                       {canAddRevision ? (
-                        <select
+                        <FormSelect
                           aria-label={t("revisions.sharingOf", { name: revision.file.name })}
                           className={cn(selectClass, "h-7 w-auto px-2 text-meta")}
                           value={revision.file.sharing}
@@ -195,7 +196,7 @@ export function RevisionPanel({
                               {engineeringLabel(t, "sharing", value, SHARING_LABELS[value])}
                             </option>
                           ))}
-                        </select>
+                        </FormSelect>
                       ) : revision.file.sharing !== "INTERNAL_ONLY" ? (
                         <Badge tone="default">{engineeringLabel(t, "sharing", revision.file.sharing, SHARING_LABELS[revision.file.sharing])}</Badge>
                       ) : null}
@@ -407,14 +408,14 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
             <label htmlFor="revision-file" className="text-meta font-medium text-fg-muted">
               {t("revisions.file")}
             </label>
-            <select id="revision-file" className={selectClass} value={documentId} onChange={(event) => setDocumentId(event.target.value)} required>
+            <FormSelect id="revision-file" className={selectClass} value={documentId} onChange={(event) => setDocumentId(event.target.value)} required>
               <option value="">{files.length ? t("revisions.chooseFile") : t("revisions.uploadFirst")}</option>
               {files.map((file) => (
                 <option key={file.id} value={file.id}>
                   {file.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
             {errors.documentId ? <p className="text-meta text-danger-strong">{errors.documentId}</p> : null}
           </div>
         </div>

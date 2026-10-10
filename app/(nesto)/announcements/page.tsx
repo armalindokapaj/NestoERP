@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils/cn";
 import { HelpEntry } from "@/components/help/help-entry";
 import { getTranslations } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/translator";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("announcements");
@@ -100,31 +101,31 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
           <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
           <Input name="q" defaultValue={query.q} placeholder={t("page.search")} className="h-9 pl-8" />
         </label>
-        <select name="priority" defaultValue={query.priority ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.priority")}>
+        <FormSelect name="priority" defaultValue={query.priority ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.priority")}>
           <option value="">{t("page.anyPriority")}</option>
           {ANNOUNCEMENT_PRIORITIES.map((priority) => (
             <option key={priority} value={priority}>
               {label("priority", priority, PRIORITY_LABELS[priority])}
             </option>
           ))}
-        </select>
-        <select name="audience" defaultValue={query.audienceType ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.scope")}>
+        </FormSelect>
+        <FormSelect name="audience" defaultValue={query.audienceType ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.scope")}>
           <option value="">{t("page.anyScope")}</option>
           {AUDIENCE_TYPES.map((type) => (
             <option key={type} value={type}>
               {label("audience", type, AUDIENCE_LABELS[type])}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {tab === "manage" ? (
-          <select name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.status")}>
+          <FormSelect name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "h-9 w-auto")} aria-label={t("page.status")}>
             <option value="">{t("page.anyStatus")}</option>
             {ANNOUNCEMENT_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {label("status", status, STATUS_LABELS[status])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         ) : null}
         <Button type="submit" size="sm" variant="secondary" className="h-9">
           {t("page.apply")}

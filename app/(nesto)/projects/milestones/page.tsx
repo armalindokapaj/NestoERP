@@ -22,6 +22,7 @@ import { reportQuerySchema } from "@/lib/modules/project-planning/planning.schem
 import { resolvePlanningSettings } from "@/lib/modules/project-planning/planning.settings";
 import { MILESTONE_STATUSES } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("projects"))("report.title") };
@@ -158,58 +159,58 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         <ReportFilterForm className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label={t("report.filtersLabel")} activeCount={activeFilters}>
           <label className="flex min-w-[13rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">{t("report.project")}</span>
-            <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("report.allMyProjects")}</option>
               {report.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
             {report.projectsTruncated ? <span className="mt-1 text-meta text-fg-muted">{t("report.projectsTruncated")}</span> : null}
           </label>
           {report.phases.length ? (
             <label className="flex min-w-[10rem] flex-1 flex-col">
               <span className="text-meta text-fg-muted">{t("report.phase")}</span>
-              <select name="phaseId" defaultValue={query.phaseId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+              <FormSelect name="phaseId" defaultValue={query.phaseId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
                 <option value="">{t("report.allPhases")}</option>
                 {report.phases.map((phase) => (
                   <option key={phase.id} value={phase.id}>
                     {phase.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
           ) : null}
           <label className="flex min-w-[9rem] flex-1 flex-col">
             <span className="text-meta text-fg-muted">{t("report.status")}</span>
-            <select name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="status" defaultValue={query.status ?? ""} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("report.anyStatus")}</option>
               {MILESTONE_STATUSES.map((status) => (
                 <option key={status} value={status}>
                   {t(`milestoneStatus.${status}`)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-[9rem] flex-1 flex-col">
             <span className="text-meta text-fg-muted">{t("report.owner")}</span>
-            <select name="ownerId" defaultValue={query.ownerId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="ownerId" defaultValue={query.ownerId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("report.anyone")}</option>
               {report.owners.map((owner) => (
                 <option key={owner.id} value={owner.id}>
                   {owner.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex w-36 flex-col">
             <span className="text-meta text-fg-muted">{t("report.critical")}</span>
-            <select name="critical" defaultValue={query.critical === undefined ? "" : query.critical ? "1" : "0"} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="critical" defaultValue={query.critical === undefined ? "" : query.critical ? "1" : "0"} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("report.all")}</option>
               <option value="1">{t("report.criticalOnly")}</option>
               <option value="0">{t("report.notCritical")}</option>
-            </select>
+            </FormSelect>
           </label>
           <label className="flex w-40 flex-col">
             <span className="text-meta text-fg-muted">{t("report.from")}</span>

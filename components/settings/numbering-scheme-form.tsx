@@ -13,6 +13,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateNumberingSchemeAction } from "@/lib/actions/settings";
 import type { NumberingSchemeDTO } from "@/lib/modules/settings/numbering.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 const selectClass =
   "h-9 w-full rounded-md border border-line bg-surface px-2.5 text-table text-fg " +
@@ -92,7 +93,7 @@ export function NumberingSchemeForm({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <Label htmlFor={`${id}-mode`}>{t("numbering.mode")}</Label>
-          <select
+          <FormSelect
             id={`${id}-mode`}
             name="mode"
             className={selectClass}
@@ -102,7 +103,7 @@ export function NumberingSchemeForm({
           >
             <option value="AUTO">{t("numbering.automatic")}</option>
             <option value="MANUAL">{t("numbering.manual")}</option>
-          </select>
+          </FormSelect>
         </div>
 
         <div>
@@ -132,7 +133,7 @@ export function NumberingSchemeForm({
 
         <div>
           <Label htmlFor={`${id}-yearMode`}>{t("numbering.year")}</Label>
-          <select
+          <FormSelect
             id={`${id}-yearMode`}
             name="yearMode"
             className={selectClass}
@@ -143,7 +144,7 @@ export function NumberingSchemeForm({
             <option value="NONE">{t("numbering.noYear")}</option>
             <option value="YYYY">2026</option>
             <option value="YY">26</option>
-          </select>
+          </FormSelect>
         </div>
 
         <div>

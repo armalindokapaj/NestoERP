@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { Field, fieldErrors, FormError, failureMessage, Steps, structureApi, Warnings } from "./structure-ui";
 import { emptyTechnical, technicalBody, TechnicalFields, warningsFor, type TechnicalValues } from "./unit-dialog";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Creating structure in batches (E-05B §37-§45, §98).
@@ -142,13 +143,13 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
         <form onSubmit={next} className="mt-4 space-y-4">
           <FormError message={error} />
           <Field label={t("bulk.building")} htmlFor="bulk-floors-building" required>
-            <select id="bulk-floors-building" className={selectClass} value={buildingId} onChange={(event) => setBuildingId(event.target.value)}>
+            <FormSelect id="bulk-floors-building" className={selectClass} value={buildingId} onChange={(event) => setBuildingId(event.target.value)}>
               {buildings.map((candidate) => (
                 <option key={candidate.id} value={candidate.id}>
                   {candidate.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label={t("bulk.fromFloor")} htmlFor="bulk-floors-from" hint={t("bulk.fromHint")} required>
@@ -182,13 +183,13 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
               return (
                 <li key={index} className={cn("grid grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2", conflict && "bg-danger-soft/40")}>
                   <span className="text-table tabular-nums text-fg-muted">{draft.number}</span>
-                  <select aria-label={t("bulk.levelOf", { number: draft.number ?? "" })} className={cn(selectClass, "h-9")} value={draft.levelType} onChange={(event) => edit(index, { levelType: event.target.value as FloorLevelType })}>
+                  <FormSelect aria-label={t("bulk.levelOf", { number: draft.number ?? "" })} className={cn(selectClass, "h-9")} value={draft.levelType} onChange={(event) => edit(index, { levelType: event.target.value as FloorLevelType })}>
                     {FLOOR_LEVEL_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {t(`floorLevel.${type}`)}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                   <Input aria-label={t("bulk.nameOf", { number: draft.number ?? "" })} className="h-9" value={draft.name} onChange={(event) => edit(index, { name: event.target.value })} maxLength={120} />
                   <ConflictBadge conflict={conflict} />
                 </li>
@@ -496,7 +497,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
       <div className="mt-4 space-y-4">
         <FormError message={error} />
         <Field label={t("bulk.copyFrom")} htmlFor="copy-source" required>
-          <select id="copy-source" className={selectClass} value={sourceId} onChange={(event) => void load(event.target.value)}>
+          <FormSelect id="copy-source" className={selectClass} value={sourceId} onChange={(event) => void load(event.target.value)}>
             <option value="">{t("bulk.chooseFloor")}</option>
             {buildings.map((building) => {
               const own = sources.filter((candidate) => candidate.buildingId === building.id);
@@ -510,7 +511,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
                 </optgroup>
               ) : null;
             })}
-          </select>
+          </FormSelect>
         </Field>
         {rows.length ? (
           <ul className="max-h-[45dvh] divide-y divide-line overflow-y-auto rounded-md border border-line" data-testid="copy-floor-preview">

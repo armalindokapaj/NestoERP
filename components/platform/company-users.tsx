@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import type { CompanyUserAdded, CompanyUserBulkResult, CompanyUserRow } from "@/lib/modules/platform/company-users.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 const field = "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
@@ -134,18 +135,18 @@ export function AddCompanyUserButton({ companyId, companyName, groupName, api, o
               </div>
             )}
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.companyRole")}
-              <select className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} required>
+              <FormSelect className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} required>
                 <option value="">{t("companyUsers.selectRole")}</option>
                 {options.roles.map((row) => <option key={row.key} value={row.key}>{adminRoleName(tr, row.name)}</option>)}
-              </select>
+              </FormSelect>
               <span className="block text-meta text-fg-muted">{t("companyUsers.ceoNote")}</span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.departmentOptional")}
-                <select className={field} value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
+                <FormSelect className={field} value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
                   <option value="">{t("companyUsers.noDepartment")}</option>
                   {options.departments.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                </select>
+                </FormSelect>
               </label>
               <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.position")}<input className={field} value={form.jobTitle} maxLength={120} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} /></label>
             </div>
@@ -270,16 +271,16 @@ export function CompanyUsersTable({ companyId, companyName, groupName, api, init
           {bulk ? (
             <div className="flex flex-wrap items-center gap-2">
               {bulk.type === "department" ? (
-                <select className={`${field} max-w-60`} aria-label={t("companyUsers.bulkDepartment")} value={bulk.value} onChange={(event) => setBulk({ ...bulk, value: event.target.value })}>
+                <FormSelect className={`${field} max-w-60`} aria-label={t("companyUsers.bulkDepartment")} value={bulk.value} onChange={(event) => setBulk({ ...bulk, value: event.target.value })}>
                   <option value="">{t("companyUsers.bulkChoose")}</option>
                   {options.departments.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                </select>
+                </FormSelect>
               ) : null}
               {bulk.type === "project" ? (
-                <select className={`${field} max-w-60`} aria-label={t("companyUsers.bulkProject")} value={bulk.value} onChange={(event) => setBulk({ ...bulk, value: event.target.value })}>
+                <FormSelect className={`${field} max-w-60`} aria-label={t("companyUsers.bulkProject")} value={bulk.value} onChange={(event) => setBulk({ ...bulk, value: event.target.value })}>
                   <option value="">{t("companyUsers.bulkChoose")}</option>
                   {options.projects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-                </select>
+                </FormSelect>
               ) : null}
               <Button size="sm" disabled={bulkPending || (bulk.type !== "suspend" && !bulk.value)} onClick={() => void runBulk()}>{t("companyUsers.bulkApply")}</Button>
             </div>

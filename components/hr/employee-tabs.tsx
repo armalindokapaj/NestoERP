@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "@/components/navigation/nav-link";
-import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 
 import { useHrTranslations } from "./hr-text";
 
@@ -28,33 +27,19 @@ export type EmployeeTabKey = (typeof TABS)[number]["key"];
 
 export function EmployeeTabs({
   employeeId,
-  active,
   show,
 }: {
   /** The employment (E-04 §14). */
   employeeId: string;
-  active: EmployeeTabKey;
   show: Partial<Record<EmployeeTabKey, boolean>>;
 }) {
   const t = useHrTranslations();
-  const visible = TABS.filter(
-    (tab) => tab.key === "overview" || tab.key === "employment" || show[tab.key],
-  );
+  const tabs = TABS.filter((tab) => tab.key === "overview" || tab.key === "employment" || show[tab.key]).map((tab) => ({
+    key: tab.key,
+    label: t(`tabs.${tab.key}`),
+    href: `/hr/employees/${employeeId}${tab.suffix}`,
+  }));
 
-  return (
-    <ContextTabsFrame label={t("tabs.sections")}>
-        {visible.map((tab) => {
-          const isActive = tab.key === active;
-          return (
-            <Link key={tab.key} navSource="tab"
-                href={`/hr/employees/${employeeId}${tab.suffix}`}
-                aria-current={isActive ? "page" : undefined}
-                className={contextTabClass(isActive)}
-              >
-                {t(`tabs.${tab.key}`)}
-              </Link>
-          );
-        })}
-      </ContextTabsFrame>
-  );
+  // The active tab follows the URL, so the tabs can sit in the layout and stay put.
+  return <ContextTabs label={t("tabs.sections")} tabs={tabs} rootKey="overview" />;
 }

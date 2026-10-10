@@ -31,6 +31,7 @@ import { formatDate } from "@/lib/utils/format";
 import { fileSize, uploadNewVersion, uploadToEmployment } from "./employee-file-upload";
 import { hrLabel, useHrTranslations } from "./hr-text";
 import type { Translate } from "@/lib/i18n/translator";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * An employee's documents (E-02 §94-§99, §217-§223): the same list on the
@@ -176,22 +177,22 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
               </label>
               <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
                 <span className="text-meta font-medium text-fg-muted">{t("reports.show")}</span>
-                <select className={selectClass} value={status} onChange={(event) => setStatus(event.target.value as Status)} aria-label={t("employeeDocs.currentOrHistorical")}>
+                <FormSelect className={selectClass} value={status} onChange={(event) => setStatus(event.target.value as Status)} aria-label={t("employeeDocs.currentOrHistorical")}>
                   <option value="current">{t("compensation.current")}</option>
                   <option value="historical">{t("employeeDocs.historicalArchived")}</option>
                   <option value="all">{t("recruitment.all")}</option>
-                </select>
+                </FormSelect>
               </label>
               <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
                 <span className="text-meta font-medium text-fg-muted">{t("worklist.verification")}</span>
-                <select className={selectClass} value={verification} onChange={(event) => setVerification(event.target.value as CredentialVerificationStatus | "ALL")} aria-label={t("worklist.verification")}>
+                <FormSelect className={selectClass} value={verification} onChange={(event) => setVerification(event.target.value as CredentialVerificationStatus | "ALL")} aria-label={t("worklist.verification")}>
                   <option value="ALL">{t("employeeDocs.any")}</option>
                   {(Object.keys(VERIFICATION_LABELS) as CredentialVerificationStatus[]).map((key) => (
                     <option key={key} value={key}>
                       {hrLabel(t, "verification", key)}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
             </div>
           ) : null}

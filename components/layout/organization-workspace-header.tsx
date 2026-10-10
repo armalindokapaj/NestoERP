@@ -12,9 +12,8 @@ import { useShellCore, useWorkspaceOptions } from "@/components/layout/shell-slo
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { useWorkspaceSwitch } from "@/components/workspace/workspace-switch-provider";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
+import { createPanelLoader, usePanelModule, useWarmIntent } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -85,8 +84,10 @@ export function OrganizationWorkspaceHeader({
 }) {
   const identity = useIdentity();
   const switchable = useSwitchable();
+  // In the sidebar the header names the workspace and goes to its dashboard; switching lives in the workspace rail.
+  if (variant === "sidebar") return <HomeHeader identity={identity} />;
   if (!switchable) return <StaticHeader identity={identity} variant={variant} />;
-  return variant === "sidebar" ? <SidebarHeader identity={identity} /> : <DrawerHeader identity={identity} onSwitchStart={onSwitchStart} />;
+  return <DrawerHeader identity={identity} onSwitchStart={onSwitchStart} />;
 }
 
 /**
@@ -113,10 +114,10 @@ const faceClass =
   "flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left";
 
 /** `switchable` adds the phone's small chevron after the workspace line, so only a header that can switch looks like it can. */
-function Names({ identity, labels, switchable = false }: { identity: Identity; labels?: React.Ref<HTMLSpanElement>; switchable?: boolean }) {
+function Names({ identity, labels, switchable = false, upper = false }: { identity: Identity; labels?: React.Ref<HTMLSpanElement>; switchable?: boolean; upper?: boolean }) {
   return (
     <span ref={labels} className="nesto-nav-label min-w-0 flex-1 leading-tight">
-      <span data-testid="organization-name" className="block truncate text-body font-semibold text-fg max-md:text-meta max-md:font-bold max-md:uppercase max-md:tracking-[0.08em]">
+      <span data-testid="organization-name" className={cn("block truncate text-body font-semibold text-fg max-md:text-meta max-md:font-bold max-md:uppercase max-md:tracking-[0.08em]", upper && "uppercase tracking-[0.06em]")}>
         {identity.primary}
       </span>
       {identity.secondary ? (
@@ -137,6 +138,34 @@ function TooltipNames({ identity }: { identity: Identity }) {
       <span className="block font-semibold">{identity.primary}</span>
       {identity.secondary ? <span className="block opacity-80">{identity.secondary}</span> : null}
     </span>
+  );
+}
+
+/** The sidebar's header: the organization and workspace names, and the way to this workspace's dashboard (same as the Dashboard item). */
+function HomeHeader({ identity }: { identity: Identity }) {
+  const t = useTranslations("workspace");
+  const { isRail } = useSidebar();
+  const face = (
+    <Link
+      href="/dashboard"
+      intent
+      aria-label={t("homeLabel", { name: identity.current })}
+      data-testid="organization-header"
+      data-scope={identity.scope}
+      className={cn(faceClass, "transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+    >
+      <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} />
+      <Names identity={identity} upper />
+    </Link>
+  );
+  if (!isRail) return face;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{face}</TooltipTrigger>
+      <TooltipContent side="right">
+        <TooltipNames identity={identity} />
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -191,63 +220,6 @@ const HeaderButton = React.forwardRef<
     </button>
   );
 });
-
-/* -------------------------------------------------------------------------- */
-/* Sidebar: an anchored popup                                                 */
-/* -------------------------------------------------------------------------- */
-
-function SidebarHeader({ identity }: { identity: Identity }) {
-  const [open, setOpen] = usePanelOpen("workspace");
-  const { isRail } = useSidebar();
-  const { switchingTo } = useWorkspaceSwitch();
-  const { state } = useWorkspaceOptions();
-  const warm = useWarmIntent(body);
-  const labels = React.useRef<HTMLSpanElement>(null);
-  const [tip, setTip] = React.useState(false);
-  const titleId = React.useId();
-
-  // The rail shows both names on hover and focus (§47); a full sidebar only when a name is cut short (§50).
-  const truncated = () => [...(labels.current?.children ?? [])].some((line) => line.scrollWidth > line.clientWidth);
-  const tipOpen = tip && !open && (isRail || truncated());
-
-  return (
-    <Popover open={open} onOpenChange={(next) => setOpen(next && !switchingTo)}>
-      <PopoverAnchor asChild>
-        <div className="w-full min-w-0">
-          <Tooltip open={tipOpen} onOpenChange={setTip}>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <HeaderButton
-                  identity={identity}
-                  labels={labels}
-                  busy={Boolean(switchingTo)}
-                  optionsState={state.status}
-                  {...warm}
-                />
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <TooltipNames identity={identity} />
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </PopoverAnchor>
-      <PopoverContent
-        side="right"
-        align="start"
-        // Past the sidebar's edge: the anchor sits inside its 12px gutter (§21).
-        sideOffset={20}
-        aria-labelledby={titleId}
-        data-testid="workspace-panel"
-        className="flex max-h-[min(36rem,calc(100dvh-1rem))] w-[22rem] flex-col p-3"
-        // The body focuses its own first control, with the current workspace active (§55).
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <WorkspacePopupContent open={open} titleId={titleId} close={() => setOpen(false)} />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /* Drawer: a bottom sheet                                                     */
@@ -312,7 +284,7 @@ function DrawerHeader({ identity, onSwitchStart }: { identity: Identity; onSwitc
  * named loading state before that, and a failure with Retry. Unsaved changes
  * are asked about by the switch itself, in the shared prompt (§37, AUD-03 §7).
  */
-function WorkspacePopupContent({
+export function WorkspacePopupContent({
   open,
   titleId,
   close,

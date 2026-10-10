@@ -5,6 +5,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import { selectClass } from "@/components/forms/record-form";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** One project, or all of them, for a report (PRD #46 §206). The choice lives in the URL. */
 export function ProjectFilter({ projects, className, label = "Project", allLabel = "All projects" }: { projects: Array<{ id: string; name: string }>; className?: string; label?: string; allLabel?: string }) {
@@ -15,7 +16,7 @@ export function ProjectFilter({ projects, className, label = "Project", allLabel
     // Wraps, and the select never grows past the page with a long project name (AUD-04 §5, D-09-06, MW-06).
     <label className={cn("flex min-w-0 max-w-full flex-wrap items-center gap-2 text-table text-fg-muted", className)}>
       {label}
-      <select
+      <FormSelect
         className={cn(selectClass, "h-9 w-full min-w-0 max-w-full sm:w-auto sm:min-w-[14rem]")}
         value={params.get("projectId") ?? ""}
         onChange={(event) => {
@@ -31,7 +32,7 @@ export function ProjectFilter({ projects, className, label = "Project", allLabel
             {project.name}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </label>
   );
 }

@@ -9,6 +9,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProjectAssignmentPreview } from "@/lib/modules/platform/platform-project-assignment.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Option = { value: string; label: string };
 
@@ -85,10 +86,10 @@ export function AssignProjectCompany({ projectId, projectName, companies, label:
             <dl className="text-table"><dt className="text-meta text-fg-subtle">{t("assign.project")}</dt><dd className="text-fg">{projectName}</dd></dl>
             <div>
               <label htmlFor="assign-company-select" className="text-meta text-fg-subtle">{t("assign.company")}</label>
-              <select id="assign-company-select" className={select} value={companyId} onChange={(event) => void choose(event.target.value)} disabled={pending}>
+              <FormSelect id="assign-company-select" className={select} value={companyId} onChange={(event) => void choose(event.target.value)} disabled={pending}>
                 <option value="">{t("assign.selectCompany")}</option>
                 {companies.map((company) => <option key={company.value} value={company.value}>{company.label}</option>)}
-              </select>
+              </FormSelect>
             </div>
             {loading ? <p className="text-table text-fg-muted" role="status">{t("assign.checking")}</p> : null}
             {preview ? (

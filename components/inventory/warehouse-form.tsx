@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { WAREHOUSE_TYPES, warehouseTypeLabels } from "@/lib/modules/inventory/inventory.status";
 import { inventoryLabel, useInventoryTranslations } from "./inventory-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type WarehouseFormValues = {
   code: string;
@@ -73,7 +74,7 @@ export function WarehouseForm({
         </Field>
 
         <Field label={t("fields.type")} name="warehouseType" required>
-          <select
+          <FormSelect
             id="warehouseType"
             name="warehouseType"
             className={selectClass}
@@ -85,7 +86,7 @@ export function WarehouseForm({
                 {inventoryLabel(t, "warehouseType", type, warehouseTypeLabels[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.name")} name="name" required className="sm:col-span-2">
@@ -102,7 +103,7 @@ export function WarehouseForm({
               : undefined
           }
         >
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -114,11 +115,11 @@ export function WarehouseForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.status")} name="status" required>
-          <select
+          <FormSelect
             id="status"
             name="status"
             className={selectClass}
@@ -126,7 +127,7 @@ export function WarehouseForm({
           >
             <option value="ACTIVE">{t("labels.warehouseStatus.ACTIVE")}</option>
             <option value="INACTIVE">{t("labels.warehouseStatus.INACTIVE")}</option>
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.description")} name="description" className="sm:col-span-2">

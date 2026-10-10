@@ -24,6 +24,7 @@ import { PersonLink } from "@/components/people/person-link";
 import type { FinanceActor } from "@/lib/modules/finance/units/unit-finance.types";
 import { FieldsDialog, today, type Submit } from "./fields-dialog";
 import { amountLabel, FinancialStatusBadge, InstallmentStatusBadge, ScheduleStatusBadge, UnitContractStatusBadge } from "./finance-status";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A unit's Finance section (E-05F §39, §50, §59-§63, §104): what the sale's
@@ -512,13 +513,13 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
               <Input id={`row-label-${index}`} value={row.label} maxLength={120} onChange={(event) => update(index, { label: event.target.value })} />
             </Field>
             <Field label={t("panel.type")} htmlFor={`row-type-${index}`}>
-              <select id={`row-type-${index}`} className={selectClass} value={row.type} onChange={(event) => update(index, { type: event.target.value })}>
+              <FormSelect id={`row-type-${index}`} className={selectClass} value={row.type} onChange={(event) => update(index, { type: event.target.value })}>
                 {INSTALLMENT_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {t(`installmentType.${type}`)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
             <Field label={t("form.amount")} htmlFor={`row-amount-${index}`}>
               <Input id={`row-amount-${index}`} inputMode="decimal" value={row.amount} onChange={(event) => update(index, { amount: event.target.value })} />
@@ -673,13 +674,13 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
           <Input id="payment-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
         </Field>
         <Field label={t("columns.method")} htmlFor="payment-method">
-          <select id="payment-method" className={selectClass} value={method} onChange={(event) => setMethod(event.target.value)}>
+          <FormSelect id="payment-method" className={selectClass} value={method} onChange={(event) => setMethod(event.target.value)}>
             {PAYMENT_METHODS.map((code) => (
               <option key={code} value={code}>
                 {methodLabel(t, code)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("form.reference")} htmlFor="payment-reference" error={request.fields.reference}>
           <Input id="payment-reference" value={reference} maxLength={200} onChange={(event) => { setReference(event.target.value); setDuplicates(null); }} />

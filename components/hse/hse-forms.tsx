@@ -41,6 +41,7 @@ import { localDay, localMinute } from "@/components/hr/local-day";
 import { useHseEvidence } from "@/components/hse/use-hse-evidence";
 import { useHseTranslations, type HseKey } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The HSE record forms (PRD #22 §311–§324).
@@ -123,7 +124,7 @@ function RiskPicker({
   return (
     <>
       <Field label={t("forms.likelihoodOf", { label: heading })} name={likelihoodName} required={!optional}>
-        <select
+        <FormSelect
           id={likelihoodName}
           name={likelihoodName}
           className={selectClass}
@@ -137,11 +138,11 @@ function RiskPicker({
               {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
 
       <Field label={t("forms.severityOf", { label: heading })} name={severityName} required={!optional}>
-        <select
+        <FormSelect
           id={severityName}
           name={severityName}
           className={selectClass}
@@ -155,7 +156,7 @@ function RiskPicker({
               {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
 
       <div className="sm:col-span-2">
@@ -192,7 +193,7 @@ function ProjectField({
   const t = useHseTranslations();
   return (
     <Field label={t("record.project")} name="projectId" required={required} hint={hint}>
-      <select
+      <FormSelect
         id="projectId"
         name="projectId"
         className={selectClass}
@@ -210,7 +211,7 @@ function ProjectField({
           </option>
         ))}
         <CurrentOption value={value} options={projects} />
-      </select>
+      </FormSelect>
     </Field>
   );
 }
@@ -233,7 +234,7 @@ function MemberField({
   const t = useHseTranslations();
   return (
     <Field label={label} name={name} required={required}>
-      <select
+      <FormSelect
         id={name}
         name={name}
         className={selectClass}
@@ -247,7 +248,7 @@ function MemberField({
           </option>
         ))}
         <CurrentOption value={value} options={members} />
-      </select>
+      </FormSelect>
     </Field>
   );
 }
@@ -346,7 +347,7 @@ export function HazardForm({
         </Field>
 
         <Field label={t("record.category")} name="hazardCategory" required>
-          <select
+          <FormSelect
             id="hazardCategory"
             name="hazardCategory"
             className={selectClass}
@@ -358,7 +359,7 @@ export function HazardForm({
                 {hseLabel(t, "hazardCategory", value, hazardCategoryLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <ProjectField projects={projects} value={values?.projectId} />
@@ -523,7 +524,7 @@ export function IncidentForm({
         description={t("forms.incidentIntro")}
       >
         <Field label={t("record.type")} name="incidentType" required>
-          <select
+          <FormSelect
             id="incidentType"
             name="incidentType"
             className={selectClass}
@@ -535,11 +536,11 @@ export function IncidentForm({
                 {hseLabel(t, "incidentType", value, incidentTypeLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("record.severity")} name="severity" required>
-          <select
+          <FormSelect
             id="severity"
             name="severity"
             className={selectClass}
@@ -552,7 +553,7 @@ export function IncidentForm({
                 {hseLabel(t, "severity", value, severityLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
@@ -689,7 +690,7 @@ export function InspectionForm({
         description={t("forms.inspectionIntro")}
       >
         <Field label={t("record.type")} name="inspectionType" required>
-          <select
+          <FormSelect
             id="inspectionType"
             name="inspectionType"
             className={selectClass}
@@ -701,11 +702,11 @@ export function InspectionForm({
                 {hseLabel(t, "inspectionType", value, inspectionTypeLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("inspection.detail.checklist")} name="templateId" hint={t("forms.freeForm")}>
-          <select
+          <FormSelect
             id="templateId"
             name="templateId"
             className={selectClass}
@@ -717,7 +718,7 @@ export function InspectionForm({
                 {template.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <ProjectField projects={projects} value={values?.projectId} />
@@ -818,7 +819,7 @@ export function PermitForm({
         description={t("forms.permitIntro")}
       >
         <Field label={t("record.type")} name="permitType" required>
-          <select
+          <FormSelect
             id="permitType"
             name="permitType"
             className={selectClass}
@@ -830,7 +831,7 @@ export function PermitForm({
                 {hseLabel(t, "permitType", value, permitTypeLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.title")} name="title" required>
@@ -877,7 +878,7 @@ export function PermitForm({
         />
 
         <Field label={t("permit.detail.riskAssessment")} name="riskAssessmentId">
-          <select
+          <FormSelect
             id="riskAssessmentId"
             name="riskAssessmentId"
             className={selectClass}
@@ -891,7 +892,7 @@ export function PermitForm({
             ))}
             {/* A superseded or unseen assessment the permit already cites is kept, not unlinked (AUD-09 §5, FV-09). */}
             <CurrentOption value={values?.riskAssessmentId} options={assessments} />
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -1002,7 +1003,7 @@ export function ActionForm({
         ) : null}
 
         <Field label={t("record.type")} name="actionType" required>
-          <select
+          <FormSelect
             id="actionType"
             name="actionType"
             className={selectClass}
@@ -1014,11 +1015,11 @@ export function ActionForm({
                 {hseLabel(t, "actionType", value, actionTypeLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("record.priority")} name="priority" required>
-          <select
+          <FormSelect
             id="priority"
             name="priority"
             className={selectClass}
@@ -1030,7 +1031,7 @@ export function ActionForm({
                 {hseLabel(t, "priority", value, priorityLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.title")} name="title" required className="sm:col-span-2">
@@ -1120,7 +1121,7 @@ export function ObservationForm({
         description={t("forms.observationIntro")}
       >
         <Field label={t("record.category")} name="category" required>
-          <select
+          <FormSelect
             id="category"
             name="category"
             className={selectClass}
@@ -1132,11 +1133,11 @@ export function ObservationForm({
                 {hseLabel(t, "environmentalCategory", value, environmentalCategoryLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("record.severity")} name="severity" required>
-          <select
+          <FormSelect
             id="severity"
             name="severity"
             className={selectClass}
@@ -1148,7 +1149,7 @@ export function ObservationForm({
                 {hseLabel(t, "severity", value, severityLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.title")} name="title" required className="sm:col-span-2">

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A project's units as Sales sees them (E-05E §13, §14, §55).
@@ -189,13 +190,13 @@ export function SalesInventory({
           <SlidersHorizontal aria-hidden="true" />
           Filters{panelCount ? ` (${panelCount})` : ""}
         </Button>
-        <select aria-label={t("inventory.sortUnits")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
+        <FormSelect aria-label={t("inventory.sortUnits")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
           {(Object.keys(SORT_LABELS) as InventorySort[]).map((sort) => (
             <option key={sort} value={sort}>
               {t(`inventory.sort.${sort}` as "inventory.sort.code")}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {active ? (
           <Button variant="ghost" onClick={clear}>
             <RotateCcw aria-hidden="true" />
@@ -365,14 +366,14 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
       <label htmlFor={id} className="text-meta font-medium text-fg-muted">
         {label}
       </label>
-      <select id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
+      <FormSelect id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{t("inventory.any")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </div>
   );
 }

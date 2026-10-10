@@ -22,10 +22,7 @@ import { ItemTabs, type ItemTabKey } from "./item-tabs";
  * also where a reader who cannot open the tab they asked for gets a 404 rather
  * than a 403 — the record's existence is itself information (PRD #7 §60).
  */
-export async function loadItemPage(
-  itemId: string,
-  tab: ItemTabKey,
-): Promise<{ context: UserContext; item: ItemDetailDTO }> {
+export async function loadItem(itemId: string): Promise<{ context: UserContext; item: ItemDetailDTO }> {
   const context = await requireModule("inventory");
 
   let item: ItemDetailDTO;
@@ -35,6 +32,15 @@ export async function loadItemPage(
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
+
+  return { context, item };
+}
+
+export async function loadItemPage(
+  itemId: string,
+  tab: ItemTabKey,
+): Promise<{ context: UserContext; item: ItemDetailDTO }> {
+  const { context, item } = await loadItem(itemId);
 
   const allowed: Record<ItemTabKey, boolean> = {
     overview: true,
@@ -48,13 +54,12 @@ export async function loadItemPage(
   return { context, item };
 }
 
+/** Header and tabs for every item tab; mounted once by the record's layout. */
 export async function ItemPageShell({
   item,
-  tab,
   children,
 }: {
   item: ItemDetailDTO;
-  tab: ItemTabKey;
   children: React.ReactNode;
 }) {
   const t = await getTranslations("inventory");
@@ -105,7 +110,7 @@ export async function ItemPageShell({
         actions={<ItemActions item={item} />}
       />
 
-      <ItemTabs itemId={item.id} active={tab} capabilities={item.capabilities} />
+      <ItemTabs itemId={item.id} capabilities={item.capabilities} />
 
       {item.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">

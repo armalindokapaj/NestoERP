@@ -10,6 +10,7 @@ import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { appliedSort, type SortChoice } from "@/lib/tables/sort";
 import { cn } from "@/lib/utils/cn";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The phone Sort control of a table (AUD-04 §5, MW-06).
@@ -56,7 +57,7 @@ export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[
       <label htmlFor={id} className="shrink-0 text-table font-medium text-fg-subtle">
         {t("sort")}
       </label>
-      <select
+      <FormSelect
         id={id}
         aria-label={label ? t("sortLabel", { label }) : t("sort")}
         className="h-11 min-w-0 flex-1 rounded-md border border-line bg-surface px-3 text-base font-medium text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20"
@@ -69,7 +70,7 @@ export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[
             {choice.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </div>
   );
 }

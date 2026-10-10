@@ -21,6 +21,7 @@ import {
 import type { ChecklistItemDTO } from "@/lib/modules/hse/hse.types";
 import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Answering a safety checklist (PRD #22 §311, §312, §313).
@@ -156,7 +157,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
             {verdict ? (
               <div className="space-y-1.5">
                 <Label htmlFor={`answer-${index}`}>{t("inspection.detail.result")}</Label>
-                <select
+                <FormSelect
                   id={`answer-${index}`}
                   name={`answers[${index}][result]`}
                   className={selectClass}
@@ -170,7 +171,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                       {value === "PASS" ? t("exec.pass") : value === "FAIL" ? t("exec.fail") : t("exec.notApplicable")}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             ) : (
               <>
@@ -190,7 +191,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={`verdict-${index}`}>{t("exec.verdict")}</Label>
-                  <select
+                  <FormSelect
                     id={`verdict-${index}`}
                     name={`answers[${index}][result]`}
                     className={selectClass}
@@ -204,7 +205,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
                         {value === "PASS" ? t("exec.pass") : value === "FAIL" ? t("exec.fail") : t("exec.notApplicable")}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
               </>
             )}

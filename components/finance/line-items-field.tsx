@@ -19,6 +19,7 @@ import {
 import { MONEY_RULE, RATE_RULE, TAX_RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import { CellError, DecimalCell, RemovedLineNotice, useLineRows, useRowErrors } from "./line-rows";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The priced line-item editor (PRD #15 §322, PRD #17 §409; AUD-09 §7, FV-16).
@@ -319,7 +320,7 @@ export function BudgetLineItems({
               <div className="grid gap-3 sm:grid-cols-12">
                 <div className="space-y-1.5 sm:col-span-3">
                   <Label htmlFor={`${base}-category`}>{t("lines.category")}</Label>
-                  <select
+                  <FormSelect
                     id={`${base}-category`}
                     name={`lineItems.${index}.category`}
                     className={selectClass}
@@ -333,7 +334,7 @@ export function BudgetLineItems({
                         {t(`category.${category}`)}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                   <CellError id={`${base}-category-error`} message={rowErrors.category} />
                 </div>
 

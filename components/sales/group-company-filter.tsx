@@ -7,6 +7,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import type { CompanyRef } from "@/lib/modules/sales/sales.types";
 import { cn } from "@/lib/utils/cn";
 import { useSalesTranslations } from "@/components/sales/sales-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The `company` filter of a Sales page in the Group workspace (Workspace Context
@@ -35,7 +36,7 @@ export function GroupCompanyFilter({ companies, className }: { companies: Compan
   }
 
   return (
-    <select
+    <FormSelect
       aria-label={t("common.company")}
       value={searchParams.get("company") ?? ""}
       onChange={(event) => change(event.target.value)}
@@ -50,6 +51,6 @@ export function GroupCompanyFilter({ companies, className }: { companies: Compan
           {company.name}
         </option>
       ))}
-    </select>
+    </FormSelect>
   );
 }

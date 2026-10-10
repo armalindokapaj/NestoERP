@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { db } from "../db";

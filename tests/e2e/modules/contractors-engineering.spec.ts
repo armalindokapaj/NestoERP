@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "../pw";
 
 import { db } from "../db";
 import { ENGINEERING_SEED, PROJECT, dispatchNotifications, isoDay, pdf, restoreContractorsEngineering, runJob } from "../engineering-fixtures";

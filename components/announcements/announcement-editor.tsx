@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils/cn";
 import { announcementApi, announcementFailureOutcome, failureMessage, isFailure } from "./announcement-api";
 import { AnnouncementBody } from "./announcement-body";
 import { announcementLabel, useAnnouncementsTranslations } from "./announcements-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The announcement editor (PRD #45 §35, §36, §146-§153, §226).
@@ -268,26 +269,26 @@ export function AnnouncementEditor({
           {lockedAudience ? <p className="text-meta text-fg-subtle">{t("editor.audienceLocked")}</p> : null}
           {values.audienceType === "PROJECT" ? (
             <Field label={t("editor.project")} htmlFor="announcement-project" error={errors.projectId}>
-              <select id="announcement-project" className={selectClass} value={values.projectId} onChange={(event) => set("projectId", event.target.value)}>
+              <FormSelect id="announcement-project" className={selectClass} value={values.projectId} onChange={(event) => set("projectId", event.target.value)}>
                 <option value="">{t("editor.chooseProject")}</option>
                 {options.projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           ) : null}
           {values.audienceType === "DEPARTMENT" ? (
             <Field label={t("editor.department")} htmlFor="announcement-department" error={errors.departmentId}>
-              <select id="announcement-department" className={selectClass} value={values.departmentId} onChange={(event) => set("departmentId", event.target.value)}>
+              <FormSelect id="announcement-department" className={selectClass} value={values.departmentId} onChange={(event) => set("departmentId", event.target.value)}>
                 <option value="">{t("editor.chooseDepartment")}</option>
                 {options.departments.map((department) => (
                   <option key={department.id} value={department.id}>
                     {department.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           ) : null}
           {values.audienceType === "SELECTED_MEMBERS" ? (

@@ -20,6 +20,7 @@ import { formatQuantity } from "./inventory-format";
 import { useInventoryTranslations } from "./inventory-text";
 import { CellError } from "@/components/finance/line-rows";
 import { isPositiveDecimal } from "@/lib/modules/finance/finance.decimal";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Book an accepted Procurement delivery into stock (PRD #20 §11, §309, §310).
@@ -179,7 +180,7 @@ function HandoffForm({
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="space-y-1.5">
           <Label htmlFor="handoff-warehouse">{t("handoff.intoWarehouse")}</Label>
-          <select
+          <FormSelect
             id="handoff-warehouse"
             name="warehouseId"
             className={selectClass}
@@ -195,7 +196,7 @@ function HandoffForm({
                 {warehouse.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
           <CellError id="handoff-warehouse-error" message={fieldErrors.warehouseId?.[0]} />
           {cleared ? (
             <p role="status" className="text-meta text-warning-strong">
@@ -230,7 +231,7 @@ function HandoffForm({
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor={`handoff-${index}-item`}>{t("handoff.inventoryItem")}</Label>
-                    <select
+                    <FormSelect
                       id={`handoff-${index}-item`}
                       name={`lines.${index}.inventoryItemId`}
                       className={selectClass}
@@ -251,12 +252,12 @@ function HandoffForm({
                           {option.label}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor={`handoff-${index}-location`}>{t("lines.location")}</Label>
-                    <select
+                    <FormSelect
                       id={`handoff-${index}-location`}
                       name={`lines.${index}.locationId`}
                       className={selectClass}
@@ -280,7 +281,7 @@ function HandoffForm({
                           {location.label}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                     <CellError id={`handoff-${index}-location-error`} message={fieldErrors[`lines.${index}.locationId`]?.[0]} />
                   </div>
                 </div>
