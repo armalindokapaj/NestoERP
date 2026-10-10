@@ -20,6 +20,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
 import { useClientsTranslations } from "./clients-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Create / edit client form (PRD #12 §41, §53, §66).
@@ -172,23 +173,23 @@ export function ClientForm({
           </Field>
 
           <Field label={t("form.type")} name="type" required>
-            <select id="type" name="type" defaultValue={initial.type} className={selectClass}>
+            <FormSelect id="type" name="type" defaultValue={initial.type} className={selectClass}>
               {TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {clientsLabel(t, "clientType", option.value, option.label)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("form.status")} name="status" required>
-            <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
+            <FormSelect id="status" name="status" defaultValue={initial.status} className={selectClass}>
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {clientsLabel(t, "status", option.value, option.label)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field

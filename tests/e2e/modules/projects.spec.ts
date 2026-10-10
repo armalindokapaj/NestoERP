@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "../pw";
 
 import { db, removeTestProjects } from "../db";
 import { mainRegion, signIn } from "../fixtures";

@@ -1,5 +1,5 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
-import Link from "@/components/navigation/nav-link";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getTranslations } from "@/lib/i18n/server";
@@ -17,7 +17,6 @@ import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service"
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
 import { formatDate } from "@/lib/utils/format";
-import { cn } from "@/lib/utils/cn";
 
 /**
  * The furniture every inspection tab shares (PRD #21 §10, §63, §65).
@@ -65,12 +64,10 @@ export const loadInspectionPage = cache(async function loadInspectionPage(
 export async function InspectionPageShell({
   context,
   inspection,
-  tab,
   children,
 }: {
   context: UserContext;
   inspection: InspectionDetailDTO;
-  tab: InspectionTabKey;
   children: React.ReactNode;
 }) {
   const t = await getTranslations("qaqc");
@@ -132,30 +129,15 @@ export async function InspectionPageShell({
         }
       />
 
-      <nav aria-label={t("inspectionPage.tabs")} className="border-b border-line">
-        <ul className="-mb-px flex gap-1 overflow-x-auto">
-          {TABS.filter((entry) => show[entry.key]).map((entry) => {
-            const isActive = entry.key === tab;
-            return (
-              <li key={entry.key}>
-                <Link
-                  href={`/qaqc/inspections/${inspection.id}${entry.suffix}`}
-                  aria-current={isActive ? "page" : undefined}
-                  className={cn(
-                    // 44px under touch (AUD-04 §3, D-04-07, MW-19).
-                    "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                    isActive
-                      ? "border-accent text-fg"
-                      : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                  )}
-                >
-                  {t(entry.label)}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <ContextTabs
+        label={t("inspectionPage.tabs")}
+        rootKey="overview"
+        tabs={TABS.filter((entry) => show[entry.key]).map((entry) => ({
+          key: entry.key,
+          label: t(entry.label),
+          href: `/qaqc/inspections/${inspection.id}${entry.suffix}`,
+        }))}
+      />
 
       {inspection.status === "REJECTED" ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">

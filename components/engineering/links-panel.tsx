@@ -15,6 +15,7 @@ import { FormDialog, RequestMessages, useRequestEditor, type FormField } from ".
 import { useEngineeringTranslations } from "./engineering-text";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import type { Translate } from "@/lib/i18n/translator";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * What a record points at (PRD #46 §79, §111-§113, §133-§155). Tasks, meetings
@@ -210,7 +211,7 @@ function LinkForm({ apiBase, types, onClose, onPending }: { apiBase: string; typ
           <label htmlFor="link-type" className="text-meta font-medium text-fg-muted">
             {t("links.kind")}
           </label>
-          <select id="link-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as LinkableType)}>
+          <FormSelect id="link-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as LinkableType)}>
             {LINK_GROUPS.map((group) => {
               const available = group.types.filter((item) => types.includes(item));
               return available.length ? (
@@ -223,20 +224,20 @@ function LinkForm({ apiBase, types, onClose, onPending }: { apiBase: string; typ
                 </optgroup>
               ) : null;
             })}
-          </select>
+          </FormSelect>
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="link-record" className="text-meta font-medium text-fg-muted">
             {t("links.record")}
           </label>
-          <select id="link-record" className={selectClass} value={recordId} onChange={(event) => setRecordId(event.target.value)} disabled={options === null}>
+          <FormSelect id="link-record" className={selectClass} value={recordId} onChange={(event) => setRecordId(event.target.value)} disabled={options === null}>
             <option value="">{options === null ? t("ui.loading") : options.length ? t("links.chooseRecord") : t("links.nothingToLink")}</option>
             {(options ?? []).map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
       </fieldset>
       <RequestMessages error={save.error} outcomeText={save.outcomeText} />

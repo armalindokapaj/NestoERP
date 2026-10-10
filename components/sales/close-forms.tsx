@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LOST_REASONS } from "@/lib/modules/sales/opportunities/opportunity.schema";
 import { lostReasonLabels } from "@/lib/modules/sales/proposals/proposal.status";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Closing a deal (PRD #17 §86, §93, §253).
@@ -105,7 +106,7 @@ export function WonForm({
         description={t("forms.wonClientDescription")}
       >
         <Field label={t("forms.clientTitle")} name="clientMode" required className="sm:col-span-2">
-          <select
+          <FormSelect
             id="clientMode"
             name="clientMode"
             className={selectClass}
@@ -115,19 +116,19 @@ export function WonForm({
             {hasClient ? <option value="KEEP">{t("forms.keepClient", { name: clientName ?? "" })}</option> : null}
             {canLinkClient ? <option value="EXISTING">{t("forms.linkExistingClient")}</option> : null}
             {canCreateClient ? <option value="NEW">{t("forms.createNewClient")}</option> : null}
-          </select>
+          </FormSelect>
         </Field>
 
         {clientMode === "EXISTING" ? (
           <Field label={t("forms.existingClient")} name="clientId" required className="sm:col-span-2">
-            <select id="clientId" name="clientId" className={selectClass} defaultValue="">
+            <FormSelect id="clientId" name="clientId" className={selectClass} defaultValue="">
               <option value="">{t("forms.chooseClient")}</option>
               {clients.map((client) => (
                 <option key={client.value} value={client.value}>
                   {client.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
@@ -144,7 +145,7 @@ export function WonForm({
           description={t("forms.deliveryDescription")}
         >
           <Field label={t("forms.project")} name="projectMode" className="sm:col-span-2">
-            <select
+            <FormSelect
               id="projectMode"
               name="projectMode"
               className={selectClass}
@@ -154,7 +155,7 @@ export function WonForm({
               <option value="NONE">{t("forms.noProject")}</option>
               {canLinkProject ? <option value="EXISTING">{t("forms.linkExistingProject")}</option> : null}
               {canCreateProject ? <option value="NEW">{t("forms.createNewProject")}</option> : null}
-            </select>
+            </FormSelect>
           </Field>
 
           {projectMode === "EXISTING" ? (
@@ -165,14 +166,14 @@ export function WonForm({
               className="sm:col-span-2"
               hint={t("forms.sameClientHint")}
             >
-              <select id="projectId" name="projectId" className={selectClass} defaultValue="">
+              <FormSelect id="projectId" name="projectId" className={selectClass} defaultValue="">
                 <option value="">{t("forms.chooseProject")}</option>
                 {projects.map((project) => (
                   <option key={project.value} value={project.value}>
                     {project.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           ) : null}
 
@@ -220,7 +221,7 @@ export function LostForm({
         </Field>
 
         <Field label={t("forms.reason")} name="lostReason" required>
-          <select
+          <FormSelect
             id="lostReason"
             name="lostReason"
             className={selectClass}
@@ -232,7 +233,7 @@ export function LostForm({
                 {salesLabel(t, "lostReason", option, lostReasonLabels[option])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field

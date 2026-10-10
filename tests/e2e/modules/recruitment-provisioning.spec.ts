@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../pw";
 
 import { db } from "../db";
 import { DEMO_PASSWORD, expectAccessDenied, mainRegion, signIn, signOut } from "../fixtures";

@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "../pw";
 
 import { db, removeTestTasks } from "../db";
 import { signIn } from "../fixtures";

@@ -21,6 +21,7 @@ import {
 } from "@/lib/modules/contracts/contracts/contract.schema";
 import { renewalTypeLabels } from "@/lib/modules/contracts/contracts/contract.status";
 import { contractsLabel, useContractsTranslations } from "./contracts-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ContractFormValues = {
   contractNumber: string;
@@ -118,7 +119,7 @@ export function ContractForm({
         </Field>
 
         <Field label={t("form.contractType")} name="contractType" required>
-          <select
+          <FormSelect
             id="contractType"
             name="contractType"
             className={selectClass}
@@ -130,7 +131,7 @@ export function ContractForm({
                 {contractsLabel(t, "contractType", type, contractTypeLabels[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.title")} name="title" required className="sm:col-span-2">
@@ -143,7 +144,7 @@ export function ContractForm({
           required
           hint={t("form.ownerHint")}
         >
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -156,7 +157,7 @@ export function ContractForm({
                 {owner.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -178,7 +179,7 @@ export function ContractForm({
         description={t("form.clientProjectDescription")}
       >
         <Field label={t("form.client")} name="clientId">
-          <select
+          <FormSelect
             id="clientId"
             name="clientId"
             className={selectClass}
@@ -190,11 +191,11 @@ export function ContractForm({
                 {client.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("form.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -206,7 +207,7 @@ export function ContractForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -216,7 +217,7 @@ export function ContractForm({
           description={t("form.salesSourceDescription")}
         >
           <Field label={t("form.opportunity")} name="opportunityId">
-            <select
+            <FormSelect
               id="opportunityId"
               name="opportunityId"
               className={selectClass}
@@ -228,11 +229,11 @@ export function ContractForm({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("form.proposal")} name="proposalId">
-            <select
+            <FormSelect
               id="proposalId"
               name="proposalId"
               className={selectClass}
@@ -244,7 +245,7 @@ export function ContractForm({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         </FormSection>
       ) : null}
@@ -266,7 +267,7 @@ export function ContractForm({
           </Field>
 
           <Field label={t("form.currency")} name="currency" required={valued}>
-            <select
+            <FormSelect
               id="currency"
               name="currency"
               className={selectClass}
@@ -278,7 +279,7 @@ export function ContractForm({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("form.commercialNotes")} name="commercialNotes" className="sm:col-span-2">
@@ -328,7 +329,7 @@ export function ContractForm({
 
       <FormSection title={t("form.renewal")} description={t("form.renewalDescription")}>
         <Field label={t("form.renewalType")} name="renewalType" required>
-          <select
+          <FormSelect
             id="renewalType"
             name="renewalType"
             className={selectClass}
@@ -340,7 +341,7 @@ export function ContractForm({
                 {contractsLabel(t, "renewalType", type, renewalTypeLabels[type])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {renews ? (
@@ -460,7 +461,7 @@ export function ContractMetadataForm({
         description={t("form.recordDetailsDescription")}
       >
         <Field label={t("form.owner")} name="ownerMemberId" required>
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -472,7 +473,7 @@ export function ContractMetadataForm({
                 {owner.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.summary")} name="summary" className="sm:col-span-2">

@@ -31,6 +31,7 @@ import { formatRelativeTime } from "@/lib/utils/format";
 import { PersonLink } from "@/components/people/person-link";
 import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
 import { fileSize, uploadNewVersion } from "./unit-upload";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A unit's Sales Plan and technical documents (E-05D §33-§39, §63, §94).
@@ -293,13 +294,13 @@ function UploadDocumentForm({ onChoose }: { onChoose: (files: File[], category: 
       }}
     >
       <Field label={t("unitFiles.category")} htmlFor="unit-document-category">
-        <select id="unit-document-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitDocumentCategory)}>
+        <FormSelect id="unit-document-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitDocumentCategory)}>
           {UNIT_DOCUMENT_CATEGORIES.map((value) => (
             <option key={value} value={value}>
               {t(`documentCategory.${value}`)}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
       <Field label={t("unitFiles.files")} htmlFor="unit-document-files" required>
         <Input id="unit-document-files" type="file" multiple onChange={(event) => setChosen([...(event.target.files ?? [])])} />
@@ -401,13 +402,13 @@ function AttachForm({ unitId, kind, onAttached, onDone }: { unitId: string; kind
           )}
         </ul>
         <Field label={t("unitFiles.category")} htmlFor="attach-category">
-          <select id="attach-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value)}>
+          <FormSelect id="attach-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value)}>
             {(kind === "image" ? UNIT_MEDIA_CATEGORIES : UNIT_DOCUMENT_CATEGORIES).map((value) => (
               <option key={value} value={value}>
                 {kind === "image" ? t(`mediaCategory.${value as UnitMediaCategory}`) : t(`documentCategory.${value as UnitDocumentCategory}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </div>
       <DialogFooter>

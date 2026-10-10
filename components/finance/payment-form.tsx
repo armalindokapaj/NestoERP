@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { localToday } from "./local-date";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type PayableTarget = {
   id: string;
@@ -71,7 +72,7 @@ export function PaymentForm({
           required
           className="sm:col-span-2"
         >
-          <select
+          <FormSelect
             id={field}
             name={field}
             className={selectClass}
@@ -87,7 +88,7 @@ export function PaymentForm({
                 {t("paymentForm.targetOption", { label: entry.label, amount: formatAmount(entry.outstanding, entry.currency) })}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -121,13 +122,13 @@ export function PaymentForm({
         </Field>
 
         <Field label={t("columns.method")} name="method" required>
-          <select id="method" name="method" className={selectClass} defaultValue="BANK_TRANSFER">
+          <FormSelect id="method" name="method" className={selectClass} defaultValue="BANK_TRANSFER">
             <option value="BANK_TRANSFER">{t("method.BANK_TRANSFER")}</option>
             <option value="CARD">{t("method.CARD")}</option>
             <option value="CASH">{t("method.CASH")}</option>
             <option value="CHECK">{t("method.CHECK")}</option>
             <option value="OTHER">{t("method.OTHER")}</option>
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("form.reference")} name="reference" hint={t("paymentForm.referenceHint")}>

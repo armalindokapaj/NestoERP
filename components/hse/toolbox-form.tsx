@@ -21,6 +21,7 @@ import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "./hse-forms";
 import { useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A toolbox talk and who was there (PRD #22 §130, §132, §320).
@@ -122,7 +123,7 @@ export function ToolboxForm({
         </Field>
 
         <Field label={t("record.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -134,11 +135,11 @@ export function ToolboxForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("toolbox.detail.conductedBy")} name="conductedByMemberId" required>
-          <select
+          <FormSelect
             id="conductedByMemberId"
             name="conductedByMemberId"
             className={selectClass}
@@ -151,7 +152,7 @@ export function ToolboxForm({
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("toolbox.detail.date")} name="talkDate" required>
@@ -215,7 +216,7 @@ export function ToolboxForm({
               <div className="mt-3 grid gap-3 sm:grid-cols-4">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor={`participant-member-${index}`}>{t("forms.colleague")}</Label>
-                  <select
+                  <FormSelect
                     id={`participant-member-${index}`}
                     name={`participants[${index}][companyMemberId]`}
                     className={selectClass}
@@ -241,7 +242,7 @@ export function ToolboxForm({
                     ) : null}
                     {/* Somebody who attended and has since left stays on the sheet (AUD-09 §5, FV-09). */}
                     <CurrentOption value={row.companyMemberId} options={[...members, ...workers]} />
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
@@ -260,7 +261,7 @@ export function ToolboxForm({
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor={`participant-attendance-${index}`}>{t("forms.attendance")}</Label>
-                  <select
+                  <FormSelect
                     id={`participant-attendance-${index}`}
                     name={`participants[${index}][attendanceStatus]`}
                     className={selectClass}
@@ -272,7 +273,7 @@ export function ToolboxForm({
                         {hseLabel(t, "attendance", value, attendanceLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="flex items-end gap-2.5 sm:col-span-2">

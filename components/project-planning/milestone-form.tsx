@@ -15,6 +15,7 @@ import { MILESTONE_STATUSES, MILESTONE_TYPES, type MilestoneStatus, type Milesto
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, isFailure, numberOrRaw, planningApi } from "./planning-api";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "./use-values-editor";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Adding and editing a milestone (PRD #44 §141-§146) — and a phase (§9, §114).
@@ -190,43 +191,43 @@ function MilestoneForm({
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("milestoneForm.phase")} htmlFor={id("phase")} error={errors.phaseId}>
-          <select id={id("phase")} className={selectClass} value={values.phaseId} onChange={(event) => set("phaseId", event.target.value)}>
+          <FormSelect id={id("phase")} className={selectClass} value={values.phaseId} onChange={(event) => set("phaseId", event.target.value)}>
             <option value="">{t("milestoneForm.noPhase")}</option>
             {phases.map((phase) => (
               <option key={phase.id} value={phase.id}>
                 {phase.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("milestoneForm.type")} htmlFor={id("type")}>
-          <select id={id("type")} className={selectClass} value={values.milestoneType} onChange={(event) => set("milestoneType", event.target.value as MilestoneType)}>
+          <FormSelect id={id("type")} className={selectClass} value={values.milestoneType} onChange={(event) => set("milestoneType", event.target.value as MilestoneType)}>
             {MILESTONE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {t(`milestoneType.${type}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("milestoneForm.owner")} htmlFor={id("owner")} error={errors.ownerMemberId}>
-          <select id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)}>
+          <FormSelect id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)}>
             <option value="">{t("milestoneForm.unassigned")}</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         {editing ? (
           <Field label={t("milestoneForm.status")} htmlFor={id("status")} error={errors.status}>
-            <select id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as MilestoneStatus)} disabled={values.status === "COMPLETED"}>
+            <FormSelect id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as MilestoneStatus)} disabled={values.status === "COMPLETED"}>
               {MILESTONE_STATUSES.filter((status) => status !== "COMPLETED" || values.status === "COMPLETED").map((status) => (
                 <option key={status} value={status}>
                   {t(`milestoneStatus.${status}`)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : (
           <span className="hidden sm:block" />
@@ -460,23 +461,23 @@ function PhaseForm({
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("milestoneForm.status")} htmlFor={id("status")}>
-          <select id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as PhaseStatus)} disabled={!canEdit}>
+          <FormSelect id={id("status")} className={selectClass} value={values.status} onChange={(event) => set("status", event.target.value as PhaseStatus)} disabled={!canEdit}>
             {MILESTONE_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {t(`milestoneStatus.${status}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("milestoneForm.owner")} htmlFor={id("owner")} error={errors.ownerMemberId}>
-          <select id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)} disabled={!canEdit}>
+          <FormSelect id={id("owner")} className={selectClass} value={values.ownerMemberId} onChange={(event) => set("ownerMemberId", event.target.value)} disabled={!canEdit}>
             <option value="">{t("milestoneForm.unassigned")}</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         {date("plannedStartDate", t("milestoneForm.plannedStart"))}
         {date("plannedEndDate", t("milestoneForm.plannedEnd"))}

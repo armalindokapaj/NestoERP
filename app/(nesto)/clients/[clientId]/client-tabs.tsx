@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "@/components/navigation/nav-link";
-import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 
 import type { ClientDetailDTO } from "@/lib/modules/clients/client.types";
 import { useClientsTranslations } from "@/components/clients/clients-text";
@@ -35,11 +34,9 @@ export type ClientTabKey = (typeof TABS)[number]["key"];
  */
 export function ClientTabs({
   clientId,
-  active,
   capabilities,
 }: {
   clientId: string;
-  active: ClientTabKey;
   capabilities: ClientDetailDTO["capabilities"];
 }) {
   const show: Record<ClientTabKey, boolean> = {
@@ -54,22 +51,12 @@ export function ClientTabs({
   };
 
   const t = useClientsTranslations();
-  const visible = TABS.filter((tab) => show[tab.key]);
+  const tabs = TABS.filter((tab) => show[tab.key]).map((tab) => ({
+    key: tab.key,
+    label: t(`tabs.${tab.key}`),
+    href: `/clients/${clientId}${tab.suffix}`,
+  }));
 
-  return (
-    <ContextTabsFrame label={t("tabs.label")}>
-        {visible.map((tab) => {
-          const isActive = tab.key === active;
-          return (
-            <Link key={tab.key} navSource="tab"
-                href={`/clients/${clientId}${tab.suffix}`}
-                aria-current={isActive ? "page" : undefined}
-                className={contextTabClass(isActive)}
-              >
-                {t(`tabs.${tab.key}`)}
-              </Link>
-          );
-        })}
-      </ContextTabsFrame>
-  );
+  // The active tab follows the URL, so the tabs can sit in the layout and stay put.
+  return <ContextTabs label={t("tabs.label")} tabs={tabs} rootKey="overview" />;
 }

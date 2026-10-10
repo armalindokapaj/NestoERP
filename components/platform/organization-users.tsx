@@ -12,6 +12,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Option = { value: string; label: string };
 type ProjectOption = Option & { companyId: string };
@@ -132,10 +133,10 @@ export function AddOrganizationUser({ organizationName, companies, roles, projec
             </div>
             {companies.length > 1 ? (
               <label className="block space-y-1 text-meta text-fg-subtle">{t("users.add.company")}
-                <select className={field} value={companyId} onChange={(event) => { setCompanyId(event.target.value); setProjectIds([]); setChosen(null); }} required>
+                <FormSelect className={field} value={companyId} onChange={(event) => { setCompanyId(event.target.value); setProjectIds([]); setChosen(null); }} required>
                   <option value="">{t("users.add.chooseCompanyOption")}</option>
                   {companies.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}
-                </select>
+                </FormSelect>
               </label>
             ) : null}
             {mode === "new" ? (
@@ -160,10 +161,10 @@ export function AddOrganizationUser({ organizationName, companies, roles, projec
               </div>
             )}
             <label className="block space-y-1 text-meta text-fg-subtle">{t("users.add.role")}
-              <select className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} required>
+              <FormSelect className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} required>
                 <option value="">{t("users.add.selectRole")}</option>
                 {roles.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}
-              </select>
+              </FormSelect>
             </label>
             {companyId ? <div className="space-y-1"><p className="text-meta text-fg-subtle">{t("users.add.projectsOptional")}</p><ProjectPicker projects={companyProjects} value={projectIds} onChange={setProjectIds} /></div> : null}
             {error ? <p role="alert" className="text-table text-danger">{error}</p> : null}
@@ -257,9 +258,9 @@ export function OrganizationMemberActions({ companyId, companyName, member, role
           <div className="mt-4 space-y-3">
             {dialog === "role" ? (
               <label className="block space-y-1 text-meta text-fg-subtle">{t("users.member.role")}
-                <select className={field} value={roleKey} onChange={(event) => setRoleKey(event.target.value)}>
+                <FormSelect className={field} value={roleKey} onChange={(event) => setRoleKey(event.target.value)}>
                   {roles.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}
-                </select>
+                </FormSelect>
               </label>
             ) : null}
             {dialog === "projects" ? <ProjectPicker projects={projects.filter((project) => project.companyId === companyId)} value={projectIds} onChange={setProjectIds} /> : null}

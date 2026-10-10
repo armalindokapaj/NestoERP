@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Option = { value: string; label: string };
 
@@ -48,15 +49,15 @@ export function OrganizationFilters({ statuses, groups, showGroup, placeholder: 
         <input value={q} onChange={(event) => setQ(event.target.value)} placeholder={placeholder} aria-label={placeholder.replace(/\.+$/, "")} className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-8 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
         {q ? <button type="button" onClick={() => { setQ(""); update({ q: "" }); }} aria-label={t("filters.clearSearch")} className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded text-fg-subtle hover:bg-hover"><X className="size-3.5" /></button> : null}
       </div>
-      <select aria-label={t("filters.status")} value={params.get("status") ?? ""} onChange={(event) => update({ status: event.target.value })} className={select}>
+      <FormSelect aria-label={t("filters.status")} value={params.get("status") ?? ""} onChange={(event) => update({ status: event.target.value })} className={select}>
         <option value="">{t("filters.allStatuses")}</option>
         {statuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      </FormSelect>
       {showGroup ? (
-        <select aria-label={t("filters.parentGroup")} value={params.get("group") ?? ""} onChange={(event) => update({ group: event.target.value })} className={select}>
+        <FormSelect aria-label={t("filters.parentGroup")} value={params.get("group") ?? ""} onChange={(event) => update({ group: event.target.value })} className={select}>
           <option value="">{t("filters.anyParentGroup")}</option>
           {groups.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
+        </FormSelect>
       ) : null}
     </div>
   );

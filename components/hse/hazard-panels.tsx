@@ -29,6 +29,7 @@ import {
 import type { HazardDetailDTO } from "@/lib/modules/hse/hse.types";
 import { useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The three hazard panels (PRD #22 §67, §70, §73).
@@ -88,7 +89,7 @@ function AxisPair({
   return (
     <>
       <Field label={t("forms.likelihoodOf", { label })} name={likelihoodName} required={!optional}>
-        <select
+        <FormSelect
           id={`${namePrefix}-likelihood`}
           name={likelihoodName}
           className={selectClass}
@@ -102,11 +103,11 @@ function AxisPair({
               {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
 
       <Field label={t("forms.severityOf", { label })} name={severityName} required={!optional}>
-        <select
+        <FormSelect
           id={`${namePrefix}-severity`}
           name={severityName}
           className={selectClass}
@@ -120,7 +121,7 @@ function AxisPair({
               {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
 
       <p className="text-meta text-fg-muted sm:col-span-2" aria-live="polite">

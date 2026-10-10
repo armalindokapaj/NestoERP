@@ -5,6 +5,7 @@ import * as React from "react";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** Inspector building blocks for the Experience Editor's dark panels. */
 
@@ -25,7 +26,7 @@ export function Color({ label, value, onChange, disabled }: { label: string; val
 }
 
 export function Choice({ label, value, options, onChange, disabled }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void; disabled?: boolean }) {
-  return <label className={cn("block text-xs text-fg-muted", disabled && "opacity-40")}><span className="mb-1 block">{label}</span><select className={cn(selectClass, "h-8 border-line-strong bg-canvas text-xs text-fg")} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className={cn("block text-xs text-fg-muted", disabled && "opacity-40")}><span className="mb-1 block">{label}</span><FormSelect className={cn(selectClass, "h-8 border-line-strong bg-canvas text-xs text-fg")} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</FormSelect></label>;
 }
 
 /**

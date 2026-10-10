@@ -25,6 +25,7 @@ import type { Option } from "./hse-forms";
 import { localDay } from "@/components/hr/local-day";
 import { useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A risk assessment, line by line (PRD #22 §101, §104, §318).
@@ -169,7 +170,7 @@ export function RiskAssessmentForm({
         </Field>
 
         <Field label={t("record.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -181,11 +182,11 @@ export function RiskAssessmentForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("risk.detail.owner")} name="ownerMemberId">
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -197,7 +198,7 @@ export function RiskAssessmentForm({
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.assessedOn")} name="assessmentDate" required>
@@ -307,7 +308,7 @@ export function RiskAssessmentForm({
 
                 <div className="space-y-1.5">
                   <Label htmlFor={`item-likelihood-${index}`}>{t("forms.likelihood")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-likelihood-${index}`}
                     name={`items[${index}][likelihood]`}
                     className={selectClass}
@@ -320,12 +321,12 @@ export function RiskAssessmentForm({
                         {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor={`item-severity-${index}`}>{t("record.severity")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-severity-${index}`}
                     name={`items[${index}][severity]`}
                     className={selectClass}
@@ -338,7 +339,7 @@ export function RiskAssessmentForm({
                         {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
@@ -350,7 +351,7 @@ export function RiskAssessmentForm({
 
                 <div className="space-y-1.5">
                   <Label htmlFor={`item-res-likelihood-${index}`}>{t("forms.residualLikelihood")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-res-likelihood-${index}`}
                     name={`items[${index}][residualLikelihood]`}
                     className={selectClass}
@@ -365,12 +366,12 @@ export function RiskAssessmentForm({
                         {value} — {hseLabel(t, "likelihood", value, likelihoodLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor={`item-res-severity-${index}`}>{t("forms.residualSeverity")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-res-severity-${index}`}
                     name={`items[${index}][residualSeverity]`}
                     className={selectClass}
@@ -383,7 +384,7 @@ export function RiskAssessmentForm({
                         {value} — {hseLabel(t, "axisSeverity", value, axisLabels[value])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
@@ -400,7 +401,7 @@ export function RiskAssessmentForm({
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor={`item-responsible-${index}`}>{t("permit.detail.responsible")}</Label>
-                  <select
+                  <FormSelect
                     id={`item-responsible-${index}`}
                     name={`items[${index}][responsibleMemberId]`}
                     className={selectClass}
@@ -415,7 +416,7 @@ export function RiskAssessmentForm({
                         {member.label}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">

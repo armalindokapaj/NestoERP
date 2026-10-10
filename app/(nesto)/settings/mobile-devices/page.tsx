@@ -9,6 +9,7 @@ import { securityScope, listDevices, securityDashboard, type DeviceFilters } fro
 import { getTranslations } from "@/lib/i18n/server";
 import { formatDateTime } from "@/lib/utils/format";
 import { requireSettingsSection } from "../settings-access";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -123,10 +124,10 @@ function FilterSelect({ name, label, all, value, options }: { name: string; labe
   return (
     <label className="grid gap-1 text-meta text-fg-subtle">
       <span>{label}</span>
-      <select name={name} defaultValue={value ?? ""} className="h-10 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11">
+      <FormSelect name={name} defaultValue={value ?? ""} className="h-10 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11">
         <option value="">{all}</option>
         {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
-      </select>
+      </FormSelect>
     </label>
   );
 }

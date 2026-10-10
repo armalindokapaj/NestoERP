@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { chooseWorkspace, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader } from "../fixtures";
 

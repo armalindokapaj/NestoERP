@@ -10,6 +10,7 @@ import {
 } from "@/components/forms/record-form";
 import { useTeamTranslations } from "@/components/team/team-text";
 import { Input } from "@/components/ui/input";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Edit a membership (PRD #14 §85, §86).
@@ -72,7 +73,7 @@ export function MemberForm({
         >
           {/* A disabled select submits nothing, so the current value travels in
               a hidden field and the server still receives a complete record. */}
-          <select
+          <FormSelect
             id="roleId"
             name={canAssignRole ? "roleId" : undefined}
             className={selectClass}
@@ -85,7 +86,7 @@ export function MemberForm({
                 {role.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
           {canAssignRole ? null : <input type="hidden" name="roleId" value={values.roleId} />}
         </Field>
 
@@ -98,7 +99,7 @@ export function MemberForm({
               : t("form.noDepartmentPermission")
           }
         >
-          <select
+          <FormSelect
             id="departmentId"
             name={canAssignDepartment ? "departmentId" : undefined}
             className={selectClass}
@@ -115,7 +116,7 @@ export function MemberForm({
             {values.departmentId && !departments.some((department) => department.value === values.departmentId) ? (
               <option value={values.departmentId}>{t("form.currentDepartment")}</option>
             ) : null}
-          </select>
+          </FormSelect>
           {/* Not the reader's to change: nothing is sent, and the server keeps it (AUD-09 §5, FV-10). */}
         </Field>
 

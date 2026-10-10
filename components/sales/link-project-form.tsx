@@ -13,6 +13,7 @@ import { useSalesTranslations } from "@/components/sales/sales-text";
 import { linkProjectAction } from "@/lib/actions/sales";
 import { committed } from "@/lib/forms/committed";
 import type { Option } from "@/lib/modules/sales/sales.options";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Links a project to an already-won opportunity (PRD #17 §423).
@@ -65,7 +66,7 @@ export function LinkProjectForm({
       <SaveMessages save={save} />
       <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-1.5 border-0 p-0">
         <Label htmlFor="projectId">{t("forms.project")}</Label>
-        <select
+        <FormSelect
           id="projectId"
           name="projectId"
           className={selectClass}
@@ -79,7 +80,7 @@ export function LinkProjectForm({
               {project.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">

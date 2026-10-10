@@ -18,6 +18,7 @@ import { FormFields, payloadFor, valuesFor, type FormValues } from "./form-kit";
 import { transmittalHeaderFields, type ProjectOptions } from "./record-fields";
 import { useEngineeringTranslations } from "./engineering-text";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Preparing a transmittal (PRD #46 §118-§123): who it goes to and why, and
@@ -225,7 +226,7 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
                       <Checkbox checked={Boolean(chosen)} onCheckedChange={() => toggle(doc, chosen?.engineeringRevisionId ?? doc.revisions[0].id)} aria-label={t("transmittal.include", { label: doc.label })} />
                       <span className="min-w-0 [overflow-wrap:anywhere]">{doc.label}</span>
                     </label>
-                    <select
+                    <FormSelect
                       aria-label={t("transmittal.revisionOf", { label: doc.label })}
                       className={`${selectClass} h-8 w-full text-table sm:w-auto`}
                       value={chosen?.engineeringRevisionId ?? doc.revisions[0].id}
@@ -237,7 +238,7 @@ function TransmittalBody({ projectId, existing, onClose, pending, setPending }: 
                           {t("ui.rev", { code: revision.code })} · {engineeringLabel(t, "reviewStatus", revision.status, REVIEW_STATUS_LABELS[revision.status])}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </li>
                 );
               })}

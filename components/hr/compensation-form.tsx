@@ -13,6 +13,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { PAY_TYPES } from "@/lib/modules/hr/hr.schema";
 import { localDay } from "./local-day";
 import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 
 /**
@@ -48,7 +49,7 @@ export function CompensationForm({
         description={t("compensation.newRecordDescription")}
       >
         <Field label={t("compensation.payType")} name="payType" required>
-          <select
+          <FormSelect
             id="payType"
             name="payType"
             className={selectClass}
@@ -59,11 +60,11 @@ export function CompensationForm({
                 {hrLabel(t, "payType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("compensation.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -74,7 +75,7 @@ export function CompensationForm({
                 {code}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field

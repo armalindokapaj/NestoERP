@@ -328,6 +328,8 @@
  */
 [data-sidebar] {
   --nesto-nav-width: 0px;
+  /* The far-left workspace rail, when the person can work in more than one workspace. */
+  --nesto-workspace-rail-w: 0px;
   /* The critical banner's height: 10px padding above and below, a 24px dismiss
      button and a 1px rule. Reserved so a late banner moves nothing (NAV-02 SHELL-03). */
   --nesto-banner-height: 2.8125rem;
@@ -336,6 +338,9 @@
 @media (min-width: 1024px) {
   [data-sidebar] {
     --nesto-nav-width: var(--nesto-sidebar-width-collapsed);
+  }
+  [data-workspace-rail] {
+    --nesto-workspace-rail-w: 3.5rem;
   }
 }
 

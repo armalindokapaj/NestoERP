@@ -15,6 +15,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Account = { id: string; name: string; username: string; email: string | null };
 type Added = { userId: string; username: string; temporaryPassword?: string };
@@ -141,10 +142,10 @@ export function AddGroupUser({ groupId, groupName, ceoName, ceoOnly = false, lab
                 </div>
               )}
               <label className="block space-y-1 text-meta text-fg-subtle">{t("groupUsers.role")}
-                <select className={field} value={roleKey} onChange={(event) => { setRoleKey(event.target.value as GroupRole); setReplace(false); }} disabled={ceoOnly} required>
+                <FormSelect className={field} value={roleKey} onChange={(event) => { setRoleKey(event.target.value as GroupRole); setReplace(false); }} disabled={ceoOnly} required>
                   {allowCeo ? <option value="OWNER">{t("groupUsers.roleOWNER")}</option> : null}
                   <option value="GROUP_IT">{t("groupUsers.roleGROUP_IT")}</option>
-                </select>
+                </FormSelect>
               </label>
               <CompanyAccessPicker groupId={groupId} groupName={groupName} api={api} value={access} onChange={(next) => { setError(null); setAccess(next); }} idPrefix="add" />
               {replacing ? (

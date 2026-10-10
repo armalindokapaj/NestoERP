@@ -35,6 +35,7 @@ import { failureMessage, meetingApi, meetingFailureOutcome, type MeetingApiFailu
 import { durationLabel, meetingClock, meetingDate, PersonAvatar } from "./meeting-ui";
 import { useMeetingsTranslations } from "./meetings-text";
 import { PeoplePicker, type PickedPerson } from "./people-picker";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Create and edit a meeting (PRD #40 §87-§89, §178, §179, §227).
@@ -385,17 +386,17 @@ export function MeetingForm(props: MeetingFormProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="meeting-type">{t("form.type")}</Label>
-              <select id="meeting-type" className={selectClass} value={state.meetingType} onChange={(change) => changeType(change.target.value)}>
+              <FormSelect id="meeting-type" className={selectClass} value={state.meetingType} onChange={(change) => changeType(change.target.value)}>
                 {options.meetingTypes.map((type) => (
                   <option key={type} value={type}>
                     {meetingsLabel(t, "type", type, MEETING_TYPE_LABELS[type])}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-project">{t("form.project")}</Label>
-              <select id="meeting-project" className={selectClass} value={state.projectId} onChange={(change) => changeProject(change.target.value)} aria-invalid={Boolean(errors.projectId)} aria-describedby={describedBy("projectId")}>
+              <FormSelect id="meeting-project" className={selectClass} value={state.projectId} onChange={(change) => changeProject(change.target.value)} aria-invalid={Boolean(errors.projectId)} aria-describedby={describedBy("projectId")}>
                 <option value="">{t("form.noProject")}</option>
                 {options.projects.map((row) => (
                   <option key={row.id} value={row.id}>
@@ -405,7 +406,7 @@ export function MeetingForm(props: MeetingFormProps) {
                 {editing && props.meeting.project && !options.projects.some((row) => row.id === props.meeting.project!.id) ? (
                   <option value={props.meeting.project.id}>{props.meeting.project.name}</option>
                 ) : null}
-              </select>
+              </FormSelect>
               {fieldError("projectId")}
             </div>
           </div>
@@ -488,7 +489,7 @@ export function MeetingForm(props: MeetingFormProps) {
                 <li key={person.memberId} className="flex flex-wrap items-center gap-3 px-3 py-2.5" data-testid="form-participant">
                   <PersonAvatar person={person} />
                   <span className="min-w-0 flex-1 truncate text-table text-fg">{person.fullName}</span>
-                  <select
+                  <FormSelect
                     aria-label={t("form.roleFor", { name: person.fullName })}
                     className="h-8 rounded-md border border-line bg-surface px-2 text-meta text-fg"
                     value={person.role}
@@ -499,7 +500,7 @@ export function MeetingForm(props: MeetingFormProps) {
                         {meetingsLabel(t, "role", role, PARTICIPANT_ROLE_LABELS[role])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                   <label className="flex items-center gap-1.5 text-meta text-fg-muted">
                     <Checkbox
                       checked={!person.required}
@@ -640,13 +641,13 @@ export function MeetingForm(props: MeetingFormProps) {
                   ))}
                 </div>
                 {state.visibility === "DEPARTMENT" && options.departments.length > 1 ? (
-                  <select aria-label={t("form.department")} className={selectClass} value={state.departmentId} onChange={(change) => set("departmentId", change.target.value)}>
+                  <FormSelect aria-label={t("form.department")} className={selectClass} value={state.departmentId} onChange={(change) => set("departmentId", change.target.value)}>
                     {options.departments.map((department) => (
                       <option key={department.id} value={department.id}>
                         {department.name}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 ) : null}
                 {fieldError("departmentId")}
               </fieldset>
@@ -656,23 +657,23 @@ export function MeetingForm(props: MeetingFormProps) {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="meeting-template">{t("form.agendaTemplate")}</Label>
-                      <select id="meeting-template" className={selectClass} value={state.agendaTemplate} onChange={(change) => set("agendaTemplate", change.target.value)}>
+                      <FormSelect id="meeting-template" className={selectClass} value={state.agendaTemplate} onChange={(change) => set("agendaTemplate", change.target.value)}>
                         <option value="">{t("form.emptyAgenda")}</option>
                         {options.templates.map((template) => (
                           <option key={template.key} value={template.key}>
                             {t("form.templateItems", { label: meetingsLabel(t, "template", template.key, template.label), count: template.count })}
                           </option>
                         ))}
-                      </select>
+                      </FormSelect>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="meeting-repeat">{t("form.repeat")}</Label>
-                      <select id="meeting-repeat" className={selectClass} value={state.frequency} onChange={(change) => set("frequency", change.target.value as State["frequency"])}>
+                      <FormSelect id="meeting-repeat" className={selectClass} value={state.frequency} onChange={(change) => set("frequency", change.target.value as State["frequency"])}>
                         <option value="">{t("form.noRepeat")}</option>
                         <option value="DAILY">{t("form.daily")}</option>
                         <option value="WEEKLY">{t("form.weekly")}</option>
                         <option value="MONTHLY">{t("form.monthly")}</option>
-                      </select>
+                      </FormSelect>
                     </div>
                   </div>
                   {state.frequency ? (

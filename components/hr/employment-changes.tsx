@@ -26,6 +26,7 @@ import { hrLabel, useHrServerText, useHrTranslations } from "./hr-text";
 const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as const;
 import type { EmployeeDetailDTO } from "@/lib/modules/hr/hr.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
+import { FormSelect } from "@/components/ui/form-select";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -247,7 +248,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
   const selectOf = (id: string, label: string, key: string, list: Option[], empty?: string) => (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <select id={id} className={selectClass} value={draft[key]} onChange={set(key)}>
+      <FormSelect id={id} className={selectClass} value={draft[key]} onChange={set(key)}>
         {empty !== undefined ? <option value="">{empty}</option> : null}
         {list.map((option) => (
           <option key={option.id} value={option.id}>
@@ -255,7 +256,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
             {option.detail ? ` — ${option.detail}` : ""}
           </option>
         ))}
-      </select>
+      </FormSelect>
       {field(key)}
     </div>
   );
@@ -290,13 +291,13 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           {action === "POSITION" ? (
             <div className="space-y-1.5">
               <Label htmlFor="change-position-reason">{t("changes.kindOfChange")}</Label>
-              <select id="change-position-reason" className={selectClass} value={draft.positionReason} onChange={set("positionReason")}>
+              <FormSelect id="change-position-reason" className={selectClass} value={draft.positionReason} onChange={set("positionReason")}>
                 {POSITION_REASONS.map((reason) => (
                   <option key={reason} value={reason}>
                     {hrLabel(t, "assignmentReason", reason)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
           ) : null}
           {["DEPARTMENT", "LEGAL_ENTITY", "REHIRE"].includes(action) ? selectOf("change-department", t("columns.department"), "departmentId", departments, action === "REHIRE" ? t("changes.asBefore") : t("changes.choose")) : null}
@@ -305,14 +306,14 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="change-location-type">{t("employmentForm.worksAt")}</Label>
-                <select id="change-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")} required={action === "LOCATION"}>
+                <FormSelect id="change-location-type" className={selectClass} value={draft.workLocationType} onChange={set("workLocationType")} required={action === "LOCATION"}>
                   <option value="">{action === "LOCATION" ? t("changes.choose") : t("changes.asBefore")}</option>
                   {WORK_LOCATION_TYPES.map((value) => (
                     <option key={value} value={value}>
                       {hrLabel(t, "workLocationType", value)}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="change-location">{t("changes.place")}</Label>
@@ -323,38 +324,38 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           {["EMPLOYMENT_TYPE", "LEGAL_ENTITY", "REHIRE"].includes(action) ? (
             <div className="space-y-1.5">
               <Label htmlFor="change-type">{t("fields.employmentType")}</Label>
-              <select id="change-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
+              <FormSelect id="change-type" className={selectClass} value={draft.employmentType} onChange={set("employmentType")}>
                 {EMPLOYMENT_TYPES.map((value) => (
                   <option key={value} value={value}>
                     {hrLabel(t, "employmentType", value)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
           ) : null}
           {action === "STATUS" ? (
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="change-status">{t("changes.newStatus")}</Label>
-                <select id="change-status" className={selectClass} value={draft.status} onChange={set("status")}>
+                <FormSelect id="change-status" className={selectClass} value={draft.status} onChange={set("status")}>
                   {reachable.map((next) => (
                     <option key={next} value={next}>
                       {planned ? t("changes.activeStarts") : hrLabel(t, "employmentStatus", next)}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               {!planned ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="change-status-reason">{t("history.reason")}</Label>
-                  <select id="change-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
+                  <FormSelect id="change-status-reason" className={selectClass} value={draft.statusReason} onChange={set("statusReason")}>
                     <option value="">{t("changes.usualReason")}</option>
                     {STATUS_CHANGE_REASONS.map((reason) => (
                       <option key={reason} value={reason}>
                         {hrLabel(t, "statusReason", reason)}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 </div>
               ) : null}
             </>
@@ -377,13 +378,13 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
               ) : null}
               <div className="space-y-1.5">
                 <Label htmlFor="change-end-reason">{t("history.reason")}</Label>
-                <select id="change-end-reason" className={selectClass} value={draft.terminationReason} onChange={set("terminationReason")}>
+                <FormSelect id="change-end-reason" className={selectClass} value={draft.terminationReason} onChange={set("terminationReason")}>
                   {TERMINATION_REASONS.map((reason) => (
                     <option key={reason} value={reason}>
                       {hrLabel(t, "statusReason", reason)}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             </>
           ) : null}
@@ -404,14 +405,14 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
           {options.documents.length > 0 ? (
             <div className="space-y-1.5">
               <Label htmlFor="change-document">{t("changes.supportingDocument")}</Label>
-              <select id="change-document" className={selectClass} value={draft.documentId} onChange={set("documentId")}>
+              <FormSelect id="change-document" className={selectClass} value={draft.documentId} onChange={set("documentId")}>
                 <option value="">{t("changes.none")}</option>
                 {options.documents.map((document) => (
                   <option key={document.id} value={document.id}>
                     {document.name}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
               <p className="text-meta text-fg-subtle">{t("changes.linkedNotCopied")}</p>
             </div>
           ) : (

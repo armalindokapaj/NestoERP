@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { inviteMemberAction } from "@/lib/actions/team";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Invite a member (PRD #14 §61–§72).
@@ -164,7 +165,7 @@ function InviteFields({
           description={t("invite.accessDescription")}
         >
           <Field label={t("invite.role")} name="roleId" required>
-            <select id="roleId" name="roleId" required className={selectClass} defaultValue="">
+            <FormSelect id="roleId" name="roleId" required className={selectClass} defaultValue="">
               <option value="" disabled>
                 {t("invite.chooseRole")}
               </option>
@@ -173,18 +174,18 @@ function InviteFields({
                   {role.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("invite.department")} name="departmentId">
-            <select id="departmentId" name="departmentId" className={selectClass} defaultValue="">
+            <FormSelect id="departmentId" name="departmentId" className={selectClass} defaultValue="">
               <option value="">{t("invite.noDepartment")}</option>
               {departments.map((department) => (
                 <option key={department.value} value={department.value}>
                   {department.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("invite.jobTitle")} name="jobTitle" className="sm:col-span-2">

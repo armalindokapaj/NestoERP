@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { UnsavedValue } from "@/components/unsaved/unsaved-value";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Handing a record to a colleague.
@@ -114,7 +115,7 @@ export function AssignMemberControl({
           <UnsavedValue saveKind="none" workflow={t("assign.workflow")} label={title} dirty={memberId !== (currentMemberId ?? "")} saving={pending} />
           <div className="space-y-1.5">
             <Label htmlFor="assign-member">{t("assign.person")}</Label>
-            <select
+            <FormSelect
               id="assign-member"
               className={selectClass}
               value={memberId}
@@ -127,7 +128,7 @@ export function AssignMemberControl({
                   {member.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
 
           <DialogFooter>

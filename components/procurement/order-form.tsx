@@ -14,6 +14,7 @@ import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import { withSavedOption } from "@/components/finance/saved-option";
 import { LineItemsEditor, type LineValue } from "./line-items";
 import { useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type OrderFormValues = {
   supplierId: string;
@@ -79,7 +80,7 @@ export function OrderForm({
         description={t("orders.formDescription")}
       >
         <Field label={t("common.supplier")} name="supplierId" required>
-          <select
+          <FormSelect
             id="supplierId"
             name="supplierId"
             className={selectClass}
@@ -92,11 +93,11 @@ export function OrderForm({
                 {supplier.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -108,7 +109,7 @@ export function OrderForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("orders.orderDate")} name="orderDate" required>
@@ -133,7 +134,7 @@ export function OrderForm({
 
       <FormSection title={t("common.whereItBelongs")}>
         <Field label={t("common.purchaseRequest")} name="purchaseRequestId">
-          <select
+          <FormSelect
             id="purchaseRequestId"
             name="purchaseRequestId"
             className={selectClass}
@@ -145,11 +146,11 @@ export function OrderForm({
                 {request.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("common.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -161,14 +162,14 @@ export function OrderForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {/* Not rendered for someone who may not see contracts: the key is then
             absent and the server keeps the saved contract (AUD-09 §5, FV-10). */}
         {contractOptions.length > 0 ? (
           <Field label={t("common.contract")} name="contractId" hint={t("orders.contractHint")}>
-            <select
+            <FormSelect
               id="contractId"
               name="contractId"
               className={selectClass}
@@ -180,7 +181,7 @@ export function OrderForm({
                   {contract.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 

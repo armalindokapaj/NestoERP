@@ -31,6 +31,7 @@ import {
 } from "@/lib/modules/project-structure/structure.types";
 import { cn } from "@/lib/utils/cn";
 import { areaRule, decimalPayload, decimalProblem, Field, fieldErrors, FormError, failureMessage, metresRule, numberText, structureApi, Warnings } from "./structure-ui";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Adding and editing a unit (E-05B §17-§26, §40, §55, §74, §95).
@@ -137,7 +138,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={t("unitDialog.type")} htmlFor={`${idPrefix}-type`} error={errors.unitTypeId} required>
-          <select id={`${idPrefix}-type`} className={selectClass} value={values.unitTypeId} onChange={(event) => set({ unitTypeId: event.target.value })} aria-invalid={Boolean(errors.unitTypeId)}>
+          <FormSelect id={`${idPrefix}-type`} className={selectClass} value={values.unitTypeId} onChange={(event) => set({ unitTypeId: event.target.value })} aria-invalid={Boolean(errors.unitTypeId)}>
             <option value="">{t("unitDialog.chooseType")}</option>
             {offered.map((option) => (
               <option key={option.id} value={option.id}>
@@ -145,27 +146,27 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
                 {option.isActive ? "" : " (retired)"}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("unitDialog.position")} htmlFor={`${idPrefix}-position`} error={errors.position}>
-          <select id={`${idPrefix}-position`} className={selectClass} value={values.position} onChange={(event) => set({ position: event.target.value as UnitPosition | "" })}>
+          <FormSelect id={`${idPrefix}-position`} className={selectClass} value={values.position} onChange={(event) => set({ position: event.target.value as UnitPosition | "" })}>
             <option value="">{t("unitDialog.notSet")}</option>
             {UNIT_POSITIONS.map((position) => (
               <option key={position} value={position}>
                 {t(`position.${position}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
         <Field label={t("unitDialog.orientation")} htmlFor={`${idPrefix}-orientation`} error={errors.orientation}>
-          <select id={`${idPrefix}-orientation`} className={selectClass} value={values.orientation} onChange={(event) => set({ orientation: event.target.value as UnitOrientation | "" })}>
+          <FormSelect id={`${idPrefix}-orientation`} className={selectClass} value={values.orientation} onChange={(event) => set({ orientation: event.target.value as UnitOrientation | "" })}>
             <option value="">{t("unitDialog.notSet")}</option>
             {UNIT_ORIENTATIONS.map((orientation) => (
               <option key={orientation} value={orientation}>
                 {t(`orientation.${orientation}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </div>
 

@@ -17,6 +17,7 @@ import { RATE_RULE } from "@/lib/modules/finance/finance.fields";
 import { MAX_LINE_ITEMS } from "@/lib/modules/finance/finance.form-data";
 import { formatQuantity } from "./inventory-format";
 import { useInventoryTranslations } from "./inventory-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The line editor every stock document shares (PRD #20 §313, §315, §317).
@@ -200,7 +201,7 @@ export function StockLinesEditor({
 
               <div className="space-y-1.5">
                 <Label htmlFor={`${base}-item`}>{t("lines.item")}</Label>
-                <select
+                <FormSelect
                   id={`${base}-item`}
                   name={`lines.${index}.inventoryItemId`}
                   className={selectClass}
@@ -216,7 +217,7 @@ export function StockLinesEditor({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
                 <CellError id={`${base}-inventoryItemId-error`} message={rowErrors.inventoryItemId} />
               </div>
 
@@ -370,7 +371,7 @@ function LocationSelect({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <select
+      <FormSelect
         id={id}
         name={name}
         className={selectClass}
@@ -387,7 +388,7 @@ function LocationSelect({
             {option.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
       <CellError id={`${id}-error`} message={error} />
     </div>
   );

@@ -37,6 +37,7 @@ import {
   type ActionResult,
 } from "@/lib/actions/projects";
 import type { ProjectMemberDTO } from "@/lib/modules/projects/project.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type AssignableMember = {
   id: string;
@@ -217,7 +218,7 @@ export function ProjectTeam({
           >
             <div className="space-y-1.5">
               <Label htmlFor="companyMemberId">{t("team.member")}</Label>
-              <select
+              <FormSelect
                 id="companyMemberId"
                 name="companyMemberId"
                 required
@@ -229,7 +230,7 @@ export function ProjectTeam({
                     {member.name} — {member.detail}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
 
             <div className="space-y-1.5">

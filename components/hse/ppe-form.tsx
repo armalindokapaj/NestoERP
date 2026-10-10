@@ -17,6 +17,7 @@ import type { Option } from "./hse-forms";
 import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "./hse-forms";
 import { useHseTranslations } from "@/components/hse/hse-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A PPE check (PRD #22 §159, §160, §161).
@@ -80,7 +81,7 @@ export function PpeForm({
         description={t("forms.ppeIntro")}
       >
         <Field label={t("record.project")} name="projectId">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -92,7 +93,7 @@ export function PpeForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("toolbox.detail.date")} name="checkDate" required>
@@ -115,7 +116,7 @@ export function PpeForm({
         </Field>
 
         <Field label={t("forms.personChecked")} name="subjectMemberId" hint={t("forms.leaveBlankArea")}>
-          <select
+          <FormSelect
             id="subjectMemberId"
             name="subjectMemberId"
             className={selectClass}
@@ -138,7 +139,7 @@ export function PpeForm({
             ) : null}
             {/* Somebody checked who has since left stays the subject of their check (AUD-09 §5, FV-09). */}
             <CurrentOption value={values?.subjectMemberId} options={[...members, ...workers]} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("people.orName")} name="externalSubjectName">
@@ -163,7 +164,7 @@ export function PpeForm({
           {PPE_ITEMS.map((item) => (
             <div key={item.key} className="space-y-1.5">
               <Label htmlFor={item.key}>{t(`ppeItem.${item.key}`)}</Label>
-              <select
+              <FormSelect
                 id={item.key}
                 name={item.key}
                 className={selectClass}
@@ -175,7 +176,7 @@ export function PpeForm({
                 <option value="">{t("forms.notChecked")}</option>
                 <option value="yes">{t("forms.inOrder")}</option>
                 <option value="no">{t("forms.notInOrder")}</option>
-              </select>
+              </FormSelect>
             </div>
           ))}
         </div>

@@ -17,6 +17,7 @@ import { reportQuerySchema } from "@/lib/modules/daily-logs/daily-log.schema";
 import { dateLabel, formatDuration, shortDayLabel } from "@/lib/modules/daily-logs/daily-log.time";
 import { DELAY_CATEGORY_LABELS, DELAY_IMPACT_LABELS } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("dailyLogs"))("meta.reports") };
@@ -58,14 +59,14 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
         <form method="get" className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label={t("reports.filters")}>
           <label className="flex min-w-[14rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">{t("common.project")}</span>
-            <select name="projectId" defaultValue={report.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="projectId" defaultValue={report.projectId ?? ""} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("reports.allProjects")}</option>
               {report.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex w-44 flex-col">
             <span className="text-meta text-fg-muted">{t("common.from")}</span>

@@ -20,6 +20,7 @@ import {
   type UploadItem,
 } from "./upload-queue";
 import { uploadErrorText, useDocumentsTranslations } from "./documents-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The upload surface (PRD #29 §166-§174, §333-§346).
@@ -144,7 +145,7 @@ export function DocumentUploader({
         ) : (
           <>
             <Field label={t("uploader.context")} name="context" required>
-              <select
+              <FormSelect
                 id="context"
                 value={contextKind}
                 onChange={(event) => setContextKind(event.target.value)}
@@ -153,12 +154,12 @@ export function DocumentUploader({
                 {projects.length > 0 ? <option value="project">{t("uploader.project")}</option> : null}
                 {clients.length > 0 ? <option value="client">{t("uploader.client")}</option> : null}
                 {canFileToCompany ? <option value="company">{t("uploader.company")}</option> : null}
-              </select>
+              </FormSelect>
             </Field>
 
             {contextKind === "project" ? (
               <Field label={t("uploader.project")} name="projectId" required>
-                <select
+                <FormSelect
                   id="projectId"
                   value={projectId}
                   onChange={(event) => setProjectId(event.target.value)}
@@ -169,13 +170,13 @@ export function DocumentUploader({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </Field>
             ) : null}
 
             {contextKind === "client" ? (
               <Field label={t("uploader.client")} name="clientId" required>
-                <select
+                <FormSelect
                   id="clientId"
                   value={clientId}
                   onChange={(event) => setClientId(event.target.value)}
@@ -186,7 +187,7 @@ export function DocumentUploader({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </Field>
             ) : null}
 

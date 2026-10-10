@@ -19,6 +19,7 @@ import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type LeadFormValues = {
   name: string;
@@ -168,7 +169,7 @@ export function LeadForm({
         </Field>
 
         <Field label={t("leadForm.source")} name="source" required>
-          <select
+          <FormSelect
             id="source"
             name="source"
             className={selectClass}
@@ -179,12 +180,12 @@ export function LeadForm({
                 {salesLabel(t, "leadSource", source, leadSourceLabels[source])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {owners ? (
           <Field label={t("leadForm.owner")} name="ownerMemberId" hint={t("leadForm.ownerHint")}>
-            <select
+            <FormSelect
               id="ownerMemberId"
               name="ownerMemberId"
               className={selectClass}
@@ -196,7 +197,7 @@ export function LeadForm({
                   {owner.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
       </FormSection>
@@ -240,7 +241,7 @@ export function LeadForm({
         </Field>
 
         <Field label={t("leadForm.currency")} name="currency" hint={t("leadForm.currencyHint")}>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -251,7 +252,7 @@ export function LeadForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("leadForm.notes")} name="notes" className="sm:col-span-2">

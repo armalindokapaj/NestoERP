@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ExperienceProvisioningGroup = {
   id: string;
@@ -113,9 +114,9 @@ export function NewExperienceDialog({ groups, triggerLabel, initialProjectId, de
 
       <div className="mt-5 min-h-72">
         {step === 1 ? <div className="space-y-4">
-          <Field label={t("threeDAdmin.newExperience.group")}><select className={selectClass} value={groupId} onChange={(event) => { setGroupId(event.target.value); setCompanyId(""); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseGroup")}</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-          <Field label={t("threeDAdmin.newExperience.company")}><select className={selectClass} value={companyId} disabled={!group} onChange={(event) => { setCompanyId(event.target.value); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseCompany")}</option>{group?.companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-          <Field label={t("threeDAdmin.newExperience.project")}><select className={selectClass} value={projectId} disabled={!company} onChange={(event) => chooseProject(event.target.value)}><option value="">{t("threeDAdmin.newExperience.chooseProject")}</option>{availableProjects.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></Field>
+          <Field label={t("threeDAdmin.newExperience.group")}><FormSelect className={selectClass} value={groupId} onChange={(event) => { setGroupId(event.target.value); setCompanyId(""); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseGroup")}</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</FormSelect></Field>
+          <Field label={t("threeDAdmin.newExperience.company")}><FormSelect className={selectClass} value={companyId} disabled={!group} onChange={(event) => { setCompanyId(event.target.value); setProjectId(""); }}><option value="">{t("threeDAdmin.newExperience.chooseCompany")}</option>{group?.companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</FormSelect></Field>
+          <Field label={t("threeDAdmin.newExperience.project")}><FormSelect className={selectClass} value={projectId} disabled={!company} onChange={(event) => chooseProject(event.target.value)}><option value="">{t("threeDAdmin.newExperience.chooseProject")}</option>{availableProjects.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</FormSelect></Field>
           {company && availableProjects.length === 0 ? <p className="rounded-lg bg-info-soft p-3 text-table text-info-strong">{t("threeDAdmin.newExperience.allProvisioned")}</p> : null}
         </div> : null}
 

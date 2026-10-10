@@ -17,6 +17,7 @@ import { getAttendanceSheet } from "@/lib/modules/workforce/site-attendance.serv
 import { projectChoices, siteChoices } from "@/lib/modules/workforce/workforce.directory";
 import { sheetScopeSchema } from "@/lib/modules/workforce/workforce.schema";
 import type { AttendanceSheetDTO } from "@/lib/modules/workforce/workforce.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("workforce"))("meta.attendance") };
@@ -69,29 +70,29 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("attendance.crew")}
-            <select name="crewId" defaultValue={crewId ?? ""} className={selectClass}>
+            <FormSelect name="crewId" defaultValue={crewId ?? ""} className={selectClass}>
               <option value="">{t("attendance.anyCrew")}</option>
               {crews.map((crew) => (
                 <option key={crew.id} value={crew.id}>
                   {crew.project ? `${crew.name} · ${crew.project.name}` : crew.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("attendance.project")}
-            <select name="projectId" defaultValue={projectId ?? ""} className={selectClass}>
+            <FormSelect name="projectId" defaultValue={projectId ?? ""} className={selectClass}>
               <option value="">{crewId ? t("attendance.crewsProject") : t("attendance.chooseProject")}</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex flex-col gap-1 text-meta font-medium text-fg-muted">
             {t("attendance.site")}
-            <select name="siteId" defaultValue={siteId ?? ""} className={selectClass}>
+            <FormSelect name="siteId" defaultValue={siteId ?? ""} className={selectClass}>
               <option value="">{t("attendance.wholeProject")}</option>
               {projects
                 .filter((project) => sites.some((site) => site.projectId === project.id))
@@ -106,7 +107,7 @@ export default async function SiteAttendancePage({ searchParams }: { searchParam
                       ))}
                   </optgroup>
                 ))}
-            </select>
+            </FormSelect>
           </label>
           <Button type="submit" data-testid="open-sheet">
             {t("attendance.openSheet")}

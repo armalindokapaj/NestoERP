@@ -1,5 +1,4 @@
-import Link from "@/components/navigation/nav-link";
-import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 import { notFound } from "next/navigation";
 
 import { WarehouseActions } from "@/components/inventory/warehouse-actions";
@@ -31,10 +30,7 @@ const TABS = [
 
 export type WarehouseTabKey = (typeof TABS)[number]["key"];
 
-export async function loadWarehousePage(
-  warehouseId: string,
-  tab: WarehouseTabKey,
-): Promise<{ context: UserContext; warehouse: WarehouseDetailDTO }> {
+export async function loadWarehouse(warehouseId: string): Promise<{ context: UserContext; warehouse: WarehouseDetailDTO }> {
   const context = await requireModule("inventory");
 
   let warehouse: WarehouseDetailDTO;
@@ -44,6 +40,15 @@ export async function loadWarehousePage(
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   }
+
+  return { context, warehouse };
+}
+
+export async function loadWarehousePage(
+  warehouseId: string,
+  tab: WarehouseTabKey,
+): Promise<{ context: UserContext; warehouse: WarehouseDetailDTO }> {
+  const { context, warehouse } = await loadWarehouse(warehouseId);
 
   const allowed: Record<WarehouseTabKey, boolean> = {
     overview: true,
@@ -59,11 +64,9 @@ export async function loadWarehousePage(
 
 export async function WarehousePageShell({
   warehouse,
-  tab,
   children,
 }: {
   warehouse: WarehouseDetailDTO;
-  tab: WarehouseTabKey;
   children: React.ReactNode;
 }) {
   const t = await getTranslations("inventory");
@@ -100,21 +103,15 @@ export async function WarehousePageShell({
         actions={<WarehouseActions warehouse={warehouse} />}
       />
 
-      <ContextTabsFrame label={t("tabs.warehouseSections")}>
-          {TABS.filter((entry) => show[entry.key]).map((entry) => {
-            const isActive = entry.key === tab;
-            return (
-              <Link
-                  key={entry.key}
-                  href={`/inventory/warehouses/${warehouse.id}${entry.suffix}`}
-                  aria-current={isActive ? "page" : undefined}
-                  className={contextTabClass(isActive)}
-                >
-                  {t(entry.label)}
-                </Link>
-            );
-          })}
-        </ContextTabsFrame>
+      <ContextTabs
+        label={t("tabs.warehouseSections")}
+        rootKey="overview"
+        tabs={TABS.filter((entry) => show[entry.key]).map((entry) => ({
+          key: entry.key,
+          label: t(entry.label),
+          href: `/inventory/warehouses/${warehouse.id}${entry.suffix}`,
+        }))}
+      />
 
       {warehouse.archivedAt ? (
         <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">

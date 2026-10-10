@@ -43,7 +43,7 @@ function splitNavigation(navigation: NavigationGroup[]) {
 export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
   const { top, middle, bottom } = splitNavigation(navigation);
   return (
-    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
+    <aside className="nesto-rail fixed inset-y-0 left-[var(--nesto-workspace-rail-w)] z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
         <OrganizationWorkspaceHeader variant="sidebar" />
       </div>

@@ -19,6 +19,7 @@ import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api
 import { durationLabel, PlainText } from "./meeting-ui";
 import { useMeetingsTranslations } from "./meetings-text";
 import { useMeetingDraft } from "./use-meeting-draft";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The agenda (PRD #40 §34-§40, §96, §103, §218-§220, §243).
@@ -164,14 +165,14 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
       </div>
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-presenter`}>{t("agenda.presenter")}</Label>
-        <select id={`${idPrefix}-presenter`} className={selectClass} value={value.presenterMemberId} onChange={(event) => change({ ...value, presenterMemberId: event.target.value })}>
+        <FormSelect id={`${idPrefix}-presenter`} className={selectClass} value={value.presenterMemberId} onChange={(event) => change({ ...value, presenterMemberId: event.target.value })}>
           <option value="">{t("agenda.noPresenter")}</option>
           {presenters.map((person) => (
             <option key={person.memberId} value={person.memberId}>
               {person.fullName}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </div>
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-minutes`}>{t("agenda.minutes")}</Label>
@@ -212,13 +213,13 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
           <p className="mt-1 text-meta text-fg-muted">{t("agenda.emptyHint")}</p>
           {editable ? (
             <div className="mx-auto mt-4 flex max-w-sm flex-col gap-2 sm:flex-row">
-              <select aria-label={t("agenda.template")} className={selectClass} value={template} onChange={(event) => setTemplate(event.target.value)}>
+              <FormSelect aria-label={t("agenda.template")} className={selectClass} value={template} onChange={(event) => setTemplate(event.target.value)}>
                 {AGENDA_TEMPLATES.map((row) => (
                   <option key={row.key} value={row.key}>
                     {meetingsLabel(t, "template", row.key, row.label)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
               <Button type="button" variant="secondary" disabled={pending !== null} onClick={() => void call("template", `/api/meetings/${meeting.id}/agenda/template`, { body: { template } }, t("agenda.templateAdded"))}>
                 {pending === "template" ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
                 {t("agenda.useTemplate")}

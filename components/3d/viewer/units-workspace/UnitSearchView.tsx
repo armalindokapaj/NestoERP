@@ -22,6 +22,7 @@ import {
   type StatusFilter,
   type UnitFilterState,
 } from "./unitFilters";
+import { FormSelect } from "@/components/ui/form-select";
 
 const STATUS_PILL_ORDER: { id: Exclude<StatusFilter, "all">; dotClass?: string }[] = [
   { id: "available" },
@@ -250,7 +251,7 @@ export function UnitSearchView({
       <div className="flex shrink-0 items-center justify-between border-b border-fg/10 px-4 py-2">
         <span className="text-xs text-fg/50">{t("units.resultsCount", { count: filtered.length })}</span>
         <div className="flex items-center gap-2">
-          <select
+          <FormSelect
             value={filters.sort}
             onChange={(e) => update({ sort: e.target.value as SortOption })}
             className="h-7 rounded-control border border-fg/10 bg-fg/5 px-1.5 text-xs text-fg/70"
@@ -260,7 +261,7 @@ export function UnitSearchView({
                 {t(`units.sort.${opt}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
           <button
             type="button"
             onClick={() => onViewModeChange((m) => (m === "list" ? "grid" : "list"))}

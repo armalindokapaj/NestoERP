@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "../pw";
 
 import { expectAccessDenied, mainRegion, sidebar, signIn, workspaceHeader } from "../fixtures";
 

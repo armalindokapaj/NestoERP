@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { BudgetLineItems, type BudgetLineValue } from "./line-items-field";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type BudgetFormValues = {
   projectId: string;
@@ -82,7 +83,7 @@ export function BudgetForm({
               <input type="hidden" name="projectId" value={values!.projectId} />
             </>
           ) : (
-            <select id="projectId" name="projectId" className={selectClass} required defaultValue="">
+            <FormSelect id="projectId" name="projectId" className={selectClass} required defaultValue="">
               <option value="" disabled>
                 {t("form.chooseProject")}
               </option>
@@ -91,7 +92,7 @@ export function BudgetForm({
                   {project.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           )}
         </Field>
 
@@ -111,7 +112,7 @@ export function BudgetForm({
               <input type="hidden" name="currency" value={lockedCurrency} />
             </>
           ) : (
-            <select
+            <FormSelect
               id="currency"
               name="currency"
               className={selectClass}
@@ -123,7 +124,7 @@ export function BudgetForm({
                   {code}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           )}
         </Field>
 

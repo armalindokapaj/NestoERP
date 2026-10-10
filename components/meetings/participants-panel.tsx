@@ -26,6 +26,7 @@ import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api
 import { PersonAvatar } from "./meeting-ui";
 import { useMeetingsTranslations } from "./meetings-text";
 import { PeoplePicker, type PickedPerson } from "./people-picker";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Who is on the meeting (PRD #40 §18-§23, §112-§114, §131-§136).
@@ -142,7 +143,7 @@ export function ParticipantsPanel({
             </span>
 
             {caps.canRecordAttendance ? (
-              <select
+              <FormSelect
                 aria-label={t("participants.attendanceFor", { name: person.fullName })}
                 value={person.attendance}
                 disabled={busy === person.memberId}
@@ -157,7 +158,7 @@ export function ParticipantsPanel({
                     {meetingsLabel(t, "attendance", status, ATTENDANCE_LABELS[status])}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             ) : person.attendance !== "UNKNOWN" && meeting.status !== "SCHEDULED" ? (
               <span className="text-meta text-fg-muted">{meetingsLabel(t, "attendance", person.attendance, ATTENDANCE_LABELS[person.attendance])}</span>
             ) : null}
@@ -296,7 +297,7 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
               <li key={person.memberId} className="flex items-center gap-2.5 px-3 py-2">
                 <PersonAvatar person={person} />
                 <span className="min-w-0 flex-1 truncate text-table text-fg">{person.fullName}</span>
-                <select
+                <FormSelect
                   aria-label={`Role for ${person.fullName}`}
                   className="h-8 rounded-md border border-line bg-surface px-2 text-meta"
                   value={person.role}
@@ -307,7 +308,7 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
                       {meetingsLabel(t, "role", role, PARTICIPANT_ROLE_LABELS[role])}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
                 <button type="button" className="text-meta text-fg-subtle hover:text-fg" onClick={() => setPicked((rows) => rows.filter((row) => row.memberId !== person.memberId))}>
                   {t("common.remove")}
                 </button>
@@ -318,10 +319,10 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
         {meeting.series ? (
           <div className="space-y-1">
             <Label htmlFor="add-people-scope">{t("participants.addTo")}</Label>
-            <select id="add-people-scope" className={selectClass} value={scope} onChange={(change) => setScope(change.target.value as "THIS" | "FUTURE")}>
+            <FormSelect id="add-people-scope" className={selectClass} value={scope} onChange={(change) => setScope(change.target.value as "THIS" | "FUTURE")}>
               <option value="THIS">{t("participants.thisOnly")}</option>
               <option value="FUTURE">{t("participants.everyLater")}</option>
-            </select>
+            </FormSelect>
           </div>
         ) : null}
       </div>

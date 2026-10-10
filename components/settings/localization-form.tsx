@@ -12,6 +12,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { updateCompanySettingsAction } from "@/lib/actions/settings";
 import type { CompanySettingsDTO } from "@/lib/modules/settings/company-settings.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 const TIMEZONES = [
   "UTC", "Europe/Tirane", "Europe/Berlin", "Europe/London", "Europe/Paris",
@@ -88,27 +89,27 @@ export function LocalizationForm({
         description={t("localization.sectionDescription")}
       >
         <Field label={t("localization.locale")} name="locale" hint={t("localization.localeHint")}>
-          <select id="locale" name="locale" defaultValue={settings.locale} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="locale" name="locale" defaultValue={settings.locale} className={selectClass} disabled={!canUpdate}>
             {COMPANY_LOCALES.map((l) => (
               <option key={l.value} value={l.value}>{t(`localization.locales.${l.key}`)}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("localization.timezone")} name="timezone" hint={t("localization.timezoneHint")}>
-          <select id="timezone" name="timezone" defaultValue={settings.timezone} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="timezone" name="timezone" defaultValue={settings.timezone} className={selectClass} disabled={!canUpdate}>
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("localization.dateFormat")} name="dateFormat">
-          <select id="dateFormat" name="dateFormat" defaultValue={settings.dateFormat} className={selectClass} disabled={!canUpdate}>
+          <FormSelect id="dateFormat" name="dateFormat" defaultValue={settings.dateFormat} className={selectClass} disabled={!canUpdate}>
             {["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map((f) => (
               <option key={f} value={f}>{f}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -121,7 +122,7 @@ export function LocalizationForm({
           name="baseCurrency"
           hint={currencyLocked ? t("localization.currencyLocked") : t("localization.currencyHint")}
         >
-          <select
+          <FormSelect
             id="baseCurrency"
             name="baseCurrency"
             defaultValue={settings.baseCurrency}
@@ -131,14 +132,14 @@ export function LocalizationForm({
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
-          </select>
+          </FormSelect>
           {currencyLocked ? (
             <input type="hidden" name="baseCurrency" value={settings.baseCurrency} />
           ) : null}
         </Field>
 
         <Field label={t("localization.fiscalYearStart")} name="fiscalYearStartMonth">
-          <select
+          <FormSelect
             id="fiscalYearStartMonth"
             name="fiscalYearStartMonth"
             defaultValue={String(settings.fiscalYearStartMonth)}
@@ -148,7 +149,7 @@ export function LocalizationForm({
             {MONTHS.map((m, i) => (
               <option key={m} value={String(i + 1)}>{t(`localization.months.${m}`)}</option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("localization.paymentTerms")} name="defaultPaymentTermsDays">

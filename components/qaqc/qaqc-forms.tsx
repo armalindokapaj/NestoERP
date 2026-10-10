@@ -21,6 +21,7 @@ import { qaqcLabel } from "./qaqc-labels";
 import { useQaqcTranslations } from "./qaqc-text";
 import { localDay } from "@/components/hr/local-day";
 import { CurrentOption } from "@/components/hse/hse-forms";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The QA/QC record forms (PRD #21 §43, §66, §116, §128, §144).
@@ -97,7 +98,7 @@ export function RequestForm({
         </Field>
 
         <Field label={t("detail.type")} name="inspectionType" required>
-          <select
+          <FormSelect
             id="inspectionType"
             name="inspectionType"
             className={selectClass}
@@ -109,11 +110,11 @@ export function RequestForm({
                 {qaqcLabel(t, "inspectionType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.priority")} name="priority" required>
-          <select
+          <FormSelect
             id="priority"
             name="priority"
             className={selectClass}
@@ -124,7 +125,7 @@ export function RequestForm({
                 {qaqcLabel(t, "priority", priority)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -133,7 +134,7 @@ export function RequestForm({
           required={inspectionType === "WORK"}
           hint={inspectionType === "WORK" ? t("form.request.workHint") : undefined}
         >
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -146,7 +147,7 @@ export function RequestForm({
               </option>
             ))}
             <CurrentOption value={values?.projectId} options={projects} />
-          </select>
+          </FormSelect>
         </Field>
 
         {inspectionType === "MATERIAL" ? (
@@ -160,7 +161,7 @@ export function RequestForm({
                 : t("form.request.deliveryHint")
             }
           >
-            <select
+            <FormSelect
               id="goodsReceiptId"
               name="goodsReceiptId"
               className={selectClass}
@@ -172,7 +173,7 @@ export function RequestForm({
                   {receipt.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : (
           <Field label={t("detail.where")} name="locationText">
@@ -207,7 +208,7 @@ export function RequestForm({
 
         {canAssign ? (
           <Field label={t("detail.inspector")} name="assignedInspectorMemberId" className="sm:col-span-2">
-            <select
+            <FormSelect
               id="assignedInspectorMemberId"
               name="assignedInspectorMemberId"
               className={selectClass}
@@ -220,7 +221,7 @@ export function RequestForm({
                 </option>
               ))}
               <CurrentOption value={values?.assignedInspectorMemberId} options={members} />
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
@@ -300,7 +301,7 @@ export function InspectionForm({
         description={t("form.inspection.sectionBody")}
       >
         <Field label={t("detail.type")} name="inspectionType" required>
-          <select
+          <FormSelect
             id="inspectionType"
             name="inspectionType"
             className={selectClass}
@@ -312,7 +313,7 @@ export function InspectionForm({
                 {qaqcLabel(t, "inspectionType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -324,7 +325,7 @@ export function InspectionForm({
               : t("form.inspection.templateHint")
           }
         >
-          <select
+          <FormSelect
             id="templateId"
             name="templateId"
             className={selectClass}
@@ -336,11 +337,11 @@ export function InspectionForm({
                 {template.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.inspector")} name="assignedInspectorMemberId" required>
-          <select
+          <FormSelect
             id="assignedInspectorMemberId"
             name="assignedInspectorMemberId"
             className={selectClass}
@@ -354,7 +355,7 @@ export function InspectionForm({
               </option>
             ))}
             <CurrentOption value={values?.assignedInspectorMemberId} options={members} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("form.inspection.inspectionDate")} name="inspectionDate">
@@ -367,7 +368,7 @@ export function InspectionForm({
         </Field>
 
         <Field label={t("detail.project")} name="projectId" required={inspectionType === "WORK"}>
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -380,12 +381,12 @@ export function InspectionForm({
               </option>
             ))}
             <CurrentOption value={values?.projectId} options={projects} />
-          </select>
+          </FormSelect>
         </Field>
 
         {inspectionType === "MATERIAL" ? (
           <Field label={t("detail.delivery")} name="goodsReceiptId" required>
-            <select
+            <FormSelect
               id="goodsReceiptId"
               name="goodsReceiptId"
               className={selectClass}
@@ -397,7 +398,7 @@ export function InspectionForm({
                   {receipt.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : (
           <Field label={t("detail.where")} name="locationText">
@@ -417,7 +418,7 @@ export function InspectionForm({
             className="sm:col-span-2"
             hint={t("form.inspection.againstRequestHint")}
           >
-            <select
+            <FormSelect
               id="requestId"
               name="requestId"
               className={selectClass}
@@ -429,7 +430,7 @@ export function InspectionForm({
                   {request.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
       </FormSection>
@@ -532,7 +533,7 @@ export function DefectForm({
         </Field>
 
         <Field label={t("detail.project")} name="projectId" required>
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -546,11 +547,11 @@ export function DefectForm({
               </option>
             ))}
             <CurrentOption value={values?.projectId} options={projects} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("table.severity")} name="severity" required>
-          <select
+          <FormSelect
             id="severity"
             name="severity"
             className={selectClass}
@@ -561,7 +562,7 @@ export function DefectForm({
                 {qaqcLabel(t, "severity", severity)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.where")} name="locationText">
@@ -579,7 +580,7 @@ export function DefectForm({
         </Field>
 
         <Field label={t("detail.assignedTo")} name="assignedToMemberId" className="sm:col-span-2">
-          <select
+          <FormSelect
             id="assignedToMemberId"
             name="assignedToMemberId"
             className={selectClass}
@@ -592,7 +593,7 @@ export function DefectForm({
               </option>
             ))}
             <CurrentOption value={values?.assignedToMemberId} options={members} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.detail")} name="description" required className="sm:col-span-2">
@@ -673,7 +674,7 @@ export function NcrForm({
         </Field>
 
         <Field label={t("detail.category")} name="category" required>
-          <select
+          <FormSelect
             id="category"
             name="category"
             className={selectClass}
@@ -684,11 +685,11 @@ export function NcrForm({
                 {qaqcLabel(t, "ncrCategory", category)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("table.severity")} name="severity" required>
-          <select
+          <FormSelect
             id="severity"
             name="severity"
             className={selectClass}
@@ -699,7 +700,7 @@ export function NcrForm({
                 {qaqcLabel(t, "severity", severity)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -707,7 +708,7 @@ export function NcrForm({
           name="projectId"
           hint={t("form.ncr.projectHint")}
         >
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -720,7 +721,7 @@ export function NcrForm({
               </option>
             ))}
             <CurrentOption value={values?.projectId} options={projects} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.due")} name="dueDate">
@@ -729,7 +730,7 @@ export function NcrForm({
 
         {receipts.length > 0 ? (
           <Field label={t("detail.delivery")} name="goodsReceiptId" className="sm:col-span-2">
-            <select
+            <FormSelect
               id="goodsReceiptId"
               name="goodsReceiptId"
               className={selectClass}
@@ -741,7 +742,7 @@ export function NcrForm({
                   {receipt.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
@@ -759,7 +760,7 @@ export function NcrForm({
 
       <FormSection title={t("form.ncr.owner")}>
         <Field label={t("detail.assignedTo")} name="assignedToMemberId">
-          <select
+          <FormSelect
             id="assignedToMemberId"
             name="assignedToMemberId"
             className={selectClass}
@@ -772,11 +773,11 @@ export function NcrForm({
               </option>
             ))}
             <CurrentOption value={values?.assignedToMemberId} options={members} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.qualityOwner")} name="ownerMemberId">
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -789,7 +790,7 @@ export function NcrForm({
               </option>
             ))}
             <CurrentOption value={values?.ownerMemberId} options={members} />
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -900,7 +901,7 @@ export function CorrectiveActionForm({
         </Field>
 
         <Field label={t("detail.assignedTo")} name="assignedToMemberId" required>
-          <select
+          <FormSelect
             id="assignedToMemberId"
             name="assignedToMemberId"
             className={selectClass}
@@ -914,7 +915,7 @@ export function CorrectiveActionForm({
               </option>
             ))}
             <CurrentOption value={values?.assignedToMemberId} options={members} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.due")} name="dueDate">
@@ -922,7 +923,7 @@ export function CorrectiveActionForm({
         </Field>
 
         <Field label={t("detail.project")} name="projectId" className="sm:col-span-2">
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -935,7 +936,7 @@ export function CorrectiveActionForm({
               </option>
             ))}
             <CurrentOption value={values?.projectId} options={projects} />
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("detail.detail")} name="description" required className="sm:col-span-2">

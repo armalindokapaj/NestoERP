@@ -14,6 +14,7 @@ import { WorkflowForm } from "@/components/sales/workflow-form";
 import { Input } from "@/components/ui/input";
 import { currencyOptions } from "@/lib/modules/finance/finance.currency";
 import type { LeadDuplicateMatch } from "@/lib/modules/sales/sales.types";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Lead → Opportunity (PRD #17 §52, §159).
@@ -93,7 +94,7 @@ export function ConvertLeadForm({
         </Field>
 
         <Field label={t("forms.owner")} name="ownerMemberId" required>
-          <select
+          <FormSelect
             id="ownerMemberId"
             name="ownerMemberId"
             className={selectClass}
@@ -106,7 +107,7 @@ export function ConvertLeadForm({
                 {owner.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("forms.expectedClose")} name="expectedCloseDate">
@@ -124,7 +125,7 @@ export function ConvertLeadForm({
         </Field>
 
         <Field label={t("forms.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -135,7 +136,7 @@ export function ConvertLeadForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -144,7 +145,7 @@ export function ConvertLeadForm({
         description={t("forms.clientOptionalDescription")}
       >
         <Field label={t("forms.clientTitle")} name="clientMode" className="sm:col-span-2">
-          <select
+          <FormSelect
             id="clientMode"
             name="clientMode"
             className={selectClass}
@@ -154,19 +155,19 @@ export function ConvertLeadForm({
             <option value="NONE">{t("forms.noClientYet")}</option>
             {canLinkClient ? <option value="EXISTING">{t("forms.linkExistingClient")}</option> : null}
             {canCreateClient ? <option value="NEW">{t("forms.createNewClient")}</option> : null}
-          </select>
+          </FormSelect>
         </Field>
 
         {clientMode === "EXISTING" ? (
           <Field label={t("forms.existingClient")} name="clientId" required className="sm:col-span-2">
-            <select id="clientId" name="clientId" className={selectClass} defaultValue="">
+            <FormSelect id="clientId" name="clientId" className={selectClass} defaultValue="">
               <option value="">{t("forms.chooseClient")}</option>
               {clients.map((client) => (
                 <option key={client.value} value={client.value}>
                   {client.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 

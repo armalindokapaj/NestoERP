@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import type { CompanyUserDetail, CompanyUserRemovalPreview } from "@/lib/modules/platform/company-users.service";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type CompanyUsersApi = { command: string };
 export type CompanyUserOptions = { roles: { key: string; name: string }[]; departments: { id: string; name: string }[]; projects: { id: string; name: string }[] };
@@ -351,17 +352,17 @@ function EditAccessDialog({ open, onClose, detail, options, api, companyId, comp
           <DialogDescription>{detail.source === "BOTH" ? t("companyUsers.editGroupNote") : companyName}</DialogDescription>
           <form onSubmit={save} className="mt-4 space-y-4">
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.companyRole")}
-              <select className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} disabled={detail.isCeo} required>
+              <FormSelect className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} disabled={detail.isCeo} required>
                 {detail.isCeo ? <option value="">{t("companyUsers.ceoBadge")}</option> : null}
                 {options.roles.map((row) => <option key={row.key} value={row.key}>{adminRoleName(tr, row.name)}</option>)}
-              </select>
+              </FormSelect>
               {detail.isCeo ? <span className="block text-meta text-fg-muted">{t("companyUsers.ceoNote")}</span> : null}
             </label>
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.fieldDepartment")}
-              <select className={field} value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
+              <FormSelect className={field} value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
                 <option value="">{t("companyUsers.noDepartment")}</option>
                 {options.departments.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-              </select>
+              </FormSelect>
             </label>
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.fieldPosition")}
               <input className={field} value={form.jobTitle} maxLength={120} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} />

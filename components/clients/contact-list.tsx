@@ -30,6 +30,7 @@ import {
 } from "@/lib/actions/clients";
 import type { ContactDTO } from "@/lib/modules/clients/client.types";
 import { useClientsServerText, useClientsTranslations } from "./clients-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Client contacts (PRD #12 §76–§89).
@@ -397,7 +398,7 @@ function ContactForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="contact-status">{t("contacts.status")}</Label>
-            <select
+            <FormSelect
               id="contact-status"
               name="status"
               defaultValue={contact?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE"}
@@ -405,7 +406,7 @@ function ContactForm({
             >
               <option value="ACTIVE">{t("contacts.active")}</option>
               <option value="INACTIVE">{t("contacts.inactive")}</option>
-            </select>
+            </FormSelect>
           </div>
 
           <label className="flex items-center gap-2 self-end pb-2.5 text-table text-fg">

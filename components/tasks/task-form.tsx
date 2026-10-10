@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { taskAssigneeOptionsAction } from "@/lib/actions/tasks";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Create / edit task form (PRD #11 §42, §43, §61).
@@ -120,7 +121,7 @@ export function TaskForm({
         {parent && "options" in parent ? (
           <div className="sm:col-span-2">
             <Field label={parent.label} name="parent" required>
-              <select id="parent" name="parent" defaultValue="" required className={selectClass}>
+              <FormSelect id="parent" name="parent" defaultValue="" required className={selectClass}>
                 <option value="" disabled>
                   {t("form.chooseRecord")}
                 </option>
@@ -129,7 +130,7 @@ export function TaskForm({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           </div>
         ) : null}
@@ -152,18 +153,18 @@ export function TaskForm({
         </div>
 
         <Field label={t("fields.status")} name="status" required>
-          <select id="status" name="status" defaultValue={initial.status} className={selectClass}>
+          <FormSelect id="status" name="status" defaultValue={initial.status} className={selectClass}>
             {/* Blocked is set by Mark blocked, which asks why (PRD #38 §44). */}
             {statuses.filter((option) => option.value !== "BLOCKED" || initial.status === "BLOCKED").map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("fields.priority")} name="priority" required>
-          <select
+          <FormSelect
             id="priority"
             name="priority"
             defaultValue={initial.priority}
@@ -174,7 +175,7 @@ export function TaskForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
       </FormSection>
 
@@ -323,7 +324,7 @@ function AssignmentFields({
   return (
     <FormSection title={t("form.assignment")}>
       <Field label={t("fields.project")} name="projectId" hint={t("form.projectHint")}>
-        <select id="projectId" name="projectId" value={projectId} onChange={onProjectChange} className={selectClass}>
+        <FormSelect id="projectId" name="projectId" value={projectId} onChange={onProjectChange} className={selectClass}>
           <option value="">{t("common.noProject")}</option>
           {legacyProject && !projects.some((option) => option.value === legacyProject.value) ? (
             <option value={legacyProject.value} disabled={projectId !== legacyProject.value}>
@@ -335,7 +336,7 @@ function AssignmentFields({
               {option.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
 
       <Field
@@ -349,7 +350,7 @@ function AssignmentFields({
       >
         {/* Disabled controls are not submitted: the shown value still is. */}
         {unresolved ? <input type="hidden" name="assigneeMemberId" value={assigneeId} /> : null}
-        <select
+        <FormSelect
           id="assigneeMemberId"
           name={unresolved ? undefined : "assigneeMemberId"}
           value={assigneeId}
@@ -375,7 +376,7 @@ function AssignmentFields({
               {option.label}
             </option>
           ))}
-        </select>
+        </FormSelect>
         <div id="assigneeMemberId-state" className="text-meta" aria-live="polite">
           {picker.state === "loading" ? <p className="text-fg-subtle">{t("form.loadingPeople")}</p> : null}
           {picker.state === "ready" && options.length === 0 ? (

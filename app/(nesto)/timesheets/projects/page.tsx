@@ -20,6 +20,7 @@ import { parseProjectSummaryQuery } from "@/lib/modules/timesheets/timesheet.sch
 import { dayLabel, formatMinutes, weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 import { TIMESHEET_STATUS_LABELS, WORK_LOG_TYPE_LABELS } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("timesheets"))("meta.projectTime") };
@@ -69,7 +70,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
         <form method="get" className="nesto-card flex flex-wrap items-end gap-3 px-4 py-3" aria-label={t("projects.filters")}>
           <label className="flex min-w-[14rem] flex-[2] flex-col">
             <span className="text-meta text-fg-muted">{t("common.project")}</span>
-            <select name="projectId" defaultValue={summary.project?.id ?? ""} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="projectId" defaultValue={summary.project?.id ?? ""} className={cn(selectClass, "mt-1 h-9")}>
               <option value="">{t("projects.allProjects")}</option>
               {summary.projects.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -77,7 +78,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
           <label className="flex min-w-[9rem] flex-1 flex-col">
             <span className="text-meta text-fg-muted">{t("common.from")}</span>
@@ -90,43 +91,43 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
           {summary.members.length ? (
             <label className="flex min-w-[10rem] flex-1 flex-col">
               <span className="text-meta text-fg-muted">{t("common.person")}</span>
-              <select name="memberId" defaultValue={typeof params.memberId === "string" ? params.memberId : ""} className={cn(selectClass, "mt-1 h-9")}>
+              <FormSelect name="memberId" defaultValue={typeof params.memberId === "string" ? params.memberId : ""} className={cn(selectClass, "mt-1 h-9")}>
                 <option value="">{t("projects.everyone")}</option>
                 {summary.members.map((member) => (
                   <option key={member.memberId} value={member.memberId}>
                     {member.name}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
           ) : null}
           {summary.tasks.length ? (
             <label className="flex min-w-[10rem] flex-1 flex-col">
               <span className="text-meta text-fg-muted">{t("common.task")}</span>
-              <select name="taskId" defaultValue={typeof params.taskId === "string" ? params.taskId : ""} className={cn(selectClass, "mt-1 h-9")}>
+              <FormSelect name="taskId" defaultValue={typeof params.taskId === "string" ? params.taskId : ""} className={cn(selectClass, "mt-1 h-9")}>
                 <option value="">{t("projects.allTasks")}</option>
                 {summary.tasks.map((task) => (
                   <option key={task.id} value={task.id}>
                     {task.title}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
           ) : null}
           <label className="flex w-40 flex-none flex-col">
             <span className="text-meta text-fg-muted">{t("common.billable")}</span>
-            <select name="billable" defaultValue={summary.billable} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="billable" defaultValue={summary.billable} className={cn(selectClass, "mt-1 h-9")}>
               <option value="all">{t("projects.allTime")}</option>
               <option value="billable">{t("common.billable")}</option>
               <option value="non_billable">{t("common.nonBillable")}</option>
-            </select>
+            </FormSelect>
           </label>
           <label className="flex w-40 flex-none flex-col">
             <span className="text-meta text-fg-muted">{t("projects.weeks")}</span>
-            <select name="include" defaultValue={summary.approvedOnly ? "approved" : "all"} className={cn(selectClass, "mt-1 h-9")}>
+            <FormSelect name="include" defaultValue={summary.approvedOnly ? "approved" : "all"} className={cn(selectClass, "mt-1 h-9")}>
               <option value="approved">{t("projects.approvedOnly")}</option>
               <option value="all">{t("projects.allLogged")}</option>
-            </select>
+            </FormSelect>
           </label>
           <div className="flex gap-2">
             <Button type="submit" size="sm">

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { db, removeTestFinanceRecords } from "../db";
 import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures";

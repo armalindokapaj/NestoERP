@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { localToday } from "./local-date";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { PricedLineItems, type PricedLineValue } from "./line-items-field";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type InvoiceFormValues = {
   invoiceNumber: string;
@@ -165,7 +166,7 @@ export function InvoiceForm({
         )}
 
         <Field label={t("invoiceForm.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -177,11 +178,11 @@ export function InvoiceForm({
                 {code}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("invoiceForm.project")} name="projectId" hint={t("invoiceForm.projectHint")}>
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -195,11 +196,11 @@ export function InvoiceForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("invoiceForm.client")} name="clientId" required>
-          <select
+          <FormSelect
             id="clientId"
             name="clientId"
             className={selectClass}
@@ -216,7 +217,7 @@ export function InvoiceForm({
                 {client.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {linkNote ? (

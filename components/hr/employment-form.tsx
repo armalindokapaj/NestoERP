@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EMPLOYMENT_TYPES, WORKER_CATEGORIES } from "@/lib/modules/hr/hr.schema";
 import { hrLabel, useHrFormAction, useHrTranslations } from "./hr-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as const;
 
@@ -108,7 +109,7 @@ export function EmploymentForm({
         <FormSection title={t("employmentForm.who")} description={t("employmentForm.whoDescription")}>
           <input type="hidden" name="subject" value={subject} />
           <Field label={t("employmentForm.employeeIs")} name="subject" className="sm:col-span-2">
-            <select
+            <FormSelect
               id="subject"
               className={selectClass}
               value={subject}
@@ -120,12 +121,12 @@ export function EmploymentForm({
               <option value="NEW">{t("employmentForm.subjectNew")}</option>
               {members && members.length > 0 ? <option value="MEMBER">{t("employmentForm.subjectMember")}</option> : null}
               {people && people.length > 0 ? <option value="PERSON">{t("employmentForm.subjectPerson")}</option> : null}
-            </select>
+            </FormSelect>
           </Field>
 
           {subject === "MEMBER" ? (
             <Field label={t("employmentForm.teamMember")} name="companyMemberId" required hint={t("employmentForm.teamMemberHint")} className="sm:col-span-2">
-              <select
+              <FormSelect
                 id="companyMemberId"
                 name="companyMemberId"
                 className={selectClass}
@@ -141,13 +142,13 @@ export function EmploymentForm({
                     {member.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           ) : null}
 
           {subject === "PERSON" ? (
             <Field label={t("recruitment.person")} name="personProfileId" required hint={t("employmentForm.personHint")} className="sm:col-span-2">
-              <select
+              <FormSelect
                 id="personProfileId"
                 name="personProfileId"
                 className={selectClass}
@@ -163,7 +164,7 @@ export function EmploymentForm({
                     {person.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
           ) : null}
 
@@ -220,13 +221,13 @@ export function EmploymentForm({
       <FormSection title={t("tabs.employment")} description={t("employmentForm.employmentDescription")}>
         {creating ? (
           <Field label={t("fields.employmentType")} name="employmentType" required>
-            <select id="employmentType" name="employmentType" className={selectClass} defaultValue="FULL_TIME">
+            <FormSelect id="employmentType" name="employmentType" className={selectClass} defaultValue="FULL_TIME">
               {EMPLOYMENT_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {hrLabel(t, "employmentType", type)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : null}
 
@@ -235,38 +236,38 @@ export function EmploymentForm({
         </Field>
 
         <Field label={t("fields.workerCategory")} name="workerCategory" hint={t("employmentForm.workerCategoryHint")}>
-          <select id="workerCategory" name="workerCategory" className={selectClass} defaultValue={values?.workerCategory ?? ""}>
+          <FormSelect id="workerCategory" name="workerCategory" className={selectClass} defaultValue={values?.workerCategory ?? ""}>
             <option value="">{t("employmentForm.notSet")}</option>
             {WORKER_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {hrLabel(t, "workerCategory", category)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("columns.trade")} name="tradeId" hint={trades.length === 0 ? t("employmentForm.noTrades") : undefined}>
-          <select id="tradeId" name="tradeId" className={selectClass} defaultValue={values?.tradeId ?? ""}>
+          <FormSelect id="tradeId" name="tradeId" className={selectClass} defaultValue={values?.tradeId ?? ""}>
             <option value="">{t("employmentForm.notSet")}</option>
             {trades.map((trade) => (
               <option key={trade.value} value={trade.value}>
                 {trade.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         {creating && subject !== "MEMBER" ? (
           <>
             <Field label={t("columns.department")} name="departmentId">
-              <select id="departmentId" name="departmentId" className={selectClass} defaultValue="">
+              <FormSelect id="departmentId" name="departmentId" className={selectClass} defaultValue="">
                 <option value="">{t("employmentForm.notSet")}</option>
                 {(departments ?? []).map((department) => (
                   <option key={department.value} value={department.value}>
                     {department.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
             <Field label={t("fields.jobTitle")} name="jobTitle">
               <Input id="jobTitle" name="jobTitle" maxLength={160} placeholder={t("employmentForm.jobTitlePlaceholder")} />
@@ -276,14 +277,14 @@ export function EmploymentForm({
 
         {creating ? (
           <Field label={t("columns.manager")} name="managerMemberId" hint={t("employmentForm.managerHint")}>
-            <select id="managerMemberId" name="managerMemberId" className={selectClass} defaultValue="">
+            <FormSelect id="managerMemberId" name="managerMemberId" className={selectClass} defaultValue="">
               <option value="">{t("employmentForm.noManager")}</option>
               {managerChoices.map((manager) => (
                 <option key={manager.value} value={manager.value}>
                   {manager.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         ) : (
           <p className="text-meta text-fg-subtle sm:col-span-2">
@@ -312,14 +313,14 @@ export function EmploymentForm({
         {creating ? (
           <>
             <Field label={t("employmentForm.worksAt")} name="workLocationType">
-              <select id="workLocationType" name="workLocationType" className={selectClass} defaultValue="">
+              <FormSelect id="workLocationType" name="workLocationType" className={selectClass} defaultValue="">
                 <option value="">{t("employmentForm.notSet")}</option>
                 {WORK_LOCATION_TYPES.map((value) => (
                   <option key={value} value={value}>
                     {hrLabel(t, "workLocationType", value)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </Field>
             <Field label={t("fields.workLocation")} name="workLocation">
               <Input id="workLocation" name="workLocation" maxLength={160} defaultValue="" placeholder={t("employmentForm.workLocationPlaceholder")} />

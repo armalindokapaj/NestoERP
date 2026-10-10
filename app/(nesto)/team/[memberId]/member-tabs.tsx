@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
 import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
 
@@ -22,14 +23,15 @@ export type MemberTabKey = (typeof TABS)[number]["key"];
 
 export function MemberTabs({
   memberId,
-  active,
   show,
 }: {
   memberId: string;
-  active: MemberTabKey;
   show: Partial<Record<MemberTabKey, boolean>>;
 }) {
   const t = useTeamTranslations();
+  const pathname = usePathname();
+  // The tab follows the URL, so the header and tabs can live in the layout and stay put.
+  const active: MemberTabKey = pathname.endsWith("/projects") ? "projects" : pathname.endsWith("/activity") ? "activity" : "overview";
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (

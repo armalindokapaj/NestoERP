@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { expenseCategoryLabels } from "@/lib/modules/finance/expenses/expense.status";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type CommitmentFormValues = {
   projectId: string | null;
@@ -94,7 +95,7 @@ export function CommitmentForm({
         </Field>
 
         <Field label={t("form.category")} name="category" required>
-          <select
+          <FormSelect
             id="category"
             name="category"
             className={selectClass}
@@ -105,7 +106,7 @@ export function CommitmentForm({
                 {t(`category.${value as keyof typeof expenseCategoryLabels}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field
@@ -118,7 +119,7 @@ export function CommitmentForm({
               : t("form.projectRequired")
           }
         >
-          <select
+          <FormSelect
             id="projectId"
             name="projectId"
             className={selectClass}
@@ -136,11 +137,11 @@ export function CommitmentForm({
                 {project.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("form.currency")} name="currency" required>
-          <select
+          <FormSelect
             id="currency"
             name="currency"
             className={selectClass}
@@ -151,7 +152,7 @@ export function CommitmentForm({
                 {code}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("form.amount")} name="amount" required>

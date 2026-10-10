@@ -18,6 +18,7 @@ import type { ApprovalDelegationDTO, ApprovalProviderSummary } from "@/lib/modul
 import { approvalsApi, approvalsFailureOutcome, failureMessage } from "./approvals-api";
 import { formatDay } from "./approval-ui";
 import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Delegation (PRD #41 §32-§35, §170-§173): who is standing in for you, and for
@@ -186,14 +187,14 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="delegation-scope">{t("delegation.approvals")}</Label>
-                    <select id="delegation-scope" className={selectClass} value={form.providerKey} onChange={(event) => setForm({ ...form, providerKey: event.target.value, toMemberId: "" })}>
+                    <FormSelect id="delegation-scope" className={selectClass} value={form.providerKey} onChange={(event) => setForm({ ...form, providerKey: event.target.value, toMemberId: "" })}>
                       <option value="">{t("delegation.allApprovals")}</option>
                       {providers.map((provider) => (
                         <option key={provider.key} value={provider.key}>
                           {word(provider.label)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="delegation-search">{t("delegation.delegate")}</Label>

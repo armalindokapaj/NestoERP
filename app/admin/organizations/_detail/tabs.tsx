@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
 import { formatDate, formatRelativeTime } from "@/lib/utils/format";
 import { statusLabel, statusWord } from "./labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /*
  * The tabs shared by group and company pages (Organizations PRD §24-§41;
@@ -213,10 +214,10 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
       <form method="get" action={`/admin/organizations/${org.id}`} className="flex flex-wrap items-end gap-2 border-b border-line px-5 py-3" aria-label={t("tabs.users.filterLabel")}>
         <input type="hidden" name="tab" value="users" />
         <input name="q" defaultValue={filter.q} placeholder={t("tabs.users.searchPlaceholder")} aria-label={t("tabs.users.searchAria")} className={cn(fieldClass, "min-w-48 flex-1")} />
-        <select name="role" defaultValue={filter.role} aria-label={t("common.role")} className={fieldClass}><option value="">{t("tabs.users.anyRole")}</option>{roles.map((row) => <option key={row.key} value={row.key}>{adminRoleName(tr, row.name)}</option>)}</select>
-        <select name="project" defaultValue={filter.project} aria-label={t("common.project")} className={fieldClass}><option value="">{t("tabs.users.anyProject")}</option>{projects.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</select>
-        <select name="status" defaultValue={filter.status} aria-label={t("common.status")} className={fieldClass}><option value="">{t("tabs.users.anyStatus")}</option><option value="ACTIVE">{t("statusLabel.ACTIVE")}</option><option value="INACTIVE">{t("statusLabel.REMOVED")}</option><option value="SUSPENDED">{t("statusLabel.SUSPENDED")}</option><option value="INVITED">{t("statusLabel.INVITED")}</option></select>
-        {scope.kind === "group" ? <select name="company" defaultValue={filter.company} aria-label={t("common.company")} className={fieldClass}><option value="">{t("tabs.users.anyCompany")}</option>{companies.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</select> : null}
+        <FormSelect name="role" defaultValue={filter.role} aria-label={t("common.role")} className={fieldClass}><option value="">{t("tabs.users.anyRole")}</option>{roles.map((row) => <option key={row.key} value={row.key}>{adminRoleName(tr, row.name)}</option>)}</FormSelect>
+        <FormSelect name="project" defaultValue={filter.project} aria-label={t("common.project")} className={fieldClass}><option value="">{t("tabs.users.anyProject")}</option>{projects.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</FormSelect>
+        <FormSelect name="status" defaultValue={filter.status} aria-label={t("common.status")} className={fieldClass}><option value="">{t("tabs.users.anyStatus")}</option><option value="ACTIVE">{t("statusLabel.ACTIVE")}</option><option value="INACTIVE">{t("statusLabel.REMOVED")}</option><option value="SUSPENDED">{t("statusLabel.SUSPENDED")}</option><option value="INVITED">{t("statusLabel.INVITED")}</option></FormSelect>
+        {scope.kind === "group" ? <FormSelect name="company" defaultValue={filter.company} aria-label={t("common.company")} className={fieldClass}><option value="">{t("tabs.users.anyCompany")}</option>{companies.map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</FormSelect> : null}
         <button type="submit" className="h-9 rounded-lg border border-line px-3 text-table font-medium text-fg hover:bg-hover">{t("tabs.users.apply")}</button>
         {filtered ? <Link href={tabHref(org, "users")} className="h-9 px-2 text-table leading-9 text-fg-muted hover:text-fg">{t("tabs.users.clear")}</Link> : null}
       </form>

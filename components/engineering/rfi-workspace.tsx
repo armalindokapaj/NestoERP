@@ -21,6 +21,7 @@ import { useEngineeringTranslations } from "./engineering-text";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import type { Translate } from "@/lib/i18n/translator";
 import { FormDialog, RequestMessages, useRequestEditor, type FormField } from "./form-kit";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * An RFI as a conversation on the record (PRD #46 §82-§93, §309, §313).
@@ -320,26 +321,26 @@ function ReferenceForm({ rfiId, onClose, onPending }: { rfiId: string; onClose: 
             <label htmlFor="reference-type" className="text-meta font-medium text-fg-muted">
               {t("rfi.kind")}
             </label>
-            <select id="reference-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as RfiReferenceType)}>
+            <FormSelect id="reference-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value as RfiReferenceType)}>
               {REFERENCE_CHOICES.map((choice) => (
                 <option key={choice} value={choice}>
                   {engineeringLabel(t, "reference", choice, RFI_REFERENCE_LABELS[choice])}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="reference-record" className="text-meta font-medium text-fg-muted">
               {t("rfi.record")}
             </label>
-            <select id="reference-record" className={selectClass} value={referenceId} onChange={(event) => setReferenceId(event.target.value)} disabled={options === null}>
+            <FormSelect id="reference-record" className={selectClass} value={referenceId} onChange={(event) => setReferenceId(event.target.value)} disabled={options === null}>
               <option value="">{options === null ? t("ui.loading") : options.length ? t("rfi.choose") : t("rfi.nothingToReference")}</option>
               {(options ?? []).map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </div>
         </div>
         <div className="flex flex-col gap-1">

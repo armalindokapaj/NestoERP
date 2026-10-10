@@ -1,7 +1,6 @@
-import Link from "@/components/navigation/nav-link";
+import { ContextTabs } from "@/components/navigation/context-tabs";
 
 import type { ContractDetailDTO } from "@/lib/modules/contracts/contract.types";
-import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
 
 /**
@@ -24,11 +23,9 @@ export type ContractTabKey = (typeof TABS)[number]["key"];
 
 export async function ContractTabs({
   contractId,
-  active,
   capabilities,
 }: {
   contractId: string;
-  active: ContractTabKey;
   capabilities: ContractDetailDTO["capabilities"];
 }) {
   const t = await getTranslations("contracts");
@@ -41,31 +38,12 @@ export async function ContractTabs({
     activity: capabilities.canViewActivity,
   };
 
-  const visible = TABS.filter((tab) => show[tab.key]);
+  const tabs = TABS.filter((tab) => show[tab.key]).map((tab) => ({
+    key: tab.key,
+    label: t(`tabs.${tab.key}`),
+    href: `/contracts/${contractId}${tab.suffix}`,
+  }));
 
-  return (
-    <nav aria-label={t("tabs.label")} className="border-b border-line">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
-        {visible.map((tab) => {
-          const isActive = tab.key === active;
-          return (
-            <li key={tab.key}>
-              <Link navSource="tab"
-                href={`/contracts/${contractId}${tab.suffix}`}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "inline-flex h-10 items-center whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:h-11",
-                  isActive
-                    ? "border-accent text-fg"
-                    : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg",
-                )}
-              >
-                {t(`tabs.${tab.key}`)}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
+  // The active tab follows the URL, so the tabs can sit in the layout and stay put.
+  return <ContextTabs label={t("tabs.label")} tabs={tabs} rootKey="overview" />;
 }

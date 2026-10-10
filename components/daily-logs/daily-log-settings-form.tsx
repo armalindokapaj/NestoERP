@@ -15,6 +15,7 @@ import type { DailyLogSettingsDTO } from "@/lib/modules/daily-logs/daily-log.typ
 import { cn } from "@/lib/utils/cn";
 import { dailyLogApi, dailyLogFailureOutcome, failureMessage } from "./daily-log-api";
 import { useDailyLogsTranslations } from "./daily-logs-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** The company's daily log rules (PRD #43 §18, §248-§250). A project can require logs, name a reviewer and keep its own days. */
 export function DailyLogSettingsForm({ initial }: { initial: DailyLogSettingsDTO }) {
@@ -79,13 +80,13 @@ export function DailyLogSettingsForm({ initial }: { initial: DailyLogSettingsDTO
       </div>
       <label className="flex flex-col py-3">
         <span className="text-table font-medium text-fg">{t("settings.backdate")}</span>
-        <select className={cn(selectClass, "mt-1.5 w-56")} value={state.backdateDays} onChange={(event) => setState({ ...state, backdateDays: Number(event.target.value) })}>
+        <FormSelect className={cn(selectClass, "mt-1.5 w-56")} value={state.backdateDays} onChange={(event) => setState({ ...state, backdateDays: Number(event.target.value) })}>
           {[0, 1, 3, 7, 14, 31].map((days) => (
             <option key={days} value={days}>
               {days === 0 ? t("settings.todayOnly") : t("settings.daysBack", { count: days })}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </label>
       <div className="flex items-center justify-between py-3">
         <p className="text-meta text-fg-muted">{t("settings.zone", { zone: initial.timezone, days: initial.workingDays.join(", ") })}</p>

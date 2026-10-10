@@ -17,6 +17,7 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, failureOutcome, fieldErrorsOf, isFailure } from "./engineering-api";
 import { useEngineeringTranslations } from "./engineering-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * One form grammar for contractor and engineering records (PRD #46 §166,
@@ -125,14 +126,14 @@ export function FormFields({
             {field.type === "textarea" ? (
               <Textarea {...common} rows={field.rows ?? 3} value={String(values[field.name] ?? "")} placeholder={field.placeholder} maxLength={field.maxLength} onChange={(event) => onChange(field.name, event.target.value)} />
             ) : field.type === "select" ? (
-              <select {...common} className={selectClass} value={String(values[field.name] ?? "")} onChange={(event) => onChange(field.name, event.target.value)}>
+              <FormSelect {...common} className={selectClass} value={String(values[field.name] ?? "")} onChange={(event) => onChange(field.name, event.target.value)}>
                 {field.emptyLabel !== undefined || !field.required ? <option value="">{field.emptyLabel ?? "—"}</option> : null}
                 {(field.options ?? []).map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             ) : (
               <Input
                 {...common}

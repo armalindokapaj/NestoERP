@@ -16,6 +16,7 @@ import { requireModule } from "@/lib/context/current-user";
 import { createReinspectionAction } from "@/lib/actions/qaqc";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
@@ -86,7 +87,7 @@ export default async function ReinspectPage({ params }: Params) {
           description={t("inspectionPage.reinspectionBody")}
         >
           <Field label={t("detail.inspector")} name="assignedInspectorMemberId" required>
-            <select
+            <FormSelect
               id="assignedInspectorMemberId"
               name="assignedInspectorMemberId"
               className={selectClass}
@@ -99,7 +100,7 @@ export default async function ReinspectPage({ params }: Params) {
                   {member.user.firstName} {member.user.lastName}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
 
           <Field label={t("form.inspection.inspectionDate")} name="inspectionDate">

@@ -16,6 +16,7 @@ import { escalateDefectAction } from "@/lib/actions/qaqc";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
 import { NCR_CATEGORIES } from "@/lib/modules/qaqc/qaqc.status";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 type Params = { params: Promise<{ defectId: string }> };
 
@@ -96,7 +97,7 @@ export default async function EscalateDefectPage({ params }: Params) {
             className="sm:col-span-2"
             hint={t("defectPage.categoryHint")}
           >
-            <select
+            <FormSelect
               id="category"
               name="category"
               className={selectClass}
@@ -108,7 +109,7 @@ export default async function EscalateDefectPage({ params }: Params) {
                   {qaqcLabel(t, "ncrCategory", category)}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </Field>
         </FormSection>
       </RecordForm>

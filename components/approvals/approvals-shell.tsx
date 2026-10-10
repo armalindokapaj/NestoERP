@@ -33,6 +33,7 @@ import { approvalsApi, approvalsFailureOutcome, failureMessage, isFailure, newId
 import { DelegationDialog } from "./delegation-dialog";
 import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
 import { HelpEntry } from "@/components/help/help-entry";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The Approvals Center (PRD #41 §6, §7, §74-§102, §197-§205).
@@ -542,7 +543,7 @@ export function ApprovalsShell({
         <label className="sr-only" htmlFor="approvals-sort">
           {t("shell.sort")}
         </label>
-        <select
+        <FormSelect
           id="approvals-sort"
           className="h-10 min-w-0 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none touch:h-11"
           value={state.sort}
@@ -553,9 +554,9 @@ export function ApprovalsShell({
               {t(`sorts.${sort.key}`)}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {state.tab === "returned" ? (
-          <select
+          <FormSelect
             aria-label={t("shell.returnedFilter")}
             className="h-10 min-w-0 rounded-md border border-line bg-surface px-3 text-table text-fg hover:border-line-strong focus:border-accent focus:outline-none touch:h-11"
             value={state.returned}
@@ -564,7 +565,7 @@ export function ApprovalsShell({
             <option value="all">{t("shell.returnedAll")}</option>
             <option value="by">{t("shell.returnedBy")}</option>
             <option value="to">{t("shell.returnedTo")}</option>
-          </select>
+          </FormSelect>
         ) : null}
         <Button type="button" variant="secondary" onClick={() => setFiltersOpen(true)} aria-label={filterCount ? t("shell.filtersActive", { count: filterCount }) : t("shell.filters")}>
           <SlidersHorizontal aria-hidden="true" />

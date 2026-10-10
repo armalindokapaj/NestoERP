@@ -24,6 +24,7 @@ import {
 } from "@/lib/actions/hse";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Handing a safety record to somebody (PRD #22 §40, §69, §89, §120).
@@ -158,7 +159,7 @@ function AssignBody({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="assign-member">{t("workers.person")}</Label>
-        <select
+        <FormSelect
           id="assign-member"
           className={selectClass}
           value={memberId}
@@ -171,7 +172,7 @@ function AssignBody({
               {member.name}
             </option>
           ))}
-        </select>
+        </FormSelect>
         {error ? <p className="text-meta text-danger-strong">{error}</p> : null}
       </div>
 

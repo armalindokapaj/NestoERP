@@ -24,6 +24,7 @@ import { Field, FormError, failureMessage, isFailure, structureApi } from "../st
 import { AttachDialog } from "./unit-documents";
 import { UnitImage } from "./unit-image";
 import { PersonLink } from "@/components/people/person-link";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A unit's images and renders (E-05D §40-§44, §94).
@@ -314,13 +315,13 @@ function MediaDetailsForm({ item, onClose, onSave }: { item: UnitMediaDTO; onClo
     >
       <FormError message={error} />
       <Field label={t("unitMedia.category")} htmlFor="media-category">
-        <select id="media-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitMediaCategory)}>
+        <FormSelect id="media-category" className={selectClass} value={category} onChange={(event) => setCategory(event.target.value as UnitMediaCategory)}>
           {UNIT_MEDIA_CATEGORIES.map((value) => (
             <option key={value} value={value}>
               {t(`mediaCategory.${value}`)}
             </option>
           ))}
-        </select>
+        </FormSelect>
       </Field>
       <Field label={t("unitMedia.caption")} htmlFor="media-caption">
         <Input id="media-caption" value={caption} onChange={(event) => setCaption(event.target.value)} maxLength={CAPTION_MAX} />

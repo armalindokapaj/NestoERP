@@ -9,6 +9,7 @@ import { QUICK_CREATE_GROUP_LABELS, QUICK_CREATE_GROUPS } from "@/config/quick-c
 import type { QuickCreateActionDTO, QuickCreateCompany } from "@/lib/modules/quick-create/quick-create.service";
 import { cn } from "@/lib/utils/cn";
 import type { MenuState, ProjectsState, Step } from "@/components/layout/quick-create";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * `+ Create`'s menu, company and project steps, loaded when the panel first
@@ -236,14 +237,14 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             >
               <label className="block space-y-1">
                 <span className="text-meta font-medium text-fg">{tc("shell.company")}</span>
-                <select value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-company" required>
+                <FormSelect value={company} onChange={(event) => setCompany(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-company" required>
                   <option value="">{tc("shell.chooseCompany")}</option>
                   {step.action.companies?.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
               <p className="text-meta text-fg-muted">{t("quickCreate.belongsTo", { name: actionLabel(step.action).toLowerCase() })}</p>
               <button type="submit" disabled={!company || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">
@@ -281,14 +282,14 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 ) : projects.items.length === 0 ? (
                   <span className="block text-table text-fg-muted">{t("quickCreate.noProjects")}</span>
                 ) : (
-                  <select value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-project" required>
+                  <FormSelect value={project} onChange={(event) => setProject(event.target.value)} className="h-9 w-full rounded-md border border-control bg-surface px-2 text-table text-fg outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring touch:h-11" data-testid="quick-create-project" required>
                     <option value="">{tc("shell.chooseProject")}</option>
                     {projects.items.map((entry) => (
                       <option key={entry.id} value={entry.id}>
                         {entry.name}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 )}
               </label>
               <button type="submit" disabled={!project || launching !== null} aria-busy={launching !== null || undefined} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-accent touch:h-11 text-table font-medium text-accent-fg disabled:opacity-60" data-testid="quick-create-continue">

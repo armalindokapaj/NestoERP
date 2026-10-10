@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createHseTaskAction } from "@/lib/actions/hse";
 import type { Option } from "./hse-forms";
 import { useHseTranslations } from "@/components/hse/hse-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /** A canonical Task raised to discharge an HSE action (PRD #22 §126). */
 export function HseTaskForm({
@@ -43,14 +44,14 @@ export function HseTaskForm({
         </Field>
 
         <Field label={t("forms.assignTo")} name="assigneeMemberId">
-          <select id="assigneeMemberId" name="assigneeMemberId" className={selectClass}>
+          <FormSelect id="assigneeMemberId" name="assigneeMemberId" className={selectClass}>
             <option value="">{t("forms.nobodyYet")}</option>
             {members.map((member) => (
               <option key={member.value} value={member.value}>
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("record.due")} name="dueDate">

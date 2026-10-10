@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils/cn";
 import { ENTITY_ICON, relativeTime } from "./record-icons";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type MyWorkQuery = { companyId?: string; module?: string; projectId?: string; q?: string; range?: string; from?: string; to?: string };
 
@@ -164,51 +165,51 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
         {initial.facets.companies.length > 1 ? (
           <label className="flex flex-col gap-1">
             <span className="text-meta text-fg-muted">{t("myWork.company")}</span>
-            <select name="companyId" defaultValue={query.companyId ?? ""} className={selectClass} data-testid="my-work-company-filter">
+            <FormSelect name="companyId" defaultValue={query.companyId ?? ""} className={selectClass} data-testid="my-work-company-filter">
               <option value="">{t("myWork.allCompanies")}</option>
               {initial.facets.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
         ) : null}
         <label className="flex flex-col gap-1">
           <span className="text-meta text-fg-muted">{t("myWork.module")}</span>
-          <select name="module" defaultValue={query.module ?? ""} className={selectClass}>
+          <FormSelect name="module" defaultValue={query.module ?? ""} className={selectClass}>
             <option value="">{t("myWork.allModules")}</option>
             {initial.facets.modules.map((key) => (
               <option key={key} value={key}>
                 {moduleLabel(key)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         {initial.facets.projects.length > 0 ? (
           <label className="flex flex-col gap-1">
             <span className="text-meta text-fg-muted">{t("myWork.project")}</span>
-            <select name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "sm:max-w-[14rem]")}>
+            <FormSelect name="projectId" defaultValue={query.projectId ?? ""} className={cn(selectClass, "sm:max-w-[14rem]")}>
               <option value="">{t("myWork.allProjects")}</option>
               {initial.facets.projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
         ) : null}
         {tab === "recent" ? (
           <>
             <label className="flex flex-col gap-1">
               <span className="text-meta text-fg-muted">{t("myWork.lastOpened")}</span>
-              <select name="range" defaultValue={query.range ?? "all"} className={selectClass}>
+              <FormSelect name="range" defaultValue={query.range ?? "all"} className={selectClass}>
                 {RANGES.map(([value, label]) => (
                   <option key={value} value={value}>
                     {t(label)}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
             {query.range === "custom" ? (
               <>

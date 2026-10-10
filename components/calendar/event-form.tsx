@@ -21,6 +21,7 @@ import type { CalendarEventDetailDTO, ConflictDTO, RecurrenceFrequency } from "@
 import { cn } from "@/lib/utils/cn";
 import { useIsPhone } from "./use-is-phone";
 import { calendarLabel, useCalendarTranslations } from "./calendar-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Create and edit a Calendar-owned event (PRD #39 §147-§150, §89, §90).
@@ -339,7 +340,7 @@ export function EventFormDrawer({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="event-type">{t("form.type")}</Label>
-                <select
+                <FormSelect
                   id="event-type"
                   className={selectClass}
                   value={state.eventType}
@@ -363,17 +364,17 @@ export function EventFormDrawer({
                       {calendarLabel(t, "eventType", type, TYPE_LABEL[type])}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="event-visibility">{t("form.whoCanSee")}</Label>
-                <select id="event-visibility" className={selectClass} value={state.visibility} onChange={(change) => set("visibility", change.target.value)}>
+                <FormSelect id="event-visibility" className={selectClass} value={state.visibility} onChange={(change) => set("visibility", change.target.value)}>
                   {visibilities.map((visibility) => (
                     <option key={visibility} value={visibility}>
                       {calendarLabel(t, "visibility", visibility, VISIBILITY_LABEL[visibility])}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </div>
             </div>
 
@@ -422,13 +423,13 @@ export function EventFormDrawer({
             {state.visibility === "DEPARTMENT" && options && options.departments.length > 1 ? (
               <div className="space-y-1.5">
                 <Label htmlFor="event-department">{t("form.department")}</Label>
-                <select id="event-department" className={selectClass} value={state.departmentId || options.myDepartmentId || ""} onChange={(change) => set("departmentId", change.target.value)}>
+                <FormSelect id="event-department" className={selectClass} value={state.departmentId || options.myDepartmentId || ""} onChange={(change) => set("departmentId", change.target.value)}>
                   {options.departments.map((department) => (
                     <option key={department.id} value={department.id}>
                       {department.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
                 {fieldError("departmentId")}
               </div>
             ) : null}
@@ -527,23 +528,23 @@ export function EventFormDrawer({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="event-reminder">{t("form.reminder")}</Label>
-                    <select id="event-reminder" className={selectClass} value={state.reminder} onChange={(change) => set("reminder", change.target.value)}>
+                    <FormSelect id="event-reminder" className={selectClass} value={state.reminder} onChange={(change) => set("reminder", change.target.value)}>
                       {REMINDERS.map((reminder) => (
                         <option key={reminder.value} value={reminder.value}>
                           {reminder.value === "" ? t("form.noReminder") : calendarLabel(t, "reminder", reminder.value, reminder.label)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="event-repeat">{t("form.repeat")}</Label>
-                    <select id="event-repeat" className={selectClass} value={state.frequency} onChange={(change) => set("frequency", change.target.value as FormState["frequency"])}>
+                    <FormSelect id="event-repeat" className={selectClass} value={state.frequency} onChange={(change) => set("frequency", change.target.value as FormState["frequency"])}>
                       <option value="">{t("form.doesNotRepeat")}</option>
                       <option value="DAILY">{t("labels.frequency.DAILY")}</option>
                       <option value="WEEKLY">{t("labels.frequency.WEEKLY")}</option>
                       <option value="MONTHLY">{t("labels.frequency.MONTHLY")}</option>
                       <option value="YEARLY">{t("labels.frequency.YEARLY")}</option>
-                    </select>
+                    </FormSelect>
                   </div>
                 </div>
                 {state.frequency ? (
@@ -616,14 +617,14 @@ function ProjectField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor="event-project">{optional ? t("form.projectOptional") : t("form.project")}</Label>
-      <select id="event-project" className={selectClass} value={state.projectId} onChange={(change) => set("projectId", change.target.value)}>
+      <FormSelect id="event-project" className={selectClass} value={state.projectId} onChange={(change) => set("projectId", change.target.value)}>
         <option value="">{optional ? t("form.noProject") : t("form.chooseProject")}</option>
         {(options?.projects ?? []).map((project) => (
           <option key={project.id} value={project.id}>
             {project.code} · {project.name}
           </option>
         ))}
-      </select>
+      </FormSelect>
       {error}
     </div>
   );

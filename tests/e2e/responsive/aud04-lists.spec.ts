@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "../pw";
 
 import { db, removeTestClients } from "../db";
 import { mainRegion, signIn, type DemoRole } from "../fixtures";

@@ -16,6 +16,7 @@ import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { recordQuoteAction } from "@/lib/actions/procurement";
 import type { RfqDetailDTO } from "@/lib/modules/procurement/procurement.types";
 import { useProcurementTranslations } from "./procurement-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Records what one supplier answered (PRD #19 §85, §269).
@@ -74,7 +75,7 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("common.supplier")} name="supplierId" required>
-                <select id="supplierId" name="supplierId" className={selectClass} required defaultValue="">
+                <FormSelect id="supplierId" name="supplierId" className={selectClass} required defaultValue="">
                   <option value="" disabled>
                     {t("common.chooseSupplier")}
                   </option>
@@ -83,7 +84,7 @@ export function QuoteForm({ rfq }: { rfq: RfqDetailDTO }) {
                       {entry.supplier.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </Field>
 
               <Field label={t("quote.theirReference")} name="quoteNumber" hint={t("common.optional")}>

@@ -65,6 +65,7 @@ import { WorkforceSuggestions } from "./workforce-suggestions";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 import { DailyLogsText, useDailyLogsTranslations } from "./daily-logs-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * The daily log workspace (PRD #43 §145-§160, §201, §214-§221).
@@ -642,14 +643,14 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                   {t("workspace.field.siteCondition")}
                 </label>
                 {editable ? (
-                  <select id="site-condition" className={cn(selectClass, "mt-1.5")} value={log.siteCondition ?? ""} onChange={(event) => void saveOverview("siteCondition", event.target.value)}>
+                  <FormSelect id="site-condition" className={cn(selectClass, "mt-1.5")} value={log.siteCondition ?? ""} onChange={(event) => void saveOverview("siteCondition", event.target.value)}>
                     <option value="">{t("workspace.field.notRecorded")}</option>
                     {SITE_CONDITIONS.map((condition) => (
                       <option key={condition} value={condition}>
                         {L("site", condition, SITE_CONDITION_LABELS[condition])}
                       </option>
                     ))}
-                  </select>
+                  </FormSelect>
                 ) : (
                   <p className="mt-1 text-table text-fg">{log.siteCondition ? L("site", log.siteCondition, SITE_CONDITION_LABELS[log.siteCondition]) : "—"}</p>
                 )}
@@ -1083,14 +1084,14 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
         </label>
         <label className="flex flex-col">
           <span className="text-table font-medium text-fg">{t("workspace.taskDialog.assignee")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={assignee} onChange={(event) => setAssignee(event.target.value)}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={assignee} onChange={(event) => setAssignee(event.target.value)}>
             <option value="">{t("workspace.taskDialog.unassigned")}</option>
             {options?.members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.label}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label className="flex flex-col">
           <span className="text-table font-medium text-fg">{t("workspace.taskDialog.due")}</span>
@@ -1098,13 +1099,13 @@ function TaskForm({ options, pending, onConfirm }: TaskDialogProps) {
         </label>
         <label className="flex flex-col">
           <span className="text-table font-medium text-fg">{t("workspace.taskDialog.priority")}</span>
-          <select className={cn(selectClass, "mt-1.5")} value={priority} onChange={(event) => setPriority(event.target.value)}>
+          <FormSelect className={cn(selectClass, "mt-1.5")} value={priority} onChange={(event) => setPriority(event.target.value)}>
             {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((value) => (
               <option key={value} value={value}>
                 {dailyLogsLabel(t, "priority", value, value.charAt(0) + value.slice(1).toLowerCase())}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
       </fieldset>
       {error ? <p role="alert" className="mt-2 text-meta text-danger-strong">{error}</p> : null}
@@ -1143,14 +1144,14 @@ function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
   const step = useDialogStep({ label: t("workspace.linkTask.title"), saveKind: "create", dirty: taskId !== "", confirm: async () => (taskId ? onConfirm(taskId) : { kind: "invalid" }) });
   return (
     <>
-      <select className={cn(selectClass, "mt-4")} value={taskId} disabled={pending} onChange={(event) => setTaskId(event.target.value)} aria-label={t("workspace.task")}>
+      <FormSelect className={cn(selectClass, "mt-4")} value={taskId} disabled={pending} onChange={(event) => setTaskId(event.target.value)} aria-label={t("workspace.task")}>
         <option value="">{t("workspace.linkTask.choose")}</option>
         {options?.tasks.map((task) => (
           <option key={task.id} value={task.id}>
             {task.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="secondary" disabled={pending}>

@@ -17,6 +17,7 @@ import type { ModuleKey } from "@/config/modules";
 import { publishActivityChange, relativeTime, subscribeActivity } from "@/lib/activity/client";
 import type { ActivityCenterItem, ActivityPage, ActivityType } from "@/lib/modules/activity/activity-center.service";
 import { cn } from "@/lib/utils/cn";
+import { FormSelect } from "@/components/ui/form-select";
 
 export type ActivityQueryState = { companyId?: string; moduleKey?: string; priority?: string; readState?: string; q?: string; from?: string; to?: string };
 
@@ -218,43 +219,43 @@ export function ActivityView({ type, query, initial, modules }: { type: Activity
         {initial.companies.length > 1 ? (
           <label className="flex flex-col gap-1">
             <span className="text-meta text-fg-muted">{m("activity.company")}</span>
-            <select name="companyId" defaultValue={query.companyId ?? ""} className={fieldClass} data-testid="activity-company-filter">
+            <FormSelect name="companyId" defaultValue={query.companyId ?? ""} className={fieldClass} data-testid="activity-company-filter">
               <option value="">{m("activity.allCompanies")}</option>
               {initial.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
               ))}
-            </select>
+            </FormSelect>
           </label>
         ) : null}
         <label className="flex flex-col gap-1">
           <span className="text-meta text-fg-muted">{m("activity.module")}</span>
-          <select name="moduleKey" defaultValue={query.moduleKey ?? ""} className={fieldClass}>
+          <FormSelect name="moduleKey" defaultValue={query.moduleKey ?? ""} className={fieldClass}>
             <option value="">{m("activity.allModules")}</option>
             {modules.map((key) => (
               <option key={key} value={key}>
                 {moduleLabel(key)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-meta text-fg-muted">{m("activity.priority")}</span>
-          <select name="priority" defaultValue={query.priority ?? ""} className={fieldClass}>
+          <FormSelect name="priority" defaultValue={query.priority ?? ""} className={fieldClass}>
             <option value="">{m("activity.all")}</option>
             <option value="CRITICAL">{t("critical")}</option>
             <option value="IMPORTANT">{t("important")}</option>
             <option value="NORMAL">{m("activity.normal")}</option>
-          </select>
+          </FormSelect>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-meta text-fg-muted">{m("activity.status")}</span>
-          <select name="readState" defaultValue={query.readState ?? ""} className={fieldClass}>
+          <FormSelect name="readState" defaultValue={query.readState ?? ""} className={fieldClass}>
             <option value="">{m("activity.all")}</option>
             <option value="UNREAD">{t("unread")}</option>
             <option value="READ">{t("read")}</option>
-          </select>
+          </FormSelect>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-meta text-fg-muted">{m("activity.from")}</span>

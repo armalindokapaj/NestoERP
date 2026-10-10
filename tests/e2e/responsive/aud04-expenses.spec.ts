@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "../pw";
 
 import { memberId } from "../approvals-fixtures";
 import { db, removeTestDocuments, removeTestFinanceRecords } from "../db";

@@ -24,6 +24,7 @@ import {
 } from "@/lib/modules/qaqc/qaqc.status";
 import { qaqcLabel } from "./qaqc-labels";
 import { useQaqcTranslations } from "./qaqc-text";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Building an inspection checklist (PRD #21 §50, §54–§57).
@@ -119,7 +120,7 @@ export function TemplateForm({
         </Field>
 
         <Field label={t("detail.type")} name="inspectionType" required>
-          <select
+          <FormSelect
             id="inspectionType"
             name="inspectionType"
             className={selectClass}
@@ -130,7 +131,7 @@ export function TemplateForm({
                 {qaqcLabel(t, "inspectionType", type)}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("templateForm.name")} name="name" required className="sm:col-span-2">
@@ -138,7 +139,7 @@ export function TemplateForm({
         </Field>
 
         <Field label={t("templateForm.status")} name="status" required>
-          <select
+          <FormSelect
             id="status"
             name="status"
             className={selectClass}
@@ -146,7 +147,7 @@ export function TemplateForm({
           >
             <option value="ACTIVE">{qaqcLabel(t, "templateStatus", "ACTIVE")}</option>
             <option value="INACTIVE">{qaqcLabel(t, "templateStatus", "INACTIVE")}</option>
-          </select>
+          </FormSelect>
         </Field>
 
         <Field label={t("templateForm.description")} name="description" className="sm:col-span-2">
@@ -202,7 +203,7 @@ export function TemplateForm({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor={`items-${index}-responseType`}>{t("templateForm.answer")}</Label>
-                    <select
+                    <FormSelect
                       id={`items-${index}-responseType`}
                       name={`items[${index}][responseType]`}
                       className={selectClass}
@@ -214,7 +215,7 @@ export function TemplateForm({
                           {qaqcLabel(t, "responseType", type)}
                         </option>
                       ))}
-                    </select>
+                    </FormSelect>
                   </div>
 
                   <div className="space-y-1.5">

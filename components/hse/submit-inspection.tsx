@@ -17,6 +17,7 @@ import type { HseInspectionResult } from "@prisma/client";
 import { localDay } from "@/components/hr/local-day";
 import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Handing an inspection in (PRD #22 §51, §49).
@@ -130,13 +131,13 @@ function SubmitInspectionForm({
       <fieldset disabled={pending || Boolean(save.saved)} aria-busy={pending || undefined} className="m-0 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="result">{t("submit.overallResult")}</Label>
-          <select id="result" name="result" className={selectClass} required>
+          <FormSelect id="result" name="result" className={selectClass} required>
             {allowedResults.map((value) => (
               <option key={value} value={value}>
                 {hseLabel(t, "inspectionResult", value, inspectionResultLabels[value])}
               </option>
             ))}
-          </select>
+          </FormSelect>
         </div>
 
         <div className="space-y-1.5">

@@ -22,6 +22,7 @@ import { failureMessage, meetingApi, meetingFailureOutcome } from "./meeting-api
 import { PersonAvatar } from "./meeting-ui";
 import { useMeetingsTranslations } from "./meetings-text";
 import { useMeetingDraft } from "./use-meeting-draft";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Action items (PRD #40 §53-§62, §106, §107, §213).
@@ -128,14 +129,14 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="action-owner">{t("actions.owner")}</Label>
-              <select id="action-owner" className={selectClass} value={owner} onChange={(event) => setOwner(event.target.value)}>
+              <FormSelect id="action-owner" className={selectClass} value={owner} onChange={(event) => setOwner(event.target.value)}>
                 <option value="">{t("common.unassigned")}</option>
                 {owners.map((person) => (
                   <option key={person.memberId} value={person.memberId}>
                     {person.fullName}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             <div className="space-y-1">
               <Label htmlFor="action-due">{t("actions.due")}</Label>

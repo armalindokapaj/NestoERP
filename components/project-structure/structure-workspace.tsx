@@ -31,6 +31,7 @@ import { UnitDialog } from "./unit-dialog";
 import { EMPTY_FILTERS, type UnitFilters } from "./unit-filters";
 import { UNIT_PUBLICATION_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
 import { UnitTable, type UnitRowActions } from "./unit-table";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A project's structure (E-05B §31-§34, §46-§50, §88-§94, §101, §103, §104, §107-§109).
@@ -459,13 +460,13 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
             <SlidersHorizontal aria-hidden="true" />
             {t("workspace.filters")}{FILTER_KEYS.some((key) => filters[key]) ? ` (${FILTER_KEYS.filter((key) => filters[key]).length})` : ""}
           </Button>
-          <select aria-label={t("workspace.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as UnitSort })}>
+          <FormSelect aria-label={t("workspace.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as UnitSort })}>
             {UNIT_SORTS.map((sort) => (
               <option key={sort} value={sort}>
                 {t(`unitSort.${sort}`)}
               </option>
             ))}
-          </select>
+          </FormSelect>
           {activeFilters ? (
             <Button variant="ghost" onClick={clearFilters}>
               <RotateCcw aria-hidden="true" />
@@ -597,27 +598,27 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
               <label htmlFor="structure-building" className="text-meta font-medium text-fg-muted">
                 {t("workspace.building")}
               </label>
-              <select id="structure-building" className={selectClass} value={selection.buildingId ?? ""} onChange={(event) => choose({ buildingId: event.target.value || null, floorId: null })}>
+              <FormSelect id="structure-building" className={selectClass} value={selection.buildingId ?? ""} onChange={(event) => choose({ buildingId: event.target.value || null, floorId: null })}>
                 <option value="">{t("workspace.allBuildings")}</option>
                 {structure.buildings.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
                     {candidate.name}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <label htmlFor="structure-floor" className="text-meta font-medium text-fg-muted">
                 {t("workspace.floor")}
               </label>
-              <select id="structure-floor" className={selectClass} value={selection.floorId ?? ""} disabled={!building} onChange={(event) => choose({ buildingId: selection.buildingId, floorId: event.target.value || null })}>
+              <FormSelect id="structure-floor" className={selectClass} value={selection.floorId ?? ""} disabled={!building} onChange={(event) => choose({ buildingId: selection.buildingId, floorId: event.target.value || null })}>
                 <option value="">{t("workspace.allFloors")}</option>
                 {building?.floors.map((level) => (
                   <option key={level.id} value={level.id}>
                     {level.name} · {level.unitCount}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </div>
           </div>
         </>
@@ -730,14 +731,14 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
       <label htmlFor={id} className="text-meta font-medium text-fg-muted">
         {label}
       </label>
-      <select id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
+      <FormSelect id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{t("workspace.any")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useNavigationFeedback } from "@/components/navigation/navigation-feedba
 import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { effectivePageSize } from "@/lib/tables/preferences";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * Rows per page (AUD-08 §4, §5, DT-05, DT-09).
@@ -64,7 +65,7 @@ export function PageSizeSelect({
       <label htmlFor={id} className="text-table text-fg-subtle">
         {t("rowsPerPage")}
       </label>
-      <select
+      <FormSelect
         id={id}
         // 44px and 16px text under a touch layout or pointer (AUD-04 §3, SP-04).
         className="h-9 rounded-md border border-line bg-surface px-2 text-table font-medium text-fg-muted transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20 touch:h-11 max-md:text-base"
@@ -82,7 +83,7 @@ export function PageSizeSelect({
             {size}
           </option>
         ))}
-      </select>
+      </FormSelect>
     </div>
   );
 }
