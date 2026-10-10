@@ -1,9 +1,11 @@
 "use client";
 
+import * as React from "react";
 import { Bell } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { topbarOffset } from "@/lib/layout/topbar-line";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 
 /**
@@ -19,11 +21,13 @@ import { usePanelOpen } from "@/lib/navigation/panel-host";
 export function ContextNotifications({ context }: { context: string }) {
   const t = useTranslations("shell");
   const [open, setOpen] = usePanelOpen("activity");
+  const trigger = React.useRef<HTMLButtonElement>(null);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={trigger}
           type="button"
           aria-label={t("account.notificationsPanel")}
           aria-haspopup="dialog"
@@ -33,7 +37,8 @@ export function ContextNotifications({ context }: { context: string }) {
           <Bell aria-hidden className="size-5" strokeWidth={1.6} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" aria-label={t("account.notificationsPanel")} className="w-[400px] max-sm:w-[calc(100vw-1.5rem)]" data-testid="activity-panel">
+      {/* Its top edge on the breadcrumb bar's top line, like every panel opened from the top bar. */}
+      <PopoverContent align="end" sideOffset={open ? topbarOffset(trigger.current) : undefined} aria-label={t("account.notificationsPanel")} className="w-[400px] max-sm:w-[calc(100vw-1.5rem)]" data-testid="activity-panel">
         <div className="border-b border-line px-4 py-3">
           <h2 className="text-card font-semibold text-fg">{t("account.notificationsPanel")}</h2>
           <p className="mt-0.5 text-meta text-fg-muted" data-testid="notification-context">{t("account.notificationsContext", { context })}</p>

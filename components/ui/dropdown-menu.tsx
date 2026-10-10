@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 
+import { PopupPointer } from "@/components/ui/popup-pointer";
 import { cn } from "@/lib/utils/cn";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
@@ -11,21 +12,35 @@ export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export function DropdownMenuContent({
   className,
   sideOffset = 6,
+  // Never flush against the screen's edge, where a menu's rounded corner would be cut off.
+  collisionPadding = 8,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
     <DropdownMenuPrimitive.Portal>
+      {/* The placed shell is the menu; the box inside is what is seen, so the pointer — drawn only on touch
+          layouts (components/ui/popup-pointer.tsx) — is never clipped by the box's own scrolling. */}
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
-        className={cn(
-          // z-65: above the dialogs and sheets a menu can be opened from (AUD-04 §6;
-          // ladder in globals.css). A long menu scrolls inside the room Radix measured.
-          "z-[65] max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto overflow-x-hidden rounded-[18px] border border-line bg-surface p-1.5 shadow-menu",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-          className,
-        )}
+        collisionPadding={collisionPadding}
+        // z-65: above the dialogs and sheets a menu can be opened from (AUD-04 §6; ladder in globals.css).
+        className="nesto-popup-shell z-[65] outline-none data-[state=open]:animate-[nesto-fade-in_120ms_var(--nesto-ease)]"
         {...props}
-      />
+      >
+        <div
+          className={cn(
+            // A long menu scrolls inside the room Radix measured.
+            "nesto-popup-glass max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto overflow-x-hidden rounded-[18px] border border-line bg-surface p-1.5 shadow-menu",
+            className,
+          )}
+        >
+          {children}
+        </div>
+        <DropdownMenuPrimitive.Arrow asChild>
+          <PopupPointer />
+        </DropdownMenuPrimitive.Arrow>
+      </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   );
 }

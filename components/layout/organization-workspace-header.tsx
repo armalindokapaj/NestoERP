@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Building2, ChevronDown } from "lucide-react";
 import * as React from "react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -11,33 +11,35 @@ import type { WorkspaceOption } from "@/components/layout/panels/workspace-panel
 import { useShellCore, useWorkspaceOptions } from "@/components/layout/shell-slots";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { useWorkspaceSwitch } from "@/components/workspace/workspace-switch-provider";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { createPanelLoader, usePanelModule, useWarmIntent } from "@/lib/navigation/panel-host";
+import { topbarOffset } from "@/lib/layout/topbar-line";
+import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The organization and the workspace, at the top of the sidebar (OW §2-§18).
+ * The workspace: where it is named, and where it is switched (OW §2-§18).
  *
- * It names the customer organization — the parent group, or a standalone
- * company — above the workspace being worked in: a company, or "Group
- * Workspace". Everything comes from the shell core the frame was drawn with;
- * nothing is fetched to draw it (§57). The mark is the tenant's logo, or its
- * initials (§12, §51).
+ * Three pieces, all drawn from the shell core the frame came with — nothing is
+ * fetched to draw them (§57):
  *
- * When there is somewhere else to work, the whole header is one button that
- * opens the workspace popup (§3, §14); otherwise it is identity only and
- * promises nothing (§46). Never an arrow, chevron or caret, in any state or
- * width (§4): the button's hover and open backgrounds say it can be pressed.
+ * - **The sidebar header** names the workspace being worked in — the company,
+ *   or the group in the Group workspace — and nothing else, and is the way to
+ *   its dashboard, the same as the Dashboard item. The mark is the tenant's
+ *   logo, or the workspace's initials (§12, §51). A collapsed rail keeps the
+ *   mark alone, with the name in a tooltip (§47).
+ * - **The company switcher** sits in the top bar, before + Create, and is built
+ *   like it: an accent button, naming the organization over "Choose Company",
+ *   whose panel opens below it, to the right, on the breadcrumb bar's top line.
+ *   It is drawn only when there is somewhere else to work (§46).
+ * - **On a phone, and in the tablet drawer,** the header is still the switch:
+ *   it names the workspace alone, as the sidebar does, and opens the same list
+ *   in a popup under it, with a pointer on the header (§48, §49). A phone's top
+ *   bar has no room for a second control beside it.
  *
- * It owns no access or switching rule (§10): the options are the server's
- * list, streamed with the shell, and choosing one hands it to the workspace
- * switch, which asks the server.
- *
- * Two presentations of one header: in the sidebar the popup is anchored beside
- * it, and a collapsed rail keeps the mark alone with both names in a tooltip
- * (§21, §47); in the phone and tablet navigation drawer it opens as a bottom
- * sheet (§48, §49).
+ * None of them owns an access or switching rule (§10): the options are the
+ * server's list, streamed with the shell, and choosing one hands it to the
+ * workspace switch, which asks the server.
  */
 
 const body = createPanelLoader("workspace", () => import("@/components/layout/panels/workspace-panel-body"));
@@ -45,10 +47,10 @@ const body = createPanelLoader("workspace", () => import("@/components/layout/pa
 type Identity = {
   /** The organization: the group, or the company of a standalone tenant (§5, §8). */
   primary: string;
-  /** The workspace: a company, "Group Workspace", or nothing for a standalone company (§7, §8). */
-  secondary: string | null;
   /** The current workspace as a sentence names it (§52). */
   current: string;
+  /** The current workspace's own name, alone: the company, or the group in the Group workspace. */
+  workspace: string;
   logoUrl: string | null;
   scope: "GROUP" | "COMPANY";
 };
@@ -60,8 +62,8 @@ function useIdentity(): Identity {
   const group = t("groupWorkspaceName");
   return {
     primary: organization.standalone ? activeWorkspace.label : activeWorkspace.groupLabel,
-    secondary: organization.standalone ? null : inGroup ? group : activeWorkspace.label,
     current: inGroup ? `${activeWorkspace.groupLabel} — ${group}` : activeWorkspace.label,
+    workspace: activeWorkspace.label,
     logoUrl: organization.logoUrl,
     scope: activeWorkspace.scopeType,
   };
@@ -84,9 +86,9 @@ export function OrganizationWorkspaceHeader({
 }) {
   const identity = useIdentity();
   const switchable = useSwitchable();
-  // In the sidebar the header names the workspace and goes to its dashboard; switching lives in the workspace rail.
+  // In the sidebar the header names the workspace and goes to its dashboard; switching is the top bar's company switcher.
   if (variant === "sidebar") return <HomeHeader identity={identity} />;
-  if (!switchable) return <StaticHeader identity={identity} variant={variant} />;
+  if (!switchable) return <StaticHeader identity={identity} />;
   return <DrawerHeader identity={identity} onSwitchStart={onSwitchStart} />;
 }
 
@@ -101,7 +103,7 @@ export function OrganizationHomeMark({ label }: { label: string }) {
   return (
     // A 44px target under touch around the 32px mark (AUD-04 §4, MW-19).
     <Link href="/dashboard" intent aria-label={label} className="rounded-md touch:grid touch:size-11 touch:place-items-center" data-testid="organization-home">
-      <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} size="sm" />
+      <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} size="sm" />
     </Link>
   );
 }
@@ -113,35 +115,23 @@ export function OrganizationHomeMark({ label }: { label: string }) {
 const faceClass =
   "flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left";
 
-/** `switchable` adds the phone's small chevron after the workspace line, so only a header that can switch looks like it can. */
-function Names({ identity, labels, switchable = false, upper = false }: { identity: Identity; labels?: React.Ref<HTMLSpanElement>; switchable?: boolean; upper?: boolean }) {
+/** The workspace's own name, alone. `switchable` adds the phone's small chevron after it, so only a header that can switch looks like it can. */
+function Names({ identity, switchable = false }: { identity: Identity; switchable?: boolean }) {
   return (
-    <span ref={labels} className="nesto-nav-label min-w-0 flex-1 leading-tight">
-      <span data-testid="organization-name" className={cn("block truncate text-body font-semibold text-fg max-md:text-meta max-md:font-bold max-md:uppercase max-md:tracking-[0.08em]", upper && "uppercase tracking-[0.06em]")}>
-        {identity.primary}
+    <span className="nesto-nav-label flex min-w-0 flex-1 items-center gap-1.5 leading-tight">
+      <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg">
+        {identity.workspace}
       </span>
-      {identity.secondary ? (
-        <span className="mt-0.5 flex min-w-0 items-center gap-1 text-meta text-fg-muted">
-          <span data-testid="workspace-label" className="block truncate">
-            {identity.secondary}
-          </span>
-          {switchable ? <ChevronDown aria-hidden="true" strokeWidth={2} className="size-3 shrink-0 md:hidden" /> : null}
-        </span>
-      ) : null}
+      {switchable ? <ChevronDown aria-hidden="true" strokeWidth={2} className="size-3.5 shrink-0 text-fg-muted md:hidden" /> : null}
     </span>
   );
 }
 
-function TooltipNames({ identity }: { identity: Identity }) {
-  return (
-    <span className="block max-w-72" data-testid="organization-tooltip">
-      <span className="block font-semibold">{identity.primary}</span>
-      {identity.secondary ? <span className="block opacity-80">{identity.secondary}</span> : null}
-    </span>
-  );
-}
-
-/** The sidebar's header: the organization and workspace names, and the way to this workspace's dashboard (same as the Dashboard item). */
+/**
+ * The sidebar's header: the workspace being worked in, by its own name alone,
+ * and the way to its dashboard — the same destination as the Dashboard item.
+ * The organization is not repeated here; the company switcher names it.
+ */
 function HomeHeader({ identity }: { identity: Identity }) {
   const t = useTranslations("workspace");
   const { isRail } = useSidebar();
@@ -154,8 +144,12 @@ function HomeHeader({ identity }: { identity: Identity }) {
       data-scope={identity.scope}
       className={cn(faceClass, "transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
     >
-      <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} />
-      <Names identity={identity} upper />
+      <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} />
+      <span className="nesto-nav-label min-w-0 flex-1 leading-tight">
+        <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg">
+          {identity.workspace}
+        </span>
+      </span>
     </Link>
   );
   if (!isRail) return face;
@@ -163,17 +157,84 @@ function HomeHeader({ identity }: { identity: Identity }) {
     <Tooltip>
       <TooltipTrigger asChild>{face}</TooltipTrigger>
       <TooltipContent side="right">
-        <TooltipNames identity={identity} />
+        <span className="block max-w-72 font-semibold" data-testid="organization-tooltip">
+          {identity.workspace}
+        </span>
       </TooltipContent>
     </Tooltip>
   );
 }
 
-/** One workspace and nowhere else to go: the identity, and nothing that looks pressable (§46). */
-function StaticHeader({ identity, variant }: { identity: Identity; variant: "sidebar" | "drawer" }) {
+/* -------------------------------------------------------------------------- */
+/* Top bar: the company switcher                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The company switcher, in the top bar before + Create and built like it: the
+ * same accent button, and a panel that opens below it, to the right, with its
+ * top edge on the breadcrumb bar's top line (lib/layout/topbar-line.ts).
+ *
+ * It reads the organization's name over "Choose Company" — the company being
+ * worked in is named by the sidebar header, so it is not said twice. Drawn from
+ * `md`, wherever the top bar carries + Create; on a phone the top bar's own
+ * header is the switch. Nothing at all for somebody with one workspace (§46).
+ */
+export function WorkspaceSwitcher() {
   const t = useTranslations("workspace");
-  const { isRail } = useSidebar();
-  const face = (
+  const identity = useIdentity();
+  const switchable = useSwitchable();
+  const [open, setOpen] = usePanelOpen("workspace");
+  const { switchingTo } = useWorkspaceSwitch();
+  const { state } = useWorkspaceOptions();
+  const warm = useWarmIntent(body);
+  const trigger = React.useRef<HTMLButtonElement>(null);
+  const titleId = React.useId();
+  if (!switchable) return null;
+
+  return (
+    <Popover open={open} onOpenChange={(next) => setOpen(next && !switchingTo)}>
+      <PopoverTrigger asChild>
+        <button
+          ref={trigger}
+          type="button"
+          aria-label={t("headerLabel", { name: identity.current })}
+          aria-busy={Boolean(switchingTo) || undefined}
+          data-testid="workspace-switcher"
+          data-options={state.status}
+          data-scope={identity.scope}
+          className="hidden h-9 min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-accent px-3 text-left text-accent-fg transition-colors hover:bg-accent-strong aria-busy:cursor-progress md:inline-flex touch:h-11"
+          {...warm}
+        >
+          <Building2 aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
+          <span className="flex min-w-0 flex-col">
+            <span data-testid="organization-name" className="max-w-44 truncate text-meta font-semibold leading-[1.2]">
+              {identity.primary}
+            </span>
+            <span className="truncate text-micro leading-[1.2] opacity-85">{t("chooseCompany")}</span>
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="start"
+        // Its top edge on the breadcrumb bar's top line, like + Create's panel.
+        sideOffset={open ? topbarOffset(trigger.current) : undefined}
+        aria-labelledby={titleId}
+        data-testid="workspace-panel"
+        className="flex max-h-[min(36rem,var(--radix-popover-content-available-height))] w-[22rem] flex-col p-3"
+        // The body focuses its own first control, with the current workspace active (§55).
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <WorkspacePopupContent open={open} titleId={titleId} close={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** One workspace and nowhere else to go: the identity, and nothing that looks pressable (§46). */
+function StaticHeader({ identity }: { identity: Identity }) {
+  const t = useTranslations("workspace");
+  return (
     <div
       role="group"
       aria-label={t("staticLabel", { name: identity.current })}
@@ -182,26 +243,17 @@ function StaticHeader({ identity, variant }: { identity: Identity; variant: "sid
       data-scope={identity.scope}
       className={faceClass}
     >
-      <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} />
+      <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} />
       <Names identity={identity} />
     </div>
-  );
-  if (variant === "drawer" || !isRail) return face;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{face}</TooltipTrigger>
-      <TooltipContent side="right">
-        <TooltipNames identity={identity} />
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
 /** The pressable header: hover and open backgrounds, the global focus ring, and a busy state while a switch runs (§15-§17). */
 const HeaderButton = React.forwardRef<
   HTMLButtonElement,
-  React.ComponentPropsWithoutRef<"button"> & { identity: Identity; labels?: React.Ref<HTMLSpanElement>; busy: boolean; optionsState: string }
->(function HeaderButton({ identity, labels, busy, optionsState, className, ...props }, ref) {
+  React.ComponentPropsWithoutRef<"button"> & { identity: Identity; busy: boolean; optionsState: string }
+>(function HeaderButton({ identity, busy, optionsState, className, ...props }, ref) {
   const t = useTranslations("workspace");
   return (
     <button
@@ -215,63 +267,56 @@ const HeaderButton = React.forwardRef<
       className={cn(faceClass, "cursor-pointer transition-colors hover:bg-hover aria-expanded:bg-hover aria-busy:cursor-progress", className)}
       {...props}
     >
-      <OrganizationMark name={identity.primary} logoUrl={identity.logoUrl} />
-      <Names identity={identity} labels={labels} switchable />
+      <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} />
+      <Names identity={identity} switchable />
     </button>
   );
 });
 
 /* -------------------------------------------------------------------------- */
-/* Drawer: a bottom sheet                                                     */
+/* Phone and tablet drawer: the header is the switch                          */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The pressable header of a phone's top bar and of the tablet's navigation
+ * drawer. Its popup hangs under it — the platform's glass, with a pointer on
+ * the header — like every popup on a touch layout (components/ui/popup-pointer.tsx).
+ */
 function DrawerHeader({ identity, onSwitchStart }: { identity: Identity; onSwitchStart?: () => void }) {
-  const t = useTranslations("workspace");
   const [open, setOpen] = React.useState(false);
   const { switchingTo } = useWorkspaceSwitch();
   const { state } = useWorkspaceOptions();
   const warm = useWarmIntent(body);
-  const trigger = React.useRef<HTMLButtonElement>(null);
   const titleId = React.useId();
 
   return (
-    <>
-      <HeaderButton
-        ref={trigger}
-        identity={identity}
-        busy={Boolean(switchingTo)}
-        optionsState={state.status}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        // The drawer has no tooltip: a long name cut short on screen is whole in the name and the title (AUD-04 §4).
-        title={identity.current}
-        data-presentation="sheet"
-        onClick={() => !switchingTo && setOpen(true)}
-        {...warm}
-      />
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent
-          side="bottom"
-          aria-describedby={undefined}
-          data-testid="workspace-panel"
-          className="bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            trigger.current?.focus();
-          }}
-        >
-          <DrawerTitle className="sr-only">{t("title")}</DrawerTitle>
-          <div aria-hidden="true" className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-line-strong" />
-          <WorkspacePopupContent
-            open={open}
-            titleId={titleId}
-            close={() => setOpen(false)}
-            onSwitchStart={onSwitchStart}
-          />
-        </DrawerContent>
-      </Drawer>
-    </>
+    <Popover open={open} onOpenChange={(next) => setOpen(next && !switchingTo)}>
+      <PopoverTrigger asChild>
+        <HeaderButton
+          identity={identity}
+          busy={Boolean(switchingTo)}
+          optionsState={state.status}
+          aria-haspopup="dialog"
+          // No tooltip on a touch layout: a long name cut short on screen is whole in the name and the title (AUD-04 §4).
+          title={identity.current}
+          data-presentation="popup"
+          {...warm}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        collisionPadding={12}
+        aria-labelledby={titleId}
+        data-testid="workspace-panel"
+        className="flex max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(22rem,calc(100vw-1.5rem))] flex-col p-3"
+        // The body focuses its own first control, with the current workspace active (§55).
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <WorkspacePopupContent open={open} titleId={titleId} close={() => setOpen(false)} onSwitchStart={onSwitchStart} />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -284,7 +329,7 @@ function DrawerHeader({ identity, onSwitchStart }: { identity: Identity; onSwitc
  * named loading state before that, and a failure with Retry. Unsaved changes
  * are asked about by the switch itself, in the shared prompt (§37, AUD-03 §7).
  */
-export function WorkspacePopupContent({
+function WorkspacePopupContent({
   open,
   titleId,
   close,

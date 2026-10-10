@@ -11,6 +11,7 @@ import { applyThemeChoice } from "@/components/settings/theme-preference";
 import { Avatar } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { isThemeChoice, type ThemeChoice } from "@/lib/layout/theme-state";
+import { topbarOffset } from "@/lib/layout/topbar-line";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
 import { fullName } from "@/lib/utils/format";
@@ -66,6 +67,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
   const t = useTranslations("shell");
   const [open, setOpen] = usePanelOpen("account");
   const [theme, setTheme] = React.useState<ThemeChoice>("light");
+  const trigger = React.useRef<HTMLButtonElement>(null);
   const { signOut, signingOut } = useSignOut(() => setOpen(false));
 
   // The theme is read from the document, which the server rendered from the cookie.
@@ -106,6 +108,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={trigger}
           type="button"
           aria-label={t("account.menuFor", { name })}
           aria-haspopup="dialog"
@@ -115,7 +118,8 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
           <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-serif font-normal text-accent-fg" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" aria-label={t("account.title")} className="w-80 p-0 max-sm:w-[calc(100vw-1.5rem)]" data-testid="account-panel">
+      {/* Its top edge on the breadcrumb bar's top line, like every panel opened from the top bar. */}
+      <PopoverContent align="end" sideOffset={open ? topbarOffset(trigger.current) : undefined} aria-label={t("account.title")} className="w-80 p-0 max-sm:w-[calc(100vw-1.5rem)]" data-testid="account-panel">
         <Link href={destinations.profile} onClick={close} data-testid="account-profile" className="flex items-center gap-3 border-b border-line px-4 py-3.5 transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="lg" />
           <span className="min-w-0 flex-1">

@@ -13,7 +13,6 @@ import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
 import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
 import { Sidebar } from "@/components/layout/sidebar";
-import { WorkspaceRail } from "@/components/layout/workspace-rail";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
@@ -119,13 +118,12 @@ export async function AppShell({
           {/* Off with NESTO_INTENT_PREFETCH=off: links keep ordinary navigation (NAV-03 §19). */}
           <IntentPrefetchProvider contextKey={core.contextKey} enabled={process.env.NESTO_INTENT_PREFETCH !== "off"}>
           <ShellSlotsProvider core={core} workspaces={workspaces} banner={banner}>
-            <SidebarProvider initial={sidebarState} workspaceRail={core.workspaceChoice} className="min-h-dvh bg-canvas">
+            <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
               {/* One workspace switch at a time, in place, from the sidebar header or the drawer (OW §28-§36). */}
               <WorkspaceSwitchProvider
                 contextKey={core.contextKey}
                 currentName={context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name}
               >
-              <WorkspaceRail />
               <Sidebar navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
               {/* Keyed by the workspace: a switch made in place remounts the page, so
@@ -144,7 +142,7 @@ export async function AppShell({
                     }}
               >
               <BreadcrumbRegistryProvider>
-              <div className="pl-[calc(var(--nesto-nav-width)+var(--nesto-workspace-rail-w))] transition-[padding]">
+              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
                 <Topbar context={context} navigation={navigation} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
                 <BreadcrumbBar />

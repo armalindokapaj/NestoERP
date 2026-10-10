@@ -276,8 +276,10 @@ export const organizationEn = {
   },
 
   grants: {
+    allModules: "All modules",
+    allModulesNothing: "Nothing to delegate: every module is already delegated to this person there, or is switched off in that company.",
     delegateAccess: "Delegate access",
-    description: "Raises one module for one person, in one company or across the group. You can delegate only what you hold yourself.",
+    description: "Raises one module, or all of them, for one person, in one company or across the group. You can delegate only what you hold yourself.",
     person: "Person",
     module: "Module",
     access: "Access",

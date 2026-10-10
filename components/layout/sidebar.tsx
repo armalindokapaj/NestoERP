@@ -29,11 +29,11 @@ function splitNavigation(navigation: NavigationGroup[]) {
  * sidebar and the content offset can never disagree. Hidden below 1024px,
  * where navigation moves into the drawer.
  *
- * Three stacked parts (OW §18): the organization header, fixed at the top;
- * the navigation, which scrolls on its own; and the foot, fixed at the
- * bottom. The header names the customer organization and the workspace, and
- * is where the workspace is switched (OW §2, §3) — the NESTO wordmark no
- * longer stands there (OW §6). NESTO signs the foot instead, quietly (OW §71).
+ * Three stacked parts (OW §18): the workspace header, fixed at the top; the
+ * navigation, which scrolls on its own; and the foot, fixed at the bottom. The
+ * header names the workspace being worked in and leads to its dashboard; the
+ * workspace is switched from the top bar, before + Create — the NESTO wordmark
+ * no longer stands there (OW §6). NESTO signs the foot instead, quietly (OW §71).
  * On the rail the header keeps its mark alone and the foot has no room at all;
  * which parts show is decided in CSS, so nothing swaps after hydration.
  *
@@ -43,7 +43,7 @@ function splitNavigation(navigation: NavigationGroup[]) {
 export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
   const { top, middle, bottom } = splitNavigation(navigation);
   return (
-    <aside className="nesto-rail fixed inset-y-0 left-[var(--nesto-workspace-rail-w)] z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
+    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
         <OrganizationWorkspaceHeader variant="sidebar" />
       </div>

@@ -4,6 +4,7 @@ import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 
+import { PopupPointer } from "@/components/ui/popup-pointer";
 import { cn } from "@/lib/utils/cn";
 
 export const Select = SelectPrimitive.Root;
@@ -42,18 +43,29 @@ export function SelectContent({
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     <SelectPrimitive.Portal>
+      {/* The placed shell is the list; the box inside is what is seen, so the pointer — drawn only on touch
+          layouts (components/ui/popup-pointer.tsx) — is never clipped by the box. */}
       <SelectPrimitive.Content
         position={position}
         sideOffset={4}
-        className={cn(
-          // z-65: above dialogs and sheets it can be opened from (AUD-04 §6; ladder in globals.css).
-          // Never taller than the space Radix measured, so a long list scrolls on a short screen.
-          "z-[65] max-h-[min(18rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-lg shadow-black/5",
-          className,
-        )}
+        // z-65: above dialogs and sheets it can be opened from (AUD-04 §6; ladder in globals.css).
+        className="nesto-popup-shell z-[65] outline-none"
         {...props}
       >
-        <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
+        <div
+          className={cn(
+            // Never taller than the space Radix measured, so a long list scrolls on a short screen.
+            "nesto-popup-glass flex max-h-[min(18rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] flex-col overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-lg shadow-black/5",
+            className,
+          )}
+        >
+          <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
+        </div>
+        {position === "popper" ? (
+          <SelectPrimitive.Arrow asChild>
+            <PopupPointer />
+          </SelectPrimitive.Arrow>
+        ) : null}
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

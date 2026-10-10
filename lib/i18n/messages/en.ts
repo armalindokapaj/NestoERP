@@ -144,6 +144,13 @@ export const en = {
       profile: "Profile",
       account: "Account",
       pending: "Opening…",
+      /** The small menu the bar's Tasks button opens. */
+      tasksMenu: {
+        mine: "My tasks",
+        today: "Due today",
+        overdue: "Overdue",
+        all: "All tasks",
+      },
     },
   },
 
@@ -167,9 +174,8 @@ export const en = {
     openInCompany: "Open in {company}",
     company: "Company",
     staticLabel: "Current workspace: {name}",
-    homeLabel: "Dashboard of {name}",
-    railLabel: "Switch company",
-    railLoading: "Loading workspaces",
+    homeLabel: "Dashboard. Current workspace: {name}.",
+    chooseCompany: "Choose Company",
     retryLoad: "Retry loading workspaces",
     headerLabel: "Switch workspace. Current workspace: {name}.",
     loadingOptions: "Loading your workspaces",
@@ -219,6 +225,8 @@ export const en = {
     announcements: "Announcements",
     markAll: "Mark all as read",
     viewAll: "View all activity",
+    /** The same destination, as the phone's Alerts popup names it. */
+    allAlerts: "All alerts",
     empty: "You're all caught up.",
     filterEmpty: "Nothing matches these filters.",
     error: "Activity is temporarily unavailable.",
