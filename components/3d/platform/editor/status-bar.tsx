@@ -1,7 +1,8 @@
+"use client";
+
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { numberText } from "@/lib/i18n/format";
 import { useEditorWord } from "./editor-text";
-"use client";
 
 /*
  * The Rozaris Web3D editor's status bar (experience-editor/StatusBar.tsx): the
