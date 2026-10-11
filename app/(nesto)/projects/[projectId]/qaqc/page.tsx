@@ -135,7 +135,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
                 shown={inspectionRows.data.length}
                 total={inspectionRows.total}
                 href={viewAll("inspections")}
-                noun="inspections"
+                records="inspections"
               />
             </section>
           ) : null}
@@ -153,7 +153,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
                 shown={defectRows.data.length}
                 total={defectRows.total}
                 href={viewAll("defects", "severity-desc")}
-                noun="defects"
+                records="defects"
               />
             </section>
           ) : null}
@@ -171,7 +171,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
                 shown={ncrRows.data.length}
                 total={ncrRows.total}
                 href={viewAll("ncrs", "severity-desc")}
-                noun="NCRs"
+                records="ncrs"
               />
             </section>
           ) : null}
@@ -188,7 +188,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
                 shown={actionRows.data.length}
                 total={actionRows.total}
                 href={viewAll("corrective-actions")}
-                noun="corrective actions"
+                records="correctiveActions"
               />
             </section>
           ) : null}
@@ -198,17 +198,22 @@ export default async function ProjectQaqcPage({ params }: Params) {
   );
 }
 
+type PreviewRecords = "inspections" | "defects" | "ncrs" | "correctiveActions";
+
 /**
  * Under a preview: how many of the project's records it shows, and the way to
  * the rest (AUD-08 §4). A complete preview still states its count.
  */
-function PreviewFooter({ shown, total, href, noun }: { shown: number; total: number; href: string; noun: string }) {
+async function PreviewFooter({ shown, total, href, records }: { shown: number; total: number; href: string; records: PreviewRecords }) {
+  const t = await getTranslations("projects");
+  // The noun as it reads after the count; "View all …" is a phrase of its own, because the noun changes form there.
+  const noun = t(`tabPages.preview.${records}.counted`, { count: total });
   return (
     <p className="flex flex-wrap items-baseline justify-between gap-2 text-meta text-fg-muted" data-testid="preview-count">
       <span>
         {shown < total ? (
           <>
-            Showing <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span> {noun}
+            {t("tabPages.showing")} <span className="tabular-nums">{shown}</span> {t("tabPages.of")} <span className="tabular-nums">{total}</span> {noun}
           </>
         ) : (
           <>
@@ -217,7 +222,7 @@ function PreviewFooter({ shown, total, href, noun }: { shown: number; total: num
         )}
       </span>
       <Link href={href} className="text-accent hover:underline">
-        View all {noun}
+        {t(`tabPages.preview.${records}.viewAll`)}
       </Link>
     </p>
   );

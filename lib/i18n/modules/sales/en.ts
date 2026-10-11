@@ -440,6 +440,7 @@ export const salesEn = {
     priceBasis: "Price basis",
     priceBasisHint: "The area the price per m² is worked out from.",
     changeReason: "Reason for the change",
+    changeReasonPlaceholder: "e.g. Second price list",
     salesNotes: "Sales notes",
     chooseDate: "Choose a date.",
     reason: "Reason",

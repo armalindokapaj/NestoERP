@@ -1,4 +1,5 @@
 import { TabPendingDot } from "@/components/modules/tab-pending-dot";
+import { sectionLabel } from "@/lib/i18n/modules/common/labels";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { KeepActiveInView } from "@/components/ui/scroll-region";
@@ -26,10 +27,12 @@ export async function ModuleTabs({
   activeSection: string;
 }) {
   if (experience.sections.length <= 1) return null;
-  const t = await getTranslations("common");
+  // The module is named as the sidebar names it and each tab as its section is
+  // configured, both in the reader's language; config/modules.ts keeps the English.
+  const [t, names] = await Promise.all([getTranslations("common"), getTranslations("modules")]);
 
   return (
-    <ContextTabsFrame label={t("sections", { label: experience.label })}>
+    <ContextTabsFrame label={t("sections", { label: names(`${experience.module}.label`) })}>
         {experience.sections.map((section) => {
           const active = section.key === activeSection;
           return (
@@ -40,7 +43,7 @@ export async function ModuleTabs({
               aria-current={active ? "page" : undefined}
               className={contextTabClass(active)}
             >
-              {section.label}
+              {sectionLabel(t, experience.module, section)}
               <TabPendingDot href={sectionRoute(experience.module, section.key)} />
             </Link>
           );

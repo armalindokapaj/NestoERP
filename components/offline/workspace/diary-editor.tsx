@@ -95,7 +95,7 @@ function DiaryForm({ targetId, view, server, project, locked }: { targetId: stri
   const [message, setMessage] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  const label = `Site Diary · ${project.name}`;
+  const label = t("diary.queueLabel", { project: project.name });
   const context = { companyId: project.companyId, projectId: project.projectId, label };
   const editable = !server || server.status === "DRAFT" || server.status === "CORRECTION_REQUIRED";
   const activities = view?.entries.filter((entry) => entry.section === "activities") ?? [];

@@ -500,7 +500,7 @@ export function RiskAssessmentActions({
       {!may.canEdit && may.canVersion ? (
         <Button asChild variant="secondary">
           <Link href={`/hse/risk-assessments/${assessment.id}/edit`}>
-            New version (v{assessment.version + 1})
+            {t("actions.newVersionNumbered", { version: assessment.version + 1 })}
           </Link>
         </Button>
       ) : null}

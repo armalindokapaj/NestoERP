@@ -219,7 +219,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
     setPending(true);
     try {
       await structureApi(url, { method: "DELETE" });
-      toast({ title: `${label} deleted.` });
+      toast({ title: t("workspace.deleted", { label }) });
       setDialog(null);
       if (target.type === "building" && selection.buildingId === target.building.id) choose({ buildingId: null, floorId: null });
       if (target.type === "floor" && selection.floorId === target.floor.id) choose({ buildingId: target.floor.buildingId, floorId: null });

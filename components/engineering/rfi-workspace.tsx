@@ -238,7 +238,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
         title={t("rfi.followUpTask")}
         description={t("rfi.taskBody")}
         fields={taskFields(assignees, t)}
-        initial={{ priority: "MEDIUM", title: `Follow up ${rfi.rfiNumber}: ${rfi.subject}`.slice(0, 200) }}
+        initial={{ priority: "MEDIUM", title: t("rfi.followUpTitle", { number: rfi.rfiNumber, subject: rfi.subject }).slice(0, 200) }}
         submitLabel={t("rfi.createTask")}
         saveKind="create"
         module="engineering"

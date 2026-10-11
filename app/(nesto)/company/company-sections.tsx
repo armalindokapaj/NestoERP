@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { isModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
 import { getCompany, getCompanyModules, getTeamMembers } from "@/lib/database/queries";
 import { getTranslations } from "@/lib/i18n/server";
@@ -93,21 +94,24 @@ export async function CompanyDetails({ context }: { context: UserContext }) {
  * (PRD #9 §110).
  */
 export async function CompanyModules({ context }: { context: UserContext }) {
-  const companyModules = await getCompanyModules(context.companyId);
+  const [companyModules, names] = await Promise.all([getCompanyModules(context.companyId), getTranslations("modules")]);
 
   return (
     <ul className="nesto-card divide-y divide-line">
-      {companyModules.map((module) => (
-        <li key={module.key} className="flex items-center justify-between gap-3 p-4">
-          <div className="min-w-0">
-            <p className="text-table font-medium text-fg">{module.name}</p>
-            {module.description ? (
-              <p className="truncate text-meta text-fg-subtle">{module.description}</p>
-            ) : null}
-          </div>
-          <StatusBadge status={module.enabled ? "ACTIVE" : "INACTIVE"} />
-        </li>
-      ))}
+      {companyModules.map((module) => {
+        // The stored row is the English of config/modules.ts; a module the frame knows is named as the sidebar names it.
+        const known = isModuleKey(module.key) ? module.key : null;
+        const description = known ? names(`${known}.description`) : module.description;
+        return (
+          <li key={module.key} className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-table font-medium text-fg">{known ? names(`${known}.label`) : module.name}</p>
+              {description ? <p className="truncate text-meta text-fg-subtle">{description}</p> : null}
+            </div>
+            <StatusBadge status={module.enabled ? "ACTIVE" : "INACTIVE"} />
+          </li>
+        );
+      })}
     </ul>
   );
 }

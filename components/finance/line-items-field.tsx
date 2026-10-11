@@ -170,7 +170,7 @@ export function PricedLineItems({
                   name={`lineItems.${index}.quantity`}
                   label={t("lines.quantity")}
                   value={row.quantity}
-                  rule={{ label: "Quantity", ...RATE_RULE }}
+                  rule={{ label: t("lines.quantity"), ...RATE_RULE }}
                   refine={positiveQuantity}
                   serverError={rowErrors.quantity}
                   onChange={(value) => change(row.rowId, "quantity", value)}
@@ -183,7 +183,7 @@ export function PricedLineItems({
                   label={t("lines.unitPrice")}
                   unit={currency}
                   value={row.unitPrice}
-                  rule={{ label: "Unit price", ...RATE_RULE }}
+                  rule={{ label: t("lines.unitPrice"), ...RATE_RULE }}
                   serverError={rowErrors.unitPrice}
                   onChange={(value) => change(row.rowId, "unitPrice", value)}
                 />
@@ -195,7 +195,7 @@ export function PricedLineItems({
                   label={t("lines.tax")}
                   unit="%"
                   value={row.taxRate}
-                  rule={{ label: "Tax rate", ...TAX_RATE_RULE }}
+                  rule={{ label: t("lines.taxRate"), ...TAX_RATE_RULE }}
                   refine={taxRateInRange}
                   serverError={rowErrors.taxRate}
                   onChange={(value) => change(row.rowId, "taxRate", value)}
@@ -360,7 +360,7 @@ export function BudgetLineItems({
                   label={t("lines.plannedAmount")}
                   unit={currency}
                   value={row.plannedAmount}
-                  rule={{ label: "Planned amount", ...MONEY_RULE }}
+                  rule={{ label: t("lines.plannedAmount"), ...MONEY_RULE }}
                   serverError={rowErrors.plannedAmount}
                   onChange={(value) => change(row.rowId, "plannedAmount", value)}
                 />

@@ -85,6 +85,7 @@ export const offlineSq: typeof offlineEn = {
   },
   diary: {
     title: "Ditari i kantierit",
+    queueLabel: "Ditari i kantierit · {project}",
     newEntry: "Regjistrim i ri",
     none: "Nuk ka regjistrime ditari në këtë pajisje.",
     today: "Sot",

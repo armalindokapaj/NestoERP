@@ -173,8 +173,12 @@ export function DataTable<T>({
   };
   // Without a Columns control, a width-hidden column is read under the title.
   const lines = listId ? [] : secondary.filter((column) => effectiveHideBelow(column) && effectiveHideBelow(column) !== "md");
-  const choices = sortChoices(columns, sort?.keys);
-  const sortControl = choices.length > 0 ? <TableSortSelect choices={choices} sort={sort ?? {}} label={caption} /> : null;
+  // The Sort select builds its own options, so each names its direction in the
+  // reader's language: this component renders on the server and the client
+  // alike and can call no hook. It is handed the sortable columns' label, sort
+  // stem and value type only; a renderer cannot cross to a Client Component.
+  const sortable = columns.filter((column) => column.sortKey).map(({ label, sortKey, valueType }) => ({ label, sortKey, valueType }));
+  const sortControl = sortChoices(sortable, sort?.keys).length > 0 ? <TableSortSelect columns={sortable} sort={sort ?? {}} label={caption} /> : null;
 
   const table = (
     <>

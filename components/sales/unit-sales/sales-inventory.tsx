@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { areaText, numberText } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,7 @@ export function SalesInventory({
   actions: { canReserve: boolean; canRelease: boolean };
 }) {
   const t = useSalesTranslations();
+  const tUi = useTranslations("ui");
   const [filters, setFilters] = React.useState(initialFilters);
   const [search, setSearch] = React.useState(initialFilters.q);
   const [page, setPage] = React.useState(initial.page);
@@ -188,7 +190,7 @@ export function SalesInventory({
         />
         <Button variant="secondary" onClick={() => setPanelOpen((open) => !open)} aria-expanded={panelOpen}>
           <SlidersHorizontal aria-hidden="true" />
-          Filters{panelCount ? ` (${panelCount})` : ""}
+          {tUi("filters")}{panelCount ? ` (${panelCount})` : ""}
         </Button>
         <FormSelect aria-label={t("inventory.sortUnits")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
           {(Object.keys(SORT_LABELS) as InventorySort[]).map((sort) => (
@@ -310,7 +312,7 @@ export function SalesInventory({
                   {list.canSeeDeals && row.deal ? (
                     <Button asChild variant="secondary" size="sm" className="max-w-full">
                       <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={t("inventory.dealLabel", { name: row.deal.name })}>
-                        <span className="truncate">Deal: {row.deal.name}</span>
+                        <span className="truncate">{t("inventory.dealLabel", { name: row.deal.name })}</span>
                       </Link>
                     </Button>
                   ) : null}

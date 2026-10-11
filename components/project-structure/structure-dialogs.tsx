@@ -299,7 +299,7 @@ function MoveFloorForm({ floor, buildings, onMoved, onDone }: { floor: FloorNode
   const [target, setTarget] = React.useState(others[0]?.id ?? "");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const editor = useValuesEditor({ target }, { module: "units", saveKind: "none", workflow: "Move floor", label: t("structureDialogs.moving", { name: floor.name }) });
+  const editor = useValuesEditor({ target }, { module: "units", saveKind: "none", workflow: t("structureDialogs.moveFloor"), label: t("structureDialogs.moving", { name: floor.name }) });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -371,7 +371,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const floors = buildings.find((building) => building.id === buildingId)?.floors ?? [];
-  const editor = useValuesEditor({ buildingId, floorId }, { module: "units", saveKind: "none", workflow: "Move unit", label: t("structureDialogs.moving", { name: unit.unitCode }) });
+  const editor = useValuesEditor({ buildingId, floorId }, { module: "units", saveKind: "none", workflow: t("structureDialogs.moveUnit"), label: t("structureDialogs.moving", { name: unit.unitCode }) });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -416,7 +416,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
             {floors.map((floor) => (
               <option key={floor.id} value={floor.id} disabled={floor.id === unit.floorId}>
                 {floor.name}
-                {floor.id === unit.floorId ? " (current)" : ""}
+                {floor.id === unit.floorId ? t("structureDialogs.currentSuffix") : ""}
               </option>
             ))}
           </FormSelect>

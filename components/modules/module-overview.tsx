@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { sectionRoute, type ModuleKey } from "@/config/modules";
 import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { supportShellText } from "@/lib/i18n/modules/common/labels";
 import { recordSectionsFor } from "@/lib/modules/records/registry";
 
 /**
@@ -59,7 +60,7 @@ export async function ModuleOverview({
             href={sectionRoute(moduleKey, section.section)}
             className="nesto-card p-4 transition-colors hover:border-line-strong"
           >
-            <p className="text-table text-fg-muted">{section.plural}</p>
+            <p className="text-table text-fg-muted">{supportShellText(t, section.plural)}</p>
             <p className="mt-2 text-page font-semibold tabular-nums text-fg">{total}</p>
           </Link>
         ))}
@@ -72,7 +73,7 @@ export async function ModuleOverview({
           .map(({ section, rows }) => (
             <section key={section.section} className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{section.plural}</h2>
+                <h2 className="text-card font-semibold text-fg">{supportShellText(t, section.plural)}</h2>
                 <Link
                   href={sectionRoute(moduleKey, section.section)}
                   className="text-table font-medium text-accent-strong"

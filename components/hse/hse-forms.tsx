@@ -9,6 +9,7 @@ import {
   selectClass,
   type FormActionResult,
 } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -262,9 +263,10 @@ function MemberField({
  * AUD-09: candidate for lib/forms.
  */
 export function CurrentOption({ value, options }: { value?: string | null; options: Option[] }) {
-  const t = useHseTranslations();
+  // The frame dictionary: the QA/QC forms use this too, and HSE's is not there on their pages.
+  const t = useTranslations("ui");
   if (!value || options.some((option) => option.value === value)) return null;
-  return <option value={value}>{t("forms.currentChoice")}</option>;
+  return <option value={value}>{t("currentChoice")}</option>;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -6,6 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, History, Upload } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
@@ -339,6 +340,8 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
   const toast = useToast();
   const close = useDialogClose();
   const t = useEngineeringTranslations();
+  // The upload queue raises its messages in English; they are read back here.
+  const tDocuments = useDocumentsTranslations();
   const api = paths(kind, recordId);
   const [code, setCode] = React.useState(suggested);
   const [files, setFiles] = React.useState<Option[]>([]);
@@ -423,7 +426,7 @@ function AddRevisionForm({ kind, recordId, recordType, suggested, canUpload, onC
           <div className="rounded-md border border-dashed border-line-strong px-4 py-3">
             <input ref={fileInput} type="file" className="sr-only" aria-label={t("revisions.uploadLabel")} data-testid="revision-upload" onChange={(event) => { if (event.target.files?.length) upload.enqueue([...event.target.files], (file) => ({ name: file.name })); event.target.value = ""; }} />
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-table text-fg-muted">{uploading ? t("revisions.uploading") : failed ? (failed.error ?? t("revisions.uploadFailed")) : t("revisions.fileHint")}</p>
+              <p className="text-table text-fg-muted">{uploading ? t("revisions.uploading") : failed ? uploadErrorText(tDocuments, failed.error ?? t("revisions.uploadFailed")) : t("revisions.fileHint")}</p>
               <Button type="button" size="sm" variant="secondary" onClick={() => fileInput.current?.click()} disabled={uploading}>
                 <Upload aria-hidden="true" />
                 {t("revisions.uploadFile")}

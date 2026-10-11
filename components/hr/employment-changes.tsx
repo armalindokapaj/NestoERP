@@ -154,7 +154,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const running = React.useRef(false);
-  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Apply", label: t(`changes.titles.${action}`) });
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: t("changes.apply"), label: t(`changes.titles.${action}`) });
   const { setDirty, setSaving, setUnresolved } = editor;
   // Dirty against the values it opened with: putting them back makes it clean again.
   const dirty = confirmed || Object.keys(initialDraft).some((key) => draft[key] !== initialDraft[key]);

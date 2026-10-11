@@ -117,6 +117,8 @@ export const teamEn = {
     jobTitlePlaceholder: "Site Engineer",
     sending: "Sending…",
     send: "Send invitation",
+    /** The step as the unsaved-changes prompt names it. */
+    workflow: "Send",
     cancel: "Cancel",
   },
   actions: {

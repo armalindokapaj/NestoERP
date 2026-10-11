@@ -57,6 +57,11 @@ export const en = {
     logout: "Logout",
     signingOut: "Signing out…",
     myProfile: "My profile",
+    poweredBy: "Powered by",
+    demoData: "Demo data",
+    /** The same notice on the collapsed rail, where one word fits. */
+    demo: "Demo",
+    demoDisclaimer: "Demo environment — public company and project information combined with synthetic operational data.",
     account: {
       menuFor: "Account menu for {name}",
       title: "Account",
@@ -122,6 +127,8 @@ export const en = {
       createNamed: "Create {name}",
       belongsTo: "The {name} belongs to the company you choose. Opening it enters that company.",
       searchActions: "Search actions",
+      noMatches: "No create actions match “{query}”.",
+      project: "Project",
       continue: "Continue",
       groups: { GENERAL: "General", PROJECTS: "Projects", SALES: "Sales", FINANCE: "Finance", PROCUREMENT: "Procurement", DOCUMENTS: "Documents", QAQC: "QA/QC", HSE: "HSE" },
       actions: { tasks_task_create: "Task", meetings_meeting_create: "Meeting", documents_document_create: "Document", projects_project_create: "Project", projects_daily_log_create: "Daily log", clients_client_create: "Client", sales_opportunity_create: "Opportunity", finance_invoice_create: "Invoice", finance_expense_create: "Expense", procurement_purchase_request_create: "Purchase request", qaqc_ncr_create: "NCR", hse_incident_create: "HSE incident", hse_hazard_create: "HSE hazard" },
@@ -706,6 +713,7 @@ export const en = {
 
   auth: {
     brandHeadline: "One platform to run your company.",
+    brandTagline: "People. Projects. Progress.",
     backToHome: "Back to home",
     backToLogin: "Back to login",
     username: "Username",
@@ -1117,9 +1125,31 @@ export const en = {
     copyFailedBody: "Your browser blocked clipboard access.",
     delete: "Delete",
     cancel: "Cancel",
+    saving: "Saving…",
     working: "Working…",
     close: "Close",
     dismiss: "Dismiss",
+    reason: "Reason",
+    /** Under a step that cannot be taken back: the shared form dialogs say so. */
+    auditNote: "This is recorded in the audit trail and cannot be undone here.",
+    /** A select's stored value that its choices no longer offer (a person who left, an archived project). */
+    currentChoice: "Current choice — no longer available for new records",
+    /** The reject dialog's own wording, for a caller that gives none. */
+    rejectDescription: "The reason is recorded against the approval and shown to whoever submitted it.",
+    rejectPlaceholder: "What needs to change before this can be approved?",
+    reject: "Reject",
+    rejecting: "Rejecting…",
+    rejectEmpty: "Say why it was rejected, so it can be corrected.",
+    unconfirmed: "We could not confirm this was done. Check the record before trying again.",
+    /** A line taken out of a line editor (Finance, Sales, Procurement, Inventory), until the form is saved. */
+    lineRemoved: "{noun} {position} removed.",
+    lineRemovedNamed: "{noun} {position} removed: {label}.",
+    lineNoun: "Line",
+    lineUndo: "Undo",
+    lineDismiss: "Dismiss",
+    historyNavigation: "History navigation",
+    breadcrumb: "Breadcrumb",
+    showHiddenCrumbs: "Show hidden breadcrumb levels",
     errorTitle: "Something went wrong.",
     errorBody: "Please try again.",
     networkTitle: "You appear to be offline.",
@@ -1160,6 +1190,12 @@ export const en = {
     mob04TakePhoto: "Take photo",
     mob04ChooseFile: "Choose file",
     mob04RemoveFile: "Remove {name}",
+    /** A chosen file over the field's limit: its name and size, then the limit. */
+    mob04TooLarge: "{name} ({size}) — max {max}",
+    /** Stands for a file's type when the browser reports none. */
+    mob04File: "file",
+    /** What the unsaved-changes prompt calls an upload queue with files still on their way. */
+    uploadsLabel: "Files being uploaded",
     mob04Uploading: "Uploading {percent}%",
     mob04Ready: "Ready",
     mob04Failed: "Upload failed",

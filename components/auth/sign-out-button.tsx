@@ -3,12 +3,14 @@
 import { useTransition } from "react";
 import { LogOut } from "lucide-react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth/client-lifecycle";
 import { unsaved } from "@/lib/unsaved/coordinator";
 
 /** Sign out from a page that has no application shell around it. */
 export function SignOutButton({ className }: { className?: string }) {
+  const t = useTranslations("shell");
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -25,7 +27,7 @@ export function SignOutButton({ className }: { className?: string }) {
       }
     >
       <LogOut aria-hidden="true" />
-      {isPending ? "Signing out…" : "Sign out"}
+      {isPending ? t("account.signingOut") : t("account.signOut")}
     </Button>
   );
 }

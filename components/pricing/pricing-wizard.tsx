@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { numberText } from "@/lib/i18n/format";
 import { fill, type PricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { defaultRequest, MODULE_GROUPS } from "@/lib/modules/pricing/pricing.config";
 import { calculatePricing, hasRozarisProjects, isIncluded, isOffered, resolveModules } from "@/lib/modules/pricing/pricing.engine";
@@ -95,10 +96,11 @@ function urlFor(input: PricingRequest, step: number) {
   return `${window.location.pathname}?${params}${window.location.hash}`;
 }
 
+/** Throws the server's own message; when it gave none the error carries none, and the caller words it for its reader. */
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const payload = (await response.json().catch(() => null)) as { data?: T; error?: { message?: string } } | null;
-  if (!response.ok || !payload?.data) throw new Error(payload?.error?.message ?? "The request could not be completed.");
+  if (!response.ok || !payload?.data) throw new Error(payload?.error?.message ?? "");
   return payload.data;
 }
 
@@ -114,8 +116,8 @@ type Ctx = { config: PublicPricingConfig; book: PricingConfig; input: PricingReq
 export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: PublicPricingConfig; copy: PricingCopy; locale: string }) {
   const t = copy;
   const book = React.useMemo(() => priceBookOf(initialConfig), [initialConfig]);
-  const formatter = React.useMemo(() => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }), [locale]);
-  const money = React.useCallback((cents: number) => formatter.format(cents / 100), [formatter]);
+  // Never `Intl` with the reader's locale: Chrome has no Albanian data, so the server and the browser would print two different prices.
+  const money = React.useCallback((cents: number) => numberText(cents / 100, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }, locale === "sq" ? "sq" : "en", "en"), [locale]);
   const initial = React.useMemo(() => withPromotion(initialConfig, defaultRequest("ROZARIS", initialConfig)), [initialConfig]);
   const [input, setInput] = React.useState<PricingRequest>(initial);
   const [step, setStep] = React.useState(0);
@@ -650,7 +652,7 @@ function ProposalDialog({ open, type, quote, t, money, onOpenChange }: { open: b
       setReference(result.reference);
       track("pricing_proposal_submitted", quote.normalizedConfiguration, { requestType: type });
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t.estimate.failed);
+      setError(failure instanceof Error ? failure.message || t.proposal.failed : t.estimate.failed);
     } finally {
       setPending(false);
     }

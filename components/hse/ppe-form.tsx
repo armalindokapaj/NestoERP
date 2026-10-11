@@ -155,10 +155,7 @@ export function PpeForm({
 
       <section className="nesto-card p-5">
         <h2 className="text-card font-semibold text-fg">{t("forms.equipment")}</h2>
-        <p className="mt-1 text-meta text-fg-subtle">
-          Record at least one item. Anything left as “not checked” is exactly that — it is not a
-          pass.
-        </p>
+        <p className="mt-1 text-meta text-fg-subtle">{t("forms.equipmentIntro")}</p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {PPE_ITEMS.map((item) => (

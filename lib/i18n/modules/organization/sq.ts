@@ -300,6 +300,7 @@ export const organizationSq: typeof organizationEn = {
 
   departmentActions: {
     name: "Emri",
+    namePlaceholder: "Financa",
     code: "Kodi",
     codeHint: "I shkurtër, unik në grup. Shkronja, shifra, viza.",
     description: "Përshkrimi",

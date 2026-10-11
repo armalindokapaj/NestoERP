@@ -75,7 +75,7 @@ export function DocumentUploader({
   const values = JSON.stringify({ contextKind, projectId, clientId, name, description });
   // What the page opened with; after an upload, what that upload used.
   const [baseline, setBaseline] = React.useState(values);
-  const editor = useUnsavedEditor({ module: "documents", saveKind: "none", workflow: "Upload", label: "Document details" });
+  const editor = useUnsavedEditor({ module: "documents", saveKind: "none", workflow: t("versions.upload"), label: t("edit.section") });
   const { setDirty } = editor;
   React.useEffect(() => setDirty(values !== baseline), [values, baseline, setDirty]);
 

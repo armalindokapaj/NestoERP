@@ -172,10 +172,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
             <section className="space-y-3">
               <div>
                 <h2 className="text-card font-semibold text-fg">{t("inventoryTab.consumption")}</h2>
-                <p className="mt-1 text-meta text-fg-subtle">
-                  Issued less returned, per item. This is what the project actually used — NESTO
-                  does not put a cost on it in V0.1.
-                </p>
+                <p className="mt-1 text-meta text-fg-subtle">{t("inventoryTab.consumptionBody")}</p>
               </div>
               <DataTable
                 listId="projects.inventory.consumption"

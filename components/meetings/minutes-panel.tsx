@@ -32,6 +32,7 @@ import { useMeetingsTranslations } from "./meetings-text";
  * not yet saved counts as unsaved work, so leaving asks first (AUD-03 §3).
  */
 
+/** The sections a draft can start from, by their key under `labels.minutesSection`. */
 const SUGGESTED = ["Summary", "Discussion", "Key Points", "Risks / Issues", "Follow-Up Notes"];
 
 export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; compact?: boolean }) {
@@ -58,8 +59,11 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
     }
   }
 
+  // A new section takes its title in the language of whoever adds it; it is the record's own text from then on.
+  const titled = (key: string) => meetingsLabel(t, "minutesSection", key, key);
   const existing = new Set(meeting.minutes.map((section) => section.title));
-  const suggestions = SUGGESTED.filter((title) => !existing.has(title));
+  // Spent once a section carries the title: in English, as earlier minutes do, or as this reader would add it.
+  const suggestions = SUGGESTED.filter((title) => !existing.has(title) && !existing.has(titled(title)));
 
   return (
     <section aria-labelledby="minutes-heading" className="space-y-4" data-testid="minutes-panel">
@@ -128,11 +132,11 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
                 key={title}
                 type="button"
                 disabled={pending !== null}
-                onClick={() => void call(`add-${title}`, `/api/meetings/${meeting.id}/minutes/sections`, { body: { title: title === "Other" ? "Notes" : title, body: "" } })}
+                onClick={() => void call(`add-${title}`, `/api/meetings/${meeting.id}/minutes/sections`, { body: { title: titled(title === "Other" ? "Notes" : title), body: "" } })}
                 className="inline-flex h-8 items-center gap-1 rounded-full border border-line px-2.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg disabled:opacity-50"
               >
                 {pending === `add-${title}` ? <Loader2 aria-hidden="true" className="size-3 animate-spin" /> : <Plus aria-hidden="true" className="size-3" />}
-                {meetingsLabel(t, "minutesSection", title, title)}
+                {titled(title)}
               </button>
             ))}
           </div>

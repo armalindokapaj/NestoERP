@@ -92,6 +92,7 @@ export const meetingsSq: typeof meetingsEn = {
       "Risks / Issues": "Rreziqe / Probleme",
       "Follow-Up Notes": "Shënime për vazhdimin",
       Other: "Tjetër",
+      Notes: "Shënime",
     },
     repeat: {
       DAILY: "Përsëritet çdo ditë",

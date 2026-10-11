@@ -125,6 +125,8 @@ const en = {
     "moreComingSoon": "Coming in an upcoming update.",
     "noResults": "No units match these filters.",
     "notInModel": "Not shown in the 3D model",
+    "rangeMaximum": "{label} maximum",
+    "rangeMinimum": "{label} minimum",
     "resultsCount": "{count} results",
     "searchPlaceholder": "Search unit, floor, type...",
     "showingRange": "Showing {shown} of {total}",
@@ -238,6 +240,7 @@ const en = {
     "floorRailUnits": "{count} units",
     "floorRailUnitsOne": "1 unit",
     "noUnitsMatch": "No units match these filters yet.",
+    "openRecord": "Open unit record",
     "orientation": "Orientation",
     "orientationE": "E — East",
     "orientationN": "N — North",
@@ -259,7 +262,8 @@ const en = {
     "viewInFloorTitle": "Cut the building open at floor {n}",
     "viewerBuilding": "Building",
     "viewerFilterAll": "All",
-    "viewerFullscreen": "Toggle fullscreen"
+    "viewerFullscreen": "Toggle fullscreen",
+    "whatsappInterest": "Hi, I'm interested in unit {code} at {project}"
   },
   "compareFields": {
     "price": "Price",
@@ -399,6 +403,8 @@ const sq: ViewerDictionary = {
     "moreComingSoon": "Vjen në një përditësim të ardhshëm.",
     "noResults": "Asnjë njësi nuk përputhet me këta filtra.",
     "notInModel": "Nuk shfaqet në modelin 3D",
+    "rangeMaximum": "{label}: maksimumi",
+    "rangeMinimum": "{label}: minimumi",
     "resultsCount": "{count} rezultate",
     "searchPlaceholder": "Kërko njësi, kat, tip...",
     "showingRange": "Duke shfaqur {shown} nga {total}",
@@ -512,6 +518,7 @@ const sq: ViewerDictionary = {
     "floorRailUnits": "{count} njësi",
     "floorRailUnitsOne": "1 njësi",
     "noUnitsMatch": "Ende nuk ka njësi që përputhen me këto filtra.",
+    "openRecord": "Hap regjistrimin e njësisë",
     "orientation": "Orientimi",
     "orientationE": "E — Lindje",
     "orientationN": "N — Veri",
@@ -533,7 +540,8 @@ const sq: ViewerDictionary = {
     "viewInFloorTitle": "Prit ndërtesën te kati {n}",
     "viewerBuilding": "Ndërtesa",
     "viewerFilterAll": "Të gjitha",
-    "viewerFullscreen": "Ndrysho ekranin e plotë"
+    "viewerFullscreen": "Ndrysho ekranin e plotë",
+    "whatsappInterest": "Përshëndetje, më intereson njësia {code} në projektin {project}"
   },
   "compareFields": {
     "price": "Çmimi",

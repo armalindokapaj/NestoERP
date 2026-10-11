@@ -435,6 +435,7 @@ export const salesSq: typeof salesEn = {
     priceBasis: "Baza e çmimit",
     priceBasisHint: "Sipërfaqja nga e cila llogaritet çmimi për m².",
     changeReason: "Arsyeja e ndryshimit",
+    changeReasonPlaceholder: "p.sh. Lista e dytë e çmimeve",
     salesNotes: "Shënime shitjeje",
     chooseDate: "Zgjidhni një datë.",
     reason: "Arsyeja",

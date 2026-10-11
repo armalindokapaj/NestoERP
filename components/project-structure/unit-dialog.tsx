@@ -143,7 +143,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
             {offered.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.name}
-                {option.isActive ? "" : " (retired)"}
+                {option.isActive ? "" : t("unitDialog.retiredSuffix")}
               </option>
             ))}
           </FormSelect>

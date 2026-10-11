@@ -499,6 +499,23 @@ export const projectsEn = {
     allUpcomingMeetings: "All upcoming meetings",
     recent: "Recent",
     allPastMeetings: "All past meetings",
+    /**
+     * Under a tab's preview table: the records it counts, and the way to all of
+     * them. English shows the plural whatever the count; the pair is there for a
+     * language that declines the noun after a number.
+     */
+    preview: {
+      hazards: { counted_one: "hazards", counted_other: "hazards", viewAll: "View all hazards" },
+      incidents: { counted_one: "incidents", counted_other: "incidents", viewAll: "View all incidents" },
+      inspections: { counted_one: "inspections", counted_other: "inspections", viewAll: "View all inspections" },
+      actions: { counted_one: "actions", counted_other: "actions", viewAll: "View all actions" },
+      permits: { counted_one: "permits", counted_other: "permits", viewAll: "View all permits" },
+      toolboxTalks: { counted_one: "toolbox talks", counted_other: "toolbox talks", viewAll: "View all toolbox talks" },
+      observations: { counted_one: "observations", counted_other: "observations", viewAll: "View all observations" },
+      defects: { counted_one: "defects", counted_other: "defects", viewAll: "View all defects" },
+      ncrs: { counted_one: "NCRs", counted_other: "NCRs", viewAll: "View all NCRs" },
+      correctiveActions: { counted_one: "corrective actions", counted_other: "corrective actions", viewAll: "View all corrective actions" },
+    },
   },
 
   dailyLogs: {
@@ -676,6 +693,7 @@ export const projectsEn = {
     emptyTitle: "No material on this project.",
     emptyBody: "Issues, returns and reservations against this project appear here as they are posted.",
     consumption: "Consumption",
+    consumptionBody: "Issued less returned, per item. This is what the project actually used — NESTO does not put a cost on it in V0.1.",
     consumedOn: "Material consumed on {name}",
     issuesTo: "Issues to {name}",
     returnsFrom: "Returns from {name}",
@@ -885,6 +903,7 @@ export const projectsEn = {
   workspace: {
     loadStructureFailed: "Could not load project structure.",
     loadUnitsFailed: "Could not load units.",
+    deleted: "{label} deleted.",
     deleteFailed: "{label} could not be deleted.",
     orderFailed: "The order could not be saved.",
     editBuilding: "Edit building",
@@ -998,6 +1017,7 @@ export const projectsEn = {
   unitDialog: {
     type: "Type",
     chooseType: "Choose a type",
+    retiredSuffix: " (retired)",
     position: "Position",
     notSet: "Not set",
     orientation: "Orientation",
@@ -1073,6 +1093,7 @@ export const projectsEn = {
     unitMoveFailed: "The unit could not be moved.",
     floor: "Floor",
     chooseFloorOption: "Choose a floor",
+    currentSuffix: " (current)",
     moveUnit: "Move unit",
   },
 
@@ -1090,7 +1111,10 @@ export const projectsEn = {
     theBuilding: "the building",
     floorsCreateFailed: "The floors could not be created.",
     createFloors: "Create floors",
+    createUnits: "Create units",
+    copyUnits: "Copy units",
     createFloorsBody: "Floors by range, named for you — check the names before they are created.",
+    steps: "Steps",
     stepRange: "Building and range",
     stepNames: "Names and review",
     building: "Building",
@@ -1105,6 +1129,7 @@ export const projectsEn = {
     clashes_other: "{count} clashes",
     levelOf: "Level of floor {number}",
     nameOf: "Name of floor {number}",
+    confirmLarge: "Yes, create {count} floors",
     back: "Back",
     creating: "Creating…",
     create: "Create {what}",
@@ -1206,6 +1231,8 @@ export const projectsEn = {
     restoring: "Restoring",
     restored: "{code} restored.",
     reason: "Reason",
+    /** What the unsaved-changes prompt calls a reason typed for a publishing step ("Unpublish: reason"). */
+    reasonLabel: "{action}: reason",
     reasonRequired: "Give a reason.",
     cancel: "Cancel",
     working: "Working…",
@@ -1225,6 +1252,7 @@ export const projectsEn = {
     planVersionUploaded: "Sales Plan version {version} uploaded.",
     versionReceived: "New version received. It counts once it has been checked.",
     versionFailed: "The new version could not be uploaded.",
+    uploadIncomplete: "The upload did not complete. Try again.",
     removed: "“{name}” removed from {code}. The document itself is kept.",
     removeFailed: "The document could not be removed.",
     noAccess: "You do not have access to documents.",
@@ -1477,6 +1505,8 @@ export const projectsEn = {
     planningCopied: "Planning copied",
     copyPlanning: "Copy planning",
     planningToCopy: "Planning to copy",
+    /** The arrow column between a predecessor and its successor, for a screen reader. */
+    then: "then",
   },
 
   milestoneList: {
@@ -1544,6 +1574,7 @@ export const projectsEn = {
     reasonBody: "Setting a first baseline needs no reason; moving one does. Every change is audited either way.",
     executives: "Tell executives about critical committed milestones",
     executivesBody: "The CEO and Owner hear when a critical, externally committed milestone's baseline moves or it falls overdue.",
+    timezoneNote: "Milestone dates are read in {timezone}.",
     saving: "Saving…",
     save: "Save settings",
   },
@@ -1568,6 +1599,8 @@ export const projectsEn = {
     nameRequired: "Give it a name.",
     saveFailed: "The milestone could not be saved.",
     name: "Name",
+    namePlaceholder: "e.g. Structure Complete",
+    phaseNamePlaceholder: "e.g. Superstructure",
     phase: "Phase",
     noPhase: "No phase",
     type: "Type",
@@ -1604,6 +1637,7 @@ export const projectsEn = {
     actualStart: "Actual start",
     actualEnd: "Actual end",
     suggest: "Milestones suggest {value}%.",
+    useSuggested: "Use {value}%",
     milestones: "Milestones",
     archivePhase: "Archive phase",
     close: "Close",
@@ -1636,7 +1670,9 @@ export const projectsEn = {
     forecast: "Forecast",
     baseline: "Baseline",
     variance: "Variance",
+    waitingOn: "Waiting on {count}",
     markComplete: "Mark complete",
+    reopenShort: "Reopen",
     actualDate: "Actual date",
     completionNote: "Completion note (optional)",
     tasksUnchanged: "Linked tasks are not changed.",
@@ -1644,6 +1680,8 @@ export const projectsEn = {
     reopen: "Reopen milestone",
     reason: "Reason",
     predecessorsSuggest: "Predecessors suggest a forecast of",
+    /** Kept as the reason for the forecast move when the suggestion is taken. */
+    followsPredecessors: "Follows its predecessors",
     forecastUpdated: "Forecast updated",
     useIt: "Use it",
     mightBeAtRisk: "Might be at risk: {reasons}.",
@@ -1672,7 +1710,9 @@ export const projectsEn = {
     blocks: "Blocks",
     daysLate_one: "{count} day late",
     daysLate_other: "{count} days late",
+    lagSuffix: " · {days}d lag",
     removeDependency: "Remove dependency on {name}",
+    dependencyRemoved: "Dependency removed",
     addDependencyTitle: "Add a milestone this one depends on",
     predecessor: "Predecessor",
     chooseMilestone: "Choose a milestone",
@@ -1733,6 +1773,20 @@ export const projectsEn = {
     nothingNotable: "Nothing notable yet.",
     created: " · created {date}",
     saved: "Milestone saved",
+    /** What the unsaved-changes prompt calls the drawer's editors. */
+    editors: {
+      complete: "Completing the milestone",
+      reopen: "Reopening the milestone",
+      baseline: "Baseline change",
+      blocker: "New blocker",
+      linkTask: "Task link",
+      dependency: "New dependency",
+      meeting: "Meeting link",
+      log: "Daily log link",
+      resolve: "Resolving a blocker",
+      panel: "Milestone panel",
+      update: "Milestone update",
+    },
   },
 
   report: {

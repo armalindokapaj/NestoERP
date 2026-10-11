@@ -508,7 +508,7 @@ export function UnitPreviewCard({
                 data-testid="project-3d-open-unit"
                 className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-control bg-accent px-3 py-2 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent"
               >
-                Open unit record
+                {t("unit.openRecord")}
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             )}
@@ -533,7 +533,7 @@ export function UnitPreviewCard({
                 tone="dark"
                 compact
                 publisher={project.developer}
-                whatsappMessage={`Hi, I'm interested in unit ${unit.code} at ${project.name}`}
+                whatsappMessage={t("unit.whatsappInterest", { code: unit.code, project: project.name })}
                 contentTitle={`${project.name} — ${unit.code}`}
                 contentUrl={`${typeof window === "undefined" ? "" : window.location.origin}/projects/${project.id}/3d?unit=${unit.id}`}
                 trackEntity={{ type: "project", id: project.id }}

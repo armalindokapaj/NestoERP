@@ -94,7 +94,7 @@ function InviteForm({
   const tCommon = useTranslations("common");
   const [pending, setPending] = React.useState(false);
   const [supplierId, setSupplierId] = React.useState("");
-  const editor = useUnsavedEditor({ module: "procurement", saveKind: "none", workflow: "Invite", label: t("invite.editorLabel") });
+  const editor = useUnsavedEditor({ module: "procurement", saveKind: "none", workflow: t("invite.invite"), label: t("invite.editorLabel") });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(supplierId !== ""), [supplierId, setDirty]);

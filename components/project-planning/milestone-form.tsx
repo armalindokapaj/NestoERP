@@ -187,7 +187,7 @@ function MilestoneForm({
   return (
     <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
       <Field label={t("milestoneForm.name")} htmlFor={id("name")} error={errors.name}>
-        <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} autoFocus placeholder="e.g. Structure Complete" />
+        <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} autoFocus placeholder={t("milestoneForm.namePlaceholder")} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("milestoneForm.phase")} htmlFor={id("phase")} error={errors.phaseId}>
@@ -457,7 +457,7 @@ function PhaseForm({
   return (
     <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
       <Field label={t("milestoneForm.name")} htmlFor={id("name")} error={errors.name}>
-        <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} disabled={!canEdit} autoFocus={!editing} placeholder="e.g. Superstructure" />
+        <Input id={id("name")} value={values.name} onChange={(event) => set("name", event.target.value)} maxLength={200} disabled={!canEdit} autoFocus={!editing} placeholder={t("milestoneForm.phaseNamePlaceholder")} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("milestoneForm.status")} htmlFor={id("status")}>
@@ -490,7 +490,7 @@ function PhaseForm({
             <Input id={id("progress")} type="number" min={0} max={100} inputMode="numeric" value={values.progressPercent} onChange={(event) => set("progressPercent", event.target.value)} disabled={!canEdit} />
             {canEdit && suggestedProgress !== undefined && suggestedProgress !== null && String(suggestedProgress) !== values.progressPercent ? (
               <Button type="button" variant="secondary" size="sm" className="h-10" onClick={() => set("progressPercent", String(suggestedProgress))}>
-                Use {suggestedProgress}%
+                {t("milestoneForm.useSuggested", { value: suggestedProgress })}
               </Button>
             ) : null}
           </span>

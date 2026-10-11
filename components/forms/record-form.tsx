@@ -14,6 +14,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useCommonTranslations } from "@/components/i18n/common-text";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useInDialog } from "@/components/unsaved/guarded-root";
@@ -270,6 +271,7 @@ export function RecordForm({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const t = useTranslations("ui");
   const formRef = React.useRef<HTMLFormElement>(null);
   const frozen = useUnsavedFrozen();
   const inDialog = useInDialog();
@@ -353,7 +355,7 @@ export function RecordForm({
                   {pending ? pendingLabel : submitLabel}
                 </Button>
                 <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <UnsavedIndicator save={save} />
               </>

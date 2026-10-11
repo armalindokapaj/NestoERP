@@ -63,7 +63,7 @@ export function DecisionBar({
 
   // A note typed with an approval is unsaved work whose only way forward is
   // deciding: a workflow step the prompt never takes (AUD-03 §3).
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: t("decision.approvalNote") });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: t("decision.approve"), label: t("decision.approvalNote") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(item.canApprove && note !== ""), [item.canApprove, note, setDirty]);
   React.useEffect(() => setSaving(pending === "APPROVE" && dialog === null), [pending, dialog, setSaving]);
@@ -257,7 +257,7 @@ function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialog
   const t = useApprovalsTranslations();
 
   // Rejecting and returning are workflow steps: the prompt never takes them (AUD-03 §3).
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: reject ? "Reject" : "Return", label: reject ? t("decision.reasonLabel") : t("decision.changeLabel") });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: reject ? t("decision.reject") : t("decision.return"), label: reject ? t("decision.reasonLabel") : t("decision.changeLabel") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
   React.useEffect(() => setSaving(busy), [busy, setSaving]);
@@ -363,7 +363,7 @@ function StrongApproveForm({ item, pending, failure, initialNote, onConfirm }: S
 
   // Approving is a workflow step: the prompt never approves (AUD-03 §3). The
   // note carried over from the bar is still the bar's; what changed here counts.
-  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: "Approve", label: t("decision.approvalNote") });
+  const editor = useUnsavedEditor({ module: "approvals", saveKind: "none", workflow: t("decision.approve"), label: t("decision.approvalNote") });
   const { setDirty, setSaving } = editor;
   React.useEffect(() => setDirty(note !== initialNote), [note, initialNote, setDirty]);
   React.useEffect(() => setSaving(pending), [pending, setSaving]);

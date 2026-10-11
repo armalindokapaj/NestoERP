@@ -303,6 +303,7 @@ export const organizationEn = {
 
   departmentActions: {
     name: "Name",
+    namePlaceholder: "Finance",
     code: "Code",
     codeHint: "Short, unique in the group. Letters, digits, hyphens.",
     description: "Description",

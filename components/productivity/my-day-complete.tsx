@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Check } from "lucide-react";
 
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useMiscTranslations } from "@/components/activity/misc-text";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -15,7 +15,7 @@ import { taskCommandAction } from "@/lib/actions/tasks";
  * anything changes; the page then refreshes so the counters and lists follow.
  */
 export function MyDayComplete({ taskId, version, title }: { taskId: string; version: number; title: string }) {
-  const t = useTranslations("misc");
+  const t = useMiscTranslations();
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();

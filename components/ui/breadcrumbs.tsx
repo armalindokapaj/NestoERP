@@ -240,6 +240,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
   const navigation = useRecordNavigation();
   const groupEntry = useGroupEntry();
   const pathname = usePathname();
+  const t = useTranslations("ui");
   const moduleNames = useTranslations("modules");
   // Read after mount: storage is the browser's, and the first render matches the server's.
   const [history, setHistory] = React.useState<ReturnHistoryEntry[]>([]);
@@ -301,7 +302,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
       data-shell-breadcrumb
       className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
     >
-      <div role="group" className="flex shrink-0 items-center" aria-label="History navigation">
+      <div role="group" className="flex shrink-0 items-center" aria-label={t("historyNavigation")}>
         <HistoryButton
           direction="back"
           disabled={!navigation?.canGoBack && !fallback}
@@ -317,7 +318,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
         />
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
+      <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1 overflow-hidden">
         <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
           {visible.map((item, index) => {
             const originalIndex = collapsed && index > 0 ? trail.length - (visible.length - index) : index;
@@ -328,7 +329,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
                   <li className="flex shrink-0 items-center gap-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button type="button" aria-label="Show hidden breadcrumb levels" className={collapsedTrigger}>
+                        <button type="button" aria-label={t("showHiddenCrumbs")} className={collapsedTrigger}>
                           <MoreHorizontal aria-hidden="true" className="size-4" />
                         </button>
                       </DropdownMenuTrigger>

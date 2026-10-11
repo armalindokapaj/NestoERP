@@ -31,6 +31,7 @@ import {
   type Option,
   type TaskLinkType,
 } from "@/lib/modules/project-planning/planning.types";
+import type { MessageKey } from "@/lib/i18n/translator";
 import type { SaveKind, SaveOutcome } from "@/lib/unsaved/coordinator";
 import { cn } from "@/lib/utils/cn";
 import type { DrawerPanel } from "./milestone-list";
@@ -60,17 +61,23 @@ import { FormSelect } from "@/components/ui/form-select";
 
 type Panel = "complete" | "reopen" | "baseline" | "blocker" | "task" | "link-task" | "dependency" | "meeting" | "log" | null;
 
-/** What Save and continue may do for each panel: add a record, or nothing — a step belongs to its button. */
-const PANEL_KIND: Record<Exclude<Panel, null>, { saveKind: SaveKind; workflow?: string; label: string }> = {
-  complete: { saveKind: "none", workflow: "Complete milestone", label: "Completing the milestone" },
-  reopen: { saveKind: "none", workflow: "Reopen milestone", label: "Reopening the milestone" },
-  baseline: { saveKind: "none", workflow: "Save baseline", label: "Baseline change" },
-  blocker: { saveKind: "create", label: "New blocker" },
-  task: { saveKind: "create", label: "New task" },
-  "link-task": { saveKind: "create", label: "Task link" },
-  dependency: { saveKind: "create", label: "New dependency" },
-  meeting: { saveKind: "create", label: "Meeting link" },
-  log: { saveKind: "create", label: "Daily log link" },
+type PanelKind = { saveKind: SaveKind; workflow?: MessageKey<"projects">; label: MessageKey<"projects"> };
+
+/**
+ * What Save and continue may do for each panel: add a record, or nothing — a
+ * step belongs to its button. The step and the panel are named by dictionary
+ * key, so the unsaved-changes prompt says them in the reader's language.
+ */
+const PANEL_KIND: Record<Exclude<Panel, null>, PanelKind> = {
+  complete: { saveKind: "none", workflow: "drawer.complete", label: "drawer.editors.complete" },
+  reopen: { saveKind: "none", workflow: "drawer.reopen", label: "drawer.editors.reopen" },
+  baseline: { saveKind: "none", workflow: "drawer.saveBaseline", label: "drawer.editors.baseline" },
+  blocker: { saveKind: "create", label: "drawer.editors.blocker" },
+  task: { saveKind: "create", label: "tabPages.newTask" },
+  "link-task": { saveKind: "create", label: "drawer.editors.linkTask" },
+  dependency: { saveKind: "create", label: "drawer.editors.dependency" },
+  meeting: { saveKind: "create", label: "drawer.editors.meeting" },
+  log: { saveKind: "create", label: "drawer.editors.log" },
 };
 
 function Section({ title, count, action, children, id }: { title: string; count?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; id?: string }) {
@@ -175,6 +182,7 @@ function MilestoneDrawerBody({
   onChanged: () => void;
 }) {
   const t = useTranslations("projects");
+  const tUi = useTranslations("ui");
   const varianceLabel = useVarianceLabel();
   const toast = useToast();
   const closeDrawer = useDialogClose();
@@ -254,9 +262,9 @@ function MilestoneDrawerBody({
   }
 
   const persistPanel = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
-  const panelKind: { saveKind: SaveKind; workflow?: string; label: string } = panel ? PANEL_KIND[panel] : form.blockerId ? { saveKind: "none", workflow: "Resolve", label: "Resolving a blocker" } : { saveKind: "none", label: "Milestone panel" };
-  const panelEditor = useUnsavedEditor({ module: "planning", saveKind: panelKind.saveKind, workflow: panelKind.workflow, label: panelKind.label, save: panelKind.saveKind === "none" ? undefined : () => persistPanel.current() });
-  const quickEditor = useUnsavedEditor({ module: "planning", saveKind: "save", label: "Milestone update", save: () => saveQuick() });
+  const panelKind: PanelKind = panel ? PANEL_KIND[panel] : form.blockerId ? { saveKind: "none", workflow: "drawer.resolve", label: "drawer.editors.resolve" } : { saveKind: "none", label: "drawer.editors.panel" };
+  const panelEditor = useUnsavedEditor({ module: "planning", saveKind: panelKind.saveKind, workflow: panelKind.workflow ? t(panelKind.workflow) : undefined, label: t(panelKind.label), save: panelKind.saveKind === "none" ? undefined : () => persistPanel.current() });
+  const quickEditor = useUnsavedEditor({ module: "planning", saveKind: "save", label: t("drawer.editors.update"), save: () => saveQuick() });
   const setPanelDirty = panelEditor.setDirty;
   const setQuickDirty = quickEditor.setDirty;
   const panelActive = panel !== null || Boolean(form.blockerId);
@@ -293,7 +301,7 @@ function MilestoneDrawerBody({
     } catch (failure) {
       const outcome = failureOutcome(failure);
       owner?.setUnresolved(outcome.kind === "unknown");
-      setError(failureMessage(failure));
+      setError(failureMessage(failure, tUi("errorTitle")));
       if ((failure as { code?: string }).code === "CONFLICT") void load(detail.id);
       return outcome;
     } finally {
@@ -402,7 +410,7 @@ function MilestoneDrawerBody({
                     <MilestoneStatusBadge status={detail.status} delayed={detail.delayed} />
                     {detail.critical ? <CriticalBadge /> : null}
                     {detail.externallyCommitted ? <CommittedBadge /> : null}
-                    {detail.waitingOn ? <span className="text-meta text-fg-muted">Waiting on {detail.waitingOn}</span> : null}
+                    {detail.waitingOn ? <span className="text-meta text-fg-muted">{t("drawer.waitingOn", { count: detail.waitingOn })}</span> : null}
                   </div>
                 </div>
                 <FavoriteButton key={`favorite-${detail.id}`} entityType="project_milestone" entityId={detail.id} initial={detail.favorite} compact />
@@ -448,17 +456,17 @@ function MilestoneDrawerBody({
               <div className="mt-3 flex flex-wrap gap-2">
                 {caps?.canComplete ? (
                   <Button type="button" size="sm" onClick={() => openPanel("complete")}>
-                    <Check /> Mark complete
+                    <Check /> {t("drawer.markComplete")}
                   </Button>
                 ) : null}
                 {caps?.canReopen ? (
                   <Button type="button" size="sm" variant="secondary" onClick={() => openPanel("reopen")}>
-                    <RotateCcw /> Reopen
+                    <RotateCcw /> {t("drawer.reopenShort")}
                   </Button>
                 ) : null}
                 {caps?.canEdit ? (
                   <Button type="button" size="sm" variant="secondary" onClick={() => setEditing(true)}>
-                    <Pencil /> Edit
+                    <Pencil /> {t("pages.edit")}
                   </Button>
                 ) : null}
               </div>
@@ -507,7 +515,7 @@ function MilestoneDrawerBody({
                 {detail.suggestion.forecastDate && caps?.canEdit ? (
                   <p className="flex flex-wrap items-center gap-2 text-table text-fg-muted">
                     {t("drawer.predecessorsSuggest")} <span className="font-medium text-fg">{dateLabel(detail.suggestion.forecastDate)}</span>.
-                    <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={pending} onClick={() => void act(() => planningApi(`${base}/quick-update`, { body: { expectedVersion: detail.version, forecastDate: detail.suggestion.forecastDate, forecastReason: "Follows its predecessors" } }), t("drawer.forecastUpdated"))}>
+                    <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={pending} onClick={() => void act(() => planningApi(`${base}/quick-update`, { body: { expectedVersion: detail.version, forecastDate: detail.suggestion.forecastDate, forecastReason: t("drawer.followsPredecessors") } }), t("drawer.forecastUpdated"))}>
                       {t("drawer.useIt")}
                     </Button>
                   </p>
@@ -630,7 +638,7 @@ function MilestoneDrawerBody({
               {detail.description ? <p className="mt-3 whitespace-pre-wrap text-table text-fg-muted">{detail.description}</p> : null}
               {detail.completionNote && detail.status === "COMPLETED" ? (
                 <p className="mt-3 text-table text-fg-muted">
-                  <span className="font-medium text-fg">Completed{detail.completedBy ? <> by <PersonLink memberId={detail.completedBy.memberId} name={detail.completedBy.name} /></> : null}:</span> {detail.completionNote}
+                  <span className="font-medium text-fg">{t("milestoneStatus.COMPLETED")}{detail.completedBy ? <> {t("drawer.by")} <PersonLink memberId={detail.completedBy.memberId} name={detail.completedBy.name} /></> : null}:</span> {detail.completionNote}
                 </p>
               ) : null}
             </Section>
@@ -662,11 +670,11 @@ function MilestoneDrawerBody({
                             <span className="block truncate text-fg">{row.name}</span>
                             <span className="text-meta text-fg-muted">
                               {row.delayed ? <span className="text-danger-strong">{t("drawer.daysLate", { count: row.overdueDays })}</span> : t(`milestoneStatus.${row.status}`)} · {dateLabel(row.targetDate)}
-                              {row.lagDays ? ` · ${row.lagDays}d lag` : ""}
+                              {row.lagDays ? t("drawer.lagSuffix", { days: row.lagDays }) : ""}
                             </span>
                           </span>
                           {caps?.canManageDependencies ? (
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.removeDependency", { name: row.name })} onClick={() => void act(() => planningApi(`${base}/dependencies/${row.dependencyId}`, { method: "DELETE" }), "Dependency removed")}>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("drawer.removeDependency", { name: row.name })} onClick={() => void act(() => planningApi(`${base}/dependencies/${row.dependencyId}`, { method: "DELETE" }), t("drawer.dependencyRemoved"))}>
                               <X />
                             </Button>
                           ) : null}

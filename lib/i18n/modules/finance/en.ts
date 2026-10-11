@@ -199,12 +199,7 @@ export const financeEn = {
     rejectTitle: "Reject {label}?",
   },
   lines: {
-    removed: "{noun} {position} removed.",
-    removedLabel: "{noun} {position} removed: {label}.",
-    line: "Line",
     budgetLine: "Budget line",
-    undo: "Undo",
-    dismiss: "Dismiss",
     quantityPositive: "Quantity must be greater than zero",
     taxRange: "Tax rate must be between 0 and 100",
     lineItems: "Line items",
@@ -221,6 +216,8 @@ export const financeEn = {
     quantity: "Quantity",
     unitPrice: "Unit price",
     tax: "Tax",
+    /** What the tax cell is called in the sentence that refuses a bad number. */
+    taxRate: "Tax rate",
     lineTotal: "Line total",
     preview: "Preview: ",
     lineTotalPreview: "Line total (preview) {total}",
@@ -525,6 +522,8 @@ export const financeEn = {
     type: "Type",
     removeInstallment: "Remove installment {number}",
     addInstallment: "Add installment",
+    /** A new row's label as it is added: written in the language of whoever adds it. */
+    installmentNumbered: "Installment {number}",
     ofNeeded: " of {amount} needed",
     activateTitle: "Activate schedule v{version}?",
     activateMismatch: "Its installments add up to {total} and the contract still needs {target}. Only a deliberate difference, with a reason, can be activated.",

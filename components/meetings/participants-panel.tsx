@@ -298,7 +298,7 @@ function AddPeopleForm({ meeting, onChange, onDone }: { meeting: MeetingDetailDT
                 <PersonAvatar person={person} />
                 <span className="min-w-0 flex-1 truncate text-table text-fg">{person.fullName}</span>
                 <FormSelect
-                  aria-label={`Role for ${person.fullName}`}
+                  aria-label={t("form.roleFor", { name: person.fullName })}
                   className="h-8 rounded-md border border-line bg-surface px-2 text-meta"
                   value={person.role}
                   onChange={(change) => setPicked((rows) => rows.map((row) => (row.memberId === person.memberId ? { ...row, role: change.target.value as Role } : row)))}

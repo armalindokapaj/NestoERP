@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Camera, FileText, Paperclip, X } from "lucide-react";
 
+import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
@@ -78,7 +79,7 @@ export function UploadField({
     let refused: string | null = null;
     for (const file of Array.from(list)) {
       if (maxBytes && file.size > maxBytes) {
-        refused = `${file.name} (${formatBytes(file.size)}) — max ${formatBytes(maxBytes)}`;
+        refused = t("mob04TooLarge", { name: file.name, size: formatBytes(file.size), max: formatBytes(maxBytes) });
         continue;
       }
       accepted.push({ key: `${file.name}:${file.size}:${file.lastModified}:${Math.random().toString(36).slice(2, 7)}`, file, previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null });
@@ -137,7 +138,7 @@ export function UploadField({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body text-fg">{entry.file.name}</span>
                 <span className="block text-meta text-fg-subtle">
-                  {entry.file.type || "file"} · {formatBytes(entry.file.size)}
+                  {entry.file.type || t("mob04File")} · {formatBytes(entry.file.size)}
                 </span>
               </span>
               <button
@@ -159,9 +160,14 @@ export function UploadField({
 
 export type UploadRowState = { id: string; fileName: string; status: "queued" | "uploading" | "verifying" | "done" | "failed"; progress?: number; error?: string };
 
-/** Per-file upload state: progress while sending, then ready or failed with a retry and a remove. */
+/**
+ * Per-file upload state: progress while sending, then ready or failed with a retry and a remove.
+ * A failure is the upload queue's own message, raised in English; it is read
+ * back into the reader's language here, as the Documents queue does.
+ */
 export function UploadProgress({ items, onRetry, onRemove }: { items: UploadRowState[]; onRetry?: (id: string) => void; onRemove?: (id: string) => void }) {
   const t = useTranslations("ui");
+  const tDocuments = useDocumentsTranslations();
   if (items.length === 0) return null;
   return (
     <ul className="space-y-2" data-upload-progress>
@@ -182,7 +188,7 @@ export function UploadProgress({ items, onRetry, onRemove }: { items: UploadRowS
             ) : null}
             {item.status === "failed" ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {item.error ? <span className="text-meta text-danger-strong">{item.error}</span> : null}
+                {item.error ? <span className="text-meta text-danger-strong">{uploadErrorText(tDocuments, item.error)}</span> : null}
                 {onRetry ? (
                   <Button type="button" size="sm" variant="secondary" onClick={() => onRetry(item.id)}>
                     {t("retry")}

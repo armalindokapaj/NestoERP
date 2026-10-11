@@ -10,7 +10,7 @@ import { getTranslations } from "@/lib/i18n/server";
  * "architectural minimalism" direction (§3) with no image asset to ship, no
  * layout shift, and no stock photography to license.
  */
-export async function BrandPanel({ tagline = "People. Projects. Progress." }: { tagline?: string }) {
+export async function BrandPanel({ tagline }: { tagline?: string }) {
   const [tAuth, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
 
   return (
@@ -41,7 +41,7 @@ export async function BrandPanel({ tagline = "People. Projects. Progress." }: { 
 
       <div className="relative max-w-sm">
         <p className="font-serif text-display text-graphite-fg">{tAuth("brandHeadline")}</p>
-        <p className="mt-4 text-body text-graphite-fg/60">{tagline}</p>
+        <p className="mt-4 text-body text-graphite-fg/60">{tagline ?? tAuth("brandTagline")}</p>
       </div>
     </div>
   );

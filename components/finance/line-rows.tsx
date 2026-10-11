@@ -2,8 +2,8 @@
 
 import * as React from "react";
 
-import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { useFieldErrors } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,23 +109,24 @@ export function RemovedLineNotice({
   onUndo: () => void;
   onDismiss: () => void;
 }) {
-  const t = useFinanceTranslations();
-  const shownNoun = noun ?? t("lines.line");
+  // The frame dictionary: Inventory's forms show this notice too, and Finance's is not there on their pages.
+  const t = useTranslations("ui");
+  const shownNoun = noun ?? t("lineNoun");
   return (
     <div role="status" aria-live="polite" className="empty:hidden" data-testid="line-removed-notice">
       {removed ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-table text-fg">
           <span className="min-w-0 break-words">
             {label
-              ? t("lines.removedLabel", { noun: shownNoun, position: removed.position, label })
-              : t("lines.removed", { noun: shownNoun, position: removed.position })}
+              ? t("lineRemovedNamed", { noun: shownNoun, position: removed.position, label })
+              : t("lineRemoved", { noun: shownNoun, position: removed.position })}
           </span>
           <span className="flex items-center gap-1">
             <Button type="button" variant="secondary" size="sm" onClick={onUndo}>
-              {t("lines.undo")}
+              {t("lineUndo")}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
-              {t("lines.dismiss")}
+              {t("lineDismiss")}
             </Button>
           </span>
         </div>

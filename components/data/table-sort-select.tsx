@@ -6,9 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import type { TableSortConfig } from "@/components/data/sort-header";
+import { sortWords } from "@/lib/i18n/modules/common/labels";
 import { applyListChange, queryHref, sameQuery } from "@/lib/tables/list-url";
-import { appliedSort, type SortChoice } from "@/lib/tables/sort";
+import { appliedSort, sortChoices, type SortableColumn } from "@/lib/tables/sort";
 import { cn } from "@/lib/utils/cn";
+import { useCommonTranslations } from "@/components/i18n/common-text";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -22,12 +24,17 @@ import { FormSelect } from "@/components/ui/form-select";
  * its direction. Choosing one writes the URL exactly as a header click does:
  * page 1, the guarded router (AUD-03 §5), navigation feedback (NAV-01).
  *
+ * The options are built here, from the sortable columns, rather than handed
+ * over ready-made: `DataTable` can call no hook, and each option names its
+ * direction in the reader's language (`common.sort`).
+ *
  * Where the page's toolbar already offers a Sort control (`ListToolbar
  * sortOptions`, marked `data-list-sort-control`), this one stays out of the
  * way, so a phone never shows two.
  */
-export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[]; sort: TableSortConfig; label?: string }) {
+export function TableSortSelect({ columns, sort, label }: { columns: SortableColumn[]; sort: TableSortConfig; label?: string }) {
   const t = useTranslations("ui");
+  const tCommon = useCommonTranslations();
   const router = useRouter();
   const feedback = useNavigationFeedback();
   const searchParams = useSearchParams();
@@ -35,6 +42,7 @@ export function TableSortSelect({ choices, sort, label }: { choices: SortChoice[
   const [pending, startTransition] = React.useTransition();
   const id = React.useId();
 
+  const choices = sortChoices(columns, sort.keys, sortWords(tCommon));
   const applied = appliedSort(sort.value, searchParams.get(param), sort.keys, sort.defaultValue) ?? "";
   const known = choices.some((choice) => choice.value === applied);
 

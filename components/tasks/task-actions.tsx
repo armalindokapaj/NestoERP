@@ -320,7 +320,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
             }}
           >
             {/* A typed reason is unsaved input; marking blocked is the only way it is kept (AUD-03 §4). */}
-            <UnsavedValue module="tasks" saveKind="none" workflow="Mark blocked" label="The reason this task is blocked" dirty={blockReason !== ""} saving={pending} />
+            <UnsavedValue module="tasks" saveKind="none" workflow={t("actions.markBlocked")} label={t("actions.blockReasonLabel")} dirty={blockReason !== ""} saving={pending} />
             <Label htmlFor="block-reason">{t("actions.reason")}</Label>
             <Textarea
               id="block-reason"

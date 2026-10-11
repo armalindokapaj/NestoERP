@@ -101,7 +101,7 @@ export function UnitDetailView({
             href={unit.href}
             className="flex w-full items-center justify-center gap-1.5 rounded-control bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent"
           >
-            Open unit record
+            {t("unit.openRecord")}
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         )}

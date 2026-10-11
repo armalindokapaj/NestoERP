@@ -99,10 +99,7 @@ function ChecklistEditor({ inspectionId, items, readOnly, versionUpdatedAt }: Ch
 
   if (items.length === 0) {
     return (
-      <p className="nesto-card p-5 text-table text-fg-subtle">
-        This inspection has no checklist. It was raised without one, so the verdict is recorded
-        from the summary alone.
-      </p>
+      <p className="nesto-card p-5 text-table text-fg-subtle">{t("exec.noChecklist")}</p>
     );
   }
 

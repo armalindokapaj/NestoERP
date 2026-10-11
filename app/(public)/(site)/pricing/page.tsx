@@ -7,10 +7,10 @@ import { getLocale } from "@/lib/i18n/server";
 import { pricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { getPublicPricingConfig } from "@/lib/modules/pricing/pricing.service";
 
-export const metadata: Metadata = {
-  title: "NESTO Pricing — Build your NESTO",
-  description: "Configure only what your company needs: foundation, modules, companies, projects, users and contract. See your price instantly.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = pricingCopy[await getLocale()];
+  return { title: t.metaTitle, description: t.metaDescription };
+}
 
 /**
  * /pricing is the configurator (Modular Pricing PRD §3-§5): one header, then

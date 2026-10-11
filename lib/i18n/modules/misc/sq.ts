@@ -4,7 +4,7 @@ export const miscSq: typeof miscEn = {
   help: {
     title: "Ndihmë",
     description: "Për çfarë shërben secili modul që mund të hapni, fjalët që përdor dhe çfarë mund të bëni në të.",
-    moduleTitle: "Ndihmë për {module}",
+    moduleTitle: "Ndihmë për modulin {module}",
     open: "Hap {module}",
     whereThings: "Ku ndodhen gjërat",
     sectionsList: "{module} ka për ju këto seksione: {sections}.",

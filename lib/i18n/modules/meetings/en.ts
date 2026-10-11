@@ -96,6 +96,8 @@ export const meetingsEn = {
       "Risks / Issues": "Risks / Issues",
       "Follow-Up Notes": "Follow-Up Notes",
       Other: "Other",
+      /** The title of the section "Other" adds. */
+      Notes: "Notes",
     },
     repeat: {
       DAILY: "Repeats daily",

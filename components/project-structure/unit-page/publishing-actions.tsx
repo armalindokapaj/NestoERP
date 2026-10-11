@@ -263,7 +263,7 @@ function ReasonForm({
 }) {
   const t = useTranslations("projects");
   const [touched, setTouched] = React.useState(false);
-  const editor = useUnsavedEditor({ module: "units", saveKind: "none", workflow: confirmLabel, label: `${confirmLabel}: reason` });
+  const editor = useUnsavedEditor({ module: "units", saveKind: "none", workflow: confirmLabel, label: t("publishing.reasonLabel", { action: confirmLabel }) });
   const { setDirty, setSaving, setUnresolved } = editor;
   React.useEffect(() => setDirty(reason !== ""), [reason, setDirty]);
   React.useEffect(() => setSaving(pending), [pending, setSaving]);
