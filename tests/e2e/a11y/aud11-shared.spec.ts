@@ -94,8 +94,9 @@ test.describe("AV-17 automated scans, light and dark", () => {
       await signIn(page, "PROJECT_MANAGER");
       await useTheme(page, theme);
       await page.goto("/tasks/new");
+      // The account panel: a labelled dialog of links, a radio group and a button, not a menu (UI-01 §10).
       await page.getByTestId("account-trigger").click();
-      await expect(page.getByRole("menu")).toBeVisible();
+      await expect(page.getByTestId("account-panel")).toBeVisible();
       await scan(page, `${theme} user menu open`);
       await page.keyboard.press("Escape");
 
@@ -111,7 +112,7 @@ test.describe("AV-02 skip link, landmarks, title, current page", () => {
   test("the first Tab is Skip to main content, and it lands in the page", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
     await expect(mainRegion(page).locator("h1").first()).toBeVisible();
-    await page.locator("body").click({ position: { x: 1, y: 1 } });
+    // A fresh document has no sequential starting point; a click in a corner would now land on the sidebar header's link.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press("Tab");
     const skip = page.getByTestId("skip-link");
@@ -129,7 +130,9 @@ test.describe("AV-02 skip link, landmarks, title, current page", () => {
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(page.getByRole("main")).toHaveCount(1);
     await expect(page.getByRole("banner")).toHaveCount(1);
-    await expect(sidebar(page)).toBeVisible();
+    // The sidebar draws its navigation as stacked lists (pinned, scrolling, foot); each is the named landmark.
+    await expect(sidebar(page).first()).toBeVisible();
+    for (const list of await sidebar(page).all()) await expect(list).toHaveAccessibleName("Main navigation");
     await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
     const before = await page.title();
 
@@ -299,9 +302,9 @@ test.describe("AV-14 themes", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     expect(await canvas(page)).toBe(systemLight);
 
-    // A portal (the user menu) is painted in the pinned scheme too.
+    // A portal (the account panel) is painted in the pinned scheme too. Its box is the one inside the placed shell.
     await page.getByTestId("account-trigger").click();
-    const menuBg = await page.getByRole("menu").evaluate((el) => getComputedStyle(el).backgroundColor);
+    const menuBg = await page.getByTestId("account-panel").locator(".nesto-popup-glass").evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(menuBg).toBe("rgb(255, 255, 255)");
   });
 
@@ -338,7 +341,7 @@ test.describe("AV-15 reduced motion and forced colours", () => {
     });
     expect(probe.name).toBe("none");
     await page.getByTestId("account-trigger").click();
-    const duration = await page.getByRole("menu").evaluate((el) => parseFloat(getComputedStyle(el).animationDuration) || 0);
+    const duration = await page.getByTestId("account-panel").evaluate((el) => parseFloat(getComputedStyle(el).animationDuration) || 0);
     expect(duration).toBeLessThanOrEqual(0.001);
   });
 

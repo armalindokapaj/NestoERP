@@ -104,6 +104,8 @@ test("keeps the parent module active on nested routes (PRD #3 §13)", async ({ p
     "/projects/project_a/team",
   ]) {
     await page.goto(path);
+    // The legacy list link lands on the Projects page (Projects Workspace Grid §184): let it, before the next page is asked for.
+    if (path === "/projects/all") await expect(page).toHaveURL(/\/projects$/);
     const active = sidebar(page).locator('[aria-current="page"]');
     await expect(active, path).toHaveText("Projects");
   }
@@ -138,7 +140,7 @@ for (const role of ["VIEWER", "ENGINEER", "FINANCE"] as const) {
     await expect(sidebar(page).getByRole("link", { name: "Settings", exact: true })).toHaveCount(0);
 
     await page.getByTestId("account-trigger").click();
-    await page.getByRole("menuitem", { name: "Settings" }).click();
+    await page.getByTestId("account-panel").getByRole("link", { name: "Account Settings", exact: true }).click();
 
     await expect(page).toHaveURL(/\/settings$/);
     const main = page.locator("#nesto-main");

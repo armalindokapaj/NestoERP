@@ -30,7 +30,11 @@ test("the Owner delegates Finance to a project manager, and revokes it (§18)", 
   await mainRegion(page).getByRole("button", { name: "Delegate access" }).click();
   const dialog = page.getByTestId("grant-dialog");
   await dialog.getByRole("combobox", { name: /^Person/ }).selectOption({ label: "Alex Morgan" });
-  await dialog.getByRole("combobox", { name: /^Module/ }).selectOption({ label: "Finance" });
+  // The Module list opens with "All modules" — every module the grantor may hand on, at once — ahead of the modules themselves.
+  await dialog.getByRole("combobox", { name: /^Module/ }).click();
+  const modules = page.getByRole("listbox").getByRole("option");
+  await expect(modules.first()).toHaveText("All modules");
+  await modules.filter({ hasText: /^Finance$/ }).click();
   await dialog.getByRole("combobox", { name: /^Company/ }).selectOption({ label: "Aurelia Construction" });
   await dialog.getByRole("textbox", { name: /^Reason/ }).fill("Cost review for the Riverside handover");
   await dialog.getByRole("button", { name: "Delegate" }).click();

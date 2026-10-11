@@ -29,6 +29,7 @@ import {
 import Link from "@/components/navigation/nav-link";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
+import { statusText } from "@/lib/i18n/modules/common/labels";
 import { DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { CompanyTag } from "@/components/workspace/company-tag";
@@ -252,7 +253,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
                           <Star aria-hidden="true" className={cn("size-3.5", starred ? "fill-warning text-warning" : "text-fg-subtle")} />
                         </button>
                       ) : null}
-                      {option.status ? <span className="shrink-0 text-micro text-fg-subtle">{option.status.replaceAll("_", " ").toLowerCase()}</span> : null}
+                      {option.status ? <span className="shrink-0 text-micro text-fg-subtle">{statusText(tc, option.status).toLowerCase()}</span> : null}
                     </div>
                   );
                 })}

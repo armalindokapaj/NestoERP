@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "../pw";
 
-import { chooseWorkspace, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader } from "../fixtures";
+import { chooseWorkspace, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader, workspaceSwitcher } from "../fixtures";
 
 /**
  * AUD-05 §3, §4, §7, §8 — navigation and first-time orientation, per
@@ -42,9 +42,11 @@ for (const family of FAMILIES) {
         const current = sidebar(page).locator('[aria-current="page"]');
         await expect(current, href).toHaveCount(1);
         await expect(current, href).toHaveAttribute("href", href);
-        // The heading names the module the sidebar named (dashboard and the record-led pages excepted).
+        // The module the sidebar named is named at the top of the page (dashboard excepted): by the heading, or,
+        // where the heading is the page's own figure or period (approvals, calendar, a personal view), by the breadcrumb bar.
         const name = (await current.innerText()).trim();
-        if (href !== "/dashboard") await expect(mainRegion(page).getByRole("heading", { level: 1 }).first(), href).toContainText(name);
+        const heading = mainRegion(page).getByRole("heading", { level: 1 }).first();
+        if (href !== "/dashboard") await expect(heading.or(page.getByTestId("record-navigation-header").first()).filter({ hasText: name }).first(), href).toBeVisible();
       }
     });
 
@@ -78,7 +80,10 @@ for (const family of FAMILIES) {
         await expect(create).toHaveCount(0);
         await expect(mainRegion(page).getByText(/Your role can read Tasks here/)).toBeVisible();
         const response = await page.goto("/tasks/new");
-        expect(page.url().includes("/access-denied") || (response?.status() ?? 200) >= 400).toBe(true);
+        await expect(mainRegion(page).locator("h1, [data-testid=not-found]").first()).toBeVisible();
+        // The page streams behind its loading boundary, so a missing page is announced by the page, not by the status.
+        const refused = page.url().includes("/access-denied") || (response?.status() ?? 200) >= 400 || (await page.getByTestId("not-found").isVisible().catch(() => false));
+        expect(refused).toBe(true);
       }
     });
 
@@ -87,8 +92,10 @@ for (const family of FAMILIES) {
       const hrefs = new Set(await sidebarLinks(page));
       const closed = ["/hr", "/finance", "/inventory", "/hse"].find((href) => !hrefs.has(href));
       test.skip(!closed, "this role opens every probed module");
-      const response = await page.goto(`/help${closed}`);
-      expect(response?.status()).toBe(404);
+      await page.goto(`/help${closed}`);
+      // The page streams behind its loading boundary, so the status is sent before the page can say it is missing: the page says it.
+      await expect(page.getByTestId("not-found")).toBeVisible();
+      await expect(page.getByTestId("module-help")).toHaveCount(0);
     });
 
     test("the dashboard shows real work and no creator step to somebody who cannot create (UX-14, UX-15)", async ({ page }) => {
@@ -175,22 +182,29 @@ test.describe("workspace fallback (UX-05)", () => {
     const title = (await record.innerText()).trim();
     await record.click();
     await expect(page).toHaveURL(/\/tasks\/[^/?]+/);
-    const before = (await workspaceHeader(page).getAttribute("aria-label")) ?? "";
+    // The sidebar's header writes the workspace being worked in, by its own name alone.
+    const before = (await workspaceHeader(page).getByTestId("workspace-label").innerText()).trim();
+    expect(before).not.toBe("");
 
-    await workspaceHeader(page).click();
-    const option = page.getByTestId("workspace-panel").getByTestId("workspace-option").filter({ hasNotText: before.replace(/^Current workspace: /, "") });
+    await workspaceSwitcher(page).click();
+    const option = page.getByTestId("workspace-panel").getByTestId("workspace-option").filter({ hasNotText: before });
     const target = (await option.first().innerText()).split("\n")[0].trim();
     await page.keyboard.press("Escape");
+    // The reason is a toast that does not stay: it is watched for from before the switch.
+    const said = page.getByText(/The previous (record|page) is not available/).first().waitFor({ state: "visible", timeout: 30_000 });
+    said.catch(() => undefined);
     await chooseWorkspace(page, target);
 
     // The record is another company's: the page falls back and says why.
-    await expect(page.getByText(/The previous (record|page) is not available/)).toBeVisible();
+    await said;
     await expect(page).not.toHaveURL(/\/tasks\/[^/?]+$/);
     await expect(mainRegion(page).getByText(title, { exact: true })).toHaveCount(0);
-    // No stale workspace name anywhere in the shell.
+    // No stale workspace name anywhere in the shell: the sidebar's header, the top bar's switcher, the breadcrumb.
     await expect(workspaceHeader(page)).toHaveAccessibleName(new RegExp(target));
+    await expect(workspaceHeader(page)).not.toContainText(before);
+    expect(await workspaceSwitcher(page).getAttribute("aria-label")).not.toContain(before);
     const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-    if (await breadcrumb.count()) await expect(breadcrumb).not.toContainText(before.replace(/^Current workspace: /, ""));
+    if (await breadcrumb.count()) await expect(breadcrumb).not.toContainText(before);
   });
 
   test("a deep link to a record the reader cannot open never shows its name", async ({ page, browser }) => {
@@ -216,9 +230,12 @@ test.describe("Quick Create (UX-09)", () => {
     await expect(panel).toHaveAttribute("data-state", "company");
     const company = panel.getByTestId("quick-create-company");
     // Nothing is chosen for them unless the page's own company is one of the allowed.
-    const options = await company.locator("option").allInnerTexts();
-    expect(options.length).toBeGreaterThan(0);
-    await company.selectOption({ index: options.length > 1 ? 1 : 0 });
+    // NESTO's own dropdown (components/ui/form-select.tsx): its options are there to read once its list is open.
+    await company.click();
+    const options = page.getByRole("listbox").getByRole("option");
+    await expect(options.first()).toBeVisible();
+    const count = await options.count();
+    await options.nth(count > 1 ? 1 : 0).click();
     await panel.getByTestId("quick-create-continue").click();
     await expect(page).toHaveURL(/\/tasks\/new/, { timeout: 20_000 });
     await expect(mainRegion(page).getByRole("heading", { level: 1, name: "New task" })).toBeVisible();
@@ -233,8 +250,11 @@ test.describe("Quick Create (UX-09)", () => {
     await dailyLog.click();
     await expect(panel).toHaveAttribute("data-state", "project");
     const project = panel.getByTestId("quick-create-project");
-    await expect(project.locator("option").nth(1)).toBeAttached();
-    await project.selectOption({ index: 1 });
+    // The first option is the prompt; a project follows it.
+    await project.click();
+    const options = page.getByRole("listbox").getByRole("option");
+    await expect(options.nth(1)).toBeVisible();
+    await options.nth(1).click();
     await panel.getByTestId("quick-create-continue").click();
     await expect(page).toHaveURL(/\/projects\/[^/]+\/daily-logs\/new/);
   });

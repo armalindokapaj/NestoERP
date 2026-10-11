@@ -51,7 +51,8 @@ test.describe("AUD-04 primitives sweep (MW-01, MW-19)", () => {
   for (const { path, role } of SWEEP) {
     test(`${path}: no sideways page scroll; every control a 44px target under touch`, async ({ page }) => {
       await signIn(page, role, { to: path });
-      await expect(mainRegion(page).locator("h1").first()).toBeVisible();
+      // A project's own h1 is not drawn on a phone (its name is in the record bar), so the first heading in view stands for "the page is up".
+      await expect(mainRegion(page).locator("h1:visible, h2:visible").first()).toBeVisible();
       await expectNoPageOverflow(page, path);
       if (await isTouch(page)) {
         await expectTouchTargets(page, page.locator("header[data-shell-region]"));
@@ -74,11 +75,11 @@ test.describe("AUD-04 primitives sweep (MW-01, MW-19)", () => {
 
   test("record header actions wrap inside the page on a phone (SP-13, D-02-02, D-03-03)", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    await expect(mainRegion(page).locator("h1").first()).toBeVisible();
-    // Every visible control of the page header is on screen, none cut off to the right.
+    await expect(mainRegion(page).locator("h1:visible, h2:visible").first()).toBeVisible();
+    // Every visible control of the page header is on screen, none cut off to the right (the tab strip scrolls sideways by design).
     const offscreen = await mainRegion(page)
       .locator("button:visible, a[href]:visible")
-      .evaluateAll((elements) => elements.filter((el) => !el.closest("[role=region], [style*=overflow]") && el.getBoundingClientRect().right > window.innerWidth + 1).map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim()));
+      .evaluateAll((elements) => elements.filter((el) => !el.closest("[role=region], [style*=overflow], [data-context-tabs]") && el.getBoundingClientRect().right > window.innerWidth + 1).map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim()));
     expect(offscreen).toEqual([]);
   });
 });
@@ -109,6 +110,8 @@ test.describe("AUD-04 dialogs and floating layers (MW-10)", () => {
     await signIn(page, "PROJECT_MANAGER", { to: `/tasks/${task.id}` });
     const dialog = await openBlockDialog(page);
     const viewport = page.viewportSize()!;
+    // It arrives with a short zoom from off its place: its box is its own once that has ended.
+    await dialog.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
 
     // Bounded by the viewport, whatever its height (844×390 included).
     const box = (await dialog.boundingBox())!;
@@ -126,6 +129,8 @@ test.describe("AUD-04 dialogs and floating layers (MW-10)", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(pageY);
 
     if (await isTouch(page)) await expectTouchTargets(page, dialog);
+    // With a mouse a dialog keeps its dense 24px close (MW-21).
+    else expect(Math.round((await dialog.getByRole("button", { name: "Close", exact: true }).boundingBox())!.height)).toBeLessThanOrEqual(26);
 
     // AUD-03: dismissing with typed text asks; Stay keeps the dialog and the text (no double dismissal).
     const reason = dialog.getByRole("textbox").first();
@@ -156,7 +161,11 @@ test.describe("AUD-04 dialogs and floating layers (MW-10)", () => {
     // Dialogs are z-60 and the approvals sheet z-55 (globals.css ladder).
     expect(z).toBeGreaterThan(60);
     expect(z).toBeLessThan(70);
-    if (await isTouch(page)) await expectTouchTargets(page, menu);
+    if (await isTouch(page)) {
+      // On a touch layout a popup grows out of its control (styles/globals.css, `nesto-pop-in`): its targets are measured once it has landed.
+      await menu.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
+      await expectTouchTargets(page, menu);
+    }
   });
 });
 
@@ -173,7 +182,7 @@ test.describe("AUD-04 desktop regression (MW-21)", () => {
     await expectNoPageOverflow(page, "tasks");
 
     // The dense sizes are unchanged: the bell is 36px, the user menu trigger under 44px tall.
-    const bell = (await page.getByTestId("notification-bell").boundingBox())!;
+    const bell = (await page.getByTestId("global-actions").getByTestId("notification-bell").boundingBox())!;
     expect(Math.round(bell.height)).toBe(36);
     const create = page.getByTestId("quick-create-button");
     if (await create.count()) expect(Math.round((await create.boundingBox())!.height)).toBe(36);
@@ -187,10 +196,11 @@ test.describe("AUD-04 desktop regression (MW-21)", () => {
       else await expect(region).toHaveAttribute("tabindex", "0");
     }
 
-    // A dialog keeps its 24px close with a mouse.
+    // The search panel keeps its 36px close with a mouse; 44px is the touch target. (A dialog's own 24px
+    // close is measured with the dialog above.)
     await page.getByTestId("search-trigger").click();
-    const close = page.getByRole("dialog").getByRole("button", { name: "Close" });
+    const close = page.getByRole("dialog", { name: "Search NESTO" }).getByRole("button", { name: "Close" });
     await expect(close).toBeVisible();
-    expect(Math.round((await close.boundingBox())!.height)).toBeLessThanOrEqual(26);
+    expect(Math.round((await close.boundingBox())!.height)).toBe(36);
   });
 });

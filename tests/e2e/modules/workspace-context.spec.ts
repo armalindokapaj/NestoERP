@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { mainRegion, signIn, switchCompany, workspaceHeader, workspacePanel } from "../fixtures";
+import { mainRegion, signIn, switchCompany, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
 
 /**
  * The workspace switcher and what the workspace decides (Workspace Context
@@ -25,7 +25,7 @@ test("switching to a company changes the header, the list and nothing about who 
   await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
   const inGroup = await mainRegion(page).getByTestId("project-card").count();
 
-  await workspaceHeader(page).click();
+  await workspaceSwitcher(page).click();
   await expect(workspacePanel(page)).toBeVisible();
   await page.getByTestId("workspace-search").fill("Aurelia");
   await page.getByTestId("workspace-option").filter({ hasText: "Aurelia Construction" }).click();
@@ -48,11 +48,12 @@ test("switching to a company changes the header, the list and nothing about who 
 
 test("a company-only employee is offered no switcher (§7, §91)", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  // The header names their company and opens nothing (OW §46).
-  const header = page.getByTestId("sidebar-header").getByTestId("organization-header");
-  await expect(header).toHaveAttribute("data-options", "single");
-  await expect(header.getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "Company overview" })).toBeVisible();
+  // The top bar draws no switcher for them, then or once the chooser has streamed in (OW §46).
+  await page.waitForLoadState("load");
+  await expect(workspaceSwitcher(page)).toHaveCount(0);
+  // The sidebar's header names their company and leads to its dashboard; it opens nothing.
+  await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
   await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
   // And asking for it directly is refused, whatever the browser sends (§14, §91).
   expect((await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } })).status()).toBe(403);

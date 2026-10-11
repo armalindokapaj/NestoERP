@@ -173,12 +173,23 @@ export function mainRegion(page: Page) {
 }
 
 /**
- * The organization header at the top of the sidebar (OW §2, §3): the
- * workspace switch. Scoped to the sidebar, because the navigation drawer
- * carries a second one while it is open.
+ * The workspace header at the top of the sidebar (OW §2, §18): the workspace
+ * being worked in, by its own name, and the way to its dashboard. It switches
+ * nothing — that is `workspaceSwitcher`, in the top bar. Scoped to the sidebar,
+ * because a phone's top bar and the tablet's navigation drawer carry a header
+ * of their own, and there the header is still the switch (§48, §49).
  */
 export function workspaceHeader(page: Page) {
   return page.getByTestId("sidebar-header").getByTestId("organization-header");
+}
+
+/**
+ * The company switcher in the top bar, before + Create (OW §3, §14): the
+ * workspace switch from 768px up. Not rendered at all for somebody with one
+ * workspace (§46); below 768px the top bar's own header switches instead.
+ */
+export function workspaceSwitcher(page: Page) {
+  return page.getByTestId("workspace-switcher");
 }
 
 /** The workspace popup, however it was opened (OW §20). */
@@ -187,26 +198,39 @@ export function workspacePanel(page: Page) {
 }
 
 /**
- * Switches the workspace the way a person does: the sidebar header, then the
- * option (OW §3, §20). Resolves once the header names the new workspace — the
- * header changes only when the switch has committed (§33).
+ * Switches the workspace the way a person does: the top bar's switcher, then
+ * the option (OW §3, §20). Resolves once the switcher names the new workspace:
+ * it is the control in view wherever it can be pressed (the sidebar, and its
+ * header with it, is folded away below 1024px), and its name changes only when
+ * the switch has committed (§33).
  */
 export async function chooseWorkspace(page: Page, name: string | RegExp) {
-  await workspaceHeader(page).click();
+  const switcher = workspaceSwitcher(page);
+  await switcher.click();
   const panel = workspacePanel(page);
   await expect(panel.getByTestId("workspace-option").first()).toBeVisible();
   await panel.getByTestId("workspace-option").filter({ hasText: name }).first().click();
   await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-  await expect(workspaceHeader(page)).toHaveAccessibleName(typeof name === "string" ? new RegExp(`Current workspace: ${escapeRegExp(name)}`) : name);
+  await expect(switcher).toHaveAccessibleName(typeof name === "string" ? new RegExp(`Current workspace: ${escapeRegExp(name)}`) : name);
 }
 
 function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The one sidebar; navigation is resolved once and rendered twice. */
+/**
+ * The desktop sidebar's navigation. It is resolved once and drawn as three
+ * stacked lists (components/layout/sidebar.tsx): Dashboard, Projects and Tasks
+ * pinned at the top, Support and Settings at the foot, and the rest scrolling
+ * between them. The locator is all three, so a destination or the current item
+ * is found wherever it sits — narrow it with `.first()` where one element is
+ * asked for. It leaves out the header's own link to the dashboard, which is no
+ * item of the navigation, and the drawer's copy of the list. Matched by
+ * structure, not by role: below 1024px the sidebar is folded away, and its
+ * links are still what the drawer is compared with.
+ */
 export function sidebar(page: Page) {
-  return page.getByRole("navigation", { name: "Main navigation" }).first();
+  return page.locator('aside:has([data-testid="sidebar-header"]) nav');
 }
 
 export async function expectAccessDenied(page: Page, path: string) {

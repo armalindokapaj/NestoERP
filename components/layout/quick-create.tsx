@@ -300,7 +300,9 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
       // The bar's own Create button closes it too, by its own handler: a press on it is not "outside".
-      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target) && !opener.current?.contains(target)) close();
+      // The company list opens in its own layer outside the panel: choosing from it is not "outside" either.
+      const inList = target instanceof Element && target.closest("[role=listbox]") !== null;
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target) && !opener.current?.contains(target) && !inList) close();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointer);

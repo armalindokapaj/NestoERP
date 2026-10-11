@@ -933,8 +933,8 @@ html[data-unsaved-masked] [data-experience-editor] {
     --nesto-surface: var(--nesto-accent);
     --nesto-surface-muted: color-mix(in srgb, var(--nesto-accent-fg) 14%, var(--nesto-accent));
     --nesto-fg: var(--nesto-accent-fg);
-    --nesto-fg-muted: color-mix(in srgb, var(--nesto-accent-fg) 94%, var(--nesto-accent));
-    --nesto-fg-subtle: color-mix(in srgb, var(--nesto-accent-fg) 88%, var(--nesto-accent));
+    --nesto-fg-muted: color-mix(in srgb, var(--nesto-accent-fg) 98%, var(--nesto-accent));
+    --nesto-fg-subtle: color-mix(in srgb, var(--nesto-accent-fg) 96%, var(--nesto-accent));
     --nesto-border: color-mix(in srgb, var(--nesto-accent-fg) 26%, var(--nesto-accent));
     --nesto-border-strong: color-mix(in srgb, var(--nesto-accent-fg) 42%, var(--nesto-accent));
     --nesto-hover: color-mix(in srgb, var(--nesto-accent-fg) 12%, var(--nesto-accent));

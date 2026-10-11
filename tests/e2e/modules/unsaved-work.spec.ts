@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page, type Request } from "../pw";
 
 import { db, removeTestClients, removeTestTasks } from "../db";
-import { mainRegion, sidebar, signIn, workspaceHeader, workspacePanel } from "../fixtures";
+import { mainRegion, sidebar, signIn, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
 
 /**
  * Unsaved work protection in the browser (AUD-03 §9).
@@ -120,13 +120,13 @@ test.describe("editors and application navigation", () => {
   test("UW-02: a select, a restored value and an untouched form are judged by what they would submit", async ({ page }) => {
     await page.goto("/clients/new");
     const type = mainRegion(page).getByLabel("Type");
-    const original = await type.inputValue();
-    // A person's choice arrives with a trusted gesture; Playwright's
-    // selectOption alone dispatches untrusted events, which read as loading.
-    await type.click();
+    // NESTO's own dropdown (components/ui/form-select.tsx): the button reads the chosen option, and
+    // `selectOption` presses it and then the option (tests/e2e/pw.ts) — a trusted gesture, as a person's
+    // choice is; untrusted events read as loading.
+    const original = (await type.innerText()).trim();
     await type.selectOption("INDIVIDUAL");
     await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("Unsaved changes");
-    await type.selectOption(original);
+    await type.selectOption({ label: original });
     await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("");
     await clientName(page).fill("x");
     await clientName(page).fill("");
@@ -372,7 +372,12 @@ test.describe("dialogs and record forms", () => {
       () => page.keyboard.press("Escape"),
       () => dialog.getByRole("button", { name: "Close" }).click(),
       () => dialog.getByRole("button", { name: "Cancel" }).click(),
-      () => page.mouse.click(5, 5),
+      // A raw press has none of a click's waiting, and the dialog takes presses on its backdrop again only a
+      // tick after the prompt above it has gone: a beat first, as any hand leaves.
+      async () => {
+        await page.waitForTimeout(100);
+        await page.mouse.click(5, 5);
+      },
     ]) {
       await close();
       await expect(prompt(page)).toBeVisible();
@@ -434,7 +439,7 @@ test.describe("workspace and identity", () => {
       if (request.method() === "POST" && new URL(request.url()).pathname === "/api/workspace") switches.push(request.url());
     });
 
-    await workspaceHeader(page).click();
+    await workspaceSwitcher(page).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(prompt(page)).toContainText("You're switching to Forma Engineering.");
     await prompt(page).getByTestId("unsaved-stay").click();
@@ -442,7 +447,7 @@ test.describe("workspace and identity", () => {
     await expect(clientName(page)).toHaveValue(name);
     expect(switches).toHaveLength(0);
 
-    await workspaceHeader(page).click();
+    await workspaceSwitcher(page).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await prompt(page).getByTestId("unsaved-save").click();
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
@@ -462,7 +467,7 @@ test.describe("workspace and identity", () => {
       await route.fetch(); // the server switches…
       await route.abort("connectionreset"); // …and the answer is lost
     });
-    await workspaceHeader(page).click();
+    await workspaceSwitcher(page).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await prompt(page).getByTestId("unsaved-discard").click();
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
@@ -479,7 +484,7 @@ test.describe("workspace and identity", () => {
 
     const other = await secondTab(page);
     await other.goto("/tasks");
-    await workspaceHeader(other).click();
+    await workspaceSwitcher(other).click();
     await workspacePanel(other).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(workspaceHeader(other)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
 

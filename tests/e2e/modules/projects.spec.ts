@@ -75,7 +75,8 @@ test.describe("Project Manager (PRD #9 §153)", () => {
 
   test("uses the simple project home and keeps detailed work in normal modules", async ({ page }) => {
     await page.goto("/projects/project_a");
-    await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);
+    // The record's tabs are one strip under the breadcrumb bar, on Overview here; the home itself stays simple.
+    await expect(page.getByRole("navigation", { name: "Project sections" }).locator('[aria-current="page"]')).toHaveText("Overview");
     await expect(page.getByRole("heading", { name: "Project summary" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "My project work" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upcoming" })).toBeVisible();
@@ -355,15 +356,20 @@ test.describe("Project types (E-05A §30, §62)", () => {
     const row = page.getByTestId("project-type").filter({ hasText: name });
     await expect(row).toContainText("No projects");
 
+    // NESTO's own dropdown (components/ui/form-select.tsx): its options are there to read while its list is open.
+    const offered = page.getByRole("listbox").getByRole("option");
     await page.goto("/projects/new");
-    await expect(page.getByLabel("Project type").locator("option", { hasText: name })).toHaveCount(1);
+    await page.getByLabel("Project type").click();
+    await expect(offered.filter({ hasText: name })).toHaveCount(1);
 
     await page.goto("/projects/types");
     await page.getByTestId("project-type").filter({ hasText: name }).getByRole("button", { name: `Retire ${name}` }).click();
     await expect(page.getByTestId("project-type").filter({ hasText: name })).toContainText("Retired");
 
     await page.goto("/projects/new");
-    await expect(page.getByLabel("Project type").locator("option", { hasText: name })).toHaveCount(0);
+    await page.getByLabel("Project type").click();
+    await expect(offered.first()).toBeVisible();
+    await expect(offered.filter({ hasText: name })).toHaveCount(0);
 
     // A type no project uses can be deleted, with confirmation.
     await page.goto("/projects/types");

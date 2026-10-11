@@ -164,7 +164,8 @@ async function publishFixture() {
     status: "PUBLISHED",
     publishedByUserId: platformUser.id,
   } });
-  await db.project3DConfig.update({ where: { id: config.id }, data: { activeReleaseId: RELEASE_ID } });
+  // Live for the company: a new experience starts offline, and no audience sees an offline one (ADM-04A).
+  await db.project3DConfig.update({ where: { id: config.id }, data: { activeReleaseId: RELEASE_ID, visibility: "COMPANY_ONLY" } });
 }
 
 test.beforeAll(async () => {
@@ -188,9 +189,11 @@ test("Platform Admin provisions the native Project 3D workspace", async ({ page 
   await expect(page.getByRole("heading", { name: "3D / Rozaris", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Configure Project" }).click();
   await expect(page.getByRole("heading", { name: "New 3D Experience" })).toBeVisible();
-  await page.getByLabel("Group").selectOption({ label: groupName });
-  await page.getByLabel("Company").selectOption({ label: companyName });
-  await page.getByLabel("Project").selectOption({ label: `${PROJECT_CODE} · ${PROJECT_NAME}` });
+  // The wizard's own fields: the console's navigation behind it has a "Projects" of its own.
+  const wizard = page.getByRole("dialog", { name: "New 3D Experience" });
+  await wizard.getByLabel("Group").selectOption({ label: groupName });
+  await wizard.getByLabel("Company").selectOption({ label: companyName });
+  await wizard.getByLabel("Project").selectOption({ label: `${PROJECT_CODE} · ${PROJECT_NAME}` });
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByLabel("Experience name")).toHaveValue(`${PROJECT_NAME} 3D Experience`);
   await page.getByRole("button", { name: "Continue" }).click();

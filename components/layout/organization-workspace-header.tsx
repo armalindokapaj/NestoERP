@@ -210,7 +210,7 @@ export function WorkspaceSwitcher() {
             <span data-testid="organization-name" className="max-w-44 truncate text-meta font-semibold leading-[1.2]">
               {identity.primary}
             </span>
-            <span className="truncate text-micro leading-[1.2] opacity-85">{t("chooseCompany")}</span>
+            <span className="truncate text-micro leading-[1.2]">{t("chooseCompany")}</span>
           </span>
         </button>
       </PopoverTrigger>

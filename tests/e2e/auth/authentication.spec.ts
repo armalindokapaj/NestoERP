@@ -11,7 +11,7 @@ test.describe("sign in", () => {
     await signIn(page, "PROJECT_MANAGER");
 
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Company overview" })).toBeVisible();
     await expect(page.getByText("Project Manager").first()).toBeVisible();
     await expect(page.getByText("Aurelia Construction").first()).toBeVisible();
   });
@@ -122,25 +122,23 @@ test.describe("sign out", () => {
   });
 });
 
-test.describe("password recovery (PRD #50 §3, §268)", () => {
-  test("sends people to their administrator, and offers no form", async ({ page }) => {
+test.describe("password recovery (PRD #50 §3, §268; ADM-01)", () => {
+  test("sends a link only to a verified recovery email, and points the rest to their administrator", async ({ page }) => {
     await page.goto("/forgot-password");
 
-    await expect(page.getByText(/contact your nesto administrator/i)).toBeVisible();
-    // No self-service reset exists in V0.1: nothing here takes an address, and
-    // nothing here sends mail.
-    await expect(page.locator("input")).toHaveCount(0);
+    // One field, for a username or a recovery email; nothing is sent from this page until it is used.
+    await expect(page.getByLabel(/username or recovery email/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /send reset link/i })).toBeVisible();
+    await expect(page.getByLabel(/password/i)).toHaveCount(0);
     await expect(page.getByRole("link", { name: /back to sign in/i })).toBeVisible();
   });
 
-  test("an old reset link leads nowhere but the sign-in page", async ({ page }) => {
+  test("an old reset link leads nowhere but a request for a new one", async ({ page }) => {
     await page.goto("/reset-password?token=not-a-real-token");
 
-    // The route is gone from the build, so what is left is an unknown path an
-    // unauthenticated visitor asked for: the middleware sends them to sign in.
     // What matters is that no link in anybody's inbox can still set a password.
-    await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByLabel("Username")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /this link cannot be used/i })).toBeVisible();
     await expect(page.getByLabel(/new password/i)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /new link|request/i })).toBeVisible();
   });
 });

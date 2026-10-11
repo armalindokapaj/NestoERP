@@ -44,6 +44,7 @@ export function MobileNav({
   const list = React.useRef<HTMLDivElement>(null);
   // Set when the drawer closes because a destination was chosen.
   const navigated = React.useRef(false);
+  const opener = React.useRef<HTMLButtonElement>(null);
 
   // Close the drawer whenever navigation actually happens — a link, Back, or a
   // redirect — so no overlay is ever left behind over the new page.
@@ -54,6 +55,7 @@ export function MobileNav({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <button
+        ref={opener}
         type="button"
         onClick={() => {
           navigated.current = false;
@@ -82,9 +84,13 @@ export function MobileNav({
           });
         }}
         onCloseAutoFocus={(event) => {
-          if (!navigated.current) return;
-          navigated.current = false;
           event.preventDefault();
+          // Closed where it was opened: back on the hamburger.
+          if (!navigated.current) {
+            opener.current?.focus({ preventScroll: true });
+            return;
+          }
+          navigated.current = false;
           // Another dialog took over (the unsaved-work prompt): it owns focus now.
           const owner = document.activeElement?.closest('[role="dialog"], [role="alertdialog"]');
           if (owner) return;

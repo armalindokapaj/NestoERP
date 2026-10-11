@@ -36,7 +36,7 @@ test("updates a delayed milestone from the phone", async ({ page }) => {
   const forecast = addLocalDays(localDate(new Date(), ZONE), 4);
   await drawer.getByTestId("drawer-quick-update").getByLabel("Forecast date").fill(forecast);
   await drawer.getByTestId("drawer-quick-update").getByRole("button", { name: "Save update" }).click();
-  await expect(drawer.getByTestId("drawer-forecast")).toHaveText(dateLabel(forecast));
+  await expect(drawer.getByTestId("drawer-forecast")).toHaveText(dateLabel(forecast, "en"));
 
   await drawer.getByTestId("drawer-blockers").getByRole("button", { name: "Add blocker" }).click();
   await drawer.getByTestId("drawer-blockers").getByLabel("Title").fill("Scaffold tags missing on level 3");

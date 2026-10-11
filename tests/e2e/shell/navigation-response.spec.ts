@@ -243,7 +243,8 @@ test.describe("+ Create loads on demand (Q01-Q10, Q15, Q22, Q23)", () => {
   test("a viewer with nothing to create has no button, no shortcut and no request (Q05)", async ({ page }) => {
     const counted = countQuickCreate(page);
     await signIn(page, "VIEWER", { to: "/dashboard" });
-    await expect(page.getByTestId("notification-bell")).toBeVisible();
+    // The top bar's bell: until the page knows its width the phone bar's bell is in the document too (components/layout/activity-bell.tsx).
+    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
     await expect(page.getByTestId("quick-create-button")).toHaveCount(0);
     await page.locator("body").press("c");
     await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);

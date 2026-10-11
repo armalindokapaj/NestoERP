@@ -63,7 +63,7 @@ async function exercisePanel(page: Page, prefix: "/admin" | "/group") {
   for (const [testId, path] of [["account-help", `${prefix}/help`], ["account-whats-new", `${prefix}/whats-new`], ["account-profile", `${prefix}/account`]] as const) {
     await expect(panel.getByTestId(testId)).toHaveAttribute("href", path);
   }
-  // No billing entry, and no workspace switch: that lives in the sidebar header.
+  // No billing entry, and no workspace switch: that is the top bar's company switcher.
   await expect(panel.getByRole("link", { name: /billing/i })).toHaveCount(0);
   await expect(panel.getByTestId("account-switch-workspace")).toHaveCount(0);
 

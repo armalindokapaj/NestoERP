@@ -101,7 +101,7 @@ test("the project manager sets out and runs a plan (§299)", async ({ page }) =>
   await section(page, "quick-update").getByLabel("Forecast date").fill(addLocalDays(today(), 45));
   await section(page, "quick-update").getByLabel("Why the forecast moved (optional)").fill("Submittal review takes longer");
   await section(page, "quick-update").getByRole("button", { name: "Save update" }).click();
-  await expect(drawer(page).getByTestId("drawer-forecast")).toHaveText(dateLabel(addLocalDays(today(), 45)));
+  await expect(drawer(page).getByTestId("drawer-forecast")).toHaveText(dateLabel(addLocalDays(today(), 45), "en"));
   await expect(drawer(page).getByTestId("milestone-variance").first()).toHaveText("+5 days");
   await drawer(page).getByRole("button", { name: "Close" }).click();
   await expect(page).not.toHaveURL(/milestone=/);

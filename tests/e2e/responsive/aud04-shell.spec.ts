@@ -54,18 +54,29 @@ async function openDrawer(page: Page) {
   return drawer(page);
 }
 
-/** No leftover overlay: the page's centre answers to the page, not a backdrop (MW-02). */
+/**
+ * No leftover overlay: the page's centre answers to the page, not a backdrop (MW-02).
+ * A drawer that has just closed is still fading out for a moment — the workspace
+ * switch closes it as it starts, so Stay can arrive while it leaves — and left
+ * over means still there once it has had that moment.
+ */
 async function expectNoOverlay(page: Page) {
   await expect(page.locator("[role=dialog][data-state=open]")).toHaveCount(0);
-  const hit = await page.evaluate(() => {
-    const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-    return el ? { fixedBackdrop: getComputedStyle(el).position === "fixed" && el.getAttribute("data-state") !== null } : null;
-  });
-  expect(hit?.fixedBackdrop ?? false, "an overlay is left over the page").toBe(false);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+          return Boolean(el && getComputedStyle(el).position === "fixed" && el.getAttribute("data-state") !== null);
+        }),
+      { message: "an overlay is left over the page", timeout: 3_000 },
+    )
+    .toBe(false);
 }
 
-async function hrefs(scope: Locator) {
-  return (await scope.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")))).filter(Boolean).sort();
+/** Where a set of links leads. Read from the document: the sidebar is folded away below 1024px, and its links are still what the drawer is compared with. */
+async function hrefs(links: Locator) {
+  return (await links.evaluateAll((elements) => elements.map((link) => link.getAttribute("href")))).filter(Boolean).sort();
 }
 
 async function currentCompany(page: Page) {
@@ -123,9 +134,9 @@ test.describe("AUD-04 navigation drawer (MW-02)", () => {
     await signIn(page, "OWNER", { to: "/dashboard" });
     // One permission-filtered configuration: the drawer lists what the (hidden) sidebar lists.
     const nav = await openDrawer(page);
-    const drawerLinks = await hrefs(nav.getByTestId("drawer-navigation"));
+    const drawerLinks = await hrefs(nav.getByTestId("drawer-navigation").getByRole("link"));
     expect(drawerLinks.length).toBeGreaterThan(3);
-    expect(drawerLinks).toEqual(await hrefs(sidebar(page)));
+    expect(drawerLinks).toEqual(await hrefs(sidebar(page).locator("a[href]")));
 
     // Go to the last destination: the drawer must reopen with it in view.
     const last = drawerLinks[drawerLinks.length - 1]!;
@@ -195,10 +206,10 @@ test.describe("AUD-04 navigation drawer (MW-02)", () => {
 
 test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!drawerLayout(page), "the drawer's workspace sheet exists below 1024px only");
+    test.skip(!drawerLayout(page), "the header is the workspace switch below 1024px only: the drawer's on a tablet, the top bar's on a phone");
   });
 
-  test("the drawer's workspace sheet switches with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
+  test("the header's workspace popup switches with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
     await signIn(page, "OWNER", { company: AURELIA, to: "/clients/new" });
     const name = mainRegion(page).getByLabel("Client name");
     await name.fill("AUD04A switch draft");
@@ -217,6 +228,10 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
       await header.click();
       const panel = page.getByTestId("workspace-panel");
       await expect(panel).toBeVisible();
+      // A popup under the header, its pointer on it, as every popup on a touch layout. It grows out of the
+      // header (styles/globals.css, `nesto-pop-in`), so its targets are measured once it has landed.
+      await expect(panel.locator(".nesto-popup-pointer")).toBeVisible();
+      await panel.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
       await expectTouchTargets(page, panel);
       await expectInViewport(panel.getByTestId("workspace-option").last(), "last workspace option");
       await panel.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
