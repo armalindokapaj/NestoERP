@@ -39,7 +39,7 @@ export default async function GroupOverviewPage() {
             <li key={step.key} className="flex items-center gap-2 text-body text-fg">
               <span aria-hidden="true" className={step.done ? "text-success" : "text-fg-subtle"}>{step.done ? "✓" : "○"}</span>
               <span>{t(`overview.checklist.${step.key}`)}</span>
-              <span className="sr-only">{step.done ? "(done)" : "(to do)"}</span>
+              <span className="sr-only">{step.done ? t("overview.done") : t("overview.todo")}</span>
             </li>
           ))}
         </ul>

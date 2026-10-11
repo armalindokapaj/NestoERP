@@ -197,7 +197,7 @@ export const UnitsContent = forwardRef<
         max={areaBounds.max}
         value={effMin}
         onChange={handleMinAreaChange}
-        aria-label={`${t("units.filterSurface")} minimum`}
+        aria-label={t("units.rangeMinimum", { label: t("units.filterSurface") })}
         className="rz-range-thumb"
         style={{ zIndex: minThumbOnTop ? 5 : 3 }}
       />
@@ -207,7 +207,7 @@ export const UnitsContent = forwardRef<
         max={areaBounds.max}
         value={effMax}
         onChange={handleMaxAreaChange}
-        aria-label={`${t("units.filterSurface")} maximum`}
+        aria-label={t("units.rangeMaximum", { label: t("units.filterSurface") })}
         className="rz-range-thumb"
         style={{ zIndex: minThumbOnTop ? 3 : 4 }}
       />

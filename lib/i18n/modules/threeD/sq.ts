@@ -1,6 +1,10 @@
 import type { threeDEn } from "./en";
 
 export const threeDSq: typeof threeDEn = {
+  meta: {
+    viewer: "Shikuesi 3D",
+    explorer: "Eksploruesi 3D",
+  },
   labels: {
     placeholderKind: {
       interior: "brendësi",

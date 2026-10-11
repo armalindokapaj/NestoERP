@@ -79,7 +79,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const building = buildings.find((candidate) => candidate.id === buildingId);
-  const editor = useValuesEditor({ buildingId, from, to, drafts, confirmLarge }, { module: "units", saveKind: "none", workflow: "Create floors", label: t("bulk.newFloors") });
+  const editor = useValuesEditor({ buildingId, from, to, drafts, confirmLarge }, { module: "units", saveKind: "none", workflow: t("bulk.createFloors"), label: t("bulk.newFloors") });
 
   async function check(list: FloorDraft[]) {
     const preview = await structureApi<BatchPreview>(`/api/project-buildings/${buildingId}/floors/bulk`, { body: { floors: list, dryRun: true } });
@@ -199,7 +199,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
           {large ? (
             <label className="flex items-center gap-2 text-table text-fg">
               <Checkbox checked={confirmLarge} onCheckedChange={(value) => setConfirmLarge(value === true)} />
-              Yes, create {drafts.length} floors
+              {t("bulk.confirmLarge", { count: drafts.length })}
             </label>
           ) : null}
           <DialogFooter>
@@ -243,7 +243,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const editor = useValuesEditor({ prefix, start, end, padding, suffix, technical }, { module: "units", saveKind: "none", workflow: "Create units", label: t("bulk.newUnitsOn", { floor: floor.name }) });
+  const editor = useValuesEditor({ prefix, start, end, padding, suffix, technical }, { module: "units", saveKind: "none", workflow: t("bulk.createUnits"), label: t("bulk.newUnitsOn", { floor: floor.name }) });
 
   const pattern = { prefix, start: Number(start), end: Number(end), padding: Number(padding) || 0, suffix };
   const valid = Number.isInteger(pattern.start) && Number.isInteger(pattern.end) && pattern.start >= 0 && pattern.end >= pattern.start && pattern.end - pattern.start < MAX_BULK_UNITS && pattern.padding >= 0 && pattern.padding <= 8;
@@ -421,7 +421,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
   // The rows a chosen floor loads are its suggestion; what counts as input is
   // the choice of floor and any row changed from what was suggested.
   const [suggested, setSuggested] = React.useState<CopyRow[]>([]);
-  const editor = useValuesEditor({ sourceId, edits: rows.filter((row, index) => JSON.stringify(row) !== JSON.stringify(suggested[index])) }, { module: "units", saveKind: "none", workflow: "Copy units", label: t("bulk.copyingTo", { floor: floor.name }) });
+  const editor = useValuesEditor({ sourceId, edits: rows.filter((row, index) => JSON.stringify(row) !== JSON.stringify(suggested[index])) }, { module: "units", saveKind: "none", workflow: t("bulk.copyUnits"), label: t("bulk.copyingTo", { floor: floor.name }) });
 
   async function load(id: string) {
     setSourceId(id);

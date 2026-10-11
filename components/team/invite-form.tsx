@@ -118,7 +118,7 @@ function InviteFields({
     action: inviteMemberAction,
     module: "team",
     saveKind: "none",
-    workflow: "Send",
+    workflow: t("invite.workflow"),
     label: t("invite.label"),
     onCommitted: (result) => {
       if (result) onSent({ email: result.email, delivered: result.delivered, ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}) });

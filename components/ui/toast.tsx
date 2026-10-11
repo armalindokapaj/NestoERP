@@ -45,6 +45,7 @@ const toneClasses: Record<ToastTone, string> = {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations("ui");
+  const shell = useTranslations("shell");
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
   const nextId = React.useRef(0);
 
@@ -113,6 +114,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             is mounted (`--nesto-bottom-reserve`, globals.css), so a toast never
             covers Submit or Approve on a phone (AUD-04 §6). */}
         <ToastPrimitive.Viewport
+          // The region's name, with the key that moves focus to it; Radix fills `{hotkey}` in (F8).
+          label={`${shell("notifications")} ({hotkey})`}
           className={cn(
             "fixed z-[70] flex max-h-dvh w-full flex-col gap-2 p-4 outline-none",
             "bottom-[var(--nesto-bottom-reserve,0px)] left-1/2 max-w-[420px] -translate-x-1/2 pb-[max(1rem,env(safe-area-inset-bottom))]",

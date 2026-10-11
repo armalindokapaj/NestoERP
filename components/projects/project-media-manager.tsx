@@ -39,10 +39,11 @@ class Refusal extends Error {
   }
 }
 
-async function request(url: string, init: RequestInit): Promise<void> {
+/** `failed` is what a refusal with no message of its own says, in the reader's language. */
+async function request(url: string, init: RequestInit, failed: string): Promise<void> {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
   const body = await response.json().catch(() => ({})) as ApiEnvelope;
-  if (!response.ok) throw new Refusal(body.error?.message ?? "The change could not be saved.", body.error?.details?.code ?? body.error?.code);
+  if (!response.ok) throw new Refusal(body.error?.message ?? failed, body.error?.details?.code ?? body.error?.code);
 }
 
 export function ProjectMediaManager({ projectId, initial }: { projectId: string; initial: ProjectMediaCollection }) {
@@ -68,7 +69,7 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
     link: async (documentId, file) => {
       const type = uploadTypes.current.get(file) ?? "RENDER";
       try {
-        await request(`/api/projects/${projectId}/media`, { method: "POST", body: JSON.stringify({ documentId, type }) });
+        await request(`/api/projects/${projectId}/media`, { method: "POST", body: JSON.stringify({ documentId, type }) }, t("mediaManager.changeFailed"));
       } catch (error) {
         if (error instanceof Refusal && error.code === "CONFLICT") return;
         throw error instanceof Error ? error : new Error(t("mediaManager.addFailed"));
@@ -86,7 +87,7 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
   async function mutate(url: string, init: RequestInit, success: string): Promise<SaveOutcome> {
     setPending(true);
     try {
-      await request(url, init);
+      await request(url, init, t("mediaManager.changeFailed"));
       toast({ title: success });
       router.refresh();
       return COMMITTED;

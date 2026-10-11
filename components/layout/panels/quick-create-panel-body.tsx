@@ -203,7 +203,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
               <ul>{entry.rows.map((action) => row(action, entry.group))}</ul>
             </section>
           ))}
-          {ordered.length === 0 ? <p className="px-2 py-3 text-table text-fg-muted">No create actions match “{query.trim()}”.</p> : null}
+          {ordered.length === 0 ? <p className="px-2 py-3 text-table text-fg-muted">{t("quickCreate.noMatches", { query: query.trim() })}</p> : null}
         </div>
       </>
     );
@@ -266,7 +266,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
                 </p>
               ) : null}
               <label className="block space-y-1">
-                <span className="text-meta font-medium text-fg">Project</span>
+                <span className="text-meta font-medium text-fg">{t("quickCreate.project")}</span>
                 {projects.status === "loading" ? (
                   <span role="status" className="flex h-9 items-center gap-2 text-table text-fg-muted" data-testid="quick-create-projects-loading">
                     <Loader2 aria-hidden="true" className="size-4 animate-spin" />

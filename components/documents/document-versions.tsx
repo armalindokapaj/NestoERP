@@ -395,7 +395,7 @@ function UploadVersionForm({
   const upload = React.useRef<{ key: string; sessionId: string | null }>({ key: "", sessionId: null });
 
   const busy = progress !== null;
-  const editor = useDialogInput(file !== null || changeNote !== "", "Upload", "New version");
+  const editor = useDialogInput(file !== null || changeNote !== "", t("versions.upload"), t("versions.newVersionLabel"));
   const { setPendingUploads } = editor;
   React.useEffect(() => {
     setPendingUploads(busy);
@@ -576,7 +576,7 @@ function RequestReviewForm({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   // The search is a filter, not input.
-  const editor = useDialogInput(selected !== "" || note !== "" || dueDate !== "", "Send for review", `Review request for version ${version.versionNumber}`);
+  const editor = useDialogInput(selected !== "" || note !== "" || dueDate !== "", t("versions.send"), t("versions.reviewRequestLabel", { number: version.versionNumber }));
   const { setSaving } = editor;
   React.useEffect(() => {
     setSaving(pending);
@@ -739,7 +739,7 @@ function DecisionForm({
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const rejecting = decision.outcome === "reject";
-  const editor = useDialogInput(note !== "", rejecting ? "Reject" : "Approve", rejecting ? "Rejection note" : "Approval note");
+  const editor = useDialogInput(note !== "", rejecting ? t("versions.reject") : t("versions.approve"), rejecting ? t("versions.rejectionNote") : t("versions.approvalNote"));
   const { setSaving } = editor;
   React.useEffect(() => {
     setSaving(pending);

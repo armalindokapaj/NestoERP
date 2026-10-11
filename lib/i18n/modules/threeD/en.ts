@@ -4,6 +4,11 @@
  * (lib/3d/viewer/i18n.ts). Stored values' words live under `labels`.
  */
 export const threeDEn = {
+  /** The viewers' browser-tab titles. */
+  meta: {
+    viewer: "3D viewer",
+    explorer: "3D Explorer",
+  },
   labels: {
     placeholderKind: {
       interior: "interior",

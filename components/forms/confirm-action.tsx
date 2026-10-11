@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 /**
@@ -42,6 +43,7 @@ export function ConfirmAction({
   onDone?: () => void;
   children?: React.ReactNode;
 }) {
+  const t = useTranslations("ui");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const inFlight = React.useRef(false);
@@ -65,7 +67,7 @@ export function ConfirmAction({
       }
     } catch {
       // The request may or may not have been committed: say so, keep the dialog.
-      setError("We could not confirm this was done. Check the record before trying again.");
+      setError(t("unconfirmed"));
     } finally {
       inFlight.current = false;
       setPending(false);

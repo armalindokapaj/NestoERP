@@ -25,6 +25,7 @@ import { FormSelect } from "@/components/ui/form-select";
  */
 export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO }) {
   const t = useTranslations("projects");
+  const tUi = useTranslations("ui");
   const toast = useToast();
   const router = useRouter();
   const [state, setState] = React.useState({ milestoneReminderDays: initial.milestoneReminderDays, baselineChangeReasonRequired: initial.baselineChangeReasonRequired, notifyExecutivesOnCriticalChanges: initial.notifyExecutivesOnCriticalChanges });
@@ -39,7 +40,7 @@ export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO
       router.refresh();
       return COMMITTED;
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, tUi("errorTitle")), tone: "danger" });
       return failureOutcome(error);
     } finally {
       setPending(false);
@@ -78,7 +79,7 @@ export function PlanningSettingsForm({ initial }: { initial: PlanningSettingsDTO
         <Switch id="notify-executives" checked={state.notifyExecutivesOnCriticalChanges} onCheckedChange={(value) => setState({ ...state, notifyExecutivesOnCriticalChanges: value })} />
       </div>
       <div className="flex items-center justify-between gap-3 py-3">
-        <p className="text-meta text-fg-muted">Milestone dates are read in {initial.timezone}.</p>
+        <p className="text-meta text-fg-muted">{t("settings.timezoneNote", { timezone: initial.timezone })}</p>
         <UnsavedIndicator save={{ editor, pending, saved: null }} className="ml-auto" />
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? t("settings.saving") : t("settings.save")}

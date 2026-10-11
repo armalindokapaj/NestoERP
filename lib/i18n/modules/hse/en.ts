@@ -306,6 +306,10 @@ export const hseEn = {
     nothingDecided: "Nothing has been decided yet.",
     nothingWaiting: "Nothing is waiting.",
     selfSubmitted: "You submitted this — somebody else decides.",
+    submittedBy: "Submitted by",
+    decided: "Decided",
+    sendBackTitle: "Send {reference} back",
+    sendBackThis: "Send this back",
   },
   overview: {
     emptyTitle: "Nothing to report.",
@@ -501,6 +505,8 @@ export const hseEn = {
   },
   table: {
     company: "Company",
+    /** After a risk assessment's review date, once that date has come. */
+    reviewDue: " · due",
     caption: {
       inspections: "Safety inspections",
       templates: "Safety checklists",
@@ -943,7 +949,6 @@ export const hseEn = {
     chooseProject: "Choose a project",
     noProject: "No project — company-wide",
     nobodyYet: "Nobody yet",
-    currentChoice: "Current choice — no longer available for new records",
     whatDidYouSee: "What did you see",
     hazardIntro: "Anybody on site can report a hazard. Say what it is and where; the risk score decides how fast it gets dealt with.",
     title: "Title",
@@ -1083,6 +1088,7 @@ export const hseEn = {
     sendBack: "Send back",
     closeOut: "Close out",
     cancel: "Cancel",
+    newVersionNumbered: "New version (v{version})",
     sendInspectionBack: "Send this inspection back",
     whatNeedsRedoing: "What needs redoing",
     whichChecks: "Which checks need looking at again?",

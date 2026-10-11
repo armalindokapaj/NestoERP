@@ -49,13 +49,12 @@ export function PersonAvatar({ person, size = "sm", className }: { person: Pick<
   return <Avatar {...split(person.fullName)} src={person.avatarUrl} size={size} className={className} />;
 }
 
-/** First few faces and a count (PRD #40 §131). */
-/** `label` is the count in the reader's language ("3 people"); English when not given. */
-export function AvatarStack({ people, total, max = 4, label }: { people: Array<Pick<MeetingPersonDTO, "memberId" | "fullName" | "avatarUrl">>; total: number; max?: number; label?: string }) {
+/** First few faces and a count (PRD #40 §131). `label` is the count in the reader's language ("3 people"). */
+export function AvatarStack({ people, total, max = 4, label }: { people: Array<Pick<MeetingPersonDTO, "memberId" | "fullName" | "avatarUrl">>; total: number; max?: number; label: string }) {
   const shown = people.slice(0, max);
   const more = total - shown.length;
   return (
-    <span className="flex items-center" role="img" aria-label={label ?? `${total} ${total === 1 ? "person" : "people"}`}>
+    <span className="flex items-center" role="img" aria-label={label}>
       {shown.map((person, index) => (
         <span key={person.memberId} className={cn("relative rounded-full ring-2 ring-surface", index > 0 && "-ml-1.5")} style={{ zIndex: shown.length - index }} title={person.fullName}>
           <PersonAvatar person={person} />

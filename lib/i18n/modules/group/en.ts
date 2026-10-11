@@ -11,6 +11,8 @@ export const groupEn = {
     language: "Language",
     account: "Account",
     meta: "{name} · Group",
+    /** The browser tab: the area's name, and what follows a page's own title. */
+    title: "NESTO Group",
   },
   overview: {
     welcome: "Welcome to {name}",
@@ -25,6 +27,9 @@ export const groupEn = {
       company: "Create the first company",
       users: "Add group users",
     },
+    /** After a checklist step, for a screen reader: the tick and the circle are decoration. */
+    done: "(done)",
+    todo: "(to do)",
     nextCompany: "A company is the next step. Projects, people and modules all belong to a company.",
     goCompanies: "Go to Companies",
   },

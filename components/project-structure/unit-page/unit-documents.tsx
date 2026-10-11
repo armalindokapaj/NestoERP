@@ -6,6 +6,7 @@ import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 
+import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,8 @@ function FileLine({ file, children }: { file: UnitFileDTO; children?: React.Reac
 
 export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; unitCode: string; files: UnitFilesDTO }) {
   const t = useTranslations("projects");
+  // The upload queue and client raise their messages in English; they are read back here.
+  const tDocuments = useDocumentsTranslations();
   const router = useRouter();
   const toast = useToast();
   const planInput = React.useRef<HTMLInputElement>(null);
@@ -106,7 +109,7 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
 
   React.useEffect(() => {
     const failed = [...planQueue.items, ...docQueue.items].find((item) => item.status === "failed" && item.error);
-    if (failed) toast({ title: failed.error ?? t("unitFiles.uploadFailed"), tone: "danger" });
+    if (failed) toast({ title: uploadErrorText(tDocuments, failed.error ?? t("unitFiles.uploadFailed")), tone: "danger" });
     // Report each failure once, as it happens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [[...planQueue.items, ...docQueue.items].filter((item) => item.status === "failed").length]);
@@ -117,12 +120,12 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
     if (!files.salesPlan) return planQueue.enqueue([file], () => ({ name: t("unitFiles.planName", { code: unitCode }) }));
     setPlanBusy(true);
     try {
-      const result = await uploadNewVersion(files.salesPlan.documentId, file);
+      const result = await uploadNewVersion(files.salesPlan.documentId, file, t("unitFiles.uploadIncomplete"));
       const recorded = await structureApi<{ versionNumber: number | null; changed: boolean }>(`/api/project-units/${unitId}/sales-plan`, { body: { documentId: files.salesPlan.documentId } });
       toast({ title: result.status === "AVAILABLE" && recorded.changed ? t("unitFiles.planVersionUploaded", { version: recorded.versionNumber ?? "" }) : t("unitFiles.versionReceived") });
       router.refresh();
     } catch (error) {
-      toast({ title: failureMessage(error, t("unitFiles.versionFailed")), tone: "danger" });
+      toast({ title: uploadErrorText(tDocuments, failureMessage(error, t("unitFiles.versionFailed"))), tone: "danger" });
     } finally {
       setPlanBusy(false);
     }
@@ -284,7 +287,7 @@ function UploadDocumentForm({ onChoose }: { onChoose: (files: File[], category: 
   const t = useTranslations("projects");
   const [category, setCategory] = React.useState<UnitDocumentCategory>("TECHNICAL_DRAWING");
   const [chosen, setChosen] = React.useState<File[]>([]);
-  useValuesEditor({ category, files: chosen.map((file) => [file.name, file.size, file.lastModified]) }, { module: "units", saveKind: "none", workflow: "Upload", label: t("unitFiles.toUpload") });
+  useValuesEditor({ category, files: chosen.map((file) => [file.name, file.size, file.lastModified]) }, { module: "units", saveKind: "none", workflow: t("unitFiles.upload"), label: t("unitFiles.toUpload") });
   return (
     <form
       className="mt-4 space-y-4"

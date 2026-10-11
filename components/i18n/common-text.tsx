@@ -4,8 +4,8 @@ import * as React from "react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { commonEn } from "@/lib/i18n/modules/common/en";
-import { createTranslator, type MessageKey, type Translate } from "@/lib/i18n/translator";
-import { statusLabel } from "@/lib/utils/status";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { createTranslator, type Translate } from "@/lib/i18n/translator";
 
 /** The shared module components' strings in English, for code that runs without a reader (pure helpers, tests). */
 export const englishCommon: Translate<"common"> = createTranslator("en", commonEn);
@@ -25,7 +25,14 @@ export function useCommonTranslations(): Translate<"common"> {
 /** A stored status or priority value, in the reader's language; an unknown value keeps its English label. */
 export function StatusText({ status }: { status: string }) {
   const t = useTranslations("common");
-  const key = `status.${status}` as MessageKey<"common">;
-  const value = t(key);
-  return <>{value === key ? statusLabel(status) : value}</>;
+  return <>{statusText(t, status)}</>;
+}
+
+/**
+ * What `StatusText` renders, as a string: for an aria-label, a joined line or
+ * an option label, where an element cannot go.
+ */
+export function useStatusText(): (status: string) => string {
+  const t = useTranslations("common");
+  return React.useCallback((status: string) => statusText(t, status), [t]);
 }

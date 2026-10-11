@@ -189,6 +189,8 @@ export const tasksEn = {
     blockTitle: "Mark this task blocked",
     blockDescription: "Say what is stopping the work. Everyone watching the task is told, with your reason.",
     blockReasonRequired: "Say why the task is blocked.",
+    /** What the unsaved-changes prompt calls a reason typed and not yet sent. */
+    blockReasonLabel: "The reason this task is blocked",
     blockedDone: "Task marked blocked.",
     reason: "Reason",
     archiveConfirmTitle: "Archive {title}?",

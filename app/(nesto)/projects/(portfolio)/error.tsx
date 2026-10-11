@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useEffect } from "react";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { ErrorState } from "@/components/ui/error-state";
@@ -15,6 +16,7 @@ import { ErrorState } from "@/components/ui/error-state";
  */
 export default function ProjectsPageError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
+  const t = useTranslations("projects");
 
   useEffect(() => {
     console.error(error);
@@ -22,8 +24,8 @@ export default function ProjectsPageError({ error, reset }: { error: Error & { d
 
   return (
     <ErrorState
-      title="Projects could not be loaded."
-      description="Nothing was changed. Try again in a moment."
+      title={t("portfolio.loadFailed")}
+      description={t("errorPage.description")}
       onRetry={() =>
         startTransition(() => {
           router.refresh();

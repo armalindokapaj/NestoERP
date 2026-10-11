@@ -119,6 +119,7 @@ export const teamSq: typeof teamEn = {
     jobTitlePlaceholder: "Inxhinier kantieri",
     sending: "Po dërgohet…",
     send: "Dërgo ftesën",
+    workflow: "Dërgo",
     cancel: "Anulo",
   },
   actions: {

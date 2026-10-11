@@ -117,17 +117,17 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                 ) : null}
                 <p className="mt-1 text-meta text-fg-subtle">
                   {item.project ? `${item.project.code} · ` : ""}
-                  Submitted by{" "}
+                  {t("approvals.submittedBy")}{" "}
                   {item.submittedBy ? (
                     <PersonLink memberId={item.submittedBy.memberId} name={item.submittedBy.fullName} />
                   ) : (
-                    "somebody"
+                    t("action.detail.somebody")
                   )}{" "}
                   {formatRelativeTime(item.submittedAt)}
                 </p>
                 {item.decidedBy ? (
                   <p className="mt-1 text-meta text-fg-subtle">
-                    Decided {t("record.by")} <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
+                    {t("approvals.decided")} {t("record.by")} <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
                     {item.decidedAt ? ` ${formatRelativeTime(item.decidedAt)}` : ""}
                     {item.decisionNote ? ` — ${item.decisionNote}` : ""}
                   </p>
@@ -166,7 +166,7 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
       <RejectDialog
         open={rejecting !== null}
         onOpenChange={(open) => setRejecting(open ? rejecting : null)}
-        title={`Send ${rejecting?.reference ?? "this"} back`}
+        title={rejecting ? t("approvals.sendBackTitle", { reference: rejecting.reference }) : t("approvals.sendBackThis")}
         label={t("actions.whatNeedsChanging")}
         confirmLabel={t("actions.sendBack")}
         pendingLabel={t("actions.sending")}

@@ -83,6 +83,8 @@ export const offlineEn = {
   },
   diary: {
     title: "Site Diary",
+    /** What a diary's changes are called while they wait on this device to be sent. */
+    queueLabel: "Site Diary · {project}",
     newEntry: "New entry",
     none: "No diary entries on this device.",
     today: "Today",

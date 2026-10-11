@@ -14,9 +14,10 @@ import { canGroup, requireGroupContext } from "@/lib/context/group-context";
 import { identityKeys } from "@/lib/context/identity-key";
 import { getTranslations } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: { template: "%s · NESTO Group", default: "NESTO Group" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const title = (await getTranslations("group"))("shell.title");
+  return { title: { template: `%s · ${title}`, default: title } };
+}
 
 /**
  * The area of a person who belongs to a parent group and to no company

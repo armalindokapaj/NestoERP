@@ -36,7 +36,7 @@ function useOpen() {
 /* -------------------------------------------------------------------------- */
 
 const departmentFields = (t: Translate<"organization">): FormField[] => [
-  { name: "name", label: t("departmentActions.name"), type: "text", required: true, placeholder: "Finance" },
+  { name: "name", label: t("departmentActions.name"), type: "text", required: true, placeholder: t("departmentActions.namePlaceholder") },
   { name: "code", label: t("departmentActions.code"), type: "text", required: true, placeholder: "FIN", hint: t("departmentActions.codeHint") },
   { name: "description", label: t("departmentActions.description"), type: "textarea", rows: 3, wide: true },
 ];

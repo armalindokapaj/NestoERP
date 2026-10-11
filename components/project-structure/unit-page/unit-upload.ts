@@ -21,6 +21,11 @@ import {
  * instead of allocating the next version number for the same bytes. The file
  * is checked against the registry the server enforces before anything is
  * sent; the server checks it again and then reads its bytes.
+ *
+ * This file has no reader of its own, so the one sentence it would have to
+ * write — an upload that ended with no answer — is handed in by the caller, in
+ * the reader's language (`incomplete`). The upload client's own messages pass
+ * through as they are raised; the caller reads those back with `uploadErrorText`.
  */
 
 const keys = new WeakMap<File, Map<string, { key: string; sessionId: string | null; status: string | null }>>();
@@ -35,12 +40,12 @@ function keyFor(file: File, documentId: string) {
 
 type Failure = { status: number; code: string; message: string; details: Record<string, unknown> };
 
-function asFailure(error: unknown): Failure {
+function asFailure(error: unknown, incomplete: string): Failure {
   if (error instanceof UploadFailure) return { status: error.status, code: error.code, message: error.message, details: error.details };
-  return { status: 0, code: "UPLOAD_FAILED", message: "The upload did not complete. Try again.", details: {} };
+  return { status: 0, code: "UPLOAD_FAILED", message: incomplete, details: {} };
 }
 
-export async function uploadNewVersion(documentId: string, file: File): Promise<{ status: string }> {
+export async function uploadNewVersion(documentId: string, file: File, incomplete: string): Promise<{ status: string }> {
   const check = precheckFile(file);
   if (!check.ok) throw { status: 400, code: check.code, message: check.message, details: { file: [check.message] } } satisfies Failure;
   const entry = keyFor(file, documentId);
@@ -58,7 +63,7 @@ export async function uploadNewVersion(documentId: string, file: File): Promise<
     entry.status = done.status;
     return { status: done.status };
   } catch (error) {
-    throw asFailure(error);
+    throw asFailure(error, incomplete);
   }
 }
 

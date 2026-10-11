@@ -77,7 +77,7 @@ function StatusForm({
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const editor = useUnsavedEditor({ module: "projects", saveKind: "none", workflow: "Change status", label: t("statusDialog.editorLabel", { name: project.name }) });
+  const editor = useUnsavedEditor({ module: "projects", saveKind: "none", workflow: t("statusDialog.workflow"), label: t("statusDialog.editorLabel", { name: project.name }) });
   const { setDirty, setSaving, setUnresolved } = editor;
 
   React.useEffect(() => setDirty(choice !== (moves[0] ?? null) || reason !== ""), [choice, reason, moves, setDirty]);

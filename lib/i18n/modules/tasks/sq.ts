@@ -191,6 +191,7 @@ export const tasksSq: typeof tasksEn = {
     blockTitle: "Shëno këtë detyrë si të bllokuar",
     blockDescription: "Tregoni çfarë po e ndalon punën. Të gjithë ata që ndjekin detyrën njoftohen, bashkë me arsyen tuaj.",
     blockReasonRequired: "Tregoni pse detyra është e bllokuar.",
+    blockReasonLabel: "Arsyeja pse kjo detyrë është e bllokuar",
     blockedDone: "Detyra u shënua si e bllokuar.",
     reason: "Arsyeja",
     archiveConfirmTitle: "Të arkivohet {title}?",

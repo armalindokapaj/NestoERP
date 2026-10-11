@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 
 import { ProjectViewerPage } from "@/components/3d/viewer/ProjectViewerPage";
+import { getTranslations } from "@/lib/i18n/server";
 import { getViewerBrand } from "@/lib/modules/project-3d/project-3d.viewer-brand";
 import { hasActiveProject3DViewer } from "@/lib/modules/project-3d/project-3d.viewer";
 import { loadProject } from "@/app/(nesto)/projects/[projectId]/project-context";
@@ -18,7 +19,7 @@ export const viewport: Viewport = {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { projectId } = await params;
   const { project } = await loadProject(projectId);
-  return { title: `${project.name} · 3D Explorer` };
+  return { title: `${project.name} · ${(await getTranslations("threeD"))("meta.explorer")}` };
 }
 
 /**

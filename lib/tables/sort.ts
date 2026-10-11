@@ -70,15 +70,39 @@ export function headerSortState(
 
 export type SortChoice = { value: string; label: string };
 
-type SortableColumn = { label: string; sortKey?: string; valueType?: ColumnValueType };
+/** What a Sort option needs of a column: its label, its sort stem and what its cells hold. */
+export type SortableColumn = { label: string; sortKey?: string; valueType?: ColumnValueType };
 
-const DIRECTION_WORDS: Record<string, [ascending: string, descending: string]> = {
-  date: ["earliest first", "latest first"],
-  datetime: ["earliest first", "latest first"],
-  money: ["lowest first", "highest first"],
-  number: ["lowest first", "highest first"],
-  text: ["A–Z", "Z–A"],
+/**
+ * The direction a Sort option names after its column. English here, so a
+ * caller with no reader (a test, a script) reads as it always did; a caller
+ * with one passes the same phrases in the reader's language (`common.sort`).
+ */
+export const SORT_WORDS = {
+  earliestFirst: "earliest first",
+  latestFirst: "latest first",
+  lowestFirst: "lowest first",
+  highestFirst: "highest first",
+  aToZ: "A–Z",
+  zToA: "Z–A",
+  ascending: "ascending",
+  descending: "descending",
 };
+
+export type SortWords = typeof SORT_WORDS;
+
+type DirectionWords = [ascending: keyof SortWords, descending: keyof SortWords];
+
+const DIRECTION_WORDS: Record<string, DirectionWords> = {
+  date: ["earliestFirst", "latestFirst"],
+  datetime: ["earliestFirst", "latestFirst"],
+  money: ["lowestFirst", "highestFirst"],
+  number: ["lowestFirst", "highestFirst"],
+  text: ["aToZ", "zToA"],
+};
+
+/** A value type with no phrase of its own (a status column) is simply ascending or descending. */
+const PLAIN_DIRECTION: DirectionWords = ["ascending", "descending"];
 
 /**
  * The explicit Sort control's options, derived from the same columns as the
@@ -88,7 +112,11 @@ const DIRECTION_WORDS: Record<string, [ascending: string, descending: string]> =
  * `headerSortState`), in column order, each naming its column and direction
  * ("Due: earliest first"). A duplicate value is offered once.
  */
-export function sortChoices(columns: readonly SortableColumn[], keys?: readonly string[]): SortChoice[] {
+export function sortChoices(
+  columns: readonly SortableColumn[],
+  keys?: readonly string[],
+  words: SortWords = SORT_WORDS,
+): SortChoice[] {
   const choices: SortChoice[] = [];
   const seen = new Set<string>();
   const add = (value: string, label: string) => {
@@ -99,11 +127,11 @@ export function sortChoices(columns: readonly SortableColumn[], keys?: readonly 
   for (const column of columns) {
     const key = column.sortKey;
     if (!key) continue;
-    const [ascending, descending] = DIRECTION_WORDS[column.valueType ?? "text"] ?? ["ascending", "descending"];
+    const [ascending, descending] = DIRECTION_WORDS[column.valueType ?? "text"] ?? PLAIN_DIRECTION;
     const asc = `${key}-asc`;
     const desc = `${key}-desc`;
-    if (allowed(asc, keys)) add(asc, `${column.label}: ${ascending}`);
-    if (allowed(desc, keys)) add(desc, `${column.label}: ${descending}`);
+    if (allowed(asc, keys)) add(asc, `${column.label}: ${words[ascending]}`);
+    if (allowed(desc, keys)) add(desc, `${column.label}: ${words[descending]}`);
     if (keys?.includes(key)) add(key, column.label);
   }
   return choices;

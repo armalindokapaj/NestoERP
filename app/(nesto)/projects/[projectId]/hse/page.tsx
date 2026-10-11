@@ -196,7 +196,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={hazardRows.data.length}
                 total={hazardRows.total}
                 href={viewAll("hazards", "risk-desc")}
-                noun="hazards"
+                records="hazards"
               />
             </section>
           ) : null}
@@ -213,7 +213,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={incidentRows.data.length}
                 total={incidentRows.total}
                 href={viewAll("incidents", "occurred-desc")}
-                noun="incidents"
+                records="incidents"
               />
             </section>
           ) : null}
@@ -230,7 +230,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={inspectionRows.data.length}
                 total={inspectionRows.total}
                 href={viewAll("inspections")}
-                noun="inspections"
+                records="inspections"
               />
             </section>
           ) : null}
@@ -247,7 +247,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={actionRows.data.length}
                 total={actionRows.total}
                 href={viewAll("actions")}
-                noun="actions"
+                records="actions"
               />
             </section>
           ) : null}
@@ -264,7 +264,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={permitRows.data.length}
                 total={permitRows.total}
                 href={viewAll("permits")}
-                noun="permits"
+                records="permits"
               />
             </section>
           ) : null}
@@ -281,7 +281,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={toolboxRows.data.length}
                 total={toolboxRows.total}
                 href={viewAll("toolbox-talks", "date-desc")}
-                noun="toolbox talks"
+                records="toolboxTalks"
               />
             </section>
           ) : null}
@@ -298,7 +298,7 @@ export default async function ProjectHsePage({ params }: Params) {
                 shown={observationRows.data.length}
                 total={observationRows.total}
                 href={viewAll("environment", "observed-desc")}
-                noun="observations"
+                records="observations"
               />
             </section>
           ) : null}
@@ -308,17 +308,22 @@ export default async function ProjectHsePage({ params }: Params) {
   );
 }
 
+type PreviewRecords = "hazards" | "incidents" | "inspections" | "actions" | "permits" | "toolboxTalks" | "observations";
+
 /**
  * Under a preview: how many of the project's records it shows, and the way to
  * the rest (AUD-08 §4). A complete preview still states its count.
  */
-function PreviewFooter({ shown, total, href, noun }: { shown: number; total: number; href: string; noun: string }) {
+async function PreviewFooter({ shown, total, href, records }: { shown: number; total: number; href: string; records: PreviewRecords }) {
+  const t = await getTranslations("projects");
+  // The noun as it reads after the count; "View all …" is a phrase of its own, because the noun changes form there.
+  const noun = t(`tabPages.preview.${records}.counted`, { count: total });
   return (
     <p className="flex flex-wrap items-baseline justify-between gap-2 text-meta text-fg-muted" data-testid="preview-count">
       <span>
         {shown < total ? (
           <>
-            Showing <span className="tabular-nums">{shown}</span> of <span className="tabular-nums">{total}</span> {noun}
+            {t("tabPages.showing")} <span className="tabular-nums">{shown}</span> {t("tabPages.of")} <span className="tabular-nums">{total}</span> {noun}
           </>
         ) : (
           <>
@@ -327,7 +332,7 @@ function PreviewFooter({ shown, total, href, noun }: { shown: number; total: num
         )}
       </span>
       <Link href={href} className="text-accent hover:underline">
-        View all {noun}
+        {t(`tabPages.preview.${records}.viewAll`)}
       </Link>
     </p>
   );

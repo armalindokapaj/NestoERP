@@ -1,8 +1,8 @@
-import { DEMO_DISCLAIMER } from "@/components/dashboard/demo-disclaimer";
 import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
 import { PoweredBy } from "@/components/layout/powered-by";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import type { NavigationGroup, NavigationItem } from "@/config/navigation";
+import { getTranslations } from "@/lib/i18n/server";
 
 /** Pinned to the top of the rail while the rest scrolls, in this order. */
 const PINNED_TOP = ["dashboard", "projects", "tasks"];
@@ -40,8 +40,9 @@ function splitNavigation(navigation: NavigationGroup[]) {
  * The collapse control sits in the top bar, where it does not have to share
  * the one slot the rail header has.
  */
-export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
+export async function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[]; isDemo: boolean }) {
   const { top, middle, bottom } = splitNavigation(navigation);
+  const t = await getTranslations("shell");
   return (
     <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
@@ -69,13 +70,13 @@ export function Sidebar({ navigation, isDemo }: { navigation: NavigationGroup[];
       {/* The rail has no room for the foot, but a demonstration tenant still says so on every page (D-01 §68). */}
       {isDemo ? (
         <p
-          title={DEMO_DISCLAIMER}
+          title={t("demoDisclaimer")}
           data-testid="demo-notice-rail"
           className="nesto-rail-only mx-auto mb-4 w-fit shrink-0 rounded-full border border-line px-1.5 py-px text-micro font-medium text-fg-muted"
         >
           {/* aria-label is not honoured on a paragraph; the disclaimer is its text instead (AUD-11 AV-06). */}
-          <span aria-hidden="true">Demo</span>
-          <span className="sr-only">{DEMO_DISCLAIMER}</span>
+          <span aria-hidden="true">{t("demo")}</span>
+          <span className="sr-only">{t("demoDisclaimer")}</span>
         </p>
       ) : null}
     </aside>

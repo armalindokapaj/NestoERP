@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { UPLOAD_CONCURRENCY, UPLOAD_RETRY_LIMIT } from "@/lib/core/storage";
 import {
@@ -235,7 +236,8 @@ export function useUploadQueue(options: {
    * switch and a reload all ask while a file is waiting or on its way. A file
    * the server already holds is never deleted by a discard.
    */
-  const uploads = useUnsavedEditor({ saveKind: "none", label: "Files being uploaded" });
+  const t = useTranslations("ui");
+  const uploads = useUnsavedEditor({ saveKind: "none", label: t("uploadsLabel") });
   const { setPendingUploads } = uploads;
   const inFlight = items.some((item) => ["queued", "authorising", "uploading", "verifying"].includes(item.status));
   React.useEffect(() => setPendingUploads(inFlight), [inFlight, setPendingUploads]);

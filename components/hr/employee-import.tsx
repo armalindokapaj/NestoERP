@@ -5,6 +5,7 @@ import Link from "@/components/navigation/nav-link";
 import { Upload } from "lucide-react";
 
 import { engineeringApi, failureMessage, failureOutcome } from "@/components/engineering/engineering-api";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
@@ -31,11 +32,12 @@ export function EmployeeImport({ template }: { template: string }) {
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]>("all");
   const input = React.useRef<HTMLInputElement>(null);
   const t = useHrTranslations();
+  const tUi = useTranslations("ui");
 
   // A checked file waiting to be imported is unsaved work, and its only way
   // forward is the import itself (AUD-03 §3): leaving asks, and the prompt
   // never imports. Leaving sets the batch aside; nothing stored is deleted.
-  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: "Import", label: t("import.label") });
+  const editor = useUnsavedEditor({ module: "hr", saveKind: "none", workflow: t("employees.import"), label: t("import.label") });
   const { setDirty, setSaving, setUnresolved } = editor;
   React.useEffect(() => setDirty(batch !== null), [batch, setDirty]);
   React.useEffect(() => setSaving(pending !== null), [pending, setSaving]);
@@ -81,7 +83,7 @@ export function EmployeeImport({ template }: { template: string }) {
       await engineeringApi(`/api/hr/employees/import/${batch.id}/discard`, { method: "POST" });
       setBatch(null);
     } catch (failure) {
-      setError(failureMessage(failure));
+      setError(failureMessage(failure, tUi("errorTitle")));
     } finally {
       setPending(null);
     }

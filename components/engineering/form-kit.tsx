@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FormErrorSummary, guardComposingEnter, reveal, useSubmitOnlyButton, type SummaryEntry } from "@/components/forms/form-contract";
+import { useTranslations } from "@/components/i18n/i18n-provider";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,7 +17,6 @@ import { unsaved, type SaveKind, type SaveOutcome } from "@/lib/unsaved/coordina
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { failureMessage, failureOutcome, fieldErrorsOf, isFailure } from "./engineering-api";
-import { useEngineeringTranslations } from "./engineering-text";
 import { FormSelect } from "@/components/ui/form-select";
 
 /**
@@ -31,6 +31,10 @@ import { FormSelect } from "@/components/ui/form-select";
  * an error summary with focus, one submission path (button, Enter, Save and
  * continue), and distinct outcomes. Hidden fields follow an explicit
  * `whenHidden` policy (`lib/forms/field-config.ts`), omitted by default.
+ *
+ * The kit's own words come from the frame dictionary (`ui`): people,
+ * organization, HR, workforce and the admin consoles use these dialogs too,
+ * and a module's dictionary is not there on their pages.
  */
 
 export { payloadFor, valuesFor, type FormField, type FormValue, type FormValues, type HiddenPolicy } from "@/lib/forms/field-config";
@@ -260,7 +264,7 @@ function FormDialogBody({
   onDone: () => void;
 }) {
   const close = useDialogClose();
-  const t = useEngineeringTranslations();
+  const t = useTranslations("ui");
   const formRef = React.useRef<HTMLFormElement>(null);
   const summaryRef = React.useRef<HTMLDivElement>(null);
   // Mounted when the dialog opens: the values start from `initial` each time.
@@ -424,7 +428,7 @@ function FormDialogBody({
       const byField = fieldErrorsOf(failure);
       setServerErrors(byField);
       setAttempted(true);
-      setError(failureMessage(failure));
+      setError(failureMessage(failure, t("errorTitle")));
       setOutcomeText(outcome.kind === "unknown" ? OUTCOME_COPY.unknown : outcome.kind === "failed" || outcome.kind === "invalid" ? OUTCOME_COPY.notSaved : null);
       if (mode === "normal" && Object.keys(byField).length) window.setTimeout(() => focusFirstInvalid(Object.keys(byField)), 0);
     } finally {
@@ -463,10 +467,10 @@ function FormDialogBody({
       ) : null}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-          {t("ui.cancel")}
+          {t("cancel")}
         </Button>
         <Button type="submit" disabled={pending || frozen}>
-          {pending ? t("ui.saving") : submitLabel}
+          {pending ? t("saving") : submitLabel}
         </Button>
       </DialogFooter>
     </form>
@@ -502,11 +506,11 @@ export function ReasonDialog({
   extraFields?: FormField[];
   onConfirm: (payload: Record<string, unknown>) => Promise<void>;
 }) {
-  const t = useEngineeringTranslations();
-  const fields: FormField[] = [...extraFields, { name, label: label ?? t("ui.reason"), type: "textarea", required, rows: 3 }];
+  const t = useTranslations("ui");
+  const fields: FormField[] = [...extraFields, { name, label: label ?? t("reason"), type: "textarea", required, rows: 3 }];
   return (
     <FormDialog open={open} onOpenChange={onOpenChange} title={title} description={description} fields={fields} submitLabel={confirmLabel} saveKind="none" onSubmit={(payload) => onConfirm(payload)}>
-      {destructive ? <p className="text-table text-fg-muted">{t("ui.auditNote")}</p> : null}
+      {destructive ? <p className="text-table text-fg-muted">{t("auditNote")}</p> : null}
     </FormDialog>
   );
 }
@@ -543,6 +547,7 @@ export function useRequestEditor<T>({
   request: () => Promise<T>;
   onCommitted?: (result: T, mode: RequestMode) => void;
 }) {
+  const t = useTranslations("ui");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [outcomeText, setOutcomeText] = React.useState<string | null>(null);
@@ -577,7 +582,7 @@ export function useRequestEditor<T>({
       outcome = failureOutcome(caught);
       setUnresolved(outcome.kind === "unknown");
       setFailure(caught);
-      setError(failureMessage(caught));
+      setError(failureMessage(caught, t("errorTitle")));
       setOutcomeText(outcome.kind === "unknown" ? OUTCOME_COPY.unknown : null);
     } finally {
       running.current = false;
@@ -619,6 +624,7 @@ export function RequestMessages({ error, outcomeText, className }: { error: stri
 export function useCommand() {
   const router = useRouter();
   const toast = useToast();
+  const t = useTranslations("ui");
   const [pending, setPending] = React.useState<string | null>(null);
   const run = React.useCallback(
     async (key: string, action: () => Promise<unknown>, success: string, after?: (result: unknown) => void) => {
@@ -630,13 +636,13 @@ export function useCommand() {
         router.refresh();
         return true;
       } catch (failure) {
-        toast({ title: failureMessage(failure), tone: "danger" });
+        toast({ title: failureMessage(failure, t("errorTitle")), tone: "danger" });
         return false;
       } finally {
         setPending(null);
       }
     },
-    [router, toast],
+    [router, toast, t],
   );
   return { pending, run };
 }

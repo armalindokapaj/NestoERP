@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 // A public address is not an invitation to index it (ADM-04A §6). noindex is not access control.
-export const metadata: Metadata = { title: "3D viewer", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("threeD"))("meta.viewer"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 /**
  * A 3D experience's stable share address (ADM-04A §7). Public: the anonymous

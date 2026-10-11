@@ -37,8 +37,10 @@ export default async function NestoLayout({ children }: { children: React.ReactN
   if (guard.status === "rejected") throw guard.reason;
 
   // The offline indicator, the sign-out guard and "Available Offline" are on every page (MOB-09).
+  // Documents' upload queue and evidence controls sit on records in every module, so its
+  // dictionary is mounted here once rather than by each module that happens to show them.
   return (
-    <ModuleMessages namespaces={["offline"]}>
+    <ModuleMessages namespaces={["offline", "documents"]}>
       <AppShell context={context} startedAt={startedAt}>
         <PasswordChangeNotice userId={context.userId} href="/settings/profile" />
         {children}

@@ -20,7 +20,9 @@ import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
  * The wording is a prop because the same machine serves two different refusals:
  * rejecting a price somebody quoted, and disqualifying a lead nobody is going
  * to win. Defaulting the copy to the approval case would put "shown to whoever
- * submitted it" on a dialog where nobody submitted anything.
+ * submitted it" on a dialog where nobody submitted anything. What a caller
+ * leaves out reads from the frame dictionary: the dialog opens under every
+ * module, and only the frame is there in all of them.
  *
  * A typed reason is unsaved work, and its only way forward is the workflow
  * step itself (AUD-03 §3): the dialog registers as workflow-only, so every
@@ -33,12 +35,12 @@ export function RejectDialog({
   open,
   onOpenChange,
   title,
-  description = "The reason is recorded against the approval and shown to whoever submitted it.",
-  label = "Reason",
-  placeholder = "What needs to change before this can be approved?",
-  confirmLabel = "Reject",
-  pendingLabel = "Rejecting…",
-  emptyMessage = "Say why it was rejected, so it can be corrected.",
+  description,
+  label,
+  placeholder,
+  confirmLabel,
+  pendingLabel,
+  emptyMessage,
   onReject,
 }: {
   open: boolean;
@@ -52,20 +54,21 @@ export function RejectDialog({
   emptyMessage?: string;
   onReject: (reason: string) => Promise<boolean>;
 }) {
+  const t = useTranslations("ui");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        <DialogDescription>{description ?? t("rejectDescription")}</DialogDescription>
 
         {/* Inside the dialog, so the editor belongs to its guarded close (AUD-03 §5). */}
         <ReasonForm
           title={title}
-          label={label}
-          placeholder={placeholder}
-          confirmLabel={confirmLabel}
-          pendingLabel={pendingLabel}
-          emptyMessage={emptyMessage}
+          label={label ?? t("reason")}
+          placeholder={placeholder ?? t("rejectPlaceholder")}
+          confirmLabel={confirmLabel ?? t("reject")}
+          pendingLabel={pendingLabel ?? t("rejecting")}
+          emptyMessage={emptyMessage ?? t("rejectEmpty")}
           onReject={onReject}
           onDone={() => onOpenChange(false)}
         />

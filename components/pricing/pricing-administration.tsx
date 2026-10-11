@@ -364,7 +364,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
       >
         <DialogContent>
           {/* Publishing is the only way forward for a typed reason: Stay or Discard (AUD-03 §4). */}
-          <DialogEditor label={t("pricing.publishingLabel", { code: version.versionCode })} module="pricing" dirty={reason !== ""} saving={pending} unresolved={false} workflow="Publish" />
+          <DialogEditor label={t("pricing.publishingLabel", { code: version.versionCode })} module="pricing" dirty={reason !== ""} saving={pending} unresolved={false} workflow={t("pricing.publish")} />
           <DialogTitle>{t("pricing.publishTitle", { code: version.versionCode })}</DialogTitle>
           <DialogDescription>{t("pricing.publishDescription")}</DialogDescription>
           <div className="mt-5"><Field label={t("pricing.reason")}><Textarea required value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t("pricing.reasonPlaceholder")} /></Field></div>

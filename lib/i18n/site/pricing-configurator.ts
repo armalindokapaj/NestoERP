@@ -6,6 +6,11 @@ import type { Locale } from "@/lib/i18n/config";
  * price book; `{n}`-style holes are filled by `fill`.
  */
 const en = {
+  /** The browser tab and the search result. */
+  metaTitle: "NESTO Pricing — Build your NESTO",
+  metaDescription: "Configure only what your company needs: foundation, modules, companies, projects, users and contract. See your price instantly.",
+  /** What a screen reader hears while the configurator loads. */
+  loading: "Loading pricing configurator",
   eyebrow: "NESTO pricing",
   title: "Build your NESTO",
   subtitle: "Configure only what your company needs. Your price updates instantly as you build.",
@@ -164,6 +169,8 @@ const en = {
     yourReference: "Your reference",
     done: "Done",
     wait: "Wait for the estimate to be saved.",
+    /** A request the server refused without saying why. */
+    failed: "The request could not be completed.",
   },
   sections: {
     includedEyebrow: "What's included",
@@ -192,6 +199,9 @@ const en = {
 export type PricingCopy = typeof en;
 
 const sq: PricingCopy = {
+  metaTitle: "Çmimet e NESTO — Ndërtoni NESTO-n tuaj",
+  metaDescription: "Konfiguroni vetëm atë që i duhet kompanisë suaj: bazën, modulet, kompanitë, projektet, përdoruesit dhe kontratën. Shihni çmimin menjëherë.",
+  loading: "Po ngarkohet konfiguruesi i çmimeve",
   eyebrow: "Çmimet e NESTO",
   title: "Ndërtoni NESTO-n tuaj",
   subtitle: "Konfiguroni vetëm atë që i duhet kompanisë suaj. Çmimi përditësohet menjëherë ndërsa ndërtoni.",
@@ -350,6 +360,7 @@ const sq: PricingCopy = {
     yourReference: "Referenca juaj",
     done: "U krye",
     wait: "Prisni që vlerësimi të ruhet.",
+    failed: "Kërkesa nuk u krye dot.",
   },
   sections: {
     includedEyebrow: "Çfarë përfshihet",

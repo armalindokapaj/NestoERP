@@ -6,6 +6,7 @@ import { getViewerBrand } from "@/lib/modules/project-3d/project-3d.viewer-brand
 import { ProjectViewerPage } from "@/components/3d/viewer/ProjectViewerPage";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { prisma } from "@/lib/database/prisma";
+import { getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -17,8 +18,9 @@ async function findProject(projectId: string) {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const project = await findProject((await params).projectId);
-  return { title: project ? `${project.name} · Company viewer` : "Company viewer" };
+  const [project, t] = await Promise.all([findProject((await params).projectId), getTranslations("adminPlatform")]);
+  const viewer = t("threeD.project.companyViewer");
+  return { title: project ? `${project.name} · ${viewer}` : viewer };
 }
 
 /**

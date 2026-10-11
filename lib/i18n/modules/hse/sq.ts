@@ -302,6 +302,10 @@ export const hseSq: typeof hseEn = {
     nothingDecided: "Ende asgjë nuk është vendosur.",
     nothingWaiting: "Asgjë nuk është në pritje.",
     selfSubmitted: "Ju e dorëzuat këtë — vendos dikush tjetër.",
+    submittedBy: "Dorëzuar nga",
+    decided: "Vendosur",
+    sendBackTitle: "Ktheje mbrapsht {reference}",
+    sendBackThis: "Ktheje mbrapsht këtë",
   },
   overview: {
     emptyTitle: "Asgjë për të raportuar.",
@@ -497,6 +501,7 @@ export const hseSq: typeof hseEn = {
   },
   table: {
     company: "Kompania",
+    reviewDue: " · ka ardhur afati",
     caption: {
       inspections: "Inspektimet e sigurisë",
       templates: "Listat e kontrollit të sigurisë",
@@ -939,7 +944,6 @@ export const hseSq: typeof hseEn = {
     chooseProject: "Zgjidhni një projekt",
     noProject: "Pa projekt — në gjithë kompaninë",
     nobodyYet: "Ende askush",
-    currentChoice: "Zgjedhja aktuale — nuk ofrohet më për regjistrime të reja",
     whatDidYouSee: "Çfarë patë",
     hazardIntro: "Kushdo në kantier mund të raportojë një rrezik. Thoni çfarë është dhe ku; pikët e rrezikut vendosin sa shpejt trajtohet.",
     title: "Titulli",
@@ -1079,6 +1083,7 @@ export const hseSq: typeof hseEn = {
     sendBack: "Kthe mbrapsht",
     closeOut: "Mbyll përfundimisht",
     cancel: "Anulo",
+    newVersionNumbered: "Version i ri (v{version})",
     sendInspectionBack: "Ktheje mbrapsht këtë inspektim",
     whatNeedsRedoing: "Çfarë duhet ribërë",
     whichChecks: "Cilat pika duhen parë sërish?",

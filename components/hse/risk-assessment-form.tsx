@@ -237,10 +237,7 @@ export function RiskAssessmentForm({
 
       <section className="nesto-card p-5">
         <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazards")}</h2>
-        <p className="mt-1 text-meta text-fg-subtle">
-          One line per hazard. Score it as it is now, then again as it will be once the extra
-          controls are in.
-        </p>
+        <p className="mt-1 text-meta text-fg-subtle">{t("forms.hazardsIntro")}</p>
 
         {itemError ? <p className="mt-3 text-meta text-danger-strong">{itemError}</p> : null}
 

@@ -75,6 +75,7 @@ function writeUrl(params: Record<string, string | null>) {
 
 export function PlanningShell({ initial, initialView, initialMilestone, initialQuick }: { initial: ProjectPlanningOverviewDTO; initialView: View | null; initialMilestone: string | null; initialQuick: Quick | null }) {
   const t = useTranslations("projects");
+  const tUi = useTranslations("ui");
   const toast = useToast();
   // One shared breakpoint store (AUD-04 §4, SP-15); false until hydrated, as before.
   const below = useIsBelow("md");
@@ -179,7 +180,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
       await refresh();
       return true;
     } catch (error) {
-      toast({ title: failureMessage(error), tone: "danger" });
+      toast({ title: failureMessage(error, tUi("errorTitle")), tone: "danger" });
       return false;
     } finally {
       setPending(false);
@@ -516,7 +517,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                           const ids = plan.phases.map((row) => row.id);
                           const [moved] = ids.splice(source, 1);
                           ids.splice(index, 0, moved);
-                          void planningApi(`/api/projects/${plan.projectId}/phases/reorder`, { body: { ids } }).then(refresh, (error) => toast({ title: failureMessage(error), tone: "danger" }));
+                          void planningApi(`/api/projects/${plan.projectId}/phases/reorder`, { body: { ids } }).then(refresh, (error) => toast({ title: failureMessage(error, tUi("errorTitle")), tone: "danger" }));
                         }}
                         className="flex items-center gap-3 px-4 py-3"
                         data-testid="phase-row"
@@ -576,7 +577,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                     <thead>
                       <tr className="border-b border-line text-meta text-fg-muted">
                         <th scope="col" className="px-4 py-2 font-medium">{t("planning.predecessor")}</th>
-                        <th scope="col" className="px-3 py-2 font-medium" aria-label="then" />
+                        <th scope="col" className="px-3 py-2 font-medium" aria-label={t("planning.then")} />
                         <th scope="col" className="px-3 py-2 font-medium">{t("planning.successor")}</th>
                         <th scope="col" className="px-3 py-2 font-medium">{t("planning.lag")}</th>
                         <th scope="col" className="px-4 py-2 font-medium">{t("planning.status")}</th>
@@ -730,7 +731,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
  */
 function CopyChoiceEditor({ value, pending }: { value: string; pending: boolean }) {
   const t = useTranslations("projects");
-  const editor = useValuesEditor(value, { module: "planning", saveKind: "none", workflow: "Copy planning", label: t("planning.planningToCopy") });
+  const editor = useValuesEditor(value, { module: "planning", saveKind: "none", workflow: t("planning.copyPlanning"), label: t("planning.planningToCopy") });
   const { setSaving } = editor;
   React.useEffect(() => setSaving(pending), [pending, setSaving]);
   return null;

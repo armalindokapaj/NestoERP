@@ -383,5 +383,10 @@ export const documentsEn = {
     rejectedToast: "Version rejected",
     approvedToast: "Version approved",
     whatNeedsChange: "What needs to change",
+    /** What the unsaved-changes prompt calls the version dialogs' input. */
+    newVersionLabel: "New version",
+    reviewRequestLabel: "Review request for version {number}",
+    rejectionNote: "Rejection note",
+    approvalNote: "Approval note",
   },
 };

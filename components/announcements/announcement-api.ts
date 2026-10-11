@@ -20,7 +20,8 @@ export function isFailure(error: unknown): error is ApiFailure {
   return isApiFailure(error);
 }
 
-export function failureMessage(error: unknown, fallback = "Something went wrong."): string {
+/** Without a `fallback` of the caller's own, a failure that carries no message reads as the shared transport's generic line. */
+export function failureMessage(error: unknown, fallback?: string): string {
   return apiFailureMessage(error, fallback);
 }
 

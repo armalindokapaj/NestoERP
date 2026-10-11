@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProjectWorkPackagesPage({ params, searchParams }: Params) {
   const [{ projectId }, search] = await Promise.all([params, searchParams]);
   const { context, project } = await loadProject(projectId);
-  const t = await getTranslations("projects");
+  const [t, tContractors] = await Promise.all([getTranslations("projects"), getTranslations("contractors")]);
   const actions = projects.projectActions(context);
   if (!contractorsOpen(context, "work_package.view")) redirect("/access-denied");
   const query = workPackageListSchema.parse(flat(search));
@@ -50,7 +50,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
         ]}
       />
       {result.items.length === 0 && hasActiveFilters(search, ["q", "status", "discipline"]) ? (
-        <NoResultsState noun="work packages" clearHref={base} />
+        <NoResultsState noun={tContractors("workPackagesPage.noun")} clearHref={base} />
       ) : (
         <WorkPackageTable items={result.items} />
       )}

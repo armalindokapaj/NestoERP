@@ -383,5 +383,9 @@ export const documentsSq: typeof documentsEn = {
     rejectedToast: "Versioni u refuzua",
     approvedToast: "Versioni u miratua",
     whatNeedsChange: "Çfarë duhet ndryshuar",
+    newVersionLabel: "Version i ri",
+    reviewRequestLabel: "Kërkesa për rishikim të versionit {number}",
+    rejectionNote: "Shënimi i refuzimit",
+    approvalNote: "Shënimi i miratimit",
   },
 };

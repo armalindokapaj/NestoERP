@@ -349,7 +349,7 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
         </FormSelect>
       </Field>
       <Field label={t("unitDialogs.changeReason")} htmlFor="sales-price-reason" error={request.fields.reason}>
-        <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder="e.g. Second price list" />
+        <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder={t("unitDialogs.changeReasonPlaceholder")} />
       </Field>
       <Field label={t("unitDialogs.salesNotes")} htmlFor="sales-notes" error={request.fields.salesNotes}>
         <Textarea id="sales-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={SALES_NOTES_MAX} />

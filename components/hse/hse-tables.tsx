@@ -30,7 +30,6 @@ import type {
 import { formatDate } from "@/lib/utils/format";
 import { getTranslations } from "@/lib/i18n/server";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { HseText } from "./hse-text";
 import { PermitClock, PermitStatusBadge, RiskBadge, SeverityBadge } from "./hse-format";
 
 /**
@@ -149,8 +148,13 @@ const STOP_WORK_COLUMNS: Record<string, ColumnMeta> = {
   status: STATUS,
 };
 
-function ProjectCell({ project }: { project: { code: string } | null }) {
-  return project ? <>{project.code}</> : <span className="text-fg-subtle"><HseText k="table.company" /></span>;
+/**
+ * `company` is what a record with no project says it belongs to. The table
+ * hands it in from its own server translator: a project's HSE tab shows these
+ * tables without the HSE dictionary in the browser.
+ */
+function ProjectCell({ project, company }: { project: { code: string } | null; company: string }) {
+  return project ? <>{project.code}</> : <span className="text-fg-subtle">{company}</span>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -185,7 +189,7 @@ export async function InspectionTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "assignedInspector",
@@ -332,7 +336,7 @@ export async function HazardTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     { key: "risk", label: t("table.col.risk"), render: (row) => <RiskBadge risk={row.risk} /> },
     {
@@ -420,7 +424,7 @@ export async function IncidentTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "severity",
@@ -506,7 +510,7 @@ export async function RiskAssessmentTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "highestRisk",
@@ -538,7 +542,7 @@ export async function RiskAssessmentTable({
           // Flagged, never invalidated: a person decides (PRD #22 §359).
           <span className={row.reviewDue ? "text-warning-strong" : undefined}>
             {formatDate(row.reviewDate)}
-            {row.reviewDue ? " · due" : ""}
+            {row.reviewDue ? t("table.reviewDue") : ""}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -611,7 +615,7 @@ export async function ActionTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "priority",
@@ -704,7 +708,7 @@ export async function ToolboxTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "talkDate",
@@ -864,7 +868,7 @@ export async function PpeTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "checkDate",
@@ -941,7 +945,7 @@ export async function ObservationTable({
       key: "project",
       label: t("table.col.project"),
       hideBelow: "md",
-      render: (row) => <ProjectCell project={row.project} />,
+      render: (row) => <ProjectCell project={row.project} company={t("table.company")} />,
     },
     {
       key: "severity",

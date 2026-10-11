@@ -135,8 +135,6 @@ export const engineeringEn = {
     ofCount: "of {count}",
     noSubject: "No subject",
     void: "Void",
-    reason: "Reason",
-    auditNote: "This is recorded in the audit trail and cannot be undone here.",
     saving: "Saving…",
     cancel: "Cancel",
     loading: "Loading…",
@@ -507,6 +505,8 @@ export const engineeringEn = {
     references: "References",
     referencesBody: "Drawings, documents, submittals, meetings and logs this RFI concerns.",
     followUpTask: "Follow-up task",
+    /** The new task's title as the dialog opens: written in the language of whoever creates it. */
+    followUpTitle: "Follow up {number}: {subject}",
     addReference: "Add reference",
     noReferences: "No references yet.",
     removeReference: "Remove reference to {label}",

@@ -15,6 +15,7 @@ export const groupSq: En = {
     language: "Gjuha",
     account: "Llogaria",
     meta: "{name} · Grupi",
+    title: "Grupi · NESTO",
   },
   overview: {
     welcome: "Mirë se vini në {name}",
@@ -29,6 +30,8 @@ export const groupSq: En = {
       company: "Krijoni kompaninë e parë",
       users: "Shtoni përdorues të grupit",
     },
+    done: "(kryer)",
+    todo: "(për t'u bërë)",
     nextCompany: "Kompania është hapi tjetër. Projektet, njerëzit dhe modulet i përkasin një kompanie.",
     goCompanies: "Shko te Kompanitë",
   },

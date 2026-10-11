@@ -470,8 +470,9 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
     : copyFrom
       ? copyFrom.installments.filter((row) => Number(row.outstandingAmount) > 0).map((row) => ({ label: row.label, type: row.type, amount: row.outstandingAmount, dueDate: row.dueDate.slice(0, 10) }))
       : [
-          { label: "Deposit", type: "DEPOSIT", amount: "", dueDate: today() },
-          { label: "Balance", type: "BALANCE", amount: "", dueDate: "" },
+          // The first two rows of a new schedule, named in the language of whoever draws it up.
+          { label: t("installmentType.DEPOSIT"), type: "DEPOSIT", amount: "", dueDate: today() },
+          { label: t("installmentType.BALANCE"), type: "BALANCE", amount: "", dueDate: "" },
         ];
   const [rows, setRows] = React.useState<Row[]>(initial);
   // Exact previews (AUD-09 §4, FV-06): a row that is not yet a number counts
@@ -534,7 +535,7 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
         ))}
       </ol>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button type="button" variant="secondary" size="sm" onClick={() => setRows((current) => [...current, { label: `Installment ${current.length + 1}`, type: "INSTALLMENT", amount: "", dueDate: "" }])}>
+        <Button type="button" variant="secondary" size="sm" onClick={() => setRows((current) => [...current, { label: t("panel.installmentNumbered", { number: current.length + 1 }), type: "INSTALLMENT", amount: "", dueDate: "" }])}>
           <Plus aria-hidden="true" /> {t("panel.addInstallment")}
         </Button>
         <p className={`text-table tabular-nums ${offTarget ? "text-warning-strong" : "text-fg"}`} data-testid="schedule-total">

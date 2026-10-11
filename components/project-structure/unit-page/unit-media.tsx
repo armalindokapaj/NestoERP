@@ -7,6 +7,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowDown, ArrowUp, ImageIcon, Link2, Loader2, MoreHorizontal, Pencil, Star, Trash2, Upload } from "lucide-react";
 
 import { UploadQueueList } from "@/components/documents/document-uploader";
+import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { acceptedTypesText, DEFAULT_UPLOAD_MAX_BYTES, megabytes, uploadAccept } from "@/components/documents/upload-client";
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { selectClass } from "@/components/forms/record-form";
@@ -42,6 +43,8 @@ const UNIT_IMAGE_GROUPS = ["image"] as const;
 
 export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; unitCode: string; files: UnitFilesDTO }) {
   const t = useTranslations("projects");
+  // The upload queue raises its messages in English; they are read back here.
+  const tDocuments = useDocumentsTranslations();
   const router = useRouter();
   const toast = useToast();
   const input = React.useRef<HTMLInputElement>(null);
@@ -77,7 +80,7 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
 
   React.useEffect(() => {
     const failed = queue.items.find((item) => item.status === "failed" && item.error);
-    if (failed) toast({ title: failed.error ?? t("unitMedia.uploadFailed"), tone: "danger" });
+    if (failed) toast({ title: uploadErrorText(tDocuments, failed.error ?? t("unitMedia.uploadFailed")), tone: "danger" });
     // Report each failure once, as it happens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue.items.filter((item) => item.status === "failed").length]);
