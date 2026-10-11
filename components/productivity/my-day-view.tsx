@@ -8,6 +8,11 @@ import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { Locale } from "@/lib/i18n/config";
 import { dateText } from "@/lib/i18n/format";
+import { approvalsEn } from "@/lib/i18n/modules/approvals/en";
+import { approvalsWord } from "@/lib/i18n/modules/approvals/server-text";
+import { approvalsSq } from "@/lib/i18n/modules/approvals/sq";
+import { calendarServerText } from "@/lib/i18n/modules/calendar/server-text";
+import { createTranslator } from "@/lib/i18n/translator";
 import { getTranslations } from "@/lib/i18n/server";
 import { businessDate, daysBetween, localTime } from "@/lib/core/time/zoned-time";
 import type { MyDayDTO, MyDaySection } from "@/lib/modules/productivity/my-day.service";
@@ -24,6 +29,7 @@ type T = Awaited<ReturnType<typeof getTranslations<"misc">>>;
  */
 export async function MyDayView({ day, locale, canCreateTask, canComplete }: { day: MyDayDTO; locale: Locale; canCreateTask: boolean; canComplete: boolean }) {
   const t = await getTranslations("misc");
+  const approvalsT = createTranslator<"approvals">(locale, locale === "sq" ? approvalsSq : approvalsEn);
   const m = (key: string, values?: Record<string, string | number>) => t(`myDay.${key}` as never, values as never) as string;
 
   const tasksOk = day.tasks.status === "ok" ? day.tasks.data : null;
@@ -88,11 +94,11 @@ export async function MyDayView({ day, locale, canCreateTask, canComplete }: { d
       <SectionShell id="events" title={m("today")} icon={CalendarDays} section={day.events} m={m} groupNote={day.group ? m("groupEventsNote") : null}>
         {(events) => (
           <div className="space-y-4">
-            <EventList events={events.today} timezone={day.timezone} empty={m("noEventsToday")} m={m} />
+            <EventList events={events.today} timezone={day.timezone} locale={locale} empty={m("noEventsToday")} m={m} />
             {events.tomorrow.length > 0 ? (
               <div>
                 <h3 className="mb-1 text-meta font-semibold uppercase tracking-wider text-fg-subtle">{m("tomorrow")}</h3>
-                <EventList events={events.tomorrow} timezone={day.timezone} empty={m("noEventsTomorrow")} m={m} />
+                <EventList events={events.tomorrow} timezone={day.timezone} locale={locale} empty={m("noEventsTomorrow")} m={m} />
               </div>
             ) : null}
             <Link href="/calendar?view=agenda" className="inline-flex min-h-11 items-center text-table font-medium text-accent-strong">
@@ -139,7 +145,7 @@ export async function MyDayView({ day, locale, canCreateTask, canComplete }: { d
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-body font-medium text-fg">{item.title}</span>
                         <span className="block truncate text-meta text-fg-subtle">
-                          {[item.sourceLabel, item.project?.name, item.company?.name].filter(Boolean).join(" · ")}
+                          {[approvalsWord(approvalsT, item.sourceLabel, locale), item.project?.name, item.company?.name].filter(Boolean).join(" · ")}
                         </span>
                       </span>
                       {item.amount ? <span className="shrink-0 text-table text-fg-muted">{item.amount.value} {item.amount.currency}</span> : null}
@@ -223,7 +229,7 @@ function SectionShell<D>({
   );
 }
 
-function EventList({ events, timezone, empty, m }: { events: MyDayDTOEvents; timezone: string; empty: string; m: (key: string) => string }) {
+function EventList({ events, timezone, locale, empty, m }: { events: MyDayDTOEvents; timezone: string; locale: Locale; empty: string; m: (key: string) => string }) {
   if (events.length === 0) return <p className="text-table text-fg-muted">{empty}</p>;
   return (
     <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
@@ -232,8 +238,8 @@ function EventList({ events, timezone, empty, m }: { events: MyDayDTOEvents; tim
           <Link href={event.href} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-row-hover">
             <span className="w-14 shrink-0 text-table tabular-nums text-fg-muted">{event.allDay ? m("allDay") : localTime(new Date(event.startsAt), timezone)}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-medium text-fg">{event.title}</span>
-              {event.subtitle || event.project ? <span className="block truncate text-meta text-fg-subtle">{[...new Set([event.project?.name, event.subtitle].filter(Boolean))].join(" · ")}</span> : null}
+              <span className="block truncate text-body font-medium text-fg">{event.sourceType === "calendar_event" ? event.title : calendarServerText(event.title, locale)}</span>
+              {event.subtitle || event.project ? <span className="block truncate text-meta text-fg-subtle">{[...new Set([event.project?.name, event.subtitle && event.sourceType !== "calendar_event" ? calendarServerText(event.subtitle, locale) : event.subtitle].filter(Boolean))].join(" · ")}</span> : null}
             </span>
           </Link>
         </li>

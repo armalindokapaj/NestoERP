@@ -8,7 +8,10 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { hseEn } from "@/lib/i18n/modules/hse/en";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { hseLabel, type HseLabelGroup } from "@/lib/i18n/modules/hse/labels";
 import type { MessageKey } from "@/lib/i18n/translator";
 import * as reports from "@/lib/modules/hse/reports/reports.service";
 
@@ -21,6 +24,17 @@ export async function generateMetadata(): Promise<Metadata> {
 function known(t: Awaited<ReturnType<typeof getTranslations<"hse">>>, key: string, fallback: string): string {
   const text = t(key as MessageKey<"hse">);
   return text === key ? fallback : text;
+}
+
+const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** The label groups whose English words the report service writes into its cells. */
+const CELL_GROUPS = ["hazardCategory", "riskLevel", "severity", "permitType", "environmentalCategory", "incidentType", "inspectionResult"] as const satisfies readonly HseLabelGroup[];
+
+/** An English label back to the group and key it came from; the first group to hold the word wins. */
+const CELL_WORDS = new Map<string, { group: HseLabelGroup; key: string }>();
+for (const group of CELL_GROUPS) {
+  for (const [key, english] of Object.entries(hseEn.labels[group])) if (!CELL_WORDS.has(english)) CELL_WORDS.set(english, { group, key });
 }
 
 /**
@@ -52,7 +66,30 @@ export default async function HseReportsPage({
 }) {
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
+  const tCommon = await getTranslations("common");
+  const sq = (await getLocale()) !== "en";
   if (!can(context, "hse.report.view")) redirect("/access-denied");
+
+  /**
+   * A cell's English word as an Albanian reader is shown it (the service writes
+   * English; an English reader's page is left exactly as it is): a metric or an
+   * expiry bucket by its slug, a label by the group it came from, a stored
+   * status by the common words, and a risk level keeps the score after it.
+   */
+  const cellText = (value: string | number | boolean | null | undefined) => {
+    if (!sq || typeof value !== "string") return value;
+    const failures = /^(.+) failures$/.exec(value);
+    if (failures) {
+      const item = Object.entries(hseEn.ppeItem).find(([, english]) => english === failures[1])?.[0];
+      return t("pages.reports.metrics.failures", { item: item ? known(t, `ppeItem.${item}`, failures[1]) : failures[1] });
+    }
+    const metric = known(t, `pages.reports.metrics.${slug(value)}`, "");
+    if (metric) return metric;
+    const scored = /^(.+) \((\d+)\)$/.exec(value);
+    const word = CELL_WORDS.get(scored ? scored[1] : value);
+    if (word) return `${hseLabel(t, word.group, word.key, scored ? scored[1] : value)}${scored ? ` (${scored[2]})` : ""}`;
+    return /^[A-Z][A-Z_]+$/.test(value) ? statusText(tCommon, value) : value;
+  };
 
   const experience = resolveModuleExperience(context, "hse");
   const params = await searchParams;
@@ -78,7 +115,7 @@ export default async function HseReportsPage({
       label: known(t, `pages.reports.columns.${active?.key === "risk-matrix" && column.key === "count" ? "openHazards" : column.key}`, column.label),
       primary: column === result.columns[0],
       render: (row) => {
-        const value = row[column.key];
+        const value = cellText(row[column.key]);
         if (value === null || value === undefined || value === "") {
           return <span className="text-fg-subtle">—</span>;
         }

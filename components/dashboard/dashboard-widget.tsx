@@ -12,6 +12,7 @@ import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { localizeActivity, localizeAttention } from "@/lib/i18n/system";
 import type { Translate } from "@/lib/i18n/translator";
 import { widgetText } from "./config-text";
+import { rowText } from "./row-text";
 
 /**
  * The one widget renderer (PRD #4 §17, §18).
@@ -86,7 +87,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
   const isEmpty =
     payload.kind !== "error" && "items" in payload && payload.items.length === 0;
   // A source that could not be read: said above the rows, and never shown as "nothing here" (AUD-10 §4, CW-03).
-  const incomplete = "incomplete" in payload ? payload.incomplete : undefined;
+  const incomplete = "incomplete" in payload && payload.incomplete ? rowText(t, payload.incomplete) : undefined;
 
   return (
     <section
@@ -119,7 +120,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
         {definition.href && !isEmpty ? (
           <Link navSource="dashboard"
             href={definition.href}
-            className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80"
+            className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80 touch:min-h-11"
           >
             {t("viewAll")}
             <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -157,25 +158,25 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
             <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
               <div className="min-w-0">
                 {item.person ? (
-                  <PersonLink {...item.person} name={item.title} detail={item.subtitle} className="block truncate text-table" />
+                  <PersonLink {...item.person} name={item.title} detail={item.subtitle ? rowText(t, item.subtitle) : undefined} className="block truncate text-table" />
                 ) : item.href ? (
                   <RowLink
                     href={item.href}
                     companyId={item.companyId}
-                    className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                    className="relative block truncate text-table font-medium text-fg transition-colors hover:text-accent touch:after:absolute touch:after:inset-x-0 touch:after:-inset-y-3 touch:after:content-['']"
                   >
-                    {item.title}
+                    {rowText(t, item.title)}
                   </RowLink>
                 ) : (
-                  <p className="truncate text-table font-medium text-fg">{item.title}</p>
+                  <p className="truncate text-table font-medium text-fg">{rowText(t, item.title)}</p>
                 )}
                 {item.subtitle ? (
-                  <p className="truncate text-meta text-fg-subtle">{item.subtitle}</p>
+                  <p className="truncate text-meta text-fg-subtle">{rowText(t, item.subtitle)}</p>
                 ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {item.meta ? (
-                  <span className="text-meta tabular-nums text-fg-muted">{item.meta}</span>
+                  <span className="text-meta tabular-nums text-fg-muted">{rowText(t, item.meta)}</span>
                 ) : null}
                 {item.status ? <StatusBadge status={item.status} /> : null}
               </div>
@@ -196,17 +197,17 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   <RowLink
                     href={item.href}
                     companyId={item.companyId}
-                    className="truncate text-table text-fg-muted transition-colors hover:text-accent"
+                    className="relative truncate text-table text-fg-muted transition-colors hover:text-accent touch:after:absolute touch:after:inset-x-0 touch:after:-inset-y-2 touch:after:content-['']"
                   >
-                    {item.status ? <StatusBadge status={item.status} /> : item.label}
+                    {item.status ? <StatusBadge status={item.status} /> : rowText(t, item.label)}
                   </RowLink>
                 ) : (
                   <span className="truncate text-table text-fg-muted">
-                    {item.status ? <StatusBadge status={item.status} /> : item.label}
+                    {item.status ? <StatusBadge status={item.status} /> : rowText(t, item.label)}
                   </span>
                 )}
                 <span className="shrink-0 text-table font-medium tabular-nums text-fg">
-                  {item.display ?? item.value}
+                  {item.display ? rowText(t, item.display) : item.value}
                 </span>
               </div>
               <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-hover">
@@ -225,7 +226,8 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
       return (
         <ul className="divide-y divide-line">
           {payload.items.map((alert) => {
-            const item = alertFor(locale, alert);
+            const said = alertFor(locale, alert);
+            const item = alert.conditionKey ? said : { ...said, title: rowText(t, said.title), detail: rowText(t, said.detail) };
             const tone = ALERT_TONE[item.priority];
             const ToneIcon = tone.icon;
             const split = splitFigure(item.title);
@@ -272,11 +274,11 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
         <ul className="divide-y divide-line">
           {payload.items.map((item) => (
             <li key={item.id} className="py-2.5 first:pt-0">
-              <Link navSource="dashboard" href={item.href} className="group block">
+              <Link navSource="dashboard" href={item.href} className="group relative block touch:after:absolute touch:after:inset-x-0 touch:after:-inset-y-2 touch:after:content-['']">
                 <p className="truncate text-table font-medium text-fg transition-colors group-hover:text-accent">
                   {item.title}
                 </p>
-                <p className="truncate text-meta text-fg-subtle">{item.subtitle}</p>
+                <p className="truncate text-meta text-fg-subtle">{rowText(t, item.subtitle)}</p>
               </Link>
             </li>
           ))}

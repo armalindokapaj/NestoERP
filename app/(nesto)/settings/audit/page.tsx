@@ -13,6 +13,8 @@ import { auditQuerySchema, listAuditEvents } from "@/lib/core/audit/audit-query.
 import { can } from "@/lib/access/can";
 import { formatDateTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
+import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import { requireSettingsSection } from "../settings-access";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
@@ -37,6 +39,13 @@ function humanise(actionKey: string): string {
   return words[0].charAt(0).toUpperCase() + words[0].slice(1) + " " + words.slice(1).join(" ");
 }
 
+/** The action in the reader's language; a key the dictionary lacks keeps the humanised English. */
+function auditActionLabel(t: Translate<"auditLog">, actionKey: string): string {
+  const key = `actions.${actionKey}` as MessageKey<"auditLog">;
+  const text = t(key);
+  return text === key ? humanise(actionKey) : text;
+}
+
 type Params = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 /**
@@ -57,10 +66,19 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
     query: typeof params.q === "string" ? params.q : undefined,
   });
 
-  const [{ data, pagination }, t] = await Promise.all([
+  const [{ data, pagination }, t, tAudit, tCommon, tRoles] = await Promise.all([
     listAuditEvents(context, query),
     getTranslations("settings"),
+    getTranslations("auditLog"),
+    getTranslations("common"),
+    getTranslations("roles"),
   ]);
+  // The stored role and record type are English keys; English readers keep them as stored.
+  const roleName = (role: string) => {
+    const key = `${role}.label` as MessageKey<"roles">;
+    const text = tRoles(key);
+    return locale === "en" || text === key ? role : text;
+  };
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (pagination.page !== query.page) redirect(listPageRedirect("/settings/audit", params, pagination.page));
 
@@ -109,12 +127,12 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                         <span className="font-medium">{event.actor.displayName}</span>
                       )}
                       {event.actor.roleSnapshot ? (
-                        <span className="ml-1.5 text-meta text-fg-subtle">{event.actor.roleSnapshot}</span>
+                        <span className="ml-1.5 text-meta text-fg-subtle">{roleName(event.actor.roleSnapshot)}</span>
                       ) : null}
                     </td>
-                    <td className="px-5 py-3 text-table text-fg">{humanise(event.actionKey)}</td>
+                    <td className="px-5 py-3 text-table text-fg">{auditActionLabel(tAudit, event.actionKey)}</td>
                     <td className="px-5 py-3 text-meta text-fg-muted">
-                      {event.entity?.label ?? event.entity?.type ?? "—"}
+                      {event.entity?.label ?? (event.entity ? (locale === "en" ? event.entity.type : recordTypeName(tCommon, event.entity.type, event.entity.type)) : "—")}
                     </td>
                     <td className="px-5 py-3">
                       {isKnownSeverity(event.severity) ? (

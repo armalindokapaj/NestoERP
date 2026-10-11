@@ -117,7 +117,7 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                   )}
                   <Badge tone="neutral">{hseLabel(t, "approvalRecordType", item.recordType, approvalRecordTypeLabels[item.recordType])}</Badge>
                   <StatusBadge status={item.status} />
-                  {item.riskLabel ? <Badge tone="warning">{hseLabel(t, item.recordType === "INSPECTION" ? "inspectionResult" : "riskLevel", item.riskLabel, item.riskLabel)}</Badge> : null}
+                  {item.riskLabel ? <Badge tone="warning">{hseLabel(t, item.recordType === "INSPECTION" ? "inspectionResult" : "riskLevel", item.recordType === "INSPECTION" ? item.riskLabel : item.riskLabel.toUpperCase(), item.riskLabel)}</Badge> : null}
                 </p>
                 {item.title ? (
                   <p className={inspectionTypeOf(item) ? "mt-0.5 text-table text-fg-muted" : "mt-0.5 text-table capitalize text-fg-muted"}>

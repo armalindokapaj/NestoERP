@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils/cn";
 import { CATEGORY_META } from "./calendar-model";
 import { categoryStyle } from "./event-card";
 import { useIsPhone } from "./use-is-phone";
-import { calendarLabel, useCalendarTranslations, useDayWords } from "./calendar-text";
+import { calendarLabel, useCalendarServerText, useCalendarTranslations, useDayWords } from "./calendar-text";
 import type { Translate } from "@/lib/i18n/translator";
 
 /**
@@ -53,6 +53,7 @@ export function EventDrawer({
   const toast = useToast();
   const t = useCalendarTranslations();
   const words = useDayWords();
+  const serverText = useCalendarServerText();
   const [detail, setDetail] = React.useState<CalendarEventDetailDTO | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -119,10 +120,10 @@ export function EventDrawer({
             {busy ? null : (
               <p className="mb-2 flex items-center gap-1.5 text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
                 <span aria-hidden="true" className="size-2 rounded-full bg-[var(--cal)]" />
-                {event.metadata?.sourceLabel ?? calendarLabel(t, "category", event.category, meta.label)}
+                {event.metadata?.sourceLabel ? serverText(event.metadata.sourceLabel) : calendarLabel(t, "category", event.category, meta.label)}
               </p>
             )}
-            <DrawerTitle className="text-section font-semibold text-fg">{event.title}</DrawerTitle>
+            <DrawerTitle className="text-section font-semibold text-fg">{serverText(event.title, event)}</DrawerTitle>
             <DrawerDescription id="event-drawer-when" className="mt-1.5 flex items-center gap-1.5 text-table text-fg-muted">
               <Clock aria-hidden="true" className="size-3.5" />
               {when}
@@ -144,7 +145,7 @@ export function EventDrawer({
             <p className="text-fg-muted">{t("drawer.busyOnly")}</p>
           ) : (
             <>
-              {event.subtitle && !owned ? <p className="text-body text-fg">{event.subtitle}</p> : null}
+              {event.subtitle && !owned ? <p className="text-body text-fg">{serverText(event.subtitle, event)}</p> : null}
               {event.project || detail?.project ? (
                 <p className="flex items-center gap-2 text-fg">
                   <FolderKanban aria-hidden="true" className="size-4 text-fg-subtle" />
@@ -245,7 +246,7 @@ export function EventDrawer({
             {!owned && event.href ? (
               <Button asChild>
                 <Link href={event.href}>
-                  {t("drawer.open", { what: event.metadata?.sourceLabel ? event.metadata.sourceLabel.toLowerCase() : t("drawer.record") })}
+                  {t("drawer.open", { what: event.metadata?.sourceLabel ? serverText(event.metadata.sourceLabel).toLowerCase() : t("drawer.record") })}
                   <ArrowUpRight aria-hidden="true" />
                 </Link>
               </Button>

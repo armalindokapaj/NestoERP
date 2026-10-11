@@ -200,6 +200,9 @@ export const timesheetsEn = {
     department: "(department)",
     nobody: "Nobody — cannot submit",
   },
+  misc: {
+    noTask: "No task",
+  },
   projects: {
     description: "Where time went on the projects you can see — approved weeks unless you ask for all.",
     filters: "Project time filters",

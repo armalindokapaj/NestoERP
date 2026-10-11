@@ -191,7 +191,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                 {/* The ten tasks with most hours, said as such when there are more (AUD-08 §4: no unlabelled cut). */}
                 {summary.byTaskCount > 10 ? <p className="text-meta text-fg-muted" data-testid="by-task-scope">{t("projects.topTasks", { count: summary.byTaskCount })}</p> : null}
                 <div className="mt-3">
-                  <Bars testId="by-task" total={totals.totalMinutes} items={summary.byTask.slice(0, 10).map((row) => ({ key: row.taskId ?? "none", label: row.title, minutes: row.minutes }))} />
+                  <Bars testId="by-task" total={totals.totalMinutes} items={summary.byTask.slice(0, 10).map((row) => ({ key: row.taskId ?? "none", label: row.taskId ? row.title : t("misc.noTask"), minutes: row.minutes }))} />
                 </div>
               </section>
               <section className={cn("nesto-card px-5 py-4", summary.project && "lg:col-span-1")} aria-labelledby="by-week">

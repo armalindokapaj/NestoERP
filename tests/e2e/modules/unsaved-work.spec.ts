@@ -565,9 +565,11 @@ test.describe("workspace and identity", () => {
     await other.getByTestId("account-sign-out").click();
     await other.waitForURL(/\/login/);
     await signIn(other, "PROJECT_MANAGER");
-    // This tab reloads as the new person: the draft is gone, not shown.
-    await expect(page.getByText(draft)).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.getByTestId("account-trigger")).toBeVisible();
+    // This tab was signed out by the other tab's logout and stays on the sign-in page:
+    // the old draft is gone, and the new person's session never reaches it.
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByText(draft)).toHaveCount(0);
+    await expect(page.getByTestId("account-trigger")).toHaveCount(0);
     await other.close();
   });
 });

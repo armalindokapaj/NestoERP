@@ -6,6 +6,7 @@ import type { ResolvedKpi } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
 import { getTranslations } from "@/lib/i18n/server";
 import { kpiLabel } from "./config-text";
+import { rowText } from "./row-text";
 
 /**
  * A single KPI card (PRD #4 §16).
@@ -39,7 +40,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
       <p className="mt-3 font-serif font-normal text-display tabular-nums text-fg md:mt-4">{kpi.value}</p>
       {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
-      {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{kpi.hint}</p> : null}
+      {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{rowText(t, kpi.hint)}</p> : null}
     </>
   );
 

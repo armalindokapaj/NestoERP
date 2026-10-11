@@ -201,7 +201,7 @@ export function ApprovalDetailView({
           {detail.reason ? (
             <section aria-labelledby="why-heading">
               <SectionHeading id="why-heading">{t("detail.why")}</SectionHeading>
-              <p className="mt-2 text-body leading-relaxed text-fg-muted">{detail.reason}</p>
+              <p className="mt-2 text-body leading-relaxed text-fg-muted">{word(detail.reason)}</p>
             </section>
           ) : null}
 
@@ -213,7 +213,7 @@ export function ApprovalDetailView({
             <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl border border-line bg-surface-muted/40 p-4 min-[400px]:grid-cols-2">
               {detail.summary.map((field) => (
                 <div key={field.label} className="min-w-0">
-                  <dt className="text-meta text-fg-subtle">{field.label}</dt>
+                  <dt className="text-meta text-fg-subtle">{word(field.label)}</dt>
                   <dd
                     className={cn(
                       "mt-0.5 text-table [overflow-wrap:anywhere]",
@@ -240,7 +240,7 @@ export function ApprovalDetailView({
             href={detail.sourceRecord.href}
             className="flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3 text-table font-medium text-fg transition-colors hover:border-line-strong hover:bg-hover"
           >
-            {detail.sourceRecord.label}
+            {word(detail.sourceRecord.label)}
             <ArrowUpRight aria-hidden="true" className="size-4 text-fg-subtle" />
           </Link>
         </div>
@@ -279,6 +279,7 @@ const WARNING_STYLE: Record<ApprovalWarning["severity"], { box: string; icon: Re
 
 function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
   const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   return (
     <section aria-label={t("detail.warnings")} className="space-y-2" data-testid="approval-warnings">
       {warnings.map((warning) => {
@@ -288,7 +289,7 @@ function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
             <span className="mt-0.5">{style.icon}</span>
             <p className="text-table text-fg">
               <span className="sr-only">{t(`detail.${style.label}`)}: </span>
-              {warning.message}
+              {word(warning.message)}
             </p>
           </div>
         );
@@ -298,6 +299,7 @@ function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
 }
 
 function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprovalDetail["chainMode"] }) {
+  const word = useApprovalsWord();
   const locale = useLocale();
   const t = useApprovalsTranslations();
   const parallel = mode === "PARALLEL";
@@ -324,11 +326,11 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
                         : "bg-surface-muted text-fg-subtle",
               )}
             >
-              {parallel ? step.label.charAt(0) : step.number}
+              {parallel ? word(step.label).charAt(0) : step.number}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-table font-medium text-fg">
-                {step.labelMemberId ? <PersonLink memberId={step.labelMemberId} name={step.label} /> : step.label}
+                {step.labelMemberId ? <PersonLink memberId={step.labelMemberId} name={step.label} /> : word(step.label)}
               </span>
               {step.decidedBy ? (
                 <span className="block text-meta text-fg-muted">
@@ -528,6 +530,7 @@ const TONE_DOT: Record<UnifiedApprovalHistoryEntry["tone"], string> = {
 function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
   const locale = useLocale();
   const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
   return (
     <section aria-labelledby="history-heading">
       <SectionHeading id="history-heading">{t("detail.history")}</SectionHeading>
@@ -538,7 +541,7 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
           {entries.map((entry) => (
             <li key={entry.id} className="relative">
               <span aria-hidden="true" className={cn("absolute -left-5 top-1.5 size-[11px] rounded-full ring-4 ring-surface", TONE_DOT[entry.tone])} />
-              <p className="text-table font-medium text-fg">{entry.action}</p>
+              <p className="text-table font-medium text-fg">{word(entry.action)}</p>
               <p className="text-meta text-fg-muted">
                 {entry.actor ? (
                   <>

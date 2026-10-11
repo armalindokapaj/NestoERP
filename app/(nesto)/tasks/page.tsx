@@ -73,7 +73,7 @@ export default async function TasksOverviewPage() {
           </Suspense>
         </SectionBoundary>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SectionBoundary className="nesto-card">
             <Suspense fallback={<ListSectionSkeleton title={t("overview.priorityWork")} rows={6} />}>
               <PriorityWork priority={priority} />
@@ -104,7 +104,7 @@ async function TaskStats({ stats }: { stats: Overview }) {
     { key: "blocked", label: t("overview.blocked"), value: value.blocked, href: "/tasks/all?status=BLOCKED" },
   ];
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-section="stats">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" data-section="stats">
       {cards.map((card) => (
         <Link key={card.key} href={card.href} className="nesto-card p-4 transition-colors hover:border-line-strong">
           <p className="text-table text-fg-muted">{card.label}</p>
@@ -123,7 +123,7 @@ async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof
     <section className="nesto-card p-5" data-section="primary">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{t("overview.priorityWork")}</h2>
-        <Link href="/tasks/all?priority=HIGH,CRITICAL" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
+        <Link href="/tasks/all?priority=HIGH,CRITICAL" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong touch:min-h-11">
           {t("overview.allTasks")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
@@ -181,7 +181,7 @@ function Row({ label, value, href }: { label: string; value: number; href: strin
   return (
     <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
       <dt className="min-w-0">
-        <Link href={href} className="text-table text-fg transition-colors hover:text-accent">
+        <Link href={href} className="inline-flex text-table text-fg transition-colors hover:text-accent touch:min-h-11 touch:items-center">
           {label}
         </Link>
       </dt>

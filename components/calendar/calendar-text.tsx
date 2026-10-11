@@ -5,6 +5,7 @@ import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { calendarEn } from "@/lib/i18n/modules/calendar/en";
 import { calendarLabel, type CalendarLabelGroup } from "@/lib/i18n/modules/calendar/labels";
+import { calendarServerText } from "@/lib/i18n/modules/calendar/server-text";
 import { createTranslator, type MessageKey, type Translate } from "@/lib/i18n/translator";
 import { type DayWords } from "./calendar-model";
 
@@ -35,4 +36,14 @@ export function useDayWords(): DayWords {
     () => ({ locale, today: t("days.today"), tomorrow: t("days.tomorrow"), yesterday: t("days.yesterday") }),
     [t, locale],
   );
+}
+
+/**
+ * An entry's title, subtitle or source name in the reader's language. The
+ * providers of other modules build these in English; what a person typed into
+ * their own event (`calendar_event`) is theirs and is shown as written.
+ */
+export function useCalendarServerText(): (english: string, event?: { sourceType: string }) => string {
+  const locale = useLocale();
+  return React.useCallback((english, event) => (event?.sourceType === "calendar_event" ? english : calendarServerText(english, locale)), [locale]);
 }

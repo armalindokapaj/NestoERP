@@ -12,7 +12,7 @@ import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
 import { CATEGORY_META, dayHeading, eventDays, eventsByDay, visibleDays } from "./calendar-model";
 import { categoryStyle } from "./event-card";
-import { calendarLabel, useCalendarTranslations, useDayWords } from "./calendar-text";
+import { calendarLabel, useCalendarServerText, useCalendarTranslations, useDayWords } from "./calendar-text";
 
 /**
  * Agenda (PRD #39 §27): the phone's first view and the desktop's list. Days are
@@ -36,6 +36,7 @@ export function AgendaView({
 }) {
   const t = useCalendarTranslations();
   const words = useDayWords();
+  const serverText = useCalendarServerText();
   const days = visibleDays("agenda", date, zone);
   const byDay = React.useMemo(() => {
     // A multi-day all-day item is listed once, on its first day in view, with
@@ -112,7 +113,7 @@ export function AgendaView({
                         <span className="relative flex min-w-0 flex-col gap-0.5 border-l-[3px] border-[var(--cal-rail)] pl-3">
                           <span className="flex min-w-0 items-center gap-1.5">
                             {Icon ? <Icon aria-hidden="true" className="size-3.5 shrink-0 text-[var(--cal)]" /> : null}
-                            <span className="truncate text-body font-medium text-fg">{event.title}</span>
+                            <span className="truncate text-body font-medium text-fg">{serverText(event.title, event)}</span>
                             {event.status === "OVERDUE" ? (
                               <Badge tone="warning" className="shrink-0 px-1.5 py-0">{t("overdue")}</Badge>
                             ) : null}
@@ -122,7 +123,7 @@ export function AgendaView({
                           </span>
                           {event.privacyMode !== "BUSY_ONLY" ? (
                             <span className="truncate text-meta text-fg-muted">
-                              {[event.project ? event.project.name : event.subtitle, event.participants?.[0]?.name, event.location]
+                              {[event.project ? event.project.name : event.subtitle ? serverText(event.subtitle, event) : event.subtitle, event.participants?.[0]?.name, event.location]
                                 .filter(Boolean)
                                 .join(" · ") || calendarLabel(t, "category", event.category, CATEGORY_META[event.category].label)}
                             </span>

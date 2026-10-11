@@ -202,6 +202,9 @@ export const timesheetsSq: typeof timesheetsEn = {
     department: "(departamenti)",
     nobody: "Askush — nuk mund të dorëzojë",
   },
+  misc: {
+    noTask: "Pa detyrë",
+  },
   projects: {
     description: "Ku shkoi koha në projektet që mund të shihni — javët e miratuara, përveç nëse kërkoni të gjitha.",
     filters: "Filtrat e kohës në projekte",

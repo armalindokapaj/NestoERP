@@ -4,6 +4,7 @@ import { ArrowRight, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { formatDate } from "@/lib/i18n/format";
+import { timelineChangeLabel, timelineChangeValue, timelineSummaryLine, timelineTitle } from "@/lib/i18n/modules/misc/employment-timeline";
 import type { TimelineEventDTO } from "@/lib/modules/hr/employment/employment.types";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 
@@ -28,19 +29,19 @@ export async function EmploymentTimeline({ events, showCompany = false, emptyTex
             <time dateTime={event.date} className="text-meta font-medium text-fg-muted">
               {formatDate(event.date, locale)}
             </time>
-            <h3 className="text-table font-semibold text-fg">{event.title}</h3>
+            <h3 className="text-table font-semibold text-fg">{timelineTitle(event.title, locale)}</h3>
             {showCompany ? <span className="text-meta text-fg-subtle">· {event.company.name}</span> : null}
             {event.corrected ? <Badge tone="warning">{t("history.corrected")}</Badge> : null}
           </div>
-          {event.summary.length > 0 ? <p className="mt-1 text-table text-fg-muted">{event.summary.join(" · ")}</p> : null}
+          {event.summary.length > 0 ? <p className="mt-1 text-table text-fg-muted">{event.summary.map((line) => timelineSummaryLine(line, event.kind === "TERMINATED" || event.kind === "STATUS_CHANGED", locale)).join(" · ")}</p> : null}
           {event.changes.length > 0 ? (
             <ul className="mt-1.5 space-y-0.5 text-meta text-fg-muted">
               {event.changes.map((change) => (
                 <li key={change.label} className="flex flex-wrap items-center gap-1">
-                  <span className="font-medium text-fg">{change.label}:</span>
-                  <span>{change.from ?? t("timeline.none")}</span>
+                  <span className="font-medium text-fg">{timelineChangeLabel(change.label, locale)}:</span>
+                  <span>{timelineChangeValue(change.label, change.from, locale) ?? t("timeline.none")}</span>
                   <ArrowRight aria-label={t("reports.to")} className="size-3" />
-                  <span>{change.to ?? t("timeline.none")}</span>
+                  <span>{timelineChangeValue(change.label, change.to, locale) ?? t("timeline.none")}</span>
                 </li>
               ))}
             </ul>

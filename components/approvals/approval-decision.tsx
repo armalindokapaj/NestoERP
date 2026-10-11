@@ -73,7 +73,7 @@ export function DecisionBar({
   if (!any) {
     return (
       <div className={cn("border-t border-line bg-surface px-5 py-3.5", className)} data-testid="decision-bar">
-        <p className="text-table text-fg-muted">{item.status === "PENDING" ? (item.blockedReason ?? t("decision.nothingToDecide")) : t("decision.decided")}</p>
+        <p className="text-table text-fg-muted">{item.status === "PENDING" ? (item.blockedReason ? word(item.blockedReason) : t("decision.nothingToDecide")) : t("decision.decided")}</p>
       </div>
     );
   }

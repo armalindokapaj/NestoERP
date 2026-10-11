@@ -126,6 +126,8 @@ export default async function ProjectOverviewPage({ params }: Params) {
         <p>{t("overview.relationshipsBody2")}</p>
       </WhatIsThis>
 
+      <h1 className="text-2xl font-semibold tracking-[-0.02em] text-fg sm:hidden">{project.name}</h1>
+
       <Suspense fallback={null}>
         <MobileOverview projectId={project.id} progress={progress} summary={mobileSummary} myWork={myWork} quickActions={quickActions} threeD={threeD} />
       </Suspense>
