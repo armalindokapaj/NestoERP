@@ -104,6 +104,9 @@ export function FormSelect({
   }
 
   const radixValue = shown === "" ? (required ? "" : empty ? EMPTY : "") : shown;
+  // Radix writes the chosen option into the trigger only once its list has mounted in the browser, so the
+  // server's HTML would show an empty control until the page hydrates. Naming the choice here puts it in that HTML.
+  const chosen = radixValue === "" ? undefined : options.find((option) => option.value === shown);
   const renderOption = (option: OptionEntry, key: string) => (
     <SelectItem key={key} value={option.value === "" ? EMPTY : option.value} data-value={option.value} disabled={option.disabled}>
       {option.label}
@@ -115,7 +118,7 @@ export function FormSelect({
       <input ref={hidden} type="hidden" name={name} value={shown} form={form} disabled={disabled} readOnly />
       <Select value={radixValue} onValueChange={choose} disabled={disabled}>
         <SelectTrigger id={id} aria-required={required || undefined} autoFocus={autoFocus} className={cn("w-auto min-w-0 text-left", className)} {...(rest as React.ComponentProps<typeof SelectTrigger>)}>
-          <SelectValue placeholder={empty ? empty.text : undefined} />
+          <SelectValue placeholder={empty ? empty.text : undefined}>{chosen?.label}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {entries.map((entry, index) =>
