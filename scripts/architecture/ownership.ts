@@ -355,9 +355,21 @@ export const OWNERSHIP_EXCEPTIONS: OwnershipException[] = [
   },
   {
     model: "*",
+    file: "lib/modules/platform/group-user-detail.service.ts",
+    reason:
+      "Suspending or reactivating a person's seat in a Parent Group moves the seat's status under a lock on the group, and ending their own membership in one of the group's companies ends that membership and its project places — each in one transaction with its audit event, so the seat, the company access it carries and the record of the change never disagree. Every row it writes is read under the named group and person inside that transaction and written from the state it was read in, and each request is checked against the actor's capability over the group; a Group CEO's seat needs the CEO capability as well. It acts on a Platform Admin's or a group seat's authority, not through a company membership, so no tenant-scoped service has a context to run it in (Admin PRD #11 §27, §29, §42-§44, §48, §49).",
+  },
+  {
+    model: "*",
     file: "lib/modules/platform/company-leadership.service.ts",
     reason:
       "Naming, replacing or removing a company's CEO writes the person and login of a new CEO, the company membership with its CEO role and department place, the outgoing CEO's membership and project places, and the company's CEO pointer in one transaction, under a row lock on the company, so a failure leaves nothing half-made and two administrators can never leave two CEOs. Every write names the company and is checked against the actor's authority over it, and is audited (Admin PRD #12 §41, §88-§91).",
+  },
+  {
+    model: "*",
+    file: "lib/modules/platform/company-users.service.ts",
+    reason:
+      "Managing a company's people from inside the company writes one person's direct relationship with it — the person and login of a new user, the company membership with its role, department place and project places, its suspension and its removal — each in one transaction with its audit event, so a failure leaves nothing half-made. Every row it writes belongs to the named company (a new person, to that company's organization), each request is checked against the actor's capability over the company's group, and a change to an existing membership names the state it moves from. The group seat is never written here, and removing someone from a company never deletes their account. It acts on a Platform Admin's or a group seat's authority, not through a company membership, so no tenant-scoped service has a context to run it in (Admin PRD #13 §18-§36, §48-§54, §61-§70, §82-§85).",
   },
   {
     model: "*",
@@ -471,6 +483,7 @@ export const AGGREGATION_POINTS: Array<{ file: string; reason: string }> = [
   { file: "lib/modules/productivity/navigable.registry.ts", reason: "Every record type that can be starred (PRD #45 §81)." },
   { file: "lib/modules/dashboard/dashboard.service.ts", reason: "Every KPI on the dashboard, read-only across domains (PRD #48 §102)." },
   { file: "lib/modules/projects/project-workspace.service.ts", reason: "The canonical Project home composes permission-filtered, read-only counts and dates from existing modules without owning their records." },
+  { file: "lib/modules/productivity/my-day.service.ts", reason: "My Day composes one authorised, read-only answer from the Tasks, Approvals and Calendar services and owns none of their records (MOB-06 §6-§11)." },
   { file: "lib/core/state/registry.ts", reason: "Every declared state machine, so the gate and the docs can read them (PRD #49 §154)." },
 ];
 

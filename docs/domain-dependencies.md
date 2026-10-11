@@ -36,6 +36,9 @@ lib/modules/calendar/calendar.providers.ts     every source of dated things
 lib/modules/approvals/approvals.registry.ts    every approval source
 lib/modules/productivity/navigable.registry.ts every starrable type
 lib/modules/dashboard/dashboard.service.ts     every KPI
+lib/modules/projects/project-workspace.service.ts  the Project home's read-only counts and dates
+lib/modules/productivity/my-day.service.ts     My Day's read-only answer from Tasks, Approvals and Calendar
+lib/core/state/registry.ts                     every declared state machine
 ```
 
 The platform does not depend on Finance because it wants to; it depends on the

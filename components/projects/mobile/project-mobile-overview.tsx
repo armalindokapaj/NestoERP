@@ -52,7 +52,7 @@ export async function ProjectMobileOverview({
   return (
     <div className="space-y-6 sm:hidden" data-testid="project-mobile-overview">
       {threeDUrl ? (
-        <Link href={threeDUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-table font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="project-mobile-3d">
+        <Link href={threeDUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-table font-semibold text-primary-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="project-mobile-3d">
           <Box aria-hidden="true" className="size-4" />
           {t("mobile.view3d")}
         </Link>
